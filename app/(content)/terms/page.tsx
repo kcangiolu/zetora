@@ -235,7 +235,7 @@ export default function TermsPage() {
             </a>
           </p>
 
-          <div className="my-8 border-t pt-8">
+          <div className="my-8 pt-8">
             <p className="text-sm text-muted-foreground">
               By using Scira AI, you agree to these Terms of Service and our{' '}
               <Link href="/privacy-policy" className="underline">
