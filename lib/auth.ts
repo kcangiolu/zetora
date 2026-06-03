@@ -207,6 +207,10 @@ async function handleSubscriptionWebhook(payload: any, status: string) {
 export const auth = betterAuth({
   appName: 'zetora',
   baseURL: process.env.NODE_ENV === 'production' ? process.env.BETTER_AUTH_BASE_URL : 'http://localhost:3000',
+  emailAndPassword: {
+    enabled: true,
+    requireEmailVerification: false,
+  },
   rateLimit: {
     max: 100,
     window: 60,
@@ -249,23 +253,24 @@ export const auth = betterAuth({
     },
   }),
   socialProviders: {
-    github: {
-      clientId: serverEnv.GITHUB_CLIENT_ID,
-      clientSecret: serverEnv.GITHUB_CLIENT_SECRET,
-    },
-    google: {
-      clientId: serverEnv.GOOGLE_CLIENT_ID,
-      clientSecret: serverEnv.GOOGLE_CLIENT_SECRET,
-    },
-    twitter: {
-      clientId: serverEnv.TWITTER_CLIENT_ID,
-      clientSecret: serverEnv.TWITTER_CLIENT_SECRET,
-    },
-    microsoft: {
-      clientId: process.env.MICROSOFT_CLIENT_ID as string,
-      clientSecret: process.env.MICROSOFT_CLIENT_SECRET as string,
-      prompt: 'select_account', // Forces account selection
-    },
+    ...(serverEnv.GITHUB_CLIENT_ID && serverEnv.GITHUB_CLIENT_SECRET
+      ? { github: { clientId: serverEnv.GITHUB_CLIENT_ID, clientSecret: serverEnv.GITHUB_CLIENT_SECRET } }
+      : {}),
+    ...(serverEnv.GOOGLE_CLIENT_ID && serverEnv.GOOGLE_CLIENT_SECRET
+      ? { google: { clientId: serverEnv.GOOGLE_CLIENT_ID, clientSecret: serverEnv.GOOGLE_CLIENT_SECRET } }
+      : {}),
+    ...(serverEnv.TWITTER_CLIENT_ID && serverEnv.TWITTER_CLIENT_SECRET
+      ? { twitter: { clientId: serverEnv.TWITTER_CLIENT_ID, clientSecret: serverEnv.TWITTER_CLIENT_SECRET } }
+      : {}),
+    ...(process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET
+      ? {
+          microsoft: {
+            clientId: process.env.MICROSOFT_CLIENT_ID,
+            clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+            prompt: 'select_account',
+          },
+        }
+      : {}),
   },
   plugins: [
     dash(),

@@ -2,9 +2,12 @@
 
 import { useState } from 'react';
 import { parseAsString, useQueryState } from 'nuqs';
-import { authClient, signIn } from '@/lib/auth-client';
-import { Loader2, Sparkles } from 'lucide-react';
+import { authClient, signIn, signUp } from '@/lib/auth-client';
+import { Loader2, Sparkles, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 type AuthProvider = 'github' | 'google' | 'twitter' | 'microsoft';
 
@@ -57,7 +60,7 @@ const AuthIcons = {
   ),
 };
 
-interface SignInButtonProps {
+interface SocialButtonProps {
   title: string;
   provider: AuthProvider;
   loading: boolean;
@@ -73,11 +76,11 @@ interface AuthCardProps {
   mode?: 'sign-in' | 'sign-up';
 }
 
-const SignInButton = ({ title, provider, loading, setLoading, callbackURL, icon, isLastUsed }: SignInButtonProps) => {
+const SocialButton = ({ title, provider, loading, setLoading, callbackURL, icon, isLastUsed }: SocialButtonProps) => {
   return (
     <button
       className={`
-        relative w-full h-12 text-sm
+        relative w-full h-10 text-sm
         bg-background
         border border-border/60 rounded-xl
         hover:bg-muted/30 hover:border-foreground/15
@@ -100,10 +103,10 @@ const SignInButton = ({ title, provider, loading, setLoading, callbackURL, icon,
         );
       }}
     >
-      <div className="w-5 h-5 flex items-center justify-center">
+      <div className="w-4 h-4 flex items-center justify-center">
         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : icon}
       </div>
-      <span className="font-medium text-foreground/80 group-hover:text-foreground transition-colors">{title}</span>
+      <span className="text-xs font-medium text-foreground/80 group-hover:text-foreground transition-colors">{title}</span>
       {isLastUsed && (
         <span className="absolute right-3 font-pixel text-[9px] uppercase tracking-wider text-primary/70">
           Last used
@@ -115,6 +118,15 @@ const SignInButton = ({ title, provider, loading, setLoading, callbackURL, icon,
 
 export default function AuthCard({ title, description, mode = 'sign-in' }: AuthCardProps) {
   const [redirect] = useQueryState('redirect', parseAsString.withDefault('/'));
+  const router = useRouter();
+
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [error, setError] = useState('');
+
   const [githubLoading, setGithubLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [twitterLoading, setTwitterLoading] = useState(false);
@@ -122,6 +134,35 @@ export default function AuthCard({ title, description, mode = 'sign-in' }: AuthC
 
   const lastMethod = authClient.getLastUsedLoginMethod();
   const callbackURL = redirect;
+
+  const anySocialLoading = githubLoading || googleLoading || twitterLoading || microsoftLoading;
+
+  async function handleEmailSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+    setEmailLoading(true);
+    try {
+      if (mode === 'sign-up') {
+        const result = await signUp.email({ email, password, name: name || email.split('@')[0] });
+        if (result.error) {
+          setError(result.error.message ?? 'Sign up failed');
+          return;
+        }
+      } else {
+        const result = await signIn.email({ email, password, callbackURL });
+        if (result.error) {
+          setError(result.error.message ?? 'Invalid email or password');
+          return;
+        }
+      }
+      router.push(callbackURL);
+      router.refresh();
+    } catch {
+      setError('Something went wrong. Please try again.');
+    } finally {
+      setEmailLoading(false);
+    }
+  }
 
   return (
     <div className="w-full max-w-sm mx-auto">
@@ -142,9 +183,92 @@ export default function AuthCard({ title, description, mode = 'sign-in' }: AuthC
         </div>
       )}
 
-      {/* Auth Buttons */}
-      <div className="space-y-3">
-        <SignInButton
+      {/* Email/Password Form */}
+      <form onSubmit={handleEmailSubmit} className="space-y-3">
+        {mode === 'sign-up' && (
+          <div className="space-y-1.5">
+            <Label htmlFor="name" className="text-xs text-muted-foreground">
+              Name
+            </Label>
+            <Input
+              id="name"
+              type="text"
+              placeholder="Your name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoComplete="name"
+              className="h-11 rounded-xl border-border/60"
+            />
+          </div>
+        )}
+        <div className="space-y-1.5">
+          <Label htmlFor="email" className="text-xs text-muted-foreground">
+            Email
+          </Label>
+          <Input
+            id="email"
+            type="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+            className="h-11 rounded-xl border-border/60"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="password" className="text-xs text-muted-foreground">
+            Password
+          </Label>
+          <div className="relative">
+            <Input
+              id="password"
+              type={showPassword ? 'text' : 'password'}
+              placeholder={mode === 'sign-up' ? 'Min. 8 characters' : '••••••••'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              autoComplete={mode === 'sign-up' ? 'new-password' : 'current-password'}
+              className="h-11 rounded-xl border-border/60 pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              tabIndex={-1}
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+
+        {error && (
+          <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</p>
+        )}
+
+        <button
+          type="submit"
+          disabled={emailLoading || anySocialLoading}
+          className="w-full h-11 text-sm font-medium bg-foreground text-background rounded-xl hover:bg-foreground/90 active:scale-[0.99] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          {emailLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+          {mode === 'sign-in' ? 'Sign in' : 'Create account'}
+        </button>
+      </form>
+
+      {/* Divider */}
+      <div className="relative my-6">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-border/40" />
+        </div>
+        <div className="relative flex justify-center">
+          <span className="bg-background px-3 text-[11px] text-muted-foreground">or continue with</span>
+        </div>
+      </div>
+
+      {/* Social Buttons */}
+      <div className="grid grid-cols-2 gap-2">
+        <SocialButton
           title="Google"
           provider="google"
           loading={googleLoading}
@@ -153,7 +277,7 @@ export default function AuthCard({ title, description, mode = 'sign-in' }: AuthC
           icon={<AuthIcons.Google className="w-4 h-4" />}
           isLastUsed={lastMethod === 'google'}
         />
-        <SignInButton
+        <SocialButton
           title="GitHub"
           provider="github"
           loading={githubLoading}
@@ -162,7 +286,7 @@ export default function AuthCard({ title, description, mode = 'sign-in' }: AuthC
           icon={<AuthIcons.Github className="w-4 h-4" />}
           isLastUsed={lastMethod === 'github'}
         />
-        <SignInButton
+        <SocialButton
           title="X"
           provider="twitter"
           loading={twitterLoading}
@@ -171,7 +295,7 @@ export default function AuthCard({ title, description, mode = 'sign-in' }: AuthC
           icon={<AuthIcons.Twitter className="w-4 h-4" />}
           isLastUsed={lastMethod === 'twitter'}
         />
-        <SignInButton
+        <SocialButton
           title="Microsoft"
           provider="microsoft"
           loading={microsoftLoading}
