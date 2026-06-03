@@ -18,7 +18,7 @@ import { TextShimmer } from '@/components/core/text-shimmer';
 import { cn } from '@/lib/utils';
 import { type XQLMessage } from '@/app/api/xql/route';
 import { highlight } from 'sugar-high';
-import { SciraLogo } from '@/components/logos/scira-logo';
+import { ZetoraLogo } from '@/components/logos/zetora-logo';
 import { SidebarLayout } from '@/components/sidebar-layout';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { v7 as uuidv7 } from 'uuid';
@@ -104,7 +104,7 @@ function XQLPageContent() {
           <div className="md:hidden absolute left-0">
             <SidebarTrigger />
           </div>
-          <span className="text-foreground">Scira</span>
+          <span className="text-foreground">Zetora</span>
           <div className="flex items-center relative">
             <XLogoIcon className="size-6 sm:size-8 md:size-12 text-foreground -mr-1 sm:-mr-2 font-medium" />
             <h1 className="text-foreground">QL</h1>
@@ -187,7 +187,7 @@ function XQLPageContent() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               {[
                 {
-                  query: '@SciraAI updates from last week',
+                  query: '@ZetoraAI updates from last week',
                   description: 'Popular content with date range',
                 },
                 {
@@ -403,7 +403,7 @@ function XQLPageContent() {
                       <CardContent className="p-0">
                         <div className="flex flex-wrap items-center justify-between gap-2 p-3 sm:p-4">
                           <div className="flex items-center gap-2 min-w-0">
-                            <SciraLogo className="size-5 text-foreground shrink-0" />
+                            <ZetoraLogo className="size-5 text-foreground shrink-0" />
                             <span className="text-sm font-semibold text-foreground">
                               {citations.length} Posts
                             </span>

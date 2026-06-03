@@ -51,10 +51,10 @@ import { cn } from '@/lib/utils';
 import { models } from '@/ai/models';
 import { DropdownMenuCheckboxItem, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
 
-// Map a raw model value (e.g. "scira-grok-3") to a short display label
+// Map a raw model value (e.g. "zetora-grok-3") to a short display label
 function getModelLabel(modelValue: string): string {
   const found = models.find((m) => m.value === modelValue);
-  return found?.label ?? modelValue.replace(/^scira-/, '').replace(/-/g, ' ');
+  return found?.label ?? modelValue.replace(/^zetora-/, '').replace(/-/g, ' ');
 }
 
 interface Chat {

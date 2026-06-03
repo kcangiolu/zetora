@@ -390,7 +390,7 @@ const McpInputPill = ({ input }: { input: Record<string, unknown> }) => {
 };
 
 const STRUCTURED_CONTENT_BLOCKLIST = new Set([
-  '__scira_mcp_app',
+  '__zetora_mcp_app',
   'SYSTEM_MESSAGE',
   'system_message',
   'systemMessage',
@@ -712,7 +712,7 @@ function extractMcpAppRenderData(output: unknown): McpAppRenderData | null {
 
     // Direct URL-style app outputs
     const directUrl = obj?.structuredContent?.appUrl || obj?.structuredContent?.ui?.url || obj?.appUrl || obj?.url;
-    const stampedAppMeta = obj?.structuredContent?.__scira_mcp_app;
+    const stampedAppMeta = obj?.structuredContent?.__zetora_mcp_app;
     if (
       stampedAppMeta &&
       typeof stampedAppMeta === 'object' &&
@@ -884,7 +884,7 @@ function McpAppOutputBlock({
       availableDisplayModes: ['inline', 'fullscreen'],
       platform: 'web',
       locale: navigator.language,
-      userAgent: 'scira-web',
+      userAgent: 'zetora-web',
       containerDimensions: isFullscreen
         ? { width: window.innerWidth, height: window.innerHeight }
         : typeof inlineWidth === 'number' && inlineWidth > 0
@@ -1036,7 +1036,7 @@ function McpAppOutputBlock({
 
     const bridge = new AppBridge(
       null,
-      { name: 'Scira', version: '1.0.0' },
+      { name: 'Zetora', version: '1.0.0' },
       {
         openLinks: {},
         downloadFile: {},
@@ -1984,7 +1984,7 @@ const DynamicToolStepper = ({
     const RESUME_AUTOSCROLL_THRESHOLD = 24;
     const notifyRootScrollInteraction = (userScrolledUp = false) => {
       window.dispatchEvent(
-        new CustomEvent('scira:nested-scroll-active', {
+        new CustomEvent('zetora:nested-scroll-active', {
           detail: { active: true, userScrolledUp },
         }),
       );
@@ -2560,7 +2560,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
         const entries = await Promise.all(
           sourceItems.map(async (source) => {
             try {
-              const response = await fetch(`https://metadata.scira.app/?url=${encodeURIComponent(source.url)}`, {
+              const response = await fetch(`https://metadata.zetora.app/?url=${encodeURIComponent(source.url)}`, {
                 cache: 'force-cache',
               });
 
@@ -2935,7 +2935,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                             }
 
                             const payload = {
-                              title: 'Scira AI',
+                              title: 'Zetora AI',
                               content,
                               meta: {
                                 modelLabel: modelLabel || null,
@@ -2956,7 +2956,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a');
                             a.href = url;
-                            a.download = `scira-export-${message.id || Date.now()}.pdf`;
+                            a.download = `zetora-export-${message.id || Date.now()}.pdf`;
                             document.body.appendChild(a);
                             a.click();
                             a.remove();
@@ -2998,7 +2998,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                             }
 
                             const payload = {
-                              title: 'Scira AI',
+                              title: 'Zetora AI',
                               content,
                               meta: {
                                 modelLabel: modelLabel || null,
@@ -3019,7 +3019,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a');
                             a.href = url;
-                            a.download = `scira-export-${message.id || Date.now()}.docx`;
+                            a.download = `zetora-export-${message.id || Date.now()}.docx`;
                             document.body.appendChild(a);
                             a.click();
                             a.remove();
@@ -3094,7 +3094,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a');
                             a.href = url;
-                            a.download = `scira-export-${message.id || Date.now()}.md`;
+                            a.download = `zetora-export-${message.id || Date.now()}.md`;
                             document.body.appendChild(a);
                             a.click();
                             a.remove();

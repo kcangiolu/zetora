@@ -92,17 +92,17 @@ const CATALOG: CatalogItem[] = [
   { name: 'Asana', category: 'productivity', url: 'https://mcp.asana.com/sse', auth: 'oauth', maintainer: 'Asana', maintainerUrl: 'https://asana.com' },
   { name: 'Autosend', category: 'email', url: 'https://mcp.autosend.com/', auth: 'oauth', maintainer: 'Autosend', maintainerUrl: 'https://autosend.com' },
   {
-    name: 'Google Workspace', category: 'productivity', url: 'https://google-mcp.scira.app/mcp', auth: 'apikey', maintainer: 'Google', maintainerUrl: 'https://google.com',
+    name: 'Google Workspace', category: 'productivity', url: 'https://google-mcp.zetora.app/mcp', auth: 'apikey', maintainer: 'Google', maintainerUrl: 'https://google.com',
     fields: [{
       label: 'API Key', placeholder: 'gmc_…', headerName: 'Authorization',
-      hintText: 'Get API key', hintUrl: 'https://google-mcp.scira.app',
+      hintText: 'Get API key', hintUrl: 'https://google-mcp.zetora.app',
       steps: [
-        { text: 'Go to the Google MCP dashboard and sign in with Google', url: 'https://google-mcp.scira.app', urlLabel: 'Open dashboard' },
-        { text: 'Google will show an "unverified app" warning — click Advanced → Go to Scira (unsafe) to continue. This is expected for developer tools.' },
+        { text: 'Go to the Google MCP dashboard and sign in with Google', url: 'https://google-mcp.zetora.app', urlLabel: 'Open dashboard' },
+        { text: 'Google will show an "unverified app" warning — click Advanced → Go to Zetora (unsafe) to continue. This is expected for developer tools.' },
         { text: 'Select all services you want: Google Calendar, Google Sheets, Gmail, Google Docs, Google Drive' },
         { text: 'Set API key expiration to Never (recommended)' },
         { text: 'Copy the generated API key (starts with gmc_) and paste it above' },
-        { text: 'To Revoke or Manage the API Key, go to https://google-mcp.scira.app/revoke and paste the API key and click "Revoke".' },
+        { text: 'To Revoke or Manage the API Key, go to https://google-mcp.zetora.app/revoke and paste the API key and click "Revoke".' },
       ],
     }],
   },
@@ -772,7 +772,7 @@ function McpMarketplaceContent() {
                 <SidebarTrigger />
               </div>
               <AppsIcon width={24} height={24} className="text-foreground" />
-              <h1 className="text-2xl font-light tracking-tight font-be-vietnam-pro">scira apps</h1>
+              <h1 className="text-2xl font-light tracking-tight font-be-vietnam-pro">zetora apps</h1>
             </div>
 
             {/* Tabs + search (desktop: side by side, mobile: stacked) */}

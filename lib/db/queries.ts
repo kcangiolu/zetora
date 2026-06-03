@@ -1192,23 +1192,23 @@ export async function upsertUserPreferences({
 }: {
   userId: string;
   preferences: Partial<{
-    'scira-search-provider'?: 'exa' | 'parallel' | 'firecrawl';
-    'scira-extreme-search-model'?:
-      | 'scira-ext-1'
-      | 'scira-ext-2'
-      | 'scira-ext-4'
-      | 'scira-ext-5'
-      | 'scira-ext-6'
-      | 'scira-ext-7'
-      | 'scira-ext-8';
-    'scira-group-order'?: string[];
-    'scira-model-order-global'?: string[];
-    'scira-blur-personal-info'?: boolean;
-    'scira-custom-instructions-enabled'?: boolean;
-    'scira-scroll-to-latest-on-open'?: boolean;
-    'scira-location-metadata-enabled'?: boolean;
-    'scira-auto-router-enabled'?: boolean;
-    'scira-auto-router-config'?: {
+    'zetora-search-provider'?: 'exa' | 'parallel' | 'firecrawl';
+    'zetora-extreme-search-model'?:
+      | 'zetora-ext-1'
+      | 'zetora-ext-2'
+      | 'zetora-ext-4'
+      | 'zetora-ext-5'
+      | 'zetora-ext-6'
+      | 'zetora-ext-7'
+      | 'zetora-ext-8';
+    'zetora-group-order'?: string[];
+    'zetora-model-order-global'?: string[];
+    'zetora-blur-personal-info'?: boolean;
+    'zetora-custom-instructions-enabled'?: boolean;
+    'zetora-scroll-to-latest-on-open'?: boolean;
+    'zetora-location-metadata-enabled'?: boolean;
+    'zetora-auto-router-enabled'?: boolean;
+    'zetora-auto-router-config'?: {
       routes: Array<{
         name: string;
         description: string;

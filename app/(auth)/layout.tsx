@@ -4,19 +4,19 @@ import Link from 'next/link';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
 import { useState, useEffect } from 'react';
 import Autoplay from 'embla-carousel-autoplay';
-import { SciraLogo } from '@/components/logos/scira-logo';
+import { ZetoraLogo } from '@/components/logos/zetora-logo';
 import { Brain, Search, Eye, Mic, Blocks } from 'lucide-react';
 
 const testimonials = [
   {
     content:
-      'Scira is better than Grok at digging up information from X, its own platform! I asked it 3 different queries to help scrape and find some data points I was interested in about my own account and Scira did much much better with insanely accurate answers!',
+      'Zetora is better than Grok at digging up information from X, its own platform! I asked it 3 different queries to help scrape and find some data points I was interested in about my own account and Zetora did much much better with insanely accurate answers!',
     author: 'Chris Universe',
     handle: '@chrisuniverseb',
     link: 'https://x.com/chrisuniverseb/status/1943025911043100835',
   },
   {
-    content: 'Scira does a really good job scraping through the reddit mines.',
+    content: 'Zetora does a really good job scraping through the reddit mines.',
     author: 'nyaaier',
     handle: '@nyaaier',
     link: 'https://x.com/nyaaier/status/1932810453107065284',
@@ -30,7 +30,7 @@ const testimonials = [
   },
   {
     content:
-      'Read nothing the whole sem and here I am with Scira to top my mid sems! Literally so good to get all the related diagrams, points and topics from the website my professor uses.',
+      'Read nothing the whole sem and here I am with Zetora to top my mid sems! Literally so good to get all the related diagrams, points and topics from the website my professor uses.',
     author: 'Rajnandinit',
     handle: '@itsRajnandinit',
     link: 'https://x.com/itsRajnandinit/status/1897896134837682288',
@@ -70,9 +70,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <div className="w-full max-w-md">
             {/* Logo */}
             <Link href="/" className="inline-flex items-center gap-3 mb-12 group">
-              <SciraLogo className="size-10 transition-transform duration-300 group-hover:scale-110" />
+              <ZetoraLogo className="size-10 transition-transform duration-300 group-hover:scale-110" />
               <span className="text-4xl font-light tracking-tighter font-be-vietnam-pro text-foreground">
-                scira
+                zetora
               </span>
             </Link>
 
@@ -183,8 +183,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         {/* Mobile Header */}
         <header className="lg:hidden flex items-center justify-between h-16 border-b border-border/50 px-6">
           <Link href="/" className="flex items-center gap-2.5">
-            <SciraLogo className="size-6" />
-            <span className="text-2xl font-light tracking-tighter font-be-vietnam-pro">scira</span>
+            <ZetoraLogo className="size-6" />
+            <span className="text-2xl font-light tracking-tighter font-be-vietnam-pro">zetora</span>
           </Link>
           <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
             <span className="font-pixel">5M+ searches</span>

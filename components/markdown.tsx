@@ -172,7 +172,7 @@ const FILE_TYPE_MAP: Record<string, { typeLabel: string; icon: LucideIcon }> = {
 
 function parseUrlLike(href: string): URL | null {
   try {
-    if (href.startsWith('/')) return new URL(href, 'https://scira.ai');
+    if (href.startsWith('/')) return new URL(href, 'https://zetora.ai');
     return new URL(href);
   } catch {
     return null;
@@ -220,7 +220,7 @@ function getFilePreviewDefinition(href: string, fallbackText?: string): FilePrev
   const pathname = url?.pathname ?? '';
   const filename = extractFilenameFromHref(href, fallbackText);
   const ext = filename.includes('.') ? (filename.split('.').pop()?.toLowerCase() ?? '') : '';
-  const hasBuildDownloadPath = pathname.includes('/scira/builds/');
+  const hasBuildDownloadPath = pathname.includes('/zetora/builds/');
   const hasKnownDownloadExtension = Boolean(ext && FILE_TYPE_MAP[ext] && !NON_DOWNLOADABLE_EXTENSIONS.has(ext));
   const hasDownloadHint =
     url?.searchParams.get('download') === '1' ||
@@ -256,8 +256,8 @@ function parseTaggedLinkContent(raw: string): TaggedLinkData | null {
 }
 
 import { sileo } from 'sileo';
-// Custom syntax themes that match Scira's design system
-const sciraDarkTheme: { [key: string]: React.CSSProperties } = {
+// Custom syntax themes that match Zetora's design system
+const zetoraDarkTheme: { [key: string]: React.CSSProperties } = {
   'code[class*="language-"]': { color: '#e1e4e8', background: 'transparent' },
   'pre[class*="language-"]': { color: '#e1e4e8', background: 'transparent' },
   comment: { color: '#6a737d' },
@@ -292,7 +292,7 @@ const sciraDarkTheme: { [key: string]: React.CSSProperties } = {
   important: { color: '#f97583', fontWeight: 'bold' },
 };
 
-const sciraLightTheme: { [key: string]: React.CSSProperties } = {
+const zetoraLightTheme: { [key: string]: React.CSSProperties } = {
   'code[class*="language-"]': { color: '#24292e', background: 'transparent' },
   'pre[class*="language-"]': { color: '#24292e', background: 'transparent' },
   comment: { color: '#6a737d' },
@@ -516,10 +516,10 @@ const CodeBlockInner: React.FC<CodeBlockInnerProps> = ({
   // Get theme-aware syntax highlighting style (default to dark for SSR)
   // Light-background themes need light syntax colors; all others use dark
   const syntaxTheme = useMemo(() => {
-    if (!mounted) return sciraDarkTheme;
+    if (!mounted) return zetoraDarkTheme;
     const isLightTheme =
       resolvedTheme === 'light' || resolvedTheme === 'claudelight' || resolvedTheme === 'neutrallight';
-    return isLightTheme ? sciraLightTheme : sciraDarkTheme;
+    return isLightTheme ? zetoraLightTheme : zetoraDarkTheme;
   }, [mounted, resolvedTheme]);
 
   const handleCopy = useCallback(async () => {
@@ -1739,7 +1739,7 @@ function fetchMetadata(url: string) {
   if (!metadataCache.has(url)) {
     metadataCache.set(
       url,
-      fetch(`https://metadata.scira.app/?url=${encodeURIComponent(url)}`)
+      fetch(`https://metadata.zetora.app/?url=${encodeURIComponent(url)}`)
         .then((res) => res.json())
         .then((data) => (data.url ? data : null))
         .catch(() => null),

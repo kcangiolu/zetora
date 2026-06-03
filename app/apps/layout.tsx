@@ -12,18 +12,18 @@ export const metadata: Metadata = {
   openGraph: {
     title,
     description,
-    url: 'https://scira.ai/apps',
-    siteName: 'Scira AI',
+    url: 'https://zetora.ai/apps',
+    siteName: 'Zetora AI',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
     title,
     description,
-    creator: '@sciraai',
+    creator: '@zetoraai',
   },
   alternates: {
-    canonical: 'https://scira.ai/apps',
+    canonical: 'https://zetora.ai/apps',
   },
 };
 

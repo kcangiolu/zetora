@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Search, Code, Database } from "lucide-react";
-import { SciraLogo } from "@/components/logos/scira-logo";
+import { ZetoraLogo } from "@/components/logos/zetora-logo";
 
 const FEATURES = [
   { icon: Search, label: "Natural language X post queries" },
@@ -17,7 +17,7 @@ export function XQLProUpgradeScreen() {
     <div className="flex flex-1 flex-col min-h-screen bg-background">
       {/* Header matching XQL page */}
       {/* <div className="flex items-center gap-2 px-4 sm:px-6 pt-12 sm:pt-14 pb-2">
-        <SciraLogo className="size-6 shrink-0" />
+        <ZetoraLogo className="size-6 shrink-0" />
         <span className="text-foreground font-semibold text-lg tracking-tight">XQL</span>
         <div className="ml-0.5 -mt-3">
           <span className="bg-primary text-primary-foreground px-1 py-0.5 rounded-sm text-[9px] font-semibold uppercase tracking-wide">

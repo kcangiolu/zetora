@@ -78,7 +78,7 @@ import { models, PROVIDERS, getModelProvider, type ModelProvider } from '@/ai/mo
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { useIsProUser } from '@/contexts/user-context';
-import { SciraLogo } from './logos/scira-logo';
+import { ZetoraLogo } from './logos/zetora-logo';
 import { ThemeSwitcher } from './theme-switcher';
 import Image from 'next/image';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -272,27 +272,27 @@ function getDefaultAutoRouterRoutes(): AutoRouterRoute[] {
     {
       name: 'general',
       description: 'General questions and conversations',
-      model: 'scira-default',
+      model: 'zetora-default',
     },
     {
       name: 'research',
       description: 'Academic research, papers, and scientific topics',
-      model: 'scira-gemini-3-flash',
+      model: 'zetora-gemini-3-flash',
     },
     {
       name: 'code_generation',
       description: 'Generating code, scripts, or programming tasks',
-      model: 'scira-qwen-coder-next',
+      model: 'zetora-qwen-coder-next',
     },
     {
       name: 'writing',
       description: 'Creative writing, documentation, and content creation',
-      model: 'scira-kimi-k2.5',
+      model: 'zetora-kimi-k2.5',
     },
     {
       name: 'analysis',
       description: 'Data analysis, reasoning, and problem solving',
-      model: 'scira-gpt-5.2',
+      model: 'zetora-gpt-5.2',
     },
   ];
 }
@@ -308,31 +308,31 @@ export function PreferencesSection({
   setIsCustomInstructionsEnabledAction?: (value: boolean | ((val: boolean) => boolean)) => void;
 }) {
   const [searchProvider, setSearchProvider] = useSyncedPreferences<'exa' | 'parallel' | 'firecrawl'>(
-    'scira-search-provider',
+    'zetora-search-provider',
     'exa',
   );
 
   const [extremeSearchModel, setExtremeSearchModel] = useSyncedPreferences<
-    | 'scira-ext-1'
-    | 'scira-ext-2'
-    | 'scira-ext-3'
-    | 'scira-ext-4'
-    | 'scira-ext-5'
-    | 'scira-ext-6'
-    | 'scira-ext-7'
-    | 'scira-ext-8'
-  >('scira-extreme-search-model', 'scira-ext-1');
+    | 'zetora-ext-1'
+    | 'zetora-ext-2'
+    | 'zetora-ext-3'
+    | 'zetora-ext-4'
+    | 'zetora-ext-5'
+    | 'zetora-ext-6'
+    | 'zetora-ext-7'
+    | 'zetora-ext-8'
+  >('zetora-extreme-search-model', 'zetora-ext-1');
 
   const [locationMetadataEnabled, setLocationMetadataEnabled] = useSyncedPreferences<boolean>(
-    'scira-location-metadata-enabled',
+    'zetora-location-metadata-enabled',
     false,
   );
   const [scrollToLatestOnOpen, setScrollToLatestOnOpen] = useSyncedPreferences<boolean>(
-    'scira-scroll-to-latest-on-open',
+    'zetora-scroll-to-latest-on-open',
     false,
   );
-  const [autoRouterEnabled, setAutoRouterEnabled] = useSyncedPreferences<boolean>('scira-auto-router-enabled', false);
-  const [autoRouterConfig, setAutoRouterConfig] = useSyncedPreferences<AutoRouterConfig>('scira-auto-router-config', {
+  const [autoRouterEnabled, setAutoRouterEnabled] = useSyncedPreferences<boolean>('zetora-auto-router-enabled', false);
+  const [autoRouterConfig, setAutoRouterConfig] = useSyncedPreferences<AutoRouterConfig>('zetora-auto-router-config', {
     routes: getDefaultAutoRouterRoutes(),
   });
 
@@ -341,9 +341,9 @@ export function PreferencesSection({
 
   // Customize state: visible modes, mode order, and preferred models
   const dynamicGroups = useMemo(() => getSearchGroups(searchProvider), [searchProvider]);
-  const [visibleModes, setVisibleModes] = useSyncedPreferences<string[]>('scira-visible-modes', []);
-  const [modeOrder, setModeOrder] = useSyncedPreferences<string[]>('scira-group-order', []);
-  const [preferredModels, setPreferredModels] = useSyncedPreferences<string[]>('scira-preferred-models', []);
+  const [visibleModes, setVisibleModes] = useSyncedPreferences<string[]>('zetora-visible-modes', []);
+  const [modeOrder, setModeOrder] = useSyncedPreferences<string[]>('zetora-group-order', []);
+  const [preferredModels, setPreferredModels] = useSyncedPreferences<string[]>('zetora-preferred-models', []);
 
   // Sort groups by user-defined order (empty = default order), hide canvas unless flag is on
   const sortedGroups = useMemo(() => {
@@ -409,24 +409,24 @@ export function PreferencesSection({
   };
 
   const extremeSearchModels = [
-    { value: 'scira-ext-1' as const, label: 'Grok 4.1 Fast Reasoning' },
-    { value: 'scira-ext-2' as const, label: 'GPT-5.4' },
-    { value: 'scira-ext-4' as const, label: 'GLM 4.7 Flash' },
-    { value: 'scira-ext-5' as const, label: 'Kimi K2.5' },
-    { value: 'scira-ext-6' as const, label: 'Gemini 3.1 Pro' },
-    { value: 'scira-ext-7' as const, label: 'Qwen 3.5 Flash' },
-    { value: 'scira-ext-8' as const, label: 'Grok 4.20 Experimental Beta' },
+    { value: 'zetora-ext-1' as const, label: 'Grok 4.1 Fast Reasoning' },
+    { value: 'zetora-ext-2' as const, label: 'GPT-5.4' },
+    { value: 'zetora-ext-4' as const, label: 'GLM 4.7 Flash' },
+    { value: 'zetora-ext-5' as const, label: 'Kimi K2.5' },
+    { value: 'zetora-ext-6' as const, label: 'Gemini 3.1 Pro' },
+    { value: 'zetora-ext-7' as const, label: 'Qwen 3.5 Flash' },
+    { value: 'zetora-ext-8' as const, label: 'Grok 4.20 Experimental Beta' },
   ];
 
   const handleExtremeSearchModelChange = (
     newModel:
-      | 'scira-ext-1'
-      | 'scira-ext-2'
-      | 'scira-ext-4'
-      | 'scira-ext-5'
-      | 'scira-ext-6'
-      | 'scira-ext-7'
-      | 'scira-ext-8',
+      | 'zetora-ext-1'
+      | 'zetora-ext-2'
+      | 'zetora-ext-4'
+      | 'zetora-ext-5'
+      | 'zetora-ext-6'
+      | 'zetora-ext-7'
+      | 'zetora-ext-8',
   ) => {
     if (!hasPaidAccess) return;
     setExtremeSearchModel(newModel);
@@ -532,7 +532,7 @@ export function PreferencesSection({
       setAutoRouterConfig((current: AutoRouterConfig) => {
         const nextRoutes = [...(current?.routes || [])];
         nextRoutes[index] = {
-          ...(nextRoutes[index] || { name: '', description: '', model: 'scira-default' }),
+          ...(nextRoutes[index] || { name: '', description: '', model: 'zetora-default' }),
           ...update,
         };
         return { routes: nextRoutes };
@@ -543,7 +543,7 @@ export function PreferencesSection({
 
   const addAutoRouterRoute = useCallback(() => {
     setAutoRouterConfig((current: AutoRouterConfig) => ({
-      routes: [...(current?.routes || []), { name: '', description: '', model: 'scira-default' }],
+      routes: [...(current?.routes || []), { name: '', description: '', model: 'zetora-default' }],
     }));
   }, [setAutoRouterConfig]);
 
@@ -726,7 +726,7 @@ export function PreferencesSection({
                       className="w-[240px] h-8 text-xs rounded-lg shrink-0 justify-between font-normal"
                       disabled={!hasPaidAccess}
                     >
-                      {extremeSearchModels.find((m) => m.value === (hasPaidAccess ? extremeSearchModel : 'scira-ext-1'))
+                      {extremeSearchModels.find((m) => m.value === (hasPaidAccess ? extremeSearchModel : 'zetora-ext-1'))
                         ?.label ?? 'Grok 4.1 Fast Reasoning'}
                       <ChevronDown className="size-3.5 opacity-50" />
                     </Button>
@@ -827,7 +827,7 @@ export function PreferencesSection({
                               user={user}
                               isProUser={hasPaidAccess}
                               isMaxUser={isMaxUser}
-                              excludeModels={['scira-auto']}
+                              excludeModels={['zetora-auto']}
                               className="w-full h-7"
                               compact
                             />
@@ -1654,7 +1654,7 @@ export function SubscriptionSection({ subscriptionData, isProUser, user }: any) 
         currency: subscription.currency,
         status: subscription.status,
         product: {
-          name: 'Scira Pro',
+          name: 'Zetora Pro',
         },
       },
     ];
@@ -1724,7 +1724,7 @@ export function SubscriptionSection({ subscriptionData, isProUser, user }: any) 
       if (proSource === 'dodo') {
         sileo.error({
           title: 'Unable to access DodoPayments portal',
-          description: 'Please contact support at zaid@scira.ai',
+          description: 'Please contact support at zaid@zetora.ai',
           icon: <AlertCircle className="h-4 w-4" />,
         });
       } else {
@@ -1771,7 +1771,7 @@ export function SubscriptionSection({ subscriptionData, isProUser, user }: any) 
                 </div>
                 <div>
                   <h3 className={cn('font-semibold', isMobile ? 'text-sm' : 'text-base')}>
-                    Scira{' '}
+                    Zetora{' '}
                     <span className="font-pixel text-xs uppercase tracking-wider">
                       {user?.isMaxUser ? 'Max' : 'Pro'}
                     </span>
@@ -1951,7 +1951,7 @@ export function SubscriptionSection({ subscriptionData, isProUser, user }: any) 
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
                         <p className={cn('font-medium truncate', isMobile ? 'text-xs' : 'text-sm')}>
-                          Scira Pro (DodoPayments)
+                          Zetora Pro (DodoPayments)
                         </p>
                         <div className="flex items-center gap-2">
                           <p className={cn('text-muted-foreground', isMobile ? 'text-[10px]' : 'text-xs')}>
@@ -3984,7 +3984,7 @@ export function SettingsDialog({
             {/* Header */}
             <DrawerHeader className="pb-2 px-4 pt-3 shrink-0 border-b border-border/40">
               <DrawerTitle className="text-base font-medium flex items-center gap-2.5">
-                <SciraLogo className="size-5" />
+                <ZetoraLogo className="size-5" />
                 <span>Settings</span>
                 <span className="font-pixel text-[11px] text-muted-foreground/50 uppercase tracking-[0.15em]">
                   {tabItems.find((t) => t.value === currentTab)?.number}
@@ -4048,7 +4048,7 @@ export function SettingsDialog({
       <DialogContent className="max-w-4xl! w-full! max-h-[85vh] p-0! gap-0 overflow-hidden">
         <DialogHeader className="px-6 pt-5 pb-4 m-0! border-b border-border/40">
           <DialogTitle className="text-lg font-semibold tracking-tight flex items-center gap-2.5">
-            <SciraLogo className="size-5" color="currentColor" />
+            <ZetoraLogo className="size-5" color="currentColor" />
             <span>Settings</span>
             <span className="font-pixel text-[11px] text-muted-foreground/50 uppercase tracking-[0.15em]">
               {tabItems.find((t) => t.value === currentTab)?.number}

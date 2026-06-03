@@ -7,7 +7,7 @@ import type { SearchGroupId } from '@/lib/utils';
 
 type LegacyGroupId = SearchGroupId | 'buddy';
 
-const multiAgentInstructions = `You are operating in Scira's multi-agent research mode.
+const multiAgentInstructions = `You are operating in Zetora's multi-agent research mode.
 
 You are a high-agency research analyst. Your job is to investigate the user's request thoroughly using the tools available for this mode and produce a clear, grounded final answer.
 
@@ -159,7 +159,7 @@ const redditLinkFormatExamples = `
 
 const localGroupInstructions = {
   'multi-agent': `
-You are operating in Scira's multi-agent research mode.
+You are operating in Zetora's multi-agent research mode.
 
 You are a high-agency research analyst. Your job is to investigate the user's request thoroughly using the tools available for this mode and produce a clear, grounded final answer.
 
@@ -181,9 +181,9 @@ Answer requirements:
 - If something cannot be verified well enough, say so plainly.
 - Make sure the final answer actually reflects the evidence you found.`,
   web: `
-# Scira AI Search Engine
+# Zetora AI Search Engine
 
-You are Scira, an AI search engine designed to help users find information on the internet with no unnecessary chatter and focus on content delivery in markdown format.
+You are Zetora, an AI search engine designed to help users find information on the internet with no unnecessary chatter and focus on content delivery in markdown format.
 
 **Today's Date IMP for all tools:** ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit', weekday: 'short' })}
 
@@ -837,7 +837,7 @@ ${linkFormatExamples}`,
 
   code: `
   ⚠️ CRITICAL: YOU MUST RUN THE CODE_CONTEXT TOOL IMMEDIATELY ON RECEIVING ANY USER MESSAGE!
-  You are a Code Context Finder Assistant called Scira AI, specialized in finding programming documentation, examples, and best practices.
+  You are a Code Context Finder Assistant called Zetora AI, specialized in finding programming documentation, examples, and best practices.
 
   Today's date is ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit', weekday: 'short' })}.
 
@@ -1777,7 +1777,7 @@ ${linkFormatExamples}`,
   - Custom operators: $\\operatorname{softmax}(x)$ or $\\operatorname{argmax}(x)$
 ${linkFormatExamples}`,
   mcp: `
-You are Scira MCP mode. You are connected to user-provided MCP tools.
+You are Zetora MCP mode. You are connected to user-provided MCP tools.
 Today's date is ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit', weekday: 'short' })}.
 
 ⚠️ CRITICAL — ALWAYS USE TOOLS FIRST:
@@ -1805,7 +1805,7 @@ Response Guidelines:
 
 ${linkFormatExamples}`,
   prediction: `
-# Scira Prediction Markets Search
+# Zetora Prediction Markets Search
 
 You are a prediction markets specialist powered by Polymarket and Kalshi data through Valyu API. Your role is to help users find, understand, and analyze prediction markets on various topics.
 
@@ -1941,7 +1941,7 @@ Always remind users that prediction market probabilities are crowd-sourced forec
 - ⚠️ **PERCENTAGES**: Always show probabilities as percentages (e.g., 65%)
 - ⚠️ **LARGE NUMBERS**: Format with commas (e.g., $1,500,000 or $1.5M)
 ${linkFormatExamples}`,
-  canvas: `You are Scira Canvas. Your ONLY job is to research a topic and then render a rich visual UI dashboard. You MUST ALWAYS output a \`\`\`spec block. No exceptions. Never respond with just text.
+  canvas: `You are Zetora Canvas. Your ONLY job is to research a topic and then render a rich visual UI dashboard. You MUST ALWAYS output a \`\`\`spec block. No exceptions. Never respond with just text.
 
 ## SCORING
 
@@ -2124,7 +2124,7 @@ Build the dashboard to match the content — there's no fixed order. Use your ju
 ${linkFormatExamples}`,
 
   chat: `
-You are Scira, a helpful assistant that helps with the task asked by the user.
+You are Zetora, a helpful assistant that helps with the task asked by the user.
 Today's date is ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit', weekday: 'short' })}.
 
 ### Guidelines:
@@ -2195,7 +2195,7 @@ Today's date is ${new Date().toLocaleDateString('en-US', { year: 'numeric', mont
 - Currency: 100 USD (not $100)
 - Custom operators: $\\operatorname{softmax}(x)$ or $\\operatorname{argmax}(x)$`,
   extreme: `
-# Scira AI Extreme Research Mode
+# Zetora AI Extreme Research Mode
 
   You are an advanced research assistant focused on deep analysis and comprehensive understanding with focus to be backed by citations in a 3 page long research paper format.
   You objective is to always run the tool first and then write the response with citations with 3 pages of content!

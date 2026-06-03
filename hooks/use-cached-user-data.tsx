@@ -14,7 +14,7 @@ export function useCachedUserData() {
   const { user: freshUser, isLoading: isFreshLoading, error, refetch, isRefetching, ...otherUserData } = useUserData();
 
   // Cache user data in localStorage
-  const [cachedUser, setCachedUser] = useLocalStorage<ComprehensiveUserData | null>('scira-user-data', null);
+  const [cachedUser, setCachedUser] = useLocalStorage<ComprehensiveUserData | null>('zetora-user-data', null);
 
   // Only write to cache when we have a session; prevents re-caching after sign out (React Query may still hold stale data)
   useEffect(() => {

@@ -62,7 +62,7 @@ import { canvasCatalog } from "./catalog";
 import { cn } from "../utils";
 
 // =============================================================================
-// Registry — styled to match Scira's design language
+// Registry — styled to match Zetora's design language
 // =============================================================================
 
 export const { registry, handlers } = defineRegistry(canvasCatalog, {

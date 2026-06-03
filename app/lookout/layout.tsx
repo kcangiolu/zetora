@@ -2,7 +2,7 @@ import React from 'react';
 import type { Metadata } from 'next';
 import { SidebarLayout } from '@/components/sidebar-layout';
 
-const title = 'Scira Lookout - Automated Search Monitoring';
+const title = 'Zetora Lookout - Automated Search Monitoring';
 const description =
   'Schedule automated searches and get notified when they complete. Monitor trends, track developments, and stay informed with intelligent lookouts.';
 
@@ -14,15 +14,15 @@ export const metadata: Metadata = {
   openGraph: {
     title,
     description,
-    url: 'https://scira.ai/lookout',
-    siteName: 'Scira AI',
+    url: 'https://zetora.ai/lookout',
+    siteName: 'Zetora AI',
     type: 'website',
     images: [
       {
-        url: 'https://scira.ai/lookout/opengraph-image.png',
+        url: 'https://zetora.ai/lookout/opengraph-image.png',
         width: 1200,
         height: 630,
-        alt: 'Scira Lookout - Automated Search Monitoring',
+        alt: 'Zetora Lookout - Automated Search Monitoring',
       },
     ],
   },
@@ -30,11 +30,11 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title,
     description,
-    images: ['https://scira.ai/lookout/twitter-image.png'],
-    creator: '@sciraai',
+    images: ['https://zetora.ai/lookout/twitter-image.png'],
+    creator: '@zetoraai',
   },
   alternates: {
-    canonical: 'https://scira.ai/lookout',
+    canonical: 'https://zetora.ai/lookout',
   },
 };
 

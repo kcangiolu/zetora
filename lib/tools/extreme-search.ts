@@ -11,7 +11,7 @@ import { Output, generateText, hasToolCall, stepCountIs, tool } from 'ai';
 import type { UIMessageStreamWriter } from 'ai';
 import { z } from 'zod';
 import { serverEnv } from '@/env/server';
-import { scira } from '@/ai/providers';
+import { zetora } from '@/ai/providers';
 import { ChatMessage } from '../types';
 import FirecrawlApp from '@mendable/firecrawl-js';
 import { getTweet } from 'react-tweet/api';
@@ -223,7 +223,7 @@ interface ContentExtractionStrategy {
   getContents(links: string[]): Promise<SearchResult[]>;
 }
 
-interface MetadataSciraResponse {
+interface MetadataZetoraResponse {
   url?: string;
   canonical?: string;
   ogUrl?: string;
@@ -282,7 +282,7 @@ async function getMetadataFallbackResults(urls: string[], logPrefix: string): Pr
   const uniqueUrls = Array.from(new Set(urls)).filter(isHttpUrl);
   if (uniqueUrls.length === 0) return [];
 
-  console.log(`[${logPrefix}] Using metadata.scira.app fallback for ${uniqueUrls.length} URLs:`, uniqueUrls);
+  console.log(`[${logPrefix}] Using metadata.zetora.app fallback for ${uniqueUrls.length} URLs:`, uniqueUrls);
 
   const metadataResults = await all(
     Object.fromEntries(
@@ -290,20 +290,20 @@ async function getMetadataFallbackResults(urls: string[], logPrefix: string): Pr
         `md:${index}`,
         async () => {
           try {
-            const endpoint = new URL('https://metadata.scira.app/');
+            const endpoint = new URL('https://metadata.zetora.app/');
             endpoint.searchParams.set('url', url);
 
             const response = await fetch(endpoint.toString(), { method: 'GET' });
             if (!response.ok) {
               console.error(
-                `[${logPrefix}] metadata.scira.app failed for ${url}:`,
+                `[${logPrefix}] metadata.zetora.app failed for ${url}:`,
                 response.status,
                 response.statusText,
               );
               return null;
             }
 
-            const data = (await response.json()) as MetadataSciraResponse;
+            const data = (await response.json()) as MetadataZetoraResponse;
             const parsedUrl = new URL(url);
 
             const title =
@@ -331,7 +331,7 @@ async function getMetadataFallbackResults(urls: string[], logPrefix: string): Pr
               image: data.image,
             } satisfies SearchResult;
           } catch (error) {
-            console.error(`[${logPrefix}] metadata.scira.app error for ${url}:`, error);
+            console.error(`[${logPrefix}] metadata.zetora.app error for ${url}:`, error);
             return null;
           }
         },
@@ -574,13 +574,13 @@ async function extremeSearch(
   dataStream: UIMessageStreamWriter<ChatMessage> | undefined,
   files: FileContext[] = [],
   modelId:
-    | 'scira-ext-1'
-    | 'scira-ext-2'
-    | 'scira-ext-4'
-    | 'scira-ext-5'
-    | 'scira-ext-6'
-    | 'scira-ext-7'
-    | 'scira-ext-8' = 'scira-ext-1',
+    | 'zetora-ext-1'
+    | 'zetora-ext-2'
+    | 'zetora-ext-4'
+    | 'zetora-ext-5'
+    | 'zetora-ext-6'
+    | 'zetora-ext-7'
+    | 'zetora-ext-8' = 'zetora-ext-1',
   _mcpDynamicTools: Record<string, any> = {},
 ): Promise<Research> {
   const allSources: SearchResult[] = [];
@@ -612,7 +612,7 @@ async function extremeSearch(
   // plan out the research
 
   const { output: result } = await generateText({
-    model: scira.languageModel('scira-ext-1'),
+    model: zetora.languageModel('zetora-ext-1'),
     output: Output.object({
       schema: z.object({
         plan: z
@@ -706,7 +706,7 @@ ${hasFilesForPlanning ? '- Include file search steps when the uploaded files are
 
   // Create the autonomous research agent with tools
   const { text: _ } = await generateText({
-    model: scira.languageModel(modelId),
+    model: zetora.languageModel(modelId),
     stopWhen: [stepCountIs(75), hasToolCall('done')],
     activeTools: baseActiveTools as any,
     maxRetries: 10,
@@ -910,7 +910,7 @@ ${JSON.stringify(plan)}
       anthropic: {
         disableParallelToolUse: true,
       } satisfies AnthropicProviderOptions,
-      ...(modelId === 'scira-ext-5'
+      ...(modelId === 'zetora-ext-5'
         ? {
             gateway: {
               only: ['moonshotai', 'fireworks'],
@@ -920,14 +920,14 @@ ${JSON.stringify(plan)}
         : {}),
 
       moonshotai: {
-        ...(modelId === 'scira-ext-5'
+        ...(modelId === 'zetora-ext-5'
           ? {
               thinking: { type: 'disabled' },
             }
           : {}),
       },
       fireworks: {
-        ...(modelId === 'scira-ext-5'
+        ...(modelId === 'zetora-ext-5'
           ? {
               thinking: { type: 'disabled' },
             }
@@ -946,14 +946,14 @@ ${JSON.stringify(plan)}
         },
       } satisfies GoogleLanguageModelOptions,
       alibaba: {
-        ...(modelId === 'scira-ext-7'
+        ...(modelId === 'zetora-ext-7'
           ? {
               enable_thinking: false,
             }
           : {}),
       },
     },
-    ...(modelId === 'scira-ext-7'
+    ...(modelId === 'zetora-ext-7'
       ? {
           temperature: 1,
           topP: 0.95,
@@ -1164,7 +1164,7 @@ ${JSON.stringify(plan)}
                     const base64Data = chart.png.replace(/^data:image\/\w+;base64,/, '');
                     const buffer = Buffer.from(base64Data, 'base64');
                     const chartId = nanoid();
-                    const key = `scira/charts/${chartId}.png`;
+                    const key = `zetora/charts/${chartId}.png`;
 
                     await r2Client.send(
                       new PutObjectCommand({
@@ -1927,13 +1927,13 @@ export function extremeSearchTool(
   dataStream: UIMessageStreamWriter<ChatMessage> | undefined,
   files: Array<{ url: string; contentType: string; name?: string }> = [],
   modelId:
-    | 'scira-ext-1'
-    | 'scira-ext-2'
-    | 'scira-ext-4'
-    | 'scira-ext-5'
-    | 'scira-ext-6'
-    | 'scira-ext-7'
-    | 'scira-ext-8' = 'scira-ext-1',
+    | 'zetora-ext-1'
+    | 'zetora-ext-2'
+    | 'zetora-ext-4'
+    | 'zetora-ext-5'
+    | 'zetora-ext-6'
+    | 'zetora-ext-7'
+    | 'zetora-ext-8' = 'zetora-ext-1',
   mcpDynamicTools: Record<string, any> = {},
 ) {
   return tool({

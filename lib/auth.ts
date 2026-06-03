@@ -205,7 +205,7 @@ async function handleSubscriptionWebhook(payload: any, status: string) {
 }
 
 export const auth = betterAuth({
-  appName: 'scira',
+  appName: 'zetora',
   baseURL: process.env.NODE_ENV === 'production' ? process.env.BETTER_AUTH_BASE_URL : 'http://localhost:3000',
   rateLimit: {
     max: 100,
@@ -543,14 +543,14 @@ export const auth = betterAuth({
   ],
   trustedOrigins: [
     'http://localhost:3000',
-    'https://scira.ai',
-    'https://www.scira.ai',
-    'https://scira-zaidmukaddam-sciraai.vercel.app',
+    'https://zetora.ai',
+    'https://www.zetora.ai',
+    'https://zetora-zaidmukaddam-zetoraai.vercel.app',
   ],
   allowedOrigins: [
     'http://localhost:3000',
-    'https://scira.ai',
-    'https://www.scira.ai',
-    'https://scira-zaidmukaddam-sciraai.vercel.app',
+    'https://zetora.ai',
+    'https://www.zetora.ai',
+    'https://zetora-zaidmukaddam-zetoraai.vercel.app',
   ],
 });

@@ -17,4 +17,4 @@ export const CURRENCIES = {
   INR: 'INR',
 } as const;
 
-export const SNAPSHOT_NAME = 'scira-analysis:1771010549';
+export const SNAPSHOT_NAME = 'zetora-analysis:1771010549';

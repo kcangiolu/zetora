@@ -10,8 +10,8 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const deletedCount = await deleteAllObjectsWithPrefix('scira/public');
-    return new NextResponse(`Deleted ${deletedCount} public files with scira/public prefix`, {
+    const deletedCount = await deleteAllObjectsWithPrefix('zetora/public');
+    return new NextResponse(`Deleted ${deletedCount} public files with zetora/public prefix`, {
       status: 200,
     });
   } catch (error) {

@@ -166,8 +166,8 @@ function LookoutCompletedEmail({
                 style={{ padding: '32px 24px 20px' }}
               >
                 <Img
-                  src="https://scira.ai/icon.png"
-                  alt="Scira AI"
+                  src="https://zetora.ai/icon.png"
+                  alt="Zetora AI"
                   width={44}
                   height={44}
                   className="mx-auto"
@@ -213,7 +213,7 @@ function LookoutCompletedEmail({
               {/* CTA */}
               <Section className="text-center" style={{ padding: '0 24px 32px' }}>
                 <Button
-                  href={`https://scira.ai/search/${chatId}`}
+                  href={`https://zetora.ai/search/${chatId}`}
                   className="bg-brand-primary text-brand-primary-foreground font-medium no-underline"
                   style={{
                     display: 'inline-block',
@@ -232,8 +232,8 @@ function LookoutCompletedEmail({
                 style={{ padding: '24px' }}
               >
                 <Img
-                  src="https://scira.ai/icon.png"
-                  alt="Scira AI"
+                  src="https://zetora.ai/icon.png"
+                  alt="Zetora AI"
                   width={24}
                   height={24}
                   className="mx-auto"
@@ -250,10 +250,10 @@ function LookoutCompletedEmail({
                   style={{ fontSize: '12px' }}
                 >
                   <Link
-                    href="https://scira.ai"
+                    href="https://zetora.ai"
                     className="text-brand-primary no-underline"
                   >
-                    scira.ai
+                    zetora.ai
                   </Link>
                 </Text>
               </Section>

@@ -3,7 +3,7 @@ import { ImageResponse } from 'next/og';
 import { getChatWithUserById, getMessagesByChatId } from '@/lib/db/queries';
 import fs from 'fs';
 import path from 'path';
-import { SciraLogo } from '@/components/logos/scira-logo';
+import { ZetoraLogo } from '@/components/logos/zetora-logo';
 
 interface TextPart {
   type: 'text';
@@ -112,7 +112,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
               fontFamily: 'Geist',
             }}
           >
-            <SciraLogo width={72} height={72} color={colors.foreground} />
+            <ZetoraLogo width={72} height={72} color={colors.foreground} />
             <div
               style={{
                 fontSize: 48,
@@ -123,7 +123,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
                 marginTop: 24,
               }}
             >
-              Scira
+              Zetora
             </div>
             <div
               style={{
@@ -167,7 +167,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
         >
           {/* Logo */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <SciraLogo width={56} height={56} color={colors.foreground} />
+            <ZetoraLogo width={56} height={56} color={colors.foreground} />
             <div
               style={{
                 fontSize: 40,
@@ -176,7 +176,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
                 fontWeight: 600,
               }}
             >
-              Scira AI
+              Zetora AI
             </div>
           </div>
 

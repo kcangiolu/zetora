@@ -46,10 +46,10 @@ function SettingsContent() {
   const defaultTab = searchParams.get('tab') || 'usage';
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [isCustomInstructionsEnabled, setIsCustomInstructionsEnabled] = useSyncedPreferences<boolean>(
-    'scira-custom-instructions-enabled',
+    'zetora-custom-instructions-enabled',
     true,
   );
-  const [blurPersonalInfo, setBlurPersonalInfo] = useSyncedPreferences<boolean>('scira-blur-personal-info', false);
+  const [blurPersonalInfo, setBlurPersonalInfo] = useSyncedPreferences<boolean>('zetora-blur-personal-info', false);
 
   const tabs = [
     { value: 'usage', label: 'Usage', icon: Analytics01Icon },
@@ -62,7 +62,7 @@ function SettingsContent() {
 
   const handleSignOut = async () => {
     queryClient.removeQueries({ queryKey: ['comprehensive-user-data'] });
-    localStorage.removeItem('scira-user-data');
+    localStorage.removeItem('zetora-user-data');
     sileo.promise(
       signOut().then(() => router.push('/sign-in')),
       {

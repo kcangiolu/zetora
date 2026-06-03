@@ -3,13 +3,13 @@ import 'server-only';
 import type { SearchProvider } from '@/lib/utils';
 
 type ExtremeSearchModelId =
-  | 'scira-ext-1'
-  | 'scira-ext-2'
-  | 'scira-ext-4'
-  | 'scira-ext-5'
-  | 'scira-ext-6'
-  | 'scira-ext-7'
-  | 'scira-ext-8';
+  | 'zetora-ext-1'
+  | 'zetora-ext-2'
+  | 'zetora-ext-4'
+  | 'zetora-ext-5'
+  | 'zetora-ext-6'
+  | 'zetora-ext-7'
+  | 'zetora-ext-8';
 
 interface LoadConfiguredToolsParams {
   activeToolNames: string[];
@@ -162,7 +162,7 @@ export async function loadConfiguredTools({
           tools.extreme_search = extremeSearchTool(
             dataStream,
             contextFiles,
-            extremeSearchModel || 'scira-ext-1',
+            extremeSearchModel || 'zetora-ext-1',
             includeMcpTools ? mcpDynamicTools : {},
           );
           return;

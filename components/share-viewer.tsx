@@ -13,7 +13,7 @@ import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
 import { forkChat } from '@/app/actions';
 import { Attachment, ChatMessage } from '@/lib/types';
-import { SciraLogo } from '@/components/logos/scira-logo';
+import { ZetoraLogo } from '@/components/logos/zetora-logo';
 
 interface ShareViewerProps {
   chatId: string;
@@ -149,7 +149,7 @@ export function ShareViewer({ chatId, chatTitle, shareUrl, messages, isSignedIn,
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-border/50 bg-background/90 backdrop-blur-xl px-4 py-3 shadow-lg shadow-black/5">
               {/* Top row on mobile / left side on desktop */}
               <div className="flex items-center gap-3 min-w-0">
-                <SciraLogo className="size-5 shrink-0 text-foreground/70" />
+                <ZetoraLogo className="size-5 shrink-0 text-foreground/70" />
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground leading-tight">You&apos;re viewing a shared chat</p>
                   <p className="text-xs text-muted-foreground leading-tight mt-0.5 hidden sm:block">

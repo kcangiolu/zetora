@@ -19,7 +19,7 @@ export async function GET(
 
   return NextResponse.json({
     client_id: clientId,
-    client_name: 'Scira AI',
+    client_name: 'Zetora AI',
     client_uri: origin,
     redirect_uris: [callbackUri],
     grant_types: ['authorization_code', 'refresh_token'],

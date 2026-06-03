@@ -282,7 +282,7 @@ function createBoxDownloadTool(dataStream: UIMessageStreamWriter<ChatMessage> | 
         const buffer = Buffer.from(b64Content, 'base64');
         console.log(`${LOG_PREFIX} [download:${downloadId}] ${filename} (${buffer.length} bytes)`);
         const ext = filename.includes('.') ? filename.split('.').pop() : 'bin';
-        const key = `scira/builds/${nanoid()}/${filename}`;
+        const key = `zetora/builds/${nanoid()}/${filename}`;
 
         const contentTypeMap: Record<string, string> = {
           js: 'text/javascript',

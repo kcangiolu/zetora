@@ -130,7 +130,7 @@ export async function GET(request: NextRequest) {
   }
 
   const userId = session.user.id;
-  const prefix = `scira/users/${userId}/`;
+  const prefix = `zetora/users/${userId}/`;
 
   const { searchParams } = new URL(request.url);
   const continuationToken = searchParams.get('cursor') ?? undefined;
@@ -330,8 +330,8 @@ export async function POST(request: NextRequest) {
     const ext = sanitizeExtension(rawExt);
 
     const key = isAuthenticated
-      ? `scira/users/${session!.user.id}/${nanoid()}.${ext}`
-      : `scira/public-${nanoid()}.${ext}`;
+      ? `zetora/users/${session!.user.id}/${nanoid()}.${ext}`
+      : `zetora/public-${nanoid()}.${ext}`;
 
     const command = new PutObjectCommand({
       Bucket: R2_BUCKET_NAME,
@@ -396,7 +396,7 @@ export async function DELETE(request: NextRequest) {
 
     // Ownership check via DB for all non-new-format files
     const r2Key       = isBlob ? '' : new URL(url).pathname.slice(1);
-    const isOwnR2Key  = !isBlob && r2Key.startsWith(`scira/users/${userId}/`);
+    const isOwnR2Key  = !isBlob && r2Key.startsWith(`zetora/users/${userId}/`);
 
     if (!isOwnR2Key) {
       const rows = await db

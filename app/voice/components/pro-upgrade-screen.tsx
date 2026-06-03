@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Mic, Globe, Zap } from "lucide-react";
-import { SciraLogo } from "@/components/logos/scira-logo";
+import { ZetoraLogo } from "@/components/logos/zetora-logo";
 import { Orb } from "@/components/ui/orb";
 
 interface ProUpgradeScreenProps {
@@ -27,7 +27,7 @@ export function ProUpgradeScreen({ user }: ProUpgradeScreenProps) {
         {/* Header */}
         <header className="flex w-full shrink-0 items-center pt-2 sm:pt-4">
           <div className="flex items-center gap-2">
-            <SciraLogo className="shrink-0 size-7 sm:size-8" />
+            <ZetoraLogo className="shrink-0 size-7 sm:size-8" />
             <h1 className="font-pixel text-base sm:text-2xl text-foreground tracking-wider">
               Voice
             </h1>
@@ -58,7 +58,7 @@ export function ProUpgradeScreen({ user }: ProUpgradeScreenProps) {
               </div>
               <p className="text-sm font-medium text-foreground">Unlock Voice</p>
               <p className="text-xs text-muted-foreground/70 leading-relaxed">
-                Have natural voice conversations with Scira. Ask questions, search the web, and get real-time responses.
+                Have natural voice conversations with Zetora. Ask questions, search the web, and get real-time responses.
               </p>
             </div>
 

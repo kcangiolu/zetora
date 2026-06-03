@@ -32,7 +32,7 @@ import { useLocation } from '@/hooks/use-location';
 import { ComprehensiveUserData } from '@/lib/user-data-server';
 import { StudentDomainRequestButton } from '@/components/student-domain-request-button';
 import { SupportedDomainsList } from '@/components/supported-domains-list';
-import { SciraLogo } from '@/components/logos/scira-logo';
+import { ZetoraLogo } from '@/components/logos/zetora-logo';
 import { ThemeSwitcher } from '@/components/theme-switcher';
 import { cn } from '@/lib/utils';
 import {
@@ -87,8 +87,8 @@ const comparisonFeatures = [
   { name: 'Voice mode', free: false, pro: true, max: true },
   { name: 'XQL (X Query Language)', free: false, pro: true, max: true },
   { name: 'Canvas (visualization mode)', free: false, pro: true, max: true },
-  { name: 'Scira Apps (100+ MCP integrations)', free: false, pro: true, max: true },
-  { name: 'Scira Lookout', free: false, pro: true, max: true },
+  { name: 'Zetora Apps (100+ MCP integrations)', free: false, pro: true, max: true },
+  { name: 'Zetora Lookout', free: false, pro: true, max: true },
   { name: 'Priority support', free: false, pro: true, max: true },
 ];
 
@@ -271,7 +271,7 @@ export default function PricingTable({ subscriptionDetails, user }: PricingTable
 
   const clearClientUserCaches = async () => {
     try {
-      localStorage.removeItem('scira-user-data');
+      localStorage.removeItem('zetora-user-data');
     } catch {}
 
     await queryClient.invalidateQueries({ queryKey: ['comprehensive-user-data'] });
@@ -327,8 +327,8 @@ export default function PricingTable({ subscriptionDetails, user }: PricingTable
         <div className="max-w-5xl mx-auto">
           <div className="flex items-center justify-between h-14 px-6">
             <Link href="/" className="flex items-center gap-2.5 group">
-              <SciraLogo className="size-5 transition-transform duration-300 group-hover:scale-110" />
-              <span className="text-lg font-light tracking-tighter font-be-vietnam-pro">scira</span>
+              <ZetoraLogo className="size-5 transition-transform duration-300 group-hover:scale-110" />
+              <span className="text-lg font-light tracking-tighter font-be-vietnam-pro">zetora</span>
             </Link>
             <div className="flex items-center gap-3">
               <ThemeSwitcher />
@@ -578,13 +578,13 @@ export default function PricingTable({ subscriptionDetails, user }: PricingTable
               {[
                 'Unlimited searches',
                 'All base AI models',
-                'Scira Apps (100+ integrations)',
+                'Zetora Apps (100+ integrations)',
                 'Extreme deep research',
                 'PDF analysis',
                 'Voice mode',
                 'XQL (X Query Language)',
                 'Canvas (visualization mode)',
-                'Scira Lookout',
+                'Zetora Lookout',
                 'Priority support',
               ].map((item) => (
                 <li
@@ -1160,12 +1160,12 @@ export default function PricingTable({ subscriptionDetails, user }: PricingTable
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[
               {
-                content: 'Scira is better than Grok at digging up information from X. Insanely accurate answers!',
+                content: 'Zetora is better than Grok at digging up information from X. Insanely accurate answers!',
                 author: 'Chris Universe',
                 handle: '@chrisuniverseb',
               },
               {
-                content: 'Read nothing the whole sem and here I am with Scira to top my mid sems!',
+                content: 'Read nothing the whole sem and here I am with Zetora to top my mid sems!',
                 author: 'Rajnandinit',
                 handle: '@itsRajnandinit',
               },
@@ -1231,7 +1231,7 @@ export default function PricingTable({ subscriptionDetails, user }: PricingTable
             Ready to unlock <span className="font-pixel text-2xl">unlimited</span> research?
           </h2>
           <p className="text-sm text-muted-foreground mb-8 max-w-md mx-auto">
-            Join 100K+ users who research and get things done with Scira.
+            Join 100K+ users who research and get things done with Zetora.
           </p>
           <div className="flex items-center justify-center gap-3">
             <Button
@@ -1252,8 +1252,8 @@ export default function PricingTable({ subscriptionDetails, user }: PricingTable
               Privacy Policy
             </Link>
             . Questions?{' '}
-            <a href="mailto:zaid@scira.ai" className="text-foreground hover:underline underline-offset-2">
-              zaid@scira.ai
+            <a href="mailto:zaid@zetora.ai" className="text-foreground hover:underline underline-offset-2">
+              zaid@zetora.ai
             </a>
           </p>
         </div>
@@ -1264,8 +1264,8 @@ export default function PricingTable({ subscriptionDetails, user }: PricingTable
         <div className="max-w-5xl mx-auto px-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-8">
             <div className="flex items-center gap-3">
-              <SciraLogo className="size-4" />
-              <span className="text-xs text-muted-foreground">&copy; {new Date().getFullYear()} Scira</span>
+              <ZetoraLogo className="size-4" />
+              <span className="text-xs text-muted-foreground">&copy; {new Date().getFullYear()} Zetora</span>
             </div>
             <div className="flex items-center gap-6">
               <Link href="/" className="text-xs text-muted-foreground hover:text-foreground transition-colors">

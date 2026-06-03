@@ -78,7 +78,7 @@ import {
 } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ComprehensiveUserData } from '@/lib/user-data-server';
-import { SciraLogo } from '@/components/logos/scira-logo';
+import { ZetoraLogo } from '@/components/logos/zetora-logo';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useTheme } from 'next-themes';
 import { Button } from './ui/button';
@@ -142,7 +142,7 @@ function UserDropdownContent({
   const handleSignOut = async () => {
     closeMobileSidebar();
     queryClient.removeQueries({ queryKey: ['comprehensive-user-data'] });
-    localStorage.removeItem('scira-user-data');
+    localStorage.removeItem('zetora-user-data');
 
     sileo.promise(
       signOut().then(() => router.push('/sign-in')),
@@ -176,13 +176,13 @@ function UserDropdownContent({
           <p className="text-xs text-muted-foreground">
             {isProUser ? (
               <span>
-                Scira{' '}
+                Zetora{' '}
                 <span className="font-pixel text-[10px] uppercase tracking-wider">
                   {user.isMaxUser ? 'Max' : 'Pro'}
                 </span>
               </span>
             ) : (
-              'Scira Free'
+              'Zetora Free'
             )}
           </p>
         </div>
@@ -358,7 +358,7 @@ function UserDropdownContent({
               </Link>
               <div className="h-px bg-border/40 my-1" />
               <a
-                href="https://git.new/scira"
+                href="https://git.new/zetora"
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={closeMobileSidebar}
@@ -368,7 +368,7 @@ function UserDropdownContent({
                 <span>GitHub</span>
               </a>
               <a
-                href="https://x.com/sciraai"
+                href="https://x.com/zetoraai"
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={closeMobileSidebar}
@@ -378,7 +378,7 @@ function UserDropdownContent({
                 <span>X.com</span>
               </a>
               <a
-                href="https://www.instagram.com/scira.ai"
+                href="https://www.instagram.com/zetora.ai"
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={closeMobileSidebar}
@@ -388,7 +388,7 @@ function UserDropdownContent({
                 <span>Instagram</span>
               </a>
               <a
-                href="https://scira.userjot.com"
+                href="https://zetora.userjot.com"
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={closeMobileSidebar}
@@ -398,7 +398,7 @@ function UserDropdownContent({
                 <span>Feedback</span>
               </a>
               <a
-                href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fzaidmukaddam%2Fscira"
+                href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fzaidmukaddam%2Fzetora"
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={closeMobileSidebar}
@@ -483,11 +483,11 @@ const groupChatsByDate = (chats: any[]) => {
 };
 
 export const AppSidebar = memo(({ user, onHistoryClick, isProUser }: AppSidebarProps) => {
-  const [blurPersonalInfo] = useSyncedPreferences<boolean>('scira-blur-personal-info', false);
+  const [blurPersonalInfo] = useSyncedPreferences<boolean>('zetora-blur-personal-info', false);
   const [isRecentCollapsed, setIsRecentCollapsed] = React.useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     try {
-      const stored = window.localStorage.getItem('scira-recent-collapsed');
+      const stored = window.localStorage.getItem('zetora-recent-collapsed');
       return stored ? JSON.parse(stored) : false;
     } catch {
       return false;
@@ -495,7 +495,7 @@ export const AppSidebar = memo(({ user, onHistoryClick, isProUser }: AppSidebarP
   });
   React.useEffect(() => {
     try {
-      window.localStorage.setItem('scira-recent-collapsed', JSON.stringify(isRecentCollapsed));
+      window.localStorage.setItem('zetora-recent-collapsed', JSON.stringify(isRecentCollapsed));
     } catch {
       // ignore
     }
@@ -576,14 +576,14 @@ export const AppSidebar = memo(({ user, onHistoryClick, isProUser }: AppSidebarP
       id: 'github',
       label: 'GitHub',
       icon: GithubLogoIcon,
-      href: 'https://git.new/scira',
+      href: 'https://git.new/zetora',
       external: true,
     },
     {
       id: 'feedback',
       label: 'Feedback',
       icon: BugIcon,
-      href: 'https://scira.userjot.com',
+      href: 'https://zetora.userjot.com',
       external: true,
     },
   ];
@@ -693,7 +693,7 @@ export const AppSidebar = memo(({ user, onHistoryClick, isProUser }: AppSidebarP
     try {
       await updateChatVisibility(shareTarget.id, visibility);
       setShareVisibility(visibility);
-      const shareUrl = visibility === 'public' ? `https://scira.ai/share/${shareTarget.id}` : '';
+      const shareUrl = visibility === 'public' ? `https://zetora.ai/share/${shareTarget.id}` : '';
       sileo.success({
         title: visibility === 'public' ? 'Chat shared' : 'Chat is now private',
         description: visibility === 'public' ? 'Your chat is now publicly accessible' : 'Your chat is now private',
@@ -761,10 +761,10 @@ export const AppSidebar = memo(({ user, onHistoryClick, isProUser }: AppSidebarP
                   className="inline-flex items-center gap-1 w-fit group-data-[collapsible=icon]:mx-auto"
                 >
                   <div className="flex items-center justify-center size-6 shrink-0 transition-opacity duration-200 group-data-[collapsible=icon]:group-hover:opacity-0">
-                    <SciraLogo className="size-6" />
+                    <ZetoraLogo className="size-6" />
                   </div>
                   <div className="flex flex-row items-center gap-2 leading-none group-data-[collapsible=icon]:hidden">
-                    <span className="font-be-vietnam-pro font-light tracking-tighter text-xl">scira</span>
+                    <span className="font-be-vietnam-pro font-light tracking-tighter text-xl">zetora</span>
                     {user && isProUser && (
                       <div className="w-fit">
                         <span className="animate-shimmer text-xs font-baumans inline-flex items-center justify-center min-w-6 h-4 px-1.5 pt-0 pb-0.5 rounded-md shadow-sm bg-linear-to-br from-secondary/30 via-primary/25 to-accent/30 text-foreground ring-1 ring-primary/25 ring-offset-1 ring-offset-background dark:bg-linear-to-br dark:from-primary dark:via-secondary dark:to-primary dark:text-foreground dark:ring-primary/40">
@@ -989,7 +989,7 @@ export const AppSidebar = memo(({ user, onHistoryClick, isProUser }: AppSidebarP
                 className="hover:bg-primary/10 transition-all duration-200"
               >
                 <a
-                  href="https://inmail.scira.ai/"
+                  href="https://inmail.zetora.ai/"
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={closeMobileSidebar}
@@ -1006,7 +1006,7 @@ export const AppSidebar = memo(({ user, onHistoryClick, isProUser }: AppSidebarP
           <SidebarMenuItem>
             <SidebarMenuButton asChild tooltip="API" className="hover:bg-primary/10 transition-all duration-200">
               <a
-                href="https://api.scira.ai/"
+                href="https://api.zetora.ai/"
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={closeMobileSidebar}
@@ -1403,13 +1403,13 @@ export const AppSidebar = memo(({ user, onHistoryClick, isProUser }: AppSidebarP
                           <span className="text-xs text-sidebar-foreground/70 truncate text-left w-full">
                             {isProUser ? (
                               <span>
-                                Scira{' '}
+                                Zetora{' '}
                                 <span className="font-pixel text-[10px] uppercase tracking-wider">
                                   {user?.isMaxUser ? 'Max' : 'Pro'}
                                 </span>
                               </span>
                             ) : (
-                              'Scira Free'
+                              'Zetora Free'
                             )}
                           </span>
                         </div>

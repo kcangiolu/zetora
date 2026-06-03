@@ -18,7 +18,7 @@ import {
 } from 'ai';
 import { pipeJsonRender } from '@json-render/core';
 import {
-  scira,
+  zetora,
   requiresAuthentication,
   requiresProSubscription,
   requiresMaxSubscription,
@@ -750,7 +750,7 @@ export async function POST(req: Request) {
   const hasImages = lastUserParts.some((part) => part.type === 'file' && (part as any).mediaType?.startsWith('image/'));
 
   // Auto-routing logic - run on server side if auto router is selected
-  if (isAutoRouted && autoRouterEnabled && requestedModel === 'scira-auto') {
+  if (isAutoRouted && autoRouterEnabled && requestedModel === 'zetora-auto') {
     // Extract last user query for routing
     let query = '';
     for (let i = hydratedMessages.length - 1; i >= 0; i--) {
@@ -778,18 +778,18 @@ export async function POST(req: Request) {
           model = routeResult.model;
           autoRouteName = routeResult.route;
         } else {
-          model = 'scira-default';
+          model = 'zetora-default';
         }
       } catch (error) {
         console.error('Auto router error:', error);
-        model = 'scira-default';
+        model = 'zetora-default';
       }
     } else {
-      model = 'scira-default';
+      model = 'zetora-default';
     }
 
     if (hasImages && !hasVisionSupport(model)) {
-      model = 'scira-default';
+      model = 'zetora-default';
       autoRouteName = 'other';
     }
   }
@@ -843,7 +843,7 @@ export async function POST(req: Request) {
         ...(group === 'mcp' || group === 'extreme' ? dynamicMcpToolNames : []),
       ];
       const streamActiveTools =
-        model === 'scira-qwen-coder-plus' || model === 'scira-qwen-3-vl' || model === 'scira-qwen-3-vl-thinking'
+        model === 'zetora-qwen-coder-plus' || model === 'zetora-qwen-3-vl' || model === 'zetora-qwen-3-vl-thinking'
           ? [...configuredActiveTools].filter((tool) => tool !== 'code_interpreter')
           : [...configuredActiveTools];
       const loadedTools = await loadConfiguredTools({
@@ -958,17 +958,17 @@ export async function POST(req: Request) {
       }
 
       const result = streamText({
-        model: shouldUseXaiMultiAgent ? xai.responses('grok-4.20-multi-agent') : scira.languageModel(model),
+        model: shouldUseXaiMultiAgent ? xai.responses('grok-4.20-multi-agent') : zetora.languageModel(model),
         messages: processedMessages,
         ...getModelParameters(shouldUseXaiMultiAgent ? 'grok-4.20-multi-agent' : model),
         stopWhen: stepCountIs(shouldUseXaiMultiAgent ? 5 : group === 'mcp' ? 50 : 5),
         ...(shouldUseXaiMultiAgent
           ? {}
-          : model === 'scira-default' ||
-              model === 'scira-grok4.1-fast-thinking' ||
-              model === 'scira-glm-4.6' ||
-              model === 'scira-glm-4.6v-flash' ||
-              model === 'scira-glm-4.6v'
+          : model === 'zetora-default' ||
+              model === 'zetora-grok4.1-fast-thinking' ||
+              model === 'zetora-glm-4.6' ||
+              model === 'zetora-glm-4.6v-flash' ||
+              model === 'zetora-glm-4.6v'
             ? {
                 maxOutputTokens: getMaxOutputTokens(model),
               }
@@ -982,7 +982,7 @@ export async function POST(req: Request) {
           (customInstructions && (isCustomInstructionsEnabled ?? true)
             ? `\n\nThe user's custom instructions are as follows and YOU MUST FOLLOW THEM AT ALL COSTS: ${customInstructions?.content}`
             : '\n') +
-          (latitude && longitude && userPreferencesResult?.preferences?.['scira-location-metadata-enabled'] === true
+          (latitude && longitude && userPreferencesResult?.preferences?.['zetora-location-metadata-enabled'] === true
             ? `\n\nThe user's location is ${latitude}, ${longitude}.`
             : '') +
           (shouldUseXaiMultiAgent
@@ -990,12 +990,12 @@ export async function POST(req: Request) {
             : ''),
         toolChoice: 'auto',
         tools: streamTools,
-        ...(model === 'scira-anthropic' ||
-        model === 'scira-anthropic-think' ||
-        model === 'scira-anthropic-sonnet-4.6' ||
-        model === 'scira-anthropic-sonnet-4.6-think' ||
-        model === 'scira-anthropic-opus-4.6' ||
-        model === 'scira-anthropic-opus-4.6-think'
+        ...(model === 'zetora-anthropic' ||
+        model === 'zetora-anthropic-think' ||
+        model === 'zetora-anthropic-sonnet-4.6' ||
+        model === 'zetora-anthropic-sonnet-4.6-think' ||
+        model === 'zetora-anthropic-opus-4.6' ||
+        model === 'zetora-anthropic-opus-4.6-think'
           ? {
               headers: {
                 'anthropic-beta': 'context-1m-2025-08-07',
@@ -1026,32 +1026,32 @@ export async function POST(req: Request) {
               'togetherai',
               'inception',
             ],
-            ...(model === 'scira-kimi-k2-v2-thinking'
+            ...(model === 'zetora-kimi-k2-v2-thinking'
               ? {
                   order: ['moonshotai'],
                 }
               : {}),
-            ...(model === 'scira-qwen-coder' || model === 'scira-deepseek-v3' || model === 'scira-qwen-235'
+            ...(model === 'zetora-qwen-coder' || model === 'zetora-deepseek-v3' || model === 'zetora-qwen-235'
               ? {
                   order: ['baseten'],
                 }
               : {}),
-            ...(model === 'scira-nova-2-lite'
+            ...(model === 'zetora-nova-2-lite'
               ? {
                   order: ['bedrock'],
                 }
               : {}),
-            ...(model === 'scira-kat-coder'
+            ...(model === 'zetora-kat-coder'
               ? {
                   order: ['streamlake'],
                 }
               : {}),
-            ...(model === 'scira-glm-4.7' || model === 'scira-glm-4.7-flash'
+            ...(model === 'zetora-glm-4.7' || model === 'zetora-glm-4.7-flash'
               ? {
                   order: ['zai'],
                 }
               : {}),
-            ...(model === 'scira-kimi-k2.5' || model === 'scira-kimi-k2.5-thinking'
+            ...(model === 'zetora-kimi-k2.5' || model === 'zetora-kimi-k2.5-thinking'
               ? {
                   order: ['fireworks'],
                 }
@@ -1066,117 +1066,117 @@ export async function POST(req: Request) {
             reasoning_effort: 'high',
           },
           openai: {
-            ...(model !== 'scira-qwen-coder'
+            ...(model !== 'zetora-qwen-coder'
               ? {
                   parallelToolCalls: false,
                 }
               : {}),
-            ...((model === 'scira-gpt5' ||
-            model === 'scira-gpt5-mini' ||
-            model === 'scira-o3' ||
-            model === 'scira-gpt5-nano' ||
-            model === 'scira-gpt5-codex' ||
-            model === 'scira-gpt5-medium' ||
-            model === 'scira-o4-mini' ||
-            model === 'scira-gpt-4.1' ||
-            model === 'scira-gpt-4.1-mini' ||
-            model === 'scira-gpt-4.1-nano' ||
-            model === 'scira-gpt-5.1' ||
-            model === 'scira-gpt-5.1-thinking' ||
-            model === 'scira-gpt-5.1-codex' ||
-            model === 'scira-gpt-5.1-codex-mini' ||
-            model === 'scira-gpt-5.1-codex-max' ||
-            model === 'scira-gpt-5.2' ||
-            model === 'scira-gpt-5.4' ||
-            model === 'scira-gpt-5.4-mini' ||
-            model === 'scira-gpt-5.4-nano' ||
-            model === 'scira-gpt-5.4-thinking' ||
-            model === 'scira-gpt-5.4-thinking-xhigh' ||
-            model === 'scira-gpt-5.2-thinking' ||
-            model === 'scira-gpt-5.2-thinking-xhigh' ||
-            model === 'scira-gpt-5.2-codex' ||
-            model === 'scira-gpt-5.3-codex'
+            ...((model === 'zetora-gpt5' ||
+            model === 'zetora-gpt5-mini' ||
+            model === 'zetora-o3' ||
+            model === 'zetora-gpt5-nano' ||
+            model === 'zetora-gpt5-codex' ||
+            model === 'zetora-gpt5-medium' ||
+            model === 'zetora-o4-mini' ||
+            model === 'zetora-gpt-4.1' ||
+            model === 'zetora-gpt-4.1-mini' ||
+            model === 'zetora-gpt-4.1-nano' ||
+            model === 'zetora-gpt-5.1' ||
+            model === 'zetora-gpt-5.1-thinking' ||
+            model === 'zetora-gpt-5.1-codex' ||
+            model === 'zetora-gpt-5.1-codex-mini' ||
+            model === 'zetora-gpt-5.1-codex-max' ||
+            model === 'zetora-gpt-5.2' ||
+            model === 'zetora-gpt-5.4' ||
+            model === 'zetora-gpt-5.4-mini' ||
+            model === 'zetora-gpt-5.4-nano' ||
+            model === 'zetora-gpt-5.4-thinking' ||
+            model === 'zetora-gpt-5.4-thinking-xhigh' ||
+            model === 'zetora-gpt-5.2-thinking' ||
+            model === 'zetora-gpt-5.2-thinking-xhigh' ||
+            model === 'zetora-gpt-5.2-codex' ||
+            model === 'zetora-gpt-5.3-codex'
               ? {
                   reasoningEffort:
-                    model === 'scira-gpt5-nano' || model === 'scira-gpt5' || model === 'scira-gpt5-mini'
+                    model === 'zetora-gpt5-nano' || model === 'zetora-gpt5' || model === 'zetora-gpt5-mini'
                       ? 'minimal'
-                      : model === 'scira-gpt-5.2-thinking-xhigh' || model === 'scira-gpt-5.4-thinking-xhigh'
+                      : model === 'zetora-gpt-5.2-thinking-xhigh' || model === 'zetora-gpt-5.4-thinking-xhigh'
                         ? 'xhigh'
-                        : model === 'scira-gpt-5.1' ||
-                            model === 'scira-gpt-5.2' ||
-                            model === 'scira-gpt-5.4' ||
-                            model === 'scira-gpt-5.4-mini' ||
-                            model === 'scira-gpt-5.4-nano'
+                        : model === 'zetora-gpt-5.1' ||
+                            model === 'zetora-gpt-5.2' ||
+                            model === 'zetora-gpt-5.4' ||
+                            model === 'zetora-gpt-5.4-mini' ||
+                            model === 'zetora-gpt-5.4-nano'
                           ? 'none'
                           : 'medium',
                   parallelToolCalls:
-                    model === 'scira-gpt-5.2-thinking-xhigh' || model === 'scira-gpt-5.4-thinking-xhigh' ? true : false,
+                    model === 'zetora-gpt-5.2-thinking-xhigh' || model === 'zetora-gpt-5.4-thinking-xhigh' ? true : false,
                   reasoningSummary: 'detailed',
-                  promptCacheKey: 'scira-oai',
-                  ...(model === 'scira-gpt-5.1' ||
-                  model === 'scira-gpt-5.4' ||
-                  model === 'scira-gpt-5.4-mini' ||
-                  model === 'scira-gpt-5.4-nano' ||
-                  model === 'scira-gpt-5.4-thinking' ||
-                  model === 'scira-gpt-5.2' ||
-                  model === 'scira-gpt-5.2-thinking' ||
-                  model === 'scira-gpt-5.2-codex' ||
-                  model === 'scira-gpt-5.3-codex' ||
-                  model === 'scira-gpt-5.1-codex' ||
-                  model === 'scira-gpt-5.1-codex-mini' ||
-                  model === 'scira-gpt-5.1-codex-max' ||
-                  model === 'scira-gpt5' ||
-                  model === 'scira-gpt5-codex' ||
-                  model === 'scira-gpt4.1'
+                  promptCacheKey: 'zetora-oai',
+                  ...(model === 'zetora-gpt-5.1' ||
+                  model === 'zetora-gpt-5.4' ||
+                  model === 'zetora-gpt-5.4-mini' ||
+                  model === 'zetora-gpt-5.4-nano' ||
+                  model === 'zetora-gpt-5.4-thinking' ||
+                  model === 'zetora-gpt-5.2' ||
+                  model === 'zetora-gpt-5.2-thinking' ||
+                  model === 'zetora-gpt-5.2-codex' ||
+                  model === 'zetora-gpt-5.3-codex' ||
+                  model === 'zetora-gpt-5.1-codex' ||
+                  model === 'zetora-gpt-5.1-codex-mini' ||
+                  model === 'zetora-gpt-5.1-codex-max' ||
+                  model === 'zetora-gpt5' ||
+                  model === 'zetora-gpt5-codex' ||
+                  model === 'zetora-gpt4.1'
                     ? {
                         promptCacheRetention: '24h',
                       }
                     : {}),
                   store: false,
-                  ...(model === 'scira-gpt-5.4' ||
-                  model === 'scira-gpt-5.4-mini' ||
-                  model === 'scira-gpt-5.4-nano' ||
-                  model === 'scira-gpt-5.4-thinking' ||
-                  model === 'scira-gpt-5.4-thinking-xhigh'
+                  ...(model === 'zetora-gpt-5.4' ||
+                  model === 'zetora-gpt-5.4-mini' ||
+                  model === 'zetora-gpt-5.4-nano' ||
+                  model === 'zetora-gpt-5.4-thinking' ||
+                  model === 'zetora-gpt-5.4-thinking-xhigh'
                     ? {
                         serviceTier: 'priority',
                       }
                     : {}),
                   // only for reasoning models
-                  ...(model === 'scira-gpt-5.1' ||
-                  model === 'scira-gpt-5.1-codex' ||
-                  model === 'scira-gpt-5.1-codex-mini' ||
-                  model === 'scira-gpt5' ||
-                  model === 'scira-gpt5-codex' ||
-                  model === 'scira-gpt-5.1-thinking' ||
-                  model === 'scira-gpt5-nano' ||
-                  model === 'scira-gpt5-mini' ||
-                  model === 'scira-gpt-5.4' ||
-                  model === 'scira-gpt-5.4-mini' ||
-                  model === 'scira-gpt-5.4-nano' ||
-                  model === 'scira-gpt-5.4-thinking' ||
-                  model === 'scira-gpt-5.4-thinking-xhigh' ||
-                  model === 'scira-gpt-5.1-codex-max' ||
-                  model === 'scira-gpt-5.2' ||
-                  model === 'scira-gpt-5.2-thinking' ||
-                  model === 'scira-gpt-5.2-codex' ||
-                  model === 'scira-gpt-5.3-codex'
+                  ...(model === 'zetora-gpt-5.1' ||
+                  model === 'zetora-gpt-5.1-codex' ||
+                  model === 'zetora-gpt-5.1-codex-mini' ||
+                  model === 'zetora-gpt5' ||
+                  model === 'zetora-gpt5-codex' ||
+                  model === 'zetora-gpt-5.1-thinking' ||
+                  model === 'zetora-gpt5-nano' ||
+                  model === 'zetora-gpt5-mini' ||
+                  model === 'zetora-gpt-5.4' ||
+                  model === 'zetora-gpt-5.4-mini' ||
+                  model === 'zetora-gpt-5.4-nano' ||
+                  model === 'zetora-gpt-5.4-thinking' ||
+                  model === 'zetora-gpt-5.4-thinking-xhigh' ||
+                  model === 'zetora-gpt-5.1-codex-max' ||
+                  model === 'zetora-gpt-5.2' ||
+                  model === 'zetora-gpt-5.2-thinking' ||
+                  model === 'zetora-gpt-5.2-codex' ||
+                  model === 'zetora-gpt-5.3-codex'
                     ? {
                         include: ['reasoning.encrypted_content'],
                       }
                     : {}),
                   textVerbosity:
-                    model === 'scira-o3' ||
-                    model === 'scira-gpt5-codex' ||
-                    model === 'scira-gpt-5.1-codex' ||
-                    model === 'scira-gpt-5.1-codex-mini' ||
-                    model === 'scira-gpt-5.1-codex-max' ||
-                    model === 'scira-gpt-5.2-codex' ||
-                    model === 'scira-gpt-5.3-codex' ||
-                    model === 'scira-o4-mini' ||
-                    model === 'scira-gpt-4.1' ||
-                    model === 'scira-gpt-4.1-mini' ||
-                    model === 'scira-gpt-4.1-nano'
+                    model === 'zetora-o3' ||
+                    model === 'zetora-gpt5-codex' ||
+                    model === 'zetora-gpt-5.1-codex' ||
+                    model === 'zetora-gpt-5.1-codex-mini' ||
+                    model === 'zetora-gpt-5.1-codex-max' ||
+                    model === 'zetora-gpt-5.2-codex' ||
+                    model === 'zetora-gpt-5.3-codex' ||
+                    model === 'zetora-o4-mini' ||
+                    model === 'zetora-gpt-4.1' ||
+                    model === 'zetora-gpt-4.1-mini' ||
+                    model === 'zetora-gpt-4.1-nano'
                       ? 'medium'
                       : 'high',
                 }
@@ -1186,13 +1186,13 @@ export async function POST(req: Request) {
             parallelToolCalls: false,
           },
           groq: {
-            ...(model === 'scira-gpt-oss-20' || model === 'scira-gpt-oss-120'
+            ...(model === 'zetora-gpt-oss-20' || model === 'zetora-gpt-oss-120'
               ? {
                   reasoningEffort: 'high',
                   reasoningFormat: 'hidden',
                 }
               : {}),
-            ...(model === 'scira-qwen-32b'
+            ...(model === 'zetora-qwen-32b'
               ? {
                   reasoningEffort: 'none',
                 }
@@ -1220,7 +1220,7 @@ export async function POST(req: Request) {
             parallel_tool_calls: false,
           },
           cohere: {
-            ...(model === 'scira-cmd-a-think'
+            ...(model === 'zetora-cmd-a-think'
               ? {
                   thinking: {
                     type: 'enabled',
@@ -1230,10 +1230,10 @@ export async function POST(req: Request) {
               : {}),
           } satisfies CohereChatModelOptions,
           zai: {
-            ...(model === 'scira-glm-4.7' ||
-            model === 'scira-glm-4.7-flash' ||
-            model === 'scira-glm-5' ||
-            model === 'scira-pony-alpha-2'
+            ...(model === 'zetora-glm-4.7' ||
+            model === 'zetora-glm-4.7-flash' ||
+            model === 'zetora-glm-5' ||
+            model === 'zetora-pony-alpha-2'
               ? {
                   thinking: {
                     type: 'disabled',
@@ -1243,7 +1243,7 @@ export async function POST(req: Request) {
               : {}),
           },
           anthropic: {
-            ...(model === 'scira-anthropic-think' || model === 'scira-anthropic-opus-think'
+            ...(model === 'zetora-anthropic-think' || model === 'zetora-anthropic-opus-think'
               ? {
                   sendReasoning: true,
                   thinking: {
@@ -1252,7 +1252,7 @@ export async function POST(req: Request) {
                   },
                 }
               : {}),
-            ...(model === 'scira-anthropic-sonnet-4.6-think' || model === 'scira-anthropic-opus-4.6-think'
+            ...(model === 'zetora-anthropic-sonnet-4.6-think' || model === 'zetora-anthropic-opus-4.6-think'
               ? {
                   sendReasoning: true,
                   thinking: {
@@ -1264,7 +1264,7 @@ export async function POST(req: Request) {
             disableParallelToolUse: true,
           } satisfies AnthropicProviderOptions,
           google: {
-            ...(model === 'scira-google-think' || model === 'scira-google-pro-think'
+            ...(model === 'zetora-google-think' || model === 'zetora-google-pro-think'
               ? {
                   thinkingConfig: {
                     thinkingBudget: 400,
@@ -1272,9 +1272,9 @@ export async function POST(req: Request) {
                   },
                 }
               : {}),
-            ...(model === 'scira-gemini-3-flash-think' ||
-            model === 'scira-gemini-3.1-pro' ||
-            model === 'scira-gemini-3.1-flash-lite-think'
+            ...(model === 'zetora-gemini-3-flash-think' ||
+            model === 'zetora-gemini-3.1-pro' ||
+            model === 'zetora-gemini-3.1-flash-lite-think'
               ? {
                   thinkingConfig: {
                     thinkingLevel: 'medium',
@@ -1285,9 +1285,9 @@ export async function POST(req: Request) {
             threshold: 'OFF',
           } satisfies GoogleGenerativeAIProviderOptions,
           vertex: {
-            ...(model === 'scira-gemini-3-flash-think' ||
-            model === 'scira-gemini-3.1-pro' ||
-            model === 'scira-gemini-3.1-flash-lite-think'
+            ...(model === 'zetora-gemini-3-flash-think' ||
+            model === 'zetora-gemini-3.1-pro' ||
+            model === 'zetora-gemini-3.1-flash-lite-think'
               ? {
                   thinkingConfig: {
                     thinkingLevel: 'medium',
@@ -1298,7 +1298,7 @@ export async function POST(req: Request) {
             threshold: 'OFF',
           } satisfies GoogleLanguageModelOptions,
           openrouter: {
-            ...(model === 'scira-anthropic-think' || model === 'scira-anthropic-opus-think'
+            ...(model === 'zetora-anthropic-think' || model === 'zetora-anthropic-opus-think'
               ? {
                   reasoning: {
                     exclude: false,
@@ -1306,7 +1306,7 @@ export async function POST(req: Request) {
                   },
                 }
               : {}),
-            // ...(model === "scira-pony-alpha" ? {
+            // ...(model === "zetora-pony-alpha" ? {
             //   reasoning: {
             //     exclude: true,
             //   },
@@ -1320,62 +1320,62 @@ export async function POST(req: Request) {
             reasoning: { effort: 'minimal' },
           },
           alibaba: {
-            ...(model === 'scira-qwen-3-max-preview-thinking'
+            ...(model === 'zetora-qwen-3-max-preview-thinking'
               ? {
                   enable_thinking: true,
                 }
               : {}),
-            ...(model === 'scira-qwen-3.5-flash'
+            ...(model === 'zetora-qwen-3.5-flash'
               ? {
                   enable_thinking: false,
                 }
               : {}),
           },
           moonshotai: {
-            ...(model === 'scira-kimi-k2.5'
+            ...(model === 'zetora-kimi-k2.5'
               ? {
                   thinking: { type: 'disabled' },
                 }
               : {}),
-            ...(model === 'scira-kimi-k2.5-thinking'
+            ...(model === 'zetora-kimi-k2.5-thinking'
               ? {
                   thinking: { type: 'enabled' },
                 }
               : {}),
           },
           fireworks: {
-            ...(model === 'scira-kimi-k2.5'
+            ...(model === 'zetora-kimi-k2.5'
               ? {
                   thinking: { type: 'disabled' },
                 }
               : {}),
-            ...(model === 'scira-kimi-k2.5-thinking'
+            ...(model === 'zetora-kimi-k2.5-thinking'
               ? {
                   thinking: { type: 'enabled' },
                 }
               : {}),
           },
           novita: {
-            ...(model === 'scira-deepseek-chat-think-exp'
+            ...(model === 'zetora-deepseek-chat-think-exp'
               ? {
                   enable_thinking: true,
                 }
               : {}),
-            ...(model === 'scira-qwen-3.5'
+            ...(model === 'zetora-qwen-3.5'
               ? {
                   enable_thinking: false,
                 }
               : {}),
           },
           mistral: {
-            ...(model === 'scira-mistral-small-think'
+            ...(model === 'zetora-mistral-small-think'
               ? {
                   reasoning_effort: 'high',
                 }
               : {}),
           },
           inception: {
-            ...(model === 'scira-mercury-2'
+            ...(model === 'zetora-mercury-2'
               ? {
                   reasoning_effort: 'high',
                   reasoning_summary: true,
@@ -1420,7 +1420,7 @@ export async function POST(req: Request) {
 
           // Download for models that can't fetch R2 URLs directly
           const requiresDownload =
-            model.startsWith('scira-anthropic') || model.startsWith('scira-google') || model.startsWith('scira-gemini');
+            model.startsWith('zetora-anthropic') || model.startsWith('zetora-google') || model.startsWith('zetora-gemini');
 
           if (!requiresDownload) {
             // Let other models handle URLs directly
@@ -1474,7 +1474,7 @@ export async function POST(req: Request) {
           const shouldDisableTools = steps.length > 0 && latestStepHasToolRoundTrip;
 
           // Only return object if tools need to be disabled
-          if (shouldDisableTools && model !== 'scira-sarvam-105b') {
+          if (shouldDisableTools && model !== 'zetora-sarvam-105b') {
             return {
               toolChoice: 'none' as const,
               activeTools: [],
@@ -1505,7 +1505,7 @@ export async function POST(req: Request) {
           }
 
           const { output: repairedArgs } = await generateText({
-            model: scira.languageModel('scira-default'),
+            model: zetora.languageModel('zetora-default'),
             output: Output.object({ schema: tool.inputSchema }),
             prompt: [
               `The model tried to call the tool "${toolCall.toolName}"` + ` with the following arguments:`,

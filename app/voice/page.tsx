@@ -6,7 +6,7 @@ import { ArrowUp, Mic, MicOff, Globe, MessageCircle, Wrench, ChevronDown, Chevro
 import { useRouter } from "next/navigation";
 import { Orb } from "@/components/ui/orb";
 import { VoicePicker } from "@/components/ui/voice-picker";
-import { SciraLogo } from "@/components/logos/scira-logo";
+import { ZetoraLogo } from "@/components/logos/zetora-logo";
 import {
   VoiceButton,
   type VoiceButtonState,
@@ -24,9 +24,9 @@ const VOICES: { value: VoiceType; label: string; description: string }[] = [
   { value: "Leo", label: "Leo", description: "Authoritative, strong" },
 ];
 
-const VOICE_STORAGE_KEY = "scira.voice.selected-voice";
-const MUTE_STORAGE_KEY = "scira.voice.mic-muted";
-const TRANSCRIPT_VISIBLE_KEY = "scira.voice.transcript-visible";
+const VOICE_STORAGE_KEY = "zetora.voice.selected-voice";
+const MUTE_STORAGE_KEY = "zetora.voice.mic-muted";
+const TRANSCRIPT_VISIBLE_KEY = "zetora.voice.transcript-visible";
 
 function isVoiceType(value: string): value is VoiceType {
   return value === "Ara" || value === "Rex" || value === "Sal" || value === "Eve" || value === "Leo";
@@ -256,7 +256,7 @@ export default function VoicePage() {
     return (
       <div className="relative flex h-dvh w-full flex-col items-center justify-center overflow-hidden bg-background">
         <div className="flex flex-col items-center gap-4">
-          <SciraLogo className="size-10 sm:size-12 animate-pulse motion-reduce:animate-none" />
+          <ZetoraLogo className="size-10 sm:size-12 animate-pulse motion-reduce:animate-none" />
           <p className="font-pixel text-xs text-muted-foreground/50 tracking-wider">Loading</p>
         </div>
       </div>
@@ -277,7 +277,7 @@ export default function VoicePage() {
           {/* Top row: logo + title + status */}
           <div className="flex w-full items-center justify-between">
             <div className="flex items-center gap-2">
-              <SciraLogo className="shrink-0 size-7 sm:size-8" />
+              <ZetoraLogo className="shrink-0 size-7 sm:size-8" />
               <h1 className="font-pixel text-base sm:text-2xl text-foreground tracking-wider">
                 Voice
               </h1>
@@ -412,7 +412,7 @@ export default function VoicePage() {
                           transition={{ duration: 0.2 }}
                           className={cn("flex items-start gap-2 pt-2", turn.interrupted && "opacity-50")}
                         >
-                          <span className="font-pixel text-[9px] text-muted-foreground/40 tracking-wider pt-0.5 shrink-0 w-6 text-right">Scira</span>
+                          <span className="font-pixel text-[9px] text-muted-foreground/40 tracking-wider pt-0.5 shrink-0 w-6 text-right">Zetora</span>
                           <p className="text-xs leading-relaxed text-foreground/70">
                             {turn.text}
                             {turn.interrupted && <span className="ml-1 text-muted-foreground/60 italic">— interrupted</span>}

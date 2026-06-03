@@ -5,18 +5,18 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUser } from '@/contexts/user-context';
 
 type PreferenceKey =
-  | 'scira-search-provider'
-  | 'scira-extreme-search-model'
-  | 'scira-group-order'
-  | 'scira-model-order-global'
-  | 'scira-blur-personal-info'
-  | 'scira-custom-instructions-enabled'
-  | 'scira-scroll-to-latest-on-open'
-  | 'scira-location-metadata-enabled'
-  | 'scira-auto-router-enabled'
-  | 'scira-auto-router-config'
-  | 'scira-preferred-models'
-  | 'scira-visible-modes';
+  | 'zetora-search-provider'
+  | 'zetora-extreme-search-model'
+  | 'zetora-group-order'
+  | 'zetora-model-order-global'
+  | 'zetora-blur-personal-info'
+  | 'zetora-custom-instructions-enabled'
+  | 'zetora-scroll-to-latest-on-open'
+  | 'zetora-location-metadata-enabled'
+  | 'zetora-auto-router-enabled'
+  | 'zetora-auto-router-config'
+  | 'zetora-preferred-models'
+  | 'zetora-visible-modes';
 
 type AutoRouterConfig = {
   routes: Array<{
@@ -29,7 +29,7 @@ type AutoRouterConfig = {
 type PreferenceValue = string | string[] | boolean | AutoRouterConfig | undefined;
 
 const DEBOUNCE_MS = 300; // Debounce DB writes by 300ms
-const MIGRATION_KEY_PREFIX = 'scira-prefs-migrated-';
+const MIGRATION_KEY_PREFIX = 'zetora-prefs-migrated-';
 
 interface UserPreferencesRecord {
   preferences?: Partial<Record<PreferenceKey, PreferenceValue>>;
@@ -101,18 +101,18 @@ function collectLocalStoragePreferences(): Partial<Record<PreferenceKey, Prefere
   const preferences: Partial<Record<PreferenceKey, PreferenceValue>> = {};
 
   const keys: PreferenceKey[] = [
-    'scira-search-provider',
-    'scira-extreme-search-model',
-    'scira-group-order',
-    'scira-model-order-global',
-    'scira-blur-personal-info',
-    'scira-custom-instructions-enabled',
-    'scira-scroll-to-latest-on-open',
-    'scira-location-metadata-enabled',
-    'scira-auto-router-enabled',
-    'scira-auto-router-config',
-    'scira-preferred-models',
-    'scira-visible-modes',
+    'zetora-search-provider',
+    'zetora-extreme-search-model',
+    'zetora-group-order',
+    'zetora-model-order-global',
+    'zetora-blur-personal-info',
+    'zetora-custom-instructions-enabled',
+    'zetora-scroll-to-latest-on-open',
+    'zetora-location-metadata-enabled',
+    'zetora-auto-router-enabled',
+    'zetora-auto-router-config',
+    'zetora-preferred-models',
+    'zetora-visible-modes',
   ];
 
   keys.forEach((key) => {

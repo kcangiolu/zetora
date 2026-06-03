@@ -3,9 +3,9 @@ import { xSearchTool } from '@/lib/tools/x-search';
 import { convertToModelMessages, customProvider, generateText, stepCountIs } from 'ai';
 import { xai } from '@ai-sdk/xai';
 
-const scira = customProvider({
+const zetora = customProvider({
   languageModels: {
-    'scira-default': xai('grok-4-1-fast-non-reasoning'),
+    'zetora-default': xai('grok-4-1-fast-non-reasoning'),
   },
 });
 
@@ -13,7 +13,7 @@ export const maxDuration = 800;
 
 // Define separate system prompts for each group
 const groupSystemPrompts = {
-  web: `You are Scira for Raycast, a powerful AI web search assistant.
+  web: `You are Zetora for Raycast, a powerful AI web search assistant.
 
 Today's Date: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit', weekday: 'short' })}
 Current Time: ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}
@@ -88,7 +88,7 @@ export async function POST(req: Request) {
         : ['web_search' as const, 'x_search' as const];
 
   const { text, steps } = await generateText({
-    model: scira.languageModel(model),
+    model: zetora.languageModel(model),
     system: systemPrompt,
     stopWhen: stepCountIs(2),
     messages: await convertToModelMessages(messages),

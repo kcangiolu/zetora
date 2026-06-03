@@ -13,14 +13,14 @@ const PRO_FEATURES = [
   { icon: Infinity, label: 'Unlimited searches', description: 'No daily limits' },
   { icon: Cpu, label: 'All AI models', description: 'Access every model' },
   { icon: FileText, label: 'PDF analysis', description: 'Upload & analyze documents' },
-  { icon: Eye, label: 'Scira Lookout', description: 'Real-time monitoring' },
+  { icon: Eye, label: 'Zetora Lookout', description: 'Real-time monitoring' },
 ];
 
 const MAX_FEATURES = [
   { icon: Infinity, label: 'Unlimited searches', description: 'No daily limits' },
   { icon: Cpu, label: 'Claude Max models', description: 'Access Sonnet, Opus & Thinking models' },
   { icon: FileText, label: 'PDF analysis', description: 'Upload & analyze documents' },
-  { icon: Eye, label: 'Scira Lookout', description: 'Real-time monitoring' },
+  { icon: Eye, label: 'Zetora Lookout', description: 'Real-time monitoring' },
 ];
 
 export default function SuccessPage() {
@@ -82,7 +82,7 @@ export default function SuccessPage() {
     setIsClearing(true);
     // Clear localStorage cache so stale subscription data doesn't persist
     try {
-      localStorage.removeItem('scira-user-data');
+      localStorage.removeItem('zetora-user-data');
     } catch {}
     // Invalidate all user-related queries
     await queryClient.invalidateQueries({ queryKey: ['comprehensive-user-data'] });
@@ -200,7 +200,7 @@ export default function SuccessPage() {
         </div>
 
         {/* Content */}
-        <h1 className="text-3xl font-medium text-foreground mb-3 tracking-tight">Welcome to Scira {planName}</h1>
+        <h1 className="text-3xl font-medium text-foreground mb-3 tracking-tight">Welcome to Zetora {planName}</h1>
         <p className="text-muted-foreground mb-10">{planIntro}</p>
 
         {/* Features Grid */}

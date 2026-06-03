@@ -42,7 +42,7 @@ ${additionalInfo}
 
 `
     : ''
-}I am a current student at this university and would love to access the student discount for Scira Pro.
+}I am a current student at this university and would love to access the student discount for Zetora Pro.
 
 Thank you for considering my request!
 
@@ -60,7 +60,7 @@ Best regards`;
     const { subject, body } = generateEmailDraft();
 
     const formattedBody = body.replace(/\n/g, '%0D%0A');
-    const mailtoLink = `mailto:zaid@scira.ai?subject=${encodeURIComponent(subject)}&body=${formattedBody}`;
+    const mailtoLink = `mailto:zaid@zetora.ai?subject=${encodeURIComponent(subject)}&body=${formattedBody}`;
 
     window.location.href = mailtoLink;
 

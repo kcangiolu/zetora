@@ -480,7 +480,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid content' }, { status: 400 });
     }
 
-    const title = body.title ?? 'Scira AI';
+    const title = body.title ?? 'Zetora AI';
     const rawContent = body.content;
     const meta = body.meta ?? {};
 
@@ -897,7 +897,7 @@ export async function POST(req: NextRequest) {
     const view = new Uint8Array(arrayBuffer);
     view.set(new Uint8Array(buffer));
 
-    const filename = 'scira-export.docx';
+    const filename = 'zetora-export.docx';
     return new Response(arrayBuffer, {
       status: 200,
       headers: {

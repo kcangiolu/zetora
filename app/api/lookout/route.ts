@@ -1,7 +1,7 @@
 // /app/api/lookout/route.ts
 import { generateTitleFromUserMessage } from '@/app/actions';
 import { convertToModelMessages, streamText, createUIMessageStream, stepCountIs, JsonToSseTransformStream } from 'ai';
-import { scira, shouldBypassRateLimits } from '@/ai/providers';
+import { zetora, shouldBypassRateLimits } from '@/ai/providers';
 import {
   createStreamId,
   incrementExtremeSearchUsage,
@@ -261,13 +261,13 @@ function getToolsForSearchMode(
   dataStream: UIMessageStreamWriter<ChatMessage>,
   options?: {
     extremeSearchModelId?:
-      | 'scira-ext-1'
-      | 'scira-ext-2'
-      | 'scira-ext-4'
-      | 'scira-ext-5'
-      | 'scira-ext-6'
-      | 'scira-ext-7'
-      | 'scira-ext-8';
+      | 'zetora-ext-1'
+      | 'zetora-ext-2'
+      | 'zetora-ext-4'
+      | 'zetora-ext-5'
+      | 'zetora-ext-6'
+      | 'zetora-ext-7'
+      | 'zetora-ext-8';
   },
 ): Record<string, any> {
   const toolNames = SEARCH_MODE_TOOLS[searchMode] || SEARCH_MODE_TOOLS.extreme;
@@ -276,7 +276,7 @@ function getToolsForSearchMode(
   for (const toolName of toolNames) {
     // Check if it's a tool that needs dataStream
     if (toolName === 'extreme_search') {
-      tools[toolName] = extremeSearchTool(dataStream, [], options?.extremeSearchModelId || 'scira-ext-1');
+      tools[toolName] = extremeSearchTool(dataStream, [], options?.extremeSearchModelId || 'zetora-ext-1');
     } else if (toolName in DATASTREAM_TOOL_FACTORIES) {
       tools[toolName] = DATASTREAM_TOOL_FACTORIES[toolName](dataStream);
     } else if (toolName in STATIC_TOOLS) {
@@ -336,7 +336,7 @@ function getSystemPromptForSearchMode(searchMode: string): string {
 - ⚠️ **NO PIPE CHARACTERS**: Never use pipe characters (|) between links or inside citation text
 `;
 
-  const basePrompt = `# Scira AI Scheduled Research Assistant
+  const basePrompt = `# Zetora AI Scheduled Research Assistant
 
 You are an advanced research assistant focused on deep analysis and comprehensive understanding, with a focus on being backed by citations.
 
@@ -670,7 +670,7 @@ export async function POST(req: Request) {
           parts: userMessage.parts,
           attachments: [],
           createdAt: new Date(),
-          model: 'scira-default',
+          model: 'zetora-default',
           completionTime: 0,
           inputTokens: 0,
           outputTokens: 0,
@@ -714,14 +714,14 @@ export async function POST(req: Request) {
         const streamStartTime = Date.now();
 
         // Get tools and system prompt for the search mode
-        const extremeSearchModelId = userPrefs?.preferences?.['scira-extreme-search-model'] as
-          | 'scira-ext-1'
-          | 'scira-ext-2'
-          | 'scira-ext-4'
-          | 'scira-ext-5'
-          | 'scira-ext-6'
-          | 'scira-ext-7'
-          | 'scira-ext-8'
+        const extremeSearchModelId = userPrefs?.preferences?.['zetora-extreme-search-model'] as
+          | 'zetora-ext-1'
+          | 'zetora-ext-2'
+          | 'zetora-ext-4'
+          | 'zetora-ext-5'
+          | 'zetora-ext-6'
+          | 'zetora-ext-7'
+          | 'zetora-ext-8'
           | undefined;
         const tools = getToolsForSearchMode(searchMode, dataStream, { extremeSearchModelId });
         const activeToolNames = Object.keys(tools);
@@ -731,7 +731,7 @@ export async function POST(req: Request) {
 
         // Start streaming
         const result = streamText({
-          model: scira.languageModel('scira-default'),
+          model: zetora.languageModel('zetora-default'),
           messages: await convertToModelMessages([userMessage]),
           stopWhen: stepCountIs(2),
           maxRetries: 10,
@@ -763,7 +763,7 @@ export async function POST(req: Request) {
             if (event.finishReason === 'stop') {
               try {
                 // Track usage (matches /app/api/search/route.ts)
-                if (!shouldBypassRateLimits('scira-default', userResult)) {
+                if (!shouldBypassRateLimits('zetora-default', userResult)) {
                   await incrementMessageUsage({ userId: userResult.id });
                 }
 
@@ -950,7 +950,7 @@ export async function POST(req: Request) {
                 console.log('Finish part: ', part);
                 const processingTime = (Date.now() - streamStartTime) / 1000;
                 return {
-                  model: 'scira-default',
+                  model: 'zetora-default',
                   completionTime: processingTime,
                   createdAt: new Date().toISOString(),
                   totalTokens: part.totalUsage?.totalTokens ?? null,
@@ -988,7 +988,7 @@ export async function POST(req: Request) {
                 createdAt,
                 attachments,
                 chatId,
-                model: 'scira-default',
+                model: 'zetora-default',
                 completionTime: message.metadata?.completionTime ?? 0,
                 inputTokens: message.metadata?.inputTokens ?? 0,
                 outputTokens: message.metadata?.outputTokens ?? 0,

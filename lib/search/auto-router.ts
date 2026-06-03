@@ -3,7 +3,7 @@ import 'server-only';
 import { generateText } from 'ai';
 import { jsonrepair } from 'jsonrepair';
 
-import { hasVisionSupport, scira } from '@/ai/providers';
+import { hasVisionSupport, zetora } from '@/ai/providers';
 import { getComprehensiveUserData } from '@/lib/user-data-server';
 
 interface AutoRouterRoute {
@@ -87,7 +87,7 @@ Based on your analysis, provide your response in the following JSON formats if y
 `;
 
     const { text } = await generateText({
-      model: scira.languageModel('scira-arch-router'),
+      model: zetora.languageModel('zetora-arch-router'),
       messages: [{ role: 'user', content: taskInstruction + formatPrompt }],
       maxOutputTokens: 200,
       temperature: 0,
@@ -98,11 +98,11 @@ Based on your analysis, provide your response in the following JSON formats if y
     const routeName = parsed?.route as string | undefined;
 
     const matchedRoute = sanitizedRoutes.find((route) => route.name === routeName);
-    let resolvedModel = matchedRoute?.model || 'scira-default';
+    let resolvedModel = matchedRoute?.model || 'zetora-default';
 
     if (hasImages && !hasVisionSupport(resolvedModel)) {
       const visionRoute = sanitizedRoutes.find((route) => hasVisionSupport(route.model));
-      resolvedModel = visionRoute?.model || 'scira-default';
+      resolvedModel = visionRoute?.model || 'zetora-default';
     }
 
     console.log('Resolved model:', resolvedModel);

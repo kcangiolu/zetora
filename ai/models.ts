@@ -11,7 +11,7 @@ interface ModelParameters {
 
 // Provider definitions for model categorization
 export type ModelProvider =
-  | 'scira'
+  | 'zetora'
   | 'xai'
   | 'openai'
   | 'anthropic'
@@ -42,7 +42,7 @@ export interface ProviderInfo {
 }
 
 export const PROVIDERS: Record<ModelProvider, ProviderInfo> = {
-  scira: { id: 'scira', name: 'Scira', icon: 'scira' },
+  zetora: { id: 'zetora', name: 'Zetora', icon: 'zetora' },
   xai: { id: 'xai', name: 'xAI', icon: 'xai', hasNew: true },
   openai: { id: 'openai', name: 'OpenAI', icon: 'openai', hasNew: true },
   anthropic: { id: 'anthropic', name: 'Anthropic', icon: 'anthropic', hasNew: true },
@@ -89,7 +89,7 @@ export interface Model {
 
 export const models: Model[] = [
   {
-    value: 'scira-auto',
+    value: 'zetora-auto',
     label: 'Auto',
     description: 'Automatically routes your query to the best model',
     vision: true,
@@ -102,11 +102,11 @@ export const models: Model[] = [
     freeUnlimited: false,
     maxOutputTokens: 16000,
     isNew: true,
-    provider: 'scira',
+    provider: 'zetora',
   },
   // Models (xAI)
   {
-    value: 'scira-grok-3-mini',
+    value: 'zetora-grok-3-mini',
     label: 'Grok 3 Mini',
     description: "xAI's recent smallest LLM",
     vision: false,
@@ -121,7 +121,7 @@ export const models: Model[] = [
     provider: 'xai',
   },
   {
-    value: 'scira-grok-3',
+    value: 'zetora-grok-3',
     label: 'Grok 3',
     description: "xAI's recent smartest LLM",
     vision: false,
@@ -153,7 +153,7 @@ export const models: Model[] = [
     provider: 'xai',
   },
   {
-    value: 'scira-grok-4',
+    value: 'zetora-grok-4',
     label: 'Grok 4',
     description: "xAI's most intelligent LLM",
     vision: true,
@@ -168,7 +168,7 @@ export const models: Model[] = [
     provider: 'xai',
   },
   {
-    value: 'scira-grok-4.20-experimental-beta-0304',
+    value: 'zetora-grok-4.20-experimental-beta-0304',
     label: 'Grok 4.20 Beta',
     description: "xAI's experimental beta chat model",
     vision: true,
@@ -184,7 +184,7 @@ export const models: Model[] = [
     provider: 'xai',
   },
   {
-    value: 'scira-grok-4.20-experimental-beta-0304-thinking',
+    value: 'zetora-grok-4.20-experimental-beta-0304-thinking',
     label: 'Grok 4.20 Beta Thinking',
     description: "xAI's experimental beta reasoning model",
     vision: true,
@@ -200,7 +200,7 @@ export const models: Model[] = [
     provider: 'xai',
   },
   {
-    value: 'scira-default',
+    value: 'zetora-default',
     label: 'Grok 4.1 Fast',
     description: "xAI's greatest and fastest multimodel LLM",
     vision: true,
@@ -218,7 +218,7 @@ export const models: Model[] = [
     provider: 'xai',
   },
   {
-    value: 'scira-sarvam-105b',
+    value: 'zetora-sarvam-105b',
     label: 'Sarvam 105B',
     description: "Sarvam's flagship model for chat and reasoning",
     vision: false,
@@ -237,7 +237,7 @@ export const models: Model[] = [
     },
   },
   {
-    value: 'scira-grok4.1-fast-thinking',
+    value: 'zetora-grok4.1-fast-thinking',
     label: 'Grok 4.1 Fast Thinking',
     description: "xAI's greatest and fastest multimodel reasoning LLM",
     vision: true,
@@ -255,7 +255,7 @@ export const models: Model[] = [
     provider: 'xai',
   },
   {
-    value: 'scira-grok-4-fast',
+    value: 'zetora-grok-4-fast',
     label: 'Grok 4 Fast',
     description: "xAI's previous fastest multimodel LLM",
     vision: true,
@@ -273,7 +273,7 @@ export const models: Model[] = [
     provider: 'xai',
   },
   {
-    value: 'scira-grok-4-fast-think',
+    value: 'zetora-grok-4-fast-think',
     label: 'Grok 4 Fast Thinking',
     description: "xAI's previous fastest multimodel reasoning LLM",
     vision: true,
@@ -294,7 +294,7 @@ export const models: Model[] = [
     provider: 'xai',
   },
   {
-    value: 'scira-code',
+    value: 'zetora-code',
     label: 'Grok Code',
     description: "xAI's advanced coding LLM",
     vision: false,
@@ -310,7 +310,7 @@ export const models: Model[] = [
     provider: 'xai',
   },
   {
-    value: 'scira-seed-2.0-mini',
+    value: 'zetora-seed-2.0-mini',
     label: 'Seed 2.0 Mini',
     description: "ByteDance's compact and efficient reasoning model",
     vision: true,
@@ -327,7 +327,7 @@ export const models: Model[] = [
     provider: 'bytedance',
   },
   {
-    value: 'scira-seed-2.0-lite',
+    value: 'zetora-seed-2.0-lite',
     label: 'Seed 2.0 Lite',
     description: "ByteDance's lightweight vision model",
     vision: true,
@@ -344,7 +344,7 @@ export const models: Model[] = [
     provider: 'bytedance',
   },
   {
-    value: 'scira-seed-1.6',
+    value: 'zetora-seed-1.6',
     label: 'Seed 1.6',
     description: "ByteDance's recent reasoning model",
     vision: true,
@@ -360,7 +360,7 @@ export const models: Model[] = [
     provider: 'bytedance',
   },
   {
-    value: 'scira-seed-1.8',
+    value: 'zetora-seed-1.8',
     label: 'Seed 1.8',
     description: "ByteDance's latest reasoning model",
     vision: true,
@@ -376,7 +376,7 @@ export const models: Model[] = [
     provider: 'bytedance',
   },
   {
-    value: 'scira-seed-1.6-flash',
+    value: 'zetora-seed-1.6-flash',
     label: 'Seed 1.6 Flash',
     description: "ByteDance's fast vision reasoning model",
     vision: true,
@@ -393,7 +393,7 @@ export const models: Model[] = [
     provider: 'bytedance',
   },
   {
-    value: 'scira-qwen-32b',
+    value: 'zetora-qwen-32b',
     label: 'Qwen 3 32B',
     description: "Alibaba's base LLM",
     vision: false,
@@ -415,7 +415,7 @@ export const models: Model[] = [
     provider: 'alibaba',
   },
   {
-    value: 'scira-qwen-32b-thinking',
+    value: 'zetora-qwen-32b-thinking',
     label: 'Qwen 3 32B Thinking',
     description: "Alibaba's base reasoning LLM",
     vision: false,
@@ -437,7 +437,7 @@ export const models: Model[] = [
     provider: 'alibaba',
   },
   {
-    value: 'scira-nemotron-3-super',
+    value: 'zetora-nemotron-3-super',
     label: 'Nemotron 3 Super',
     description: "NVIDIA's powerful Nemotron 3 model",
     vision: false,
@@ -452,7 +452,7 @@ export const models: Model[] = [
     provider: 'nvidia',
   },
   {
-    value: 'scira-qwen-4b',
+    value: 'zetora-qwen-4b',
     label: 'Qwen 3 4B',
     description: "Alibaba's small base LLM",
     vision: false,
@@ -473,7 +473,7 @@ export const models: Model[] = [
     provider: 'alibaba',
   },
   {
-    value: 'scira-qwen-4b-thinking',
+    value: 'zetora-qwen-4b-thinking',
     label: 'Qwen 3 4B Thinking',
     description: "Alibaba's small base LLM",
     vision: false,
@@ -494,7 +494,7 @@ export const models: Model[] = [
     provider: 'alibaba',
   },
   {
-    value: 'scira-gpt-oss-20',
+    value: 'zetora-gpt-oss-20',
     label: 'GPT OSS 20B',
     description: "OpenAI's small OSS LLM",
     vision: false,
@@ -510,7 +510,7 @@ export const models: Model[] = [
     provider: 'openai',
   },
   {
-    value: 'scira-gpt5-nano',
+    value: 'zetora-gpt5-nano',
     label: 'GPT 5 Nano',
     description: "OpenAI's smallest flagship LLM",
     vision: true,
@@ -527,7 +527,7 @@ export const models: Model[] = [
     provider: 'openai',
   },
   {
-    value: 'scira-google-lite',
+    value: 'zetora-google-lite',
     label: 'Gemini 2.5 Flash Lite',
     description: "Google's advanced small LLM",
     vision: true,
@@ -544,7 +544,7 @@ export const models: Model[] = [
     provider: 'google',
   },
   {
-    value: 'scira-ministral-3b',
+    value: 'zetora-ministral-3b',
     label: 'Ministral 3 3B',
     description: "Mistral's mini-model 3B multi-modal LLM",
     vision: true,
@@ -560,7 +560,7 @@ export const models: Model[] = [
     provider: 'mistral',
   },
   {
-    value: 'scira-ministral-8b',
+    value: 'zetora-ministral-8b',
     label: 'Ministral 3 8B',
     description: "Mistral's mini-model 8B multi-modal LLM",
     vision: true,
@@ -576,7 +576,7 @@ export const models: Model[] = [
     provider: 'mistral',
   },
   {
-    value: 'scira-devstral',
+    value: 'zetora-devstral',
     label: 'Devstral 2',
     description: "Mistral's coding-focused LLM",
     vision: false,
@@ -592,7 +592,7 @@ export const models: Model[] = [
     provider: 'mistral',
   },
   {
-    value: 'scira-devstral-small',
+    value: 'zetora-devstral-small',
     label: 'Devstral Small 2',
     description: "Mistral's small coding-focused LLM",
     vision: false,
@@ -608,7 +608,7 @@ export const models: Model[] = [
     provider: 'mistral',
   },
   {
-    value: 'scira-ministral-14b',
+    value: 'zetora-ministral-14b',
     label: 'Ministral 3 14B',
     description: "Mistral's mini-model 14B multi-modal LLM",
     vision: true,
@@ -624,7 +624,7 @@ export const models: Model[] = [
     provider: 'mistral',
   },
   {
-    value: 'scira-mistral-large',
+    value: 'zetora-mistral-large',
     label: 'Mistral Large 3',
     description: "Mistral's latest and greatest large multi-modal LLM",
     vision: true,
@@ -640,7 +640,7 @@ export const models: Model[] = [
     provider: 'mistral',
   },
   {
-    value: 'scira-mistral-medium',
+    value: 'zetora-mistral-medium',
     label: 'Mistral Medium',
     description: "Mistral's medium multi-modal LLM",
     vision: true,
@@ -656,7 +656,7 @@ export const models: Model[] = [
     provider: 'mistral',
   },
   {
-    value: 'scira-magistral-small',
+    value: 'zetora-magistral-small',
     label: 'Magistral Small',
     description: "Mistral's small reasoning LLM",
     vision: true,
@@ -672,7 +672,7 @@ export const models: Model[] = [
     provider: 'mistral',
   },
   {
-    value: 'scira-magistral-medium',
+    value: 'zetora-magistral-medium',
     label: 'Magistral Medium',
     description: "Mistral's medium reasoning LLM",
     vision: true,
@@ -688,7 +688,7 @@ export const models: Model[] = [
     provider: 'mistral',
   },
   {
-    value: 'scira-mistral-small',
+    value: 'zetora-mistral-small',
     label: 'Mistral Small 4',
     description: "Mistral's small efficient model",
     vision: false,
@@ -704,7 +704,7 @@ export const models: Model[] = [
     provider: 'mistral',
   },
   {
-    value: 'scira-mistral-small-think',
+    value: 'zetora-mistral-small-think',
     label: 'Mistral Small 4 Thinking',
     description: "Mistral's small model with reasoning mode enabled",
     vision: false,
@@ -720,7 +720,7 @@ export const models: Model[] = [
     provider: 'mistral',
   },
   {
-    value: 'scira-leanstral',
+    value: 'zetora-leanstral',
     label: 'Leanstral',
     description: "Mistral's lean and efficient small model",
     vision: false,
@@ -736,7 +736,7 @@ export const models: Model[] = [
     provider: 'mistral',
   },
   {
-    value: 'scira-trinity-mini',
+    value: 'zetora-trinity-mini',
     label: 'Trinity Mini',
     description: "Arcee's small reasoning LLM",
     vision: false,
@@ -758,7 +758,7 @@ export const models: Model[] = [
     provider: 'arcee',
   },
   {
-    value: 'scira-trinity-large',
+    value: 'zetora-trinity-large',
     label: 'Trinity Large',
     description: "Arcee's large reasoning LLM via OpenRouter",
     vision: true,
@@ -780,7 +780,7 @@ export const models: Model[] = [
     provider: 'arcee',
   },
   {
-    value: 'scira-gpt-oss-120',
+    value: 'zetora-gpt-oss-120',
     label: 'GPT OSS 120B',
     description: "OpenAI's advanced OSS LLM",
     vision: false,
@@ -796,7 +796,7 @@ export const models: Model[] = [
     provider: 'openai',
   },
   {
-    value: 'scira-gpt-4.1-nano',
+    value: 'zetora-gpt-4.1-nano',
     label: 'GPT 4.1 Nano',
     description: "OpenAI's smallest LLM",
     vision: true,
@@ -813,7 +813,7 @@ export const models: Model[] = [
     provider: 'openai',
   },
   {
-    value: 'scira-gpt-4.1-mini',
+    value: 'zetora-gpt-4.1-mini',
     label: 'GPT 4.1 Mini',
     description: "OpenAI's small LLM",
     vision: true,
@@ -830,7 +830,7 @@ export const models: Model[] = [
     provider: 'openai',
   },
   {
-    value: 'scira-gpt-4.1',
+    value: 'zetora-gpt-4.1',
     label: 'GPT 4.1',
     description: "OpenAI's LLM",
     vision: true,
@@ -848,7 +848,7 @@ export const models: Model[] = [
     provider: 'openai',
   },
   {
-    value: 'scira-gpt-5.1',
+    value: 'zetora-gpt-5.1',
     label: 'GPT 5.1 Instant',
     description: "OpenAI's fast and smart LLM",
     vision: true,
@@ -866,7 +866,7 @@ export const models: Model[] = [
     provider: 'openai',
   },
   {
-    value: 'scira-gpt-5.1-thinking',
+    value: 'zetora-gpt-5.1-thinking',
     label: 'GPT 5.1 Thinking',
     description: "OpenAI's recent and smart reasoning LLM",
     vision: true,
@@ -884,7 +884,7 @@ export const models: Model[] = [
     provider: 'openai',
   },
   {
-    value: 'scira-gpt-5.2',
+    value: 'zetora-gpt-5.2',
     label: 'GPT 5.2 Instant',
     description: "OpenAI's latest and greatest LLM",
     vision: true,
@@ -902,7 +902,7 @@ export const models: Model[] = [
     provider: 'openai',
   },
   {
-    value: 'scira-gpt-5.3-chat-latest',
+    value: 'zetora-gpt-5.3-chat-latest',
     label: 'GPT 5.3 Instant',
     description: "OpenAI's latest chat-optimized LLM",
     vision: true,
@@ -920,7 +920,7 @@ export const models: Model[] = [
     provider: 'openai',
   },
   {
-    value: 'scira-gpt-5.4',
+    value: 'zetora-gpt-5.4',
     label: 'GPT 5.4 Instant',
     description: "OpenAI's latest and greatest LLM",
     vision: true,
@@ -938,7 +938,7 @@ export const models: Model[] = [
     provider: 'openai',
   },
   {
-    value: 'scira-gpt-5.4-mini',
+    value: 'zetora-gpt-5.4-mini',
     label: 'GPT 5.4 Mini',
     description: "OpenAI's small GPT 5.4 model",
     vision: true,
@@ -956,7 +956,7 @@ export const models: Model[] = [
     provider: 'openai',
   },
   {
-    value: 'scira-gpt-5.4-nano',
+    value: 'zetora-gpt-5.4-nano',
     label: 'GPT 5.4 Nano',
     description: "OpenAI's smallest GPT 5.4 model",
     vision: true,
@@ -974,7 +974,7 @@ export const models: Model[] = [
     provider: 'openai',
   },
   {
-    value: 'scira-gpt-5.4-thinking',
+    value: 'zetora-gpt-5.4-thinking',
     label: 'GPT 5.4 Thinking',
     description: "OpenAI's latest and greatest reasoning LLM",
     vision: true,
@@ -992,7 +992,7 @@ export const models: Model[] = [
     provider: 'openai',
   },
   {
-    value: 'scira-gpt-5.4-thinking-xhigh',
+    value: 'zetora-gpt-5.4-thinking-xhigh',
     label: 'GPT 5.4 Thinking XHigh',
     description: "OpenAI's latest and greatest reasoning LLM",
     vision: true,
@@ -1010,7 +1010,7 @@ export const models: Model[] = [
     provider: 'openai',
   },
   {
-    value: 'scira-gpt-5.2-thinking',
+    value: 'zetora-gpt-5.2-thinking',
     label: 'GPT 5.2 Thinking',
     description: "OpenAI's latest and greatest reasoning LLM",
     vision: true,
@@ -1028,7 +1028,7 @@ export const models: Model[] = [
     provider: 'openai',
   },
   {
-    value: 'scira-gpt-5.2-thinking-xhigh',
+    value: 'zetora-gpt-5.2-thinking-xhigh',
     label: 'GPT 5.2 Thinking XHigh',
     description: "OpenAI's latest and greatest reasoning LLM",
     vision: true,
@@ -1046,7 +1046,7 @@ export const models: Model[] = [
     provider: 'openai',
   },
   {
-    value: 'scira-gpt5-mini',
+    value: 'zetora-gpt5-mini',
     label: 'GPT 5 Mini',
     description: "OpenAI's small flagship LLM",
     vision: true,
@@ -1064,7 +1064,7 @@ export const models: Model[] = [
     provider: 'openai',
   },
   {
-    value: 'scira-gpt5',
+    value: 'zetora-gpt5',
     label: 'GPT 5',
     description: "OpenAI's flagship LLM",
     vision: true,
@@ -1082,7 +1082,7 @@ export const models: Model[] = [
     provider: 'openai',
   },
   {
-    value: 'scira-o4-mini',
+    value: 'zetora-o4-mini',
     label: 'o4 mini',
     description: "OpenAI's recent mini reasoning LLM",
     vision: true,
@@ -1099,7 +1099,7 @@ export const models: Model[] = [
     provider: 'openai',
   },
   {
-    value: 'scira-o3',
+    value: 'zetora-o3',
     label: 'o3',
     description: "OpenAI's advanced LLM",
     vision: true,
@@ -1116,7 +1116,7 @@ export const models: Model[] = [
     provider: 'openai',
   },
   {
-    value: 'scira-gpt5-medium',
+    value: 'zetora-gpt5-medium',
     label: 'GPT 5 Medium',
     description: "OpenAI's latest flagship reasoning LLM",
     vision: true,
@@ -1134,7 +1134,7 @@ export const models: Model[] = [
     provider: 'openai',
   },
   {
-    value: 'scira-gpt-5.1-codex',
+    value: 'zetora-gpt-5.1-codex',
     label: 'GPT 5.1 Codex',
     description: "OpenAI's advanced coding LLM",
     vision: true,
@@ -1152,7 +1152,7 @@ export const models: Model[] = [
     provider: 'openai',
   },
   {
-    value: 'scira-gpt-5.1-codex-mini',
+    value: 'zetora-gpt-5.1-codex-mini',
     label: 'GPT 5.1 Codex Mini',
     description: "OpenAI's advanced coding LLM",
     vision: true,
@@ -1170,7 +1170,7 @@ export const models: Model[] = [
     provider: 'openai',
   },
   {
-    value: 'scira-gpt-5.1-codex-max',
+    value: 'zetora-gpt-5.1-codex-max',
     label: 'GPT 5.1 Codex Max',
     description: "OpenAI's advanced coding LLM",
     vision: true,
@@ -1188,7 +1188,7 @@ export const models: Model[] = [
     provider: 'openai',
   },
   {
-    value: 'scira-gpt-5.2-codex',
+    value: 'zetora-gpt-5.2-codex',
     label: 'GPT 5.2 Codex',
     description: "OpenAI's latest advanced coding LLM",
     vision: true,
@@ -1206,7 +1206,7 @@ export const models: Model[] = [
     provider: 'openai',
   },
   {
-    value: 'scira-gpt-5.3-codex',
+    value: 'zetora-gpt-5.3-codex',
     label: 'GPT 5.3 Codex',
     description: "OpenAI's latest advanced coding LLM",
     vision: true,
@@ -1224,7 +1224,7 @@ export const models: Model[] = [
     provider: 'openai',
   },
   {
-    value: 'scira-gpt5-codex',
+    value: 'zetora-gpt5-codex',
     label: 'GPT 5 Codex',
     description: "OpenAI's advanced coding LLM",
     vision: true,
@@ -1242,7 +1242,7 @@ export const models: Model[] = [
     provider: 'openai',
   },
   {
-    value: 'scira-cmd-a',
+    value: 'zetora-cmd-a',
     label: 'Command A',
     description: "Cohere's advanced command LLM",
     vision: false,
@@ -1258,7 +1258,7 @@ export const models: Model[] = [
     provider: 'cohere',
   },
   {
-    value: 'scira-cmd-a-think',
+    value: 'zetora-cmd-a-think',
     label: 'Command A Thinking',
     description: "Cohere's advanced command LLM with thinking",
     vision: false,
@@ -1274,7 +1274,7 @@ export const models: Model[] = [
     provider: 'cohere',
   },
   {
-    value: 'scira-kat-coder',
+    value: 'zetora-kat-coder',
     label: 'KAT-Coder-Pro V1',
     description: "Kwaipilot's advanced coding LLM",
     vision: false,
@@ -1290,7 +1290,7 @@ export const models: Model[] = [
     provider: 'kwaipilot',
   },
   {
-    value: 'scira-deepseek-v3',
+    value: 'zetora-deepseek-v3',
     label: 'DeepSeek v3',
     description: "DeepSeek's previous advanced chat LLM",
     vision: false,
@@ -1312,7 +1312,7 @@ export const models: Model[] = [
     provider: 'deepseek',
   },
   {
-    value: 'scira-deepseek-v3.1-terminus',
+    value: 'zetora-deepseek-v3.1-terminus',
     label: 'DeepSeek v3.1 Terminus',
     description: "DeepSeek's advanced chat LLM",
     vision: false,
@@ -1334,7 +1334,7 @@ export const models: Model[] = [
     provider: 'deepseek',
   },
   {
-    value: 'scira-deepseek-chat',
+    value: 'zetora-deepseek-chat',
     label: 'DeepSeek v3.2',
     description: "DeepSeek's advanced chat LLM",
     vision: false,
@@ -1354,7 +1354,7 @@ export const models: Model[] = [
     provider: 'deepseek',
   },
   {
-    value: 'scira-deepseek-chat-think',
+    value: 'zetora-deepseek-chat-think',
     label: 'DeepSeek v3.2 Thinking',
     description: "DeepSeek's advanced chat LLM with thinking",
     vision: false,
@@ -1370,7 +1370,7 @@ export const models: Model[] = [
     provider: 'deepseek',
   },
   {
-    value: 'scira-deepseek-chat-exp',
+    value: 'zetora-deepseek-chat-exp',
     label: 'DeepSeek v3.2 Exp',
     description: "DeepSeek's advanced chat LLM",
     vision: false,
@@ -1386,7 +1386,7 @@ export const models: Model[] = [
     provider: 'deepseek',
   },
   {
-    value: 'scira-deepseek-chat-think-exp',
+    value: 'zetora-deepseek-chat-think-exp',
     label: 'DeepSeek v3.2 Exp Thinking',
     description: "DeepSeek's advanced chat LLM with thinking",
     vision: false,
@@ -1402,7 +1402,7 @@ export const models: Model[] = [
     provider: 'deepseek',
   },
   {
-    value: 'scira-deepseek-r1',
+    value: 'zetora-deepseek-r1',
     label: 'DeepSeek R1',
     description: "DeepSeek's advanced reasoning LLM",
     vision: false,
@@ -1418,7 +1418,7 @@ export const models: Model[] = [
     provider: 'deepseek',
   },
   {
-    value: 'scira-deepseek-r1-0528',
+    value: 'zetora-deepseek-r1-0528',
     label: 'DeepSeek R1 0528',
     description: "DeepSeek's advanced reasoning LLM",
     vision: false,
@@ -1434,7 +1434,7 @@ export const models: Model[] = [
     provider: 'deepseek',
   },
   {
-    value: 'scira-qwen-coder-small',
+    value: 'zetora-qwen-coder-small',
     label: 'Qwen 3 Coder 30B A3B Instruct',
     description: "Alibaba's advanced coding LLM",
     vision: false,
@@ -1457,7 +1457,7 @@ export const models: Model[] = [
     provider: 'alibaba',
   },
   {
-    value: 'scira-qwen-coder',
+    value: 'zetora-qwen-coder',
     label: 'Qwen 3 Coder',
     description: "Alibaba's advanced coding LLM",
     vision: false,
@@ -1473,7 +1473,7 @@ export const models: Model[] = [
     provider: 'alibaba',
   },
   {
-    value: 'scira-qwen-coder-plus',
+    value: 'zetora-qwen-coder-plus',
     label: 'Qwen 3 Coder Plus',
     description: "Alibaba's extremely advanced coding LLM",
     vision: false,
@@ -1489,7 +1489,7 @@ export const models: Model[] = [
     provider: 'alibaba',
   },
   {
-    value: 'scira-qwen-3.5',
+    value: 'zetora-qwen-3.5',
     label: 'Qwen 3.5 397B A17B',
     description: "Alibaba's latest flagship LLM",
     vision: true,
@@ -1513,7 +1513,7 @@ export const models: Model[] = [
     provider: 'alibaba',
   },
   {
-    value: 'scira-qwen-3.5-plus',
+    value: 'zetora-qwen-3.5-plus',
     label: 'Qwen 3.5 Plus',
     description: "Alibaba's latest flagship LLM with vision and reasoning",
     vision: true,
@@ -1530,7 +1530,7 @@ export const models: Model[] = [
     provider: 'alibaba',
   },
   {
-    value: 'scira-qwen-3.5-27b',
+    value: 'zetora-qwen-3.5-27b',
     label: 'Qwen 3.5 27B',
     description: "Alibaba's Qwen 3.5 27B vision reasoning LLM",
     vision: true,
@@ -1547,7 +1547,7 @@ export const models: Model[] = [
     provider: 'alibaba',
   },
   {
-    value: 'scira-qwen-3.5-35b',
+    value: 'zetora-qwen-3.5-35b',
     label: 'Qwen 3.5 35B A3B',
     description: "Alibaba's Qwen 3.5 35B A3B vision reasoning LLM",
     vision: true,
@@ -1564,7 +1564,7 @@ export const models: Model[] = [
     provider: 'alibaba',
   },
   {
-    value: 'scira-qwen-3.5-122b',
+    value: 'zetora-qwen-3.5-122b',
     label: 'Qwen 3.5 122B A10B',
     description: "Alibaba's Qwen 3.5 122B A10B vision reasoning LLM",
     vision: true,
@@ -1581,7 +1581,7 @@ export const models: Model[] = [
     provider: 'alibaba',
   },
   {
-    value: 'scira-qwen-3.5-flash',
+    value: 'zetora-qwen-3.5-flash',
     label: 'Qwen 3.5 Flash',
     description: "Alibaba's fast vision reasoning LLM",
     vision: true,
@@ -1605,7 +1605,7 @@ export const models: Model[] = [
     },
   },
   {
-    value: 'scira-qwen-coder-next',
+    value: 'zetora-qwen-coder-next',
     label: 'Qwen 3 Coder Next',
     description: "Alibaba's next-gen coding LLM",
     vision: false,
@@ -1622,7 +1622,7 @@ export const models: Model[] = [
     provider: 'alibaba',
   },
   {
-    value: 'scira-qwen-3-vl-30b',
+    value: 'zetora-qwen-3-vl-30b',
     label: 'Qwen 3 VL 30B',
     description: "Alibaba's advanced vision LLM",
     vision: true,
@@ -1644,7 +1644,7 @@ export const models: Model[] = [
     provider: 'alibaba',
   },
   {
-    value: 'scira-qwen-3-vl-30b-thinking',
+    value: 'zetora-qwen-3-vl-30b-thinking',
     label: 'Qwen 3 VL 30B Thinking',
     description: "Alibaba's advanced vision LLM with thinking",
     vision: true,
@@ -1667,7 +1667,7 @@ export const models: Model[] = [
     provider: 'alibaba',
   },
   {
-    value: 'scira-qwen-3-next',
+    value: 'zetora-qwen-3-next',
     label: 'Qwen 3 Next 80B A3B Instruct',
     description: "Qwen's advanced instruct LLM",
     vision: false,
@@ -1689,7 +1689,7 @@ export const models: Model[] = [
     provider: 'alibaba',
   },
   {
-    value: 'scira-qwen-3-next-think',
+    value: 'zetora-qwen-3-next-think',
     label: 'Qwen 3 Next 80B A3B Thinking',
     description: "Qwen's advanced thinking LLM",
     vision: false,
@@ -1710,7 +1710,7 @@ export const models: Model[] = [
     provider: 'alibaba',
   },
   {
-    value: 'scira-qwen-3-max',
+    value: 'zetora-qwen-3-max',
     label: 'Qwen 3 Max',
     description: "Qwen's advanced instruct LLM",
     vision: false,
@@ -1726,7 +1726,7 @@ export const models: Model[] = [
     provider: 'alibaba',
   },
   {
-    value: 'scira-qwen-3-max-preview',
+    value: 'zetora-qwen-3-max-preview',
     label: 'Qwen 3 Max Preview',
     description: "Qwen's advanced instruct LLM",
     vision: false,
@@ -1742,7 +1742,7 @@ export const models: Model[] = [
     provider: 'alibaba',
   },
   {
-    value: 'scira-qwen-3-max-preview-thinking',
+    value: 'zetora-qwen-3-max-preview-thinking',
     label: 'Qwen 3 Max Thinking',
     description: "Qwen's most advanced reasoning LLM",
     vision: false,
@@ -1758,7 +1758,7 @@ export const models: Model[] = [
     provider: 'alibaba',
   },
   {
-    value: 'scira-qwen-235',
+    value: 'zetora-qwen-235',
     label: 'Qwen 3 235B A22B',
     description: "Qwen's advanced instruct LLM",
     vision: false,
@@ -1778,7 +1778,7 @@ export const models: Model[] = [
     provider: 'alibaba',
   },
   {
-    value: 'scira-qwen-235-think',
+    value: 'zetora-qwen-235-think',
     label: 'Qwen 3 235B A22B Thinking',
     description: "Qwen's advanced thinking LLM",
     vision: false,
@@ -1798,7 +1798,7 @@ export const models: Model[] = [
     provider: 'alibaba',
   },
   {
-    value: 'scira-qwen-3-vl',
+    value: 'zetora-qwen-3-vl',
     label: 'Qwen 3 VL',
     description: "Qwen's advanced vision LLM",
     vision: true,
@@ -1819,7 +1819,7 @@ export const models: Model[] = [
     provider: 'alibaba',
   },
   {
-    value: 'scira-qwen-3-vl-thinking',
+    value: 'zetora-qwen-3-vl-thinking',
     label: 'Qwen 3 VL Thinking',
     description: "Qwen's advanced vision LLM with thinking",
     vision: true,
@@ -1840,7 +1840,7 @@ export const models: Model[] = [
     provider: 'alibaba',
   },
   {
-    value: 'scira-kimi-k2.5',
+    value: 'zetora-kimi-k2.5',
     label: 'Kimi K2.5',
     description: "MoonShot AI's latest vision-enabled LLM",
     vision: true,
@@ -1856,7 +1856,7 @@ export const models: Model[] = [
     provider: 'moonshot',
   },
   {
-    value: 'scira-kimi-k2.5-thinking',
+    value: 'zetora-kimi-k2.5-thinking',
     label: 'Kimi K2.5 Thinking',
     description: "MoonShot AI's latest multi-modal LLM with thinking",
     vision: true,
@@ -1872,7 +1872,7 @@ export const models: Model[] = [
     provider: 'moonshot',
   },
   {
-    value: 'scira-kimi-k2-v2',
+    value: 'zetora-kimi-k2-v2',
     label: 'Kimi K2 0905',
     description: "MoonShot AI's advanced base LLM",
     vision: false,
@@ -1891,7 +1891,7 @@ export const models: Model[] = [
     provider: 'moonshot',
   },
   {
-    value: 'scira-kimi-k2-v2-thinking',
+    value: 'zetora-kimi-k2-v2-thinking',
     label: 'Kimi K2 Thinking',
     description: "MoonShot AI's advanced base LLM with thinking",
     vision: false,
@@ -1911,7 +1911,7 @@ export const models: Model[] = [
     provider: 'moonshot',
   },
   {
-    value: 'scira-minimax',
+    value: 'zetora-minimax',
     label: 'Minimax M1 80K',
     description: "Minimax's advanced reasoning LLM",
     vision: false,
@@ -1930,7 +1930,7 @@ export const models: Model[] = [
     provider: 'minimax',
   },
   {
-    value: 'scira-minimax-m2',
+    value: 'zetora-minimax-m2',
     label: 'Minimax M2',
     description: "Minimax's advanced reasoning LLM",
     vision: false,
@@ -1951,7 +1951,7 @@ export const models: Model[] = [
     provider: 'minimax',
   },
   {
-    value: 'scira-minimax-m2.1',
+    value: 'zetora-minimax-m2.1',
     label: 'Minimax M2.1',
     description: "Minimax's latest advanced reasoning LLM",
     vision: false,
@@ -1972,7 +1972,7 @@ export const models: Model[] = [
     provider: 'minimax',
   },
   {
-    value: 'scira-minimax-m2.1-lightning',
+    value: 'zetora-minimax-m2.1-lightning',
     label: 'Minimax M2.1 Lightning',
     description: "Minimax's fast advanced reasoning LLM",
     vision: false,
@@ -1994,7 +1994,7 @@ export const models: Model[] = [
     provider: 'minimax',
   },
   {
-    value: 'scira-minimax-m2.7',
+    value: 'zetora-minimax-m2.7',
     label: 'MiniMax M2.7',
     description: "MiniMax's latest high-speed reasoning LLM",
     vision: false,
@@ -2016,7 +2016,7 @@ export const models: Model[] = [
     provider: 'minimax',
   },
   {
-    value: 'scira-minimax-m2.5',
+    value: 'zetora-minimax-m2.5',
     label: 'Minimax M2.5',
     description: "Minimax's most capable reasoning LLM",
     vision: false,
@@ -2037,7 +2037,7 @@ export const models: Model[] = [
     provider: 'minimax',
   },
   {
-    value: 'scira-glm-4.6',
+    value: 'zetora-glm-4.6',
     label: 'GLM 4.6',
     description: "Zhipu AI's advanced reasoning LLM",
     vision: false,
@@ -2058,7 +2058,7 @@ export const models: Model[] = [
     provider: 'zhipu',
   },
   {
-    value: 'scira-glm-4.6v-flash',
+    value: 'zetora-glm-4.6v-flash',
     label: 'GLM 4.6V Flash',
     description: "Zhipu AI's fast vision reasoning LLM",
     vision: true,
@@ -2081,7 +2081,7 @@ export const models: Model[] = [
     provider: 'zhipu',
   },
   {
-    value: 'scira-glm-4.6v',
+    value: 'zetora-glm-4.6v',
     label: 'GLM 4.6V',
     description: "Zhipu AI's advanced vision reasoning LLM",
     vision: true,
@@ -2103,7 +2103,7 @@ export const models: Model[] = [
     provider: 'zhipu',
   },
   {
-    value: 'scira-glm-4.7',
+    value: 'zetora-glm-4.7',
     label: 'GLM 4.7',
     description: "Zhipu AI's latest advanced reasoning LLM",
     vision: false,
@@ -2123,7 +2123,7 @@ export const models: Model[] = [
     },
   },
   {
-    value: 'scira-glm-4.7-flash',
+    value: 'zetora-glm-4.7-flash',
     label: 'GLM 4.7 Flash',
     description: "Zhipu AI's latest fast vision reasoning LLM",
     vision: true,
@@ -2140,7 +2140,7 @@ export const models: Model[] = [
     provider: 'zhipu',
   },
   {
-    value: 'scira-glm-5',
+    value: 'zetora-glm-5',
     label: 'GLM 5',
     description: "Zhipu AI's most powerful LLM",
     vision: false,
@@ -2160,7 +2160,7 @@ export const models: Model[] = [
     provider: 'zhipu',
   },
   {
-    value: 'scira-glm-5-thinking',
+    value: 'zetora-glm-5-thinking',
     label: 'GLM 5 Thinking',
     description: "Zhipu AI's most powerful reasoning LLM",
     vision: false,
@@ -2180,7 +2180,7 @@ export const models: Model[] = [
     provider: 'zhipu',
   },
   {
-    value: 'scira-glm-air',
+    value: 'zetora-glm-air',
     label: 'GLM 4.5 Air',
     description: "Zhipu AI's efficient base LLM",
     vision: false,
@@ -2199,7 +2199,7 @@ export const models: Model[] = [
     provider: 'zhipu',
   },
   {
-    value: 'scira-glm',
+    value: 'zetora-glm',
     label: 'GLM 4.5',
     description: "Zhipu AI's previous advanced LLM",
     vision: false,
@@ -2218,7 +2218,7 @@ export const models: Model[] = [
     provider: 'zhipu',
   },
   {
-    value: 'scira-google',
+    value: 'zetora-google',
     label: 'Gemini 2.5 Flash',
     description: "Google's advanced small LLM",
     vision: true,
@@ -2235,7 +2235,7 @@ export const models: Model[] = [
     provider: 'google',
   },
   {
-    value: 'scira-google-think',
+    value: 'zetora-google-think',
     label: 'Gemini 2.5 Flash Thinking',
     description: "Google's advanced small LLM with thinking",
     vision: true,
@@ -2252,7 +2252,7 @@ export const models: Model[] = [
     provider: 'google',
   },
   {
-    value: 'scira-google-pro',
+    value: 'zetora-google-pro',
     label: 'Gemini 2.5 Pro',
     description: "Google's advanced LLM",
     vision: true,
@@ -2269,7 +2269,7 @@ export const models: Model[] = [
     provider: 'google',
   },
   {
-    value: 'scira-google-pro-think',
+    value: 'zetora-google-pro-think',
     label: 'Gemini 2.5 Pro Thinking',
     description: "Google's advanced LLM with thinking",
     vision: true,
@@ -2286,7 +2286,7 @@ export const models: Model[] = [
     provider: 'google',
   },
   {
-    value: 'scira-gemini-3-flash',
+    value: 'zetora-gemini-3-flash',
     label: 'Gemini 3 Flash',
     description: "Google's latest small SOTA LLM",
     vision: true,
@@ -2303,7 +2303,7 @@ export const models: Model[] = [
     provider: 'google',
   },
   {
-    value: 'scira-gemini-3-flash-think',
+    value: 'zetora-gemini-3-flash-think',
     label: 'Gemini 3 Flash Thinking',
     description: "Google's latest small SOTA LLM with thinking",
     vision: true,
@@ -2320,7 +2320,7 @@ export const models: Model[] = [
     provider: 'google',
   },
   {
-    value: 'scira-gemini-3.1-flash-lite',
+    value: 'zetora-gemini-3.1-flash-lite',
     label: 'Gemini 3.1 Flash Lite',
     description: "Google's newest lightweight flash LLM",
     vision: true,
@@ -2338,7 +2338,7 @@ export const models: Model[] = [
     provider: 'google',
   },
   {
-    value: 'scira-gemini-3.1-flash-lite-think',
+    value: 'zetora-gemini-3.1-flash-lite-think',
     label: 'Gemini 3.1 Flash Lite Thinking',
     description: "Google's newest lightweight flash LLM with thinking",
     vision: true,
@@ -2356,7 +2356,7 @@ export const models: Model[] = [
     provider: 'google',
   },
   {
-    value: 'scira-gemini-3.1-pro',
+    value: 'zetora-gemini-3.1-pro',
     label: 'Gemini 3.1 Pro',
     description: "Google's newest SOTA LLM",
     vision: true,
@@ -2374,7 +2374,7 @@ export const models: Model[] = [
     provider: 'google',
   },
   {
-    value: 'scira-anthropic-small',
+    value: 'zetora-anthropic-small',
     label: 'Claude Haiku 4.5',
     description: "Anthropic's fast and efficient LLM",
     vision: true,
@@ -2391,7 +2391,7 @@ export const models: Model[] = [
     provider: 'anthropic',
   },
   {
-    value: 'scira-anthropic',
+    value: 'zetora-anthropic',
     label: 'Claude Sonnet 4.5',
     description: "Anthropic's latest and greatest LLM",
     vision: true,
@@ -2408,7 +2408,7 @@ export const models: Model[] = [
     provider: 'anthropic',
   },
   {
-    value: 'scira-anthropic-think',
+    value: 'zetora-anthropic-think',
     label: 'Claude Sonnet 4.5 Thinking',
     description: "Anthropic's latest and greatest LLM with thinking",
     vision: true,
@@ -2425,7 +2425,7 @@ export const models: Model[] = [
     provider: 'anthropic',
   },
   {
-    value: 'scira-anthropic-sonnet-4.6',
+    value: 'zetora-anthropic-sonnet-4.6',
     label: 'Claude Sonnet 4.6',
     description: "Anthropic's latest Sonnet LLM",
     vision: true,
@@ -2442,7 +2442,7 @@ export const models: Model[] = [
     provider: 'anthropic',
   },
   {
-    value: 'scira-anthropic-sonnet-4.6-think',
+    value: 'zetora-anthropic-sonnet-4.6-think',
     label: 'Claude Sonnet 4.6 Thinking',
     description: "Anthropic's latest Sonnet LLM with thinking",
     vision: true,
@@ -2459,7 +2459,7 @@ export const models: Model[] = [
     provider: 'anthropic',
   },
   {
-    value: 'scira-anthropic-opus',
+    value: 'zetora-anthropic-opus',
     label: 'Claude 4.5 Opus',
     description: "Anthropic's previous advanced LLM",
     vision: true,
@@ -2476,7 +2476,7 @@ export const models: Model[] = [
     provider: 'anthropic',
   },
   {
-    value: 'scira-anthropic-opus-think',
+    value: 'zetora-anthropic-opus-think',
     label: 'Claude 4.5 Opus Thinking',
     description: "Anthropic's previous advanced LLM with thinking",
     vision: true,
@@ -2493,7 +2493,7 @@ export const models: Model[] = [
     provider: 'anthropic',
   },
   {
-    value: 'scira-anthropic-opus-4.6',
+    value: 'zetora-anthropic-opus-4.6',
     label: 'Claude 4.6 Opus',
     description: "Anthropic's most advanced LLM",
     vision: true,
@@ -2510,7 +2510,7 @@ export const models: Model[] = [
     provider: 'anthropic',
   },
   {
-    value: 'scira-anthropic-opus-4.6-think',
+    value: 'zetora-anthropic-opus-4.6-think',
     label: 'Claude 4.6 Opus Thinking',
     description: "Anthropic's most advanced LLM with thinking",
     vision: true,
@@ -2527,7 +2527,7 @@ export const models: Model[] = [
     provider: 'anthropic',
   },
   {
-    value: 'scira-mimo-v2-flash',
+    value: 'zetora-mimo-v2-flash',
     label: 'Mimo V2 Flash',
     description: "Xiaomi's fast Mimo V2 Flash model via OpenRouter (thinking disabled)",
     vision: false,
@@ -2543,7 +2543,7 @@ export const models: Model[] = [
     provider: 'xiaomi',
   },
   {
-    value: 'scira-mimo-v2-pro',
+    value: 'zetora-mimo-v2-pro',
     label: 'Mimo V2 Pro',
     description: "Xiaomi's advanced Mimo V2 Pro model",
     vision: false,
@@ -2559,7 +2559,7 @@ export const models: Model[] = [
     provider: 'xiaomi',
   },
   {
-    value: 'scira-nova-2-lite',
+    value: 'zetora-nova-2-lite',
     label: 'Nova 2 Lite',
     description: "Amazon's latest and smallest LLM",
     vision: false,
@@ -2575,7 +2575,7 @@ export const models: Model[] = [
     provider: 'amazon',
   },
   {
-    value: 'scira-v0-10',
+    value: 'zetora-v0-10',
     label: 'Vercel v0 1.0',
     description: "Vercel's v0 1.0 model",
     vision: true,
@@ -2591,7 +2591,7 @@ export const models: Model[] = [
     provider: 'vercel',
   },
   {
-    value: 'scira-v0-15',
+    value: 'zetora-v0-15',
     label: 'Vercel v0 1.5',
     description: "Vercel's v0 1.5 model",
     vision: true,
@@ -2607,7 +2607,7 @@ export const models: Model[] = [
     provider: 'vercel',
   },
   {
-    value: 'scira-step-3.5-flash',
+    value: 'zetora-step-3.5-flash',
     label: 'Step 3.5 Flash',
     description: "StepFun's fast and efficient LLM",
     vision: false,
@@ -2624,7 +2624,7 @@ export const models: Model[] = [
     provider: 'stepfun',
   },
   {
-    value: 'scira-mercury-2',
+    value: 'zetora-mercury-2',
     label: 'Mercury 2',
     description: "Inception's diffusion-based language model",
     vision: false,
@@ -2767,31 +2767,31 @@ export function getExtremeModels(): Model[] {
 
 // Models that support canvas mode (spec generation)
 const CANVAS_MODELS = new Set([
-  'scira-code',
-  'scira-gpt-5.2',
-  'scira-gpt-5.3-chat-latest',
-  'scira-gpt-5.4',
-  'scira-gpt-5.4-mini',
-  'scira-gpt-5.4-nano',
-  'scira-gpt-5.4-thinking',
-  'scira-gpt-5.4-thinking-xhigh',
-  'scira-gpt-5.2-thinking',
-  'scira-gpt-5.2-thinking-xhigh',
-  'scira-anthropic',
-  'scira-anthropic-sonnet-4.6',
-  'scira-anthropic-sonnet-4.6-think',
-  'scira-anthropic-opus-4.6',
-  'scira-anthropic-opus-4.6-think',
-  'scira-glm-5',
-  'scira-glm-4.7',
-  'scira-kimi-k2.5',
-  'scira-qwen-3.5',
-  'scira-qwen-3.5-plus',
-  'scira-seed-1.8',
-  'scira-deepseek-chat',
-  'scira-gpt-5.2-codex',
-  'scira-gpt-5.3-codex',
-  'scira-gemini-3.1-pro',
+  'zetora-code',
+  'zetora-gpt-5.2',
+  'zetora-gpt-5.3-chat-latest',
+  'zetora-gpt-5.4',
+  'zetora-gpt-5.4-mini',
+  'zetora-gpt-5.4-nano',
+  'zetora-gpt-5.4-thinking',
+  'zetora-gpt-5.4-thinking-xhigh',
+  'zetora-gpt-5.2-thinking',
+  'zetora-gpt-5.2-thinking-xhigh',
+  'zetora-anthropic',
+  'zetora-anthropic-sonnet-4.6',
+  'zetora-anthropic-sonnet-4.6-think',
+  'zetora-anthropic-opus-4.6',
+  'zetora-anthropic-opus-4.6-think',
+  'zetora-glm-5',
+  'zetora-glm-4.7',
+  'zetora-kimi-k2.5',
+  'zetora-qwen-3.5',
+  'zetora-qwen-3.5-plus',
+  'zetora-seed-1.8',
+  'zetora-deepseek-chat',
+  'zetora-gpt-5.2-codex',
+  'zetora-gpt-5.3-codex',
+  'zetora-gemini-3.1-pro',
 ]);
 
 export function supportsCanvasMode(modelValue: string): boolean {
@@ -2803,44 +2803,44 @@ const RESTRICTED_REGIONS = ['CN', 'KP', 'RU']; // China, North Korea, Russia
 
 // Models that should be filtered in restricted regions
 const OPENAI_MODELS = [
-  'scira-gpt-4.1',
-  'scira-gpt-4.1-mini',
-  'scira-gpt-4.1-nano',
-  'scira-gpt5',
-  'scira-gpt5-mini',
-  'scira-gpt5-nano',
-  'scira-gpt5-medium',
-  'scira-gpt5-codex',
-  'scira-gpt-5.1',
-  'scira-gpt-5.1-codex',
-  'scira-gpt-5.1-codex-mini',
-  'scira-gpt-5.1-codex-max',
-  'scira-gpt-5.1-thinking',
-  'scira-gpt-5.2',
-  'scira-gpt-5.4',
-  'scira-gpt-5.4-mini',
-  'scira-gpt-5.4-nano',
-  'scira-gpt-5.4-thinking',
-  'scira-gpt-5.4-thinking-xhigh',
-  'scira-gpt-5.2-thinking',
-  'scira-gpt-5.2-thinking-xhigh',
-  'scira-gpt-5.2-codex',
-  'scira-gpt-5.3-codex',
-  'scira-o3',
-  'scira-o4-mini',
+  'zetora-gpt-4.1',
+  'zetora-gpt-4.1-mini',
+  'zetora-gpt-4.1-nano',
+  'zetora-gpt5',
+  'zetora-gpt5-mini',
+  'zetora-gpt5-nano',
+  'zetora-gpt5-medium',
+  'zetora-gpt5-codex',
+  'zetora-gpt-5.1',
+  'zetora-gpt-5.1-codex',
+  'zetora-gpt-5.1-codex-mini',
+  'zetora-gpt-5.1-codex-max',
+  'zetora-gpt-5.1-thinking',
+  'zetora-gpt-5.2',
+  'zetora-gpt-5.4',
+  'zetora-gpt-5.4-mini',
+  'zetora-gpt-5.4-nano',
+  'zetora-gpt-5.4-thinking',
+  'zetora-gpt-5.4-thinking-xhigh',
+  'zetora-gpt-5.2-thinking',
+  'zetora-gpt-5.2-thinking-xhigh',
+  'zetora-gpt-5.2-codex',
+  'zetora-gpt-5.3-codex',
+  'zetora-o3',
+  'zetora-o4-mini',
 ];
 
 const ANTHROPIC_MODELS = [
-  'scira-haiku',
-  'scira-anthropic-small',
-  'scira-anthropic',
-  'scira-anthropic-think',
-  'scira-anthropic-opus',
-  'scira-anthropic-opus-think',
-  'scira-anthropic-sonnet-4.6',
-  'scira-anthropic-sonnet-4.6-think',
-  'scira-anthropic-opus-4.6',
-  'scira-anthropic-opus-4.6-think',
+  'zetora-haiku',
+  'zetora-anthropic-small',
+  'zetora-anthropic',
+  'zetora-anthropic-think',
+  'zetora-anthropic-opus',
+  'zetora-anthropic-opus-think',
+  'zetora-anthropic-sonnet-4.6',
+  'zetora-anthropic-sonnet-4.6-think',
+  'zetora-anthropic-opus-4.6',
+  'zetora-anthropic-opus-4.6-think',
 ];
 
 // Check if a model should be filtered based on region
@@ -2878,14 +2878,14 @@ export function getModelProvider(modelValue: string, label?: string): ModelProvi
   // xAI (Grok)
   if (
     value.includes('grok') ||
-    value.includes('scira-default') ||
-    (value.includes('scira-code') && !value.includes('codex'))
+    value.includes('zetora-default') ||
+    (value.includes('zetora-code') && !value.includes('codex'))
   ) {
     return 'xai';
   }
 
   // OpenAI (GPT, o3, o4)
-  if (value.includes('gpt') || value.includes('scira-o3') || value.includes('scira-o4')) {
+  if (value.includes('gpt') || value.includes('zetora-o3') || value.includes('zetora-o4')) {
     return 'openai';
   }
 

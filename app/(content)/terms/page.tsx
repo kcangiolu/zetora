@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { ArrowLeft, Clock, FileText, ArrowUpRight } from 'lucide-react';
-import { SciraLogo } from '@/components/logos/scira-logo';
+import { ZetoraLogo } from '@/components/logos/zetora-logo';
 
 const sections = [
   { id: 'acceptance', label: 'Acceptance' },
@@ -23,8 +23,8 @@ export default function TermsPage() {
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between h-14 px-6">
             <Link href="/" className="flex items-center gap-2.5 group">
-              <SciraLogo className="size-5 transition-transform duration-300 group-hover:scale-110" />
-              <span className="text-lg font-light tracking-tighter font-be-vietnam-pro">scira</span>
+              <ZetoraLogo className="size-5 transition-transform duration-300 group-hover:scale-110" />
+              <span className="text-lg font-light tracking-tighter font-be-vietnam-pro">zetora</span>
             </Link>
             <div className="flex items-center gap-4">
               <Link
@@ -74,7 +74,7 @@ export default function TermsPage() {
                 </span>
               </div>
               <p className="text-sm text-foreground/80 leading-relaxed">
-                Scira AI is free to use with optional paid plans including Pro at $15/mo and Max at $60/mo. Max includes
+                Zetora AI is free to use with optional paid plans including Pro at $15/mo and Max at $60/mo. Max includes
                 access to Anthropic Claude models with a 60 requests per week usage cap. We don&apos;t store payment
                 data. You own your queries. Be respectful, don&apos;t scrape, and verify important answers
                 independently. Cancel anytime; no refunds on subscriptions.
@@ -84,7 +84,7 @@ export default function TermsPage() {
             {/* Content */}
             <div className="prose prose-neutral dark:prose-invert max-w-none prose-headings:font-be-vietnam-pro prose-headings:font-light prose-headings:tracking-tight prose-h2:text-lg prose-h2:mt-14 prose-h2:mb-4 prose-h2:scroll-mt-20 prose-p:text-muted-foreground prose-p:leading-relaxed prose-p:text-[15px] prose-li:text-muted-foreground prose-li:text-[15px] prose-a:text-foreground prose-a:font-medium prose-a:no-underline hover:prose-a:underline prose-strong:text-foreground prose-strong:font-medium">
               <p className="text-base text-foreground/80 leading-relaxed">
-                Welcome to Scira AI. These Terms of Service govern your use of our website and services. By using Scira
+                Welcome to Zetora AI. These Terms of Service govern your use of our website and services. By using Zetora
                 AI, you agree to these terms in full. If you disagree with any part of these terms, please do not use
                 our service.
               </p>
@@ -93,9 +93,9 @@ export default function TermsPage() {
                 <span className="font-pixel text-xs text-muted-foreground/50 mr-2">01</span>Acceptance of Terms
               </h2>
               <p>
-                By accessing or using Scira AI, you acknowledge that you have read, understood, and agree to be bound by
+                By accessing or using Zetora AI, you acknowledge that you have read, understood, and agree to be bound by
                 these Terms of Service. We reserve the right to modify these terms at any time, and such modifications
-                shall be effective immediately upon posting. Your continued use of Scira AI after any modifications
+                shall be effective immediately upon posting. Your continued use of Zetora AI after any modifications
                 indicates your acceptance of the modified terms.
               </p>
 
@@ -103,7 +103,7 @@ export default function TermsPage() {
                 <span className="font-pixel text-xs text-muted-foreground/50 mr-2">02</span>Description of Service
               </h2>
               <p>
-                Scira AI is an AI assistant that helps users research information on the internet and take action
+                Zetora AI is an AI assistant that helps users research information on the internet and take action
                 through connected third-party apps. Our service utilizes artificial intelligence to process search
                 queries, provide relevant results, and interact with external services via the Model Context Protocol
                 (MCP).
@@ -118,7 +118,7 @@ export default function TermsPage() {
               <h2 id="conduct">
                 <span className="font-pixel text-xs text-muted-foreground/50 mr-2">03</span>User Conduct
               </h2>
-              <p>You agree not to use Scira AI to:</p>
+              <p>You agree not to use Zetora AI to:</p>
               <ul>
                 <li>Engage in any activity that violates applicable laws or regulations</li>
                 <li>Infringe upon the rights of others, including intellectual property rights</li>
@@ -132,7 +132,7 @@ export default function TermsPage() {
               <h2 id="content">
                 <span className="font-pixel text-xs text-muted-foreground/50 mr-2">04</span>Content and Results
               </h2>
-              <p>While we strive to provide accurate and reliable information, Scira AI:</p>
+              <p>While we strive to provide accurate and reliable information, Zetora AI:</p>
               <ul>
                 <li>Does not guarantee the accuracy, completeness, or reliability of any results</li>
                 <li>Is not responsible for content generated based on your search queries</li>
@@ -140,7 +140,7 @@ export default function TermsPage() {
               </ul>
               <p>
                 You should exercise judgment and critical thinking when evaluating search results and generated content.
-                Scira AI should not be used as the sole source for making important decisions, especially in
+                Zetora AI should not be used as the sole source for making important decisions, especially in
                 professional, medical, legal, or financial contexts.
               </p>
 
@@ -148,8 +148,8 @@ export default function TermsPage() {
                 <span className="font-pixel text-xs text-muted-foreground/50 mr-2">05</span>Intellectual Property
               </h2>
               <p>
-                All content, features, and functionality of Scira AI, including but not limited to text, graphics,
-                logos, icons, images, audio clips, and software, are the property of Scira AI or its licensors and are
+                All content, features, and functionality of Zetora AI, including but not limited to text, graphics,
+                logos, icons, images, audio clips, and software, are the property of Zetora AI or its licensors and are
                 protected by copyright, trademark, and other intellectual property laws.
               </p>
               <p>
@@ -160,7 +160,7 @@ export default function TermsPage() {
               <h2 id="third-party">
                 <span className="font-pixel text-xs text-muted-foreground/50 mr-2">06</span>Third-Party Services
               </h2>
-              <p>Scira AI relies on third-party services to provide its functionality:</p>
+              <p>Zetora AI relies on third-party services to provide its functionality:</p>
               <ul>
                 <li>Our service is hosted on Vercel&apos;s infrastructure</li>
                 <li>We integrate with AI technology providers including OpenAI, Anthropic, xAI, and others</li>
@@ -179,7 +179,7 @@ export default function TermsPage() {
                 <span className="font-pixel text-xs text-muted-foreground/50 mr-2">07</span>Pricing and Billing
               </h2>
               <p>
-                Scira AI offers both free and paid subscription plans. For detailed pricing information, visit our{' '}
+                Zetora AI offers both free and paid subscription plans. For detailed pricing information, visit our{' '}
                 <Link href="/pricing">Pricing page</Link>.
               </p>
               <p>
@@ -193,16 +193,16 @@ export default function TermsPage() {
                   <strong>Free Plan:</strong> Includes limited daily searches with access to basic AI models
                 </li>
                 <li>
-                  <strong>Scira Pro:</strong> $15/month subscription with unlimited searches and access to standard paid
+                  <strong>Zetora Pro:</strong> $15/month subscription with unlimited searches and access to standard paid
                   features and non-Max AI models
                 </li>
                 <li>
-                  <strong>Scira Max:</strong> $60/month subscription with all paid features plus Anthropic Claude
+                  <strong>Zetora Max:</strong> $60/month subscription with all paid features plus Anthropic Claude
                   models, subject to a 60 requests per week usage cap
                 </li>
               </ul>
               <p>
-                <strong>Important:</strong> Scira AI does not store any payment card details, bank information, or other
+                <strong>Important:</strong> Zetora AI does not store any payment card details, bank information, or other
                 sensitive payment data. All payment information is processed directly by our payment providers.
               </p>
 
@@ -225,7 +225,7 @@ export default function TermsPage() {
                 <span className="font-pixel text-xs text-muted-foreground/50 mr-2">09</span>Privacy
               </h2>
               <p>
-                Your use of Scira AI is also governed by our <Link href="/privacy-policy">Privacy Policy</Link>, which
+                Your use of Zetora AI is also governed by our <Link href="/privacy-policy">Privacy Policy</Link>, which
                 is incorporated into these Terms of Service by reference.
               </p>
 
@@ -233,7 +233,7 @@ export default function TermsPage() {
                 <span className="font-pixel text-xs text-muted-foreground/50 mr-2">10</span>Limitation of Liability
               </h2>
               <p>
-                To the maximum extent permitted by law, Scira AI shall not be liable for any indirect, incidental,
+                To the maximum extent permitted by law, Zetora AI shall not be liable for any indirect, incidental,
                 special, consequential, or punitive damages, including loss of profits, data, or goodwill, arising out
                 of or in connection with your use of or inability to use the service.
               </p>
@@ -242,7 +242,7 @@ export default function TermsPage() {
                 <span className="font-pixel text-xs text-muted-foreground/50 mr-2">11</span>Disclaimers
               </h2>
               <p>
-                Scira AI is provided &quot;as is&quot; and &quot;as available&quot; without any warranties of any kind,
+                Zetora AI is provided &quot;as is&quot; and &quot;as available&quot; without any warranties of any kind,
                 either express or implied.
               </p>
 
@@ -250,7 +250,7 @@ export default function TermsPage() {
                 <span className="font-pixel text-xs text-muted-foreground/50 mr-2">12</span>Termination
               </h2>
               <p>
-                We reserve the right to suspend or terminate your access to Scira AI, with or without notice, for
+                We reserve the right to suspend or terminate your access to Zetora AI, with or without notice, for
                 conduct that we believe violates these Terms of Service or is harmful to other users, us, or third
                 parties.
               </p>
@@ -260,7 +260,7 @@ export default function TermsPage() {
               </h2>
               <p>
                 These Terms shall be governed by and construed in accordance with the laws of the jurisdiction in which
-                Scira AI operates.
+                Zetora AI operates.
               </p>
 
               <h2>
@@ -268,14 +268,14 @@ export default function TermsPage() {
               </h2>
               <p>If you have any questions about these Terms of Service, please contact us at:</p>
               <p>
-                <a href="mailto:zaid@scira.ai">zaid@scira.ai</a>
+                <a href="mailto:zaid@zetora.ai">zaid@zetora.ai</a>
               </p>
             </div>
 
             {/* Agreement Note */}
             <div className="mt-16 pt-8 border-t border-border/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <p className="text-sm text-muted-foreground">
-                By using Scira AI, you agree to these Terms and our{' '}
+                By using Zetora AI, you agree to these Terms and our{' '}
                 <Link href="/privacy-policy" className="text-foreground hover:underline underline-offset-2">
                   Privacy Policy
                 </Link>
@@ -331,8 +331,8 @@ export default function TermsPage() {
         <div className="max-w-4xl mx-auto px-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-8">
             <div className="flex items-center gap-3">
-              <SciraLogo className="size-4" />
-              <span className="text-xs text-muted-foreground">&copy; {new Date().getFullYear()} Scira</span>
+              <ZetoraLogo className="size-4" />
+              <span className="text-xs text-muted-foreground">&copy; {new Date().getFullYear()} Zetora</span>
             </div>
             <div className="flex items-center gap-6">
               <Link href="/" className="text-xs text-muted-foreground hover:text-foreground transition-colors">

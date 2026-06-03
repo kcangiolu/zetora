@@ -7,7 +7,7 @@ import { UIMessage, generateText, Output } from 'ai';
 import type { ModelMessage } from 'ai';
 import { z } from 'zod';
 import { getUser } from '@/lib/auth-utils';
-import { hasVisionSupport, scira } from '@/ai/providers';
+import { hasVisionSupport, zetora } from '@/ai/providers';
 import {
   getChatsByUserId,
   getRecentChatsByUserId,
@@ -159,7 +159,7 @@ export async function suggestQuestions(history: any[]) {
   console.log(history);
 
   const { output } = await generateText({
-    model: scira.languageModel('scira-follow-up'),
+    model: zetora.languageModel('zetora-follow-up'),
     providerOptions: {
       google: {
         structuredOutputs: true,
@@ -251,7 +251,7 @@ export async function generateTitleFromUserMessage({ message }: { message: UIMes
   const prompt = JSON.stringify(firstTextPart && firstTextPart.type === 'text' ? firstTextPart.text : '');
   console.log('Prompt: ', prompt);
   const { text: title } = await generateText({
-    model: scira.languageModel('scira-name'),
+    model: zetora.languageModel('zetora-name'),
     system: `You are an expert title generator. You are given a message and you need to generate a short title based on it.
 
     - you will generate a short 3-4 words title based on the first message a user begins a conversation with
@@ -342,7 +342,7 @@ Output requirements:
 - No quotes, no commentary, no markdown, and no preface.`;
 
     const { text } = await generateText({
-      model: scira.languageModel('scira-enhance'),
+      model: zetora.languageModel('zetora-enhance'),
       temperature: 0.6,
       topP: 0.95,
       maxOutputTokens: 1024,
@@ -1606,23 +1606,23 @@ export async function getUserPreferences(providedUser?: User | null) {
 
 export async function saveUserPreferences(
   preferences: Partial<{
-    'scira-search-provider'?: 'exa' | 'parallel' | 'firecrawl';
-    'scira-extreme-search-model'?:
-      | 'scira-ext-1'
-      | 'scira-ext-2'
-      | 'scira-ext-4'
-      | 'scira-ext-5'
-      | 'scira-ext-6'
-      | 'scira-ext-7'
-      | 'scira-ext-8';
-    'scira-group-order'?: string[];
-    'scira-model-order-global'?: string[];
-    'scira-blur-personal-info'?: boolean;
-    'scira-custom-instructions-enabled'?: boolean;
-    'scira-scroll-to-latest-on-open'?: boolean;
-    'scira-location-metadata-enabled'?: boolean;
-    'scira-auto-router-enabled'?: boolean;
-    'scira-auto-router-config'?: {
+    'zetora-search-provider'?: 'exa' | 'parallel' | 'firecrawl';
+    'zetora-extreme-search-model'?:
+      | 'zetora-ext-1'
+      | 'zetora-ext-2'
+      | 'zetora-ext-4'
+      | 'zetora-ext-5'
+      | 'zetora-ext-6'
+      | 'zetora-ext-7'
+      | 'zetora-ext-8';
+    'zetora-group-order'?: string[];
+    'zetora-model-order-global'?: string[];
+    'zetora-blur-personal-info'?: boolean;
+    'zetora-custom-instructions-enabled'?: boolean;
+    'zetora-scroll-to-latest-on-open'?: boolean;
+    'zetora-location-metadata-enabled'?: boolean;
+    'zetora-auto-router-enabled'?: boolean;
+    'zetora-auto-router-config'?: {
       routes: Array<{
         name: string;
         description: string;
@@ -1728,7 +1728,7 @@ Based on your analysis, provide your response in the following JSON formats if y
 `;
 
     const { text } = await generateText({
-      model: scira.languageModel('scira-arch-router'),
+      model: zetora.languageModel('zetora-arch-router'),
       messages: [{ role: 'user', content: taskInstruction + formatPrompt }],
       maxOutputTokens: 200,
       temperature: 0,
@@ -1739,11 +1739,11 @@ Based on your analysis, provide your response in the following JSON formats if y
     const routeName = parsed?.route as string | undefined;
 
     const matchedRoute = sanitizedRoutes.find((route) => route.name === routeName);
-    let resolvedModel = matchedRoute?.model || 'scira-default';
+    let resolvedModel = matchedRoute?.model || 'zetora-default';
 
     if (hasImages && !hasVisionSupport(resolvedModel)) {
       const visionRoute = sanitizedRoutes.find((route) => hasVisionSupport(route.model));
-      resolvedModel = visionRoute?.model || 'scira-default';
+      resolvedModel = visionRoute?.model || 'zetora-default';
     }
 
     console.log('Resolved model:', resolvedModel);
@@ -2014,11 +2014,11 @@ export async function createScheduledLookout({
 
           if (delay > 0) {
             await qstash.publish({
-              // if dev env use localhost:3000/api/lookout, else use scira.ai/api/lookout
+              // if dev env use localhost:3000/api/lookout, else use zetora.ai/api/lookout
               url:
                 process.env.NODE_ENV === 'development'
                   ? process.env.NGROK_URL + '/api/lookout'
-                  : `https://scira.ai/api/lookout`,
+                  : `https://zetora.ai/api/lookout`,
               body: JSON.stringify({
                 lookoutId: lookout.id,
                 prompt,
@@ -2048,11 +2048,11 @@ export async function createScheduledLookout({
           console.log('📅 Cron schedule with timezone:', cronSchedule);
 
           const scheduleResponse = await qstash.schedules.create({
-            // if dev env use localhost:3000/api/lookout, else use scira.ai/api/lookout
+            // if dev env use localhost:3000/api/lookout, else use zetora.ai/api/lookout
             destination:
               process.env.NODE_ENV === 'development'
                 ? process.env.NGROK_URL + '/api/lookout'
-                : `https://scira.ai/api/lookout`,
+                : `https://zetora.ai/api/lookout`,
             method: 'POST',
             cron: cronSchedule,
             body: JSON.stringify({
@@ -2250,11 +2250,11 @@ export async function updateLookoutAction({
 
         // Create new schedule with updated cron
         const scheduleResponse = await qstash.schedules.create({
-          // if dev env use localhost:3000/api/lookout, else use scira.ai/api/lookout
+          // if dev env use localhost:3000/api/lookout, else use zetora.ai/api/lookout
           destination:
             process.env.NODE_ENV === 'development'
               ? process.env.NGROK_URL + '/api/lookout'
-              : `https://scira.ai/api/lookout`,
+              : `https://zetora.ai/api/lookout`,
           method: 'POST',
           cron: cronSchedule,
           body: JSON.stringify({
@@ -2362,7 +2362,7 @@ export async function testLookoutAction({ id }: { id: string }) {
         ? process.env.NGROK_URL
           ? process.env.NGROK_URL + '/api/lookout'
           : 'http://localhost:3000/api/lookout'
-        : `https://scira.ai/api/lookout`;
+        : `https://zetora.ai/api/lookout`;
 
     const response = await fetch(lookoutUrl, {
       method: 'POST',

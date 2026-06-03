@@ -117,7 +117,7 @@ const ChatInterface = memo(
     const [query] = useQueryState('query', parseAsString.withDefault(''));
     const [q] = useQueryState('q', parseAsString.withDefault(''));
     const [groupParam] = useQueryState('group', parseAsString.withDefault(''));
-    const [input, setInput] = useLocalStorage<string>('scira-draft-input', '');
+    const [input, setInput] = useLocalStorage<string>('zetora-draft-input', '');
     const [localChatTitle, setLocalChatTitle] = useState<string>(chatTitle || (initialChatId ? 'Chat' : 'New Chat'));
     const [isEditingTitle, setIsEditingTitle] = useState(false); // legacy inline edit (to be removed)
     const [titleInput, setTitleInput] = useState(localChatTitle);
@@ -164,28 +164,28 @@ const ChatInterface = memo(
       queueMicrotask(() => measureHeaderMenuAlignment());
     }, [pathname, localChatTitle, headerMenuOpen, measureHeaderMenuAlignment]);
 
-    const [selectedModel, setSelectedModel] = useLocalStorage('scira-selected-model', 'scira-default');
+    const [selectedModel, setSelectedModel] = useLocalStorage('zetora-selected-model', 'zetora-default');
     const initialGroupDefault = (
       groupParam ? (groupParam as unknown as SearchGroupId) : ('web' as SearchGroupId)
     ) as SearchGroupId;
     const [selectedGroup, setSelectedGroup] = useLocalStorage<SearchGroupId>(
-      'scira-selected-group',
+      'zetora-selected-group',
       initialGroupDefault,
     );
     const effectiveSelectedGroup = (
       groupParam ? (groupParam as unknown as SearchGroupId) : selectedGroup
     ) as SearchGroupId;
     const [selectedConnectors, setSelectedConnectors] = useState<ConnectorProvider[]>([]);
-    const [isMultiAgentModeEnabled, setIsMultiAgentModeEnabled] = useLocalStorage('scira-multi-agent-enabled', false);
+    const [isMultiAgentModeEnabled, setIsMultiAgentModeEnabled] = useLocalStorage('zetora-multi-agent-enabled', false);
     const [isCustomInstructionsEnabled, setIsCustomInstructionsEnabled] = useLocalStorage(
-      'scira-custom-instructions-enabled',
+      'zetora-custom-instructions-enabled',
       true,
     );
     // Simple state for temp chat - no useEffect, just direct localStorage
     const [isTemporaryChatEnabled, _setIsTemporaryChatEnabled] = useState(() => {
       if (typeof window === 'undefined') return false;
       try {
-        return localStorage.getItem('scira-temporary-chat-enabled') === 'true';
+        return localStorage.getItem('zetora-temporary-chat-enabled') === 'true';
       } catch {
         return false;
       }
@@ -194,7 +194,7 @@ const ChatInterface = memo(
       _setIsTemporaryChatEnabled((prev) => {
         const next = typeof value === 'function' ? value(prev) : value;
         if (typeof window !== 'undefined') {
-          localStorage.setItem('scira-temporary-chat-enabled', String(next));
+          localStorage.setItem('zetora-temporary-chat-enabled', String(next));
         }
         return next;
       });
@@ -214,29 +214,29 @@ const ChatInterface = memo(
 
     // Get persisted values for dialog states
     const [persistedHasShownUpgradeDialog, setPersitedHasShownUpgradeDialog] = useLocalStorage(
-      'scira-upgrade-prompt-shown',
+      'zetora-upgrade-prompt-shown',
       false,
     );
     const [persistedHasShownSignInPrompt, setPersitedHasShownSignInPrompt] = useLocalStorage(
-      'scira-signin-prompt-shown',
+      'zetora-signin-prompt-shown',
       false,
     );
     const [persistedHasShownLookoutAnnouncement, setPersitedHasShownLookoutAnnouncement] = useLocalStorage(
-      'scira-lookout-announcement-shown',
+      'zetora-lookout-announcement-shown',
       false,
     );
 
     const [searchProvider, _] = useLocalStorage<'exa' | 'parallel' | 'firecrawl'>(
-      'scira-search-provider',
+      'zetora-search-provider',
       'firecrawl',
     );
 
     const [extremeSearchModel] = useLocalStorage<
-      'scira-ext-1' | 'scira-ext-2' | 'scira-ext-4' | 'scira-ext-5' | 'scira-ext-6' | 'scira-ext-7' | 'scira-ext-8'
-    >('scira-extreme-search-model', 'scira-ext-1');
-    const [isAutoRouterEnabled] = useSyncedPreferences<boolean>('scira-auto-router-enabled', false);
-    const [autoRouterConfig] = useSyncedPreferences<AutoRouterConfig>('scira-auto-router-config', { routes: [] });
-    const [scrollToLatestOnOpen] = useSyncedPreferences<boolean>('scira-scroll-to-latest-on-open', false);
+      'zetora-ext-1' | 'zetora-ext-2' | 'zetora-ext-4' | 'zetora-ext-5' | 'zetora-ext-6' | 'zetora-ext-7' | 'zetora-ext-8'
+    >('zetora-extreme-search-model', 'zetora-ext-1');
+    const [isAutoRouterEnabled] = useSyncedPreferences<boolean>('zetora-auto-router-enabled', false);
+    const [autoRouterConfig] = useSyncedPreferences<AutoRouterConfig>('zetora-auto-router-config', { routes: [] });
+    const [scrollToLatestOnOpen] = useSyncedPreferences<boolean>('zetora-scroll-to-latest-on-open', false);
 
     // State for tracking the auto-routed model
     const [autoRoutedModel, setAutoRoutedModel] = useState<{ model: string; route: string } | null>(null);
@@ -468,7 +468,7 @@ const ChatInterface = memo(
 
         syncSkipAutoScroll();
       };
-      window.addEventListener('scira:nested-scroll-active', handleNestedScrollInteraction as EventListener);
+      window.addEventListener('zetora:nested-scroll-active', handleNestedScrollInteraction as EventListener);
       return () => {
         if (touchEndTimeoutRef.current) clearTimeout(touchEndTimeoutRef.current);
         if (nestedScrollTimeoutRef.current) clearTimeout(nestedScrollTimeoutRef.current);
@@ -478,7 +478,7 @@ const ChatInterface = memo(
         window.removeEventListener('touchmove', handleTouchMove);
         window.removeEventListener('touchend', handleTouchEnd);
         window.removeEventListener('touchcancel', handleTouchEnd);
-        window.removeEventListener('scira:nested-scroll-active', handleNestedScrollInteraction as EventListener);
+        window.removeEventListener('zetora:nested-scroll-active', handleNestedScrollInteraction as EventListener);
       };
     }, [markManualScroll, syncSkipAutoScroll]);
 
@@ -501,7 +501,7 @@ const ChatInterface = memo(
     // Pro users bypass all limit checks - much cleaner!
     const effectiveSelectedModel = useMemo(() => {
       if (proStatusLoading) return selectedModel;
-      if (requiresProSubscription(selectedModel) && !isUserPro) return 'scira-default';
+      if (requiresProSubscription(selectedModel) && !isUserPro) return 'zetora-default';
       return selectedModel;
     }, [selectedModel, isUserPro, proStatusLoading]);
     const shouldBypassLimits = shouldBypassLimitsForModel(effectiveSelectedModel);
@@ -749,7 +749,7 @@ const ChatInterface = memo(
 
     const sendMessageWithAutoRouting = useCallback(
       async (message: Parameters<typeof sendMessage>[0], options?: Parameters<typeof sendMessage>[1]) => {
-        const isUsingAutoRouter = selectedModelRef.current === 'scira-auto';
+        const isUsingAutoRouter = selectedModelRef.current === 'zetora-auto';
         // Prevent stale/ghost elicitation UI from previous requests.
         setActiveElicitation(null);
         // Keep dismissed/opened id sets so historical stream parts can't resurrect.
@@ -869,7 +869,7 @@ const ChatInterface = memo(
     useEffect(() => {
       if (!initializedRef.current && initialState.query && !messages.length && !initialChatId) {
         if (typeof window !== 'undefined') {
-          const dedupeKey = `scira:initial-query:${initialState.query}`;
+          const dedupeKey = `zetora:initial-query:${initialState.query}`;
           const previousTimestamp = Number(sessionStorage.getItem(dedupeKey) ?? '0');
           const now = Date.now();
           if (previousTimestamp && now - previousTimestamp < INITIAL_QUERY_DEDUPE_WINDOW_MS) {
@@ -1065,7 +1065,7 @@ const ChatInterface = memo(
       (model: string) => {
         setSelectedModel(model);
         // Clear auto-routed model when switching away from auto
-        if (model !== 'scira-auto') {
+        if (model !== 'zetora-auto') {
           setAutoRoutedModel(null);
         }
       },
@@ -1133,7 +1133,7 @@ const ChatInterface = memo(
             dispatch({ type: 'SET_VISIBILITY_TYPE', payload: visibility });
             console.log('🔄 Dispatched SET_VISIBILITY_TYPE with:', visibility);
 
-            const shareUrl = visibility === 'public' ? `https://scira.ai/share/${chatId}` : '';
+            const shareUrl = visibility === 'public' ? `https://zetora.ai/share/${chatId}` : '';
             sileo.success({
               title: `Chat is now ${visibility}`,
               description:
@@ -1490,7 +1490,7 @@ const ChatInterface = memo(
                     </div>
                     <div className="inline-flex items-center gap-3">
                       <h1 className="text-4xl sm:text-5xl mb-0! text-foreground dark:text-foreground font-be-vietnam-pro! font-light tracking-tighter">
-                        scira
+                        zetora
                       </h1>
                       {isUserPro && (
                         <h1 className="text-2xl font-baumans! leading-4 inline-block px-3! pt-1! pb-2.5! rounded-xl shadow-sm m-0! mt-2! bg-linear-to-br from-secondary/25 via-primary/20 to-accent/25 text-foreground ring-1 ring-ring/35 ring-offset-1 ring-offset-background dark:bg-linear-to-br dark:from-primary dark:via-secondary dark:to-primary dark:text-foreground">

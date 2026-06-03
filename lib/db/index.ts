@@ -1,3 +1,4 @@
+// PATCHED BY install-zetora.sh
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { withReplicas } from 'drizzle-orm/pg-core';
 import { serverEnv } from '@/env/server';
@@ -7,11 +8,11 @@ export const maindb = drizzle(serverEnv.DATABASE_URL, {
   schema,
 });
 
-const dbread1 = drizzle(process.env.READ_DB_1!, {
+const dbread1 = drizzle(process.env.READ_DB_1 || serverEnv.DATABASE_URL, {
   schema,
 });
 
-const dbread2 = drizzle(process.env.READ_DB_2!, {
+const dbread2 = drizzle(process.env.READ_DB_2 || serverEnv.DATABASE_URL, {
   schema,
 });
 

@@ -416,7 +416,7 @@ async function registerDynamicOAuthClient({
       Accept: 'application/json',
     },
     body: JSON.stringify({
-      client_name: 'Scira AI',
+      client_name: 'Zetora AI',
       client_uri: origin,
       redirect_uris: [redirectUri],
       grant_types: ['authorization_code', 'refresh_token'],

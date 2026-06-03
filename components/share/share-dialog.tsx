@@ -44,7 +44,7 @@ export function ShareDialog({
   const [choice, setChoice] = useState<'public' | 'private'>(selectedVisibilityType);
   const [isShared, setIsShared] = useState<boolean>(selectedVisibilityType === 'public');
 
-  const shareUrl = chatId ? `https://scira.ai/share/${chatId}` : '';
+  const shareUrl = chatId ? `https://zetora.ai/share/${chatId}` : '';
 
   useEffect(() => {
     if (!isOpen) {
@@ -147,7 +147,7 @@ export function ShareDialog({
   const handleNativeShare = async () => {
     try {
       await navigator.share({
-        title: 'Shared Scira Chat',
+        title: 'Shared Zetora Chat',
         url: shareUrl,
       });
     } catch (error) {

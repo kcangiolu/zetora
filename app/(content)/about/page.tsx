@@ -53,18 +53,18 @@ import { ElevenLabsLogo } from '@/components/logos/elevenlabs-logo';
 import { PRICING, SEARCH_LIMITS } from '@/lib/constants';
 
 import { ThemeSwitcher } from '@/components/theme-switcher';
-import { SciraLogo } from '@/components/logos/scira-logo';
+import { ZetoraLogo } from '@/components/logos/zetora-logo';
 import { getSearchGroups } from '@/lib/utils';
 
 const testimonials = [
   {
     content:
-      'Scira is better than Grok at digging up information from X, its own platform! Scira did much much better with insanely accurate answers!',
+      'Zetora is better than Grok at digging up information from X, its own platform! Zetora did much much better with insanely accurate answers!',
     author: 'Chris Universe',
     handle: '@chrisuniverseb',
   },
   {
-    content: 'Scira does a really good job scraping through the reddit mines.',
+    content: 'Zetora does a really good job scraping through the reddit mines.',
     author: 'nyaaier',
     handle: '@nyaaier',
   },
@@ -76,7 +76,7 @@ const testimonials = [
   },
   {
     content:
-      'Read nothing the whole sem and here I am with Scira to top my mid sems! Literally so good to get all the related diagrams, points and topics.',
+      'Read nothing the whole sem and here I am with Zetora to top my mid sems! Literally so good to get all the related diagrams, points and topics.',
     author: 'Rajnandinit',
     handle: '@itsRajnandinit',
   },
@@ -153,7 +153,7 @@ function AppsBeamSection() {
             Your tools, <span className="font-pixel text-3xl sm:text-4xl">connected.</span>
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            Connect 100+ apps via MCP and let Scira take action inside them. Research and act, without leaving the
+            Connect 100+ apps via MCP and let Zetora take action inside them. Research and act, without leaving the
             conversation.
           </p>
         </div>
@@ -180,7 +180,7 @@ function AppsBeamSection() {
                 ref={centerRef}
                 className="z-10 flex size-16 items-center justify-center rounded-2xl border-2 border-primary/30 bg-background p-3 shadow-[0_0_20px_-12px_rgba(0,0,0,0.8)]"
               >
-                <SciraLogo className="size-8" />
+                <ZetoraLogo className="size-8" />
               </div>
               <AppCircle ref={r2} favicon="linear.app" label="Linear" />
             </div>
@@ -359,8 +359,8 @@ export default function AboutPage() {
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-between h-14 px-6">
             <Link href="/" className="flex items-center gap-2.5 group">
-              <SciraLogo className="size-6 transition-transform duration-300 group-hover:scale-110" />
-              <span className="text-xl font-light tracking-tighter font-be-vietnam-pro">scira</span>
+              <ZetoraLogo className="size-6 transition-transform duration-300 group-hover:scale-110" />
+              <span className="text-xl font-light tracking-tighter font-be-vietnam-pro">zetora</span>
             </Link>
 
             <nav className="hidden md:flex items-center gap-6">
@@ -368,7 +368,7 @@ export default function AboutPage() {
                 Pricing
               </Link>
               <Link
-                href="https://git.new/scira"
+                href="https://git.new/zetora"
                 className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 target="_blank"
               >
@@ -385,7 +385,7 @@ export default function AboutPage() {
             <div className="flex items-center gap-3">
               <ThemeSwitcher />
               <Button size="sm" className="h-8 px-5 text-sm rounded-full font-medium" onClick={() => router.push('/')}>
-                Try Scira
+                Try Zetora
                 <ArrowRight className="w-3 h-3 ml-1" />
               </Button>
             </div>
@@ -480,7 +480,7 @@ export default function AboutPage() {
             {/* Quick Links */}
             <div className="animate-fade-in-up delay-500 flex flex-wrap items-center gap-4">
               <Link
-                href="https://git.new/scira"
+                href="https://git.new/zetora"
                 className="inline-flex items-center gap-2 text-sm text-foreground hover:text-foreground/70 transition-colors group"
                 target="_blank"
               >
@@ -548,11 +548,11 @@ export default function AboutPage() {
               {
                 step: '01',
                 title: 'Ask anything',
-                description: 'Type a question, upload a PDF, or paste a URL. Pick a mode or let Scira decide for you.',
+                description: 'Type a question, upload a PDF, or paste a URL. Pick a mode or let Zetora decide for you.',
               },
               {
                 step: '02',
-                title: 'Scira plans & retrieves',
+                title: 'Zetora plans & retrieves',
                 description:
                   'The agent breaks your question into sub-tasks, searches live sources, and cross-checks the evidence.',
               },
@@ -693,7 +693,7 @@ export default function AboutPage() {
                 One box, <span className="font-pixel text-3xl sm:text-4xl">every</span> source
               </h2>
               <p className="text-muted-foreground leading-relaxed">
-                Each mode is fine-tuned for a specific type of research. Pick one, or let Scira choose.
+                Each mode is fine-tuned for a specific type of research. Pick one, or let Zetora choose.
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -799,15 +799,15 @@ export default function AboutPage() {
               </div>
             </div>
             <a
-              href="https://openalternative.co/scira?utm_source=openalternative&utm_medium=badge&utm_campaign=embed&utm_content=tool-scira"
+              href="https://openalternative.co/zetora?utm_source=openalternative&utm_medium=badge&utm_campaign=embed&utm_content=tool-zetora"
               target="_blank"
               className="opacity-50 hover:opacity-100 transition-opacity duration-300"
             >
               <Image
-                src="https://openalternative.co/scira/badge.svg?theme=dark&width=200&height=50"
+                src="https://openalternative.co/zetora/badge.svg?theme=dark&width=200&height=50"
                 width={150}
                 height={38}
-                alt="Scira badge"
+                alt="Zetora badge"
               />
             </a>
           </div>
@@ -884,7 +884,7 @@ export default function AboutPage() {
               Ready to <span className="font-pixel">think faster?</span>
             </h2>
             <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-              Join 100K+ users who research smarter and get things done with Scira.
+              Join 100K+ users who research smarter and get things done with Zetora.
             </p>
             <div className="flex items-center justify-center gap-4">
               <Button className="rounded-full px-8 h-11" onClick={() => router.push('/')}>
@@ -1197,11 +1197,11 @@ export default function AboutPage() {
                 {[
                   'Unlimited research',
                   'All standard AI models',
-                  'Scira Apps (100+ integrations)',
+                  'Zetora Apps (100+ integrations)',
                   'PDF analysis',
                   'Voice mode',
                   'XQL (X Query Language)',
-                  'Scira Lookout',
+                  'Zetora Lookout',
                   'Priority support',
                 ].map((item) => (
                   <li key={item} className="flex items-center gap-3 text-sm text-foreground/80">
@@ -1287,8 +1287,8 @@ export default function AboutPage() {
               </h2>
               <p className="text-muted-foreground leading-relaxed mb-8">
                 Can&apos;t find what you need? Reach out at{' '}
-                <a href="mailto:zaid@scira.ai" className="text-foreground hover:underline underline-offset-2">
-                  zaid@scira.ai
+                <a href="mailto:zaid@zetora.ai" className="text-foreground hover:underline underline-offset-2">
+                  zaid@zetora.ai
                 </a>
               </p>
               <div className="flex gap-3">
@@ -1304,9 +1304,9 @@ export default function AboutPage() {
             <div className="lg:col-span-3">
               <ProAccordion type="single" collapsible className="w-full">
                 <ProAccordionItem value="item-1">
-                  <ProAccordionTrigger>What is Scira?</ProAccordionTrigger>
+                  <ProAccordionTrigger>What is Zetora?</ProAccordionTrigger>
                   <ProAccordionContent>
-                    Scira is an open-source AI assistant built for research and action. It searches the web in depth,
+                    Zetora is an open-source AI assistant built for research and action. It searches the web in depth,
                     cites its sources, and connects to 100+ apps via MCP so you can act on what you find without leaving
                     the conversation.
                   </ProAccordionContent>
@@ -1333,16 +1333,16 @@ export default function AboutPage() {
                   </ProAccordionContent>
                 </ProAccordionItem>
                 <ProAccordionItem value="item-5">
-                  <ProAccordionTrigger>What AI models does Scira use?</ProAccordionTrigger>
+                  <ProAccordionTrigger>What AI models does Zetora use?</ProAccordionTrigger>
                   <ProAccordionContent>
-                    Scira uses a range of advanced models including Grok, Claude, GPT, Gemini, and more. Switch between
+                    Zetora uses a range of advanced models including Grok, Claude, GPT, Gemini, and more. Switch between
                     them for each query based on what works best.
                   </ProAccordionContent>
                 </ProAccordionItem>
                 <ProAccordionItem value="item-6">
-                  <ProAccordionTrigger>How does Scira ensure accuracy?</ProAccordionTrigger>
+                  <ProAccordionTrigger>How does Zetora ensure accuracy?</ProAccordionTrigger>
                   <ProAccordionContent>
-                    Scira grounds outputs in retrieved sources (RAG + search grounding) and includes inline citations so
+                    Zetora grounds outputs in retrieved sources (RAG + search grounding) and includes inline citations so
                     you can audit the evidence. Agents cross-check multiple sources before synthesizing an answer.
                   </ProAccordionContent>
                 </ProAccordionItem>
@@ -1357,8 +1357,8 @@ export default function AboutPage() {
         <div className="max-w-6xl mx-auto px-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-8">
             <div className="flex items-center gap-3">
-              <SciraLogo className="size-4" />
-              <span className="text-xs text-muted-foreground">&copy; {new Date().getFullYear()} Scira</span>
+              <ZetoraLogo className="size-4" />
+              <span className="text-xs text-muted-foreground">&copy; {new Date().getFullYear()} Zetora</span>
             </div>
             <div className="flex items-center gap-6">
               <Link href="/terms" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
@@ -1372,14 +1372,14 @@ export default function AboutPage() {
               </Link>
               <span className="w-px h-4 bg-border/50" />
               <Link
-                href="https://x.com/sciraai"
+                href="https://x.com/zetoraai"
                 className="text-muted-foreground hover:text-foreground transition-colors"
                 target="_blank"
               >
                 <XLogoIcon className="h-3.5 w-3.5" />
               </Link>
               <Link
-                href="https://git.new/scira"
+                href="https://git.new/zetora"
                 className="text-muted-foreground hover:text-foreground transition-colors"
                 target="_blank"
               >

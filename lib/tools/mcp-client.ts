@@ -65,7 +65,7 @@ function withMcpAppBridgeMeta({
       ? { ...(resultObj.structuredContent as Record<string, unknown>) }
       : {};
 
-  structuredContent.__scira_mcp_app = appMeta;
+  structuredContent.__zetora_mcp_app = appMeta;
 
   return {
     ...resultObj,
@@ -255,7 +255,7 @@ export async function resolveUserMcpTools({
             ...(toolDef as any),
             _meta: {
               ...((toolDef as any)._meta ?? {}),
-              __scira_mcp_app: {
+              __zetora_mcp_app: {
                 serverId: server.id,
                 serverName: server.name,
                 toolName,

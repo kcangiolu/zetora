@@ -149,7 +149,7 @@ const ProviderIcon = ({
   const iconProps = { width: size, height: size, className: cn('shrink-0', className) };
 
   switch (provider) {
-    case 'scira':
+    case 'zetora':
       return <HugeiconsIcon icon={StarIcon} {...iconProps} />;
     case 'sarvam':
       return <SarvamLogo width={size} height={size} className={className} />;
@@ -520,7 +520,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
     const modelListRef = useRef<HTMLDivElement>(null);
 
     // Preferred models: only show these in the picker (empty = show all)
-    const [preferredModels, setPreferredModels] = useSyncedPreferences<string[]>('scira-preferred-models', []);
+    const [preferredModels, setPreferredModels] = useSyncedPreferences<string[]>('zetora-preferred-models', []);
 
     const normalizeText = useCallback((input: string): string => {
       return input
@@ -720,7 +720,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
         filtered.length > 0 &&
         !filtered.some((m) => m.value === selectedModel)
       ) {
-        const fallback = filtered.find((m) => m.value === 'scira-code') || filtered[0];
+        const fallback = filtered.find((m) => m.value === 'zetora-code') || filtered[0];
         if (fallback) {
           // Defer to avoid state update during render
           queueMicrotask(() => setSelectedModel(fallback.value));
@@ -840,10 +840,10 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
 
     // Persisted ordering: category order and per-category model order
     const [modelCategoryOrder] = useLocalStorage<string[]>(
-      'scira-model-category-order',
+      'zetora-model-category-order',
       isProUser ? ['Pro', 'Experimental', 'Free'] : ['Free', 'Experimental', 'Pro'],
     );
-    const [modelOrderMap] = useLocalStorage<Record<string, string[]>>('scira-model-order', {});
+    const [modelOrderMap] = useLocalStorage<Record<string, string[]>>('zetora-model-order', {});
 
     const orderedGroupEntries = useMemo(() => {
       const baseOrder =
@@ -905,18 +905,18 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       const isCurrentModelRestricted = isModelRestrictedInRegion(selectedModel, countryCode || undefined);
 
       // If current model is restricted in user's region, switch to default
-      if (isCurrentModelRestricted && selectedModel !== 'scira-default') {
+      if (isCurrentModelRestricted && selectedModel !== 'zetora-default') {
         console.log(
-          `Auto-switching from restricted model '${selectedModel}' to 'scira-default' - model not available in region ${countryCode}`,
+          `Auto-switching from restricted model '${selectedModel}' to 'zetora-default' - model not available in region ${countryCode}`,
         );
-        setSelectedModel('scira-default');
+        setSelectedModel('zetora-default');
         return;
       }
 
       // If current model requires max but user is not max, switch to default
-      if (user && currentModelExists && currentModelRequiresMax && !isMaxUser && selectedModel !== 'scira-default') {
-        console.log(`Auto-switching from max model '${selectedModel}' to 'scira-default' - user lost max access`);
-        setSelectedModel('scira-default');
+      if (user && currentModelExists && currentModelRequiresMax && !isMaxUser && selectedModel !== 'zetora-default') {
+        console.log(`Auto-switching from max model '${selectedModel}' to 'zetora-default' - user lost max access`);
+        setSelectedModel('zetora-default');
         return;
       }
 
@@ -928,10 +928,10 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
         currentModelRequiresPro &&
         !currentModelRequiresMax &&
         !isProUser &&
-        selectedModel !== 'scira-default'
+        selectedModel !== 'zetora-default'
       ) {
-        console.log(`Auto-switching from pro model '${selectedModel}' to 'scira-default' - user lost pro access`);
-        setSelectedModel('scira-default');
+        console.log(`Auto-switching from pro model '${selectedModel}' to 'zetora-default' - user lost pro access`);
+        setSelectedModel('zetora-default');
       }
     }, [selectedModel, isProUser, isMaxUser, isSubscriptionLoading, setSelectedModel, countryCode, user, currentModel]);
 
@@ -1151,7 +1151,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       const isLocked = requiresAuth || requiresPro || requiresMax;
       const modelProvider = model.provider || getModelProvider(model.value, model.label);
       const isSelected = selectedModel === model.value;
-      const isAutoRouter = model.value === 'scira-auto';
+      const isAutoRouter = model.value === 'zetora-auto';
       const isFocused = focusedIndex === index;
 
       const handleClick = () => {
@@ -1590,7 +1590,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
         <ProcessorIcon size={16} className="sm:hidden block" />
 
         {/* Desktop: show provider icon + label */}
-        {selectedModel === 'scira-auto' ? (
+        {selectedModel === 'zetora-auto' ? (
           <>
             <span className="text-[13px] font-medium sm:hidden">Auto</span>
             {autoRoutedModel ? (
@@ -1748,7 +1748,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
                   </div>
                 ) : (
                   <div className="flex items-center justify-center gap-2">
-                    <p className="text-3xl font-semibold tracking-tight font-be-vietnam-pro">scira</p>
+                    <p className="text-3xl font-semibold tracking-tight font-be-vietnam-pro">zetora</p>
                     <ProBadge />
                   </div>
                 )}
@@ -2704,7 +2704,7 @@ const McpServerSelector: React.FC<McpServerSelectorProps> = React.memo(({ user, 
         <DrawerTrigger asChild>{triggerButton}</DrawerTrigger>
         <DrawerContent className="max-h-[80vh] h-full flex flex-col overflow-hidden">
           <DrawerHeader className="text-left pb-1 shrink-0">
-            <DrawerTitle className="text-lg font-light tracking-tight font-be-vietnam-pro">scira apps</DrawerTitle>
+            <DrawerTitle className="text-lg font-light tracking-tight font-be-vietnam-pro">zetora apps</DrawerTitle>
           </DrawerHeader>
           <div className="flex-1 flex flex-col min-h-0 px-1 pb-4">
             {isLoading ? <div className="px-3 py-3 text-sm text-muted-foreground">Loading…</div> : drawerItems}
@@ -2769,7 +2769,7 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
     );
 
     // Get search provider from localStorage with reactive updates
-    const [searchProvider, setSearchProvider] = useLocalStorage<SearchProvider>('scira-search-provider', 'exa');
+    const [searchProvider, setSearchProvider] = useLocalStorage<SearchProvider>('zetora-search-provider', 'exa');
     const [providerMenuOpen, setProviderMenuOpen] = useState(false);
     const currentProviderOption = useMemo(
       () => WEB_SEARCH_PROVIDERS.find((option) => option.value === searchProvider) ?? WEB_SEARCH_PROVIDERS[0],
@@ -2793,8 +2793,8 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
     );
 
     // Visible modes: only show selected modes (empty = show all)
-    const [visibleModes] = useSyncedPreferences<string[]>('scira-visible-modes', []);
-    const [modeOrderInner] = useSyncedPreferences<string[]>('scira-group-order', []);
+    const [visibleModes] = useSyncedPreferences<string[]>('zetora-visible-modes', []);
+    const [modeOrderInner] = useSyncedPreferences<string[]>('zetora-group-order', []);
 
     const orderedVisibleGroups = useMemo(() => {
       let groups =
@@ -3488,10 +3488,10 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const hasInteracted = useMemo(() => messages.length > 0, [messages.length]);
 
   // Search groups for the plus menu
-  const [searchProvider] = useSyncedPreferences<SearchProvider>('scira-search-provider', 'exa');
+  const [searchProvider] = useSyncedPreferences<SearchProvider>('zetora-search-provider', 'exa');
   const dynamicSearchGroups = useMemo(() => getSearchGroups(searchProvider), [searchProvider]);
-  const [visibleModesOuter] = useSyncedPreferences<string[]>('scira-visible-modes', []);
-  const [modeOrderOuter] = useSyncedPreferences<string[]>('scira-group-order', []);
+  const [visibleModesOuter] = useSyncedPreferences<string[]>('zetora-visible-modes', []);
+  const [modeOrderOuter] = useSyncedPreferences<string[]>('zetora-group-order', []);
   const isExtreme = selectedGroup === 'extreme';
   const extremeSearchCountExceeded = Boolean(
     !isProUser && usageData && usageData.extremeSearchCount >= SEARCH_LIMITS.EXTREME_SEARCH_LIMIT,
@@ -4187,7 +4187,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
           });
 
           if (extremeModels.length > 0) {
-            const defaultModel = extremeModels.find((m) => m.value === 'scira-default');
+            const defaultModel = extremeModels.find((m) => m.value === 'zetora-default');
             const firstFreeModel = extremeModels.find((m) => !m.pro);
             const targetModel = defaultModel || firstFreeModel || extremeModels[0];
             setSelectedModel(targetModel.value);
@@ -4202,7 +4202,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
         // Auto-switch to canvas-supported model when canvas mode is selected
         if (group.id === 'canvas' && !supportsCanvasMode(selectedModel)) {
           const canvasModels = models.filter((m) => supportsCanvasMode(m.value));
-          const preferred = canvasModels.find((m) => m.value === 'scira-code') || canvasModels[0];
+          const preferred = canvasModels.find((m) => m.value === 'zetora-code') || canvasModels[0];
           if (preferred) {
             setSelectedModel(preferred.value);
             sileo.info({
@@ -4640,7 +4640,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
       const attachmentToDelete = attachments[index];
 
       // Delete from R2 storage if it's an uploaded file (has mplx/ in the path)
-      if (attachmentToDelete?.url && attachmentToDelete.url.includes('/scira/')) {
+      if (attachmentToDelete?.url && attachmentToDelete.url.includes('/zetora/')) {
         try {
           await fetch('/api/upload', {
             method: 'DELETE',
@@ -6591,7 +6591,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
               <div className="flex items-center gap-4">
                 <CheckIcon className="size-4 text-primary shrink-0" />
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-foreground">Scira Lookout</p>
+                  <p className="text-sm font-medium text-foreground">Zetora Lookout</p>
                   <p className="text-xs text-muted-foreground">Automated search monitoring on your schedule</p>
                 </div>
               </div>
