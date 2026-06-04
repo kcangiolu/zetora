@@ -312,6 +312,11 @@ export function PreferencesSection({
     'exa',
   );
 
+  const [sandboxProvider, setSandboxProvider] = useSyncedPreferences<'daytona' | 'docker'>(
+    'zetora-sandbox-provider',
+    'daytona',
+  );
+
   const [extremeSearchModel, setExtremeSearchModel] = useSyncedPreferences<
     | 'zetora-ext-1'
     | 'zetora-ext-2'
@@ -703,6 +708,23 @@ export function PreferencesSection({
                         </div>
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Sandbox Provider */}
+              <div className="flex items-center justify-between py-3.5 gap-6">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Sandbox Provider</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Environment used to execute Python code</p>
+                </div>
+                <Select value={sandboxProvider} onValueChange={(v) => setSandboxProvider(v as 'daytona' | 'docker')}>
+                  <SelectTrigger className="w-[140px] h-8 text-xs rounded-lg shrink-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daytona">Daytona (Cloud)</SelectItem>
+                    <SelectItem value="docker">Docker (Local)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

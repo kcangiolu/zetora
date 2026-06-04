@@ -1413,7 +1413,7 @@ export async function POST(req: Request) {
               contentType: (att as any).mediaType,
               name: (att as any).name,
             }));
-          return { images, files };
+          return { images, files, userPreferences: userPreferencesResult?.preferences ?? {} };
         })(),
         experimental_download: async (requestedDownloads) => {
           type DownloadResult = { data: Uint8Array; mediaType: string | undefined } | null;

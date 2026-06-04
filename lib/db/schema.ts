@@ -367,6 +367,7 @@ export const userPreferences = pgTable('user_preferences', {
       };
       'zetora-preferred-models'?: string[];
       'zetora-visible-modes'?: string[];
+      'zetora-sandbox-provider'?: 'daytona' | 'docker';
     }>()
     .notNull()
     .default({}),

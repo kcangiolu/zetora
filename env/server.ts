@@ -11,6 +11,8 @@ export const serverEnv = createEnv({
     GROQ_API_KEY: z.string().optional().default("placeholder"),
     GOOGLE_GENERATIVE_AI_API_KEY: z.string().optional().default("placeholder"),
     DAYTONA_API_KEY: z.string().optional().default("placeholder"),
+    SANDBOX_PROVIDER: z.enum(['daytona', 'docker']).default('daytona'),
+    DOCKER_SANDBOX_URL: z.string().url().default('http://localhost:8000'),
     DATABASE_URL: z.string().min(1),
     BETTER_AUTH_SECRET: z.string().min(1),
     GITHUB_CLIENT_ID: z.string().optional(),

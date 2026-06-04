@@ -16,7 +16,8 @@ type PreferenceKey =
   | 'zetora-auto-router-enabled'
   | 'zetora-auto-router-config'
   | 'zetora-preferred-models'
-  | 'zetora-visible-modes';
+  | 'zetora-visible-modes'
+  | 'zetora-sandbox-provider';
 
 type AutoRouterConfig = {
   routes: Array<{
@@ -113,6 +114,7 @@ function collectLocalStoragePreferences(): Partial<Record<PreferenceKey, Prefere
     'zetora-auto-router-config',
     'zetora-preferred-models',
     'zetora-visible-modes',
+    'zetora-sandbox-provider',
   ];
 
   keys.forEach((key) => {

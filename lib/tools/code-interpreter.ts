@@ -1,8 +1,13 @@
 import { tool } from 'ai';
 import { z } from 'zod';
-import { Daytona } from '@daytonaio/sdk';
-import { serverEnv } from '@/env/server';
-import { SNAPSHOT_NAME } from '@/lib/constants';
+import { getSandboxProvider } from '@/lib/sandbox';
+import type { SandboxProviderType } from '@/lib/sandbox';
+
+interface CodeInterpreterContext {
+  userPreferences?: {
+    'zetora-sandbox-provider'?: SandboxProviderType;
+  };
+}
 
 export const codeInterpreterTool = tool({
   description: 'Write and execute Python code.',
@@ -15,61 +20,37 @@ export const codeInterpreterTool = tool({
       ),
     icon: z.enum(['stock', 'date', 'calculation', 'default']).describe('The icon to display for the code snippet.'),
   }),
-  execute: async ({ code, title, icon }: { code: string; title: string; icon: string }) => {
+  execute: async (
+    { code, title, icon }: { code: string; title: string; icon: string },
+    { experimental_context },
+  ) => {
     console.log('Code:', code);
     console.log('Title:', title);
     console.log('Icon:', icon);
 
-    const daytona = new Daytona({
-      apiKey: serverEnv.DAYTONA_API_KEY,
-      target: 'us',
-    });
+    const context = experimental_context as CodeInterpreterContext | undefined;
+    const preferredProvider = context?.userPreferences?.['zetora-sandbox-provider'];
+    const provider = getSandboxProvider(preferredProvider);
 
-    const sandbox = await daytona.create({
-      snapshot: SNAPSHOT_NAME,
-    });
+    const result = await provider.execute(code, 30000);
 
-    const execution = await sandbox.process.codeRun(code);
+    console.log('Execution result:', result.stdout);
+    console.log('Execution stderr:', result.stderr);
 
-    console.log('Execution:', execution.result);
-    console.log('Execution:', execution.artifacts?.stdout);
+    const message = result.stdout || result.stderr || 'Code executed with no output.';
 
-    let message = '';
-
-    if (execution.artifacts?.stdout === execution.result) {
-      message += execution.result;
-    } else if (execution.result && execution.result !== execution.artifacts?.stdout) {
-      message += execution.result;
-    } else if (execution.artifacts?.stdout && execution.artifacts?.stdout !== execution.result) {
-      message += execution.artifacts.stdout;
-    } else {
-      message += execution.result;
-    }
-
-    if (execution.artifacts?.charts) {
-      console.log('Chart:', execution.artifacts.charts[0]);
-    }
-
-    let chart;
-
-    if (execution.artifacts?.charts) {
-      chart = execution.artifacts.charts[0];
-    }
-
-    const chartData = chart
+    const chart = result.charts?.[0]
       ? {
-        type: chart.type,
-        title: chart.title,
-        elements: chart.elements,
-        png: undefined,
-      }
+          type: result.charts[0].type,
+          title: result.charts[0].title,
+          elements: result.charts[0].elements as any[],
+          png: undefined,
+        }
       : undefined;
-
-    await sandbox.delete();
 
     return {
       message: message.trim(),
-      chart: chartData,
+      chart,
     };
   },
 });
