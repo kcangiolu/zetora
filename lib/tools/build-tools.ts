@@ -674,7 +674,7 @@ function createBuildWebSearchTool(dataStream: UIMessageStreamWriter<ChatMessage>
         ),
       queries: z.array(z.string().max(150)).min(1).max(5).describe('Search queries (1-5). Be specific and varied.'),
       category: z
-        .enum(['news', 'company', 'research paper', 'financial report', 'pdf', 'tweet', 'personal site'])
+        .enum(['news', 'company', 'research paper', 'financial report', 'pdf', 'personal site'])
         .optional()
         .describe('Optional category to filter results'),
       includeDomains: z.array(z.string()).optional().describe('Optional domains to restrict results to'),

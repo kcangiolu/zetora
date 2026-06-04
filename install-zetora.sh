@@ -9,7 +9,7 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-BACKUP_DIR=".scira-backups/${TIMESTAMP}"
+BACKUP_DIR=".zetora-backups/${TIMESTAMP}"
 
 log()   { echo -e "${GREEN}[✓]${NC} $*"; }
 warn()  { echo -e "${YELLOW}[!]${NC} $*"; }
@@ -22,7 +22,7 @@ cleanup() {
     echo ""
     warn "Script interrompu."
     echo "  Les backups sont dans : ${BACKUP_DIR}/"
-    echo "  Les containers Docker n'ont PAS été supprimés (pg-scira, redis-scira)."
+    echo "  Les containers Docker n'ont PAS été supprimés (pg-zetora, redis-zetora)."
     exit 1
 }
 trap cleanup INT TERM
@@ -93,34 +93,34 @@ log "Docker OK"
 step "Phase 1/6 — Services Docker (PostgreSQL + Redis)"
 
 # --- PostgreSQL ---
-if container_running "pg-scira"; then
-    log "PostgreSQL (pg-scira) déjà en cours d'exécution"
-elif container_exists "pg-scira"; then
+if container_running "pg-zetora"; then
+    log "PostgreSQL (pg-zetora) déjà en cours d'exécution"
+elif container_exists "pg-zetora"; then
     info "Démarrage du container PostgreSQL existant..."
-    docker start pg-scira
+    docker start pg-zetora
     log "PostgreSQL démarré"
 else
     info "Création du container PostgreSQL..."
     docker run -d \
-        --name pg-scira \
+        --name pg-zetora \
         -e POSTGRES_PASSWORD=postgres \
-        -e POSTGRES_DB=scira \
+        -e POSTGRES_DB=zetora \
         -p 5432:5432 \
         postgres:17-alpine
     log "PostgreSQL créé et démarré"
 fi
 
 # --- Redis ---
-if container_running "redis-scira"; then
-    log "Redis (redis-scira) déjà en cours d'exécution"
-elif container_exists "redis-scira"; then
+if container_running "redis-zetora"; then
+    log "Redis (redis-zetora) déjà en cours d'exécution"
+elif container_exists "redis-zetora"; then
     info "Démarrage du container Redis existant..."
-    docker start redis-scira
+    docker start redis-zetora
     log "Redis démarré"
 else
     info "Création du container Redis..."
     docker run -d \
-        --name redis-scira \
+        --name redis-zetora \
         -p 6379:6379 \
         redis:7-alpine
     log "Redis créé et démarré"
@@ -129,7 +129,7 @@ fi
 # Attendre que les services soient prêts
 info "Attente de la disponibilité des services..."
 for i in {1..15}; do
-    if docker exec pg-scira pg_isready -U postgres &>/dev/null; then
+    if docker exec pg-zetora pg_isready -U postgres &>/dev/null; then
         log "PostgreSQL est prêt"
         break
     fi
@@ -151,8 +151,8 @@ done
 
 # Restaurer les backups ORIGINAUX si le script a déjà tourné avant
 # On cherche le backup le plus ancien (le premier passage)
-OLDEST_BACKUP=$(ls -dt .scira-backups/*/ 2>/dev/null | tail -1)
-if [ -n "$OLDEST_BACKUP" ] && [ "$OLDEST_BACKUP" != ".scira-backups/${TIMESTAMP}/" ]; then
+OLDEST_BACKUP=$(ls -dt .zetora-backups/*/ 2>/dev/null | tail -1)
+if [ -n "$OLDEST_BACKUP" ] && [ "$OLDEST_BACKUP" != ".zetora-backups/${TIMESTAMP}/" ]; then
     warn "Backups précédents détectés : $(basename "$OLDEST_BACKUP")"
     info "Restauration des fichiers ORIGINAUX depuis le premier backup..."
     for f in env/server.ts lib/db/index.ts; do
@@ -185,13 +185,13 @@ else
 
     cat > .env.local << ENVEOF
 # ═══════════════════════════════════════════
-# Scira — .env.local (généré le ${TIMESTAMP})
+# Zetora — .env.local (généré le ${TIMESTAMP})
 # ═══════════════════════════════════════════
 
-# ─── Base de données (Docker pg-scira) ───
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/scira
+# ─── Base de données (Docker pg-zetora) ───
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/zetora
 
-# ─── Redis (Docker redis-scira) ───
+# ─── Redis (Docker redis-zetora) ───
 REDIS_URL=redis://localhost:6379
 UPSTASH_REDIS_REST_URL=https://placeholder-redis-url.upstash.io
 UPSTASH_REDIS_REST_TOKEN=placeholder_upstash_token
@@ -245,8 +245,8 @@ MCP_CREDENTIALS_ENCRYPTION_KEY=${MCP_KEY}
 SUPERMEMORY_API_KEY=placeholder_supermemory_key
 
 # ─── DB Read Replicas ───
-READ_DB_1=postgresql://postgres:postgres@localhost:5432/scira
-READ_DB_2=postgresql://postgres:postgres@localhost:5432/scira
+READ_DB_1=postgresql://postgres:postgres@localhost:5432/zetora
+READ_DB_2=postgresql://postgres:postgres@localhost:5432/zetora
 
 # ─── Optionnels (laissés vides) ───
 UPSTASH_BOX_API_KEY=
@@ -277,11 +277,11 @@ fi
 step "Phase 4/6 — Patchs du code source"
 
 # ── Patch 4.1 : env/server.ts ──
-PATCH_MARKER_1="PATCHED BY install-scira.sh"
+PATCH_MARKER_1="PATCHED BY install-zetora.sh"
 if already_patched "env/server.ts" "$PATCH_MARKER_1"; then
     log "env/server.ts déjà patché — on saute"
 elif [ ! -f env/server.ts ]; then
-    warn "env/server.ts introuvable. Es-tu bien dans le dossier racine de Scira ?"
+    warn "env/server.ts introuvable. Es-tu bien dans le dossier racine de Zetora ?"
 else
     backup_file env/server.ts
 
@@ -341,7 +341,7 @@ PYEOF
 fi
 
 # ── Patch 4.2 : lib/db/index.ts ──
-PATCH_MARKER_2="PATCHED BY install-scira.sh"
+PATCH_MARKER_2="PATCHED BY install-zetora.sh"
 if already_patched "lib/db/index.ts" "$PATCH_MARKER_2"; then
     log "lib/db/index.ts déjà patché — on saute"
 elif [ ! -f lib/db/index.ts ]; then
@@ -409,12 +409,12 @@ if [ -d node_modules ]; then
 fi
 
 info "pnpm install (cela peut prendre 2-5 minutes)..."
-if pnpm install 2>&1 | tee /tmp/scira-install-${TIMESTAMP}.log; then
+if pnpm install 2>&1 | tee /tmp/zetora-install-${TIMESTAMP}.log; then
     log "pnpm install terminé"
 else
     warn "pnpm install a rencontré des erreurs."
     echo ""
-    detail "Vérifie /tmp/scira-install-${TIMESTAMP}.log pour le détail."
+    detail "Vérifie /tmp/zetora-install-${TIMESTAMP}.log pour le détail."
     detail "Causes fréquentes :"
     detail "  1. Version de Node.js trop ancienne → nécessite Node 22+"
     detail "  2. Conflit de peer dependencies → vérifie .npmrc (créé en phase 4)"
@@ -433,8 +433,8 @@ if npx drizzle-kit push 2>&1; then
     log "Migrations appliquées"
 else
     warn "Échec des migrations."
-    detail "Vérifie que PostgreSQL tourne : docker ps | grep pg-scira"
-    detail "Si le container est arrêté : docker start pg-scira"
+    detail "Vérifie que PostgreSQL tourne : docker ps | grep pg-zetora"
+    detail "Si le container est arrêté : docker start pg-zetora"
     detail "Puis relance : npx drizzle-kit push"
 fi
 
@@ -444,13 +444,13 @@ fi
 
 echo ""
 echo -e "${GREEN}══════════════════════════════════════════════════════════${NC}"
-echo -e "${GREEN}  Installation Scira — Résumé${NC}"
+echo -e "${GREEN}  Installation Zetora — Résumé${NC}"
 echo -e "${GREEN}══════════════════════════════════════════════════════════${NC}"
 echo ""
 
 echo -e "  ${CYAN}Services Docker${NC}"
-echo -e "    PostgreSQL  → container ${GREEN}pg-scira${NC} (port 5432)"
-echo -e "    Redis       → container ${GREEN}redis-scira${NC} (port 6379)"
+echo -e "    PostgreSQL  → container ${GREEN}pg-zetora${NC} (port 5432)"
+echo -e "    Redis       → container ${GREEN}redis-zetora${NC} (port 6379)"
 echo ""
 
 echo -e "  ${CYAN}Fichiers modifiés${NC}"
@@ -464,13 +464,13 @@ echo -e "  ${CYAN}Backups${NC}"
 echo -e "    → ${YELLOW}${BACKUP_DIR}/${NC}"
 echo ""
 
-echo -e "  ${CYAN}Pour lancer Scira${NC}"
+echo -e "  ${CYAN}Pour lancer Zetora${NC}"
 echo -e "    ${GREEN}pnpm dev${NC}"
 echo ""
 
 echo -e "  ${CYAN}Variables OBLIGATOIRES à renseigner dans .env.local${NC}"
 echo -e "    ${YELLOW}XAI_API_KEY${NC}     → clé xAI (gratuit : ${BLUE}https://console.x.ai${NC})"
-echo -e "    ${YELLOW}DATABASE_URL${NC}    → déjà configuré pour Docker pg-scira"
+echo -e "    ${YELLOW}DATABASE_URL${NC}    → déjà configuré pour Docker pg-zetora"
 echo ""
 
 echo -e "  ${CYAN}Recommandé pour la recherche${NC}"
@@ -479,9 +479,9 @@ echo -e "    ${YELLOW}FIRECRAWL_API_KEY${NC} → 500 crédits gratuits (${BLUE}h
 echo ""
 
 echo -e "  ${CYAN}Commandes utiles${NC}"
-echo -e "    docker start pg-scira redis-scira   → démarrer les services"
-echo -e "    docker stop pg-scira redis-scira    → arrêter les services"
-echo -e "    docker rm -f pg-scira redis-scira   → supprimer et recréer"
+echo -e "    docker start pg-zetora redis-zetora   → démarrer les services"
+echo -e "    docker stop pg-zetora redis-zetora    → arrêter les services"
+echo -e "    docker rm -f pg-zetora redis-zetora   → supprimer et recréer"
 echo ""
 
 echo -e "  ${RED}⚠️  Les placeholders permettent le BUILD et le DEV,${NC}"
