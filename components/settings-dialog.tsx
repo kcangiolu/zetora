@@ -232,6 +232,10 @@ const FirecrawlIcon = ({ className }: { className?: string }) => (
   <span className={cn('text-base sm:text-lg mb-3! pr-1!', className)}>🔥</span>
 );
 
+const SearXNGIcon = ({ className }: { className?: string }) => (
+  <HugeiconsIcon icon={GlobalSearchIcon} size={16} className={className} />
+);
+
 // Search Provider Options
 const searchProviders = [
   {
@@ -253,6 +257,13 @@ const searchProviders = [
     label: 'Parallel AI',
     description: 'Base and premium web search along with Firecrawl image search support',
     icon: ParallelIcon,
+    default: false,
+  },
+  {
+    value: 'searxng',
+    label: 'SearXNG',
+    description: 'Self-hosted metasearch engine aggregating results from multiple sources',
+    icon: SearXNGIcon,
     default: false,
   },
 ] as const;
@@ -314,10 +325,12 @@ export function PreferencesSection({
   isCustomInstructionsEnabled?: boolean;
   setIsCustomInstructionsEnabledAction?: (value: boolean | ((val: boolean) => boolean)) => void;
 }) {
-  const [searchProvider, setSearchProvider] = useSyncedPreferences<'exa' | 'parallel' | 'firecrawl'>(
+  const [searchProvider, setSearchProvider] = useSyncedPreferences<'exa' | 'parallel' | 'firecrawl' | 'searxng'>(
     'zetora-search-provider',
     'exa',
   );
+
+  const [searxngUrl, setSearxngUrl] = useSyncedPreferences<string>('zetora-searxng-url', '');
 
   const [sandboxProvider, setSandboxProvider] = useSyncedPreferences<'daytona' | 'docker'>(
     'zetora-sandbox-provider',
@@ -479,16 +492,16 @@ export function PreferencesSection({
   const enabled = isCustomInstructionsEnabled ?? true;
   const setEnabled = setIsCustomInstructionsEnabledAction ?? (() => {});
 
-  const handleSearchProviderChange = (newProvider: 'exa' | 'parallel' | 'firecrawl') => {
+  const handleSearchProviderChange = (newProvider: 'exa' | 'parallel' | 'firecrawl' | 'searxng') => {
     setSearchProvider(newProvider);
+    const labels: Record<typeof newProvider, string> = {
+      exa: 'Exa',
+      parallel: 'Parallel AI',
+      firecrawl: 'Firecrawl',
+      searxng: 'SearXNG',
+    };
     sileo.success({
-      title: `Search provider changed to ${
-        newProvider === 'exa'
-          ? 'Exa'
-          : newProvider === 'parallel'
-            ? 'Parallel AI'
-            : 'Firecrawl'
-      }`,
+      title: `Search provider changed to ${labels[newProvider]}`,
       description: 'This will be used for all future searches',
       icon: <Search className="h-4 w-4" />,
     });
@@ -792,6 +805,20 @@ export function PreferencesSection({
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* SearXNG URL */}
+              {searchProvider === 'searxng' && (
+                <div className="flex flex-col gap-1.5 py-3.5">
+                  <p className="text-sm font-medium">SearXNG URL</p>
+                  <p className="text-xs text-muted-foreground">Base URL of your SearXNG instance</p>
+                  <Input
+                    placeholder="http://localhost:8080"
+                    value={searxngUrl}
+                    onChange={(e) => setSearxngUrl(e.target.value)}
+                    className="h-8 text-xs rounded-lg"
+                  />
+                </div>
+              )}
 
               {/* Sandbox Provider */}
               <div className="flex items-center justify-between py-3.5 gap-6">

@@ -2769,6 +2769,11 @@ const WEB_SEARCH_PROVIDERS: Array<{
     label: 'Parallel AI',
     description: 'Base and premium web search with Parallel’s Firecrawl image support.',
   },
+  {
+    value: 'searxng',
+    label: 'SearXNG',
+    description: 'Self-hosted metasearch engine aggregating results from multiple sources.',
+  },
 ];
 
 const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(

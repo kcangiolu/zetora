@@ -342,7 +342,8 @@ export const userPreferences = pgTable('user_preferences', {
     .references(() => user.id, { onDelete: 'cascade' }),
   preferences: json('preferences')
     .$type<{
-      'zetora-search-provider'?: 'exa' | 'parallel' | 'firecrawl';
+      'zetora-search-provider'?: 'exa' | 'parallel' | 'firecrawl' | 'searxng';
+      'zetora-searxng-url'?: string;
       'zetora-extreme-search-model'?:
         | 'zetora-ext-1'
         | 'zetora-ext-2'

@@ -8,6 +8,7 @@ import Parallel from 'parallel-web';
 import FirecrawlApp, { SearchResultWeb, SearchResultNews, SearchResultImages, Document } from '@mendable/firecrawl-js';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
+import { SearXNGSearchStrategy } from './searxng-search';
 
 // Singleton clients - initialized lazily and reused across requests
 let _searchClients: {
@@ -88,7 +89,7 @@ const processDomains = (domains?: (string | null)[]): string[] | undefined => {
 };
 
 // Search provider strategy interface
-interface SearchStrategy {
+export interface SearchStrategy {
   search(
     queries: string[],
     options: {
@@ -593,11 +594,11 @@ class ExaSearchStrategy implements SearchStrategy {
 }
 
 // Search provider factory
-const WEB_SEARCH_PROVIDERS = ['exa', 'parallel', 'firecrawl'] as const;
+const WEB_SEARCH_PROVIDERS = ['exa', 'parallel', 'firecrawl', 'searxng'] as const;
 type WebSearchProvider = (typeof WEB_SEARCH_PROVIDERS)[number];
 
 const normalizeWebSearchProvider = (provider: string): WebSearchProvider => {
-  if (provider === 'parallel' || provider === 'firecrawl' || provider === 'exa') {
+  if (provider === 'parallel' || provider === 'firecrawl' || provider === 'exa' || provider === 'searxng') {
     return provider;
   }
   return 'exa';
@@ -610,7 +611,17 @@ const createSearchStrategy = (
     parallel: Parallel;
     firecrawl: FirecrawlApp;
   },
+  searxngUrl?: string,
 ): SearchStrategy => {
+  if (provider === 'searxng') {
+    const url = searxngUrl || serverEnv.SEARXNG_URL;
+    if (!url) {
+      console.warn('SearXNG provider selected but SEARXNG_URL is not configured, falling back to Exa');
+      return new ExaSearchStrategy(clients.exa, clients.firecrawl);
+    }
+    return new SearXNGSearchStrategy(url);
+  }
+
   const strategies = {
     parallel: () => new ParallelSearchStrategy(clients.parallel, clients.firecrawl),
     firecrawl: () => new FirecrawlSearchStrategy(clients.firecrawl),
