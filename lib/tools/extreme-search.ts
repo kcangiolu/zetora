@@ -11,7 +11,7 @@ import { Output, generateText, hasToolCall, stepCountIs, tool } from 'ai';
 import type { UIMessageStreamWriter } from 'ai';
 import { z } from 'zod';
 import { serverEnv } from '@/env/server';
-import { zetora } from '@/ai/providers';
+import { resolveModel } from '@/ai/providers';
 import { ChatMessage } from '../types';
 import FirecrawlApp from '@mendable/firecrawl-js';
 import { getTweet } from 'react-tweet/api';
@@ -610,7 +610,7 @@ async function extremeSearch(
   // plan out the research
 
   const { output: result } = await generateText({
-    model: zetora.languageModel('zetora-ext-1'),
+    model: await resolveModel('zetora-ext-1'),
     output: Output.object({
       schema: z.object({
         plan: z
@@ -704,7 +704,7 @@ ${hasFilesForPlanning ? '- Include file search steps when the uploaded files are
 
   // Create the autonomous research agent with tools
   const { text: _ } = await generateText({
-    model: zetora.languageModel(modelId),
+    model: await resolveModel(modelId),
     stopWhen: [stepCountIs(75), hasToolCall('done')],
     activeTools: baseActiveTools as any,
     maxRetries: 10,

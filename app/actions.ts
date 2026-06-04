@@ -7,7 +7,7 @@ import { UIMessage, generateText, Output } from 'ai';
 import type { ModelMessage } from 'ai';
 import { z } from 'zod';
 import { getUser } from '@/lib/auth-utils';
-import { hasVisionSupport, zetora } from '@/ai/providers';
+import { hasVisionSupport, zetora, resolveModel } from '@/ai/providers';
 import {
   getChatsByUserId,
   getRecentChatsByUserId,
@@ -159,7 +159,7 @@ export async function suggestQuestions(history: any[]) {
   console.log(history);
 
   const { output } = await generateText({
-    model: zetora.languageModel('zetora-follow-up'),
+    model: await resolveModel('zetora-follow-up'),
     providerOptions: {
       google: {
         structuredOutputs: true,
@@ -251,7 +251,7 @@ export async function generateTitleFromUserMessage({ message }: { message: UIMes
   const prompt = JSON.stringify(firstTextPart && firstTextPart.type === 'text' ? firstTextPart.text : '');
   console.log('Prompt: ', prompt);
   const { text: title } = await generateText({
-    model: zetora.languageModel('zetora-name'),
+    model: await resolveModel('zetora-name'),
     system: `You are an expert title generator. You are given a message and you need to generate a short title based on it.
 
     - you will generate a short 3-4 words title based on the first message a user begins a conversation with
@@ -342,7 +342,7 @@ Output requirements:
 - No quotes, no commentary, no markdown, and no preface.`;
 
     const { text } = await generateText({
-      model: zetora.languageModel('zetora-enhance'),
+      model: await resolveModel('zetora-enhance'),
       temperature: 0.6,
       topP: 0.95,
       maxOutputTokens: 1024,
@@ -1728,7 +1728,7 @@ Based on your analysis, provide your response in the following JSON formats if y
 `;
 
     const { text } = await generateText({
-      model: zetora.languageModel('zetora-arch-router'),
+      model: await resolveModel('zetora-arch-router'),
       messages: [{ role: 'user', content: taskInstruction + formatPrompt }],
       maxOutputTokens: 200,
       temperature: 0,

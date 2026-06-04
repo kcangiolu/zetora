@@ -61,6 +61,7 @@ export const serverEnv = createEnv({
     HUBSPOT_MCP_CLIENT_ID: z.string().optional().default("placeholder"),
     HUBSPOT_MCP_CLIENT_SECRET: z.string().optional().default("placeholder"),
     UPSTASH_BOX_API_KEY: z.string().optional().default("placeholder"),
+    CUSTOM_AI_PROVIDERS: z.string().optional(),
   },
   experimental__runtimeEnv: process.env,
 });

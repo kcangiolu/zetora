@@ -32,7 +32,8 @@ export type ModelProvider =
   | 'stepfun'
   | 'sarvam'
   | 'inception'
-  | 'nvidia';
+  | 'nvidia'
+  | 'custom';
 
 export interface ProviderInfo {
   id: ModelProvider;
@@ -64,6 +65,7 @@ export const PROVIDERS: Record<ModelProvider, ProviderInfo> = {
   sarvam: { id: 'sarvam', name: 'Sarvam', icon: 'sarvam', hasNew: true },
   inception: { id: 'inception', name: 'Inception', icon: 'inception', hasNew: true },
   nvidia: { id: 'nvidia', name: 'NVIDIA', icon: 'nvidia', hasNew: true },
+  custom: { id: 'custom', name: 'Custom', icon: 'custom' },
 };
 
 export interface Model {
@@ -2874,6 +2876,11 @@ export const freeUnlimitedModels = models.filter((m) => m.freeUnlimited).map((m)
 export function getModelProvider(modelValue: string, label?: string): ModelProvider {
   const value = modelValue.toLowerCase();
   const modelLabel = (label || '').toLowerCase();
+
+  // Custom providers
+  if (value.startsWith('custom-')) {
+    return 'custom';
+  }
 
   // xAI (Grok)
   if (

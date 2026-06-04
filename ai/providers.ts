@@ -498,6 +498,43 @@ export const zetora = customProvider({
   },
 });
 
+import type { LanguageModel } from 'ai';
+import { getCustomProviders, getCustomModels } from '@/lib/custom-providers';
+
+const customProviderInstances = new Map<string, ReturnType<typeof createOpenAICompatible>>();
+
+async function getOrCreateProvider(providerId: string) {
+  if (customProviderInstances.has(providerId)) {
+    return customProviderInstances.get(providerId)!;
+  }
+  const providers = await getCustomProviders();
+  const config = providers.find((p) => p.id === providerId);
+  if (!config) throw new Error(`Custom provider ${providerId} not found`);
+  const provider = createOpenAICompatible({
+    name: config.id,
+    baseURL: config.baseURL,
+    apiKey: config.apiKey ?? 'not-needed',
+  });
+  customProviderInstances.set(providerId, provider);
+  return provider;
+}
+
+export async function resolveModel(modelId: string): Promise<LanguageModel> {
+  if (!modelId.startsWith('custom-')) {
+    return zetora.languageModel(modelId);
+  }
+
+  const models = await getCustomModels();
+  const model = models.find((m) => m.id === modelId);
+  if (!model) {
+    console.warn(`Custom model ${modelId} not found, falling back to default`);
+    return zetora.languageModel('zetora-default');
+  }
+
+  const provider = await getOrCreateProvider(model.providerId);
+  return provider.chatModel(model.modelName);
+}
+
 export type { ModelProvider, ProviderInfo, Model } from './models';
 export {
   PROVIDERS,

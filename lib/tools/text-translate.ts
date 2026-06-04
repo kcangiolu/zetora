@@ -1,7 +1,7 @@
 import { Output, tool, generateText } from 'ai';
 import { createOllama } from 'ai-sdk-ollama';
 import { z } from 'zod';
-import { zetora } from '@/ai/providers';
+import { resolveModel } from '@/ai/providers';
 import { cohere } from "@ai-sdk/cohere"
 
 interface TextTranslateToolInput {
@@ -83,7 +83,7 @@ const detectedLanguageSchema = z.object({
 async function detectLanguageCode(text: string): Promise<string> {
   try {
     const { output } = await generateText({
-      model: zetora.languageModel('zetora-default'),
+      model: await resolveModel('zetora-default'),
       output: Output.object({ schema: detectedLanguageSchema }),
       prompt: `Detect the ISO 639-1 language code (2-letter) of the following text.\n\nText:\n${text}`,
       temperature: 0,
@@ -140,7 +140,7 @@ export const textTranslateTool = tool({
       
       console.log('[text-translate] Calling model with', images.length, 'images...');
       const { text: translatedText } = await generateText({
-        model: zetora.languageModel('zetora-gemini-3-flash'),
+        model: await resolveModel('zetora-gemini-3-flash'),
         messages: [
           {
             role: 'user',

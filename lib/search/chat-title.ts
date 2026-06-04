@@ -5,7 +5,7 @@ import { GoogleGenerativeAIProviderOptions, GoogleLanguageModelOptions } from '@
 import { GatewayProviderOptions } from '@ai-sdk/gateway';
 import { OpenAIResponsesProviderOptions } from '@ai-sdk/openai';
 
-import { zetora } from '@/ai/providers';
+import { resolveModel } from '@/ai/providers';
 
 export async function generateTitleFromUserMessage({ message }: { message: UIMessage }) {
   const startTime = Date.now();
@@ -15,7 +15,7 @@ export async function generateTitleFromUserMessage({ message }: { message: UIMes
   console.log('Prompt: ', prompt);
 
   const { text: title } = await generateText({
-    model: zetora.languageModel('zetora-name'),
+    model: await resolveModel('zetora-name'),
     system: `You are an expert title generator. You are given a message and you need to generate a short title based on it.
 
     - you will generate a short 3-4 words title based on the first message a user begins a conversation with

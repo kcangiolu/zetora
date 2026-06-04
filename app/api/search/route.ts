@@ -19,6 +19,7 @@ import {
 import { pipeJsonRender } from '@json-render/core';
 import {
   zetora,
+  resolveModel,
   requiresAuthentication,
   requiresProSubscription,
   requiresMaxSubscription,
@@ -957,8 +958,9 @@ export async function POST(req: Request) {
         });
       }
 
+      const resolvedModel = shouldUseXaiMultiAgent ? xai.responses('grok-4.20-multi-agent') : await resolveModel(model);
       const result = streamText({
-        model: shouldUseXaiMultiAgent ? xai.responses('grok-4.20-multi-agent') : zetora.languageModel(model),
+        model: resolvedModel,
         messages: processedMessages,
         ...getModelParameters(shouldUseXaiMultiAgent ? 'grok-4.20-multi-agent' : model),
         stopWhen: stepCountIs(shouldUseXaiMultiAgent ? 5 : group === 'mcp' ? 50 : 5),
@@ -1505,7 +1507,7 @@ export async function POST(req: Request) {
           }
 
           const { output: repairedArgs } = await generateText({
-            model: zetora.languageModel('zetora-default'),
+            model: await resolveModel('zetora-default'),
             output: Output.object({ schema: tool.inputSchema }),
             prompt: [
               `The model tried to call the tool "${toolCall.toolName}"` + ` with the following arguments:`,

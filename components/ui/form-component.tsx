@@ -43,6 +43,7 @@ import {
   AlertCircle,
   FileText,
   Lock,
+  Puzzle,
 } from 'lucide-react';
 import { MagicWandIcon } from '@/components/ui/magic-wand-icon';
 import { MagicEditIcon } from '@/components/ui/magic-edit-icon';
@@ -339,6 +340,8 @@ const ProviderIcon = ({
       );
     case 'nvidia':
       return <NVIDIA {...iconProps} />;
+    case 'custom':
+      return <Puzzle {...iconProps} />;
     default:
       return (
         <svg {...iconProps} viewBox="0 0 24 24" fill="currentColor">
@@ -372,6 +375,7 @@ const PROVIDER_ORDER: (ModelProvider | 'all')[] = [
   'xiaomi',
   'kwaipilot',
   'stepfun',
+  'custom',
 ];
 
 let modelUpgradeDialogModelValueCache: string | null = null;
@@ -452,7 +456,20 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       };
     }, []);
 
-    const availableModels = useMemo(() => getFilteredModels(countryCode || undefined), [countryCode]);
+    const baseModels = useMemo(() => getFilteredModels(countryCode || undefined), [countryCode]);
+
+    const [customModels, setCustomModels] = useState<typeof models>([]);
+
+    useEffect(() => {
+      fetch('/api/custom-providers/models')
+        .then((r) => r.json())
+        .then((d) => {
+          if (Array.isArray(d.models)) setCustomModels(d.models);
+        })
+        .catch(() => {});
+    }, []);
+
+    const availableModels = useMemo(() => [...baseModels, ...customModels], [baseModels, customModels]);
 
     const [showUpgradeDialogState, setShowUpgradeDialogState] = useState(false);
     const [showSignInDialog, setShowSignInDialog] = useState(false);

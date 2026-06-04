@@ -1215,6 +1215,12 @@ export async function upsertUserPreferences({
         model: string;
       }>;
     };
+    'zetora-custom-providers'?: Array<{
+      id: string;
+      name: string;
+      baseURL: string;
+      apiKey?: string;
+    }>;
   }>;
 }) {
   try {

@@ -3,7 +3,7 @@ import 'server-only';
 import { generateText } from 'ai';
 import { jsonrepair } from 'jsonrepair';
 
-import { hasVisionSupport, zetora } from '@/ai/providers';
+import { hasVisionSupport, zetora, resolveModel } from '@/ai/providers';
 import { getComprehensiveUserData } from '@/lib/user-data-server';
 
 interface AutoRouterRoute {
@@ -87,7 +87,7 @@ Based on your analysis, provide your response in the following JSON formats if y
 `;
 
     const { text } = await generateText({
-      model: zetora.languageModel('zetora-arch-router'),
+      model: await resolveModel('zetora-arch-router'),
       messages: [{ role: 'user', content: taskInstruction + formatPrompt }],
       maxOutputTokens: 200,
       temperature: 0,

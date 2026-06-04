@@ -1,7 +1,7 @@
 // /app/api/lookout/route.ts
 import { generateTitleFromUserMessage } from '@/app/actions';
 import { convertToModelMessages, streamText, createUIMessageStream, stepCountIs, JsonToSseTransformStream } from 'ai';
-import { zetora, shouldBypassRateLimits } from '@/ai/providers';
+import { zetora, resolveModel, shouldBypassRateLimits } from '@/ai/providers';
 import {
   createStreamId,
   incrementExtremeSearchUsage,
@@ -731,7 +731,7 @@ export async function POST(req: Request) {
 
         // Start streaming
         const result = streamText({
-          model: zetora.languageModel('zetora-default'),
+          model: await resolveModel('zetora-default'),
           messages: await convertToModelMessages([userMessage]),
           stopWhen: stepCountIs(2),
           maxRetries: 10,

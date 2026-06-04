@@ -1,13 +1,8 @@
 import { webSearchTool } from '@/lib/tools';
 import { xSearchTool } from '@/lib/tools/x-search';
-import { convertToModelMessages, customProvider, generateText, stepCountIs } from 'ai';
+import { convertToModelMessages, generateText, stepCountIs } from 'ai';
 import { xai } from '@ai-sdk/xai';
-
-const zetora = customProvider({
-  languageModels: {
-    'zetora-default': xai('grok-4-1-fast-non-reasoning'),
-  },
-});
+import { resolveModel } from '@/ai/providers';
 
 export const maxDuration = 800;
 
@@ -88,7 +83,7 @@ export async function POST(req: Request) {
         : ['web_search' as const, 'x_search' as const];
 
   const { text, steps } = await generateText({
-    model: zetora.languageModel(model),
+    model: await resolveModel(model),
     system: systemPrompt,
     stopWhen: stepCountIs(2),
     messages: await convertToModelMessages(messages),
