@@ -18,7 +18,10 @@ type PreferenceKey =
   | 'zetora-preferred-models'
   | 'zetora-visible-modes'
   | 'zetora-sandbox-provider'
-  | 'zetora-searxng-url';
+  | 'zetora-searxng-url'
+  | 'zetora-embedding-providers'
+  | 'zetora-embedding-provider'
+  | 'zetora-embedding-model';
 
 type AutoRouterConfig = {
   routes: Array<{
@@ -28,7 +31,9 @@ type AutoRouterConfig = {
   }>;
 };
 
-type PreferenceValue = string | string[] | boolean | AutoRouterConfig | undefined;
+type EmbeddingProvider = { id: string; name: string; baseURL: string; apiKey?: string };
+
+type PreferenceValue = string | string[] | boolean | AutoRouterConfig | EmbeddingProvider[] | undefined;
 
 const DEBOUNCE_MS = 300; // Debounce DB writes by 300ms
 const MIGRATION_KEY_PREFIX = 'zetora-prefs-migrated-';
@@ -117,6 +122,9 @@ function collectLocalStoragePreferences(): Partial<Record<PreferenceKey, Prefere
     'zetora-visible-modes',
     'zetora-sandbox-provider',
     'zetora-searxng-url',
+    'zetora-embedding-providers',
+    'zetora-embedding-provider',
+    'zetora-embedding-model',
   ];
 
   keys.forEach((key) => {

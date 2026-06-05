@@ -361,6 +361,21 @@ export function PreferencesSection({
     routes: getDefaultAutoRouterRoutes(),
   });
 
+  const [embeddingProviders, setEmbeddingProviders] = useSyncedPreferences<CustomProviderConfig[]>(
+    'zetora-embedding-providers',
+    [],
+  );
+  const [selectedEmbeddingProvider, setSelectedEmbeddingProvider] = useSyncedPreferences<string>(
+    'zetora-embedding-provider',
+    '',
+  );
+  const [embeddingModel, setEmbeddingModel] = useSyncedPreferences<string>('zetora-embedding-model', 'nomic-embed-text');
+  const [showEmbeddingProviderForm, setShowEmbeddingProviderForm] = useState(false);
+  const [newEmbeddingProvider, setNewEmbeddingProvider] = useState({ name: '', baseURL: '', apiKey: '' });
+  const [isSavingEmbeddingProvider, setIsSavingEmbeddingProvider] = useState(false);
+  const [detectingEmbeddingModels, setDetectingEmbeddingModels] = useState(false);
+  const [detectedEmbeddingModels, setDetectedEmbeddingModels] = useState<string[]>([]);
+
   const [content, setContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -972,6 +987,205 @@ export function PreferencesSection({
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+
+            </div>
+
+            {/* Embedding Providers */}
+            <div className="rounded-xl border border-border/60 mt-4 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Embedding Providers</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    OpenAI-compatible endpoint for vector embeddings (Ollama, llama.cpp, etc.)
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs rounded-lg px-2.5 shrink-0"
+                  onClick={() => setShowEmbeddingProviderForm((v) => !v)}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add
+                </Button>
+              </div>
+
+              {/* Provider list */}
+              {(embeddingProviders ?? []).length > 0 && (
+                <div className="divide-y divide-border/40">
+                  {(embeddingProviders ?? []).map((p) => (
+                    <div key={p.id} className="flex items-center justify-between px-4 py-2.5 gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span
+                          className={
+                            selectedEmbeddingProvider === p.id ? 'text-[10px] text-green-500' : 'text-[10px] text-muted-foreground/30'
+                          }
+                        >
+                          ●
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium truncate">{p.name}</p>
+                          <p className="text-[11px] text-muted-foreground/60 truncate">{p.baseURL}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          type="button"
+                          variant={selectedEmbeddingProvider === p.id ? 'default' : 'outline'}
+                          size="sm"
+                          className="h-6 text-[11px] px-2 rounded-md"
+                          onClick={() =>
+                            setSelectedEmbeddingProvider(selectedEmbeddingProvider === p.id ? '' : p.id)
+                          }
+                        >
+                          {selectedEmbeddingProvider === p.id ? 'Active' : 'Use'}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                          onClick={() => {
+                            const updated = (embeddingProviders ?? []).filter((ep) => ep.id !== p.id);
+                            setEmbeddingProviders(updated);
+                            if (selectedEmbeddingProvider === p.id) setSelectedEmbeddingProvider('');
+                          }}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add provider form */}
+              {showEmbeddingProviderForm && (
+                <div className="px-4 py-3 space-y-2.5 border-t border-border/40">
+                  <Input
+                    placeholder="Name (e.g. Ollama Local)"
+                    value={newEmbeddingProvider.name}
+                    onChange={(e) => setNewEmbeddingProvider((v) => ({ ...v, name: e.target.value }))}
+                    className="h-8 text-xs rounded-lg"
+                  />
+                  <Input
+                    placeholder="Base URL (e.g. http://localhost:11434/v1)"
+                    value={newEmbeddingProvider.baseURL}
+                    onChange={(e) => setNewEmbeddingProvider((v) => ({ ...v, baseURL: e.target.value }))}
+                    className="h-8 text-xs rounded-lg"
+                  />
+                  <Input
+                    placeholder="API Key (optional)"
+                    value={newEmbeddingProvider.apiKey}
+                    onChange={(e) => setNewEmbeddingProvider((v) => ({ ...v, apiKey: e.target.value }))}
+                    className="h-8 text-xs rounded-lg"
+                  />
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs rounded-lg px-2.5"
+                      onClick={async () => {
+                        if (!newEmbeddingProvider.baseURL) return;
+                        setDetectingEmbeddingModels(true);
+                        try {
+                          const res = await fetch('/api/custom-providers/detect', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              baseURL: newEmbeddingProvider.baseURL,
+                              apiKey: newEmbeddingProvider.apiKey || undefined,
+                            }),
+                          });
+                          const data = await res.json();
+                          setDetectedEmbeddingModels(data.models || []);
+                        } catch (e) {
+                          sileo.error({ title: 'Detection failed', description: String(e) });
+                        } finally {
+                          setDetectingEmbeddingModels(false);
+                        }
+                      }}
+                      disabled={detectingEmbeddingModels || !newEmbeddingProvider.baseURL}
+                    >
+                      {detectingEmbeddingModels ? (
+                        <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                      ) : (
+                        <Zap className="h-3 w-3 mr-1.5" />
+                      )}
+                      Detect Models
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-7 text-xs rounded-lg px-2.5"
+                      onClick={() => {
+                        if (!newEmbeddingProvider.name || !newEmbeddingProvider.baseURL) {
+                          sileo.error({ title: 'Name and Base URL are required' });
+                          return;
+                        }
+                        setIsSavingEmbeddingProvider(true);
+                        const id = newEmbeddingProvider.name.toLowerCase().replace(/\s+/g, '-');
+                        const updated = [
+                          ...(embeddingProviders ?? []).filter((p) => p.id !== id),
+                          { id, ...newEmbeddingProvider },
+                        ];
+                        setEmbeddingProviders(updated);
+                        setNewEmbeddingProvider({ name: '', baseURL: '', apiKey: '' });
+                        setDetectedEmbeddingModels([]);
+                        setShowEmbeddingProviderForm(false);
+                        setIsSavingEmbeddingProvider(false);
+                        sileo.success({ title: 'Provider saved', description: newEmbeddingProvider.name });
+                      }}
+                      disabled={isSavingEmbeddingProvider || !newEmbeddingProvider.name || !newEmbeddingProvider.baseURL}
+                    >
+                      {isSavingEmbeddingProvider ? (
+                        <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                      ) : (
+                        <FloppyDiskIcon className="h-3 w-3 mr-1.5" />
+                      )}
+                      Save Provider
+                    </Button>
+                  </div>
+                  {detectedEmbeddingModels.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-[11px] text-muted-foreground font-medium">
+                        Detected — click to select as embedding model:
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {detectedEmbeddingModels.map((m) => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => setEmbeddingModel(m)}
+                            className={`text-[11px] px-2 py-0.5 rounded-md border transition-colors ${
+                              embeddingModel === m
+                                ? 'border-primary bg-primary/10 text-primary'
+                                : 'border-border/60 text-muted-foreground hover:border-primary/50 hover:text-foreground'
+                            }`}
+                          >
+                            {m}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Model input — shown when a provider is active */}
+              {selectedEmbeddingProvider && (
+                <div className="px-4 py-3 border-t border-border/40 space-y-1.5">
+                  <p className="text-xs text-muted-foreground font-medium">Embedding model</p>
+                  <Input
+                    placeholder="nomic-embed-text"
+                    value={embeddingModel ?? 'nomic-embed-text'}
+                    onChange={(e) => setEmbeddingModel(e.target.value)}
+                    className="h-8 text-xs rounded-lg"
+                  />
                 </div>
               )}
             </div>
