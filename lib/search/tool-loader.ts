@@ -22,6 +22,7 @@ interface LoadConfiguredToolsParams {
   mcpDynamicTools: Record<string, any>;
   lightweightUser: { userId: string; email: string; isProUser: boolean } | null;
   selectedConnectors: any;
+  searxngUrl?: string;
 }
 
 export async function loadConfiguredTools({
@@ -35,6 +36,7 @@ export async function loadConfiguredTools({
   mcpDynamicTools,
   lightweightUser,
   selectedConnectors,
+  searxngUrl,
 }: LoadConfiguredToolsParams): Promise<Record<string, any>> {
   const tools: Record<string, any> = {};
   const uniqueToolNames = [...new Set(activeToolNames)];
@@ -70,7 +72,7 @@ export async function loadConfiguredTools({
         }
         case 'web_search': {
           const { webSearchTool } = await import('@/lib/tools/web-search');
-          tools.web_search = webSearchTool(dataStream, searchProvider);
+          tools.web_search = webSearchTool(dataStream, searchProvider, searxngUrl);
           return;
         }
         case 'academic_search': {

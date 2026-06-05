@@ -634,6 +634,7 @@ const createSearchStrategy = (
 export function webSearchTool(
   dataStream?: UIMessageStreamWriter<ChatMessage> | undefined,
   searchProvider: WebSearchProvider = 'exa',
+  searxngUrl?: string,
 ) {
   return tool({
     description: `This is the default tool of the app to be used to search the web for information with multiple queries(5-10), max results(15-20), topics, and quality.
@@ -720,7 +721,7 @@ export function webSearchTool(
 
       // Create and use the appropriate search strategy
       const normalizedProvider = normalizeWebSearchProvider(searchProvider);
-      const strategy = createSearchStrategy(normalizedProvider, clients);
+      const strategy = createSearchStrategy(normalizedProvider, clients, searxngUrl);
       if (!maxResults) {
         maxResults = new Array(queries.length).fill(10);
       }

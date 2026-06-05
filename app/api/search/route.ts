@@ -858,6 +858,7 @@ export async function POST(req: Request) {
         mcpDynamicTools,
         lightweightUser,
         selectedConnectors,
+        searxngUrl: (userPreferencesResult?.preferences?.['zetora-searxng-url'] as string | undefined) || undefined,
       });
 
       const streamTools = shouldUseXaiMultiAgent
