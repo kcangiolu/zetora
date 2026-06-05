@@ -261,15 +261,15 @@ export const zetora = customProvider({
         retries: [gateway('google/gemini-3.1-pro-preview')],
       }),
       'zetora-name': createRetryable({
-        model: gateway('google/gemini-2.5-flash-lite-preview-09-2025'),
-        retries: [_google('gemini-2.5-flash-lite-preview-09-2025'), _google('gemini-2.5-flash-lite')],
+        model: gateway('google/gemini-3.1-flash-lite-preview'),
+        retries: [_google('gemini-3.1-flash-lite-preview'), _google('gemini-2.5-flash-lite-preview-09-2025')],
       }),
       'zetora-follow-up': createRetryable({
-        model: _google('gemini-2.5-flash-lite-preview-09-2025'),
+        model: gateway('google/gemini-3.1-flash-lite-preview'),
         retries: [
+          _google('gemini-3.1-flash-lite-preview'),
+          _google('gemini-2.5-flash-lite-preview-09-2025'),
           _google('gemini-2.5-flash-lite'),
-          gateway('google/gemini-2.5-flash-lite'),
-          gateway('google/gemini-2.5-flash-lite-preview-09-2025'),
         ],
       }),
       'zetora-google-lite': _google('gemini-flash-lite-latest'),
