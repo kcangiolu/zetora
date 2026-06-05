@@ -34,6 +34,7 @@ export const serverEnv = createEnv({
     NOTTE_API_KEY: z.string().optional().default("placeholder"),
     PARALLEL_API_KEY: z.string().optional().default("placeholder"),
     SEARXNG_URL: z.string().url().optional(),
+    QDRANT_URL: z.string().url().optional(),
     OPENWEATHER_API_KEY: z.string().optional().default("placeholder"),
     GOOGLE_MAPS_API_KEY: z.string().optional().default("placeholder"),
     AMADEUS_API_KEY: z.string().optional().default("placeholder"),

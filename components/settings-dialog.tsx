@@ -376,6 +376,11 @@ export function PreferencesSection({
   const [detectingEmbeddingModels, setDetectingEmbeddingModels] = useState(false);
   const [detectedEmbeddingModels, setDetectedEmbeddingModels] = useState<string[]>([]);
 
+  const [qdrantEnabled, setQdrantEnabled] = useSyncedPreferences<boolean>('zetora-qdrant-enabled', false);
+  const [qdrantUrl, setQdrantUrl] = useSyncedPreferences<string>('zetora-qdrant-url', '');
+  const [searchCacheEnabled, setSearchCacheEnabled] = useSyncedPreferences<boolean>('zetora-search-cache-enabled', false);
+  const [searchCacheTtlDays, setSearchCacheTtlDays] = useSyncedPreferences<number>('zetora-search-cache-ttl-days', 7);
+
   const [content, setContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -1187,6 +1192,74 @@ export function PreferencesSection({
                     className="h-8 text-xs rounded-lg"
                   />
                 </div>
+              )}
+            </div>
+
+            {/* Vector Database */}
+            <div className="rounded-xl border border-border/60 mt-4 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Vector Database</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Cache search results and enable hybrid search via Qdrant
+                  </p>
+                </div>
+                <Switch
+                  id="qdrant-enabled"
+                  checked={qdrantEnabled ?? false}
+                  onCheckedChange={setQdrantEnabled}
+                />
+              </div>
+
+              {qdrantEnabled && (
+                <>
+                  <div className="flex flex-col gap-1.5 px-4 py-3 border-t border-border/40">
+                    <p className="text-sm font-medium">Qdrant URL</p>
+                    <p className="text-xs text-muted-foreground">Base URL of your Qdrant instance</p>
+                    <Input
+                      placeholder="http://localhost:6333"
+                      value={qdrantUrl ?? ''}
+                      onChange={(e) => setQdrantUrl(e.target.value)}
+                      className="h-8 text-xs rounded-lg"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between px-4 py-3 border-t border-border/40 gap-6">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">Search Cache</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Cache similar questions for instant answers
+                      </p>
+                    </div>
+                    <Switch
+                      id="search-cache-enabled"
+                      checked={searchCacheEnabled ?? false}
+                      onCheckedChange={setSearchCacheEnabled}
+                    />
+                  </div>
+
+                  {searchCacheEnabled && (
+                    <div className="flex items-center justify-between px-4 py-3 border-t border-border/40 gap-6">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium">Cache TTL</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">How long to keep cached results</p>
+                      </div>
+                      <Select
+                        value={String(searchCacheTtlDays ?? 7)}
+                        onValueChange={(v) => setSearchCacheTtlDays(Number(v))}
+                      >
+                        <SelectTrigger className="w-[120px] h-8 text-xs rounded-lg shrink-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1 day</SelectItem>
+                          <SelectItem value="7">7 days</SelectItem>
+                          <SelectItem value="30">30 days</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 

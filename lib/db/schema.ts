@@ -383,6 +383,10 @@ export const userPreferences = pgTable('user_preferences', {
       }>;
       'zetora-embedding-provider'?: string;
       'zetora-embedding-model'?: string;
+      'zetora-qdrant-url'?: string;
+      'zetora-qdrant-enabled'?: boolean;
+      'zetora-search-cache-enabled'?: boolean;
+      'zetora-search-cache-ttl-days'?: number;
     }>()
     .notNull()
     .default({}),
