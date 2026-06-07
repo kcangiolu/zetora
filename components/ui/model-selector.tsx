@@ -14,7 +14,7 @@ import {
   type ModelProvider,
 } from '@/ai/models';
 import { LockIcon, Eye, Brain, FilePdf } from '@phosphor-icons/react';
-import { Zap, Wand2, Search, ChevronDown, Check, Cpu } from 'lucide-react';
+import { Zap, Wand2, Search, ChevronDown, Check, Cpu, Puzzle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
@@ -240,6 +240,8 @@ const ProviderIcon = ({
       );
     case 'nvidia':
       return <NVIDIA {...iconProps} />;
+    case 'custom':
+      return <Puzzle {...iconProps} />;
     default:
       return (
         <svg {...iconProps} viewBox="0 0 24 24" fill="currentColor">
