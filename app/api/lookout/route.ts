@@ -1,5 +1,5 @@
 // /app/api/lookout/route.ts
-import { generateTitleFromUserMessage } from '@/app/actions';
+import { generateTitleFromUserMessage } from '@/lib/search/chat-title';
 import { convertToModelMessages, streamText, createUIMessageStream, stepCountIs, JsonToSseTransformStream } from 'ai';
 import { zetora, resolveModel, shouldBypassRateLimits } from '@/ai/providers';
 import {

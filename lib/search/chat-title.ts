@@ -22,7 +22,7 @@ export async function generateTitleFromUserMessage({ message }: { message: UIMes
     : null;
   const titlePrefsMap = (titlePrefs?.preferences ?? {}) as Record<string, string>;
 
-  const { text: title } = await generateText({
+  const { text: rawTitle } = await generateText({
     model: await resolveTertiaryModel('chat-title', titlePrefsMap),
     system: `You are an expert title generator. You are given a message and you need to generate a short title based on it.
 
@@ -73,10 +73,19 @@ export async function generateTitleFromUserMessage({ message }: { message: UIMes
     },
   });
 
+  const afterThink = rawTitle.includes('</think>')
+    ? rawTitle.split('</think>').pop()!
+    : rawTitle;
+  const title = afterThink
+    .replace(/<response>[\s\S]*?<\/response>/g, '')
+    .replace(/\n+/g, ' ')
+    .trim()
+    .slice(0, 80);
+
   console.log('Title: ', title);
 
   const durationMs = Date.now() - startTime;
   console.log(`⏱️ [USAGE] generateTitleFromUserMessage: Model took ${durationMs}ms`);
 
-  return title;
+  return title || 'New Chat';
 }
