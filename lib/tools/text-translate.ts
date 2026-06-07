@@ -1,8 +1,6 @@
 import { Output, tool, generateText } from 'ai';
-import { createOllama } from 'ai-sdk-ollama';
 import { z } from 'zod';
-import { resolveModel } from '@/ai/providers';
-import { cohere } from "@ai-sdk/cohere"
+import { resolveTertiaryModel } from '@/ai/tertiary';
 
 interface TextTranslateToolInput {
   text?: string;
@@ -23,6 +21,7 @@ interface ImageContext {
 
 interface ToolContext {
   images?: ImageContext[];
+  userPreferences?: Record<string, string>;
 }
 
 const TRANSLATEGEMMA_PROMPT_TEMPLATE = `You are a professional {SOURCE_LANG} to {TARGET_LANG} translator.
@@ -80,10 +79,10 @@ const detectedLanguageSchema = z.object({
   detectedLanguage: z.string().describe('ISO 639-1 language code (2-letter).'),
 });
 
-async function detectLanguageCode(text: string): Promise<string> {
+async function detectLanguageCode(text: string, preferences: Record<string, string> | null): Promise<string> {
   try {
     const { output } = await generateText({
-      model: await resolveModel('zetora-default'),
+      model: await resolveTertiaryModel('lang-detect', preferences),
       output: Output.object({ schema: detectedLanguageSchema }),
       prompt: `Detect the ISO 639-1 language code (2-letter) of the following text.\n\nText:\n${text}`,
       temperature: 0,
@@ -112,16 +111,17 @@ export const textTranslateTool = tool({
     const context = experimental_context as ToolContext | undefined;
     const images = context?.images ?? [];
     const hasImages = images.length > 0;
+    const translatePrefs = (context?.userPreferences ?? null) as Record<string, string> | null;
     console.log('[text-translate] Has images:', hasImages, 'Image count:', images.length);
 
     const targetLanguageCode = normalizeLanguageCode(to);
     console.log('[text-translate] Target language code:', targetLanguageCode);
     
     // Detect source language from text if provided
-    const detectedLanguage = from 
-      ? normalizeLanguageCode(from) 
-      : (text && text.trim() !== '') 
-        ? await detectLanguageCode(text) 
+    const detectedLanguage = from
+      ? normalizeLanguageCode(from)
+      : (text && text.trim() !== '')
+        ? await detectLanguageCode(text, translatePrefs)
         : 'auto';
     console.log('[text-translate] Detected source language:', detectedLanguage);
 
@@ -140,7 +140,7 @@ export const textTranslateTool = tool({
       
       console.log('[text-translate] Calling model with', images.length, 'images...');
       const { text: translatedText } = await generateText({
-        model: await resolveModel('zetora-gemini-3-flash'),
+        model: await resolveTertiaryModel('translate-vision', translatePrefs),
         messages: [
           {
             role: 'user',
@@ -182,7 +182,7 @@ export const textTranslateTool = tool({
 
     console.log('[text-translate] Calling TranslateGemma for text-only translation...');
     const { text: translatedText } = await generateText({
-      model: cohere('command-a-translate-08-2025'),
+      model: await resolveTertiaryModel('translate-text', translatePrefs),
       prompt: promptText,
       temperature: 0,
     });

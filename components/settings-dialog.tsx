@@ -22,7 +22,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/u
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useMediaQuery } from '@/hooks/use-media-query';
-import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
+import { useSyncedPreferences, type PreferenceKey } from '@/hooks/use-synced-preferences';
 import {
   getUserMessageCount,
   getSubDetails,
@@ -74,7 +74,7 @@ import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tansta
 import { getAllMemories, deleteMemory, MemoryItem } from '@/lib/memory-actions';
 import { Loader2, Search, Zap, Pencil, Plus, MoreHorizontal, Link2Off } from 'lucide-react';
 import { getSearchGroups, type SearchGroupId } from '@/lib/utils';
-import { models, PROVIDERS, getModelProvider, type ModelProvider } from '@/ai/models';
+import { models, PROVIDERS, getModelProvider, type ModelProvider, type Model } from '@/ai/models';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { useIsProUser } from '@/contexts/user-context';
@@ -315,6 +315,99 @@ function getDefaultAutoRouterRoutes(): AutoRouterRoute[] {
   ];
 }
 
+type TertiaryModelPrefKey =
+  | 'zetora-tertiary-chat-title-model'
+  | 'zetora-tertiary-followup-model'
+  | 'zetora-tertiary-enhance-model'
+  | 'zetora-tertiary-tool-repair-model'
+  | 'zetora-tertiary-auto-router-model'
+  | 'zetora-tertiary-translate-text-model'
+  | 'zetora-tertiary-translate-vision-model'
+  | 'zetora-tertiary-lang-detect-model'
+  | 'zetora-tertiary-extreme-planner-model'
+  | 'zetora-tertiary-extreme-agent-model';
+
+type TertiaryProviderPrefKey =
+  | 'zetora-tertiary-chat-title-provider'
+  | 'zetora-tertiary-followup-provider'
+  | 'zetora-tertiary-enhance-provider'
+  | 'zetora-tertiary-tool-repair-provider'
+  | 'zetora-tertiary-auto-router-provider'
+  | 'zetora-tertiary-translate-text-provider'
+  | 'zetora-tertiary-translate-vision-provider'
+  | 'zetora-tertiary-lang-detect-provider'
+  | 'zetora-tertiary-extreme-planner-provider'
+  | 'zetora-tertiary-extreme-agent-provider';
+
+function TertiaryModelRow({
+  modelKey,
+  providerKey,
+  label,
+  description,
+  defaultModelLabel,
+  additionalModels,
+  user,
+  isProUser,
+  isMaxUser,
+}: {
+  modelKey: TertiaryModelPrefKey;
+  providerKey: TertiaryProviderPrefKey;
+  label: string;
+  description: string;
+  defaultModelLabel: string;
+  additionalModels: Model[];
+  user: any;
+  isProUser: boolean;
+  isMaxUser: boolean;
+}) {
+  const [model, setModel] = useSyncedPreferences<string>(modelKey as PreferenceKey, '');
+  const [, setProvider] = useSyncedPreferences<string>(providerKey as PreferenceKey, '');
+
+  const handleSelect = (modelValue: string) => {
+    setModel(modelValue);
+    const provider = modelValue.startsWith('custom-') ? 'custom' : String(getModelProvider(modelValue));
+    setProvider(provider);
+  };
+
+  return (
+    <div className="flex items-center justify-between py-3.5 gap-6">
+      <div className="min-w-0">
+        <p className="text-sm font-medium">{label}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+      </div>
+      <div className="flex items-center gap-1.5 shrink-0">
+        {!model && (
+          <span className="text-[11px] text-muted-foreground/70 shrink-0 max-w-[160px] truncate" title={`Default : ${defaultModelLabel}`}>
+            Default : {defaultModelLabel}
+          </span>
+        )}
+        <ModelSelectorDialog
+          selectedModel={model}
+          onModelSelect={handleSelect}
+          user={user}
+          isProUser={isProUser}
+          isMaxUser={isMaxUser}
+          additionalModels={additionalModels}
+          className="w-[180px] h-8"
+          compact
+        />
+        {model && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+            title="Reset to default"
+            onClick={() => { setModel(''); setProvider(''); }}
+          >
+            <X className="h-3 w-3" />
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Component for Combined Preferences (Search + Custom Instructions)
 export function PreferencesSection({
   user,
@@ -336,17 +429,6 @@ export function PreferencesSection({
     'zetora-sandbox-provider',
     'daytona',
   );
-
-  const [extremeSearchModel, setExtremeSearchModel] = useSyncedPreferences<
-    | 'zetora-ext-1'
-    | 'zetora-ext-2'
-    | 'zetora-ext-3'
-    | 'zetora-ext-4'
-    | 'zetora-ext-5'
-    | 'zetora-ext-6'
-    | 'zetora-ext-7'
-    | 'zetora-ext-8'
-  >('zetora-extreme-search-model', 'zetora-ext-1');
 
   const [locationMetadataEnabled, setLocationMetadataEnabled] = useSyncedPreferences<boolean>(
     'zetora-location-metadata-enabled',
@@ -383,6 +465,18 @@ export function PreferencesSection({
 
   const [content, setContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Fetch custom models for the tertiary model selectors
+  const { data: customModelsData } = useQuery({
+    queryKey: ['customModels'],
+    queryFn: async () => {
+      const res = await fetch('/api/custom-providers/models');
+      if (!res.ok) return { models: [] };
+      return res.json() as Promise<{ models: Model[] }>;
+    },
+    staleTime: 60_000,
+  });
+  const customModelsList: Model[] = customModelsData?.models ?? [];
 
   // Custom AI Providers state
   const [customProviders, setCustomProviders] = useState<CustomProviderConfig[]>([]);
@@ -527,35 +621,6 @@ export function PreferencesSection({
     });
   };
 
-  const extremeSearchModels = [
-    { value: 'zetora-ext-1' as const, label: 'Grok 4.1 Fast Reasoning' },
-    { value: 'zetora-ext-2' as const, label: 'GPT-5.4' },
-    { value: 'zetora-ext-4' as const, label: 'GLM 4.7 Flash' },
-    { value: 'zetora-ext-5' as const, label: 'Kimi K2.5' },
-    { value: 'zetora-ext-6' as const, label: 'Gemini 3.1 Pro' },
-    { value: 'zetora-ext-7' as const, label: 'Qwen 3.5 Flash' },
-    { value: 'zetora-ext-8' as const, label: 'Grok 4.20 Experimental Beta' },
-  ];
-
-  const handleExtremeSearchModelChange = (
-    newModel:
-      | 'zetora-ext-1'
-      | 'zetora-ext-2'
-      | 'zetora-ext-4'
-      | 'zetora-ext-5'
-      | 'zetora-ext-6'
-      | 'zetora-ext-7'
-      | 'zetora-ext-8',
-  ) => {
-    if (!hasPaidAccess) return;
-    setExtremeSearchModel(newModel);
-    const label = extremeSearchModels.find((m) => m.value === newModel)?.label ?? newModel;
-    sileo.success({
-      title: `Extreme Agent model changed to ${label}`,
-      description: 'This will be used for extreme search mode',
-      icon: <Sparkles className="h-4 w-4" />,
-    });
-  };
 
   // Custom Instructions queries and handlers
   const {
@@ -855,45 +920,6 @@ export function PreferencesSection({
                     <SelectItem value="docker">Docker (Local)</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-
-              {/* Extreme Search Model (Pro only) */}
-              <div className="flex items-center justify-between py-3.5 gap-6">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium">Extreme Agent Model</p>
-                    {!hasPaidAccess && (
-                      <span className="font-pixel text-xs text-muted-foreground/50 uppercase tracking-wider">Pro</span>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">Choose which AI model powers extreme agent</p>
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild disabled={!hasPaidAccess}>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-[240px] h-8 text-xs rounded-lg shrink-0 justify-between font-normal"
-                      disabled={!hasPaidAccess}
-                    >
-                      {extremeSearchModels.find((m) => m.value === (hasPaidAccess ? extremeSearchModel : 'zetora-ext-1'))
-                        ?.label ?? 'Grok 4.1 Fast Reasoning'}
-                      <ChevronDown className="size-3.5 opacity-50" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-[280px]">
-                    <DropdownMenuRadioGroup
-                      value={extremeSearchModel}
-                      onValueChange={(v) => handleExtremeSearchModelChange(v as any)}
-                    >
-                      {extremeSearchModels.map((m) => (
-                        <DropdownMenuRadioItem key={m.value} value={m.value} className="text-xs">
-                          {m.label}
-                        </DropdownMenuRadioItem>
-                      ))}
-                    </DropdownMenuRadioGroup>
-                  </DropdownMenuContent>
-                </DropdownMenu>
               </div>
 
               {/* Auto Router toggle (Pro only) */}
@@ -1367,6 +1393,128 @@ export function PreferencesSection({
                   )}
                 </div>
               )}
+            </div>
+
+            {/* Tertiary Models */}
+            <div className="rounded-xl border border-border/60 mt-4 overflow-hidden">
+              <div className="px-4 py-3 border-b border-border/40">
+                <p className="text-sm font-medium">Tertiary Models</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Choose which model to use for each background task
+                </p>
+              </div>
+              <div className="divide-y divide-border/40 px-4">
+                <TertiaryModelRow
+                  modelKey="zetora-tertiary-chat-title-model"
+                  providerKey="zetora-tertiary-chat-title-provider"
+                  label="Chat Title"
+                  description="Generates titles for new chats"
+                  defaultModelLabel="Gemini 3.1 Flash Lite"
+                  additionalModels={customModelsList}
+                  user={user}
+                  isProUser={hasPaidAccess}
+                  isMaxUser={isMaxUser}
+                />
+                <TertiaryModelRow
+                  modelKey="zetora-tertiary-followup-model"
+                  providerKey="zetora-tertiary-followup-provider"
+                  label="Follow-up Questions"
+                  description="Generates questions after each response"
+                  defaultModelLabel="Gemini 3.1 Flash Lite"
+                  additionalModels={customModelsList}
+                  user={user}
+                  isProUser={hasPaidAccess}
+                  isMaxUser={isMaxUser}
+                />
+                <TertiaryModelRow
+                  modelKey="zetora-tertiary-enhance-model"
+                  providerKey="zetora-tertiary-enhance-provider"
+                  label="Prompt Enhancement"
+                  description="Rewrites prompts (Enhance button)"
+                  defaultModelLabel="Kimi K2"
+                  additionalModels={customModelsList}
+                  user={user}
+                  isProUser={hasPaidAccess}
+                  isMaxUser={isMaxUser}
+                />
+                <TertiaryModelRow
+                  modelKey="zetora-tertiary-tool-repair-model"
+                  providerKey="zetora-tertiary-tool-repair-provider"
+                  label="Tool Call Repair"
+                  description="Fixes malformed tool call arguments"
+                  defaultModelLabel="Grok 4.1 Fast"
+                  additionalModels={customModelsList}
+                  user={user}
+                  isProUser={hasPaidAccess}
+                  isMaxUser={isMaxUser}
+                />
+                <TertiaryModelRow
+                  modelKey="zetora-tertiary-auto-router-model"
+                  providerKey="zetora-tertiary-auto-router-provider"
+                  label="Auto Router"
+                  description="Classifies queries for model routing"
+                  defaultModelLabel="Arch-Router 1.5B"
+                  additionalModels={customModelsList}
+                  user={user}
+                  isProUser={hasPaidAccess}
+                  isMaxUser={isMaxUser}
+                />
+                <TertiaryModelRow
+                  modelKey="zetora-tertiary-translate-text-model"
+                  providerKey="zetora-tertiary-translate-text-provider"
+                  label="Text Translation"
+                  description="Translates text between languages"
+                  defaultModelLabel="Gemini 3 Flash"
+                  additionalModels={customModelsList}
+                  user={user}
+                  isProUser={hasPaidAccess}
+                  isMaxUser={isMaxUser}
+                />
+                <TertiaryModelRow
+                  modelKey="zetora-tertiary-translate-vision-model"
+                  providerKey="zetora-tertiary-translate-vision-provider"
+                  label="Vision Translation"
+                  description="Extracts and translates text from images"
+                  defaultModelLabel="Gemini 3 Flash"
+                  additionalModels={customModelsList}
+                  user={user}
+                  isProUser={hasPaidAccess}
+                  isMaxUser={isMaxUser}
+                />
+                <TertiaryModelRow
+                  modelKey="zetora-tertiary-lang-detect-model"
+                  providerKey="zetora-tertiary-lang-detect-provider"
+                  label="Language Detection"
+                  description="Detects language of input text"
+                  defaultModelLabel="Grok 4.1 Fast"
+                  additionalModels={customModelsList}
+                  user={user}
+                  isProUser={hasPaidAccess}
+                  isMaxUser={isMaxUser}
+                />
+                <TertiaryModelRow
+                  modelKey="zetora-tertiary-extreme-planner-model"
+                  providerKey="zetora-tertiary-extreme-planner-provider"
+                  label="Extreme Search Planner"
+                  description="Generates research plans in Extreme mode"
+                  defaultModelLabel="Grok 4.1 Fast (Reasoning)"
+                  additionalModels={customModelsList}
+                  user={user}
+                  isProUser={hasPaidAccess}
+                  isMaxUser={isMaxUser}
+                />
+                <TertiaryModelRow
+                  modelKey="zetora-tertiary-extreme-agent-model"
+                  providerKey="zetora-tertiary-extreme-agent-provider"
+                  label="Extreme Search Agent"
+                  description="Executes the autonomous research loop"
+                  defaultModelLabel="Grok 4.1 Fast Reasoning"
+                  additionalModels={customModelsList}
+                  user={user}
+                  isProUser={hasPaidAccess}
+                  isMaxUser={isMaxUser}
+                />
+              </div>
             </div>
           </div>
         )}

@@ -231,9 +231,7 @@ const ChatInterface = memo(
       'firecrawl',
     );
 
-    const [extremeSearchModel] = useLocalStorage<
-      'zetora-ext-1' | 'zetora-ext-2' | 'zetora-ext-4' | 'zetora-ext-5' | 'zetora-ext-6' | 'zetora-ext-7' | 'zetora-ext-8'
-    >('zetora-extreme-search-model', 'zetora-ext-1');
+    const [extremeSearchModel] = useSyncedPreferences<string>('zetora-tertiary-extreme-agent-model', '');
     const [isAutoRouterEnabled] = useSyncedPreferences<boolean>('zetora-auto-router-enabled', false);
     const [autoRouterConfig] = useSyncedPreferences<AutoRouterConfig>('zetora-auto-router-config', { routes: [] });
     const [scrollToLatestOnOpen] = useSyncedPreferences<boolean>('zetora-scroll-to-latest-on-open', false);
@@ -564,7 +562,6 @@ const ChatInterface = memo(
     const isCustomInstructionsEnabledRef = useRef(isCustomInstructionsEnabled);
     const searchProviderRef = useRef(searchProvider);
     const extremeSearchProviderRef = useRef<'exa'>('exa');
-    const extremeSearchModelRef = useRef(extremeSearchModel);
     const selectedConnectorsRef = useRef(selectedConnectors);
     const isMultiAgentModeEnabledRef = useRef(isMultiAgentModeEnabled);
     const isTemporaryChatRef = useRef(isTemporaryChat);
@@ -575,7 +572,6 @@ const ChatInterface = memo(
     isCustomInstructionsEnabledRef.current = isCustomInstructionsEnabled;
     searchProviderRef.current = searchProvider;
     extremeSearchProviderRef.current = 'exa';
-    extremeSearchModelRef.current = extremeSearchModel;
     selectedConnectorsRef.current = selectedConnectors;
     isMultiAgentModeEnabledRef.current = isMultiAgentModeEnabled;
     isTemporaryChatRef.current = isTemporaryChat;
@@ -617,7 +613,6 @@ const ChatInterface = memo(
               isCustomInstructionsEnabled: isCustomInstructionsEnabledRef.current,
               searchProvider: searchProviderRef.current,
               extremeSearchProvider: extremeSearchProviderRef.current,
-              extremeSearchModel: extremeSearchModelRef.current,
               selectedConnectors: selectedConnectorsRef.current,
               isTemporaryChat: isTemporaryChatRef.current,
               ...(initialChatId ? { chat_id: initialChatId } : {}),

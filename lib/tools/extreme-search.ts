@@ -11,7 +11,7 @@ import { Output, generateText, hasToolCall, stepCountIs, tool } from 'ai';
 import type { UIMessageStreamWriter } from 'ai';
 import { z } from 'zod';
 import { serverEnv } from '@/env/server';
-import { resolveModel } from '@/ai/providers';
+import { resolveTertiaryModel } from '@/ai/tertiary';
 import { ChatMessage } from '../types';
 import FirecrawlApp from '@mendable/firecrawl-js';
 import { getTweet } from 'react-tweet/api';
@@ -571,16 +571,10 @@ async function extremeSearch(
   prompt: string,
   dataStream: UIMessageStreamWriter<ChatMessage> | undefined,
   files: FileContext[] = [],
-  modelId:
-    | 'zetora-ext-1'
-    | 'zetora-ext-2'
-    | 'zetora-ext-4'
-    | 'zetora-ext-5'
-    | 'zetora-ext-6'
-    | 'zetora-ext-7'
-    | 'zetora-ext-8' = 'zetora-ext-1',
   _mcpDynamicTools: Record<string, any> = {},
+  preferences: Record<string, string> | null = null,
 ): Promise<Research> {
+  const modelId = preferences?.['zetora-tertiary-extreme-agent-model'] || 'zetora-ext-1';
   const allSources: SearchResult[] = [];
 
   // Initialize clients
@@ -610,7 +604,7 @@ async function extremeSearch(
   // plan out the research
 
   const { output: result } = await generateText({
-    model: await resolveModel('zetora-ext-1'),
+    model: await resolveTertiaryModel('extreme-planner', preferences),
     output: Output.object({
       schema: z.object({
         plan: z
@@ -704,7 +698,7 @@ ${hasFilesForPlanning ? '- Include file search steps when the uploaded files are
 
   // Create the autonomous research agent with tools
   const { text: _ } = await generateText({
-    model: await resolveModel(modelId),
+    model: await resolveTertiaryModel('extreme-agent', preferences),
     stopWhen: [stepCountIs(75), hasToolCall('done')],
     activeTools: baseActiveTools as any,
     maxRetries: 10,
@@ -1924,14 +1918,6 @@ ${JSON.stringify(plan)}
 export function extremeSearchTool(
   dataStream: UIMessageStreamWriter<ChatMessage> | undefined,
   files: Array<{ url: string; contentType: string; name?: string }> = [],
-  modelId:
-    | 'zetora-ext-1'
-    | 'zetora-ext-2'
-    | 'zetora-ext-4'
-    | 'zetora-ext-5'
-    | 'zetora-ext-6'
-    | 'zetora-ext-7'
-    | 'zetora-ext-8' = 'zetora-ext-1',
   mcpDynamicTools: Record<string, any> = {},
 ) {
   return tool({
@@ -1943,10 +1929,12 @@ export function extremeSearchTool(
           "This should take the user's exact prompt. Extract from the context but do not infer or change in any way.",
         ),
     }),
-    execute: async ({ prompt }) => {
-      console.log({ prompt, filesCount: files.length, modelId });
+    execute: async ({ prompt }, { experimental_context }) => {
+      console.log({ prompt, filesCount: files.length });
 
-      const research = await extremeSearch(prompt, dataStream, files, modelId, mcpDynamicTools);
+      const ctx = experimental_context as { userPreferences?: Record<string, string> } | undefined;
+      const extremePrefs = (ctx?.userPreferences ?? null) as Record<string, string> | null;
+      const research = await extremeSearch(prompt, dataStream, files, mcpDynamicTools, extremePrefs);
 
       return {
         research: {

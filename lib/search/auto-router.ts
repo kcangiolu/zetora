@@ -3,8 +3,9 @@ import 'server-only';
 import { generateText } from 'ai';
 import { jsonrepair } from 'jsonrepair';
 
-import { hasVisionSupport, zetora, resolveModel } from '@/ai/providers';
-import { getComprehensiveUserData } from '@/lib/user-data-server';
+import { hasVisionSupport } from '@/ai/providers';
+import { getComprehensiveUserData, getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
+import { resolveTertiaryModel } from '@/ai/tertiary';
 
 interface AutoRouterRoute {
   name: string;
@@ -30,6 +31,9 @@ export async function routeWithAutoRouter({
     if (!user.isProUser) {
       return { success: false, error: 'pro_required' };
     }
+
+    const routerPrefs = await getCachedUserPreferencesByUserId(user.id).catch(() => null);
+    const routerPrefsMap = (routerPrefs?.preferences ?? {}) as Record<string, string>;
 
     const trimmedQuery = query.trim();
     if (!trimmedQuery) {
@@ -87,7 +91,7 @@ Based on your analysis, provide your response in the following JSON formats if y
 `;
 
     const { text } = await generateText({
-      model: await resolveModel('zetora-arch-router'),
+      model: await resolveTertiaryModel('auto-router', routerPrefsMap),
       messages: [{ role: 'user', content: taskInstruction + formatPrompt }],
       maxOutputTokens: 200,
       temperature: 0,

@@ -85,6 +85,7 @@ import { getGroupConfig as getSearchGroupConfig } from '@/lib/search/group-confi
 import { GoogleGenerativeAIProviderOptions, GoogleLanguageModelOptions } from '@ai-sdk/google';
 import { GatewayProviderOptions } from '@ai-sdk/gateway';
 import { OpenAIResponsesProviderOptions } from '@ai-sdk/openai';
+import { resolveTertiaryModel } from '@/ai/tertiary';
 
 // Server action to get the current user with Pro status - UNIFIED VERSION
 export async function getCurrentUser() {
@@ -158,8 +159,14 @@ export async function suggestQuestions(history: any[]) {
 
   console.log(history);
 
+  const suggestUser = await getUser().catch(() => null);
+  const suggestPrefs = suggestUser
+    ? await getCachedUserPreferencesByUserId(suggestUser.id).catch(() => null)
+    : null;
+  const suggestPrefsMap = (suggestPrefs?.preferences ?? {}) as Record<string, string>;
+
   const { output } = await generateText({
-    model: await resolveModel('zetora-follow-up'),
+    model: await resolveTertiaryModel('followup', suggestPrefsMap),
     providerOptions: {
       google: {
         structuredOutputs: true,
@@ -250,8 +257,15 @@ export async function generateTitleFromUserMessage({ message }: { message: UIMes
   const firstTextPart = message.parts.find((part) => part.type === 'text');
   const prompt = JSON.stringify(firstTextPart && firstTextPart.type === 'text' ? firstTextPart.text : '');
   console.log('Prompt: ', prompt);
+
+  const titleUser = await getUser().catch(() => null);
+  const titlePrefs = titleUser
+    ? await getCachedUserPreferencesByUserId(titleUser.id).catch(() => null)
+    : null;
+  const titlePrefsMap = (titlePrefs?.preferences ?? {}) as Record<string, string>;
+
   const { text: title } = await generateText({
-    model: await resolveModel('zetora-name'),
+    model: await resolveTertiaryModel('chat-title', titlePrefsMap),
     system: `You are an expert title generator. You are given a message and you need to generate a short title based on it.
 
     - you will generate a short 3-4 words title based on the first message a user begins a conversation with
@@ -341,8 +355,11 @@ Output requirements:
 - Return ONLY the improved prompt text, in plain text.
 - No quotes, no commentary, no markdown, and no preface.`;
 
+    const enhancePrefs = await getCachedUserPreferencesByUserId(auth.userId).catch(() => null);
+    const enhancePrefsMap = (enhancePrefs?.preferences ?? {}) as Record<string, string>;
+
     const { text } = await generateText({
-      model: await resolveModel('zetora-enhance'),
+      model: await resolveTertiaryModel('enhance', enhancePrefsMap),
       temperature: 0.6,
       topP: 0.95,
       maxOutputTokens: 1024,
@@ -1607,14 +1624,6 @@ export async function getUserPreferences(providedUser?: User | null) {
 export async function saveUserPreferences(
   preferences: Partial<{
     'zetora-search-provider'?: 'exa' | 'parallel' | 'firecrawl';
-    'zetora-extreme-search-model'?:
-      | 'zetora-ext-1'
-      | 'zetora-ext-2'
-      | 'zetora-ext-4'
-      | 'zetora-ext-5'
-      | 'zetora-ext-6'
-      | 'zetora-ext-7'
-      | 'zetora-ext-8';
     'zetora-group-order'?: string[];
     'zetora-model-order-global'?: string[];
     'zetora-blur-personal-info'?: boolean;
@@ -1629,6 +1638,24 @@ export async function saveUserPreferences(
         model: string;
       }>;
     };
+    'zetora-tertiary-chat-title-model'?: string;
+    'zetora-tertiary-chat-title-provider'?: string;
+    'zetora-tertiary-followup-model'?: string;
+    'zetora-tertiary-followup-provider'?: string;
+    'zetora-tertiary-enhance-model'?: string;
+    'zetora-tertiary-enhance-provider'?: string;
+    'zetora-tertiary-tool-repair-model'?: string;
+    'zetora-tertiary-tool-repair-provider'?: string;
+    'zetora-tertiary-auto-router-model'?: string;
+    'zetora-tertiary-auto-router-provider'?: string;
+    'zetora-tertiary-translate-text-model'?: string;
+    'zetora-tertiary-translate-text-provider'?: string;
+    'zetora-tertiary-translate-vision-model'?: string;
+    'zetora-tertiary-translate-vision-provider'?: string;
+    'zetora-tertiary-lang-detect-model'?: string;
+    'zetora-tertiary-lang-detect-provider'?: string;
+    'zetora-tertiary-extreme-planner-model'?: string;
+    'zetora-tertiary-extreme-planner-provider'?: string;
   }>,
 ) {
   'use server';
@@ -1671,6 +1698,9 @@ export async function routeWithAutoRouter({
     if (!user.isProUser) {
       return { success: false, error: 'pro_required' };
     }
+
+    const routerPrefs = await getCachedUserPreferencesByUserId(user.id).catch(() => null);
+    const routerPrefsMap = (routerPrefs?.preferences ?? {}) as Record<string, string>;
 
     const trimmedQuery = query.trim();
     if (!trimmedQuery) {
@@ -1728,7 +1758,7 @@ Based on your analysis, provide your response in the following JSON formats if y
 `;
 
     const { text } = await generateText({
-      model: await resolveModel('zetora-arch-router'),
+      model: await resolveTertiaryModel('auto-router', routerPrefsMap),
       messages: [{ role: 'user', content: taskInstruction + formatPrompt }],
       maxOutputTokens: 200,
       temperature: 0,

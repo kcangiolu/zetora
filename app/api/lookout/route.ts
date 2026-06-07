@@ -259,16 +259,6 @@ const SEARCH_MODE_TOOLS: Record<string, readonly string[]> = {
 function getToolsForSearchMode(
   searchMode: string,
   dataStream: UIMessageStreamWriter<ChatMessage>,
-  options?: {
-    extremeSearchModelId?:
-      | 'zetora-ext-1'
-      | 'zetora-ext-2'
-      | 'zetora-ext-4'
-      | 'zetora-ext-5'
-      | 'zetora-ext-6'
-      | 'zetora-ext-7'
-      | 'zetora-ext-8';
-  },
 ): Record<string, any> {
   const toolNames = SEARCH_MODE_TOOLS[searchMode] || SEARCH_MODE_TOOLS.extreme;
   const tools: Record<string, any> = {};
@@ -276,7 +266,7 @@ function getToolsForSearchMode(
   for (const toolName of toolNames) {
     // Check if it's a tool that needs dataStream
     if (toolName === 'extreme_search') {
-      tools[toolName] = extremeSearchTool(dataStream, [], options?.extremeSearchModelId || 'zetora-ext-1');
+      tools[toolName] = extremeSearchTool(dataStream, []);
     } else if (toolName in DATASTREAM_TOOL_FACTORIES) {
       tools[toolName] = DATASTREAM_TOOL_FACTORIES[toolName](dataStream);
     } else if (toolName in STATIC_TOOLS) {
@@ -714,16 +704,7 @@ export async function POST(req: Request) {
         const streamStartTime = Date.now();
 
         // Get tools and system prompt for the search mode
-        const extremeSearchModelId = userPrefs?.preferences?.['zetora-extreme-search-model'] as
-          | 'zetora-ext-1'
-          | 'zetora-ext-2'
-          | 'zetora-ext-4'
-          | 'zetora-ext-5'
-          | 'zetora-ext-6'
-          | 'zetora-ext-7'
-          | 'zetora-ext-8'
-          | undefined;
-        const tools = getToolsForSearchMode(searchMode, dataStream, { extremeSearchModelId });
+        const tools = getToolsForSearchMode(searchMode, dataStream);
         const activeToolNames = Object.keys(tools);
         const systemPrompt = getSystemPromptForSearchMode(searchMode);
 
@@ -740,6 +721,7 @@ export async function POST(req: Request) {
           system: systemPrompt,
           toolChoice: 'auto',
           tools,
+          experimental_context: { userPreferences: (userPrefs?.preferences ?? {}) as Record<string, string> },
           providerOptions: {
             xai: {
               parallel_function_calling: false,

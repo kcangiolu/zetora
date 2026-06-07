@@ -2,22 +2,12 @@ import 'server-only';
 
 import type { SearchProvider } from '@/lib/utils';
 
-type ExtremeSearchModelId =
-  | 'zetora-ext-1'
-  | 'zetora-ext-2'
-  | 'zetora-ext-4'
-  | 'zetora-ext-5'
-  | 'zetora-ext-6'
-  | 'zetora-ext-7'
-  | 'zetora-ext-8';
-
 interface LoadConfiguredToolsParams {
   activeToolNames: string[];
   dataStream: any;
   searchProvider: SearchProvider | undefined;
   timezone: string | undefined;
   contextFiles: Array<{ url: string; contentType: string; name?: string }>;
-  extremeSearchModel: ExtremeSearchModelId | undefined;
   includeMcpTools: boolean;
   mcpDynamicTools: Record<string, any>;
   lightweightUser: { userId: string; email: string; isProUser: boolean } | null;
@@ -31,7 +21,6 @@ export async function loadConfiguredTools({
   searchProvider,
   timezone,
   contextFiles,
-  extremeSearchModel,
   includeMcpTools,
   mcpDynamicTools,
   lightweightUser,
@@ -164,7 +153,6 @@ export async function loadConfiguredTools({
           tools.extreme_search = extremeSearchTool(
             dataStream,
             contextFiles,
-            extremeSearchModel || 'zetora-ext-1',
             includeMcpTools ? mcpDynamicTools : {},
           );
           return;

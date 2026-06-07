@@ -62,6 +62,7 @@ import {
   getMessageCountAndExtremeSearchByUserIdAction,
 } from '@/lib/search/server-helpers';
 import { getCachedCustomInstructionsByUserId, getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
+import { resolveTertiaryModel } from '@/ai/tertiary';
 import { GoogleGenerativeAIProviderOptions, GoogleLanguageModelOptions } from '@ai-sdk/google';
 import { unauthenticatedRateLimit, getClientIdentifier } from '@/lib/rate-limit';
 import { loadConfiguredTools } from '@/lib/search/tool-loader';
@@ -415,7 +416,6 @@ export async function POST(req: Request) {
     selectedVisibilityType,
     isCustomInstructionsEnabled,
     searchProvider,
-    extremeSearchModel,
     selectedConnectors,
     isTemporaryChat,
     isAutoRouted,
@@ -872,7 +872,6 @@ export async function POST(req: Request) {
         searchProvider,
         timezone,
         contextFiles,
-        extremeSearchModel,
         includeMcpTools: group === 'extreme' || group === 'mcp',
         mcpDynamicTools,
         lightweightUser,
@@ -1552,7 +1551,7 @@ export async function POST(req: Request) {
           }
 
           const { output: repairedArgs } = await generateText({
-            model: await resolveModel('zetora-default'),
+            model: await resolveTertiaryModel('tool-repair', cachePreferences),
             output: Output.object({ schema: tool.inputSchema }),
             prompt: [
               `The model tried to call the tool "${toolCall.toolName}"` + ` with the following arguments:`,

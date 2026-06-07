@@ -256,6 +256,7 @@ interface ModelSelectorDialogProps {
   isProUser: boolean;
   isMaxUser?: boolean;
   excludeModels?: string[];
+  additionalModels?: (typeof models)[0][];
   className?: string;
   triggerLabel?: string;
   compact?: boolean;
@@ -305,6 +306,7 @@ export function ModelSelectorDialog({
   isProUser,
   isMaxUser = false,
   excludeModels = [],
+  additionalModels = [],
   className,
   compact = false,
   onClose,
@@ -333,8 +335,12 @@ export function ModelSelectorDialog({
   // Get filtered models
   const availableModels = useMemo(() => {
     const filtered = getFilteredModels();
-    return filtered.filter((model) => !excludeModels.includes(model.value));
-  }, [excludeModels]);
+    const base = filtered.filter((model) => !excludeModels.includes(model.value));
+    if (!additionalModels.length) return base;
+    const extraIds = new Set(base.map((m) => m.value));
+    const extra = additionalModels.filter((m) => !excludeModels.includes(m.value) && !extraIds.has(m.value));
+    return [...base, ...extra];
+  }, [excludeModels, additionalModels]);
 
   // Get current model
   const currentModel = useMemo(

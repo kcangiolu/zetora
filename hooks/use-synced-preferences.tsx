@@ -4,9 +4,8 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUser } from '@/contexts/user-context';
 
-type PreferenceKey =
+export type PreferenceKey =
   | 'zetora-search-provider'
-  | 'zetora-extreme-search-model'
   | 'zetora-group-order'
   | 'zetora-model-order-global'
   | 'zetora-blur-personal-info'
@@ -25,7 +24,27 @@ type PreferenceKey =
   | 'zetora-qdrant-url'
   | 'zetora-qdrant-enabled'
   | 'zetora-search-cache-enabled'
-  | 'zetora-search-cache-ttl-days';
+  | 'zetora-search-cache-ttl-days'
+  | 'zetora-tertiary-chat-title-model'
+  | 'zetora-tertiary-chat-title-provider'
+  | 'zetora-tertiary-followup-model'
+  | 'zetora-tertiary-followup-provider'
+  | 'zetora-tertiary-enhance-model'
+  | 'zetora-tertiary-enhance-provider'
+  | 'zetora-tertiary-tool-repair-model'
+  | 'zetora-tertiary-tool-repair-provider'
+  | 'zetora-tertiary-auto-router-model'
+  | 'zetora-tertiary-auto-router-provider'
+  | 'zetora-tertiary-translate-text-model'
+  | 'zetora-tertiary-translate-text-provider'
+  | 'zetora-tertiary-translate-vision-model'
+  | 'zetora-tertiary-translate-vision-provider'
+  | 'zetora-tertiary-lang-detect-model'
+  | 'zetora-tertiary-lang-detect-provider'
+  | 'zetora-tertiary-extreme-planner-model'
+  | 'zetora-tertiary-extreme-planner-provider'
+  | 'zetora-tertiary-extreme-agent-model'
+  | 'zetora-tertiary-extreme-agent-provider';
 
 type AutoRouterConfig = {
   routes: Array<{
@@ -113,7 +132,6 @@ function collectLocalStoragePreferences(): Partial<Record<PreferenceKey, Prefere
 
   const keys: PreferenceKey[] = [
     'zetora-search-provider',
-    'zetora-extreme-search-model',
     'zetora-group-order',
     'zetora-model-order-global',
     'zetora-blur-personal-info',
@@ -133,6 +151,26 @@ function collectLocalStoragePreferences(): Partial<Record<PreferenceKey, Prefere
     'zetora-qdrant-enabled',
     'zetora-search-cache-enabled',
     'zetora-search-cache-ttl-days',
+    'zetora-tertiary-chat-title-model',
+    'zetora-tertiary-chat-title-provider',
+    'zetora-tertiary-followup-model',
+    'zetora-tertiary-followup-provider',
+    'zetora-tertiary-enhance-model',
+    'zetora-tertiary-enhance-provider',
+    'zetora-tertiary-tool-repair-model',
+    'zetora-tertiary-tool-repair-provider',
+    'zetora-tertiary-auto-router-model',
+    'zetora-tertiary-auto-router-provider',
+    'zetora-tertiary-translate-text-model',
+    'zetora-tertiary-translate-text-provider',
+    'zetora-tertiary-translate-vision-model',
+    'zetora-tertiary-translate-vision-provider',
+    'zetora-tertiary-lang-detect-model',
+    'zetora-tertiary-lang-detect-provider',
+    'zetora-tertiary-extreme-planner-model',
+    'zetora-tertiary-extreme-planner-provider',
+    'zetora-tertiary-extreme-agent-model',
+    'zetora-tertiary-extreme-agent-provider',
   ];
 
   keys.forEach((key) => {
