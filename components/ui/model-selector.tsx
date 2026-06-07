@@ -319,6 +319,14 @@ export function ModelSelectorDialog({
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
   const modelListRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+  const [enabledProviders, setEnabledProviders] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    fetch('/api/provider-status')
+      .then((r) => r.json())
+      .then((data: { providers: string[] }) => setEnabledProviders(data.providers))
+      .catch(() => {});
+  }, []);
 
   // ⌘M keyboard shortcut to toggle model selector
   useEffect(() => {
@@ -348,15 +356,17 @@ export function ModelSelectorDialog({
     [availableModels, selectedModel],
   );
 
-  // Get active providers from available models
+  // Get active providers from available models, filtered by configured API keys
   const activeProviders = useMemo(() => {
     const providerSet = new Set<ModelProvider>();
     for (const model of availableModels) {
       const provider = model.provider || getModelProvider(model.value, model.label);
-      providerSet.add(provider);
+      // 'custom' is allowed whenever models exist (configured via preferences)
+      const isEnabled = !enabledProviders || enabledProviders.includes(provider) || provider === 'custom';
+      if (isEnabled) providerSet.add(provider);
     }
     return ['all', ...Array.from(providerSet)] as (ModelProvider | 'all')[];
-  }, [availableModels]);
+  }, [availableModels, enabledProviders]);
 
   // Count models per provider
   const providerModelCounts = useMemo(() => {

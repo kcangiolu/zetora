@@ -997,15 +997,26 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       [availableModels, user, isProUser, isMaxUser, isSubscriptionLoading, setSelectedModel, onModelSelect, haptics],
     );
 
+    const [enabledProviders, setEnabledProviders] = useState<string[] | null>(null);
+
+    useEffect(() => {
+      fetch('/api/provider-status')
+        .then((r) => r.json())
+        .then((data: { providers: string[] }) => setEnabledProviders(data.providers))
+        .catch(() => {});
+    }, []);
+
     // Get providers that have models in the current filtered set
     const activeProviders = useMemo(() => {
       const providerSet = new Set<ModelProvider>();
       for (const model of availableModels) {
         const provider = model.provider || getModelProvider(model.value, model.label);
-        providerSet.add(provider);
+        // 'custom' is allowed whenever models exist (configured via preferences)
+        const isEnabled = !enabledProviders || enabledProviders.includes(provider) || provider === 'custom';
+        if (isEnabled) providerSet.add(provider);
       }
       return PROVIDER_ORDER.filter((p) => p === 'all' || providerSet.has(p as ModelProvider));
-    }, [availableModels]);
+    }, [availableModels, enabledProviders]);
 
     // Get model count per provider
     // 'all' count reflects preferred models filter, individual providers show their full count
