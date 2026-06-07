@@ -4,8 +4,21 @@ import { qdrant } from './qdrant';
 import { getEmbeddingModel } from '@/ai/embeddings';
 
 const CACHE_COLLECTION = 'zetora_search_cache';
-const SIMILARITY_THRESHOLD = 0.92;
+const SIMILARITY_THRESHOLD = 0.95;
 const MAX_CACHE_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 jours
+
+function hasSameEntities(cachedQuery: string, newQuery: string): boolean {
+  const STOP_WORDS = new Set(['quelle', 'quels', 'quelles', 'quel', 'est', 'sont', 'que', 'pour', 'avec', 'dans', 'sur', 'sous', 'plus', 'moins', 'très', 'fait', 'peut', 'être', 'avoir', 'faire', 'leur', 'leurs', 'cette', 'celles', 'ceux']);
+  const extractKeywords = (q: string) =>
+    q.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !STOP_WORDS.has(w));
+
+  const cached = new Set(extractKeywords(cachedQuery));
+  const incoming = extractKeywords(newQuery);
+
+  if (incoming.length === 0) return true;
+  const matches = incoming.filter(w => cached.has(w)).length;
+  return matches / incoming.length >= 0.8;
+}
 
 interface CacheEntry {
   query: string;
@@ -38,9 +51,17 @@ export async function lookupCache(
       SIMILARITY_THRESHOLD
     );
 
-    if (results.length === 0) return null;
+    if (results.length === 0) {
+      console.log('[CACHE] Miss: similarity too low');
+      return null;
+    }
 
     const entry = results[0].payload as CacheEntry;
+
+    if (!hasSameEntities(entry.query, query)) {
+      console.log('[CACHE] Miss: entity mismatch');
+      return null;
+    }
 
     // Vérifier l'âge du cache
     if (Date.now() - entry.timestamp > MAX_CACHE_AGE_MS) {
