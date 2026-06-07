@@ -1193,6 +1193,7 @@ export async function upsertUserPreferences({
   userId: string;
   preferences: Partial<{
     'zetora-search-provider'?: 'exa' | 'parallel' | 'firecrawl';
+    'zetora-storage-provider'?: 'cloudflare-r2' | 'minio';
     'zetora-group-order'?: string[];
     'zetora-model-order-global'?: string[];
     'zetora-blur-personal-info'?: boolean;

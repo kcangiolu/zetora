@@ -19,7 +19,7 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { xai } from '@ai-sdk/xai';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
-import { r2Client, R2_BUCKET_NAME, R2_PUBLIC_URL } from '@/lib/r2';
+import { storageClient, STORAGE_BUCKET_NAME, STORAGE_PUBLIC_URL } from '@/lib/storage';
 import { nanoid } from 'nanoid';
 import { VectorStoreIndex, BaseRetriever } from '@vectorstores/core';
 import { PDFReader } from '@vectorstores/readers/pdf';
@@ -1158,9 +1158,9 @@ ${JSON.stringify(plan)}
                     const chartId = nanoid();
                     const key = `zetora/charts/${chartId}.png`;
 
-                    await r2Client.send(
+                    await storageClient.send(
                       new PutObjectCommand({
-                        Bucket: R2_BUCKET_NAME,
+                        Bucket: STORAGE_BUCKET_NAME,
                         Key: key,
                         Body: buffer,
                         ContentType: 'image/png',
@@ -1168,7 +1168,7 @@ ${JSON.stringify(plan)}
                     );
 
                     return {
-                      url: `${R2_PUBLIC_URL}/${key}`,
+                      url: `${STORAGE_PUBLIC_URL}/${key}`,
                       title: chart.title || title || `Chart ${index + 1}`,
                     };
                   } catch (uploadError) {

@@ -2,7 +2,7 @@ import { serverEnv } from '@/env/server';
 import { ListObjectsV2Command, DeleteObjectsCommand } from '@aws-sdk/client-s3';
 import { NextRequest, NextResponse } from 'next/server';
 
-import { r2Client, R2_BUCKET_NAME } from '@/lib/r2';
+import { storageClient, STORAGE_BUCKET_NAME } from '@/lib/storage';
 
 export async function GET(req: NextRequest) {
   if (req.headers.get('Authorization') !== `Bearer ${serverEnv.CRON_SECRET}`) {
@@ -28,9 +28,9 @@ async function deleteAllObjectsWithPrefix(prefix: string): Promise<number> {
 
   do {
     // List objects with prefix
-    const listResponse = await r2Client.send(
+    const listResponse = await storageClient.send(
       new ListObjectsV2Command({
-        Bucket: R2_BUCKET_NAME,
+        Bucket: STORAGE_BUCKET_NAME,
         Prefix: prefix,
         MaxKeys: 1000,
         ContinuationToken: continuationToken,
@@ -41,9 +41,9 @@ async function deleteAllObjectsWithPrefix(prefix: string): Promise<number> {
 
     if (objects && objects.length > 0) {
       // Delete objects in batch
-      await r2Client.send(
+      await storageClient.send(
         new DeleteObjectsCommand({
-          Bucket: R2_BUCKET_NAME,
+          Bucket: STORAGE_BUCKET_NAME,
           Delete: {
             Objects: objects.map((obj) => ({ Key: obj.Key })),
             Quiet: true,

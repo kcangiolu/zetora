@@ -6,6 +6,7 @@ import { useUser } from '@/contexts/user-context';
 
 export type PreferenceKey =
   | 'zetora-search-provider'
+  | 'zetora-storage-provider'
   | 'zetora-group-order'
   | 'zetora-model-order-global'
   | 'zetora-blur-personal-info'
@@ -132,6 +133,7 @@ function collectLocalStoragePreferences(): Partial<Record<PreferenceKey, Prefere
 
   const keys: PreferenceKey[] = [
     'zetora-search-provider',
+    'zetora-storage-provider',
     'zetora-group-order',
     'zetora-model-order-global',
     'zetora-blur-personal-info',

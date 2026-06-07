@@ -6,7 +6,7 @@ import { nanoid } from 'nanoid';
 import { and, eq, sql } from 'drizzle-orm';
 
 import { auth } from '@/lib/auth';
-import { r2Client, R2_BUCKET_NAME, R2_PUBLIC_URL } from '@/lib/r2';
+import { storageClient, STORAGE_BUCKET_NAME, STORAGE_PUBLIC_URL } from '@/lib/storage';
 import { db } from '@/lib/db';
 import { chat, message } from '@/lib/db/schema';
 import { unauthenticatedRateLimit, getClientIdentifier } from '@/lib/rate-limit';
@@ -77,7 +77,7 @@ function sanitizeExtension(raw: string): string {
 function isOwnR2Url(url: string): boolean {
   try {
     const target = new URL(url);
-    const base = new URL(R2_PUBLIC_URL);
+    const base = new URL(STORAGE_PUBLIC_URL);
     return target.origin === base.origin;
   } catch {
     return false;
@@ -144,8 +144,8 @@ export async function GET(request: NextRequest) {
     // ── Independent sources ── start immediately in parallel ──────────────
     async r2List() {
       try {
-        return await r2Client.send(new ListObjectsV2Command({
-          Bucket: R2_BUCKET_NAME,
+        return await storageClient.send(new ListObjectsV2Command({
+          Bucket: STORAGE_BUCKET_NAME,
           Prefix: prefix,
           MaxKeys: maxKeys,
           ContinuationToken: continuationToken,
@@ -172,7 +172,7 @@ export async function GET(request: NextRequest) {
               AND m.role          = 'user'
               AND elem->>'type'   = 'file'
               AND (
-              elem->>'url' LIKE ${R2_PUBLIC_URL + '%'}
+              elem->>'url' LIKE ${STORAGE_PUBLIC_URL + '%'}
               OR elem->>'url' LIKE ${'%' + VERCEL_BLOB_PATTERN + '%'}
             )
             ORDER BY elem->>'url', m.created_at DESC
@@ -198,7 +198,7 @@ export async function GET(request: NextRequest) {
       for (const row of dbRows) dbMeta.set(row.url, row);
 
       return (r2Result?.Contents ?? []).map((obj) => {
-        const url  = `${R2_PUBLIC_URL}/${obj.Key}`;
+        const url  = `${STORAGE_PUBLIC_URL}/${obj.Key}`;
         const meta = dbMeta.get(url);
         return {
           key:          obj.Key!,
@@ -231,8 +231,8 @@ export async function GET(request: NextRequest) {
               ...Object.fromEntries(
                 r2LegacyRows.map((r, i) => [
                   `r2:${i}`,
-                  async () => r2Client.send(new HeadObjectCommand({
-                    Bucket: R2_BUCKET_NAME,
+                  async () => storageClient.send(new HeadObjectCommand({
+                    Bucket: STORAGE_BUCKET_NAME,
                     Key: new URL(r.url).pathname.slice(1),
                   })).catch(() => null),
                 ]),
@@ -265,7 +265,7 @@ export async function GET(request: NextRequest) {
           lastModified = (meta as any)?.LastModified ? new Date((meta as any).LastModified).toISOString() : null;
         }
 
-        const key = isBlob ? r.url : r.url.replace(`${R2_PUBLIC_URL}/`, '');
+        const key = isBlob ? r.url : r.url.replace(`${STORAGE_PUBLIC_URL}/`, '');
         return {
           key,
           url:          r.url,
@@ -334,19 +334,19 @@ export async function POST(request: NextRequest) {
       : `zetora/public-${nanoid()}.${ext}`;
 
     const command = new PutObjectCommand({
-      Bucket: R2_BUCKET_NAME,
+      Bucket: STORAGE_BUCKET_NAME,
       Key: key,
       ContentType: contentType,
       // Store owner so individual files can be attributed even if the key format changes
       Metadata: isAuthenticated ? { 'user-id': session!.user.id } : undefined,
     });
 
-    const presignedUrl = await getSignedUrl(r2Client, command, {
+    const presignedUrl = await getSignedUrl(storageClient, command, {
       expiresIn: 3600, // 1 hour
     });
 
     // Construct the final public URL
-    const publicUrl = `${R2_PUBLIC_URL}/${key}`;
+    const publicUrl = `${STORAGE_PUBLIC_URL}/${key}`;
 
     return NextResponse.json({
       presignedUrl,
@@ -420,7 +420,7 @@ export async function DELETE(request: NextRequest) {
     if (isBlob) {
       await blobDel(url);
     } else {
-      await r2Client.send(new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: r2Key }));
+      await storageClient.send(new DeleteObjectCommand({ Bucket: STORAGE_BUCKET_NAME, Key: r2Key }));
     }
 
     return NextResponse.json({ success: true });

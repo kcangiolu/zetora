@@ -343,6 +343,7 @@ export const userPreferences = pgTable('user_preferences', {
   preferences: json('preferences')
     .$type<{
       'zetora-search-provider'?: 'exa' | 'parallel' | 'firecrawl' | 'searxng';
+      'zetora-storage-provider'?: 'cloudflare-r2' | 'minio';
       'zetora-searxng-url'?: string;
       'zetora-tertiary-extreme-agent-model'?: string;
       'zetora-tertiary-extreme-agent-provider'?: string;

@@ -6,7 +6,7 @@ import type { UIMessageStreamWriter } from 'ai';
 import { z } from 'zod';
 import { nanoid } from 'nanoid';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
-import { r2Client, R2_BUCKET_NAME, R2_PUBLIC_URL } from '@/lib/r2';
+import { storageClient, STORAGE_BUCKET_NAME, STORAGE_PUBLIC_URL } from '@/lib/storage';
 import { serverEnv } from '@/env/server';
 import { getUserMcpServersByUserId } from '@/lib/db/queries';
 import { resolveMcpAuthHeaders } from '@/lib/mcp/auth-headers';
@@ -306,16 +306,16 @@ function createBoxDownloadTool(dataStream: UIMessageStreamWriter<ChatMessage> | 
         };
         const contentType = contentTypeMap[ext ?? ''] || 'application/octet-stream';
 
-        await r2Client.send(
+        await storageClient.send(
           new PutObjectCommand({
-            Bucket: R2_BUCKET_NAME,
+            Bucket: STORAGE_BUCKET_NAME,
             Key: key,
             Body: buffer,
             ContentType: contentType,
           }),
         );
 
-        const url = `${R2_PUBLIC_URL}/${key}`;
+        const url = `${STORAGE_PUBLIC_URL}/${key}`;
         console.log(`${LOG_PREFIX} [download:${downloadId}] Uploaded to ${url}`);
 
         if (isDir) {

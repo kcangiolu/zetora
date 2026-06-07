@@ -72,7 +72,7 @@ import { allSettled as betterAllSettled } from 'better-all';
 import { sileo } from 'sileo';
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { getAllMemories, deleteMemory, MemoryItem } from '@/lib/memory-actions';
-import { Loader2, Search, Zap, Pencil, Plus, MoreHorizontal, Link2Off } from 'lucide-react';
+import { Loader2, Search, Zap, Pencil, Plus, MoreHorizontal, Link2Off, HardDrive } from 'lucide-react';
 import { getSearchGroups, type SearchGroupId } from '@/lib/utils';
 import { models, PROVIDERS, getModelProvider, type ModelProvider, type Model } from '@/ai/models';
 import { cn } from '@/lib/utils';
@@ -268,6 +268,21 @@ const searchProviders = [
   },
 ] as const;
 
+const storageProviders = [
+  {
+    value: 'cloudflare-r2',
+    label: 'Cloudflare R2',
+    description: 'Cloudflare object storage with zero egress fees',
+    default: true,
+  },
+  {
+    value: 'minio',
+    label: 'MinIO',
+    description: 'Self-hosted S3-compatible object storage',
+    default: false,
+  },
+] as const;
+
 type CustomProviderConfig = {
   id: string;
   name: string;
@@ -428,6 +443,11 @@ export function PreferencesSection({
   const [sandboxProvider, setSandboxProvider] = useSyncedPreferences<'daytona' | 'docker'>(
     'zetora-sandbox-provider',
     'daytona',
+  );
+
+  const [storageProvider, setStorageProvider] = useSyncedPreferences<'cloudflare-r2' | 'minio'>(
+    'zetora-storage-provider',
+    'cloudflare-r2',
   );
 
   const [locationMetadataEnabled, setLocationMetadataEnabled] = useSyncedPreferences<boolean>(
@@ -618,6 +638,15 @@ export function PreferencesSection({
       title: `Search provider changed to ${labels[newProvider]}`,
       description: 'This will be used for all future searches',
       icon: <Search className="h-4 w-4" />,
+    });
+  };
+
+  const handleStorageProviderChange = (newProvider: 'cloudflare-r2' | 'minio') => {
+    setStorageProvider(newProvider);
+    sileo.success({
+      title: `Storage provider changed to ${newProvider === 'cloudflare-r2' ? 'Cloudflare R2' : 'MinIO'}`,
+      description: 'This will be used for all file uploads and artifact storage',
+      icon: <HardDrive className="h-4 w-4" />,
     });
   };
 
@@ -918,6 +947,28 @@ export function PreferencesSection({
                   <SelectContent>
                     <SelectItem value="daytona">Daytona (Cloud)</SelectItem>
                     <SelectItem value="docker">Docker (Local)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Storage Provider */}
+              <div className="flex items-center justify-between py-3.5 gap-6">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Storage Provider</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Object storage for uploads and artifacts</p>
+                </div>
+                <Select value={storageProvider} onValueChange={(v) => handleStorageProviderChange(v as any)}>
+                  <SelectTrigger className="w-[140px] h-8 text-xs rounded-lg shrink-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {storageProviders.map((p) => (
+                      <SelectItem key={p.value} value={p.value}>
+                        <div className="flex items-center gap-2">
+                          <span>{p.label}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
