@@ -729,9 +729,9 @@ export function PreferencesSection({
         setGraphitiLlmApiKey(parsed.provider.apiKey ?? '');
         if (graphitiApiUrl) {
           try {
-            await fetch(`${graphitiApiUrl}/config`, {
+            await fetch('/api/graphiti/config', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', 'X-Graphiti-Url': graphitiApiUrl },
               body: JSON.stringify({
                 llm_model: parsed.modelName,
                 llm_api_key: parsed.provider.apiKey || null,
@@ -758,9 +758,9 @@ export function PreferencesSection({
         setGraphitiEmbeddingModel(parsed.modelName);
         if (graphitiApiUrl) {
           try {
-            await fetch(`${graphitiApiUrl}/config`, {
+            await fetch('/api/graphiti/config', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', 'X-Graphiti-Url': graphitiApiUrl },
               body: JSON.stringify({
                 embedding_model: parsed.modelName,
                 embedding_api_key: parsed.provider.apiKey || null,
@@ -3625,10 +3625,6 @@ export function MemoriesSection() {
           </>
         )}
       </div>
-      <div className="flex items-center gap-2 justify-center">
-        <p className="text-xs text-muted-foreground">powered by</p>
-        <Image src="/supermemory.svg" alt="Memories" className="invert dark:invert-0" width={140} height={140} />
-      </div>
     </div>
   );
 }
@@ -4034,18 +4030,6 @@ export function ConnectorsSection({ user }: { user: any }) {
         </div>
       )}
 
-      <div className={cn('text-center', isMobile ? 'pt-1' : 'pt-2')}>
-        <div className="flex items-center gap-2 justify-center">
-          <p className={cn('text-muted-foreground', isMobile ? 'text-[10px]' : 'text-xs')}>powered by</p>
-          <Image
-            src="/supermemory.svg"
-            alt="Connectors"
-            className="invert dark:invert-0"
-            width={isMobile ? 100 : 120}
-            height={isMobile ? 100 : 120}
-          />
-        </div>
-      </div>
     </div>
   );
 }
