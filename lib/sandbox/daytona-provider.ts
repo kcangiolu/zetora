@@ -5,11 +5,16 @@ import type { SandboxProvider, SandboxResult } from './types';
 export class DaytonaSandboxProvider implements SandboxProvider {
   constructor(private apiKey: string) {}
 
-  async execute(code: string, _timeoutMs?: number): Promise<SandboxResult> {
+  async execute(code: string, _timeoutMs?: number, installLibs: string[] = []): Promise<SandboxResult> {
     const daytona = new Daytona({ apiKey: this.apiKey, target: 'us' });
     const sandbox = await daytona.create({ snapshot: SNAPSHOT_NAME });
 
     try {
+      if (installLibs.length > 0) {
+        console.log('[DaytonaSandbox] Installing libs:', installLibs);
+        await sandbox.process.executeCommand(`pip install ${installLibs.join(' ')}`, undefined, undefined, 60);
+      }
+
       const execution = await sandbox.process.codeRun(code);
 
       let message = '';
@@ -24,9 +29,13 @@ export class DaytonaSandboxProvider implements SandboxProvider {
         message += execution.result;
       }
 
-      const chart = execution.artifacts?.charts?.[0];
-      const charts = chart
-        ? [{ type: chart.type, title: chart.title, elements: chart.elements }]
+      const rawCharts = execution.artifacts?.charts ?? [];
+      const charts = rawCharts.length > 0
+        ? rawCharts.map((chart: any) => {
+            const rawPng: string | undefined = chart.png;
+            const png = rawPng?.replace(/^data:image\/\w+;base64,/, '');
+            return { type: chart.type ?? 'image', title: chart.title ?? 'Chart', elements: chart.elements, png };
+          })
         : undefined;
 
       return {

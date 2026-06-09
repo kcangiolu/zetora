@@ -85,6 +85,7 @@ if __charts:
         type: 'image' as const,
         title: `Chart ${i + 1}`,
         elements: [{ png: b64 }],
+        png: b64,
       }));
       return { stdout: cleanStdout, charts };
     } catch {

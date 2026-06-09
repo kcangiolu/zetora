@@ -6,7 +6,8 @@
 // ----> Return all collected sources and research data to the user
 
 import Exa from 'exa-js';
-import { Daytona } from '@daytonaio/sdk';
+import { getSandboxProvider } from '@/lib/sandbox';
+import type { SandboxProviderType } from '@/lib/sandbox';
 import { Output, generateText, hasToolCall, stepCountIs, tool } from 'ai';
 import type { UIMessageStreamWriter } from 'ai';
 import { z } from 'zod';
@@ -31,7 +32,6 @@ import { cohere } from '@ai-sdk/cohere';
 import { rerank } from 'ai';
 import { OpenAIResponsesProviderOptions } from '@ai-sdk/openai';
 import { AnthropicProviderOptions } from '@ai-sdk/anthropic';
-import { SNAPSHOT_NAME } from '../constants';
 import { gateway, GatewayProviderOptions } from '@ai-sdk/gateway';
 import { GoogleGenerativeAIProviderOptions, GoogleLanguageModelOptions } from '@ai-sdk/google';
 import { TokenClient } from 'tokenc';
@@ -198,25 +198,6 @@ async function searchFilesForQuery(
   return allResults.slice(0, maxResults);
 }
 
-const daytona = new Daytona({
-  apiKey: serverEnv.DAYTONA_API_KEY,
-  target: 'us',
-});
-
-const runCode = async (code: string, installLibs: string[] = []) => {
-  const sandbox = await daytona.create({
-    snapshot: SNAPSHOT_NAME,
-  });
-
-  if (installLibs.length > 0) {
-    console.log('Installing missing libs:', installLibs);
-    await sandbox.process.executeCommand(`pip install ${installLibs.join(' ')}`, undefined, undefined, 60);
-  }
-
-  const result = await sandbox.process.codeRun(code);
-  sandbox.delete().catch(() => {}); // cleanup in background
-  return result;
-};
 
 // Content extraction provider strategies
 interface ContentExtractionStrategy {
@@ -575,6 +556,7 @@ async function extremeSearch(
   preferences: Record<string, string> | null = null,
 ): Promise<Research> {
   const modelId = preferences?.['zetora-tertiary-extreme-agent-model'] || 'zetora-ext-1';
+  const sandboxPreference = (preferences?.['zetora-sandbox-provider'] as SandboxProviderType | undefined);
   const allSources: SearchResult[] = [];
 
   // Initialize clients
@@ -1144,16 +1126,16 @@ ${JSON.stringify(plan)}
               },
             });
           }
-          const response = await runCode(code, missingLibs);
+          const response = await getSandboxProvider(sandboxPreference).execute(code, 30000, missingLibs);
 
-          // Upload chart PNGs to R2 and return only { url, title }
-          const chartsInput = (response.artifacts?.charts || []) as ChartArtifact[];
+          // Upload chart PNGs to storage and return only { url, title }
+          const chartsInput = (response.charts || []) as ChartArtifact[];
           const chartTasks = chartsInput.reduce<Record<string, () => Promise<{ url: string; title?: string } | null>>>(
             (tasks, chart, index) => {
               tasks[`chart-${index}`] = async () => {
                 if (chart.png) {
                   try {
-                    const base64Data = chart.png.replace(/^data:image\/\w+;base64,/, '');
+                    const base64Data = (chart.png as string).replace(/^data:image\/\w+;base64,/, '');
                     const buffer = Buffer.from(base64Data, 'base64');
                     const chartId = nanoid();
                     const key = `zetora/charts/${chartId}.png`;
@@ -1199,7 +1181,7 @@ ${JSON.stringify(plan)}
                 title: title,
                 code: code,
                 status: 'completed',
-                result: response.result,
+                result: response.stdout,
                 charts: charts,
               },
             });
@@ -1207,7 +1189,7 @@ ${JSON.stringify(plan)}
 
           return {
             title,
-            result: response.result,
+            result: response.stdout,
             charts: charts,
           };
         },

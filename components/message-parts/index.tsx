@@ -4829,7 +4829,15 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
 
                     {part.output?.chart && (
                       <div className="pt-1 overflow-x-auto">
-                        <InteractiveChart chart={part.output.chart} />
+                        {part.output.chart.type === 'image' && part.output.chart.png ? (
+                          <img
+                            src={part.output.chart.png}
+                            alt={part.output.chart.title || 'Chart'}
+                            className="max-w-full rounded-lg"
+                          />
+                        ) : (
+                          <InteractiveChart chart={part.output.chart} />
+                        )}
                       </div>
                     )}
                   </div>

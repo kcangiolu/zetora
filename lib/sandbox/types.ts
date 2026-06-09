@@ -8,9 +8,11 @@ export interface SandboxResult {
     type: string;
     title: string;
     elements: unknown;
+    /** base64-encoded PNG without the data: URI prefix */
+    png?: string;
   }>;
 }
 
 export interface SandboxProvider {
-  execute(code: string, timeoutMs?: number): Promise<SandboxResult>;
+  execute(code: string, timeoutMs?: number, installLibs?: string[]): Promise<SandboxResult>;
 }

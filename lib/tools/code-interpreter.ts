@@ -1,7 +1,10 @@
 import { tool } from 'ai';
 import { z } from 'zod';
+import { PutObjectCommand } from '@aws-sdk/client-s3';
+import { nanoid } from 'nanoid';
 import { getSandboxProvider } from '@/lib/sandbox';
 import type { SandboxProviderType } from '@/lib/sandbox';
+import { storageClient, STORAGE_BUCKET_NAME, STORAGE_PUBLIC_URL } from '@/lib/storage';
 
 interface CodeInterpreterContext {
   userPreferences?: {
@@ -39,12 +42,32 @@ export const codeInterpreterTool = tool({
 
     const message = result.stdout || result.stderr || 'Code executed with no output.';
 
+    let chartPngUrl: string | undefined;
+    if (result.charts?.[0]?.png) {
+      try {
+        const buffer = Buffer.from(result.charts[0].png, 'base64');
+        const key = `zetora/charts/${nanoid()}.png`;
+        await storageClient.send(
+          new PutObjectCommand({
+            Bucket: STORAGE_BUCKET_NAME,
+            Key: key,
+            Body: buffer,
+            ContentType: 'image/png',
+          }),
+        );
+        chartPngUrl = `${STORAGE_PUBLIC_URL}/${key}`;
+        console.log('Chart uploaded:', chartPngUrl);
+      } catch (uploadError) {
+        console.error('Chart upload failed:', uploadError);
+      }
+    }
+
     const chart = result.charts?.[0]
       ? {
           type: result.charts[0].type,
           title: result.charts[0].title,
           elements: result.charts[0].elements as any[],
-          png: undefined,
+          png: chartPngUrl,
         }
       : undefined;
 
