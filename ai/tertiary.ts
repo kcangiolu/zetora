@@ -2,6 +2,7 @@ import 'server-only';
 import { zetora, resolveModel } from '@/ai/providers';
 
 export type TertiaryTask =
+  | 'default'
   | 'chat-title'
   | 'followup'
   | 'enhance'
@@ -14,6 +15,7 @@ export type TertiaryTask =
   | 'extreme-agent';
 
 const TASK_DEFAULTS: Record<TertiaryTask, string> = {
+  'default': 'zetora-default',
   'chat-title': 'zetora-name',
   'followup': 'zetora-follow-up',
   'enhance': 'zetora-enhance',
@@ -27,6 +29,7 @@ const TASK_DEFAULTS: Record<TertiaryTask, string> = {
 };
 
 const PREF_KEYS: Record<TertiaryTask, { model: string; provider: string }> = {
+  'default': { model: 'zetora-default-model', provider: 'zetora-default-provider' },
   'chat-title': { model: 'zetora-tertiary-chat-title-model', provider: 'zetora-tertiary-chat-title-provider' },
   'followup': { model: 'zetora-tertiary-followup-model', provider: 'zetora-tertiary-followup-provider' },
   'enhance': { model: 'zetora-tertiary-enhance-model', provider: 'zetora-tertiary-enhance-provider' },

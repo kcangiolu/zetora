@@ -1214,6 +1214,8 @@ export async function upsertUserPreferences({
       baseURL: string;
       apiKey?: string;
     }>;
+    'zetora-default-model'?: string;
+    'zetora-default-provider'?: string;
     'zetora-lockout-provider'?: 'qstash' | 'bullmq';
   }>;
 }) {

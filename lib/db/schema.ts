@@ -400,6 +400,8 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-tertiary-lang-detect-provider'?: string;
       'zetora-tertiary-extreme-planner-model'?: string;
       'zetora-tertiary-extreme-planner-provider'?: string;
+      'zetora-default-model'?: string;
+      'zetora-default-provider'?: string;
       'zetora-lockout-provider'?: 'qstash' | 'bullmq';
     }>()
     .notNull()

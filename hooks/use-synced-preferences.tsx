@@ -46,6 +46,8 @@ export type PreferenceKey =
   | 'zetora-tertiary-extreme-planner-provider'
   | 'zetora-tertiary-extreme-agent-model'
   | 'zetora-tertiary-extreme-agent-provider'
+  | 'zetora-default-model'
+  | 'zetora-default-provider'
   | 'zetora-lockout-provider';
 
 type AutoRouterConfig = {
@@ -174,6 +176,8 @@ function collectLocalStoragePreferences(): Partial<Record<PreferenceKey, Prefere
     'zetora-tertiary-extreme-planner-provider',
     'zetora-tertiary-extreme-agent-model',
     'zetora-tertiary-extreme-agent-provider',
+    'zetora-default-model',
+    'zetora-default-provider',
     'zetora-lockout-provider',
   ];
 

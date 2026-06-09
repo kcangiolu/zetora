@@ -2,6 +2,7 @@
 import { generateTitleFromUserMessage } from '@/lib/search/chat-title';
 import { convertToModelMessages, streamText, createUIMessageStream, stepCountIs, JsonToSseTransformStream } from 'ai';
 import { zetora, resolveModel, shouldBypassRateLimits } from '@/ai/providers';
+import { resolveTertiaryModel } from '@/ai/tertiary';
 import {
   createStreamId,
   incrementExtremeSearchUsage,
@@ -712,7 +713,7 @@ export async function POST(req: Request) {
 
         // Start streaming
         const result = streamText({
-          model: await resolveModel('zetora-default'),
+          model: await resolveTertiaryModel('default', (userPrefs?.preferences ?? {}) as Record<string, string>),
           messages: await convertToModelMessages([userMessage]),
           stopWhen: stepCountIs(2),
           maxRetries: 10,

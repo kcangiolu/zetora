@@ -346,6 +346,7 @@ function getDefaultAutoRouterRoutes(): AutoRouterRoute[] {
 }
 
 type TertiaryModelPrefKey =
+  | 'zetora-default-model'
   | 'zetora-tertiary-chat-title-model'
   | 'zetora-tertiary-followup-model'
   | 'zetora-tertiary-enhance-model'
@@ -358,6 +359,7 @@ type TertiaryModelPrefKey =
   | 'zetora-tertiary-extreme-agent-model';
 
 type TertiaryProviderPrefKey =
+  | 'zetora-default-provider'
   | 'zetora-tertiary-chat-title-provider'
   | 'zetora-tertiary-followup-provider'
   | 'zetora-tertiary-enhance-provider'
@@ -1507,6 +1509,17 @@ export function PreferencesSection({
                 </p>
               </div>
               <div className="divide-y divide-border/40 px-4">
+                <TertiaryModelRow
+                  modelKey="zetora-default-model"
+                  providerKey="zetora-default-provider"
+                  label="Default Model"
+                  description="Fallback model used by Lookout and other tasks"
+                  defaultModelLabel="Grok 4.1 Fast"
+                  additionalModels={customModelsList}
+                  user={user}
+                  isProUser={hasPaidAccess}
+                  isMaxUser={isMaxUser}
+                />
                 <TertiaryModelRow
                   modelKey="zetora-tertiary-chat-title-model"
                   providerKey="zetora-tertiary-chat-title-provider"
