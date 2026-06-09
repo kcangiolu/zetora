@@ -481,22 +481,19 @@ export function PreferencesSection({
     'zetora-memory-provider',
     'supermemory',
   );
-  const [graphitiProviders, setGraphitiProviders] = useSyncedPreferences<Array<{ id: string; name: string; baseURL: string }>>(
-    'zetora-graphiti-providers',
-    [],
-  );
   const [selectedGraphitiProvider, setSelectedGraphitiProvider] = useSyncedPreferences<string>(
     'zetora-graphiti-active-provider',
     '',
   );
-  // kept for downstream compat with route.ts — synced automatically on provider select
-  const [, setGraphitiApiUrl] = useSyncedPreferences<string>('zetora-graphiti-api-url', '');
+  const [graphitiApiUrl, setGraphitiApiUrl] = useSyncedPreferences<string>('zetora-graphiti-api-url', '');
   const [graphitiLlmModel, setGraphitiLlmModel] = useSyncedPreferences<string>('zetora-graphiti-llm-model', '');
-  const [showGraphitiProviderForm, setShowGraphitiProviderForm] = useState(false);
-  const [newGraphitiProvider, setNewGraphitiProvider] = useState({ name: '', baseURL: '', apiKey: '' });
-  const [isSavingGraphitiProvider, setIsSavingGraphitiProvider] = useState(false);
-  const [detectingGraphitiModels, setDetectingGraphitiModels] = useState(false);
-  const [detectedGraphitiModels, setDetectedGraphitiModels] = useState<string[]>([]);
+  const [, setGraphitiLlmBaseUrl] = useSyncedPreferences<string>('zetora-graphiti-llm-base-url', '');
+  const [, setGraphitiLlmApiKey] = useSyncedPreferences<string>('zetora-graphiti-llm-api-key', '');
+  const [graphitiEmbeddingProvider, setGraphitiEmbeddingProvider] = useSyncedPreferences<string>(
+    'zetora-graphiti-embedding-provider',
+    '',
+  );
+  const [, setGraphitiEmbeddingModel] = useSyncedPreferences<string>('zetora-graphiti-embedding-model', '');
 
   const [locationMetadataEnabled, setLocationMetadataEnabled] = useSyncedPreferences<boolean>(
     'zetora-location-metadata-enabled',
@@ -511,20 +508,12 @@ export function PreferencesSection({
     routes: getDefaultAutoRouterRoutes(),
   });
 
-  const [embeddingProviders, setEmbeddingProviders] = useSyncedPreferences<CustomProviderConfig[]>(
-    'zetora-embedding-providers',
-    [],
-  );
+  const [embeddingEnabled, setEmbeddingEnabled] = useSyncedPreferences<boolean>('zetora-embedding-enabled', false);
   const [selectedEmbeddingProvider, setSelectedEmbeddingProvider] = useSyncedPreferences<string>(
     'zetora-embedding-provider',
     '',
   );
   const [embeddingModel, setEmbeddingModel] = useSyncedPreferences<string>('zetora-embedding-model', 'nomic-embed-text');
-  const [showEmbeddingProviderForm, setShowEmbeddingProviderForm] = useState(false);
-  const [newEmbeddingProvider, setNewEmbeddingProvider] = useState({ name: '', baseURL: '', apiKey: '' });
-  const [isSavingEmbeddingProvider, setIsSavingEmbeddingProvider] = useState(false);
-  const [detectingEmbeddingModels, setDetectingEmbeddingModels] = useState(false);
-  const [detectedEmbeddingModels, setDetectedEmbeddingModels] = useState<string[]>([]);
 
   const [qdrantEnabled, setQdrantEnabled] = useSyncedPreferences<boolean>('zetora-qdrant-enabled', false);
   const [qdrantUrl, setQdrantUrl] = useSyncedPreferences<string>('zetora-qdrant-url', '');
@@ -708,6 +697,85 @@ export function PreferencesSection({
     });
   };
 
+
+  function parseCustomModel(modelId: string) {
+    if (!modelId.startsWith('custom-')) return null;
+    const withoutPrefix = modelId.slice('custom-'.length);
+    for (const provider of customProviders) {
+      if (withoutPrefix.startsWith(`${provider.id}-`)) {
+        return { modelName: withoutPrefix.slice(`${provider.id}-`.length), provider };
+      }
+    }
+    return null;
+  }
+
+  const handleEmbeddingModelSelect = (modelId: string) => {
+    setSelectedEmbeddingProvider(modelId);
+    if (modelId) {
+      const parsed = parseCustomModel(modelId);
+      if (parsed) setEmbeddingModel(parsed.modelName);
+    } else {
+      setEmbeddingModel('nomic-embed-text');
+    }
+  };
+
+  const handleGraphitiLlmSelect = async (modelId: string) => {
+    setSelectedGraphitiProvider(modelId);
+    if (modelId) {
+      const parsed = parseCustomModel(modelId);
+      if (parsed) {
+        setGraphitiLlmModel(parsed.modelName);
+        setGraphitiLlmBaseUrl(parsed.provider.baseURL);
+        setGraphitiLlmApiKey(parsed.provider.apiKey ?? '');
+        if (graphitiApiUrl) {
+          try {
+            await fetch(`${graphitiApiUrl}/config`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                llm_model: parsed.modelName,
+                llm_api_key: parsed.provider.apiKey || null,
+                llm_base_url: parsed.provider.baseURL || null,
+              }),
+            });
+          } catch {
+            sileo.error({ title: 'Could not configure Graphiti service' });
+          }
+        }
+      }
+    } else {
+      setGraphitiLlmModel('');
+      setGraphitiLlmBaseUrl('');
+      setGraphitiLlmApiKey('');
+    }
+  };
+
+  const handleGraphitiEmbeddingSelect = async (modelId: string) => {
+    setGraphitiEmbeddingProvider(modelId);
+    if (modelId) {
+      const parsed = parseCustomModel(modelId);
+      if (parsed) {
+        setGraphitiEmbeddingModel(parsed.modelName);
+        if (graphitiApiUrl) {
+          try {
+            await fetch(`${graphitiApiUrl}/config`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                embedding_model: parsed.modelName,
+                embedding_api_key: parsed.provider.apiKey || null,
+                embedding_base_url: parsed.provider.baseURL || null,
+              }),
+            });
+          } catch {
+            sileo.error({ title: 'Could not configure Graphiti service' });
+          }
+        }
+      }
+    } else {
+      setGraphitiEmbeddingModel('');
+    }
+  };
 
   const handleMemoryProviderChange = (newProvider: 'supermemory' | 'graphiti') => {
     setMemoryProvider(newProvider);
@@ -1082,6 +1150,20 @@ export function PreferencesSection({
                 </Select>
               </div>
 
+              {/* Graphiti URL */}
+              {memoryProvider === 'graphiti' && (
+                <div className="flex flex-col gap-1.5 py-3.5">
+                  <p className="text-sm font-medium">Graphiti URL</p>
+                  <p className="text-xs text-muted-foreground">Base URL of your Graphiti API instance</p>
+                  <Input
+                    placeholder="http://localhost:8000"
+                    value={graphitiApiUrl}
+                    onChange={(e) => setGraphitiApiUrl(e.target.value)}
+                    className="h-8 text-xs rounded-lg"
+                  />
+                </div>
+              )}
+
               {/* Auto Router toggle (Pro only) */}
               <div className="flex items-center justify-between py-3.5 gap-6">
                 <div className="min-w-0">
@@ -1185,397 +1267,129 @@ export function PreferencesSection({
 
             {/* Graphiti Services */}
             <div className="rounded-xl border border-border/60 mt-4 overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">Graphiti Services</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Self-hosted Graphiti instances (temporal knowledge graph)
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs rounded-lg px-2.5 shrink-0"
-                  onClick={() => setShowGraphitiProviderForm((v) => !v)}
-                >
-                  <Plus className="h-3 w-3 mr-1" />
-                  Add
-                </Button>
+              <div className="px-4 py-3 border-b border-border/40">
+                <p className="text-sm font-medium">Graphiti Services</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Self-hosted Graphiti instances (temporal knowledge graph)
+                </p>
               </div>
 
-              {/* Provider list */}
-              {(graphitiProviders ?? []).length > 0 && (
-                <div className="divide-y divide-border/40">
-                  {(graphitiProviders ?? []).map((p) => (
-                    <div key={p.id} className="flex items-center justify-between px-4 py-2.5 gap-3">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className={selectedGraphitiProvider === p.id ? 'text-[10px] text-green-500' : 'text-[10px] text-muted-foreground/30'}>
-                          ●
-                        </span>
-                        <div className="min-w-0">
-                          <p className="text-xs font-medium truncate">{p.name}</p>
-                          <p className="text-[11px] text-muted-foreground/60 truncate">{p.baseURL}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <Button
-                          type="button"
-                          variant={selectedGraphitiProvider === p.id ? 'default' : 'outline'}
-                          size="sm"
-                          className="h-6 text-[11px] px-2 rounded-md"
-                          onClick={() => {
-                            const next = selectedGraphitiProvider === p.id ? '' : p.id;
-                            setSelectedGraphitiProvider(next);
-                            setGraphitiApiUrl(next ? p.baseURL : '');
-                          }}
-                        >
-                          {selectedGraphitiProvider === p.id ? 'Active' : 'Use'}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                          onClick={() => {
-                            const updated = (graphitiProviders ?? []).filter((gp) => gp.id !== p.id);
-                            setGraphitiProviders(updated);
-                            if (selectedGraphitiProvider === p.id) {
-                              setSelectedGraphitiProvider('');
-                              setGraphitiApiUrl('');
-                            }
-                          }}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+              {/* LLM Extractor */}
+              <div className="flex items-center justify-between px-4 py-3.5 gap-6">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">LLM Extractor</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Model used for entity extraction</p>
                 </div>
-              )}
-
-              {/* Add provider form */}
-              {showGraphitiProviderForm && (
-                <div className="px-4 py-3 space-y-2.5 border-t border-border/40">
-                  <Input
-                    placeholder="Name (e.g. Local Graphiti)"
-                    value={newGraphitiProvider.name}
-                    onChange={(e) => setNewGraphitiProvider((v) => ({ ...v, name: e.target.value }))}
-                    className="h-8 text-xs rounded-lg"
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {!selectedGraphitiProvider && (
+                    <span className="text-[11px] text-muted-foreground/70 shrink-0">Not set</span>
+                  )}
+                  <ModelSelectorDialog
+                    selectedModel={selectedGraphitiProvider}
+                    onModelSelect={handleGraphitiLlmSelect}
+                    user={user}
+                    isProUser={hasPaidAccess}
+                    isMaxUser={isMaxUser}
+                    additionalModels={customModelsList}
+                    className="w-[180px] h-8"
+                    compact
                   />
-                  <Input
-                    placeholder="Base URL (e.g. http://localhost:8001)"
-                    value={newGraphitiProvider.baseURL}
-                    onChange={(e) => setNewGraphitiProvider((v) => ({ ...v, baseURL: e.target.value }))}
-                    className="h-8 text-xs rounded-lg"
-                  />
-                  <Input
-                    placeholder="API Key (optional)"
-                    value={newGraphitiProvider.apiKey}
-                    onChange={(e) => setNewGraphitiProvider((v) => ({ ...v, apiKey: e.target.value }))}
-                    className="h-8 text-xs rounded-lg"
-                  />
-                  <div className="flex items-center gap-2">
+                  {selectedGraphitiProvider && (
                     <Button
                       type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs rounded-lg px-2.5"
-                      disabled={detectingGraphitiModels || !newGraphitiProvider.baseURL}
-                      onClick={async () => {
-                        if (!newGraphitiProvider.baseURL) return;
-                        setDetectingGraphitiModels(true);
-                        try {
-                          const res = await fetch('/api/custom-providers/detect', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              baseURL: newGraphitiProvider.baseURL,
-                              apiKey: newGraphitiProvider.apiKey || undefined,
-                            }),
-                          });
-                          const data = await res.json();
-                          setDetectedGraphitiModels(data.models || []);
-                        } catch (e) {
-                          sileo.error({ title: 'Detection failed', description: String(e) });
-                        } finally {
-                          setDetectingGraphitiModels(false);
-                        }
-                      }}
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+                      onClick={() => handleGraphitiLlmSelect('')}
                     >
-                      {detectingGraphitiModels ? (
-                        <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-                      ) : (
-                        <Zap className="h-3 w-3 mr-1.5" />
-                      )}
-                      Detect Models
+                      <X className="h-3.5 w-3.5" />
                     </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="h-7 text-xs rounded-lg px-2.5"
-                      disabled={isSavingGraphitiProvider || !newGraphitiProvider.name || !newGraphitiProvider.baseURL}
-                      onClick={() => {
-                        if (!newGraphitiProvider.name || !newGraphitiProvider.baseURL) {
-                          sileo.error({ title: 'Name and Base URL are required' });
-                          return;
-                        }
-                        setIsSavingGraphitiProvider(true);
-                        const id = newGraphitiProvider.name.toLowerCase().replace(/\s+/g, '-');
-                        const updated = [
-                          ...(graphitiProviders ?? []).filter((gp) => gp.id !== id),
-                          { id, ...newGraphitiProvider },
-                        ];
-                        setGraphitiProviders(updated);
-                        setNewGraphitiProvider({ name: '', baseURL: '', apiKey: '' });
-                        setDetectedGraphitiModels([]);
-                        setShowGraphitiProviderForm(false);
-                        setIsSavingGraphitiProvider(false);
-                        sileo.success({ title: 'Provider saved', description: newGraphitiProvider.name });
-                      }}
-                    >
-                      {isSavingGraphitiProvider ? (
-                        <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-                      ) : (
-                        <FloppyDiskIcon className="h-3 w-3 mr-1.5" />
-                      )}
-                      Save Provider
-                    </Button>
-                  </div>
-                  {detectedGraphitiModels.length > 0 && (
-                    <div className="space-y-1">
-                      <p className="text-[11px] text-muted-foreground font-medium">
-                        Detected — click to select as LLM model:
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {detectedGraphitiModels.map((m) => (
-                          <button
-                            key={m}
-                            type="button"
-                            onClick={() => setGraphitiLlmModel(m)}
-                            className={`text-[11px] px-2 py-0.5 rounded-md border transition-colors ${
-                              graphitiLlmModel === m
-                                ? 'border-primary bg-primary/10 text-primary'
-                                : 'border-border/60 text-muted-foreground hover:border-primary/50 hover:text-foreground'
-                            }`}
-                          >
-                            {m}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
                   )}
                 </div>
-              )}
+              </div>
 
-              {/* LLM model — shown when a service is active */}
-              {selectedGraphitiProvider && (
-                <div className="px-4 py-3 border-t border-border/40 space-y-1.5">
-                  <p className="text-xs text-muted-foreground font-medium">LLM model for extraction</p>
-                  <Input
-                    placeholder="gpt-4o-mini or qwen2.5:7b"
-                    value={graphitiLlmModel ?? ''}
-                    onChange={(e) => setGraphitiLlmModel(e.target.value)}
-                    className="h-8 text-xs rounded-lg"
-                  />
+              {/* Embedding */}
+              <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Embedding</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Model used for vector embeddings</p>
                 </div>
-              )}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {!graphitiEmbeddingProvider && (
+                    <span className="text-[11px] text-muted-foreground/70 shrink-0">Not set</span>
+                  )}
+                  <ModelSelectorDialog
+                    selectedModel={graphitiEmbeddingProvider}
+                    onModelSelect={handleGraphitiEmbeddingSelect}
+                    user={user}
+                    isProUser={hasPaidAccess}
+                    isMaxUser={isMaxUser}
+                    additionalModels={customModelsList}
+                    className="w-[180px] h-8"
+                    compact
+                  />
+                  {graphitiEmbeddingProvider && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+                      onClick={() => handleGraphitiEmbeddingSelect('')}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
 
-            {/* Embedding Providers */}
+            {/* Search Embedding */}
             <div className="rounded-xl border border-border/60 mt-4 overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium">Embedding Providers</p>
+                  <p className="text-sm font-medium">Search Embedding</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    OpenAI-compatible endpoint for vector embeddings (Ollama, llama.cpp, etc.)
+                    Embedding model for semantic search (Qdrant)
                   </p>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs rounded-lg px-2.5 shrink-0"
-                  onClick={() => setShowEmbeddingProviderForm((v) => !v)}
-                >
-                  <Plus className="h-3 w-3 mr-1" />
-                  Add
-                </Button>
+                <Switch checked={embeddingEnabled} onCheckedChange={setEmbeddingEnabled} />
               </div>
 
-              {/* Provider list */}
-              {(embeddingProviders ?? []).length > 0 && (
-                <div className="divide-y divide-border/40">
-                  {(embeddingProviders ?? []).map((p) => (
-                    <div key={p.id} className="flex items-center justify-between px-4 py-2.5 gap-3">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span
-                          className={
-                            selectedEmbeddingProvider === p.id ? 'text-[10px] text-green-500' : 'text-[10px] text-muted-foreground/30'
-                          }
-                        >
-                          ●
-                        </span>
-                        <div className="min-w-0">
-                          <p className="text-xs font-medium truncate">{p.name}</p>
-                          <p className="text-[11px] text-muted-foreground/60 truncate">{p.baseURL}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <Button
-                          type="button"
-                          variant={selectedEmbeddingProvider === p.id ? 'default' : 'outline'}
-                          size="sm"
-                          className="h-6 text-[11px] px-2 rounded-md"
-                          onClick={() =>
-                            setSelectedEmbeddingProvider(selectedEmbeddingProvider === p.id ? '' : p.id)
-                          }
-                        >
-                          {selectedEmbeddingProvider === p.id ? 'Active' : 'Use'}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                          onClick={() => {
-                            const updated = (embeddingProviders ?? []).filter((ep) => ep.id !== p.id);
-                            setEmbeddingProviders(updated);
-                            if (selectedEmbeddingProvider === p.id) setSelectedEmbeddingProvider('');
-                          }}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Add provider form */}
-              {showEmbeddingProviderForm && (
-                <div className="px-4 py-3 space-y-2.5 border-t border-border/40">
-                  <Input
-                    placeholder="Name (e.g. Ollama Local)"
-                    value={newEmbeddingProvider.name}
-                    onChange={(e) => setNewEmbeddingProvider((v) => ({ ...v, name: e.target.value }))}
-                    className="h-8 text-xs rounded-lg"
-                  />
-                  <Input
-                    placeholder="Base URL (e.g. http://localhost:11434/v1)"
-                    value={newEmbeddingProvider.baseURL}
-                    onChange={(e) => setNewEmbeddingProvider((v) => ({ ...v, baseURL: e.target.value }))}
-                    className="h-8 text-xs rounded-lg"
-                  />
-                  <Input
-                    placeholder="API Key (optional)"
-                    value={newEmbeddingProvider.apiKey}
-                    onChange={(e) => setNewEmbeddingProvider((v) => ({ ...v, apiKey: e.target.value }))}
-                    className="h-8 text-xs rounded-lg"
-                  />
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs rounded-lg px-2.5"
-                      onClick={async () => {
-                        if (!newEmbeddingProvider.baseURL) return;
-                        setDetectingEmbeddingModels(true);
-                        try {
-                          const res = await fetch('/api/custom-providers/detect', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              baseURL: newEmbeddingProvider.baseURL,
-                              apiKey: newEmbeddingProvider.apiKey || undefined,
-                            }),
-                          });
-                          const data = await res.json();
-                          setDetectedEmbeddingModels(data.models || []);
-                        } catch (e) {
-                          sileo.error({ title: 'Detection failed', description: String(e) });
-                        } finally {
-                          setDetectingEmbeddingModels(false);
-                        }
-                      }}
-                      disabled={detectingEmbeddingModels || !newEmbeddingProvider.baseURL}
-                    >
-                      {detectingEmbeddingModels ? (
-                        <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-                      ) : (
-                        <Zap className="h-3 w-3 mr-1.5" />
-                      )}
-                      Detect Models
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="h-7 text-xs rounded-lg px-2.5"
-                      onClick={() => {
-                        if (!newEmbeddingProvider.name || !newEmbeddingProvider.baseURL) {
-                          sileo.error({ title: 'Name and Base URL are required' });
-                          return;
-                        }
-                        setIsSavingEmbeddingProvider(true);
-                        const id = newEmbeddingProvider.name.toLowerCase().replace(/\s+/g, '-');
-                        const updated = [
-                          ...(embeddingProviders ?? []).filter((p) => p.id !== id),
-                          { id, ...newEmbeddingProvider },
-                        ];
-                        setEmbeddingProviders(updated);
-                        setNewEmbeddingProvider({ name: '', baseURL: '', apiKey: '' });
-                        setDetectedEmbeddingModels([]);
-                        setShowEmbeddingProviderForm(false);
-                        setIsSavingEmbeddingProvider(false);
-                        sileo.success({ title: 'Provider saved', description: newEmbeddingProvider.name });
-                      }}
-                      disabled={isSavingEmbeddingProvider || !newEmbeddingProvider.name || !newEmbeddingProvider.baseURL}
-                    >
-                      {isSavingEmbeddingProvider ? (
-                        <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-                      ) : (
-                        <FloppyDiskIcon className="h-3 w-3 mr-1.5" />
-                      )}
-                      Save Provider
-                    </Button>
+              {embeddingEnabled && (
+                <div className="flex items-center justify-between px-4 py-3.5 gap-6">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">Embedding Model</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Select from your Custom AI Providers</p>
                   </div>
-                  {detectedEmbeddingModels.length > 0 && (
-                    <div className="space-y-1">
-                      <p className="text-[11px] text-muted-foreground font-medium">
-                        Detected — click to select as embedding model:
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {detectedEmbeddingModels.map((m) => (
-                          <button
-                            key={m}
-                            type="button"
-                            onClick={() => setEmbeddingModel(m)}
-                            className={`text-[11px] px-2 py-0.5 rounded-md border transition-colors ${
-                              embeddingModel === m
-                                ? 'border-primary bg-primary/10 text-primary'
-                                : 'border-border/60 text-muted-foreground hover:border-primary/50 hover:text-foreground'
-                            }`}
-                          >
-                            {m}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Model input — shown when a provider is active */}
-              {selectedEmbeddingProvider && (
-                <div className="px-4 py-3 border-t border-border/40 space-y-1.5">
-                  <p className="text-xs text-muted-foreground font-medium">Embedding model</p>
-                  <Input
-                    placeholder="nomic-embed-text"
-                    value={embeddingModel ?? 'nomic-embed-text'}
-                    onChange={(e) => setEmbeddingModel(e.target.value)}
-                    className="h-8 text-xs rounded-lg"
-                  />
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {!selectedEmbeddingProvider && (
+                      <span className="text-[11px] text-muted-foreground/70 shrink-0 max-w-[120px] truncate">
+                        Default: nomic-embed-text
+                      </span>
+                    )}
+                    <ModelSelectorDialog
+                      selectedModel={selectedEmbeddingProvider}
+                      onModelSelect={handleEmbeddingModelSelect}
+                      user={user}
+                      isProUser={hasPaidAccess}
+                      isMaxUser={isMaxUser}
+                      additionalModels={customModelsList}
+                      className="w-[180px] h-8"
+                      compact
+                    />
+                    {selectedEmbeddingProvider && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+                        title="Reset to default"
+                        onClick={() => handleEmbeddingModelSelect('')}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

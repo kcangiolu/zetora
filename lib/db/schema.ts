@@ -406,9 +406,12 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-memory-provider'?: 'supermemory' | 'graphiti';
       'zetora-graphiti-api-url'?: string;
       'zetora-graphiti-llm-model'?: string;
-      'zetora-graphiti-llm-provider'?: string;
-      'zetora-graphiti-providers'?: Array<{ id: string; name: string; baseURL: string; apiKey?: string }>;
+      'zetora-graphiti-llm-base-url'?: string;
+      'zetora-graphiti-llm-api-key'?: string;
       'zetora-graphiti-active-provider'?: string;
+      'zetora-graphiti-embedding-provider'?: string;
+      'zetora-graphiti-embedding-model'?: string;
+      'zetora-embedding-enabled'?: boolean;
     }>()
     .notNull()
     .default({}),

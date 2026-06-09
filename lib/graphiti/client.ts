@@ -90,6 +90,55 @@ class GraphitiClient {
       throw new Error(`Graphiti delete_group failed: ${error}`);
     }
   }
+
+  async listEpisodes(
+    groupId: string,
+    limit: number = 50,
+    offset: number = 0,
+  ): Promise<{ success: boolean; episodes: any[]; total: number }> {
+    const params = new URLSearchParams({
+      group_id: groupId,
+      limit: String(limit),
+      offset: String(offset),
+    });
+
+    const res = await fetch(`${this.baseUrl}/episodes?${params}`);
+
+    if (!res.ok) {
+      const error = await res.text();
+      throw new Error(`Graphiti list_episodes failed: ${error}`);
+    }
+
+    return res.json();
+  }
+
+  async configure(llmModel?: string, llmApiKey?: string, llmBaseUrl?: string): Promise<void> {
+    const res = await fetch(`${this.baseUrl}/config`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        llm_model: llmModel ?? null,
+        llm_api_key: llmApiKey ?? null,
+        llm_base_url: llmBaseUrl ?? null,
+      }),
+    });
+
+    if (!res.ok) {
+      const error = await res.text();
+      throw new Error(`Graphiti configure failed: ${error}`);
+    }
+  }
+
+  async deleteEpisode(episodeUuid: string): Promise<void> {
+    const res = await fetch(`${this.baseUrl}/episodes/${episodeUuid}`, {
+      method: 'DELETE',
+    });
+
+    if (!res.ok) {
+      const error = await res.text();
+      throw new Error(`Graphiti delete_episode failed: ${error}`);
+    }
+  }
 }
 
 export const graphitiClient = new GraphitiClient();

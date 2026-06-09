@@ -52,9 +52,12 @@ export type PreferenceKey =
   | 'zetora-memory-provider'
   | 'zetora-graphiti-api-url'
   | 'zetora-graphiti-llm-model'
-  | 'zetora-graphiti-llm-provider'
-  | 'zetora-graphiti-providers'
-  | 'zetora-graphiti-active-provider';
+  | 'zetora-graphiti-llm-base-url'
+  | 'zetora-graphiti-llm-api-key'
+  | 'zetora-graphiti-active-provider'
+  | 'zetora-graphiti-embedding-provider'
+  | 'zetora-graphiti-embedding-model'
+  | 'zetora-embedding-enabled';
 
 type AutoRouterConfig = {
   routes: Array<{
