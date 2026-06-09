@@ -45,7 +45,8 @@ export type PreferenceKey =
   | 'zetora-tertiary-extreme-planner-model'
   | 'zetora-tertiary-extreme-planner-provider'
   | 'zetora-tertiary-extreme-agent-model'
-  | 'zetora-tertiary-extreme-agent-provider';
+  | 'zetora-tertiary-extreme-agent-provider'
+  | 'zetora-lockout-provider';
 
 type AutoRouterConfig = {
   routes: Array<{
@@ -173,6 +174,7 @@ function collectLocalStoragePreferences(): Partial<Record<PreferenceKey, Prefere
     'zetora-tertiary-extreme-planner-provider',
     'zetora-tertiary-extreme-agent-model',
     'zetora-tertiary-extreme-agent-provider',
+    'zetora-lockout-provider',
   ];
 
   keys.forEach((key) => {

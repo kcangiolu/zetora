@@ -72,7 +72,7 @@ import { allSettled as betterAllSettled } from 'better-all';
 import { sileo } from 'sileo';
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { getAllMemories, deleteMemory, MemoryItem } from '@/lib/memory-actions';
-import { Loader2, Search, Zap, Pencil, Plus, MoreHorizontal, Link2Off, HardDrive } from 'lucide-react';
+import { Loader2, Search, Zap, Pencil, Plus, MoreHorizontal, Link2Off, HardDrive, Timer } from 'lucide-react';
 import { getSearchGroups, type SearchGroupId } from '@/lib/utils';
 import { models, PROVIDERS, getModelProvider, type ModelProvider, type Model } from '@/ai/models';
 import { cn } from '@/lib/utils';
@@ -283,6 +283,21 @@ const storageProviders = [
   },
 ] as const;
 
+const lockoutProviders = [
+  {
+    value: 'qstash',
+    label: 'Upstash QStash',
+    description: "Service managé de scheduling HTTP. Gratuit jusqu'à 500 msg/jour.",
+    default: true,
+  },
+  {
+    value: 'bullmq',
+    label: 'BullMQ (Self-Hosted)',
+    description: 'File de jobs Redis auto-hébergée avec Bull Board pour le monitoring.',
+    default: false,
+  },
+] as const;
+
 type CustomProviderConfig = {
   id: string;
   name: string;
@@ -448,6 +463,11 @@ export function PreferencesSection({
   const [storageProvider, setStorageProvider] = useSyncedPreferences<'cloudflare-r2' | 'minio'>(
     'zetora-storage-provider',
     'cloudflare-r2',
+  );
+
+  const [lockoutProvider, setLockoutProvider] = useSyncedPreferences<'qstash' | 'bullmq'>(
+    'zetora-lockout-provider',
+    'qstash',
   );
 
   const [locationMetadataEnabled, setLocationMetadataEnabled] = useSyncedPreferences<boolean>(
@@ -647,6 +667,16 @@ export function PreferencesSection({
       title: `Storage provider changed to ${newProvider === 'cloudflare-r2' ? 'Cloudflare R2' : 'MinIO'}`,
       description: 'This will be used for all file uploads and artifact storage',
       icon: <HardDrive className="h-4 w-4" />,
+    });
+  };
+
+  const handleLockoutProviderChange = (newProvider: 'qstash' | 'bullmq') => {
+    setLockoutProvider(newProvider);
+    const label = lockoutProviders.find((p) => p.value === newProvider)?.label ?? newProvider;
+    sileo.success({
+      title: `Lookout scheduler changed to ${label}`,
+      description: 'This will be used for all future scheduled searches',
+      icon: <Timer className="h-4 w-4" />,
     });
   };
 
@@ -967,6 +997,28 @@ export function PreferencesSection({
                         <div className="flex items-center gap-2">
                           <span>{p.label}</span>
                         </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Lookout Scheduling Provider */}
+              <div className="flex items-center justify-between py-3.5 gap-6">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Lookout Scheduler</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Scheduling backend for automated searches
+                  </p>
+                </div>
+                <Select value={lockoutProvider} onValueChange={(v) => handleLockoutProviderChange(v as 'qstash' | 'bullmq')}>
+                  <SelectTrigger className="w-[140px] h-8 text-xs rounded-lg shrink-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {lockoutProviders.map((p) => (
+                      <SelectItem key={p.value} value={p.value}>
+                        <span>{p.label}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>

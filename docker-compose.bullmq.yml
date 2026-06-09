@@ -1,0 +1,43 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: zetora-bullmq-redis
+    command: >
+      redis-server
+      --maxmemory-policy noeviction
+      --appendonly yes
+      --appendfsync everysec
+    volumes:
+      - bullmq-redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - zetora-bullmq-network
+
+  bullboard:
+    image: nauverse/bull-board:latest
+    container_name: zetora-bullboard
+    ports:
+      - '3001:3000'
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${BULLMQ_REDIS_PASSWORD:-}
+      - BULL_PREFIX=bull
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - zetora-bullmq-network
+
+volumes:
+  bullmq-redis-data:
+
+networks:
+  zetora-bullmq-network:
+    name: zetora-bullmq-network

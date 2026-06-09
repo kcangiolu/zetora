@@ -116,6 +116,7 @@
     "amadeus": "^11.0.0",
     "better-all": "^0.0.7",
     "better-auth": "^1.5.5",
+    "bullmq": "^5.78.0",
     "cambio": "^1.1.5",
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
