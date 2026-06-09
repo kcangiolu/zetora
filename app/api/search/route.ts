@@ -66,6 +66,7 @@ import { resolveTertiaryModel } from '@/ai/tertiary';
 import { GoogleGenerativeAIProviderOptions, GoogleLanguageModelOptions } from '@ai-sdk/google';
 import { unauthenticatedRateLimit, getClientIdentifier } from '@/lib/rate-limit';
 import { loadConfiguredTools } from '@/lib/search/tool-loader';
+import { graphitiClient, createGraphitiClient } from '@/lib/graphiti/client';
 import { CohereChatModelOptions } from '@ai-sdk/cohere';
 import { xai } from '@ai-sdk/xai';
 import { lookupCache, storeInCache, initSearchCache } from '@/lib/vector/search-cache';
@@ -877,6 +878,8 @@ export async function POST(req: Request) {
         lightweightUser,
         selectedConnectors,
         searxngUrl: (userPreferencesResult?.preferences?.['zetora-searxng-url'] as string | undefined) || undefined,
+        memoryProvider: (userPreferencesResult?.preferences?.['zetora-memory-provider'] as 'supermemory' | 'graphiti' | undefined) || 'supermemory',
+        graphitiApiUrl: (userPreferencesResult?.preferences?.['zetora-graphiti-api-url'] as string | undefined) || undefined,
       });
 
       const streamTools = shouldUseXaiMultiAgent
@@ -1787,6 +1790,40 @@ export async function POST(req: Request) {
           };
         }),
       });
+
+      // Graphiti ingestion — fire-and-forget, does not block response
+      const memoryProvider = userPreferencesResult?.preferences?.['zetora-memory-provider'] || 'supermemory';
+      if (memoryProvider === 'graphiti') {
+        const graphitiApiUrl = userPreferencesResult?.preferences?.['zetora-graphiti-api-url'] as string | undefined;
+        const client = graphitiApiUrl ? createGraphitiClient(graphitiApiUrl) : graphitiClient;
+
+        const extractText = (parts: any[]): string =>
+          parts
+            .filter((p: any) => p.type === 'text' && typeof p.text === 'string' && p.text.trim())
+            .map((p: any) => p.text.trim())
+            .join(' ');
+
+        const episodeLines = messagesToPersist
+          .filter((m: ChatMessage) => m.role === 'user' || m.role === 'assistant')
+          .map((m: ChatMessage) => {
+            const text = Array.isArray(m.parts) ? extractText(m.parts) : '';
+            return text ? `${m.role}: ${text}` : null;
+          })
+          .filter(Boolean)
+          .join('\n');
+
+        if (episodeLines) {
+          client
+            .addEpisode({
+              name: `chat-${id}-${Date.now()}`,
+              episodeBody: episodeLines,
+              referenceTime: new Date().toISOString(),
+              sourceDescription: 'Zetora conversation',
+              groupId: lightweightUser.userId,
+            })
+            .catch((err) => console.error('[Graphiti] ingestion failed:', err));
+        }
+      }
     },
   });
   const { getResumableStreamClients } = await import('@/lib/redis');

@@ -48,7 +48,13 @@ export type PreferenceKey =
   | 'zetora-tertiary-extreme-agent-provider'
   | 'zetora-default-model'
   | 'zetora-default-provider'
-  | 'zetora-lockout-provider';
+  | 'zetora-lockout-provider'
+  | 'zetora-memory-provider'
+  | 'zetora-graphiti-api-url'
+  | 'zetora-graphiti-llm-model'
+  | 'zetora-graphiti-llm-provider'
+  | 'zetora-graphiti-providers'
+  | 'zetora-graphiti-active-provider';
 
 type AutoRouterConfig = {
   routes: Array<{
@@ -59,8 +65,9 @@ type AutoRouterConfig = {
 };
 
 type EmbeddingProvider = { id: string; name: string; baseURL: string; apiKey?: string };
+export type GraphitiProvider = { id: string; name: string; baseURL: string; apiKey?: string };
 
-type PreferenceValue = string | string[] | boolean | number | AutoRouterConfig | EmbeddingProvider[] | undefined;
+type PreferenceValue = string | string[] | boolean | number | AutoRouterConfig | EmbeddingProvider[] | GraphitiProvider[] | undefined;
 
 const DEBOUNCE_MS = 300; // Debounce DB writes by 300ms
 const MIGRATION_KEY_PREFIX = 'zetora-prefs-migrated-';

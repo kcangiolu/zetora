@@ -22,6 +22,7 @@ export { extremeSearchTool } from './extreme-search';
 export { greetingTool } from './greeting';
 export { createConnectorsSearchTool } from './connectors-search';
 export { createMemoryTools, type SearchMemoryTool, type AddMemoryTool } from './supermemory';
+export { createGraphitiMemoryTools } from './graphiti-memory';
 export { codeContextTool } from './code-context';
 export { fileQuerySearchTool, createFileQuerySearchTool } from './file-query-search';
 export { spotifySearchTool } from './spotify-search';

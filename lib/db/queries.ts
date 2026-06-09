@@ -1217,6 +1217,12 @@ export async function upsertUserPreferences({
     'zetora-default-model'?: string;
     'zetora-default-provider'?: string;
     'zetora-lockout-provider'?: 'qstash' | 'bullmq';
+    'zetora-memory-provider'?: 'supermemory' | 'graphiti';
+    'zetora-graphiti-api-url'?: string;
+    'zetora-graphiti-llm-model'?: string;
+    'zetora-graphiti-llm-provider'?: string;
+    'zetora-graphiti-providers'?: Array<{ id: string; name: string; baseURL: string; apiKey?: string }>;
+    'zetora-graphiti-active-provider'?: string;
   }>;
 }) {
   try {

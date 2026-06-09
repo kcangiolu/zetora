@@ -1,0 +1,51 @@
+services:
+  falkordb:
+    image: falkordb/falkordb:latest
+    container_name: zetora-falkordb
+    ports:
+      - '6380:6379'
+      - '3002:3000'
+    volumes:
+      - falkordb-data:/data
+    restart: unless-stopped
+
+  graphiti-api:
+    build:
+      context: ./graphiti-service
+      dockerfile: Dockerfile
+    container_name: zetora-graphiti-api
+    ports:
+      - '8001:8000'
+    environment:
+      - GRAPH_DB_URL=bolt://falkordb:6379
+      - LLM_MODEL=${GRAPHITI_LLM_MODEL:-gpt-4o-mini}
+      - LLM_API_KEY=${GRAPHITI_LLM_API_KEY}
+      - LLM_BASE_URL=${GRAPHITI_LLM_BASE_URL:-https://api.openai.com/v1}
+      - EMBEDDING_MODEL=${GRAPHITI_EMBEDDING_MODEL:-text-embedding-3-small}
+      - EMBEDDING_API_KEY=${GRAPHITI_EMBEDDING_API_KEY}
+      - EMBEDDING_BASE_URL=${GRAPHITI_EMBEDDING_BASE_URL:-https://api.openai.com/v1}
+    depends_on:
+      - falkordb
+    restart: unless-stopped
+
+  graphiti-mcp:
+    build:
+      context: ./graphiti-service
+      dockerfile: Dockerfile.mcp
+    container_name: zetora-graphiti-mcp
+    ports:
+      - '8002:8001'
+    environment:
+      - GRAPH_DB_URL=bolt://falkordb:6379
+      - LLM_MODEL=${GRAPHITI_LLM_MODEL:-gpt-4o-mini}
+      - LLM_API_KEY=${GRAPHITI_LLM_API_KEY}
+      - LLM_BASE_URL=${GRAPHITI_LLM_BASE_URL:-https://api.openai.com/v1}
+      - EMBEDDING_MODEL=${GRAPHITI_EMBEDDING_MODEL:-text-embedding-3-small}
+      - EMBEDDING_API_KEY=${GRAPHITI_EMBEDDING_API_KEY}
+      - EMBEDDING_BASE_URL=${GRAPHITI_EMBEDDING_BASE_URL:-https://api.openai.com/v1}
+    depends_on:
+      - falkordb
+    restart: unless-stopped
+
+volumes:
+  falkordb-data:

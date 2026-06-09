@@ -13,6 +13,8 @@ interface LoadConfiguredToolsParams {
   lightweightUser: { userId: string; email: string; isProUser: boolean } | null;
   selectedConnectors: any;
   searxngUrl?: string;
+  memoryProvider?: 'supermemory' | 'graphiti';
+  graphitiApiUrl?: string;
 }
 
 export async function loadConfiguredTools({
@@ -26,6 +28,8 @@ export async function loadConfiguredTools({
   lightweightUser,
   selectedConnectors,
   searxngUrl,
+  memoryProvider,
+  graphitiApiUrl,
 }: LoadConfiguredToolsParams): Promise<Record<string, any>> {
   const tools: Record<string, any> = {};
   const uniqueToolNames = [...new Set(activeToolNames)];
@@ -177,8 +181,14 @@ export async function loadConfiguredTools({
         case 'add_memory': {
           if (!lightweightUser) return;
           if (!memoryTools) {
-            const { createMemoryTools } = await import('@/lib/tools/supermemory');
-            memoryTools = createMemoryTools(lightweightUser.userId);
+            if (memoryProvider === 'graphiti') {
+              const { createGraphitiMemoryTools } = await import('@/lib/tools/graphiti-memory');
+              const gt = createGraphitiMemoryTools(lightweightUser.userId, graphitiApiUrl);
+              memoryTools = { searchMemories: gt.searchMemoryTool, addMemory: gt.addMemoryTool };
+            } else {
+              const { createMemoryTools } = await import('@/lib/tools/supermemory');
+              memoryTools = createMemoryTools(lightweightUser.userId);
+            }
           }
           if (uniqueToolNames.includes('search_memories'))
             tools.search_memories = tools.search_memories ?? memoryTools.searchMemories;

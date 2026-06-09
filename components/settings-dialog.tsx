@@ -298,6 +298,11 @@ const lockoutProviders = [
   },
 ] as const;
 
+const memoryProviders = [
+  { value: 'supermemory', label: 'SuperMemory' },
+  { value: 'graphiti', label: 'Graphiti' },
+] as const;
+
 type CustomProviderConfig = {
   id: string;
   name: string;
@@ -471,6 +476,27 @@ export function PreferencesSection({
     'zetora-lockout-provider',
     'qstash',
   );
+
+  const [memoryProvider, setMemoryProvider] = useSyncedPreferences<'supermemory' | 'graphiti'>(
+    'zetora-memory-provider',
+    'supermemory',
+  );
+  const [graphitiProviders, setGraphitiProviders] = useSyncedPreferences<Array<{ id: string; name: string; baseURL: string }>>(
+    'zetora-graphiti-providers',
+    [],
+  );
+  const [selectedGraphitiProvider, setSelectedGraphitiProvider] = useSyncedPreferences<string>(
+    'zetora-graphiti-active-provider',
+    '',
+  );
+  // kept for downstream compat with route.ts — synced automatically on provider select
+  const [, setGraphitiApiUrl] = useSyncedPreferences<string>('zetora-graphiti-api-url', '');
+  const [graphitiLlmModel, setGraphitiLlmModel] = useSyncedPreferences<string>('zetora-graphiti-llm-model', '');
+  const [showGraphitiProviderForm, setShowGraphitiProviderForm] = useState(false);
+  const [newGraphitiProvider, setNewGraphitiProvider] = useState({ name: '', baseURL: '', apiKey: '' });
+  const [isSavingGraphitiProvider, setIsSavingGraphitiProvider] = useState(false);
+  const [detectingGraphitiModels, setDetectingGraphitiModels] = useState(false);
+  const [detectedGraphitiModels, setDetectedGraphitiModels] = useState<string[]>([]);
 
   const [locationMetadataEnabled, setLocationMetadataEnabled] = useSyncedPreferences<boolean>(
     'zetora-location-metadata-enabled',
@@ -682,6 +708,15 @@ export function PreferencesSection({
     });
   };
 
+
+  const handleMemoryProviderChange = (newProvider: 'supermemory' | 'graphiti') => {
+    setMemoryProvider(newProvider);
+    const label = memoryProviders.find((p) => p.value === newProvider)?.label ?? newProvider;
+    sileo.success({
+      title: `Memory provider changed to ${label}`,
+      description: 'This will be used for all future memory operations',
+    });
+  };
 
   // Custom Instructions queries and handlers
   const {
@@ -1027,6 +1062,26 @@ export function PreferencesSection({
                 </Select>
               </div>
 
+              {/* Memory Provider */}
+              <div className="flex items-center justify-between py-3.5 gap-6">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Memory Provider</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Backend for long-term memory storage</p>
+                </div>
+                <Select value={memoryProvider} onValueChange={(v) => handleMemoryProviderChange(v as 'supermemory' | 'graphiti')}>
+                  <SelectTrigger className="w-[140px] h-8 text-xs rounded-lg shrink-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {memoryProviders.map((p) => (
+                      <SelectItem key={p.value} value={p.value}>
+                        {p.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Auto Router toggle (Pro only) */}
               <div className="flex items-center justify-between py-3.5 gap-6">
                 <div className="min-w-0">
@@ -1126,6 +1181,205 @@ export function PreferencesSection({
                 </div>
               )}
 
+            </div>
+
+            {/* Graphiti Services */}
+            <div className="rounded-xl border border-border/60 mt-4 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Graphiti Services</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Self-hosted Graphiti instances (temporal knowledge graph)
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs rounded-lg px-2.5 shrink-0"
+                  onClick={() => setShowGraphitiProviderForm((v) => !v)}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add
+                </Button>
+              </div>
+
+              {/* Provider list */}
+              {(graphitiProviders ?? []).length > 0 && (
+                <div className="divide-y divide-border/40">
+                  {(graphitiProviders ?? []).map((p) => (
+                    <div key={p.id} className="flex items-center justify-between px-4 py-2.5 gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className={selectedGraphitiProvider === p.id ? 'text-[10px] text-green-500' : 'text-[10px] text-muted-foreground/30'}>
+                          ●
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium truncate">{p.name}</p>
+                          <p className="text-[11px] text-muted-foreground/60 truncate">{p.baseURL}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          type="button"
+                          variant={selectedGraphitiProvider === p.id ? 'default' : 'outline'}
+                          size="sm"
+                          className="h-6 text-[11px] px-2 rounded-md"
+                          onClick={() => {
+                            const next = selectedGraphitiProvider === p.id ? '' : p.id;
+                            setSelectedGraphitiProvider(next);
+                            setGraphitiApiUrl(next ? p.baseURL : '');
+                          }}
+                        >
+                          {selectedGraphitiProvider === p.id ? 'Active' : 'Use'}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                          onClick={() => {
+                            const updated = (graphitiProviders ?? []).filter((gp) => gp.id !== p.id);
+                            setGraphitiProviders(updated);
+                            if (selectedGraphitiProvider === p.id) {
+                              setSelectedGraphitiProvider('');
+                              setGraphitiApiUrl('');
+                            }
+                          }}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add provider form */}
+              {showGraphitiProviderForm && (
+                <div className="px-4 py-3 space-y-2.5 border-t border-border/40">
+                  <Input
+                    placeholder="Name (e.g. Local Graphiti)"
+                    value={newGraphitiProvider.name}
+                    onChange={(e) => setNewGraphitiProvider((v) => ({ ...v, name: e.target.value }))}
+                    className="h-8 text-xs rounded-lg"
+                  />
+                  <Input
+                    placeholder="Base URL (e.g. http://localhost:8001)"
+                    value={newGraphitiProvider.baseURL}
+                    onChange={(e) => setNewGraphitiProvider((v) => ({ ...v, baseURL: e.target.value }))}
+                    className="h-8 text-xs rounded-lg"
+                  />
+                  <Input
+                    placeholder="API Key (optional)"
+                    value={newGraphitiProvider.apiKey}
+                    onChange={(e) => setNewGraphitiProvider((v) => ({ ...v, apiKey: e.target.value }))}
+                    className="h-8 text-xs rounded-lg"
+                  />
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs rounded-lg px-2.5"
+                      disabled={detectingGraphitiModels || !newGraphitiProvider.baseURL}
+                      onClick={async () => {
+                        if (!newGraphitiProvider.baseURL) return;
+                        setDetectingGraphitiModels(true);
+                        try {
+                          const res = await fetch('/api/custom-providers/detect', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              baseURL: newGraphitiProvider.baseURL,
+                              apiKey: newGraphitiProvider.apiKey || undefined,
+                            }),
+                          });
+                          const data = await res.json();
+                          setDetectedGraphitiModels(data.models || []);
+                        } catch (e) {
+                          sileo.error({ title: 'Detection failed', description: String(e) });
+                        } finally {
+                          setDetectingGraphitiModels(false);
+                        }
+                      }}
+                    >
+                      {detectingGraphitiModels ? (
+                        <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                      ) : (
+                        <Zap className="h-3 w-3 mr-1.5" />
+                      )}
+                      Detect Models
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-7 text-xs rounded-lg px-2.5"
+                      disabled={isSavingGraphitiProvider || !newGraphitiProvider.name || !newGraphitiProvider.baseURL}
+                      onClick={() => {
+                        if (!newGraphitiProvider.name || !newGraphitiProvider.baseURL) {
+                          sileo.error({ title: 'Name and Base URL are required' });
+                          return;
+                        }
+                        setIsSavingGraphitiProvider(true);
+                        const id = newGraphitiProvider.name.toLowerCase().replace(/\s+/g, '-');
+                        const updated = [
+                          ...(graphitiProviders ?? []).filter((gp) => gp.id !== id),
+                          { id, ...newGraphitiProvider },
+                        ];
+                        setGraphitiProviders(updated);
+                        setNewGraphitiProvider({ name: '', baseURL: '', apiKey: '' });
+                        setDetectedGraphitiModels([]);
+                        setShowGraphitiProviderForm(false);
+                        setIsSavingGraphitiProvider(false);
+                        sileo.success({ title: 'Provider saved', description: newGraphitiProvider.name });
+                      }}
+                    >
+                      {isSavingGraphitiProvider ? (
+                        <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                      ) : (
+                        <FloppyDiskIcon className="h-3 w-3 mr-1.5" />
+                      )}
+                      Save Provider
+                    </Button>
+                  </div>
+                  {detectedGraphitiModels.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-[11px] text-muted-foreground font-medium">
+                        Detected — click to select as LLM model:
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {detectedGraphitiModels.map((m) => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => setGraphitiLlmModel(m)}
+                            className={`text-[11px] px-2 py-0.5 rounded-md border transition-colors ${
+                              graphitiLlmModel === m
+                                ? 'border-primary bg-primary/10 text-primary'
+                                : 'border-border/60 text-muted-foreground hover:border-primary/50 hover:text-foreground'
+                            }`}
+                          >
+                            {m}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* LLM model — shown when a service is active */}
+              {selectedGraphitiProvider && (
+                <div className="px-4 py-3 border-t border-border/40 space-y-1.5">
+                  <p className="text-xs text-muted-foreground font-medium">LLM model for extraction</p>
+                  <Input
+                    placeholder="gpt-4o-mini or qwen2.5:7b"
+                    value={graphitiLlmModel ?? ''}
+                    onChange={(e) => setGraphitiLlmModel(e.target.value)}
+                    className="h-8 text-xs rounded-lg"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Embedding Providers */}
