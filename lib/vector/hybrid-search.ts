@@ -1,6 +1,6 @@
 import 'server-only';
 import { embed } from 'ai';
-import { qdrant } from './qdrant';
+import { getQdrantClient, resolveQdrantUrl } from './qdrant';
 import { getEmbeddingModel } from '@/ai/embeddings';
 
 interface HybridResult {
@@ -35,10 +35,10 @@ function rrf(
 export async function hybridSearch(
   query: string,
   searxngResults: { url: string; title: string; content: string }[],
-  preferences: Record<string, string>,
+  preferences: Record<string, unknown>,
   topK: number = 10
 ): Promise<HybridResult[]> {
-  const embeddingModel = getEmbeddingModel(preferences);
+  const embeddingModel = await getEmbeddingModel(preferences);
 
   // Si pas d'embedding model, retourne juste SearXNG
   if (!embeddingModel) {
@@ -57,7 +57,8 @@ export async function hybridSearch(
     });
 
     // 2. Chercher dans Qdrant (parmi les résultats précédemment indexés)
-    const qdrantResults = await qdrant.search(
+    const client = getQdrantClient(resolveQdrantUrl(preferences));
+    const qdrantResults = await client.search(
       'zetora_search_cache',
       embedding,
       topK

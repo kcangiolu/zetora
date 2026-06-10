@@ -19,7 +19,6 @@ export type PreferenceKey =
   | 'zetora-visible-modes'
   | 'zetora-sandbox-provider'
   | 'zetora-searxng-url'
-  | 'zetora-embedding-providers'
   | 'zetora-embedding-provider'
   | 'zetora-embedding-model'
   | 'zetora-qdrant-url'
@@ -67,10 +66,9 @@ type AutoRouterConfig = {
   }>;
 };
 
-type EmbeddingProvider = { id: string; name: string; baseURL: string; apiKey?: string };
 export type GraphitiProvider = { id: string; name: string; baseURL: string; apiKey?: string };
 
-type PreferenceValue = string | string[] | boolean | number | AutoRouterConfig | EmbeddingProvider[] | GraphitiProvider[] | undefined;
+type PreferenceValue = string | string[] | boolean | number | AutoRouterConfig | GraphitiProvider[] | undefined;
 
 const DEBOUNCE_MS = 300; // Debounce DB writes by 300ms
 const MIGRATION_KEY_PREFIX = 'zetora-prefs-migrated-';
@@ -159,7 +157,6 @@ function collectLocalStoragePreferences(): Partial<Record<PreferenceKey, Prefere
     'zetora-visible-modes',
     'zetora-sandbox-provider',
     'zetora-searxng-url',
-    'zetora-embedding-providers',
     'zetora-embedding-provider',
     'zetora-embedding-model',
     'zetora-qdrant-url',

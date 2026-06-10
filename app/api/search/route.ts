@@ -69,10 +69,7 @@ import { loadConfiguredTools } from '@/lib/search/tool-loader';
 import { graphitiClient, createGraphitiClient } from '@/lib/graphiti/client';
 import { CohereChatModelOptions } from '@ai-sdk/cohere';
 import { xai } from '@ai-sdk/xai';
-import { lookupCache, storeInCache, initSearchCache } from '@/lib/vector/search-cache';
-
-// Initialize search cache collection on module load (idempotent)
-initSearchCache(768).catch(() => null);
+import { lookupCache, storeInCache } from '@/lib/vector/search-cache';
 
 interface CriticalChecksResult {
   canProceed: boolean;

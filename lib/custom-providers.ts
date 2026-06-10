@@ -123,21 +123,29 @@ export function createCustomProvider(config: CustomProviderConfig) {
   });
 }
 
-export async function resolveCustomModel(modelId: string): Promise<LanguageModel | null> {
-  // modelId format: "custom-{providerId}-{modelName}"
+// modelId format: "custom-{providerId}-{modelName}"
+export function parseCustomModelId(
+  modelId: string,
+  providers: CustomProviderConfig[],
+): { provider: CustomProviderConfig; modelName: string } | null {
   if (!modelId.startsWith('custom-')) return null;
 
   const withoutPrefix = modelId.slice('custom-'.length);
-  const providers = await getCustomProviders();
 
   for (const provider of providers) {
     const providerPrefix = `${provider.id}-`;
     if (withoutPrefix.startsWith(providerPrefix)) {
-      const modelName = withoutPrefix.slice(providerPrefix.length);
-      const p = createCustomProvider(provider);
-      return p(modelName) as LanguageModel;
+      return { provider, modelName: withoutPrefix.slice(providerPrefix.length) };
     }
   }
 
   return null;
+}
+
+export async function resolveCustomModel(modelId: string): Promise<LanguageModel | null> {
+  const providers = await getCustomProviders();
+  const parsed = parseCustomModelId(modelId, providers);
+  if (!parsed) return null;
+
+  return createCustomProvider(parsed.provider)(parsed.modelName) as LanguageModel;
 }

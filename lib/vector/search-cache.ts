@@ -1,11 +1,11 @@
 import 'server-only';
 import { embed } from 'ai';
-import { qdrant } from './qdrant';
+import { getQdrantClient, resolveQdrantUrl } from './qdrant';
 import { getEmbeddingModel } from '@/ai/embeddings';
 
 const CACHE_COLLECTION = 'zetora_search_cache';
 const SIMILARITY_THRESHOLD = 0.95;
-const MAX_CACHE_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 jours
+const DEFAULT_CACHE_TTL_DAYS = 7;
 
 function hasSameEntities(cachedQuery: string, newQuery: string): boolean {
   const STOP_WORDS = new Set(['quelle', 'quels', 'quelles', 'quel', 'est', 'sont', 'que', 'pour', 'avec', 'dans', 'sur', 'sous', 'plus', 'moins', 'très', 'fait', 'peut', 'être', 'avoir', 'faire', 'leur', 'leurs', 'cette', 'celles', 'ceux']);
@@ -27,16 +27,25 @@ interface CacheEntry {
   timestamp: number;
 }
 
-export async function initSearchCache(vectorSize: number = 768) {
-  await qdrant.createCollection(CACHE_COLLECTION, vectorSize);
+function isCacheEnabled(preferences: Record<string, unknown>): boolean {
+  return preferences['zetora-qdrant-enabled'] === true && preferences['zetora-search-cache-enabled'] === true;
+}
+
+function getCacheTtlMs(preferences: Record<string, unknown>): number {
+  const ttlDays = Number(preferences['zetora-search-cache-ttl-days']) || DEFAULT_CACHE_TTL_DAYS;
+  return ttlDays * 24 * 60 * 60 * 1000;
 }
 
 export async function lookupCache(
   query: string,
-  preferences: Record<string, string>
+  preferences: Record<string, unknown>
 ): Promise<CacheEntry | null> {
-  const embeddingModel = getEmbeddingModel(preferences);
+  if (!isCacheEnabled(preferences)) return null;
+
+  const embeddingModel = await getEmbeddingModel(preferences);
   if (!embeddingModel) return null;
+
+  const client = getQdrantClient(resolveQdrantUrl(preferences));
 
   try {
     const { embedding } = await embed({
@@ -44,7 +53,7 @@ export async function lookupCache(
       value: query,
     });
 
-    const results = await qdrant.search(
+    const results = await client.search(
       CACHE_COLLECTION,
       embedding,
       1,
@@ -64,7 +73,7 @@ export async function lookupCache(
     }
 
     // Vérifier l'âge du cache
-    if (Date.now() - entry.timestamp > MAX_CACHE_AGE_MS) {
+    if (Date.now() - entry.timestamp > getCacheTtlMs(preferences)) {
       return null;
     }
 
@@ -79,10 +88,14 @@ export async function storeInCache(
   query: string,
   response: string,
   sources: string[],
-  preferences: Record<string, string>
+  preferences: Record<string, unknown>
 ) {
-  const embeddingModel = getEmbeddingModel(preferences);
+  if (!isCacheEnabled(preferences)) return;
+
+  const embeddingModel = await getEmbeddingModel(preferences);
   if (!embeddingModel) return;
+
+  const client = getQdrantClient(resolveQdrantUrl(preferences));
 
   try {
     const { embedding } = await embed({
@@ -90,7 +103,9 @@ export async function storeInCache(
       value: query,
     });
 
-    await qdrant.upsert(CACHE_COLLECTION, [
+    await client.createCollection(CACHE_COLLECTION, embedding.length);
+
+    await client.upsert(CACHE_COLLECTION, [
       {
         id: crypto.randomUUID(),
         vector: embedding,
@@ -107,11 +122,12 @@ export async function storeInCache(
   }
 }
 
-export async function getCacheStats(): Promise<{
+export async function getCacheStats(preferences: Record<string, unknown> = {}): Promise<{
   exists: boolean;
   count: number;
 }> {
-  const exists = await qdrant.collectionExists(CACHE_COLLECTION);
-  const count = exists ? await qdrant.count(CACHE_COLLECTION) : 0;
+  const client = getQdrantClient(resolveQdrantUrl(preferences));
+  const exists = await client.collectionExists(CACHE_COLLECTION);
+  const count = exists ? await client.count(CACHE_COLLECTION) : 0;
   return { exists, count };
 }

@@ -370,12 +370,6 @@ export const userPreferences = pgTable('user_preferences', {
         baseURL: string;
         apiKey?: string;
       }>;
-      'zetora-embedding-providers'?: Array<{
-        id: string;
-        name: string;
-        baseURL: string;
-        apiKey?: string;
-      }>;
       'zetora-embedding-provider'?: string;
       'zetora-embedding-model'?: string;
       'zetora-qdrant-url'?: string;
