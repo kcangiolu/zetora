@@ -1291,6 +1291,7 @@ export function PreferencesSection({
                     isProUser={hasPaidAccess}
                     isMaxUser={isMaxUser}
                     additionalModels={customModelsList}
+                    onlyAdditionalModels
                     className="w-[180px] h-8"
                     compact
                   />
@@ -1325,6 +1326,7 @@ export function PreferencesSection({
                     isProUser={hasPaidAccess}
                     isMaxUser={isMaxUser}
                     additionalModels={customModelsList}
+                    onlyAdditionalModels
                     className="w-[180px] h-8"
                     compact
                   />
