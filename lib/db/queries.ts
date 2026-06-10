@@ -1117,7 +1117,7 @@ export async function getCustomInstructionsByUserId({ userId }: { userId: string
       .where(eq(customInstructions.userId, userId))
       .limit(1);
 
-    return instructions;
+    return instructions ?? null;
   } catch (error) {
     console.error('Error getting custom instructions:', error);
     return null;

@@ -1487,7 +1487,7 @@ export async function getCustomInstructions(providedUser?: User | null) {
     }
 
     const instructions = await getCustomInstructionsByUserId({ userId: user.id });
-    return instructions;
+    return instructions ?? null;
   } catch (error) {
     console.error('Error getting custom instructions:', error);
     return null;
