@@ -1,3 +1,4 @@
+import json
 import os
 from contextlib import asynccontextmanager
 from typing import Any
@@ -17,6 +18,8 @@ from graphiti_core.utils.maintenance.graph_data_operations import clear_data
 
 graphiti_client: Graphiti | None = None
 
+CONFIG_FILE = os.environ.get("GRAPHITI_CONFIG_PATH", "/data/graphiti_config.json")
+
 
 class LlmConfig(BaseModel):
     llm_model: str | None = None
@@ -25,6 +28,38 @@ class LlmConfig(BaseModel):
     embedding_model: str | None = None
     embedding_api_key: str | None = None
     embedding_base_url: str | None = None
+
+
+def apply_llm_config(config: LlmConfig) -> None:
+    if config.llm_api_key is not None:
+        os.environ["OPENAI_API_KEY"] = config.llm_api_key
+    if config.llm_base_url is not None:
+        os.environ["OPENAI_BASE_URL"] = config.llm_base_url
+    if config.llm_model is not None:
+        os.environ["LLM_MODEL"] = config.llm_model
+    if config.embedding_model is not None:
+        os.environ["EMBEDDING_MODEL"] = config.embedding_model
+    if config.embedding_api_key is not None:
+        os.environ["EMBEDDING_API_KEY"] = config.embedding_api_key
+    if config.embedding_base_url is not None:
+        os.environ["EMBEDDING_BASE_URL"] = config.embedding_base_url
+
+
+def load_persisted_config() -> LlmConfig | None:
+    try:
+        with open(CONFIG_FILE) as f:
+            return LlmConfig(**json.load(f))
+    except (FileNotFoundError, json.JSONDecodeError, ValueError):
+        return None
+
+
+def save_persisted_config(update: LlmConfig) -> None:
+    merged = load_persisted_config() or LlmConfig()
+    for field, value in update.model_dump(exclude_none=True).items():
+        setattr(merged, field, value)
+    os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
+    with open(CONFIG_FILE, "w") as f:
+        json.dump(merged.model_dump(), f)
 
 
 async def init_graphiti_client() -> None:
@@ -85,23 +120,16 @@ class DeleteInput(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    llm_api_key = os.environ.get("LLM_API_KEY")
-    llm_base_url = os.environ.get("LLM_BASE_URL")
-    llm_model = os.environ.get("LLM_MODEL", "gpt-4o-mini")
-    embedding_model = os.environ.get("EMBEDDING_MODEL", "text-embedding-3-small")
-    embedding_api_key = os.environ.get("EMBEDDING_API_KEY")
-    embedding_base_url = os.environ.get("EMBEDDING_BASE_URL")
+    os.environ.setdefault("LLM_MODEL", "gpt-4o-mini")
+    os.environ.setdefault("EMBEDDING_MODEL", "text-embedding-3-small")
+    if os.environ.get("LLM_API_KEY"):
+        os.environ["OPENAI_API_KEY"] = os.environ["LLM_API_KEY"]
+    if os.environ.get("LLM_BASE_URL"):
+        os.environ["OPENAI_BASE_URL"] = os.environ["LLM_BASE_URL"]
 
-    if llm_api_key:
-        os.environ["OPENAI_API_KEY"] = llm_api_key
-    if llm_base_url:
-        os.environ["OPENAI_BASE_URL"] = llm_base_url
-    os.environ["LLM_MODEL"] = llm_model
-    os.environ["EMBEDDING_MODEL"] = embedding_model
-    if embedding_api_key:
-        os.environ["EMBEDDING_API_KEY"] = embedding_api_key
-    if embedding_base_url:
-        os.environ["EMBEDDING_BASE_URL"] = embedding_base_url
+    persisted = load_persisted_config()
+    if persisted:
+        apply_llm_config(persisted)
 
     try:
         await init_graphiti_client()
@@ -123,23 +151,13 @@ async def health():
 
 @app.post("/config")
 async def configure_llm(config: LlmConfig):
-    """Update LLM configuration and reinitialize the Graphiti client."""
-    if config.llm_api_key is not None:
-        os.environ["OPENAI_API_KEY"] = config.llm_api_key
-    if config.llm_base_url is not None:
-        os.environ["OPENAI_BASE_URL"] = config.llm_base_url
-    if config.llm_model is not None:
-        os.environ["LLM_MODEL"] = config.llm_model
-    if config.embedding_model is not None:
-        os.environ["EMBEDDING_MODEL"] = config.embedding_model
-    if config.embedding_api_key is not None:
-        os.environ["EMBEDDING_API_KEY"] = config.embedding_api_key
-    if config.embedding_base_url is not None:
-        os.environ["EMBEDDING_BASE_URL"] = config.embedding_base_url
+    """Update LLM configuration, persist it to disk, and reinitialize the Graphiti client."""
+    apply_llm_config(config)
     try:
         await init_graphiti_client()
     except Exception as e:
         raise HTTPException(500, f"Failed to initialize Graphiti client: {e}")
+    save_persisted_config(config)
     return {"success": True}
 
 

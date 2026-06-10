@@ -22,6 +22,28 @@ from graphiti_core.llm_client.openai_generic_client import OpenAIGenericClient
 server = Server("zetora-graphiti-mcp")
 graphiti_client: Graphiti | None = None
 
+CONFIG_FILE = os.environ.get("GRAPHITI_CONFIG_PATH", "/data/graphiti_config.json")
+
+
+def apply_persisted_config() -> None:
+    try:
+        with open(CONFIG_FILE) as f:
+            config = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return
+    if config.get("llm_api_key"):
+        os.environ["OPENAI_API_KEY"] = config["llm_api_key"]
+    if config.get("llm_base_url"):
+        os.environ["OPENAI_BASE_URL"] = config["llm_base_url"]
+    if config.get("llm_model"):
+        os.environ["LLM_MODEL"] = config["llm_model"]
+    if config.get("embedding_model"):
+        os.environ["EMBEDDING_MODEL"] = config["embedding_model"]
+    if config.get("embedding_api_key"):
+        os.environ["EMBEDDING_API_KEY"] = config["embedding_api_key"]
+    if config.get("embedding_base_url"):
+        os.environ["EMBEDDING_BASE_URL"] = config["embedding_base_url"]
+
 
 async def init_graphiti():
     global graphiti_client
@@ -32,6 +54,8 @@ async def init_graphiti():
         os.environ["OPENAI_API_KEY"] = llm_api_key
     if llm_base_url:
         os.environ["OPENAI_BASE_URL"] = llm_base_url
+
+    apply_persisted_config()
 
     graph_db_url = os.environ.get("GRAPH_DB_URL", "bolt://localhost:6379")
     parsed = urlparse(graph_db_url)

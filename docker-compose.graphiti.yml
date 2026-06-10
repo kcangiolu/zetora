@@ -16,6 +16,8 @@ services:
     container_name: zetora-graphiti-api
     ports:
       - '8001:8000'
+    volumes:
+      - graphiti-config:/data
     environment:
       - GRAPH_DB_URL=bolt://zetora-falkordb:6379
       - LLM_MODEL=${GRAPHITI_LLM_MODEL:-gpt-4o-mini}
@@ -35,6 +37,8 @@ services:
     container_name: zetora-graphiti-mcp
     ports:
       - '8002:8001'
+    volumes:
+      - graphiti-config:/data
     environment:
       - GRAPH_DB_URL=bolt://zetora-falkordb:6379
       - LLM_MODEL=${GRAPHITI_LLM_MODEL:-gpt-4o-mini}
@@ -49,3 +53,4 @@ services:
 
 volumes:
   falkordb-data:
+  graphiti-config:
