@@ -19,8 +19,14 @@ function getStoredValue<T>(key: string, defaultValue: T): T {
 }
 
 export function useLocalStorage<T>(key: string, defaultValue: T): [T, (value: T | ((val: T) => T)) => void] {
-  // Initialize with the stored value immediately
-  const [storedValue, setStoredValue] = useState<T>(() => getStoredValue(key, defaultValue));
+  // Always start with defaultValue so the first client render matches the server
+  // render, then load the persisted value after mount to avoid hydration mismatches.
+  const [storedValue, setStoredValue] = useState<T>(defaultValue);
+
+  useEffect(() => {
+    setStoredValue(getStoredValue(key, defaultValue));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
 
   // Listen for storage changes from other components/tabs
   useEffect(() => {
