@@ -1,16 +1,19 @@
-import asyncio
 import json
 import os
 from typing import Any
+from urllib.parse import urlparse
 
 from mcp.server import Server
 from mcp.server.sse import SseServerTransport
 from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.responses import Response
 from starlette.routing import Mount, Route
 import uvicorn
 
 from graphiti_core import Graphiti
-from graphiti_core.search import SearchConfig
+from graphiti_core.driver.falkordb_driver import FalkorDriver
+from graphiti_core.search.search_config import SearchConfig
 
 
 server = Server("zetora-graphiti-mcp")
@@ -19,17 +22,20 @@ graphiti_client: Graphiti | None = None
 
 async def init_graphiti():
     global graphiti_client
-    graph_db_url = os.environ.get("GRAPH_DB_URL", "bolt://localhost:6379")
-    graphiti_client = Graphiti(graph_db_url)
 
     llm_api_key = os.environ.get("LLM_API_KEY")
     llm_base_url = os.environ.get("LLM_BASE_URL")
-
     if llm_api_key:
         os.environ["OPENAI_API_KEY"] = llm_api_key
     if llm_base_url:
         os.environ["OPENAI_BASE_URL"] = llm_base_url
 
+    graph_db_url = os.environ.get("GRAPH_DB_URL", "bolt://localhost:6379")
+    parsed = urlparse(graph_db_url)
+    host = parsed.hostname or "localhost"
+    port = parsed.port or 6379
+    driver = FalkorDriver(host=host, port=port)
+    graphiti_client = Graphiti(graph_driver=driver)
     await graphiti_client.build_indices()
 
 
@@ -95,9 +101,17 @@ async def call_tool(name: str, arguments: dict[str, Any]):
 
 
 sse = SseServerTransport("/messages/")
+
+
+async def handle_sse(request: Request):
+    async with sse.connect_sse(request.scope, request.receive, request._send) as streams:
+        await server.run(streams[0], streams[1], server.create_initialization_options())
+    return Response()
+
+
 app = Starlette(
     routes=[
-        Route("/sse", endpoint=sse.handle_sse_connection),
+        Route("/sse", endpoint=handle_sse),
         Mount("/messages/", app=sse.handle_post_message),
     ],
 )

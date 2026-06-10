@@ -7,6 +7,18 @@ function resolveBaseUrl(req: NextRequest): string {
   return req.headers.get('X-Graphiti-Url') || DEFAULT_GRAPHITI_URL;
 }
 
+async function parseResponse(res: Response): Promise<{ data: unknown; status: number }> {
+  const text = await res.text();
+  if (!text) {
+    return { data: null, status: res.status };
+  }
+  try {
+    return { data: JSON.parse(text), status: res.status };
+  } catch {
+    return { data: { error: text }, status: res.status };
+  }
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ path: string[] }> },
@@ -21,8 +33,8 @@ export async function POST(
     body: JSON.stringify(body),
   });
 
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  const { data, status } = await parseResponse(res);
+  return NextResponse.json(data, { status });
 }
 
 export async function GET(
@@ -34,8 +46,8 @@ export async function GET(
   const url = new URL(req.url);
   const targetUrl = `${baseUrl}/${path.join('/')}${url.search}`;
   const res = await fetch(targetUrl);
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  const { data, status } = await parseResponse(res);
+  return NextResponse.json(data, { status });
 }
 
 export async function DELETE(
@@ -54,6 +66,6 @@ export async function DELETE(
     ...(body !== undefined && { body: JSON.stringify(body) }),
   });
 
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  const { data, status } = await parseResponse(res);
+  return NextResponse.json(data, { status });
 }

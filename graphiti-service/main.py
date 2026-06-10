@@ -1,12 +1,14 @@
 import os
 from contextlib import asynccontextmanager
 from typing import Any
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from graphiti_core import Graphiti
-from graphiti_core.search import SearchConfig
+from graphiti_core.driver.falkordb_driver import FalkorDriver
+from graphiti_core.search.search_config import SearchConfig
 
 
 graphiti_client: Graphiti | None = None
@@ -24,12 +26,16 @@ class LlmConfig(BaseModel):
 async def init_graphiti_client() -> None:
     global graphiti_client
     graph_db_url = os.environ.get("GRAPH_DB_URL", "bolt://localhost:6379")
+    parsed = urlparse(graph_db_url)
+    host = parsed.hostname or "localhost"
+    port = parsed.port or 6379
     if graphiti_client:
         try:
             await graphiti_client.close()
         except Exception:
             pass
-    graphiti_client = Graphiti(graph_db_url)
+    driver = FalkorDriver(host=host, port=port)
+    graphiti_client = Graphiti(graph_driver=driver)
     await graphiti_client.build_indices()
 
 
@@ -73,7 +79,11 @@ async def lifespan(app: FastAPI):
     if embedding_base_url:
         os.environ["EMBEDDING_BASE_URL"] = embedding_base_url
 
-    await init_graphiti_client()
+    try:
+        await init_graphiti_client()
+    except Exception as e:
+        print(f"[graphiti] Startup warning: {e}")
+        print("[graphiti] No credentials configured — use POST /config to initialize.")
     yield
     if graphiti_client:
         await graphiti_client.close()
@@ -102,7 +112,10 @@ async def configure_llm(config: LlmConfig):
         os.environ["EMBEDDING_API_KEY"] = config.embedding_api_key
     if config.embedding_base_url is not None:
         os.environ["EMBEDDING_BASE_URL"] = config.embedding_base_url
-    await init_graphiti_client()
+    try:
+        await init_graphiti_client()
+    except Exception as e:
+        raise HTTPException(500, f"Failed to initialize Graphiti client: {e}")
     return {"success": True}
 
 

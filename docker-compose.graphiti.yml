@@ -4,7 +4,7 @@ services:
     container_name: zetora-falkordb
     ports:
       - '6380:6379'
-      - '3002:3000'
+      - '3002:3002'
     volumes:
       - falkordb-data:/data
     restart: unless-stopped
@@ -17,7 +17,7 @@ services:
     ports:
       - '8001:8000'
     environment:
-      - GRAPH_DB_URL=bolt://falkordb:6379
+      - GRAPH_DB_URL=bolt://zetora-falkordb:6379
       - LLM_MODEL=${GRAPHITI_LLM_MODEL:-gpt-4o-mini}
       - LLM_API_KEY=${GRAPHITI_LLM_API_KEY}
       - LLM_BASE_URL=${GRAPHITI_LLM_BASE_URL:-https://api.openai.com/v1}
@@ -36,7 +36,7 @@ services:
     ports:
       - '8002:8001'
     environment:
-      - GRAPH_DB_URL=bolt://falkordb:6379
+      - GRAPH_DB_URL=bolt://zetora-falkordb:6379
       - LLM_MODEL=${GRAPHITI_LLM_MODEL:-gpt-4o-mini}
       - LLM_API_KEY=${GRAPHITI_LLM_API_KEY}
       - LLM_BASE_URL=${GRAPHITI_LLM_BASE_URL:-https://api.openai.com/v1}

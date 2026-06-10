@@ -1,4 +1,5 @@
 graphiti-core>=0.29.0
+falkordb>=1.0.0
 fastapi>=0.115.0
 uvicorn>=0.34.0
 pydantic>=2.10.0
