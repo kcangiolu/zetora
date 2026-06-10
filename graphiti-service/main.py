@@ -7,8 +7,12 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from graphiti_core import Graphiti
+from graphiti_core.cross_encoder.openai_reranker_client import OpenAIRerankerClient
 from graphiti_core.driver.falkordb_driver import FalkorDriver
-from graphiti_core.search.search_config import SearchConfig
+from graphiti_core.embedder.openai import OpenAIEmbedder, OpenAIEmbedderConfig
+from graphiti_core.llm_client.config import LLMConfig
+from graphiti_core.llm_client.openai_generic_client import OpenAIGenericClient
+from graphiti_core.utils.maintenance.graph_data_operations import clear_data
 
 
 graphiti_client: Graphiti | None = None
@@ -35,8 +39,29 @@ async def init_graphiti_client() -> None:
         except Exception:
             pass
     driver = FalkorDriver(host=host, port=port)
-    graphiti_client = Graphiti(graph_driver=driver)
-    await graphiti_client.build_indices()
+
+    llm_config = LLMConfig(
+        api_key=os.environ.get("OPENAI_API_KEY") or "not-needed",
+        base_url=os.environ.get("OPENAI_BASE_URL"),
+        model=os.environ.get("LLM_MODEL", "gpt-4o-mini"),
+    )
+    llm_client = OpenAIGenericClient(config=llm_config)
+    cross_encoder = OpenAIRerankerClient(config=llm_config)
+    embedder = OpenAIEmbedder(
+        config=OpenAIEmbedderConfig(
+            api_key=os.environ.get("EMBEDDING_API_KEY") or os.environ.get("OPENAI_API_KEY") or "not-needed",
+            base_url=os.environ.get("EMBEDDING_BASE_URL") or os.environ.get("OPENAI_BASE_URL"),
+            embedding_model=os.environ.get("EMBEDDING_MODEL", "text-embedding-3-small"),
+        )
+    )
+
+    graphiti_client = Graphiti(
+        graph_driver=driver,
+        llm_client=llm_client,
+        embedder=embedder,
+        cross_encoder=cross_encoder,
+    )
+    await graphiti_client.build_indices_and_constraints()
 
 
 class EpisodeInput(BaseModel):
@@ -52,7 +77,6 @@ class SearchInput(BaseModel):
     query: str
     group_id: str | None = None
     num_results: int = 10
-    search_config: dict[str, Any] | None = None
 
 
 class DeleteInput(BaseModel):
@@ -143,16 +167,10 @@ async def search(input: SearchInput):
     if not graphiti_client:
         raise HTTPException(500, "Graphiti not initialized")
     try:
-        config = SearchConfig(limit=input.num_results)
-        if input.search_config:
-            for k, v in input.search_config.items():
-                if hasattr(config, k):
-                    setattr(config, k, v)
-
         results = await graphiti_client.search(
             query=input.query,
-            group_id=input.group_id,
-            config=config,
+            group_ids=[input.group_id] if input.group_id else None,
+            num_results=input.num_results,
         )
         return {"success": True, "results": results}
     except Exception as e:
@@ -164,7 +182,7 @@ async def delete_group(input: DeleteInput):
     if not graphiti_client:
         raise HTTPException(500, "Graphiti not initialized")
     try:
-        await graphiti_client.delete_group(input.group_id)
+        await clear_data(graphiti_client.driver, group_ids=[input.group_id])
         return {"success": True}
     except Exception as e:
         raise HTTPException(500, str(e))
@@ -172,15 +190,17 @@ async def delete_group(input: DeleteInput):
 
 @app.get("/episodes")
 async def list_episodes(group_id: str, limit: int = 50, offset: int = 0):
-    """List all episodes for a given group_id, with pagination."""
+    """List episodes for a given group_id, most recent first, with pagination."""
     if not graphiti_client:
         raise HTTPException(500, "Graphiti not initialized")
     try:
-        episodes = await graphiti_client.get_episodes(
-            group_id=group_id,
-            limit=limit,
-            offset=offset,
+        from datetime import datetime
+        episodes = await graphiti_client.retrieve_episodes(
+            reference_time=datetime.utcnow(),
+            last_n=limit + offset,
+            group_ids=[group_id],
         )
+        episodes = list(reversed(episodes))[offset:offset + limit]
         return {
             "success": True,
             "episodes": episodes,
@@ -196,7 +216,7 @@ async def delete_episode(episode_uuid: str):
     if not graphiti_client:
         raise HTTPException(500, "Graphiti not initialized")
     try:
-        await graphiti_client.delete_episode(episode_uuid)
+        await graphiti_client.remove_episode(episode_uuid)
         return {"success": True}
     except Exception as e:
         raise HTTPException(500, str(e))
