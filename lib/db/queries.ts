@@ -1231,8 +1231,15 @@ export async function upsertUserPreferences({
   try {
     // Use transaction to ensure atomicity of read-modify-write
     return await maindb.transaction(async (tx) => {
-      // Get existing preferences within transaction
-      const [existing] = await tx.select().from(userPreferences).where(eq(userPreferences.userId, userId)).limit(1);
+      // Lock the row for the duration of the transaction so concurrent
+      // upserts (e.g. multiple useSyncedPreferences keys saved in quick
+      // succession) are serialized instead of clobbering each other.
+      const [existing] = await tx
+        .select()
+        .from(userPreferences)
+        .where(eq(userPreferences.userId, userId))
+        .for('update')
+        .limit(1);
 
       const existingPrefs = existing?.preferences || {};
 
@@ -1254,12 +1261,21 @@ export async function upsertUserPreferences({
           .returning();
         return updated;
       } else {
-        // Insert new record
+        // Insert new record. If a concurrent transaction inserted the row
+        // first (FOR UPDATE locks nothing on a row that doesn't exist yet),
+        // fall back to merging into that row instead of erroring out.
         const [newPreferences] = await tx
           .insert(userPreferences)
           .values({
             userId,
             preferences: mergedPreferences,
+          })
+          .onConflictDoUpdate({
+            target: userPreferences.userId,
+            set: {
+              preferences: mergedPreferences,
+              updatedAt: new Date(),
+            },
           })
           .returning();
         return newPreferences;
