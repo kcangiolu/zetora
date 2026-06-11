@@ -376,6 +376,9 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-qdrant-enabled'?: boolean;
       'zetora-search-cache-enabled'?: boolean;
       'zetora-search-cache-ttl-days'?: number;
+      'zetora-hybrid-search-enabled'?: boolean;
+      'zetora-content-indexing-enabled'?: boolean;
+      'zetora-rerank-enabled'?: boolean;
       'zetora-tertiary-chat-title-model'?: string;
       'zetora-tertiary-chat-title-provider'?: string;
       'zetora-tertiary-followup-model'?: string;

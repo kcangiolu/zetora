@@ -15,6 +15,7 @@ interface LoadConfiguredToolsParams {
   searxngUrl?: string;
   memoryProvider?: 'supermemory' | 'graphiti';
   graphitiApiUrl?: string;
+  userPreferences?: Record<string, unknown>;
 }
 
 export async function loadConfiguredTools({
@@ -30,6 +31,7 @@ export async function loadConfiguredTools({
   searxngUrl,
   memoryProvider,
   graphitiApiUrl,
+  userPreferences,
 }: LoadConfiguredToolsParams): Promise<Record<string, any>> {
   const tools: Record<string, any> = {};
   const uniqueToolNames = [...new Set(activeToolNames)];
@@ -65,7 +67,7 @@ export async function loadConfiguredTools({
         }
         case 'web_search': {
           const { webSearchTool } = await import('@/lib/tools/web-search');
-          tools.web_search = webSearchTool(dataStream, searchProvider, searxngUrl);
+          tools.web_search = webSearchTool(dataStream, searchProvider, searxngUrl, userPreferences);
           return;
         }
         case 'academic_search': {

@@ -520,6 +520,16 @@ export function PreferencesSection({
   const [searchCacheEnabled, setSearchCacheEnabled] = useSyncedPreferences<boolean>('zetora-search-cache-enabled', false);
   const [searchCacheTtlDays, setSearchCacheTtlDays] = useSyncedPreferences<number>('zetora-search-cache-ttl-days', 7);
 
+  const [hybridSearchEnabled, setHybridSearchEnabled] = useSyncedPreferences<boolean>(
+    'zetora-hybrid-search-enabled',
+    false,
+  );
+  const [contentIndexingEnabled, setContentIndexingEnabled] = useSyncedPreferences<boolean>(
+    'zetora-content-indexing-enabled',
+    false,
+  );
+  const [rerankEnabled, setRerankEnabled] = useSyncedPreferences<boolean>('zetora-rerank-enabled', false);
+
   const [content, setContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -1345,57 +1355,6 @@ export function PreferencesSection({
               </div>
             </div>
 
-            {/* Search Embedding */}
-            <div className="rounded-xl border border-border/60 mt-4 overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">Search Embedding</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Embedding model for semantic search (Qdrant)
-                  </p>
-                </div>
-                <Switch checked={embeddingEnabled} onCheckedChange={setEmbeddingEnabled} />
-              </div>
-
-              {embeddingEnabled && (
-                <div className="flex items-center justify-between px-4 py-3.5 gap-6">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">Embedding Model</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Select from your Custom AI Providers</p>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {!selectedEmbeddingProvider && (
-                      <span className="text-[11px] text-muted-foreground/70 shrink-0 max-w-[120px] truncate">
-                        Default: nomic-embed-text
-                      </span>
-                    )}
-                    <ModelSelectorDialog
-                      selectedModel={selectedEmbeddingProvider}
-                      onModelSelect={handleEmbeddingModelSelect}
-                      user={user}
-                      isProUser={hasPaidAccess}
-                      isMaxUser={isMaxUser}
-                      additionalModels={customModelsList}
-                      className="w-[180px] h-8"
-                      compact
-                    />
-                    {selectedEmbeddingProvider && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
-                        title="Reset to default"
-                        onClick={() => handleEmbeddingModelSelect('')}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
             {/* Vector Database */}
             <div className="rounded-xl border border-border/60 mt-4 overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
@@ -1462,6 +1421,115 @@ export function PreferencesSection({
                   )}
                 </>
               )}
+            </div>
+
+            {/* Hybrid Search */}
+            <div className="rounded-xl border border-border/60 mt-4 overflow-hidden">
+              <div className="px-4 py-3 border-b border-border/40">
+                <p className="text-sm font-medium">Hybrid Search</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {qdrantEnabled
+                    ? 'Semantic fusion, content indexing, and reranking of search results'
+                    : 'Enable the vector database (Qdrant) to use these options'}
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Search Embedding</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Embedding model for semantic search (Qdrant)
+                  </p>
+                </div>
+                <Switch
+                  checked={embeddingEnabled}
+                  onCheckedChange={setEmbeddingEnabled}
+                  disabled={!qdrantEnabled}
+                />
+              </div>
+
+              {embeddingEnabled && (
+                <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">Embedding Model</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Select from your Custom AI Providers</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {!selectedEmbeddingProvider && (
+                      <span className="text-[11px] text-muted-foreground/70 shrink-0 max-w-[120px] truncate">
+                        Default: nomic-embed-text
+                      </span>
+                    )}
+                    <ModelSelectorDialog
+                      selectedModel={selectedEmbeddingProvider}
+                      onModelSelect={handleEmbeddingModelSelect}
+                      user={user}
+                      isProUser={hasPaidAccess}
+                      isMaxUser={isMaxUser}
+                      additionalModels={customModelsList}
+                      className="w-[180px] h-8"
+                      compact
+                    />
+                    {selectedEmbeddingProvider && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+                        title="Reset to default"
+                        onClick={() => handleEmbeddingModelSelect('')}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Semantic Fusion</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Combines SearXNG results with vector search (RRF)
+                  </p>
+                </div>
+                <Switch
+                  id="hybrid-search-enabled"
+                  checked={hybridSearchEnabled ?? false}
+                  onCheckedChange={setHybridSearchEnabled}
+                  disabled={!qdrantEnabled}
+                />
+              </div>
+
+              <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Content Indexing</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Extracts, chunks, and indexes page content into Qdrant
+                  </p>
+                </div>
+                <Switch
+                  id="content-indexing-enabled"
+                  checked={contentIndexingEnabled ?? false}
+                  onCheckedChange={setContentIndexingEnabled}
+                  disabled={!qdrantEnabled}
+                />
+              </div>
+
+              <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Reranking</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Reorders fused results using an LLM
+                  </p>
+                </div>
+                <Switch
+                  id="rerank-enabled"
+                  checked={rerankEnabled ?? false}
+                  onCheckedChange={setRerankEnabled}
+                  disabled={!qdrantEnabled}
+                />
+              </div>
             </div>
 
             {/* Custom AI Providers */}

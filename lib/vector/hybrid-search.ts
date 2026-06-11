@@ -1,7 +1,10 @@
 import 'server-only';
-import { embed } from 'ai';
+import { embed, generateText } from 'ai';
 import { getQdrantClient, resolveQdrantUrl } from './qdrant';
 import { getEmbeddingModel } from '@/ai/embeddings';
+import { resolveTertiaryModel } from '@/ai/tertiary';
+
+const SEARCH_INDEX_COLLECTION = 'zetora_search_index';
 
 interface HybridResult {
   url: string;
@@ -32,21 +35,73 @@ function rrf(
   return scores;
 }
 
+function searxngOnlyResults(
+  searxngResults: { url: string; title: string; content: string }[]
+): HybridResult[] {
+  return searxngResults.map((r, i) => ({
+    ...r,
+    score: 1 - i / searxngResults.length,
+    source: 'searxng' as const,
+  }));
+}
+
+async function rerankResults(
+  query: string,
+  candidates: HybridResult[],
+  topK: number,
+  preferences: Record<string, unknown>
+): Promise<HybridResult[]> {
+  if (preferences['zetora-rerank-enabled'] !== true || candidates.length === 0) {
+    return candidates.slice(0, topK);
+  }
+
+  try {
+    const model = await resolveTertiaryModel('default', preferences as Record<string, string>);
+
+    const documentsBlock = candidates
+      .map((c, i) => `Document ${i}: ${c.title}\n${c.content.slice(0, 1000)}\n---`)
+      .join('\n');
+
+    const { text } = await generateText({
+      model,
+      prompt:
+        `Query: ${query}\n\n` +
+        `For each document below, rate how well it answers the query on a scale of 1-10. ` +
+        `Return a JSON array of {index: number, score: number}.\n\n${documentsBlock}`,
+    });
+
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) return candidates.slice(0, topK);
+
+    const ratings = JSON.parse(jsonMatch[0]) as { index: number; score: number }[];
+    const scoreByIndex = new Map(ratings.map((r) => [r.index, r.score]));
+
+    return candidates
+      .map((candidate, index) => ({ candidate, index }))
+      .sort((a, b) => (scoreByIndex.get(b.index) ?? 0) - (scoreByIndex.get(a.index) ?? 0))
+      .slice(0, topK)
+      .map(({ candidate }) => candidate);
+  } catch (error) {
+    console.warn('Reranking failed, falling back to RRF order:', error);
+    return candidates.slice(0, topK);
+  }
+}
+
 export async function hybridSearch(
   query: string,
   searxngResults: { url: string; title: string; content: string }[],
   preferences: Record<string, unknown>,
   topK: number = 10
 ): Promise<HybridResult[]> {
+  if (preferences['zetora-hybrid-search-enabled'] !== true) {
+    return searxngOnlyResults(searxngResults);
+  }
+
   const embeddingModel = await getEmbeddingModel(preferences);
 
   // Si pas d'embedding model, retourne juste SearXNG
   if (!embeddingModel) {
-    return searxngResults.map((r, i) => ({
-      ...r,
-      score: 1 - i / searxngResults.length,
-      source: 'searxng' as const,
-    }));
+    return searxngOnlyResults(searxngResults);
   }
 
   try {
@@ -56,10 +111,10 @@ export async function hybridSearch(
       value: query,
     });
 
-    // 2. Chercher dans Qdrant (parmi les résultats précédemment indexés)
+    // 2. Chercher dans Qdrant (parmi le contenu indexé précédemment)
     const client = getQdrantClient(resolveQdrantUrl(preferences));
     const qdrantResults = await client.search(
-      'zetora_search_cache',
+      SEARCH_INDEX_COLLECTION,
       embedding,
       topK
     );
@@ -98,23 +153,24 @@ export async function hybridSearch(
         allResults.set(url, {
           url,
           title: (r.payload.title as string) || url,
-          content: (r.payload.content as string) || '',
+          content: (r.payload.chunk_text as string) || '',
           score: fusedScores.get(url) || 0,
           source: 'qdrant',
         });
       }
     }
 
-    // 6. Trier par score RRF décroissant
-    return Array.from(allResults.values())
-      .sort((a, b) => b.score - a.score)
-      .slice(0, topK);
+    // 6. Trier par score RRF décroissant, puis reranking optionnel
+    const fused = Array.from(allResults.values()).sort((a, b) => b.score - a.score);
+    const reranked = await rerankResults(query, fused, topK, preferences);
+
+    console.log(
+      `[HYBRID-SEARCH] RRF fusion applied, ${fused.length} candidates → ${reranked.length} after reranking`,
+    );
+
+    return reranked;
   } catch (error) {
     console.warn('Hybrid search failed, falling back to SearXNG:', error);
-    return searxngResults.map((r, i) => ({
-      ...r,
-      score: 1 - i / searxngResults.length,
-      source: 'searxng' as const,
-    }));
+    return searxngOnlyResults(searxngResults);
   }
 }

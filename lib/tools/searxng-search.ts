@@ -13,9 +13,11 @@ interface SearXNGResult {
 
 export class SearXNGSearchStrategy implements SearchStrategy {
   private baseUrl: string;
+  private preferences?: Record<string, unknown>;
 
-  constructor(baseUrl: string) {
+  constructor(baseUrl: string, preferences?: Record<string, unknown>) {
     this.baseUrl = baseUrl.replace(/\/$/, '');
+    this.preferences = preferences;
   }
 
   async search(
@@ -105,6 +107,41 @@ export class SearXNGSearchStrategy implements SearchStrategy {
         }
       }),
     );
+
+    // Étape hybride : fusionner avec Qdrant si activé
+    const allSearxngResults = searches.flatMap((s) => s.results);
+    if (this.preferences?.['zetora-hybrid-search-enabled'] === true && allSearxngResults.length > 0) {
+      try {
+        const { hybridSearch } = await import('@/lib/vector/hybrid-search');
+        const fusedResults = await hybridSearch(
+          queries[0], // utiliser la première query comme query principale
+          allSearxngResults.map((r) => ({ url: r.url, title: r.title, content: r.content })),
+          this.preferences,
+          allSearxngResults.length,
+        );
+        // Remplacer les résultats de la première search par les résultats fusionnés
+        // Les résultats fusionnés sont déjà dédupliqués et rerankés
+        searches[0].results = fusedResults.map((r) => ({
+          url: r.url,
+          title: r.title,
+          content: r.content,
+          published_date: undefined,
+          author: undefined,
+        }));
+      } catch (error) {
+        console.warn('Hybrid search fusion failed, using raw SearXNG results:', error);
+      }
+    }
+
+    // Indexation du contenu en arrière-plan (fire-and-forget)
+    if (this.preferences?.['zetora-content-indexing-enabled'] === true) {
+      const { indexSearchResults } = await import('@/lib/vector/content-indexer');
+      indexSearchResults(
+        allSearxngResults.map((r) => ({ url: r.url, title: r.title, content: r.content })),
+        queries[0],
+        this.preferences,
+      ).catch((err) => console.warn('Background content indexing failed:', err));
+    }
 
     return { searches };
   }

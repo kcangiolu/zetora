@@ -612,6 +612,7 @@ const createSearchStrategy = (
     firecrawl: FirecrawlApp;
   },
   searxngUrl?: string,
+  preferences?: Record<string, unknown>,
 ): SearchStrategy => {
   if (provider === 'searxng') {
     const url = searxngUrl || serverEnv.SEARXNG_URL;
@@ -619,7 +620,7 @@ const createSearchStrategy = (
       console.warn('SearXNG provider selected but SEARXNG_URL is not configured, falling back to Exa');
       return new ExaSearchStrategy(clients.exa, clients.firecrawl);
     }
-    return new SearXNGSearchStrategy(url);
+    return new SearXNGSearchStrategy(url, preferences);
   }
 
   const strategies = {
@@ -635,6 +636,7 @@ export function webSearchTool(
   dataStream?: UIMessageStreamWriter<ChatMessage> | undefined,
   searchProvider: WebSearchProvider = 'exa',
   searxngUrl?: string,
+  preferences?: Record<string, unknown>,
 ) {
   return tool({
     description: `This is the default tool of the app to be used to search the web for information with multiple queries(5-10), max results(15-20), topics, and quality.
@@ -721,7 +723,7 @@ export function webSearchTool(
 
       // Create and use the appropriate search strategy
       const normalizedProvider = normalizeWebSearchProvider(searchProvider);
-      const strategy = createSearchStrategy(normalizedProvider, clients, searxngUrl);
+      const strategy = createSearchStrategy(normalizedProvider, clients, searxngUrl, preferences);
       if (!maxResults) {
         maxResults = new Array(queries.length).fill(10);
       }

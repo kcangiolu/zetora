@@ -56,7 +56,10 @@ export type PreferenceKey =
   | 'zetora-graphiti-active-provider'
   | 'zetora-graphiti-embedding-provider'
   | 'zetora-graphiti-embedding-model'
-  | 'zetora-embedding-enabled';
+  | 'zetora-embedding-enabled'
+  | 'zetora-hybrid-search-enabled'
+  | 'zetora-content-indexing-enabled'
+  | 'zetora-rerank-enabled';
 
 type AutoRouterConfig = {
   routes: Array<{
