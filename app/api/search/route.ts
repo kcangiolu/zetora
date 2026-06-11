@@ -70,6 +70,8 @@ import { graphitiClient, createGraphitiClient } from '@/lib/graphiti/client';
 import { CohereChatModelOptions } from '@ai-sdk/cohere';
 import { xai } from '@ai-sdk/xai';
 
+const ingestedMessageIds = new Set<string>();
+
 interface CriticalChecksResult {
   canProceed: boolean;
   error?: any;
@@ -1774,7 +1776,36 @@ export async function POST(req: Request) {
             .map((p: any) => p.text.trim())
             .join(' ');
 
-        const episodeBody = messagesToPersist
+        const newMessageIds = messagesToPersist.map((m: ChatMessage) => m.id);
+        const allAlreadyIngested = newMessageIds.every((mid: string) => ingestedMessageIds.has(mid));
+
+        if (allAlreadyIngested) {
+          console.log('[Graphiti] All messages already ingested, skipping');
+          return;
+        }
+
+        newMessageIds.forEach((mid: string) => ingestedMessageIds.add(mid));
+
+        // Nettoyage périodique : vider le Set tous les 10000 IDs
+        if (ingestedMessageIds.size > 10000) {
+          const entries = [...ingestedMessageIds];
+          ingestedMessageIds.clear();
+          entries.slice(-5000).forEach((mid) => ingestedMessageIds.add(mid));
+        }
+
+        const chatTitle = (() => {
+          const firstUserMsg = messagesToPersist.find((m: ChatMessage) => m.role === 'user');
+          if (!firstUserMsg) return id;
+          const text = Array.isArray(firstUserMsg.parts)
+            ? firstUserMsg.parts
+                .filter((p: any) => p.type === 'text')
+                .map((p: any) => p.text)
+                .join(' ')
+            : '';
+          return text.slice(0, 80).replace(/[^a-zA-Z0-9À-ɏ\s-]/g, '').trim() || id;
+        })();
+
+        const rawBody = messagesToPersist
           .filter((m: ChatMessage) => m.role === 'user' || m.role === 'assistant')
           .map((m: ChatMessage) => {
             const text = Array.isArray(m.parts) ? extractText(m.parts) : '';
@@ -1782,6 +1813,8 @@ export async function POST(req: Request) {
           })
           .filter(Boolean)
           .join('\n');
+
+        const episodeBody = cleanEpisodeBody(rawBody);
 
         if (episodeBody) {
           const chunks = splitIntoChunks(episodeBody, chunkSize);
@@ -1798,7 +1831,7 @@ export async function POST(req: Request) {
                 await ingestWithRetry(
                   client,
                   {
-                    name: `chat-${id}-chunk-${index}-${Date.now()}`,
+                    name: `${chatTitle || id}-part${index + 1}`,
                     episodeBody: chunks[index],
                     referenceTime: new Date().toISOString(),
                     sourceDescription: 'Zetora conversation',
@@ -1839,6 +1872,14 @@ export async function POST(req: Request) {
   }
 
   return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
+}
+
+function cleanEpisodeBody(text: string): string {
+  return text
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/^---$/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 function splitIntoChunks(text: string, maxChars: number): string[] {
