@@ -528,6 +528,11 @@ export function PreferencesSection({
   );
   const [rerankEnabled, setRerankEnabled] = useSyncedPreferences<boolean>('zetora-rerank-enabled', false);
 
+  const [xmlToolParsingEnabled, setXmlToolParsingEnabled] = useSyncedPreferences<boolean>(
+    'zetora-xml-tool-parsing-enabled',
+    false,
+  );
+
   const [content, setContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -1660,6 +1665,21 @@ export function PreferencesSection({
                   isProUser={hasPaidAccess}
                   isMaxUser={isMaxUser}
                 />
+                <div className="flex items-center justify-between py-3.5 gap-6">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">XML Tool Call Parsing</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Enable XML tool call parsing for custom providers (Ollama, llama.cpp, vLLM). Required for
+                      models like Qwen, Hermes, and GLM that output tool calls in XML format instead of
+                      OpenAI-compatible JSON.
+                    </p>
+                  </div>
+                  <Switch
+                    id="xml-tool-parsing-enabled"
+                    checked={xmlToolParsingEnabled ?? false}
+                    onCheckedChange={setXmlToolParsingEnabled}
+                  />
+                </div>
                 <TertiaryModelRow
                   modelKey="zetora-tertiary-auto-router-model"
                   providerKey="zetora-tertiary-auto-router-provider"

@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@ai-sdk-tool/parser':
+        specifier: ^4.1.24
+        version: 4.1.24(zod@4.4.3)
       '@ai-sdk/anthropic':
         specifier: ^3.0.62
         version: 3.0.81(zod@4.4.3)
@@ -596,6 +599,10 @@ importers:
         version: 6.0.3
 
 packages:
+
+  '@ai-sdk-tool/parser@4.1.24':
+    resolution: {integrity: sha512-RQ8tjbeG8QTU/jswar2twzd5r8x7seLYxiHJ1ycJ4/BGhIqwxCY/De+35vAiFRvfB8fkDWZl2jzQo6w0eWgD5A==}
+    engines: {node: '>=18'}
 
   '@ai-sdk/anthropic@2.0.80':
     resolution: {integrity: sha512-7HPgFv91YFFYyZapM/Vy3tRbBq/hL44omh0vz/WikiU7fJFxdOjCeg6Nb089lxM7+qBe7blZsoSRJ7gfAkEo1w==}
@@ -5181,6 +5188,14 @@ packages:
     resolution: {integrity: sha512-jOSne2qbyE+/r8G1VU+G/82LBs2Fs4LAsTiLSHOCOMZQl2OKZ6i8i4IyHemTe+/yIXOtTcRQMzPcgyhoFlqPkw==}
     engines: {node: '>=8'}
 
+  dedent@1.7.2:
+    resolution: {integrity: sha512-WzMx3mW98SN+zn3hgemf4OzdmyNhhhKz5Ay0pUfQiMQ3e1g+xmTJWp/pKdwKVXhdSkAEGIIzqeuWrL3mV/AXbA==}
+    peerDependencies:
+      babel-plugin-macros: ^3.1.0
+    peerDependenciesMeta:
+      babel-plugin-macros:
+        optional: true
+
   deep-is@0.1.4:
     resolution: {integrity: sha512-oIPzksmTg4/MriiaYGO+okXDT7ztn/w3Eptv/+gSIdMdKsJo0u4CfYNFJPy+4SKMuCqGw2wxnA+URMg3t8a/bQ==}
 
@@ -8265,6 +8280,11 @@ packages:
     resolution: {integrity: sha512-YgvUTfwqyc7UXVMrB+SImsVYSmTS8X/tSrtdNZMImM+n7+QTriRXyXim0mBrTXNeqzVF0KWGgHPeiyViFFrNDw==}
     engines: {node: '>=18'}
 
+  yaml@2.9.0:
+    resolution: {integrity: sha512-2AvhNX3mb8zd6Zy7INTtSpl1F15HW6Wnqj0srWlkKLcpYl/gMIMJiyuGq2KeI2YFxUPjdlB+3Lc10seMLtL4cA==}
+    engines: {node: '>= 14.6'}
+    hasBin: true
+
   yocto-queue@0.1.0:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
@@ -8330,6 +8350,17 @@ packages:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
 
 snapshots:
+
+  '@ai-sdk-tool/parser@4.1.24(zod@4.4.3)':
+    dependencies:
+      '@ai-sdk/openai': 3.0.67(zod@4.4.3)
+      '@ai-sdk/provider': 3.0.10
+      '@ai-sdk/provider-utils': 4.0.27(zod@4.4.3)
+      dedent: 1.7.2
+      yaml: 2.9.0
+    transitivePeerDependencies:
+      - babel-plugin-macros
+      - zod
 
   '@ai-sdk/anthropic@2.0.80(zod@4.4.3)':
     dependencies:
@@ -12556,6 +12587,8 @@ snapshots:
       mimic-response: 2.1.0
     optional: true
 
+  dedent@1.7.2: {}
+
   deep-is@0.1.4: {}
 
   deepmerge@4.3.1: {}
@@ -16212,6 +16245,8 @@ snapshots:
     optional: true
 
   yallist@5.0.0: {}
+
+  yaml@2.9.0: {}
 
   yocto-queue@0.1.0: {}
 

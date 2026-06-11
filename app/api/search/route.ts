@@ -972,7 +972,9 @@ export async function POST(req: Request) {
         });
       }
 
-      const resolvedModel = shouldUseXaiMultiAgent ? xai.responses('grok-4.20-multi-agent') : await resolveModel(model);
+      const resolvedModel = shouldUseXaiMultiAgent
+        ? xai.responses('grok-4.20-multi-agent')
+        : await resolveModel(model, userPreferencesResult?.preferences ?? {});
       const result = streamText({
         model: resolvedModel,
         messages: processedMessages,

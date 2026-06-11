@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { wrapLanguageModel, customProvider, extractReasoningMiddleware, gateway } from 'ai';
+import { morphXmlToolMiddleware } from '@ai-sdk-tool/parser';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createWebSocketFetch } from 'ai-sdk-openai-websocket-fetch';
@@ -519,20 +520,37 @@ async function getOrCreateProvider(providerId: string) {
   return provider;
 }
 
-export async function resolveModel(modelId: string): Promise<LanguageModel> {
+export async function resolveModel(
+  modelId: string,
+  preferences?: Record<string, unknown> | null,
+): Promise<LanguageModel> {
+  let resolved: LanguageModel;
+
   if (!modelId.startsWith('custom-')) {
-    return zetora.languageModel(modelId);
+    resolved = zetora.languageModel(modelId);
+  } else {
+    const models = await getCustomModels();
+    const model = models.find((m) => m.id === modelId);
+    if (!model) {
+      console.warn(`Custom model ${modelId} not found, falling back to default`);
+      resolved = zetora.languageModel('zetora-default');
+    } else {
+      const provider = await getOrCreateProvider(model.providerId);
+      resolved = provider.chatModel(model.modelName);
+    }
   }
 
-  const models = await getCustomModels();
-  const model = models.find((m) => m.id === modelId);
-  if (!model) {
-    console.warn(`Custom model ${modelId} not found, falling back to default`);
-    return zetora.languageModel('zetora-default');
+  const xmlParsingEnabled = preferences?.['zetora-xml-tool-parsing-enabled'] === true;
+  const isCustomModel = modelId.startsWith('custom-');
+
+  if (xmlParsingEnabled && isCustomModel) {
+    return wrapLanguageModel({
+      model: resolved,
+      middleware: morphXmlToolMiddleware,
+    });
   }
 
-  const provider = await getOrCreateProvider(model.providerId);
-  return provider.chatModel(model.modelName);
+  return resolved;
 }
 
 export type { ModelProvider, ProviderInfo, Model } from './models';

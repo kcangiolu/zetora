@@ -1,4 +1,6 @@
 import 'server-only';
+import { wrapLanguageModel } from 'ai';
+import { morphXmlToolMiddleware } from '@ai-sdk-tool/parser';
 import { zetora, resolveModel } from '@/ai/providers';
 
 export type TertiaryTask =
@@ -49,16 +51,32 @@ export async function resolveTertiaryModel(
   const keys = PREF_KEYS[task];
   const customModel = preferences?.[keys.model];
 
+  let resolved: ReturnType<typeof zetora.languageModel> | undefined;
   if (customModel) {
     try {
       // resolveModel handles both native zetora-* IDs and custom-{providerId}-{name} IDs
-      return await resolveModel(customModel);
+      resolved = (await resolveModel(customModel)) as ReturnType<typeof zetora.languageModel>;
     } catch {
       console.warn(`[Tertiary] Failed to load model ${customModel}, using default`);
     }
   }
 
-  return zetora.languageModel(TASK_DEFAULTS[task]);
+  if (!resolved) {
+    resolved = zetora.languageModel(TASK_DEFAULTS[task]);
+  }
+
+  const xmlParsingEnabled =
+    (preferences as Record<string, unknown> | null)?.['zetora-xml-tool-parsing-enabled'] === true;
+  const isCustomModel = customModel?.startsWith('custom-');
+
+  if (xmlParsingEnabled && isCustomModel && resolved) {
+    return wrapLanguageModel({
+      model: resolved,
+      middleware: morphXmlToolMiddleware,
+    });
+  }
+
+  return resolved;
 }
 
 export function getTertiaryModelConfig(task: TertiaryTask, preferences: Record<string, string> | null) {

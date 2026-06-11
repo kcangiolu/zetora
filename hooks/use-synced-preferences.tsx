@@ -57,7 +57,8 @@ export type PreferenceKey =
   | 'zetora-embedding-enabled'
   | 'zetora-hybrid-search-enabled'
   | 'zetora-content-indexing-enabled'
-  | 'zetora-rerank-enabled';
+  | 'zetora-rerank-enabled'
+  | 'zetora-xml-tool-parsing-enabled';
 
 type AutoRouterConfig = {
   routes: Array<{
