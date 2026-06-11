@@ -39,6 +39,7 @@ interface MessagesProps {
   hasSubmitted?: boolean;
   isTransitioning?: boolean;
   onBeforeSubmit?: () => void;
+  skipCacheRef?: React.MutableRefObject<boolean>;
 }
 
 const Messages: React.FC<MessagesProps> = ({
@@ -63,6 +64,7 @@ const Messages: React.FC<MessagesProps> = ({
   hasSubmitted,
   isTransitioning,
   onBeforeSubmit,
+  skipCacheRef,
 }) => {
   // Track visibility state for each reasoning section using messageIndex-partIndex as key
   const [reasoningVisibilityMap, setReasoningVisibilityMap] = useState<Record<string, boolean>>({});
@@ -189,12 +191,13 @@ const Messages: React.FC<MessagesProps> = ({
       setMessages(newMessages);
       setSuggestedQuestions([]);
 
-      // Step 6: Regenerate
+      // Step 6: Regenerate, bypassing the cache for this one request
+      if (skipCacheRef) skipCacheRef.current = true;
       await regenerate();
     } catch (error) {
       console.error('Error in retry:', error);
     }
-  }, [messages, user, setMessages, setSuggestedQuestions, regenerate, stop]);
+  }, [messages, user, setMessages, setSuggestedQuestions, regenerate, stop, skipCacheRef]);
 
   // Handle rendering of message parts - using the new MessagePartRenderer component
   const renderPart = useCallback(

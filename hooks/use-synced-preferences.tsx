@@ -23,8 +23,6 @@ export type PreferenceKey =
   | 'zetora-embedding-model'
   | 'zetora-qdrant-url'
   | 'zetora-qdrant-enabled'
-  | 'zetora-search-cache-enabled'
-  | 'zetora-search-cache-ttl-days'
   | 'zetora-tertiary-chat-title-model'
   | 'zetora-tertiary-chat-title-provider'
   | 'zetora-tertiary-followup-model'
@@ -164,8 +162,6 @@ function collectLocalStoragePreferences(): Partial<Record<PreferenceKey, Prefere
     'zetora-embedding-model',
     'zetora-qdrant-url',
     'zetora-qdrant-enabled',
-    'zetora-search-cache-enabled',
-    'zetora-search-cache-ttl-days',
     'zetora-tertiary-chat-title-model',
     'zetora-tertiary-chat-title-provider',
     'zetora-tertiary-followup-model',

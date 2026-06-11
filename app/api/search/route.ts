@@ -69,7 +69,6 @@ import { loadConfiguredTools } from '@/lib/search/tool-loader';
 import { graphitiClient, createGraphitiClient } from '@/lib/graphiti/client';
 import { CohereChatModelOptions } from '@ai-sdk/cohere';
 import { xai } from '@ai-sdk/xai';
-import { lookupCache, storeInCache } from '@/lib/vector/search-cache';
 
 interface CriticalChecksResult {
   canProceed: boolean;
@@ -661,9 +660,6 @@ export async function POST(req: Request) {
   const shouldPrune = userMessageCount > 10;
 
   const cachePreferences = (userPreferencesResult?.preferences ?? {}) as Record<string, string>;
-  const cachedResultPromise = userQueryText && userMessageCount === 1
-    ? lookupCache(userQueryText, cachePreferences)
-    : Promise.resolve(null as Awaited<ReturnType<typeof lookupCache>>);
 
   const prunedMessages = shouldPrune
     ? await (async () => {
@@ -683,8 +679,6 @@ export async function POST(req: Request) {
     : await convertToModelMessages(hydratedMessages, {
         ignoreIncompleteToolCalls: true,
       });
-
-  const cachedResult = await cachedResultPromise;
 
   // Extract document files from ALL messages for file_query_search tool
   // PDF support requires Pro subscription (enforced in form-component.tsx)
@@ -976,31 +970,6 @@ export async function POST(req: Request) {
           // Update the placeholder title in the DB
           updateChatTitleById({ chatId: id, title: chatTitle }).catch(console.error);
         });
-      }
-
-      if (cachedResult) {
-        const textId = crypto.randomUUID();
-        dataStream.write({ type: 'start' });
-        dataStream.write({ type: 'start-step' });
-        dataStream.write({ type: 'text-start', id: textId });
-        dataStream.write({ type: 'text-delta', id: textId, delta: cachedResult.response });
-        dataStream.write({ type: 'text-end', id: textId });
-        dataStream.write({ type: 'finish-step' });
-        dataStream.write({
-          type: 'finish',
-          finishReason: 'stop',
-          messageMetadata: {
-            model,
-            createdAt: new Date().toISOString(),
-            multiAgentMode: false,
-            completionTime: 0,
-            totalTokens: null,
-            inputTokens: null,
-            outputTokens: null,
-          },
-        });
-        console.log('🎯 Cache hit:', userQueryText.substring(0, 60));
-        return;
       }
 
       const resolvedModel = shouldUseXaiMultiAgent ? xai.responses('grok-4.20-multi-agent') : await resolveModel(model);
@@ -1646,10 +1615,6 @@ export async function POST(req: Request) {
             }
           } finally {
             await closeMcpToolsSafe();
-          }
-          if (event.finishReason === 'stop' && event.text && userQueryText && userMessageCount === 1) {
-            const sourceUrls = (event.sources ?? []).map((s: any) => (s as any).url ?? '').filter(Boolean);
-            storeInCache(userQueryText, event.text, sourceUrls, cachePreferences).catch(console.warn);
           }
         },
         onError(event) {

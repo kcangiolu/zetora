@@ -565,6 +565,7 @@ const ChatInterface = memo(
     const selectedConnectorsRef = useRef(selectedConnectors);
     const isMultiAgentModeEnabledRef = useRef(isMultiAgentModeEnabled);
     const isTemporaryChatRef = useRef(isTemporaryChat);
+    const skipCacheRef = useRef(false);
 
     // Update refs whenever state changes - this ensures we always have current values
     selectedModelRef.current = effectiveSelectedModel;
@@ -596,6 +597,15 @@ const ChatInterface = memo(
       // resume: true,
       transport: new DefaultChatTransport({
         api: '/api/search',
+        fetch: async (url, options) => {
+          if (options?.body && skipCacheRef.current) {
+            const body = JSON.parse(options.body as string);
+            body.skipCache = true;
+            options.body = JSON.stringify(body);
+            skipCacheRef.current = false;
+          }
+          return fetch(url, options);
+        },
         prepareSendMessagesRequest({ messages, body }) {
           const latestUserMessage = [...messages].reverse().find((message) => message.role === 'user');
           const shouldTrimRequestHistory = Boolean(user && !isTemporaryChatRef.current && latestUserMessage);
@@ -1564,6 +1574,7 @@ const ChatInterface = memo(
                 {/* Use the Messages component */}
                 {messages.length > 0 && (
                   <Messages
+                    skipCacheRef={skipCacheRef}
                     messages={messages as ChatMessage[]}
                     lastUserMessageIndex={lastUserMessageIndex}
                     input={input}

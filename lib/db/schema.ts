@@ -374,8 +374,6 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-embedding-model'?: string;
       'zetora-qdrant-url'?: string;
       'zetora-qdrant-enabled'?: boolean;
-      'zetora-search-cache-enabled'?: boolean;
-      'zetora-search-cache-ttl-days'?: number;
       'zetora-hybrid-search-enabled'?: boolean;
       'zetora-content-indexing-enabled'?: boolean;
       'zetora-rerank-enabled'?: boolean;
