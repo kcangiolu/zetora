@@ -408,6 +408,9 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-graphiti-embedding-model'?: string;
       'zetora-embedding-enabled'?: boolean;
       'zetora-xml-tool-parsing-enabled'?: boolean;
+      'zetora-graphiti-chunk-size'?: number;
+      'zetora-graphiti-max-retries'?: number;
+      'zetora-graphiti-chunk-delay-ms'?: number;
     }>()
     .notNull()
     .default({}),

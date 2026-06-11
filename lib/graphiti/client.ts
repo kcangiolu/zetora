@@ -48,8 +48,16 @@ class GraphitiClient {
     });
 
     if (!res.ok) {
-      const error = await res.text();
-      throw new Error(`Graphiti add_episode failed: ${error}`);
+      const errorText = await res.text();
+      let errorMessage = errorText;
+      try {
+        const parsed = JSON.parse(errorText);
+        errorMessage = parsed.detail || parsed.message || parsed.error || errorText;
+      } catch {
+        // Le body n'est pas du JSON valide, utiliser le texte brut
+        errorMessage = errorText || `HTTP ${res.status} (empty body)`;
+      }
+      throw new Error(`Graphiti add_episode failed: ${errorMessage}`);
     }
 
     return res.json();
@@ -71,8 +79,16 @@ class GraphitiClient {
     });
 
     if (!res.ok) {
-      const error = await res.text();
-      throw new Error(`Graphiti search failed: ${error}`);
+      const errorText = await res.text();
+      let errorMessage = errorText;
+      try {
+        const parsed = JSON.parse(errorText);
+        errorMessage = parsed.detail || parsed.message || parsed.error || errorText;
+      } catch {
+        // Le body n'est pas du JSON valide, utiliser le texte brut
+        errorMessage = errorText || `HTTP ${res.status} (empty body)`;
+      }
+      throw new Error(`Graphiti search failed: ${errorMessage}`);
     }
 
     return res.json();

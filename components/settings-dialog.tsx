@@ -494,6 +494,12 @@ export function PreferencesSection({
     '',
   );
   const [, setGraphitiEmbeddingModel] = useSyncedPreferences<string>('zetora-graphiti-embedding-model', '');
+  const [graphitiChunkSize, setGraphitiChunkSize] = useSyncedPreferences<number>('zetora-graphiti-chunk-size', 8000);
+  const [graphitiMaxRetries, setGraphitiMaxRetries] = useSyncedPreferences<number>('zetora-graphiti-max-retries', 2);
+  const [graphitiChunkDelayMs, setGraphitiChunkDelayMs] = useSyncedPreferences<number>(
+    'zetora-graphiti-chunk-delay-ms',
+    2000,
+  );
 
   const [locationMetadataEnabled, setLocationMetadataEnabled] = useSyncedPreferences<boolean>(
     'zetora-location-metadata-enabled',
@@ -1355,6 +1361,78 @@ export function PreferencesSection({
                     </Button>
                   )}
                 </div>
+              </div>
+
+              {/* Episode Chunk Size */}
+              <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Episode chunk size (characters)</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Maximum characters per chunk sent to Graphiti. Lower values prevent &quot;LLM returned an empty
+                    response&quot; errors on models with small context windows. Recommended: 8000 for 16k context
+                    models.
+                  </p>
+                </div>
+                <Input
+                  type="number"
+                  min={1000}
+                  max={32000}
+                  step={1000}
+                  value={graphitiChunkSize ?? 8000}
+                  onChange={(e) => {
+                    const value = Number(e.target.value);
+                    if (Number.isNaN(value)) return;
+                    setGraphitiChunkSize(Math.min(32000, Math.max(1000, value)));
+                  }}
+                  className="h-8 w-24 text-xs rounded-lg shrink-0"
+                />
+              </div>
+
+              {/* Max Ingestion Retries */}
+              <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Max ingestion retries</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Number of retry attempts when Graphiti ingestion fails. Set to 0 to disable retries.
+                  </p>
+                </div>
+                <Input
+                  type="number"
+                  min={0}
+                  max={5}
+                  step={1}
+                  value={graphitiMaxRetries ?? 2}
+                  onChange={(e) => {
+                    const value = Number(e.target.value);
+                    if (Number.isNaN(value)) return;
+                    setGraphitiMaxRetries(Math.min(5, Math.max(0, value)));
+                  }}
+                  className="h-8 w-24 text-xs rounded-lg shrink-0"
+                />
+              </div>
+
+              {/* Chunk Delay */}
+              <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Delay between chunks (ms)</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Pause between each chunk sent to Graphiti. Increase to 4000-5000 if you still see &quot;Expecting
+                    value&quot; errors.
+                  </p>
+                </div>
+                <Input
+                  type="number"
+                  min={500}
+                  max={10000}
+                  step={500}
+                  value={graphitiChunkDelayMs ?? 2000}
+                  onChange={(e) => {
+                    const value = Number(e.target.value);
+                    if (Number.isNaN(value)) return;
+                    setGraphitiChunkDelayMs(Math.min(10000, Math.max(500, value)));
+                  }}
+                  className="h-8 w-24 text-xs rounded-lg shrink-0"
+                />
               </div>
             </div>
 

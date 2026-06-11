@@ -1227,6 +1227,9 @@ export async function upsertUserPreferences({
     'zetora-graphiti-embedding-model'?: string;
     'zetora-embedding-enabled'?: boolean;
     'zetora-xml-tool-parsing-enabled'?: boolean;
+    'zetora-graphiti-chunk-size'?: number;
+    'zetora-graphiti-max-retries'?: number;
+    'zetora-graphiti-chunk-delay-ms'?: number;
   }>;
 }) {
   try {
