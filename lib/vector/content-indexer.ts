@@ -8,6 +8,8 @@ const FETCH_TIMEOUT_MS = 8000;
 const CHUNK_SIZE = 2000;
 const CHUNK_OVERLAP = 200;
 const UPSERT_BATCH_SIZE = 64;
+const MAX_RESULTS_TO_INDEX = 15;
+const MAX_CHUNKS_PER_RESULT = 3;
 
 const HTML_ENTITIES: Record<string, string> = {
   '&nbsp;': ' ',
@@ -79,13 +81,14 @@ export async function indexSearchResults(
     if (preferences['zetora-content-indexing-enabled'] !== true) return;
 
     const points: { id: string; vector: number[]; payload: Record<string, unknown> }[] = [];
+    const resultsToIndex = results.slice(0, MAX_RESULTS_TO_INDEX);
 
-    for (const result of results) {
+    for (const result of resultsToIndex) {
       const pageText = await fetchPageContent(result.url);
       const text = pageText || result.content;
       if (!text) continue;
 
-      const chunks = chunkText(text);
+      const chunks = chunkText(text).slice(0, MAX_CHUNKS_PER_RESULT);
 
       for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
         const chunk = chunks[chunkIndex];
@@ -120,7 +123,7 @@ export async function indexSearchResults(
       await client.upsert(INDEX_COLLECTION, points.slice(i, i + UPSERT_BATCH_SIZE));
     }
 
-    console.log(`[CONTENT-INDEX] Background content indexing: ${points.length} chunks indexed (from ${results.length} result(s))`);
+    console.log(`[CONTENT-INDEX] Background content indexing: ${points.length} chunks indexed (from ${resultsToIndex.length} result(s))`);
   } catch (error) {
     console.warn('[CONTENT-INDEX] Indexing failed:', error);
   }
