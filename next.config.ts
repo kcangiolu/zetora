@@ -142,28 +142,8 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
-        source: '/ph',
-        destination: 'https://www.producthunt.com/posts/zetora',
-        permanent: true,
-      },
-      {
-        source: '/raycast',
-        destination: 'https://www.raycast.com/zaidmukaddam/zetora',
-        permanent: true,
-      },
-      {
-        source: '/plst',
-        destination: 'https://peerlist.io/zaidmukaddam/project/zetora-ai-30',
-        permanent: true,
-      },
-      {
         source: '/blog',
         destination: 'https://blog.zetora.ai',
-        permanent: true,
-      },
-      {
-        source: '/askzetorabot',
-        destination: 'https://t.me/askzetorabot',
         permanent: true,
       },
     ];

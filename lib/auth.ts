@@ -550,12 +550,12 @@ export const auth = betterAuth({
     'http://localhost:3000',
     'https://zetora.ai',
     'https://www.zetora.ai',
-    'https://zetora-zaidmukaddam-zetoraai.vercel.app',
+    'https://zetora.example.com',
   ],
   allowedOrigins: [
     'http://localhost:3000',
     'https://zetora.ai',
     'https://www.zetora.ai',
-    'https://zetora-zaidmukaddam-zetoraai.vercel.app',
+    'https://zetora.example.com',
   ],
 });
