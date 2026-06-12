@@ -2,6 +2,8 @@ services:
   redis:
     image: redis:7-alpine
     container_name: zetora-bullmq-redis
+    ports:
+      - '6381:6379'
     command: >
       redis-server
       --maxmemory-policy noeviction

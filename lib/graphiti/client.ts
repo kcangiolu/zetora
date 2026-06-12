@@ -22,7 +22,7 @@ class GraphitiClient {
   private baseUrl: string;
 
   constructor(baseUrl?: string) {
-    this.baseUrl = baseUrl || serverEnv.GRAPHITI_API_URL || 'http://localhost:8000';
+    this.baseUrl = baseUrl || serverEnv.GRAPHITI_API_URL || 'http://localhost:8001';
   }
 
   async health(): Promise<boolean> {

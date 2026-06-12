@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { serverEnv } from '@/env/server';
 
-const DEFAULT_GRAPHITI_URL = serverEnv.GRAPHITI_API_URL || 'http://localhost:8000';
+const DEFAULT_GRAPHITI_URL = serverEnv.GRAPHITI_API_URL || 'http://localhost:8001';
 
 function resolveBaseUrl(req: NextRequest): string {
   return req.headers.get('X-Graphiti-Url') || DEFAULT_GRAPHITI_URL;

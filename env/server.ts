@@ -78,7 +78,7 @@ export const serverEnv = createEnv({
     HUBSPOT_MCP_CLIENT_SECRET: z.string().optional().default("placeholder"),
     UPSTASH_BOX_API_KEY: z.string().optional().default("placeholder"),
     CUSTOM_AI_PROVIDERS: z.string().optional(),
-    GRAPHITI_API_URL: z.string().url().optional().default('http://localhost:8000'),
+    GRAPHITI_API_URL: z.string().url().optional().default('http://localhost:8001'),
     GRAPHITI_LLM_MODEL: z.string().optional().default('gpt-4o-mini'),
     GRAPHITI_LLM_API_KEY: z.string().optional(),
     GRAPHITI_LLM_BASE_URL: z.string().url().optional(),
