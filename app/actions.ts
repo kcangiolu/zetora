@@ -47,6 +47,7 @@ import { db, maindb } from '@/lib/db';
 import { chat, message, buildSession, dodosubscription, type User } from '@/lib/db/schema';
 import { eq, desc, ilike, and, asc, inArray, notExists } from 'drizzle-orm';
 import { getDiscountConfig } from '@/lib/discount';
+import { sendLookoutCompletionEmail } from '@/lib/email';
 import { get } from '@vercel/edge-config';
 import { GroqProviderOptions, groq } from '@ai-sdk/groq';
 import { Client } from '@upstash/qstash';
@@ -1614,6 +1615,45 @@ export async function saveUserPreferences(
   } catch (error) {
     console.error('Error saving user preferences:', error);
     return { success: false, error: 'Failed to save user preferences' };
+  }
+}
+
+export async function testEmailDelivery() {
+  'use server';
+
+  try {
+    const user = await getUser();
+    if (!user) {
+      return { success: false, error: 'User not found' };
+    }
+    if (!user.email) {
+      return { success: false, error: 'No email address associated with your account' };
+    }
+
+    const prefs = await getCachedUserPreferencesByUserId(user.id).catch(() => null);
+    const emailProvider = (prefs?.preferences as Record<string, string>)?.[
+      'zetora-email-provider'
+    ] as 'resend' | 'smtp' | undefined;
+
+    const result = await sendLookoutCompletionEmail({
+      to: user.email,
+      chatTitle: 'Test Email',
+      assistantResponse:
+        'This is a test email from Zetora. Your email provider is configured correctly.',
+      chatId: 'test',
+      emailProvider,
+    });
+
+    if (result.success) {
+      return { success: true, provider: emailProvider || 'auto-detected' };
+    }
+    return { success: false, error: result.error || 'Unknown error' };
+  } catch (error) {
+    console.error('Error testing email delivery:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to send test email',
+    };
   }
 }
 

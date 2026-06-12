@@ -3,6 +3,7 @@ import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import { serverEnv } from '@/env/server';
 import SearchCompletedEmail from '@/components/emails/lookout-completed';
+import TestEmailTemplate from '@/components/emails/test-email';
 import { render } from '@react-email/render';
 
 type EmailProvider = 'resend' | 'smtp';
@@ -141,6 +142,27 @@ export async function sendLookoutCompletionEmail({
       `❌ Failed to send lookout completion email via ${provider}:`,
       error,
     );
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+export async function sendTestEmail(params: { to: string; emailProvider?: 'resend' | 'smtp' }) {
+  const provider = resolveEmailProvider(params.emailProvider);
+  const sendFn = provider === 'smtp' ? sendViaSmtp : sendViaResend;
+
+  try {
+    const data = await sendFn({
+      to: params.to,
+      subject: 'Zetora — Email Configuration Test',
+      react: TestEmailTemplate(),
+    });
+    console.log(`✅ Test email sent successfully via ${provider}`);
+    return { success: true, id: 'id' in data ? data.id : (data as any).messageId };
+  } catch (error) {
+    console.error(`❌ Test email failed via ${provider}:`, error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',

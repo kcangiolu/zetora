@@ -39,6 +39,7 @@ import {
   deleteConnectorAction,
   manualSyncConnectorAction,
   getConnectorSyncStatusAction,
+  testEmailDelivery,
 } from '@/app/actions';
 import { AGENT_MODE_MONTHLY_LIMIT, SEARCH_LIMITS } from '@/lib/constants';
 import { authClient, betterauthClient } from '@/lib/auth-client';
@@ -72,7 +73,7 @@ import { allSettled as betterAllSettled } from 'better-all';
 import { sileo } from 'sileo';
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { getAllMemories, deleteMemory, MemoryItem } from '@/lib/memory-actions';
-import { Loader2, Search, Zap, Pencil, Plus, MoreHorizontal, Link2Off, HardDrive, Timer } from 'lucide-react';
+import { Loader2, Search, Zap, Pencil, Plus, MoreHorizontal, Link2Off, HardDrive, Timer, CheckCircle2, XCircle, Mail } from 'lucide-react';
 import { getSearchGroups, type SearchGroupId } from '@/lib/utils';
 import { models, PROVIDERS, getModelProvider, type ModelProvider, type Model } from '@/ai/models';
 import { cn } from '@/lib/utils';
@@ -446,6 +447,52 @@ function TertiaryModelRow({
           </Button>
         )}
       </div>
+    </div>
+  );
+}
+
+function EmailTestButton() {
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [message, setMessage] = useState('');
+
+  const handleTest = async () => {
+    setStatus('loading');
+    setMessage('');
+    try {
+      const result = await testEmailDelivery();
+      if (result.success) {
+        setStatus('success');
+        setMessage(`Test email sent successfully via ${result.provider}. Check your inbox.`);
+      } else {
+        setStatus('error');
+        setMessage(result.error || 'Failed to send test email');
+      }
+    } catch {
+      setStatus('error');
+      setMessage('An unexpected error occurred');
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <Button variant="outline" size="sm" onClick={handleTest} disabled={status === 'loading'} className="gap-2">
+        {status === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+        {status === 'loading' ? 'Sending...' : 'Send Test Email'}
+      </Button>
+
+      {status === 'success' && (
+        <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+          <CheckCircle2 className="h-4 w-4" />
+          <span>{message}</span>
+        </div>
+      )}
+
+      {status === 'error' && (
+        <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+          <XCircle className="h-4 w-4" />
+          <span>{message}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -1182,6 +1229,10 @@ export function PreferencesSection({
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="py-3.5">
+                <EmailTestButton />
               </div>
 
               {/* Memory Provider */}
