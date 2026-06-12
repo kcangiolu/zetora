@@ -2828,6 +2828,7 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
     // Visible modes: only show selected modes (empty = show all)
     const [visibleModes] = useSyncedPreferences<string[]>('zetora-visible-modes', []);
     const [modeOrderInner] = useSyncedPreferences<string[]>('zetora-group-order', []);
+    const isExtremeVisible = !visibleModes || visibleModes.length === 0 || visibleModes.includes('extreme');
 
     const orderedVisibleGroups = useMemo(() => {
       let groups =
@@ -3359,34 +3360,36 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
           )}
 
           {/* Extreme Mode Side */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleToggleExtreme}
-                disabled={!isProUser && extremeSearchCountExceeded && !isExtreme}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 h-6 rounded-md transition-all',
-                  isExtreme
-                    ? 'bg-accent text-foreground hover:bg-accent/80'
-                    : !isAuthenticated
-                      ? 'text-muted-foreground/50 cursor-pointer'
-                      : !isProUser && extremeSearchCountExceeded
-                        ? 'text-muted-foreground/30 cursor-not-allowed'
-                        : 'text-muted-foreground hover:bg-accent',
-                )}
+          {isExtremeVisible && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleToggleExtreme}
+                  disabled={!isProUser && extremeSearchCountExceeded && !isExtreme}
+                  className={cn(
+                    'flex items-center gap-1.5 px-3 h-6 rounded-md transition-all',
+                    isExtreme
+                      ? 'bg-accent text-foreground hover:bg-accent/80'
+                      : !isAuthenticated
+                        ? 'text-muted-foreground/50 cursor-pointer'
+                        : !isProUser && extremeSearchCountExceeded
+                          ? 'text-muted-foreground/30 cursor-not-allowed'
+                          : 'text-muted-foreground hover:bg-accent',
+                  )}
+                >
+                  <HugeiconsIcon icon={AtomicPowerIcon} size={30} color="currentColor" strokeWidth={1.5} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent
+                side="bottom"
+                className="max-w-[200px] rounded-lg border border-border bg-popover p-2 text-left [&_svg.bg-primary]:bg-popover! [&_svg.fill-primary]:fill-popover!"
               >
-                <HugeiconsIcon icon={AtomicPowerIcon} size={30} color="currentColor" strokeWidth={1.5} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent
-              side="bottom"
-              className="max-w-[200px] rounded-lg border border-border bg-popover p-2 text-left [&_svg.bg-primary]:bg-popover! [&_svg.fill-primary]:fill-popover!"
-            >
-              {extremeTooltipContent}
-            </TooltipContent>
-          </Tooltip>
+                {extremeTooltipContent}
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </div>
     );
@@ -3525,6 +3528,10 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const dynamicSearchGroups = useMemo(() => getSearchGroups(searchProvider), [searchProvider]);
   const [visibleModesOuter] = useSyncedPreferences<string[]>('zetora-visible-modes', []);
   const [modeOrderOuter] = useSyncedPreferences<string[]>('zetora-group-order', []);
+  const isMultiAgentVisible =
+    !visibleModesOuter || visibleModesOuter.length === 0 || visibleModesOuter.includes('multi-agent');
+  const isExtremeVisible =
+    !visibleModesOuter || visibleModesOuter.length === 0 || visibleModesOuter.includes('extreme');
   const isExtreme = selectedGroup === 'extreme';
   const extremeSearchCountExceeded = Boolean(
     !isProUser && usageData && usageData.extremeSearchCount >= SEARCH_LIMITS.EXTREME_SEARCH_LIMIT,
@@ -3579,13 +3586,17 @@ const FormComponent: React.FC<FormComponentProps> = ({
     const modeIds = new Set(['extreme', 'multi-agent']);
     if (canvasEnabled) modeIds.add('canvas');
     if (mcpEnabled) modeIds.add('mcp');
-    const filtered = dynamicSearchGroups.filter((group) => {
+    let filtered = dynamicSearchGroups.filter((group) => {
       if (!group.show) return false;
       return modeIds.has(group.id);
     });
+    if (visibleModesOuter && visibleModesOuter.length > 0) {
+      const modeSet = new Set(visibleModesOuter);
+      filtered = filtered.filter((g) => modeSet.has(g.id));
+    }
     const order = ['extreme', 'mcp', 'multi-agent', 'canvas'];
     return filtered.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
-  }, [dynamicSearchGroups, canvasEnabled, mcpEnabled]);
+  }, [dynamicSearchGroups, canvasEnabled, mcpEnabled, visibleModesOuter]);
 
   useEffect(() => {
     if (!setIsMultiAgentModeEnabled) return;
@@ -3597,6 +3608,14 @@ const FormComponent: React.FC<FormComponentProps> = ({
     }
     setIsMultiAgentModeEnabled(false);
   }, [selectedGroup, isEnhancing, isTypewriting, setIsMultiAgentModeEnabled]);
+
+  // Reset to Chat if the active mode has been disabled via preferences
+  useEffect(() => {
+    if (!visibleModesOuter || visibleModesOuter.length === 0) return;
+    if (selectedGroup === 'chat') return;
+    if (visibleModesOuter.includes(selectedGroup)) return;
+    setSelectedGroup('chat');
+  }, [visibleModesOuter, selectedGroup, setSelectedGroup]);
 
   // Active group list based on which trigger is open
   const triggerBaseGroups = triggerPopup === '/' ? modeGroups : sourceGroups;
@@ -3619,12 +3638,13 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const showMultiAgentInTrigger = useMemo(() => {
     if (triggerPopup !== '/') return false;
     if (!user || !setIsMultiAgentModeEnabled) return false;
+    if (!isMultiAgentVisible) return false;
     const isAlreadyInModeGroups = filteredTriggerGroups.some((group) => group.id === 'multi-agent');
     if (isAlreadyInModeGroups) return false;
     if (!triggerFilter) return true;
     const lower = triggerFilter.toLowerCase();
     return 'multi-agent'.includes(lower) || 'multi agent'.includes(lower) || 'research'.includes(lower);
-  }, [triggerPopup, user, setIsMultiAgentModeEnabled, triggerFilter, filteredTriggerGroups]);
+  }, [triggerPopup, user, setIsMultiAgentModeEnabled, triggerFilter, filteredTriggerGroups, isMultiAgentVisible]);
 
   const triggerTotalItems =
     filteredTriggerGroups.length + (showMultiAgentInTrigger ? 1 : 0) + (showTempInTrigger ? 1 : 0);
@@ -5763,7 +5783,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                             <span className="flex-1 text-[13px]">Upload files or images</span>
                           </button>
 
-                          {user && setIsMultiAgentModeEnabled && (
+                          {user && setIsMultiAgentModeEnabled && isMultiAgentVisible && (
                             <button
                               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors"
                               onClick={() => {
@@ -5815,21 +5835,23 @@ const FormComponent: React.FC<FormComponentProps> = ({
                               )}
                             </button>
                           )}
-                          <button
-                            className={cn(
-                              'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors',
-                              isExtreme && 'bg-accent',
-                            )}
-                            onClick={handlePlusMenuExtreme}
-                          >
-                            <HugeiconsIcon icon={AtomicPowerIcon} size={16} color="currentColor" strokeWidth={1.5} />
-                            <span className="flex-1 text-[13px]">Extreme agent</span>
-                            {isExtreme && (
-                              <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                Active
-                              </span>
-                            )}
-                          </button>
+                          {isExtremeVisible && (
+                            <button
+                              className={cn(
+                                'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors',
+                                isExtreme && 'bg-accent',
+                              )}
+                              onClick={handlePlusMenuExtreme}
+                            >
+                              <HugeiconsIcon icon={AtomicPowerIcon} size={16} color="currentColor" strokeWidth={1.5} />
+                              <span className="flex-1 text-[13px]">Extreme agent</span>
+                              {isExtreme && (
+                                <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                  Active
+                                </span>
+                              )}
+                            </button>
+                          )}
                           {/* {(input.length > 0 || isEnhancing || isTypewriting) && (
                             <button className={cn('w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors', isEnhancementActive && 'bg-accent')} onClick={() => { if (!isEnhancing && !isTypewriting) handleEnhance(); setPlusMenuOpen(false); }} disabled={isEnhancing || isTypewriting || uploadQueue.length > 0 || status !== 'ready' || isLimitBlocked}>
                               {isEnhancementActive ? <GripIcon ref={gripIconRef} size={16} className="text-primary" /> : <Wand2 className="size-4 text-muted-foreground" />}
@@ -5960,7 +5982,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                           </TooltipContent>
                         </Tooltip>
 
-                        {user && setIsMultiAgentModeEnabled && (
+                        {user && setIsMultiAgentModeEnabled && isMultiAgentVisible && (
                           <Tooltip delayDuration={200}>
                             <TooltipTrigger asChild>
                               <button
@@ -6031,30 +6053,37 @@ const FormComponent: React.FC<FormComponentProps> = ({
                             </TooltipContent>
                           </Tooltip>
                         )}
-                        <Tooltip delayDuration={200}>
-                          <TooltipTrigger asChild>
-                            <button
-                              className={cn(
-                                'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors',
-                                isExtreme && 'bg-accent',
-                              )}
-                              onClick={handlePlusMenuExtreme}
-                            >
-                              <HugeiconsIcon icon={AtomicPowerIcon} size={16} color="currentColor" strokeWidth={1.5} />
-                              <span className="flex-1 text-[13px]">Extreme agent</span>
-                              {isExtreme && (
-                                <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                  Active
-                                </span>
-                              )}
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
-                            <span className="text-[10px] leading-snug">
-                              Searches multiple sources for in-depth analysis
-                            </span>
-                          </TooltipContent>
-                        </Tooltip>
+                        {isExtremeVisible && (
+                          <Tooltip delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <button
+                                className={cn(
+                                  'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors',
+                                  isExtreme && 'bg-accent',
+                                )}
+                                onClick={handlePlusMenuExtreme}
+                              >
+                                <HugeiconsIcon
+                                  icon={AtomicPowerIcon}
+                                  size={16}
+                                  color="currentColor"
+                                  strokeWidth={1.5}
+                                />
+                                <span className="flex-1 text-[13px]">Extreme agent</span>
+                                {isExtreme && (
+                                  <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                    Active
+                                  </span>
+                                )}
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
+                              <span className="text-[10px] leading-snug">
+                                Searches multiple sources for in-depth analysis
+                              </span>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
                         {/* {(input.length > 0 || isEnhancing || isTypewriting) && (
                           <button className={cn('w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors', isEnhancementActive && 'bg-accent')} onClick={() => { if (!isEnhancing && !isTypewriting) handleEnhance(); setPlusMenuOpen(false); }} disabled={isEnhancing || isTypewriting || uploadQueue.length > 0 || status !== 'ready' || isLimitBlocked}>
                             {isEnhancementActive ? <GripIcon ref={gripIconRef} size={16} className="text-primary" /> : <Wand2 className="size-4 text-muted-foreground" />}

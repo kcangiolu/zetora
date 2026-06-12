@@ -640,7 +640,7 @@ export function PreferencesSection({
   // Sort groups by user-defined order (empty = default order), hide canvas unless flag is on
   const sortedGroups = useMemo(() => {
     const canvasEnabled = process.env.NEXT_PUBLIC_CANVAS_ENABLED === 'true';
-    const filtered = dynamicGroups.filter((g) => g.show && (g.id !== 'canvas' || canvasEnabled));
+    const filtered = dynamicGroups.filter((g) => g.show && g.id !== 'chat' && (g.id !== 'canvas' || canvasEnabled));
     if (!modeOrder || modeOrder.length === 0) return filtered;
     const orderMap = new Map(modeOrder.map((id, i) => [id, i]));
     return [...filtered].sort((a, b) => {
@@ -1875,7 +1875,7 @@ export function PreferencesSection({
                 <div>
                   <p className="text-xs text-muted-foreground font-medium">Search Modes</p>
                   <p className="text-[11px] text-muted-foreground/50">
-                    Drag to reorder, toggle visibility. All shown when none selected.
+                    Drag to reorder, toggle visibility. Chat is always available. All shown when none selected.
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
