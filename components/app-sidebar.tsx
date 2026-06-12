@@ -6,7 +6,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   PlusIcon,
   GearIcon,
-  CodeIcon,
   SignIn,
   XLogoIcon,
   GithubLogoIcon,
@@ -1001,22 +1000,6 @@ export const AppSidebar = memo(({ user, onHistoryClick, isProUser }: AppSidebarP
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
-
-          {/* API */}
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="API" className="hover:bg-primary/10 transition-all duration-200">
-              <a
-                href="https://api.zetora.ai/"
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={closeMobileSidebar}
-                className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-full"
-              >
-                <CodeIcon size={18} weight="regular" />
-                <span className="group-data-[collapsible=icon]:hidden">API</span>
-              </a>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
 
           {/* Guest Info Links when signed out */}
           {!user &&
