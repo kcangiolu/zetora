@@ -542,6 +542,58 @@ class ExaSearchStrategy implements SearchProviderStrategy {
   }
 }
 
+// SearXNG search strategy (single-query variant for extreme search)
+class SearXNGSearchStrategy implements SearchProviderStrategy {
+  constructor(private baseUrl: string) {}
+
+  async search(
+    query: string,
+    category?: SearchCategory,
+    include_domains?: string[],
+    startDate?: string,
+  ): Promise<SearchResult[]> {
+    console.log(`[SearXNG] search called with query: "${query}", category: ${category}, startDate: ${startDate}`);
+    try {
+      const siteFilter = include_domains?.length
+        ? ' ' + include_domains.map((domain) => `site:${domain}`).join(' OR ')
+        : '';
+
+      const params = new URLSearchParams({
+        q: `${query}${siteFilter}`,
+        format: 'json',
+        pageno: '1',
+        language: 'en',
+        time_range: category === SearchCategory.NEWS ? 'week' : '',
+        safesearch: '1',
+      });
+
+      const response = await fetch(`${this.baseUrl}/search?${params.toString()}`);
+
+      if (!response.ok) {
+        throw new Error(`SearXNG returned ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      const mappedResults = (data.results || []).slice(0, 8).map(
+        (r: { url: string; title?: string; content?: string; publishedDate?: string }) => ({
+          title: r.title || '',
+          url: r.url,
+          content: '',
+          publishedDate: r.publishedDate || '',
+          favicon: `https://www.google.com/s2/favicons?domain=${new URL(r.url).hostname}&sz=128`,
+        }),
+      ) as SearchResult[];
+
+      console.log(`[SearXNG] search returning ${mappedResults.length} results`);
+      return mappedResults;
+    } catch (error) {
+      console.error('[SearXNG] Error in search:', error);
+      return [];
+    }
+  }
+}
+
 interface FileContext {
   url: string;
   contentType: string;
@@ -563,10 +615,18 @@ async function extremeSearch(
   const exa = new Exa(serverEnv.EXA_API_KEY);
   const firecrawl = new FirecrawlApp({ apiKey: serverEnv.FIRECRAWL_API_KEY });
 
-  const searchStrategy: SearchProviderStrategy = new ExaSearchStrategy(exa);
-  const contentStrategy: ContentExtractionStrategy = new ExaContentStrategy(exa, firecrawl);
+  const searchProvider = preferences?.['zetora-search-provider'];
+  const searxngUrl = preferences?.['zetora-searxng-url'] || serverEnv.SEARXNG_URL;
 
-  console.log('[ExtremeSearch] Using Exa as search and content extraction provider');
+  let searchStrategy: SearchProviderStrategy;
+  if (searchProvider === 'searxng' && searxngUrl) {
+    searchStrategy = new SearXNGSearchStrategy(searxngUrl.replace(/\/$/, ''));
+    console.log('[ExtremeSearch] Using SearXNG for search, Exa/Firecrawl for content extraction');
+  } else {
+    searchStrategy = new ExaSearchStrategy(exa);
+    console.log('[ExtremeSearch] Using Exa as search and content extraction provider');
+  }
+  const contentStrategy: ContentExtractionStrategy = new ExaContentStrategy(exa, firecrawl);
 
   // Filter supported files early for planner and later file indexing
   const supportedFiles = files.filter((f) => isSupportedMimeType(f.contentType));

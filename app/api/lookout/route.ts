@@ -26,6 +26,7 @@ import { eq } from 'drizzle-orm';
 import { all, flow } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
+import type { SearchProvider } from '@/lib/utils';
 
 // Import search tools
 import {
@@ -221,7 +222,6 @@ const STATIC_TOOLS: Record<string, any> = {
 // Tool factories that need dataStream parameter
 const DATASTREAM_TOOL_FACTORIES: Record<string, (dataStream: UIMessageStreamWriter<ChatMessage>) => any> = {
   extreme_search: (dataStream) => extremeSearchTool(dataStream), // overridden in getToolsForSearchMode when modelId is available
-  web_search: webSearchTool,
   academic_search: academicSearchTool,
   reddit_search: redditSearchTool,
   github_search: githubSearchTool,
@@ -260,6 +260,9 @@ const SEARCH_MODE_TOOLS: Record<string, readonly string[]> = {
 function getToolsForSearchMode(
   searchMode: string,
   dataStream: UIMessageStreamWriter<ChatMessage>,
+  searchProvider: SearchProvider | undefined,
+  searxngUrl: string | undefined,
+  userPreferences: Record<string, unknown> | undefined,
 ): Record<string, any> {
   const toolNames = SEARCH_MODE_TOOLS[searchMode] || SEARCH_MODE_TOOLS.extreme;
   const tools: Record<string, any> = {};
@@ -268,6 +271,8 @@ function getToolsForSearchMode(
     // Check if it's a tool that needs dataStream
     if (toolName === 'extreme_search') {
       tools[toolName] = extremeSearchTool(dataStream, []);
+    } else if (toolName === 'web_search') {
+      tools[toolName] = webSearchTool(dataStream, searchProvider, searxngUrl, userPreferences);
     } else if (toolName in DATASTREAM_TOOL_FACTORIES) {
       tools[toolName] = DATASTREAM_TOOL_FACTORIES[toolName](dataStream);
     } else if (toolName in STATIC_TOOLS) {
@@ -705,7 +710,15 @@ export async function POST(req: Request) {
         const streamStartTime = Date.now();
 
         // Get tools and system prompt for the search mode
-        const tools = getToolsForSearchMode(searchMode, dataStream);
+        const searchProvider = userPrefs?.preferences?.['zetora-search-provider'] as SearchProvider | undefined;
+        const searxngUrl = userPrefs?.preferences?.['zetora-searxng-url'] as string | undefined;
+        const tools = getToolsForSearchMode(
+          searchMode,
+          dataStream,
+          searchProvider,
+          searxngUrl,
+          userPrefs?.preferences as Record<string, unknown> | undefined,
+        );
         const activeToolNames = Object.keys(tools);
         const systemPrompt = getSystemPromptForSearchMode(searchMode);
 
