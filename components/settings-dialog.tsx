@@ -509,6 +509,9 @@ export function PreferencesSection({
     'zetora-scroll-to-latest-on-open',
     false,
   );
+  const [xqlEnabled, setXqlEnabled] = useSyncedPreferences<boolean>('zetora-xql-enabled', true);
+  const [lookoutEnabled, setLookoutEnabled] = useSyncedPreferences<boolean>('zetora-lookout-enabled', true);
+  const [voiceEnabled, setVoiceEnabled] = useSyncedPreferences<boolean>('zetora-voice-enabled', true);
   const [autoRouterEnabled, setAutoRouterEnabled] = useSyncedPreferences<boolean>('zetora-auto-router-enabled', false);
   const [autoRouterConfig, setAutoRouterConfig] = useSyncedPreferences<AutoRouterConfig>('zetora-auto-router-config', {
     routes: getDefaultAutoRouterRoutes(),
@@ -1282,6 +1285,40 @@ export function PreferencesSection({
                 </div>
               )}
 
+            </div>
+
+            {/* Tools */}
+            <div className="rounded-xl border border-border/60 mt-4 overflow-hidden">
+              <div className="px-4 py-3 border-b border-border/40">
+                <p className="text-sm font-medium">Tools</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Show or hide tool shortcuts in the sidebar</p>
+              </div>
+
+              <div className="flex items-center justify-between px-4 py-3.5 gap-6">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Lookout</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Show the Lookout shortcut in the sidebar</p>
+                </div>
+                <Switch id="lookout-enabled" checked={lookoutEnabled} onCheckedChange={setLookoutEnabled} />
+              </div>
+
+              <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">XQL (Beta)</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Show the X/Twitter search shortcut in the sidebar
+                  </p>
+                </div>
+                <Switch id="xql-enabled" checked={xqlEnabled} onCheckedChange={setXqlEnabled} />
+              </div>
+
+              <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Voice</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Show the Voice shortcut in the sidebar</p>
+                </div>
+                <Switch id="voice-enabled" checked={voiceEnabled} onCheckedChange={setVoiceEnabled} />
+              </div>
             </div>
 
             {/* Graphiti Services */}

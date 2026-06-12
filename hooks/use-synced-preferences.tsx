@@ -59,6 +59,9 @@ export type PreferenceKey =
   | 'zetora-content-indexing-enabled'
   | 'zetora-rerank-enabled'
   | 'zetora-xml-tool-parsing-enabled'
+  | 'zetora-xql-enabled'
+  | 'zetora-lookout-enabled'
+  | 'zetora-voice-enabled'
   | 'zetora-graphiti-chunk-size'
   | 'zetora-graphiti-max-retries'
   | 'zetora-graphiti-chunk-delay-ms';

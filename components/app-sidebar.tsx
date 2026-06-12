@@ -482,6 +482,9 @@ const groupChatsByDate = (chats: any[]) => {
 
 export const AppSidebar = memo(({ user, onHistoryClick, isProUser }: AppSidebarProps) => {
   const [blurPersonalInfo] = useSyncedPreferences<boolean>('zetora-blur-personal-info', false);
+  const [xqlEnabled] = useSyncedPreferences<boolean>('zetora-xql-enabled', true);
+  const [lookoutEnabled] = useSyncedPreferences<boolean>('zetora-lookout-enabled', true);
+  const [voiceEnabled] = useSyncedPreferences<boolean>('zetora-voice-enabled', true);
   const [isRecentCollapsed, setIsRecentCollapsed] = React.useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     try {
@@ -850,14 +853,14 @@ export const AppSidebar = memo(({ user, onHistoryClick, isProUser }: AppSidebarP
           )}
 
           {/* Tools Section Label */}
-          {user && (
+          {user && (lookoutEnabled || xqlEnabled || voiceEnabled) && (
             <div className="px-2 py-1.5 group-data-[collapsible=icon]:hidden">
               <span className="font-pixel text-[11px] text-muted-foreground/60 uppercase tracking-[0.12em]">Tools</span>
             </div>
           )}
 
           {/* Lookout */}
-          {user && (
+          {user && lookoutEnabled && (
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
@@ -907,7 +910,7 @@ export const AppSidebar = memo(({ user, onHistoryClick, isProUser }: AppSidebarP
           )}
 
           {/* XQL */}
-          {user && (
+          {user && xqlEnabled && (
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
@@ -930,7 +933,7 @@ export const AppSidebar = memo(({ user, onHistoryClick, isProUser }: AppSidebarP
           )}
 
           {/* Voice */}
-          {user && (
+          {user && voiceEnabled && (
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
