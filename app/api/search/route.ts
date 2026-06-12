@@ -1758,6 +1758,10 @@ export async function POST(req: Request) {
         }),
       });
 
+      const episodeTitle = userQueryText
+        ? userQueryText.slice(0, 100).replace(/\n/g, ' ').trim()
+        : `chat-${id}`;
+
       // Graphiti ingestion — fire-and-forget, does not block response
       const memoryProvider = userPreferencesResult?.preferences?.['zetora-memory-provider'] || 'supermemory';
       if (memoryProvider === 'graphiti') {
@@ -1793,18 +1797,6 @@ export async function POST(req: Request) {
           entries.slice(-5000).forEach((mid) => ingestedMessageIds.add(mid));
         }
 
-        const chatTitle = (() => {
-          const firstUserMsg = messagesToPersist.find((m: ChatMessage) => m.role === 'user');
-          if (!firstUserMsg) return id;
-          const text = Array.isArray(firstUserMsg.parts)
-            ? firstUserMsg.parts
-                .filter((p: any) => p.type === 'text')
-                .map((p: any) => p.text)
-                .join(' ')
-            : '';
-          return text.slice(0, 80).replace(/[^a-zA-Z0-9À-ɏ\s-]/g, '').trim() || id;
-        })();
-
         const rawBody = messagesToPersist
           .filter((m: ChatMessage) => m.role === 'user' || m.role === 'assistant')
           .map((m: ChatMessage) => {
@@ -1831,7 +1823,7 @@ export async function POST(req: Request) {
                 await ingestWithRetry(
                   client,
                   {
-                    name: `${chatTitle || id}-part${index + 1}`,
+                    name: `${episodeTitle}-part${index + 1}`,
                     episodeBody: chunks[index],
                     referenceTime: new Date().toISOString(),
                     sourceDescription: 'Zetora conversation',
