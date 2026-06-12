@@ -1,6 +1,7 @@
 services:
   sandbox:
     image: onyxdotapp/code-interpreter
+    container_name: zetora-sandbox
     user: root
     ports:
       - '8000:8000'
