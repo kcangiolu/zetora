@@ -2154,6 +2154,37 @@ export async function updateLookoutStatusAction({
   }
 }
 
+export async function forceStopLookoutAction({ id }: { id: string }) {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      throw new Error('Authentication required');
+    }
+
+    // Get lookout to verify ownership
+    const lookout = await getLookoutById({ id });
+    if (!lookout || lookout.userId !== user.id) {
+      throw new Error('Lookout not found or access denied');
+    }
+
+    if (lookout.status !== 'running') {
+      throw new Error('Lookout is not currently running');
+    }
+
+    // Stuck executions can't be aborted remotely (the serverless instance is
+    // already gone), so unstick the lookout by resetting its status. One-time
+    // lookouts go back to 'paused' (their normal post-run state), recurring
+    // lookouts go back to 'active'.
+    const resetStatus = lookout.frequency === 'once' ? 'paused' : 'active';
+    const updatedLookout = await updateLookoutStatus({ id, status: resetStatus });
+
+    return { success: true, lookout: updatedLookout };
+  } catch (error) {
+    console.error('Error force stopping lookout:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
 export async function updateLookoutAction({
   id,
   title,

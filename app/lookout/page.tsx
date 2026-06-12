@@ -97,6 +97,7 @@ export default function LookoutPage() {
     error,
     createLookout,
     updateStatus,
+    forceStopLookout,
     updateLookout,
     deleteLookout,
     testLookout,
@@ -219,6 +220,10 @@ export default function LookoutPage() {
 
   const handleTest = (id: string) => {
     testLookout({ id });
+  };
+
+  const handleForceStop = (id: string) => {
+    forceStopLookout({ id });
   };
 
   const handleManualRefresh = async () => {
@@ -493,6 +498,7 @@ export default function LookoutPage() {
                         onStatusChange={handleStatusChange}
                         onDelete={handleDelete}
                         onTest={handleTest}
+                        onForceStop={handleForceStop}
                         onOpenDetails={handleOpenLookoutDetails}
                       />
                     ))}
@@ -530,6 +536,7 @@ export default function LookoutPage() {
                         onStatusChange={handleStatusChange}
                         onDelete={handleDelete}
                         onTest={handleTest}
+                        onForceStop={handleForceStop}
                         onOpenDetails={handleOpenLookoutDetails}
                         showActions={false}
                       />

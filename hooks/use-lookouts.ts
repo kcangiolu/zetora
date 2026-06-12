@@ -7,6 +7,7 @@ import {
   createScheduledLookout,
   getUserLookouts,
   updateLookoutStatusAction,
+  forceStopLookoutAction,
   updateLookoutAction,
   deleteLookoutAction,
   testLookoutAction,
@@ -248,6 +249,46 @@ export function useLookouts() {
     },
   });
 
+  // Force stop a stuck "running" lookout
+  const forceStopMutation = useMutation({
+    mutationFn: async (params: { id: string }) => {
+      const result = await forceStopLookoutAction(params);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to stop lookout');
+      }
+      return { ...params, result };
+    },
+    onMutate: async ({ id }) => {
+      await queryClient.cancelQueries({ queryKey: lookoutKeys.lists() });
+
+      const previousLookouts = queryClient.getQueryData<Lookout[]>(lookoutKeys.lists());
+
+      // Optimistically flip the lookout out of 'running'
+      queryClient.setQueryData<Lookout[]>(lookoutKeys.lists(), (old = []) =>
+        old.map((lookout) =>
+          lookout.id === id
+            ? { ...lookout, status: lookout.frequency === 'once' ? ('paused' as const) : ('active' as const) }
+            : lookout,
+        ),
+      );
+
+      return { previousLookouts };
+    },
+    onSuccess: () => {
+      sileo.success({ title: 'Lookout stopped' });
+    },
+    onError: (error: Error, variables, context) => {
+      if (context?.previousLookouts) {
+        queryClient.setQueryData(lookoutKeys.lists(), context.previousLookouts);
+      }
+      sileo.error({ title: error.message });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: lookoutKeys.lists() });
+      queryClient.refetchQueries({ queryKey: lookoutKeys.lists() });
+    },
+  });
+
   // Update lookout mutation
   const updateMutation = useMutation({
     mutationFn: async (params: {
@@ -408,6 +449,7 @@ export function useLookouts() {
       createMutation.mutate(params);
     },
     updateStatus: updateStatusMutation.mutate,
+    forceStopLookout: forceStopMutation.mutate,
     updateLookout: updateMutation.mutate,
     deleteLookout: deleteMutation.mutate,
     testLookout: testMutation.mutate,
@@ -415,6 +457,7 @@ export function useLookouts() {
     // Loading states
     isCreating: createMutation.isPending,
     isUpdatingStatus: updateStatusMutation.isPending,
+    isForceStopping: forceStopMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
     isTesting: testMutation.isPending,
@@ -423,6 +466,7 @@ export function useLookouts() {
     isPending:
       createMutation.isPending ||
       updateStatusMutation.isPending ||
+      forceStopMutation.isPending ||
       updateMutation.isPending ||
       deleteMutation.isPending ||
       testMutation.isPending,
