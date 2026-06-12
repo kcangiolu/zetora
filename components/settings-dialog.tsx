@@ -303,6 +303,11 @@ const memoryProviders = [
   { value: 'graphiti', label: 'Graphiti' },
 ] as const;
 
+const emailProviders = [
+  { value: 'resend', label: 'Resend (API)' },
+  { value: 'smtp', label: 'SMTP' },
+] as const;
+
 type CustomProviderConfig = {
   id: string;
   name: string;
@@ -470,6 +475,11 @@ export function PreferencesSection({
   const [storageProvider, setStorageProvider] = useSyncedPreferences<'cloudflare-r2' | 'minio'>(
     'zetora-storage-provider',
     'cloudflare-r2',
+  );
+
+  const [emailProvider, setEmailProvider] = useSyncedPreferences<'resend' | 'smtp'>(
+    'zetora-email-provider',
+    'resend',
   );
 
   const [lockoutProvider, setLockoutProvider] = useSyncedPreferences<'qstash' | 'bullmq'>(
@@ -1144,6 +1154,28 @@ export function PreferencesSection({
                   </SelectTrigger>
                   <SelectContent>
                     {lockoutProviders.map((p) => (
+                      <SelectItem key={p.value} value={p.value}>
+                        <span>{p.label}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Email Provider */}
+              <div className="flex items-center justify-between py-3.5 gap-6">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Email Provider</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    How lookout completion emails are sent
+                  </p>
+                </div>
+                <Select value={emailProvider} onValueChange={(v) => setEmailProvider(v as 'resend' | 'smtp')}>
+                  <SelectTrigger className="w-[140px] h-8 text-xs rounded-lg shrink-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {emailProviders.map((p) => (
                       <SelectItem key={p.value} value={p.value}>
                         <span>{p.label}</span>
                       </SelectItem>

@@ -853,11 +853,16 @@ export async function POST(req: Request) {
                     const trimmedResponse = assistantResponseText.trim() || 'No response available.';
                     const finalResponse = truncateMarkdown(trimmedResponse, 2000);
 
+                    const emailProvider = (userPrefs?.preferences as Record<string, string>)?.[
+                      'zetora-email-provider'
+                    ] as 'resend' | 'smtp' | undefined;
+
                     await sendLookoutCompletionEmail({
                       to: userResult.email,
                       chatTitle: title,
                       assistantResponse: finalResponse,
                       chatId,
+                      emailProvider,
                     });
                   } catch (emailError) {
                     console.error('Failed to send completion email:', emailError);

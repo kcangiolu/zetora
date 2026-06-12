@@ -1194,6 +1194,7 @@ export async function upsertUserPreferences({
   preferences: Partial<{
     'zetora-search-provider'?: 'exa' | 'parallel' | 'firecrawl';
     'zetora-storage-provider'?: 'cloudflare-r2' | 'minio';
+    'zetora-email-provider'?: 'resend' | 'smtp';
     'zetora-group-order'?: string[];
     'zetora-model-order-global'?: string[];
     'zetora-blur-personal-info'?: boolean;

@@ -1562,6 +1562,7 @@ export async function getUserPreferences(providedUser?: User | null) {
 export async function saveUserPreferences(
   preferences: Partial<{
     'zetora-search-provider'?: 'exa' | 'parallel' | 'firecrawl';
+    'zetora-email-provider'?: 'resend' | 'smtp';
     'zetora-group-order'?: string[];
     'zetora-model-order-global'?: string[];
     'zetora-blur-personal-info'?: boolean;
