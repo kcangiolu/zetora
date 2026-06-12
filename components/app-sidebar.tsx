@@ -22,7 +22,6 @@ import {
   BinocularsIcon,
   SearchList02Icon,
   FolderLibraryIcon,
-  Mail02Icon,
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import {
@@ -978,28 +977,6 @@ export const AppSidebar = memo(({ user, onHistoryClick, isProUser }: AppSidebarP
               </SidebarMenuButton>
             </SidebarMenuItem>
           )} */}
-
-          {/* InMail */}
-          {user && (
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                tooltip="InMail - AI Email Research Agent"
-                className="hover:bg-primary/10 transition-all duration-200"
-              >
-                <a
-                  href="https://inmail.zetora.ai/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={closeMobileSidebar}
-                  className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-full"
-                >
-                  <HugeiconsIcon icon={Mail02Icon} size={18} />
-                  <span className="group-data-[collapsible=icon]:hidden">InMail</span>
-                </a>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )}
 
           {/* Guest Info Links when signed out */}
           {!user &&
