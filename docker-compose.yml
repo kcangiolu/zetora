@@ -317,15 +317,18 @@ services:
     container_name: zetora-bullmq-redis
     ports:
       - '127.0.0.1:6381:6379'
-    command: >
-      redis-server
-      --maxmemory-policy noeviction
-      --appendonly yes
-      --appendfsync everysec
+    entrypoint: >
+      /bin/sh -c "
+      if [ -n '${BULLMQ_REDIS_PASSWORD:-}' ]; then
+      exec redis-server --maxmemory-policy noeviction --appendonly yes --appendfsync everysec --requirepass '${BULLMQ_REDIS_PASSWORD:-}';
+      else
+      exec redis-server --maxmemory-policy noeviction --appendonly yes --appendfsync everysec;
+      fi
+      "
     volumes:
       - bullmq-redis-data:/data
     healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
+      test: ['CMD-SHELL', "redis-cli $$( [ -n '${BULLMQ_REDIS_PASSWORD:-}' ] && echo -a '${BULLMQ_REDIS_PASSWORD:-}' ) ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
       retries: 5
