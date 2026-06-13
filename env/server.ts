@@ -96,3 +96,16 @@ for (const [key, value] of Object.entries(serverEnv)) {
     console.warn(`[env] ${key} is not set (placeholder)`);
   }
 }
+
+// NEXT_PUBLIC_APP_URL is inlined into the client bundle at build time and
+// BETTER_AUTH_BASE_URL is read by Better Auth on the server. Both are used to
+// generate OAuth callback / auth URLs in production, so warn (without failing
+// the build) if either is missing.
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.NEXT_PUBLIC_APP_URL) {
+    console.warn('[env] NEXT_PUBLIC_APP_URL is not set — this will be baked into the build as empty/undefined');
+  }
+  if (!process.env.BETTER_AUTH_BASE_URL) {
+    console.warn('[env] BETTER_AUTH_BASE_URL is not set — Better Auth may not generate correct URLs in production');
+  }
+}
