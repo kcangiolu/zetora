@@ -5,7 +5,6 @@ import { createJiti } from 'jiti';
 const jiti = createJiti(fileURLToPath(import.meta.url));
 
 jiti.import('./env/server.ts');
-jiti.import('./env/client.ts');
 
 const nextConfig: NextConfig = {
   compiler: {
