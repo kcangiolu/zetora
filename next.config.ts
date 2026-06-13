@@ -7,6 +7,9 @@ const jiti = createJiti(fileURLToPath(import.meta.url));
 jiti.import('./env/server.ts');
 
 const nextConfig: NextConfig = {
+  // Required by the Dockerfile's runner stage, which copies .next/standalone
+  // and .next/static into a minimal production image.
+  output: 'standalone',
   compiler: {
     // if NODE_ENV is production, remove console.log
     removeConsole:

@@ -14,7 +14,7 @@ WORKDIR /app
 
 # Copy package files and install dependencies using pnpm
 # pnpm is used for faster and more efficient package management
-COPY package.json pnpm-lock.yaml* ./
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml* ./
 RUN corepack enable pnpm && pnpm i;
 
 # Stage 2: Building the application
@@ -25,8 +25,53 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 # Copy all source files
 COPY . .
-# Copy environment variables for build configuration
-COPY .env .env
+
+# env/server.ts is validated (via jiti) during `next build`, and requires
+# DATABASE_URL/BETTER_AUTH_SECRET to be set. These build-time values are only
+# used for that validation — real values are supplied at runtime via
+# docker-compose environment/env_file.
+ARG DATABASE_URL=postgresql://placeholder:placeholder@localhost:5432/placeholder
+ARG BETTER_AUTH_SECRET=build-time-placeholder-secret
+# Some SDKs (DodoPayments, Supermemory) validate their API key/bearer token
+# eagerly at module-load time, which Next.js triggers during page-data
+# collection. Placeholders satisfy those checks without baking real secrets
+# into the image.
+ARG DODO_PAYMENTS_API_KEY=build-time-placeholder-dodo-key
+ARG DODO_PAYMENTS_WEBHOOK_SECRET=build-time-placeholder-dodo-webhook-secret
+ARG SUPERMEMORY_API_KEY=build-time-placeholder-supermemory-key
+ARG POLAR_WEBHOOK_SECRET=build-time-placeholder-polar-webhook-secret
+ENV DATABASE_URL=${DATABASE_URL} \
+    BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET} \
+    DODO_PAYMENTS_API_KEY=${DODO_PAYMENTS_API_KEY} \
+    DODO_PAYMENTS_WEBHOOK_SECRET=${DODO_PAYMENTS_WEBHOOK_SECRET} \
+    SUPERMEMORY_API_KEY=${SUPERMEMORY_API_KEY} \
+    POLAR_WEBHOOK_SECRET=${POLAR_WEBHOOK_SECRET}
+
+# NEXT_PUBLIC_* vars are inlined into the client bundle at build time, so the
+# production values must be passed as build args (see docker-compose.yml).
+ARG NEXT_PUBLIC_APP_URL
+ARG NEXT_PUBLIC_MCP_ENABLED=false
+ARG NEXT_PUBLIC_CANVAS_ENABLED=false
+ARG NEXT_PUBLIC_MCP_SANDBOX_ORIGIN
+ARG NEXT_PUBLIC_VOICE_BACKEND_URL
+ARG NEXT_PUBLIC_STARTER_TIER
+ARG NEXT_PUBLIC_STARTER_SLUG
+ARG NEXT_PUBLIC_PREMIUM_TIER
+ARG NEXT_PUBLIC_PREMIUM_SLUG
+ARG NEXT_PUBLIC_MAX_TIER
+ARG NEXT_PUBLIC_MAX_SLUG
+ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL} \
+    NEXT_PUBLIC_MCP_ENABLED=${NEXT_PUBLIC_MCP_ENABLED} \
+    NEXT_PUBLIC_CANVAS_ENABLED=${NEXT_PUBLIC_CANVAS_ENABLED} \
+    NEXT_PUBLIC_MCP_SANDBOX_ORIGIN=${NEXT_PUBLIC_MCP_SANDBOX_ORIGIN} \
+    NEXT_PUBLIC_VOICE_BACKEND_URL=${NEXT_PUBLIC_VOICE_BACKEND_URL} \
+    NEXT_PUBLIC_STARTER_TIER=${NEXT_PUBLIC_STARTER_TIER} \
+    NEXT_PUBLIC_STARTER_SLUG=${NEXT_PUBLIC_STARTER_SLUG} \
+    NEXT_PUBLIC_PREMIUM_TIER=${NEXT_PUBLIC_PREMIUM_TIER} \
+    NEXT_PUBLIC_PREMIUM_SLUG=${NEXT_PUBLIC_PREMIUM_SLUG} \
+    NEXT_PUBLIC_MAX_TIER=${NEXT_PUBLIC_MAX_TIER} \
+    NEXT_PUBLIC_MAX_SLUG=${NEXT_PUBLIC_MAX_SLUG}
+
 # Build the Next.js application
 RUN npm run build
 

@@ -1,14 +1,363 @@
 version: '3.8'
 
+# =============================================================================
+# Zetora — Production docker-compose
+#
+# Usage:
+#   1. Copy .env.prod and fill in the required values (see comments inside).
+#   2. docker compose --env-file .env.prod up -d --build
+#
+# All services share the `zetora-network` network and resolve each other by
+# service name (e.g. the app reaches Postgres at `postgres:5432`).
+#
+# Internal-only services (postgres, redis, minio, qdrant, searxng, sandbox,
+# falkordb, graphiti, bullmq-redis, bullboard) are bound to 127.0.0.1 — put a
+# reverse proxy in front of zetora.app (port 3000) for zetora.example.com, and
+# use an SSH tunnel if you need direct access to an admin UI (MinIO console,
+# Bullboard, SearXNG, Qdrant dashboard, FalkorDB browser).
+#
+# To drop an optional service (minio, qdrant, searxng, sandbox, graphiti,
+# bullmq), remove its block below along with the matching env vars on
+# zetora.app — the app falls back to its defaults (Cloudflare R2, no vector
+# cache, Tavily search, Daytona sandbox, no knowledge graph, QStash).
+# =============================================================================
+
 services:
   zetora.app:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        # DATABASE_URL/BETTER_AUTH_SECRET are intentionally NOT passed here —
+        # the Dockerfile's build-only placeholders satisfy env/server.ts
+        # validation without baking real secrets into image layers.
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+        NEXT_PUBLIC_MCP_ENABLED: ${NEXT_PUBLIC_MCP_ENABLED:-false}
+        NEXT_PUBLIC_CANVAS_ENABLED: ${NEXT_PUBLIC_CANVAS_ENABLED:-false}
+        NEXT_PUBLIC_MCP_SANDBOX_ORIGIN: ${NEXT_PUBLIC_MCP_SANDBOX_ORIGIN:-}
+        NEXT_PUBLIC_VOICE_BACKEND_URL: ${NEXT_PUBLIC_VOICE_BACKEND_URL:-}
+        # STARTER/PREMIUM/MAX tier+slug feed Polar/Dodo checkout plugins that
+        # throw at module-load if empty — default to "placeholder" so the
+        # build succeeds even when payments aren't configured. Set the real
+        # product IDs/slugs in .env.prod to enable Polar/Dodo checkout.
+        NEXT_PUBLIC_STARTER_TIER: ${NEXT_PUBLIC_STARTER_TIER:-placeholder}
+        NEXT_PUBLIC_STARTER_SLUG: ${NEXT_PUBLIC_STARTER_SLUG:-placeholder}
+        NEXT_PUBLIC_PREMIUM_TIER: ${NEXT_PUBLIC_PREMIUM_TIER:-placeholder}
+        NEXT_PUBLIC_PREMIUM_SLUG: ${NEXT_PUBLIC_PREMIUM_SLUG:-placeholder}
+        NEXT_PUBLIC_MAX_TIER: ${NEXT_PUBLIC_MAX_TIER:-placeholder}
+        NEXT_PUBLIC_MAX_SLUG: ${NEXT_PUBLIC_MAX_SLUG:-placeholder}
+    container_name: zetora-app
     ports:
       - '3000:3000'
+    env_file:
+      - .env.prod
     environment:
       - NODE_ENV=production
       - PORT=3000
       - HOSTNAME=0.0.0.0
+      # --- Internal service URLs (fixed by this compose's network topology;
+      #     do NOT set these in .env.prod, they would be overridden anyway) ---
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/zetora
+      - REDIS_URL=redis://redis:6379
+      - STORAGE_PROVIDER=minio
+      - S3_ENDPOINT=http://minio:9000
+      - S3_ACCESS_KEY_ID=${MINIO_ROOT_USER:-minioadmin}
+      - S3_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD}
+      - S3_BUCKET_NAME=zetora-uploads
+      - S3_REGION=us-east-1
+      - S3_FORCE_PATH_STYLE=true
+      - QDRANT_URL=http://qdrant:6333
+      - SEARXNG_URL=http://searxng:8080
+      - SANDBOX_PROVIDER=docker
+      - DOCKER_SANDBOX_URL=http://sandbox:8000
+      - GRAPHITI_API_URL=http://graphiti-api:8000
+      - BULLMQ_ENABLED=true
+      - BULLMQ_REDIS_URL=redis://bullmq-redis:6379
+      - BULLMQ_REDIS_PASSWORD=${BULLMQ_REDIS_PASSWORD:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      bullmq-redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      qdrant:
+        condition: service_started
+      searxng:
+        condition: service_started
+      sandbox:
+        condition: service_started
+      graphiti-api:
+        condition: service_started
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://localhost:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - zetora-network
     restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Postgres
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:17-alpine
+    container_name: zetora-postgres
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=zetora
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - zetora-network
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Redis (app cache / sessions / rate limiting)
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: zetora-redis
+    ports:
+      - '127.0.0.1:6379:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - zetora-network
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # MinIO (S3-compatible file storage — STORAGE_PROVIDER=minio)
+  # ---------------------------------------------------------------------------
+  minio:
+    image: minio/minio:latest
+    container_name: zetora-minio
+    ports:
+      - '127.0.0.1:9000:9000'
+      - '127.0.0.1:9001:9001'
+    volumes:
+      - ./minio-data:/data:rw
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      - MINIO_BROWSER_REDIRECT_URL=${MINIO_BROWSER_REDIRECT_URL:-http://localhost:9001}
+    command: server /data --console-address ":9001"
+    networks:
+      - zetora-network
+    restart: unless-stopped
+
+  minio-create-bucket:
+    image: minio/mc:latest
+    container_name: zetora-minio-create-bucket
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until (/usr/bin/mc alias set zetora http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD}) do echo '...waiting...' && sleep 1; done;
+      /usr/bin/mc mb zetora/zetora-uploads --ignore-existing;
+      /usr/bin/mc anonymous set public zetora/zetora-uploads;
+      exit 0;
+      "
+    networks:
+      - zetora-network
+    restart: 'no'
+
+  # ---------------------------------------------------------------------------
+  # Qdrant (vector cache for search / hybrid search)
+  # ---------------------------------------------------------------------------
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: zetora-qdrant
+    ports:
+      - '127.0.0.1:6333:6333'
+      - '127.0.0.1:6334:6334'
+    volumes:
+      - qdrant-data:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__GRPC_PORT=6334
+    networks:
+      - zetora-network
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # SearXNG (self-hosted metasearch engine)
+  # ---------------------------------------------------------------------------
+  searxng:
+    image: searxng/searxng:latest
+    container_name: zetora-searxng
+    ports:
+      - '127.0.0.1:8080:8080'
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    environment:
+      - SEARXNG_SETTINGS_PATH=/etc/searxng/settings.yml
+      - SEARXNG_REDIS_URL=redis://searxng-redis:6379/0
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    depends_on:
+      - searxng-redis
+    networks:
+      - zetora-network
+    restart: unless-stopped
+
+  searxng-redis:
+    image: redis:alpine
+    container_name: zetora-searxng-redis
+    networks:
+      - zetora-network
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Sandbox (Code Interpreter tool — SANDBOX_PROVIDER=docker)
+  # Requires access to the host's Docker socket.
+  # ---------------------------------------------------------------------------
+  sandbox:
+    image: onyxdotapp/code-interpreter
+    container_name: zetora-sandbox
+    user: root
+    ports:
+      - '127.0.0.1:8000:8000'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - MAX_EXEC_TIMEOUT_MS=30000
+      - CPU_TIME_LIMIT_SEC=10
+      - MEMORY_LIMIT_MB=256
+    networks:
+      - zetora-network
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Graphiti (knowledge graph memory)
+  # ---------------------------------------------------------------------------
+  falkordb:
+    image: falkordb/falkordb:latest
+    container_name: zetora-falkordb
+    ports:
+      - '127.0.0.1:6380:6379'
+      - '127.0.0.1:3002:3002'
+    volumes:
+      - falkordb-data:/data
+    networks:
+      - zetora-network
+    restart: unless-stopped
+
+  graphiti-api:
+    build:
+      context: ./graphiti-service
+      dockerfile: Dockerfile
+    container_name: zetora-graphiti-api
+    ports:
+      - '127.0.0.1:8001:8000'
+    volumes:
+      - graphiti-config:/data
+    environment:
+      - GRAPH_DB_URL=bolt://falkordb:6379
+      - LLM_MODEL=${GRAPHITI_LLM_MODEL:-gpt-4o-mini}
+      - LLM_API_KEY=${GRAPHITI_LLM_API_KEY}
+      - LLM_BASE_URL=${GRAPHITI_LLM_BASE_URL:-https://api.openai.com/v1}
+      - EMBEDDING_MODEL=${GRAPHITI_EMBEDDING_MODEL:-text-embedding-3-small}
+      - EMBEDDING_API_KEY=${GRAPHITI_EMBEDDING_API_KEY}
+      - EMBEDDING_BASE_URL=${GRAPHITI_EMBEDDING_BASE_URL:-https://api.openai.com/v1}
+    depends_on:
+      - falkordb
+    networks:
+      - zetora-network
+    restart: unless-stopped
+
+  graphiti-mcp:
+    build:
+      context: ./graphiti-service
+      dockerfile: Dockerfile.mcp
+    container_name: zetora-graphiti-mcp
+    ports:
+      - '127.0.0.1:8002:8001'
+    volumes:
+      - graphiti-config:/data
+    environment:
+      - GRAPH_DB_URL=bolt://falkordb:6379
+      - LLM_MODEL=${GRAPHITI_LLM_MODEL:-gpt-4o-mini}
+      - LLM_API_KEY=${GRAPHITI_LLM_API_KEY}
+      - LLM_BASE_URL=${GRAPHITI_LLM_BASE_URL:-https://api.openai.com/v1}
+      - EMBEDDING_MODEL=${GRAPHITI_EMBEDDING_MODEL:-text-embedding-3-small}
+      - EMBEDDING_API_KEY=${GRAPHITI_EMBEDDING_API_KEY}
+      - EMBEDDING_BASE_URL=${GRAPHITI_EMBEDDING_BASE_URL:-https://api.openai.com/v1}
+    depends_on:
+      - falkordb
+    networks:
+      - zetora-network
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # BullMQ (self-hosted Lookouts scheduling)
+  # ---------------------------------------------------------------------------
+  bullmq-redis:
+    image: redis:7-alpine
+    container_name: zetora-bullmq-redis
+    ports:
+      - '127.0.0.1:6381:6379'
+    command: >
+      redis-server
+      --maxmemory-policy noeviction
+      --appendonly yes
+      --appendfsync everysec
+    volumes:
+      - bullmq-redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - zetora-network
+    restart: unless-stopped
+
+  bullboard:
+    image: nauverse/bull-board:latest
+    container_name: zetora-bullboard
+    ports:
+      - '127.0.0.1:3001:3000'
+    environment:
+      - REDIS_HOST=bullmq-redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${BULLMQ_REDIS_PASSWORD:-}
+      - BULL_PREFIX=bull
+    depends_on:
+      bullmq-redis:
+        condition: service_healthy
+    networks:
+      - zetora-network
+    restart: unless-stopped
+
+networks:
+  zetora-network:
+    name: zetora-network
+
+volumes:
+  postgres-data:
+  redis-data:
+  qdrant-data:
+  falkordb-data:
+  graphiti-config:
+  bullmq-redis-data:

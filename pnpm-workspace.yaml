@@ -1,6 +1,11 @@
 allowBuilds:
+  '@parcel/watcher': true
+  '@tailwindcss/oxide': true
+  '@vercel/speed-insights': true
   canvas: true
+  core-js: true
   esbuild: true
   msgpackr-extract: true
   sharp: true
+  sqlite3: true
   unrs-resolver: true
