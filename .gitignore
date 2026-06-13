@@ -54,3 +54,6 @@ creds.ts
 .agents/
 
 video/node_modules
+
+# docker-compose runtime data
+/minio-data/
