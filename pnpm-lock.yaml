@@ -509,9 +509,6 @@ importers:
       three:
         specifier: ^0.183.2
         version: 0.183.2
-      tokenc:
-        specifier: ^0.2.0
-        version: 0.2.0
       uuid:
         specifier: ^13.0.0
         version: 13.0.2
@@ -7909,11 +7906,6 @@ packages:
   toidentifier@1.0.1:
     resolution: {integrity: sha512-o5sSPKEkg/DIQNmH43V0/uerLrpzVedkUh8tGNvaeXpfpuwjKenlSox/2O/BTlZUtEe+JG7s5YhEz608PlAHRA==}
     engines: {node: '>=0.6'}
-
-  tokenc@0.2.0:
-    resolution: {integrity: sha512-tRMxcgdIxCg8yRWGYp7wg4V1KqncSGnXxdLD6GivpZhEk29RftK71PQ6GfHBIfH1eOUAc/i9+iMqjWCNf4qQtQ==}
-    engines: {node: '>=18.0.0'}
-    deprecated: This package has been replaced by 'the-token-company'. Please install 'the-token-company' instead.
 
   tr46@0.0.3:
     resolution: {integrity: sha512-N3WMsuqV66lT30CrXNbEjx4GEwlow3v6rr4mCcv6prnfwhS01rkgyFdjPNBYd9br7LpXV1+Emh01fHnq2Gdgrw==}
@@ -15842,8 +15834,6 @@ snapshots:
       is-number: 7.0.0
 
   toidentifier@1.0.1: {}
-
-  tokenc@0.2.0: {}
 
   tr46@0.0.3: {}
 

@@ -34,10 +34,7 @@ import { OpenAIResponsesProviderOptions } from '@ai-sdk/openai';
 import { AnthropicProviderOptions } from '@ai-sdk/anthropic';
 import { gateway, GatewayProviderOptions } from '@ai-sdk/gateway';
 import { GoogleGenerativeAIProviderOptions, GoogleLanguageModelOptions } from '@ai-sdk/google';
-import { TokenClient } from 'tokenc';
 import { scrapeWebpageWithNotte } from '@/lib/notte';
-
-const ttc = new TokenClient({ apiKey: process.env.TTC_API_KEY! });
 
 interface CitationSource {
   sourceType?: string;
@@ -1525,23 +1522,6 @@ ${JSON.stringify(plan)}
                       console.error(`[BrowsePage][${url}] Firecrawl scrape fallback failed:`, fcErr);
                     }
                   }
-
-                  // if (content) {
-                  //   try {
-                  //     const compressed = await ttc.compressInput({
-                  //       input: content,
-                  //       model: 'bear-1.2',
-                  //       aggressiveness: 0.1,
-                  //       maxOutputTokens: 10000,
-                  //     });
-                  //     console.log(
-                  //       `[BrowsePage][${url}] TTC compression: ${compressed.originalInputTokens} → ${compressed.outputTokens} tokens (saved ${compressed.tokensSaved})`,
-                  //     );
-                  //     content = compressed.output;
-                  //   } catch (ttcErr) {
-                  //     console.warn(`[BrowsePage][${url}] TTC compression failed, using raw content:`, ttcErr);
-                  //   }
-                  // }
 
                   allSources.push({
                     title,
