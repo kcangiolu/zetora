@@ -43,7 +43,7 @@ certificates
 creds.ts
 
 # local SQL scripts
-*.sql
+/*.sql
 
 
 # IDE / AI tools
