@@ -2,43 +2,7 @@
 
 Research at the speed of thought. The agentic research platform that plans, retrieves, and cites — so you can think faster.
 
-<a href="https://vercel.com/oss">
-  <img alt="Vercel OSS Program" src="https://vercel.com/oss/program-badge.svg" />
-</a>
-
-<br />
-
 ![Zetora](/app/opengraph-image.png)
-
-<br />
-
-🔗 **[Try Zetora at zetora.ai](https://zetora.ai)**
-
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/kennycangiolu/zetora)
-
-## Powered By
-
-<div align="center">
-
-|          [Vercel AI SDK](https://sdk.vercel.ai/docs)          |                [Exa AI](https://exa.ai)                |             [Upstash](https://upstash.com)              |
-| :-----------------------------------------------------------: | :----------------------------------------------------: | :-----------------------------------------------------: |
-| <img src="/public/one.svg" alt="Vercel AI SDK" height="40" /> | <img src="/public/exa.png" alt="Exa AI" height="40" /> | <img src="/public/upstash.svg" alt="Upstash" height="40" /> |
-|            For AI model integration and streaming             |          For web search and content retrieval          |        For serverless Redis and rate limiting           |
-
-</div>
-
-## Special Thanks
-
-<div align="center" markdown="1">
-
-[![Warp](https://github.com/user-attachments/assets/2bda420d-4211-4900-a37e-e3c7056d799c)](https://www.warp.dev/?utm_source=github&utm_medium=referral&utm_campaign=zetora)<br>
-
-### **[Warp, the intelligent terminal](https://www.warp.dev/?utm_source=github&utm_medium=referral&utm_campaign=zetora)**<br>
-
-[Available for MacOS, Linux, & Windows](https://www.warp.dev/?utm_source=github&utm_medium=referral&utm_campaign=zetora)<br>
-[Visit warp.dev to learn more](https://www.warp.dev/?utm_source=github&utm_medium=referral&utm_campaign=zetora)
-
-</div>
 
 ## How It Works
 
@@ -52,6 +16,7 @@ Research at the speed of thought. The agentic research platform that plans, retr
 
 - **Agentic Planning** — Breaks complex questions into steps, selects the right models and tools, then executes multi-step workflows end to end
 - **Grounded Retrieval** — Every answer comes with inline citations you can click to audit the evidence yourself
+- **Hybrid RAG** — Self-hosted vector search (Qdrant) with content indexing, RRF fusion, and Cohere reranking for file/connector search
 - **Extensible & Open** — AGPL-3.0 licensed. Self-host, bring your own models, connect custom tools, and tailor everything to your workflow
 - **Lookouts** — Schedule recurring research agents that monitor topics, track changes, and email you updates
 
@@ -80,8 +45,8 @@ Research at the speed of thought. The agentic research platform that plans, retr
 ### Tools (28 tools)
 
 #### Search & Retrieval
-- **Web search** — Multi-query parallel web search with deduplication using Exa, Firecrawl, Parallel, and Tavily
-- **Extreme search** — LLM-driven deep research agent with multi-step planning, code execution, and R2 artifact storage
+- **Web search** — Multi-query parallel web search with deduplication using Exa, Firecrawl, Parallel, and Tavily (or self-hosted SearXNG)
+- **Extreme search** — LLM-driven deep research agent with multi-step planning, code execution, and artifact storage
 - **Academic search** — Search academic papers and research using Exa and Firecrawl
 - **Reddit search** — Search Reddit with configurable time ranges using Parallel
 - **X search** — Search X posts with date range filtering and handle inclusion/exclusion using xAI Grok
@@ -107,12 +72,12 @@ Research at the speed of thought. The agentic research platform that plans, retr
 - **Trending TV shows** — Today's trending TV shows from TMDB
 
 #### Productivity & Utilities
-- **Code interpreter** — Write and execute Python code in a sandboxed Daytona environment with chart generation
+- **Code interpreter** — Write and execute Python code in a sandboxed environment (self-hosted Docker sandbox or Daytona) with chart generation
 - **Code context** — Get contextual information about programming topics using Exa Context API
 - **Text translation** — Translate text (and text within images) between languages using AI models
 - **File query search** — Semantic search over uploaded files (PDF, CSV, DOCX, Excel) with Cohere embeddings and reranking
-- **Connectors search** — Search connected Google Drive, Notion, and OneDrive using Supermemory
-- **Memory tools** — Save and search personal memories using Supermemory
+- **Connectors search** — Search connected Google Drive, Notion, and OneDrive
+- **Memory tools** — Save and search personal memories, backed by a self-hosted knowledge graph (Graphiti/FalkorDB) or Supermemory
 - **Date & time** — Current date/time in multiple formats with timezone support
 - **Greeting** — Personalized time-of-day-aware greetings
 
@@ -132,6 +97,49 @@ Research at the speed of thought. The agentic research platform that plans, retr
 - **ByteDance**: Seed 1.6, Seed 1.6 Flash, Seed 1.8
 - **Arcee**: Trinity Mini, Trinity Large
 - **Others**: Vercel v0 (1.0/1.5), Amazon Nova 2 Lite, Xiaomi Mimo V2 Flash, StepFun Step 3.5 Flash, Kwaipilot KAT-Coder-Pro V1
+- **Custom providers** — Add any OpenAI-compatible endpoint (e.g. Ollama, local inference servers), including models that return tool calls as XML
+
+## Self-Hosted Stack
+
+This fork bundles a complete self-hosted stack in [`docker-compose.yml`](docker-compose.yml), so Zetora can run with little to no dependency on third-party cloud services beyond your chosen AI provider API keys.
+
+| Service | Container(s) | Cloud equivalent (Scira default) | Purpose |
+|---|---|---|---|
+| **PostgreSQL 17** | `postgres` | Vercel Postgres / Neon | Primary application database |
+| **Redis 7** | `redis` | Upstash Redis | Sessions, cache, rate limiting |
+| **MinIO** | `minio`, `minio-create-bucket` | Cloudflare R2 / Vercel Blob | S3-compatible object storage for uploads (`STORAGE_PROVIDER=minio`) |
+| **Qdrant** | `qdrant` | *(new — no Scira equivalent)* | Vector store for the hybrid RAG pipeline (content indexing, RRF fusion, reranking) |
+| **SearXNG** | `searxng`, `searxng-redis` | Tavily / Exa | Self-hosted metasearch engine for the Web search mode |
+| **Code Interpreter** | `sandbox` | Daytona | Sandboxed Python execution for the Code Interpreter tool (`SANDBOX_PROVIDER=docker`) |
+| **FalkorDB + Graphiti** | `falkordb`, `graphiti-api`, `graphiti-mcp` | Supermemory / Mem0 | Self-hosted knowledge-graph memory provider |
+| **BullMQ** | `bullmq-redis`, `bullboard` | Upstash QStash | Self-hosted scheduler for Lookouts (recurring research agents), with a Bull Board admin UI |
+
+All services share the `zetora-network` Docker network and resolve each other by service name. Internal-only services are bound to `127.0.0.1` — only `zetora.app` (port 3000) needs to be exposed through a reverse proxy.
+
+Beyond the bundled infrastructure, this fork also adds:
+
+- **Custom AI providers** with XML tool-call parsing, for OpenAI-compatible / local models (e.g. Ollama)
+- **SMTP email delivery** as an alternative to Resend, with a built-in email test button
+- **Sidebar visibility toggles** for Lookouts, XQL, Voice, and Search Modes
+- **User-configurable default model** and per-task tertiary model preferences
+- **Embedding provider configuration**, including OpenAI-compatible endpoints, for the hybrid RAG pipeline
+
+## All-Cloud Configuration
+
+If you'd rather not run the bundled services, Zetora can run entirely against managed/cloud providers, closer to the original Scira setup. Don't start the corresponding compose services and set the matching environment variables instead:
+
+| Self-hosted service | Cloud alternative | Configuration |
+|---|---|---|
+| Postgres | Vercel Postgres / Neon / Supabase | `DATABASE_URL` (+ optional `READ_DB_1`/`READ_DB_2` read replicas) |
+| Redis | Upstash Redis | `REDIS_URL` |
+| MinIO | Cloudflare R2 / Vercel Blob | `STORAGE_PROVIDER=cloudflare-r2` (default) with R2 credentials |
+| Qdrant | — (disabled) | leave `QDRANT_URL` unset to disable the vector cache |
+| SearXNG | Tavily / Exa | `TAVILY_API_KEY`, `EXA_API_KEY` (used automatically when `SEARXNG_URL` is unset) |
+| Sandbox | Daytona | `SANDBOX_PROVIDER=daytona` (default) with `DAYTONA_API_KEY` |
+| FalkorDB + Graphiti | Supermemory | `SUPERMEMORY_API_KEY` |
+| BullMQ | Upstash QStash | `QSTASH_TOKEN` and related QStash variables |
+
+See `.env.example` for the full catalog of provider and feature environment variables.
 
 ## Built with
 
@@ -139,6 +147,14 @@ Research at the speed of thought. The agentic research platform that plans, retr
 - [Tailwind CSS](https://tailwindcss.com/) - Styling
 - [Vercel AI SDK](https://sdk.vercel.ai/docs) - AI model integration and streaming
 - [Shadcn/UI](https://ui.shadcn.com/) - UI components
+- [Better Auth](https://github.com/better-auth/better-auth) - Authentication
+- [Drizzle ORM](https://orm.drizzle.team/) - Database management
+- [PostgreSQL](https://www.postgresql.org/) - Primary database
+- [MinIO](https://min.io/) - Self-hosted S3-compatible object storage
+- [Qdrant](https://qdrant.tech/) - Vector store for hybrid RAG
+- [SearXNG](https://docs.searxng.org/) - Self-hosted metasearch engine
+- [FalkorDB](https://www.falkordb.com/) + [Graphiti](https://github.com/getzep/graphiti) - Self-hosted knowledge-graph memory
+- [BullMQ](https://bullmq.io/) + [Bull Board](https://github.com/felixmosh/bull-board) - Self-hosted job scheduling for Lookouts
 - [Exa.AI](https://exa.ai/) - Web search, academic search, and content retrieval
 - [Firecrawl](https://firecrawl.dev/) - Web scraping with structured extraction
 - [Parallel](https://parallel.ai/) - Web and Reddit search
@@ -149,98 +165,83 @@ Research at the speed of thought. The agentic research platform that plans, retr
 - [Spotify](https://developer.spotify.com/) - Music search
 - [OpenWeatherMap](https://openweathermap.org/) - Weather data
 - [Open-Meteo](https://open-meteo.com/) - Extended forecasts and geocoding
-- [Daytona](https://daytona.io/) - Code execution sandbox
+- [Daytona](https://daytona.io/) - Cloud code execution sandbox (alternative to the self-hosted sandbox)
 - [Google Maps](https://developers.google.com/maps) - Geocoding and places
 - [TMDB](https://www.themoviedb.org/) - Movie and TV data
 - [Cohere](https://cohere.com/) - Embeddings and reranking
-- [Supermemory](https://supermemory.ai/) - Memory management and connector search
-- [Upstash](https://upstash.com/) - Serverless Redis and rate limiting
-- [Cloudflare R2](https://www.cloudflare.com/r2/) - Object storage for artifacts
+- [Supermemory](https://supermemory.ai/) - Cloud memory management and connector search (alternative to Graphiti)
 - [ElevenLabs](https://elevenlabs.io/) - Voice synthesis
-- [Better Auth](https://github.com/better-auth/better-auth) - Authentication
-- [Drizzle ORM](https://orm.drizzle.team/) - Database management
-- [Novita AI](https://novita.ai) - AI Inference
 
-### Deploy your own
+## Installation
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fkennycangiolu%2Fzetora&env=XAI_API_KEY,OPENAI_API_KEY,ANTHROPIC_API_KEY,GROQ_API_KEY,GOOGLE_GENERATIVE_AI_API_KEY,DAYTONA_API_KEY,DATABASE_URL,BETTER_AUTH_SECRET,GITHUB_CLIENT_ID,GITHUB_CLIENT_SECRET,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,TWITTER_CLIENT_ID,TWITTER_CLIENT_SECRET,REDIS_URL,ELEVENLABS_API_KEY,TAVILY_API_KEY,EXA_API_KEY,SUPADATA_API_KEY,TMDB_API_KEY,YT_ENDPOINT,FIRECRAWL_API_KEY,OPENWEATHER_API_KEY,GOOGLE_MAPS_API_KEY,MAPBOX_ACCESS_TOKEN,AVIATION_STACK_API_KEY,CRON_SECRET,BLOB_READ_WRITE_TOKEN,MEM0_API_KEY,MEM0_ORG_ID,MEM0_PROJECT_ID,SMITHERY_API_KEY,NEXT_PUBLIC_MAPBOX_TOKEN,NEXT_PUBLIC_POSTHOG_KEY,NEXT_PUBLIC_POSTHOG_HOST,NEXT_PUBLIC_SCIRA_PUBLIC_API_KEY,SCIRA_API_KEY&envDescription=API%20keys%20and%20configuration%20required%20for%20Zetora%20to%20function)
+### Prerequisites
 
-## Set Zetora as your default search engine
+- Node.js 22+ and [pnpm](https://pnpm.io/) (enable via `corepack enable pnpm`)
+- [Docker](https://docs.docker.com/get-docker/) and Docker Compose v2 (for the self-hosted stack)
+- At least one AI provider API key (OpenAI, Anthropic, xAI, Google, Groq, …)
+- A domain name and a reverse proxy (Caddy, Nginx, Traefik, …) with TLS, if exposing the self-hosted stack publicly
 
-1. **Open the Chrome browser settings**:
-   - Click on the three vertical dots in the upper right corner of the browser.
-   - Select "Settings" from the dropdown menu.
+### Option 1 — Local development (`pnpm dev`)
 
-2. **Go to the search engine settings**:
-   - In the left sidebar, click on "Search engine."
-   - Then select "Manage search engines and site search."
+Use this for day-to-day development. It runs the Next.js app directly on your machine.
 
-3. **Add a new search engine**:
-   - Click on "Add" next to "Site search."
-
-4. **Set the search engine name**:
-   - Enter `Zetora` in the "Search engine" field.
-
-5. **Set the search engine URL**:
-   - Enter `https://zetora.ai?q=%s` in the "URL with %s in place of query" field.
-
-6. **Set the search engine shortcut**:
-   - Enter `sh` in the "Shortcut" field.
-
-7. **Set Default**:
-   - Click on the three dots next to the search engine you just added.
-   - Select "Make default" from the dropdown menu.
-
-After completing these steps, you should be able to use Zetora as your default search engine in Chrome.
-
-### Local development
-
-#### Run via Docker
-
-The application can be run using Docker in two ways:
-
-##### Using Docker Compose (Recommended)
-
-1. Make sure you have Docker and Docker Compose installed on your system
-2. Create a `.env` file based on `.env.example` with your API keys
-3. Run the following command in the project root:
+1. Clone the repository and install dependencies:
    ```bash
-   docker compose up
-   ```
-4. The application will be available at `http://localhost:3000`
-
-##### Using Docker Directly
-
-1. Create a `.env` file based on `.env.example` with your API keys
-2. Build the Docker image:
-   ```bash
-   docker build -t zetora.app .
-   ```
-3. Run the container:
-   ```bash
-   docker run --env-file .env -p 3000:3000 zetora.app
-   ```
-
-The application uses a multi-stage build process to minimize the final image size and implements security best practices. The production image runs on Node.js LTS with Alpine Linux for a minimal footprint.
-
-#### Run with Node.js
-
-To run the application locally without Docker:
-
-1. Sign up for accounts with the required AI providers:
-   - OpenAI (required)
-   - Anthropic (required)
-   - Exa (required for web search feature)
-2. Copy `.env.example` to `.env.local` and fill in your API keys
-3. Install dependencies:
-   ```bash
+   git clone <your-repo-url> zetora
+   cd zetora
+   corepack enable pnpm
    pnpm install
    ```
-4. Start the development server:
+2. Copy `.env.example` to `.env.local`:
+   ```bash
+   cp .env.example .env.local
+   ```
+3. Fill in `.env.local`. At minimum:
+   - `DATABASE_URL` — a Postgres connection string. You can use the self-hosted Postgres for this: start it alone with `docker compose --env-file .env.prod up -d postgres` and connect to `postgresql://postgres:<POSTGRES_PASSWORD>@localhost:5432/zetora`.
+   - `BETTER_AUTH_SECRET` — generate with `openssl rand -base64 32`.
+   - At least one AI provider key (e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY`).
+4. Apply database migrations (reads `DATABASE_URL` from `.env.local` via `drizzle.config.ts`):
+   ```bash
+   pnpm drizzle-kit migrate
+   ```
+5. Start the dev server:
    ```bash
    pnpm dev
    ```
-5. Open `http://localhost:3000` in your browser
+6. Open `http://localhost:3000`.
+
+You can optionally bring up any other bundled service on its own (Redis, MinIO, Qdrant, SearXNG, sandbox, Graphiti) with `docker compose --env-file .env.prod up -d <service>` and point the matching `.env.local` variables at `localhost:<port>`.
+
+### Option 2 — Self-hosted stack (Docker Compose)
+
+Use this to deploy the full stack (app + Postgres, Redis, MinIO, Qdrant, SearXNG, sandbox, Graphiti/FalkorDB, BullMQ) on a server.
+
+1. Clone the repository on the server:
+   ```bash
+   git clone <your-repo-url> zetora
+   cd zetora
+   ```
+2. Create `.env.prod` (gitignored — never commit it). Fill in at least:
+   - **Domain**: `NEXT_PUBLIC_APP_URL`, `BETTER_AUTH_BASE_URL`, `ALLOWED_ORIGINS` — set to your public URL (e.g. `https://zetora.example.com`).
+   - **Core secrets**: `BETTER_AUTH_SECRET` (generate with `openssl rand -base64 32`), `POSTGRES_PASSWORD`.
+   - **MinIO**: `MINIO_ROOT_PASSWORD` (and optionally `MINIO_ROOT_USER`, `S3_PUBLIC_URL`).
+   - **AI providers**: at least one provider API key.
+   - Optional but recommended: `BULLMQ_REDIS_PASSWORD`, Graphiti `GRAPHITI_LLM_*`/`GRAPHITI_EMBEDDING_*` keys, OAuth provider credentials, payment provider keys.
+
+   See `.env.example` for the full list of available variables, and the comments at the top of `docker-compose.yml` for how to drop optional services.
+3. Build and start the stack:
+   ```bash
+   docker compose --env-file .env.prod up -d --build
+   ```
+   This builds the `zetora.app` image and starts every bundled service on the `zetora-network`.
+4. Apply database migrations against the dockerized Postgres (exposed on `127.0.0.1:5432`). From a machine with `pnpm install` already run (so `drizzle-kit` is available):
+   ```bash
+   DATABASE_URL=postgresql://postgres:<POSTGRES_PASSWORD>@localhost:5432/zetora pnpm drizzle-kit migrate
+   ```
+5. Put a reverse proxy with TLS in front of `zetora.app` (port 3000) for your domain. All other services (Postgres, Redis, MinIO, Qdrant, SearXNG, sandbox, FalkorDB, Graphiti, BullMQ) are bound to `127.0.0.1` only — use an SSH tunnel if you need direct access to an admin UI (MinIO console on `:9001`, Bull Board on `:3001`, Qdrant dashboard on `:6333`, SearXNG on `:8080`, FalkorDB browser on `:3002`).
+6. Visit your domain — Zetora should be up and running.
+
+To drop an optional service (MinIO, Qdrant, SearXNG, sandbox, Graphiti, BullMQ), remove its block from `docker-compose.yml` along with the matching environment variables on `zetora.app`; the app falls back to its cloud defaults as described in [All-Cloud Configuration](#all-cloud-configuration).
 
 # License
 
