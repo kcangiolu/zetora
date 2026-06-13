@@ -2,8 +2,6 @@
 
 Research at the speed of thought. The agentic research platform that plans, retrieves, and cites — so you can think faster.
 
-![Zetora](/app/opengraph-image.png)
-
 ## How It Works
 
 1. **Ask anything** — Type a question, upload a PDF, or paste a URL. Pick a mode or let Zetora decide for you.
