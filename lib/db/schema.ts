@@ -342,10 +342,12 @@ export const userPreferences = pgTable('user_preferences', {
     .references(() => user.id, { onDelete: 'cascade' }),
   preferences: json('preferences')
     .$type<{
-      'zetora-search-provider'?: 'exa' | 'parallel' | 'firecrawl' | 'searxng';
+      'zetora-search-provider'?: 'exa' | 'parallel' | 'firecrawl' | 'searxng' | 'fastcrw';
       'zetora-storage-provider'?: 'cloudflare-r2' | 'minio';
       'zetora-email-provider'?: 'resend' | 'smtp';
       'zetora-searxng-url'?: string;
+      'zetora-fastcrw-url'?: string;
+      'zetora-extreme-content-provider'?: 'exa' | 'fastcrw' | 'selfhosted';
       'zetora-tertiary-extreme-agent-model'?: string;
       'zetora-tertiary-extreme-agent-provider'?: string;
       'zetora-group-order'?: string[];

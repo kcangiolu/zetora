@@ -35,6 +35,13 @@ import { AnthropicProviderOptions } from '@ai-sdk/anthropic';
 import { gateway, GatewayProviderOptions } from '@ai-sdk/gateway';
 import { GoogleGenerativeAIProviderOptions, GoogleLanguageModelOptions } from '@ai-sdk/google';
 import { scrapeWebpageWithNotte } from '@/lib/notte';
+import {
+  SelfHostedContentStrategy,
+  scrapeWithFastCrwForBrowsePage,
+  type ContentExtractionStrategy,
+  type SearchResult,
+} from './selfhosted-content';
+import { FastCrwSearchStrategy, type SearchProviderStrategy, SearchCategory } from './fastcrw-search';
 
 interface CitationSource {
   sourceType?: string;
@@ -195,11 +202,6 @@ async function searchFilesForQuery(
   return allResults.slice(0, maxResults);
 }
 
-
-// Content extraction provider strategies
-interface ContentExtractionStrategy {
-  getContents(links: string[]): Promise<SearchResult[]>;
-}
 
 interface MetadataZetoraResponse {
   url?: string;
@@ -436,44 +438,12 @@ class ExaContentStrategy implements ContentExtractionStrategy {
   }
 }
 
-interface SearchResult {
-  title: string;
-  url: string;
-  content: string;
-  publishedDate: string;
-  favicon: string;
-  description?: string;
-  canonical?: string;
-  ogUrl?: string;
-  finalUrl?: string;
-  siteName?: string | null;
-  image?: string;
-}
-
 export type Research = {
   // text: string;
   toolResults: any[];
   sources: SearchResult[];
   charts: any[];
 };
-
-enum SearchCategory {
-  NEWS = 'news',
-  COMPANY = 'company',
-  RESEARCH_PAPER = 'research paper',
-  GITHUB = 'github',
-  FINANCIAL_REPORT = 'financial report',
-}
-
-// Search provider strategy interface
-interface SearchProviderStrategy {
-  search(
-    query: string,
-    category?: SearchCategory,
-    include_domains?: string[],
-    startDate?: string,
-  ): Promise<SearchResult[]>;
-}
 
 // Exa search strategy
 class ExaSearchStrategy implements SearchProviderStrategy {
@@ -614,16 +584,33 @@ async function extremeSearch(
 
   const searchProvider = preferences?.['zetora-search-provider'];
   const searxngUrl = preferences?.['zetora-searxng-url'] || serverEnv.SEARXNG_URL;
+  const fastcrwUrl = preferences?.['zetora-fastcrw-url'] || serverEnv.FASTCRW_URL;
+  const extremeContentProvider = preferences?.['zetora-extreme-content-provider'];
 
   let searchStrategy: SearchProviderStrategy;
-  if (searchProvider === 'searxng' && searxngUrl) {
+  let contentStrategy: ContentExtractionStrategy;
+
+  if (searchProvider === 'fastcrw' && fastcrwUrl) {
+    searchStrategy = new FastCrwSearchStrategy(fastcrwUrl.replace(/\/$/, ''));
+    contentStrategy = new SelfHostedContentStrategy(fastcrwUrl);
+    console.log('[ExtremeSearch] Using fastCRW for search and content extraction');
+  } else if (searchProvider === 'searxng' && searxngUrl) {
     searchStrategy = new SearXNGSearchStrategy(searxngUrl.replace(/\/$/, ''));
-    console.log('[ExtremeSearch] Using SearXNG for search, Exa/Firecrawl for content extraction');
+    if (extremeContentProvider === 'fastcrw' && fastcrwUrl) {
+      contentStrategy = new SelfHostedContentStrategy(fastcrwUrl);
+      console.log('[ExtremeSearch] Using SearXNG for search, fastCRW for content extraction');
+    } else if (extremeContentProvider === 'selfhosted') {
+      contentStrategy = new SelfHostedContentStrategy();
+      console.log('[ExtremeSearch] Using SearXNG for search, Notte for content extraction');
+    } else {
+      contentStrategy = new ExaContentStrategy(exa, firecrawl);
+      console.log('[ExtremeSearch] Using SearXNG for search, Exa/Firecrawl for content extraction');
+    }
   } else {
     searchStrategy = new ExaSearchStrategy(exa);
+    contentStrategy = new ExaContentStrategy(exa, firecrawl);
     console.log('[ExtremeSearch] Using Exa as search and content extraction provider');
   }
-  const contentStrategy: ContentExtractionStrategy = new ExaContentStrategy(exa, firecrawl);
 
   // Filter supported files early for planner and later file indexing
   const supportedFiles = files.filter((f) => isSupportedMimeType(f.contentType));
@@ -1459,6 +1446,20 @@ ${JSON.stringify(plan)}
                   let title = hostname;
                   let content = '';
                   const isPdf = /\.pdf(\?.*)?$/i.test(url);
+
+                  // Phase 0: fastCRW (si configuré)
+                  if (!content && fastcrwUrl) {
+                    try {
+                      const fcResult = await scrapeWithFastCrwForBrowsePage(url, fastcrwUrl);
+                      if (fcResult) {
+                        title = fcResult.title;
+                        content = fcResult.content;
+                        console.log(`[BrowsePage][${url}] fastCRW scrape succeeded, length: ${content.length}`);
+                      }
+                    } catch (fcErr) {
+                      console.error(`[BrowsePage][${url}] fastCRW scrape failed:`, fcErr);
+                    }
+                  }
 
                   if (!content) {
                     try {

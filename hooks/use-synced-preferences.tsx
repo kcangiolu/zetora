@@ -20,6 +20,8 @@ export type PreferenceKey =
   | 'zetora-visible-modes'
   | 'zetora-sandbox-provider'
   | 'zetora-searxng-url'
+  | 'zetora-fastcrw-url'
+  | 'zetora-extreme-content-provider'
   | 'zetora-embedding-provider'
   | 'zetora-embedding-model'
   | 'zetora-qdrant-url'

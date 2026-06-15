@@ -67,6 +67,7 @@ services:
       - S3_FORCE_PATH_STYLE=true
       - QDRANT_URL=http://qdrant:6333
       - SEARXNG_URL=http://searxng:8080
+      - FASTCRW_URL=http://fastcrw:3000
       - SANDBOX_PROVIDER=docker
       - DOCKER_SANDBOX_URL=http://sandbox:8000
       - GRAPHITI_API_URL=http://graphiti-api:8000
@@ -87,6 +88,8 @@ services:
       qdrant:
         condition: service_started
       searxng:
+        condition: service_started
+      fastcrw:
         condition: service_started
       sandbox:
         condition: service_started
@@ -243,6 +246,31 @@ services:
   searxng-redis:
     image: redis:alpine
     container_name: zetora-searxng-redis
+    networks:
+      - zetora-network
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # fastCRW (self-hosted web scraper & search — alternative à Firecrawl)
+  # Single Rust binary, ~50 MB RAM, Firecrawl-compatible API
+  # /v1/scrape — content extraction
+  # /v1/search — web search via SearXNG interne
+  # ---------------------------------------------------------------------------
+  fastcrw:
+    image: ghcr.io/us/crw:latest
+    container_name: zetora-fastcrw
+    ports:
+      - '127.0.0.1:3003:3000'
+    environment:
+      - CRW_PORT=3000
+      - CRW_NO_AUTH=true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    read_only: true
     networks:
       - zetora-network
     restart: unless-stopped

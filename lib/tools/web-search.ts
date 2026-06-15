@@ -9,6 +9,7 @@ import FirecrawlApp, { SearchResultWeb, SearchResultNews, SearchResultImages, Do
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { SearXNGSearchStrategy } from './searxng-search';
+import { FastCrwWebSearchStrategy } from './fastcrw-web-search';
 
 // Singleton clients - initialized lazily and reused across requests
 let _searchClients: {
@@ -594,11 +595,17 @@ class ExaSearchStrategy implements SearchStrategy {
 }
 
 // Search provider factory
-const WEB_SEARCH_PROVIDERS = ['exa', 'parallel', 'firecrawl', 'searxng'] as const;
+const WEB_SEARCH_PROVIDERS = ['exa', 'parallel', 'firecrawl', 'searxng', 'fastcrw'] as const;
 type WebSearchProvider = (typeof WEB_SEARCH_PROVIDERS)[number];
 
 const normalizeWebSearchProvider = (provider: string): WebSearchProvider => {
-  if (provider === 'parallel' || provider === 'firecrawl' || provider === 'exa' || provider === 'searxng') {
+  if (
+    provider === 'parallel' ||
+    provider === 'firecrawl' ||
+    provider === 'exa' ||
+    provider === 'searxng' ||
+    provider === 'fastcrw'
+  ) {
     return provider;
   }
   return 'exa';
@@ -621,6 +628,15 @@ const createSearchStrategy = (
       return new ExaSearchStrategy(clients.exa, clients.firecrawl);
     }
     return new SearXNGSearchStrategy(url, preferences);
+  }
+
+  if (provider === 'fastcrw') {
+    const url = (preferences?.['zetora-fastcrw-url'] as string | undefined) || serverEnv.FASTCRW_URL;
+    if (!url) {
+      console.warn('fastCRW provider selected but FASTCRW_URL is not configured, falling back to Exa');
+      return new ExaSearchStrategy(clients.exa, clients.firecrawl);
+    }
+    return new FastCrwWebSearchStrategy(url);
   }
 
   const strategies = {

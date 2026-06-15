@@ -1192,8 +1192,11 @@ export async function upsertUserPreferences({
 }: {
   userId: string;
   preferences: Partial<{
-    'zetora-search-provider'?: 'exa' | 'parallel' | 'firecrawl';
+    'zetora-search-provider'?: 'exa' | 'parallel' | 'firecrawl' | 'searxng' | 'fastcrw';
     'zetora-storage-provider'?: 'cloudflare-r2' | 'minio';
+    'zetora-searxng-url'?: string;
+    'zetora-fastcrw-url'?: string;
+    'zetora-extreme-content-provider'?: 'exa' | 'fastcrw' | 'selfhosted';
     'zetora-email-provider'?: 'resend' | 'smtp';
     'zetora-group-order'?: string[];
     'zetora-model-order-global'?: string[];
