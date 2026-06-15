@@ -9,7 +9,7 @@ interface GitHubRepo {
 export function useGitHubStars() {
   return useQuery({
     queryKey: ['github-stars'],
-    queryFn: async (): Promise<number> => {
+    queryFn: async (): Promise<number | null> => {
       try {
         const response = await fetch('https://api.github.com/repos/kennycangiolu/zetora');
         if (!response.ok) {
@@ -19,7 +19,7 @@ export function useGitHubStars() {
         return data.stargazers_count;
       } catch (error) {
         console.error('Error fetching GitHub stars:', error);
-        return 9000;
+        return null;
       }
     },
     staleTime: 1000 * 60 * 5, // 5 minutes

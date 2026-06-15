@@ -1252,8 +1252,8 @@ export default function PricingTable({ subscriptionDetails, user }: PricingTable
               Privacy Policy
             </Link>
             . Questions?{' '}
-            <a href="mailto:zaid@zetora.ai" className="text-foreground hover:underline underline-offset-2">
-              zaid@zetora.ai
+            <a href="mailto:kenny@flowinit.fr" className="text-foreground hover:underline underline-offset-2">
+              kenny@flowinit.fr
             </a>
           </p>
         </div>

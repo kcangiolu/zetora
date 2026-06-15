@@ -2826,7 +2826,7 @@ export function SubscriptionSection({ subscriptionData, isProUser, user }: any) 
       if (proSource === 'dodo') {
         sileo.error({
           title: 'Unable to access DodoPayments portal',
-          description: 'Please contact support at zaid@zetora.ai',
+          description: 'Please contact support at kenny@flowinit.fr',
           icon: <AlertCircle className="h-4 w-4" />,
         });
       } else {

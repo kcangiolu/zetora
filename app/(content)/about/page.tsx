@@ -12,7 +12,6 @@ import {
   X,
   Sparkles,
   Check,
-  Quote,
   Globe,
   FileText,
   Mic,
@@ -31,8 +30,7 @@ import {
 } from 'lucide-react';
 import { AnimatedBeam } from '@/components/ui/animated-beam';
 import Link from 'next/link';
-import Image from 'next/image';
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -55,58 +53,6 @@ import { PRICING, SEARCH_LIMITS } from '@/lib/constants';
 import { ThemeSwitcher } from '@/components/theme-switcher';
 import { ZetoraLogo } from '@/components/logos/zetora-logo';
 import { getSearchGroups } from '@/lib/utils';
-
-const testimonials = [
-  {
-    content:
-      'Zetora is better than Grok at digging up information from X, its own platform! Zetora did much much better with insanely accurate answers!',
-    author: 'Chris Universe',
-    handle: '@chrisuniverseb',
-  },
-  {
-    content: 'Zetora does a really good job scraping through the reddit mines.',
-    author: 'nyaaier',
-    handle: '@nyaaier',
-  },
-  {
-    content:
-      "I searched for myself using Gemini 2.5 Pro in extreme mode. It is not just the best, it is wild. And the best part is it's 100% accurate.",
-    author: 'Aniruddha Dak',
-    handle: '@aniruddhadak',
-  },
-  {
-    content:
-      'Read nothing the whole sem and here I am with Zetora to top my mid sems! Literally so good to get all the related diagrams, points and topics.',
-    author: 'Rajnandinit',
-    handle: '@itsRajnandinit',
-  },
-];
-
-function AnimatedCounter({ target, suffix = '' }: { target: string; suffix?: string }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) setVisible(true);
-      },
-      { threshold: 0.5 },
-    );
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, []);
-
-  return (
-    <span
-      ref={ref}
-      className={`transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
-    >
-      {target}
-      {suffix}
-    </span>
-  );
-}
 
 const AppCircle = React.forwardRef<HTMLDivElement, { favicon: string; label: string; className?: string }>(
   ({ favicon, label, className }, ref) => (
@@ -502,32 +448,6 @@ export default function AboutPage() {
               </Link>
             </div>
           </div>
-
-          {/* Stats */}
-          <div className="mt-20 lg:absolute lg:right-6 lg:top-32 lg:mt-0">
-            <div className="flex lg:flex-col gap-10 lg:gap-8">
-              {[
-                { value: '5M', suffix: '+', label: 'Searches' },
-                { value: '100K', suffix: '+', label: 'Users' },
-                {
-                  value: isLoadingStars
-                    ? '...'
-                    : `${githubStars && githubStars > 1000 ? `${(githubStars / 1000).toFixed(1)}k` : githubStars || '11k'}`,
-                  suffix: '+',
-                  label: 'Stars',
-                },
-              ].map((stat) => (
-                <div key={stat.label}>
-                  <div className="text-3xl lg:text-4xl font-pixel tracking-tight text-foreground">
-                    <AnimatedCounter target={stat.value} suffix={stat.suffix} />
-                  </div>
-                  <div className="text-[10px] text-muted-foreground mt-1 font-medium uppercase tracking-[0.15em]">
-                    {stat.label}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </section>
 
@@ -735,85 +655,6 @@ export default function AboutPage() {
       {/* Apps Section */}
       <AppsBeamSection />
 
-      {/* Testimonials */}
-      <section className="border-t border-border/50">
-        <div className="max-w-6xl mx-auto px-6 py-24">
-          <div className="text-center mb-16 max-w-lg mx-auto">
-            <span className="font-pixel text-[10px] uppercase tracking-[0.2em] text-primary/80 mb-4 block">
-              Wall of Love
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-light tracking-tight font-be-vietnam-pro">
-              Don&apos;t take our word for it
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-4xl mx-auto">
-            {testimonials.map((t) => (
-              <div
-                key={t.handle}
-                className="p-6 rounded-2xl border border-border/50 bg-card/30 hover:bg-card hover:border-border transition-all duration-200"
-              >
-                <Quote className="h-4 w-4 text-primary/40 mb-4" />
-                <p className="text-sm text-foreground/80 leading-relaxed mb-5">{t.content}</p>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-foreground">{t.author}</span>
-                  <span className="text-xs text-muted-foreground font-pixel">{t.handle}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Social Proof Marquee */}
-      <section className="border-t border-border/50 bg-muted/20 overflow-hidden">
-        <div className="max-w-6xl mx-auto px-6 py-12">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8">
-            <div className="flex flex-wrap items-center gap-8">
-              <div className="flex items-center gap-3 group">
-                <Image
-                  src="https://cdn.prod.website-files.com/657b3d8ca1cab4015f06c850/680a4d679063da73487739e0_No1prgold-caps-removebg-preview.png"
-                  alt="Tiny Startups"
-                  width={28}
-                  height={28}
-                  className="opacity-50 group-hover:opacity-100 transition-opacity duration-300"
-                />
-                <div>
-                  <p className="text-xs font-semibold text-foreground">#1 Product</p>
-                  <p className="text-[10px] text-muted-foreground font-pixel uppercase tracking-wider">Tiny Startups</p>
-                </div>
-              </div>
-              <span className="w-px h-8 bg-border/50" />
-              <div className="flex items-center gap-3 group">
-                <Image
-                  src="/Winner-Medal-Weekly.svg"
-                  alt="Peerlist"
-                  width={28}
-                  height={28}
-                  className="opacity-50 group-hover:opacity-100 transition-opacity duration-300"
-                />
-                <div>
-                  <p className="text-xs font-semibold text-foreground">#1 Project</p>
-                  <p className="text-[10px] text-muted-foreground font-pixel uppercase tracking-wider">Peerlist</p>
-                </div>
-              </div>
-            </div>
-            <a
-              href="https://openalternative.co/zetora?utm_source=openalternative&utm_medium=badge&utm_campaign=embed&utm_content=tool-zetora"
-              target="_blank"
-              className="opacity-50 hover:opacity-100 transition-opacity duration-300"
-            >
-              <Image
-                src="https://openalternative.co/zetora/badge.svg?theme=dark&width=200&height=50"
-                width={150}
-                height={38}
-                alt="Zetora badge"
-              />
-            </a>
-          </div>
-        </div>
-      </section>
-
       {/* Built With */}
       <section className="border-t border-border/50">
         <div className="max-w-6xl mx-auto px-6 py-14">
@@ -840,42 +681,6 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Featured on Vercel */}
-      <section className="border-t border-border/50">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2">
-            <div className="px-6 py-20 lg:py-28 lg:pr-16 relative">
-              {/* Decorative number */}
-              <span className="font-pixel-grid text-[120px] sm:text-[160px] text-border/20 absolute -top-4 -left-4 select-none leading-none pointer-events-none">
-                V
-              </span>
-              <div className="relative">
-                <span className="font-pixel text-[10px] uppercase tracking-[0.2em] text-primary/80 mb-4 block">
-                  Press
-                </span>
-                <h2 className="text-3xl sm:text-4xl font-light tracking-tight font-be-vietnam-pro mb-2">Featured on</h2>
-                <p className="font-pixel text-3xl sm:text-4xl text-foreground/90 mb-6">Vercel Blog</p>
-                <p className="text-sm text-muted-foreground leading-relaxed mb-8 max-w-md">
-                  Recognized for innovative use of AI technology and pushing the boundaries of what&apos;s possible with
-                  the Vercel AI SDK.
-                </p>
-                <Link
-                  href="https://vercel.com/blog/ai-sdk-4-1"
-                  className="inline-flex items-center gap-2 text-sm font-medium text-foreground hover:text-foreground/70 transition-colors group px-5 py-2.5 border border-border rounded-full hover:border-foreground/20"
-                  target="_blank"
-                >
-                  Read the feature
-                  <ArrowUpRight className="h-3 w-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                </Link>
-              </div>
-            </div>
-            <div className="relative aspect-video lg:aspect-auto lg:h-full border-t lg:border-t-0 lg:border-l border-border/50 overflow-hidden">
-              <Image src="/vercel-featured.png" alt="Featured on Vercel Blog" fill className="object-cover" />
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Inline CTA */}
       <section className="border-t border-border/50 bg-muted/10">
         <div className="max-w-6xl mx-auto px-6 py-20">
@@ -884,7 +689,7 @@ export default function AboutPage() {
               Ready to <span className="font-pixel">think faster?</span>
             </h2>
             <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-              Join 100K+ users who research smarter and get things done with Zetora.
+              Research smarter and get things done with Zetora.
             </p>
             <div className="flex items-center justify-center gap-4">
               <Button className="rounded-full px-8 h-11" onClick={() => router.push('/')}>
@@ -1287,8 +1092,8 @@ export default function AboutPage() {
               </h2>
               <p className="text-muted-foreground leading-relaxed mb-8">
                 Can&apos;t find what you need? Reach out at{' '}
-                <a href="mailto:zaid@zetora.ai" className="text-foreground hover:underline underline-offset-2">
-                  zaid@zetora.ai
+                <a href="mailto:kenny@flowinit.fr" className="text-foreground hover:underline underline-offset-2">
+                  kenny@flowinit.fr
                 </a>
               </p>
               <div className="flex gap-3">

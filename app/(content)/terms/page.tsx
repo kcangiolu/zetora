@@ -268,7 +268,7 @@ export default function TermsPage() {
               </h2>
               <p>If you have any questions about these Terms of Service, please contact us at:</p>
               <p>
-                <a href="mailto:zaid@zetora.ai">zaid@zetora.ai</a>
+                <a href="mailto:kenny@flowinit.fr">kenny@flowinit.fr</a>
               </p>
             </div>
 

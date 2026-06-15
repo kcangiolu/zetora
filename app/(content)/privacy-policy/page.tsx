@@ -160,7 +160,7 @@ export default function PrivacyPage() {
               </p>
               <p>
                 You may request deletion of your personal data at any time by emailing{' '}
-                <a href="mailto:zaid@zetora.ai">zaid@zetora.ai</a>. We will action deletion requests within 30 days,
+                <a href="mailto:kenny@flowinit.fr">kenny@flowinit.fr</a>. We will action deletion requests within 30 days,
                 except where we are required to retain data for legal or compliance reasons.
               </p>
 
@@ -172,7 +172,7 @@ export default function PrivacyPage() {
 
               <h2 id="contact"><span className="font-pixel text-xs text-muted-foreground/50 mr-2">09</span>Contact Us</h2>
               <p>If you have any questions about this Privacy Policy, please contact us at:</p>
-              <p><a href="mailto:zaid@zetora.ai">zaid@zetora.ai</a></p>
+              <p><a href="mailto:kenny@flowinit.fr">kenny@flowinit.fr</a></p>
             </div>
 
             {/* Agreement Note */}

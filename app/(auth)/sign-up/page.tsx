@@ -5,7 +5,7 @@ function SignUpContent() {
   return (
     <AuthCard
       title="Create an account"
-      description="Join 100K+ researchers using AI-powered search with real-time citations."
+      description="Get started with AI-powered research and real-time citations."
       mode="sign-up"
     />
   );

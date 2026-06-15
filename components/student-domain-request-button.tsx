@@ -60,7 +60,7 @@ Best regards`;
     const { subject, body } = generateEmailDraft();
 
     const formattedBody = body.replace(/\n/g, '%0D%0A');
-    const mailtoLink = `mailto:zaid@zetora.ai?subject=${encodeURIComponent(subject)}&body=${formattedBody}`;
+    const mailtoLink = `mailto:kenny@flowinit.fr?subject=${encodeURIComponent(subject)}&body=${formattedBody}`;
 
     window.location.href = mailtoLink;
 
