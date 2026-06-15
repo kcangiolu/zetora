@@ -441,7 +441,7 @@ export const auth = betterAuth({
     }),
     dodopayments({
       client: dodoPayments,
-      createCustomerOnSignUp: true,
+      createCustomerOnSignUp: false,
       use: [
         dodocheckout({
           products: [

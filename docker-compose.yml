@@ -1,11 +1,10 @@
-version: '3.8'
-
 # =============================================================================
 # Zetora — Production docker-compose
 #
 # Usage:
-#   1. Copy .env.prod and fill in the required values (see comments inside).
-#   2. docker compose --env-file .env.prod up -d --build
+#   1. Copy .env.example to .env and fill in the required values (see
+#      comments inside .env).
+#   2. docker compose up -d --build
 #
 # All services share the `zetora-network` network and resolve each other by
 # service name (e.g. the app reaches Postgres at `postgres:5432`).
@@ -39,7 +38,7 @@ services:
         # STARTER/PREMIUM/MAX tier+slug feed Polar/Dodo checkout plugins that
         # throw at module-load if empty — default to "placeholder" so the
         # build succeeds even when payments aren't configured. Set the real
-        # product IDs/slugs in .env.prod to enable Polar/Dodo checkout.
+        # product IDs/slugs in .env to enable Polar/Dodo checkout.
         NEXT_PUBLIC_STARTER_TIER: ${NEXT_PUBLIC_STARTER_TIER:-placeholder}
         NEXT_PUBLIC_STARTER_SLUG: ${NEXT_PUBLIC_STARTER_SLUG:-placeholder}
         NEXT_PUBLIC_PREMIUM_TIER: ${NEXT_PUBLIC_PREMIUM_TIER:-placeholder}
@@ -50,13 +49,13 @@ services:
     ports:
       - '3000:3000'
     env_file:
-      - .env.prod
+      - .env
     environment:
       - NODE_ENV=production
       - PORT=3000
       - HOSTNAME=0.0.0.0
       # --- Internal service URLs (fixed by this compose's network topology;
-      #     do NOT set these in .env.prod, they would be overridden anyway) ---
+      #     do NOT set these in .env, they would be overridden anyway) ---
       - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/zetora
       - REDIS_URL=redis://redis:6379
       - STORAGE_PROVIDER=minio
@@ -74,6 +73,8 @@ services:
       - BULLMQ_ENABLED=true
       - BULLMQ_REDIS_URL=redis://bullmq-redis:6379
       - BULLMQ_REDIS_PASSWORD=${BULLMQ_REDIS_PASSWORD:-}
+      - UPSTASH_REDIS_REST_URL=http://srh:80
+      - UPSTASH_REDIS_REST_TOKEN=${UPSTASH_REDIS_REST_TOKEN}
     depends_on:
       postgres:
         condition: service_healthy
@@ -139,6 +140,24 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - zetora-network
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Serverless Redis HTTP (self-hosted Upstash REST API, backed by `redis`)
+  # — used by @upstash/redis for rate limiting, x-wrapped cache, MCP elicitation
+  # ---------------------------------------------------------------------------
+  srh:
+    image: hiett/serverless-redis-http:latest
+    container_name: zetora-srh
+    environment:
+      - SRH_MODE=env
+      - SRH_TOKEN=${UPSTASH_REDIS_REST_TOKEN}
+      - SRH_CONNECTION_STRING=redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
     networks:
       - zetora-network
     restart: unless-stopped

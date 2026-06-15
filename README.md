@@ -195,7 +195,7 @@ Use this for day-to-day development. It runs the Next.js app directly on your ma
    cp .env.example .env.local
    ```
 3. Fill in `.env.local`. At minimum:
-   - `DATABASE_URL` — a Postgres connection string. You can use the self-hosted Postgres for this: start it alone with `docker compose --env-file .env.prod up -d postgres` and connect to `postgresql://postgres:<POSTGRES_PASSWORD>@localhost:5432/zetora`.
+   - `DATABASE_URL` — a Postgres connection string. You can use the self-hosted Postgres for this: start it alone with `docker compose up -d postgres` (reads `.env`) and connect to `postgresql://postgres:<POSTGRES_PASSWORD>@localhost:5432/zetora`.
    - `BETTER_AUTH_SECRET` — generate with `openssl rand -base64 32`.
    - At least one AI provider key (e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY`).
 4. Apply database migrations (reads `DATABASE_URL` from `.env.local` via `drizzle.config.ts`):
@@ -208,7 +208,7 @@ Use this for day-to-day development. It runs the Next.js app directly on your ma
    ```
 6. Open `http://localhost:3000`.
 
-You can optionally bring up any other bundled service on its own (Redis, MinIO, Qdrant, SearXNG, sandbox, Graphiti) with `docker compose --env-file .env.prod up -d <service>` and point the matching `.env.local` variables at `localhost:<port>`.
+You can optionally bring up any other bundled service on its own (Redis, MinIO, Qdrant, SearXNG, sandbox, Graphiti) with `docker compose up -d <service>` and point the matching `.env.local` variables at `localhost:<port>`.
 
 ### Option 2 — Self-hosted stack (Docker Compose)
 
@@ -219,7 +219,7 @@ Use this to deploy the full stack (app + Postgres, Redis, MinIO, Qdrant, SearXNG
    git clone <your-repo-url> zetora
    cd zetora
    ```
-2. Create `.env.prod` (gitignored — never commit it). Fill in at least:
+2. Create `.env` (gitignored — never commit it). Fill in at least:
    - **Domain**: `NEXT_PUBLIC_APP_URL`, `BETTER_AUTH_BASE_URL`, `ALLOWED_ORIGINS` — set to your public URL (e.g. `https://zetora.example.com`).
    - **Core secrets**: `BETTER_AUTH_SECRET` (generate with `openssl rand -base64 32`), `POSTGRES_PASSWORD`.
    - **MinIO**: `MINIO_ROOT_PASSWORD` (and optionally `MINIO_ROOT_USER`, `S3_PUBLIC_URL`).
@@ -229,7 +229,7 @@ Use this to deploy the full stack (app + Postgres, Redis, MinIO, Qdrant, SearXNG
    See `.env.example` for the full list of available variables, and the comments at the top of `docker-compose.yml` for how to drop optional services.
 3. Build and start the stack:
    ```bash
-   docker compose --env-file .env.prod up -d --build
+   docker compose up -d --build
    ```
    This builds the `zetora.app` image and starts every bundled service on the `zetora-network`.
 4. Apply database migrations against the dockerized Postgres (exposed on `127.0.0.1:5432`). From a machine with `pnpm install` already run (so `drizzle-kit` is available):
