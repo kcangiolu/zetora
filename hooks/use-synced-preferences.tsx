@@ -60,6 +60,7 @@ export type PreferenceKey =
   | 'zetora-content-indexing-enabled'
   | 'zetora-rerank-enabled'
   | 'zetora-xml-tool-parsing-enabled'
+  | 'zetora-xml-tool-parsing-protocol'
   | 'zetora-xql-enabled'
   | 'zetora-lookout-enabled'
   | 'zetora-voice-enabled'

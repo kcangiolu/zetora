@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { wrapLanguageModel, customProvider, extractReasoningMiddleware, gateway } from 'ai';
-import { morphXmlToolMiddleware } from '@ai-sdk-tool/parser';
+import { morphXmlToolMiddleware, qwen3CoderToolMiddleware } from '@ai-sdk-tool/parser';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createWebSocketFetch } from 'ai-sdk-openai-websocket-fetch';
@@ -544,9 +544,10 @@ export async function resolveModel(
   const isCustomModel = modelId.startsWith('custom-');
 
   if (xmlParsingEnabled && isCustomModel) {
+    const xmlParsingProtocol = preferences?.['zetora-xml-tool-parsing-protocol'] === 'qwen3-coder' ? 'qwen3-coder' : 'morph';
     return wrapLanguageModel({
       model: resolved,
-      middleware: morphXmlToolMiddleware,
+      middleware: xmlParsingProtocol === 'qwen3-coder' ? qwen3CoderToolMiddleware : morphXmlToolMiddleware,
     });
   }
 
