@@ -1206,7 +1206,7 @@ export function PreferencesSection({
                 <div className="min-w-0">
                   <p className="text-sm font-medium">Firecrawl Search Fallback</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Relancer la recherche avec Firecrawl si le provider principal renvoie 0 résultats
+                    Retry the search with Firecrawl when the primary provider returns no results
                   </p>
                 </div>
                 <Switch checked={fallbackSearchFirecrawl} onCheckedChange={setFallbackSearchFirecrawl} />
@@ -1281,7 +1281,7 @@ export function PreferencesSection({
                     <div className="min-w-0">
                       <p className="text-sm font-medium">Firecrawl Content Fallback</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Utiliser Firecrawl quand Exa ne peut pas extraire le contenu d'une page
+                        Use Firecrawl when Exa fails to extract content from a page
                       </p>
                     </div>
                     <Switch checked={fallbackFirecrawlContent} onCheckedChange={setFallbackFirecrawlContent} />
@@ -1290,7 +1290,7 @@ export function PreferencesSection({
                     <div className="min-w-0">
                       <p className="text-sm font-medium">Metadata Fallback</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Utiliser le scraping de métadonnées en dernier recours (titre + description)
+                        Use metadata scraping as a last resort (title + description only)
                       </p>
                     </div>
                     <Switch checked={fallbackMetadata} onCheckedChange={setFallbackMetadata} />
@@ -1303,7 +1303,7 @@ export function PreferencesSection({
                     <div className="min-w-0">
                       <p className="text-sm font-medium">Notte Fallback</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Utiliser Notte quand fastCRW ne peut pas scraper une page
+                        Use Notte when fastCRW fails to scrape a page
                       </p>
                     </div>
                     <Switch checked={fallbackNotte} onCheckedChange={setFallbackNotte} />
@@ -1312,7 +1312,7 @@ export function PreferencesSection({
                     <div className="min-w-0">
                       <p className="text-sm font-medium">Metadata Fallback</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Utiliser le scraping de métadonnées en dernier recours (titre + description)
+                        Use metadata scraping as a last resort (title + description only)
                       </p>
                     </div>
                     <Switch checked={fallbackMetadata} onCheckedChange={setFallbackMetadata} />
@@ -1324,7 +1324,7 @@ export function PreferencesSection({
                 <div className="min-w-0">
                   <p className="text-sm font-medium">Exa Browse Fallback</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Utiliser Exa dans la navigation de pages (BrowsePage) après Notte
+                    Use Exa in the BrowsePage chain after Notte fails
                   </p>
                 </div>
                 <Switch checked={fallbackExaBrowse} onCheckedChange={setFallbackExaBrowse} />
@@ -1841,7 +1841,7 @@ export function PreferencesSection({
               <div className="px-4 py-3 border-b border-border/40">
                 <p className="text-sm font-medium">Retrieve Fallbacks</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Fournisseurs utilisés en cascade quand Exa ne peut pas lire une URL
+                  Providers tried in sequence when Exa cannot retrieve a URL
                 </p>
               </div>
               <div className="px-4 divide-y divide-border/40">
@@ -1849,7 +1849,7 @@ export function PreferencesSection({
                   <div className="min-w-0">
                     <p className="text-sm font-medium">Parallel AI Fallback</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Utiliser Parallel AI si Exa ne retourne pas de contenu
+                      Use Parallel AI if Exa returns no content
                     </p>
                   </div>
                   <Switch checked={fallbackRetrieveParallel} onCheckedChange={setFallbackRetrieveParallel} />
@@ -1858,7 +1858,7 @@ export function PreferencesSection({
                   <div className="min-w-0">
                     <p className="text-sm font-medium">Firecrawl Fallback</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Utiliser Firecrawl en dernier recours si Parallel AI échoue aussi
+                      Use Firecrawl as a last resort if Parallel AI also fails
                     </p>
                   </div>
                   <Switch checked={fallbackRetrieveFirecrawl} onCheckedChange={setFallbackRetrieveFirecrawl} />
