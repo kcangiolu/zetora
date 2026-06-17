@@ -3,6 +3,7 @@
 
 import React, { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
+import { MarqueeText } from '@/components/ui/marquee-text';
 import {
   models,
   requiresAuthentication,
@@ -888,14 +889,14 @@ export function ModelSelectorDialog({
       type="button"
       variant="outline"
       size="sm"
-      className={cn('justify-between h-8 text-xs gap-2', className)}
+      className={cn('justify-between h-8 text-xs gap-2 overflow-hidden', className)}
       {...props}
     >
-      <div className="flex items-center gap-1.5 truncate">
+      <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
         {currentModelProvider && (
           <ProviderIcon provider={currentModelProvider} size={13} className="text-foreground/70 shrink-0" />
         )}
-        <span className="truncate">{currentModel?.label || 'Select model'}</span>
+        <MarqueeText text={currentModel?.label || 'Select model'} className="min-w-0 flex-1" />
       </div>
       <ChevronDown
         className={cn('h-3.5 w-3.5 shrink-0 opacity-50 transition-transform duration-200', open && 'rotate-180')}

@@ -45,6 +45,7 @@ import {
   Lock,
   Puzzle,
 } from 'lucide-react';
+import { MarqueeText } from '@/components/ui/marquee-text';
 import { MagicWandIcon } from '@/components/ui/magic-wand-icon';
 import { MagicEditIcon } from '@/components/ui/magic-edit-icon';
 import { ProcessorIcon } from '@/components/ui/processor-icon';
@@ -1644,11 +1645,11 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
             )}
           </>
         ) : (
-          <div className="items-center gap-1.5 sm:flex hidden">
+          <div className="items-center gap-1.5 sm:flex hidden min-w-0 max-w-[200px] overflow-hidden">
             {currentModelProvider && (
-              <ProviderIcon provider={currentModelProvider} size={14} className="text-foreground/70" />
+              <ProviderIcon provider={currentModelProvider} size={14} className="text-foreground/70 shrink-0" />
             )}
-            <span className="text-[13px] font-medium">{currentModel?.label}</span>
+            <MarqueeText text={currentModel?.label ?? ''} className="text-[13px] font-medium min-w-0 flex-1" />
           </div>
         )}
         <CaretDownIcon

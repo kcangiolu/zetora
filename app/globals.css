@@ -1616,5 +1616,31 @@ body {
   --sileo-btn-bg-hover: color-mix(in oklch, var(--_c) 25%, transparent);
 }
 
+/* Marquee scroll animation for overflowing model names */
+@keyframes marquee-scroll {
+  0%, 20% {
+    transform: translateX(0);
+  }
+  80%, 100% {
+    transform: translateX(var(--marquee-offset, 0px));
+  }
+}
+
+/* Default: truncate with ellipsis */
+.marquee-container .marquee-text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* On hover: scroll to reveal the full name */
+.marquee-container:hover .marquee-text {
+  display: inline-block;
+  overflow: visible;
+  text-overflow: clip;
+  animation: marquee-scroll var(--marquee-duration) ease-in-out infinite alternate;
+}
+
 /* Sugar-high syntax highlighting styles */
 
