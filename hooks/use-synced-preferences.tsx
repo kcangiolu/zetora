@@ -239,8 +239,8 @@ export function useSyncedPreferences<T extends PreferenceValue>(
   const queryClient = useQueryClient();
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const pendingUpdateRef = useRef<Partial<Record<PreferenceKey, PreferenceValue>> | null>(null);
-  // Track pending saves to prevent overwriting local changes with stale DB data
-  const pendingSaveRef = useRef<boolean>(false);
+  // Counter (not boolean) so concurrent saves don't accidentally clear each other's flag
+  const pendingSaveCountRef = useRef<number>(0);
 
   // Initialize with localStorage value immediately
   const [localValue, setLocalValue] = useState<T>(() => getStoredValue(key, defaultValue));
@@ -308,7 +308,7 @@ export function useSyncedPreferences<T extends PreferenceValue>(
     }
 
     // After login: only sync if no pending save (don't overwrite user's current changes)
-    if (pendingSaveRef.current) return;
+    if (pendingSaveCountRef.current > 0) return;
     if (dbValue !== undefined && dbValue !== localValueRef.current) {
       setLocalValue(dbValue as T);
       localStorage.setItem(key, JSON.stringify(dbValue));
@@ -351,8 +351,8 @@ export function useSyncedPreferences<T extends PreferenceValue>(
     (updates: Partial<Record<PreferenceKey, PreferenceValue>>) => {
       if (!user?.id) return;
 
-      // Mark that we have a pending save
-      pendingSaveRef.current = true;
+      // Increment counter for this in-flight save
+      pendingSaveCountRef.current += 1;
 
       // Clear existing timer
       if (debounceTimerRef.current) {
@@ -369,21 +369,27 @@ export function useSyncedPreferences<T extends PreferenceValue>(
       debounceTimerRef.current = setTimeout(() => {
         const toSave = pendingUpdateRef.current;
         if (!toSave) {
-          pendingSaveRef.current = false;
+          pendingSaveCountRef.current -= 1;
           return;
         }
 
         // Send only the changes - the server will handle merging
         persistUserPreferences(toSave)
           .then(() => {
-            // Clear pending save flag after successful save
-            pendingSaveRef.current = false;
-            queryClient.invalidateQueries({ queryKey: ['userPreferences', user.id] });
+            pendingSaveCountRef.current -= 1;
+            // Update the cache directly to avoid a round-trip refetch that can
+            // race with in-progress keystrokes and overwrite the local value.
+            queryClient.setQueryData(
+              ['userPreferences', user.id],
+              (old: UserPreferencesRecord | null | undefined) => ({
+                ...old,
+                preferences: { ...old?.preferences, ...toSave },
+              }),
+            );
           })
           .catch((error) => {
             console.error('Failed to save preferences to DB:', error);
-            // Clear pending save flag even on error to allow retry
-            pendingSaveRef.current = false;
+            pendingSaveCountRef.current -= 1;
           });
 
         pendingUpdateRef.current = null;
