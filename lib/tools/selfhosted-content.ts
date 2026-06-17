@@ -190,8 +190,8 @@ export class SelfHostedContentStrategy implements ContentExtractionStrategy {
       remaining = failed;
     }
 
-    // Phase 2: Notte fallback
-    if (remaining.length > 0) {
+    // Phase 2: Notte fallback (only if API key is configured)
+    if (remaining.length > 0 && serverEnv.NOTTE_API_KEY && serverEnv.NOTTE_API_KEY !== 'placeholder') {
       console.log(`[SelfHostedContent] ${remaining.length} URLs remaining, trying Notte`);
       const notteResults = await all(
         Object.fromEntries(remaining.map((url, i) => [`nt:${i}`, async () => scrapeWithNotte(url)])),

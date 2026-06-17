@@ -22,6 +22,7 @@ export type PreferenceKey =
   | 'zetora-searxng-url'
   | 'zetora-fastcrw-url'
   | 'zetora-extreme-content-provider'
+  | 'zetora-search-stack'
   | 'zetora-embedding-provider'
   | 'zetora-embedding-model'
   | 'zetora-qdrant-url'
@@ -170,6 +171,9 @@ function collectLocalStoragePreferences(): Partial<Record<PreferenceKey, Prefere
     'zetora-visible-modes',
     'zetora-sandbox-provider',
     'zetora-searxng-url',
+    'zetora-fastcrw-url',
+    'zetora-extreme-content-provider',
+    'zetora-search-stack',
     'zetora-embedding-provider',
     'zetora-embedding-model',
     'zetora-qdrant-url',

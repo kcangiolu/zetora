@@ -1196,7 +1196,7 @@ export async function upsertUserPreferences({
     'zetora-storage-provider'?: 'cloudflare-r2' | 'minio';
     'zetora-searxng-url'?: string;
     'zetora-fastcrw-url'?: string;
-    'zetora-extreme-content-provider'?: 'exa' | 'fastcrw' | 'selfhosted';
+    'zetora-extreme-content-provider'?: 'exa-firecrawl' | 'searxng-fastcrw' | 'notte-only';
     'zetora-email-provider'?: 'resend' | 'smtp';
     'zetora-group-order'?: string[];
     'zetora-model-order-global'?: string[];

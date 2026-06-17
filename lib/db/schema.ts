@@ -347,7 +347,7 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-email-provider'?: 'resend' | 'smtp';
       'zetora-searxng-url'?: string;
       'zetora-fastcrw-url'?: string;
-      'zetora-extreme-content-provider'?: 'exa' | 'fastcrw' | 'selfhosted';
+      'zetora-extreme-content-provider'?: 'exa-firecrawl' | 'searxng-fastcrw' | 'notte-only';
       'zetora-tertiary-extreme-agent-model'?: string;
       'zetora-tertiary-extreme-agent-provider'?: string;
       'zetora-group-order'?: string[];

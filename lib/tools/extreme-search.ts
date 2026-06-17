@@ -41,7 +41,7 @@ import {
   type ContentExtractionStrategy,
   type SearchResult,
 } from './selfhosted-content';
-import { FastCrwSearchStrategy, type SearchProviderStrategy, SearchCategory } from './fastcrw-search';
+import { type SearchProviderStrategy, SearchCategory } from './fastcrw-search';
 
 interface CitationSource {
   sourceType?: string;
@@ -582,34 +582,25 @@ async function extremeSearch(
   const exa = new Exa(serverEnv.EXA_API_KEY);
   const firecrawl = new FirecrawlApp({ apiKey: serverEnv.FIRECRAWL_API_KEY });
 
-  const searchProvider = preferences?.['zetora-search-provider'];
-  const searxngUrl = preferences?.['zetora-searxng-url'] || serverEnv.SEARXNG_URL;
   const fastcrwUrl = preferences?.['zetora-fastcrw-url'] || serverEnv.FASTCRW_URL;
+  const searxngUrl = preferences?.['zetora-searxng-url'] || serverEnv.SEARXNG_URL;
   const extremeContentProvider = preferences?.['zetora-extreme-content-provider'];
 
   let searchStrategy: SearchProviderStrategy;
   let contentStrategy: ContentExtractionStrategy;
 
-  if (searchProvider === 'fastcrw' && fastcrwUrl) {
-    searchStrategy = new FastCrwSearchStrategy(fastcrwUrl.replace(/\/$/, ''));
-    contentStrategy = new SelfHostedContentStrategy(fastcrwUrl);
-    console.log('[ExtremeSearch] Using fastCRW for search and content extraction');
-  } else if (searchProvider === 'searxng' && searxngUrl) {
+  if (extremeContentProvider === 'searxng-fastcrw' && searxngUrl && fastcrwUrl) {
     searchStrategy = new SearXNGSearchStrategy(searxngUrl.replace(/\/$/, ''));
-    if (extremeContentProvider === 'fastcrw' && fastcrwUrl) {
-      contentStrategy = new SelfHostedContentStrategy(fastcrwUrl);
-      console.log('[ExtremeSearch] Using SearXNG for search, fastCRW for content extraction');
-    } else if (extremeContentProvider === 'selfhosted') {
-      contentStrategy = new SelfHostedContentStrategy();
-      console.log('[ExtremeSearch] Using SearXNG for search, Notte for content extraction');
-    } else {
-      contentStrategy = new ExaContentStrategy(exa, firecrawl);
-      console.log('[ExtremeSearch] Using SearXNG for search, Exa/Firecrawl for content extraction');
-    }
+    contentStrategy = new SelfHostedContentStrategy(fastcrwUrl);
+    console.log('[ExtremeSearch] SearXNG + fastCRW stack');
+  } else if (extremeContentProvider === 'notte-only' && searxngUrl) {
+    searchStrategy = new SearXNGSearchStrategy(searxngUrl.replace(/\/$/, ''));
+    contentStrategy = new SelfHostedContentStrategy();
+    console.log('[ExtremeSearch] SearXNG + Notte only stack');
   } else {
     searchStrategy = new ExaSearchStrategy(exa);
     contentStrategy = new ExaContentStrategy(exa, firecrawl);
-    console.log('[ExtremeSearch] Using Exa as search and content extraction provider');
+    console.log('[ExtremeSearch] Exa + Firecrawl stack');
   }
 
   // Filter supported files early for planner and later file indexing
@@ -1877,20 +1868,10 @@ ${JSON.stringify(plan)}
       console.log('Response [extreme-search]:', event.response);
       console.log('Provider metadata [extreme-search]:', event.providerMetadata);
     },
-    prepareStep: async ({ steps }) => {
-      // Check if done tool was called in any previous step
-      const doneToolCalled = steps.some((step) => step.toolCalls.some((tc) => tc?.toolName === 'done'));
-
-      // Stop tool calls if done tool was already called
-      if (doneToolCalled) {
-        console.log('[ExtremeSearch] Done tool called, stopping further tool calls');
-        return {
-          toolChoice: 'none' as const,
-        };
-      }
-
+    prepareStep: async () => {
       // Force the model to always call a tool — it cannot stop by returning plain text.
       // done is always available; the model decides when research is complete.
+      // stopWhen: hasToolCall('done') handles loop termination.
       return {
         toolChoice: 'required' as const,
       };

@@ -237,6 +237,10 @@ const SearXNGIcon = ({ className }: { className?: string }) => (
   <HugeiconsIcon icon={GlobalSearchIcon} size={16} className={className} />
 );
 
+const FastCrwIcon = ({ className }: { className?: string }) => (
+  <HugeiconsIcon icon={Rocket01Icon} size={16} className={className} />
+);
+
 // Search Provider Options
 const searchProviders = [
   {
@@ -265,6 +269,13 @@ const searchProviders = [
     label: 'SearXNG',
     description: 'Self-hosted metasearch engine aggregating results from multiple sources',
     icon: SearXNGIcon,
+    default: false,
+  },
+  {
+    value: 'fastcrw',
+    label: 'fastCRW',
+    description: 'Self-hosted Rust scraper & search — Firecrawl-compatible API',
+    icon: FastCrwIcon,
     default: false,
   },
 ] as const;
@@ -507,12 +518,15 @@ export function PreferencesSection({
   isCustomInstructionsEnabled?: boolean;
   setIsCustomInstructionsEnabledAction?: (value: boolean | ((val: boolean) => boolean)) => void;
 }) {
-  const [searchProvider, setSearchProvider] = useSyncedPreferences<'exa' | 'parallel' | 'firecrawl' | 'searxng'>(
-    'zetora-search-provider',
-    'exa',
-  );
+  const [searchProvider, setSearchProvider] = useSyncedPreferences<
+    'exa' | 'parallel' | 'firecrawl' | 'searxng' | 'fastcrw'
+  >('zetora-search-provider', 'exa');
 
   const [searxngUrl, setSearxngUrl] = useSyncedPreferences<string>('zetora-searxng-url', '');
+  const [fastcrwUrl, setFastcrwUrl] = useSyncedPreferences<string>('zetora-fastcrw-url', '');
+  const [extremeContentProvider, setExtremeContentProvider] = useSyncedPreferences<
+    'exa-firecrawl' | 'searxng-fastcrw' | 'notte-only'
+  >('zetora-extreme-content-provider', 'exa-firecrawl');
 
   const [sandboxProvider, setSandboxProvider] = useSyncedPreferences<'daytona' | 'docker'>(
     'zetora-sandbox-provider',
@@ -746,13 +760,14 @@ export function PreferencesSection({
   const enabled = isCustomInstructionsEnabled ?? true;
   const setEnabled = setIsCustomInstructionsEnabledAction ?? (() => {});
 
-  const handleSearchProviderChange = (newProvider: 'exa' | 'parallel' | 'firecrawl' | 'searxng') => {
+  const handleSearchProviderChange = (newProvider: 'exa' | 'parallel' | 'firecrawl' | 'searxng' | 'fastcrw') => {
     setSearchProvider(newProvider);
     const labels: Record<typeof newProvider, string> = {
       exa: 'Exa',
       parallel: 'Parallel AI',
       firecrawl: 'Firecrawl',
       searxng: 'SearXNG',
+      fastcrw: 'fastCRW',
     };
     sileo.success({
       title: `Search provider changed to ${labels[newProvider]}`,
@@ -1152,6 +1167,20 @@ export function PreferencesSection({
                 </div>
               )}
 
+              {/* fastCRW URL */}
+              {searchProvider === 'fastcrw' && (
+                <div className="flex flex-col gap-1.5 py-3.5">
+                  <p className="text-sm font-medium">fastCRW URL</p>
+                  <p className="text-xs text-muted-foreground">Base URL of your fastCRW instance</p>
+                  <Input
+                    placeholder="http://localhost:3000"
+                    value={fastcrwUrl}
+                    onChange={(e) => setFastcrwUrl(e.target.value)}
+                    className="h-8 text-xs rounded-lg"
+                  />
+                </div>
+              )}
+
               {/* Sandbox Provider */}
               <div className="flex items-center justify-between py-3.5 gap-6">
                 <div className="min-w-0">
@@ -1187,6 +1216,29 @@ export function PreferencesSection({
                         </div>
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Extreme Content Provider */}
+              <div className="flex items-center justify-between py-3.5 gap-6">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Extreme Content Provider</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Search + content extraction stack for Extreme Agent
+                  </p>
+                </div>
+                <Select
+                  value={extremeContentProvider}
+                  onValueChange={(v) => setExtremeContentProvider(v as 'exa-firecrawl' | 'searxng-fastcrw' | 'notte-only')}
+                >
+                  <SelectTrigger className="w-[160px] h-8 text-xs rounded-lg shrink-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="exa-firecrawl">Exa + Firecrawl</SelectItem>
+                    <SelectItem value="searxng-fastcrw">SearXNG + fastCRW</SelectItem>
+                    <SelectItem value="notte-only">Notte only</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1967,7 +2019,7 @@ export function PreferencesSection({
                   providerKey="zetora-tertiary-extreme-agent-provider"
                   label="Extreme Search Agent"
                   description="Executes the autonomous research loop"
-                  defaultModelLabel="Grok 4.1 Fast Reasoning"
+                  defaultModelLabel="Grok 4.1 Fast (Reasoning)"
                   additionalModels={customModelsList}
                   user={user}
                   isProUser={hasPaidAccess}

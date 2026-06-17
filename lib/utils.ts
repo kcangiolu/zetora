@@ -64,6 +64,7 @@ export const searchProviderInfo = {
   exa: 'Exa, one of the best web search APIs for AI',
   firecrawl: 'Firecrawl',
   searxng: 'SearXNG',
+  fastcrw: 'fastCRW',
 } as const;
 
 export type SearchProvider = keyof typeof searchProviderInfo;

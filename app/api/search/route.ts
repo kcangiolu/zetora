@@ -1496,7 +1496,7 @@ export async function POST(req: Request) {
           // Only return object if tools need to be disabled
           if (shouldDisableTools && model !== 'zetora-sarvam-105b') {
             return {
-              toolChoice: 'none' as const,
+              toolChoice: 'auto' as const,
               activeTools: [],
             };
           }
