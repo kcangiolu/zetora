@@ -334,6 +334,8 @@ class ExaContentStrategy implements ContentExtractionStrategy {
   constructor(
     private exa: Exa,
     private firecrawl: FirecrawlApp,
+    private firecrawlEnabled = true,
+    private metadataEnabled = true,
   ) {}
 
   async getContents(links: string[]): Promise<SearchResult[]> {
@@ -379,7 +381,7 @@ class ExaContentStrategy implements ContentExtractionStrategy {
     }
 
     // Use Firecrawl as fallback for failed URLs - parallelize scraping
-    if (failedUrls.length > 0) {
+    if (failedUrls.length > 0 && this.firecrawlEnabled) {
       console.log(`[Exa] Using Firecrawl fallback for ${failedUrls.length} URLs:`, failedUrls);
 
       const firecrawlResults = await all(
@@ -428,7 +430,7 @@ class ExaContentStrategy implements ContentExtractionStrategy {
 
     const resolvedUrls = new Set(results.map((r) => r.url));
     const missingUrls = links.filter((url) => !resolvedUrls.has(url));
-    if (missingUrls.length > 0) {
+    if (missingUrls.length > 0 && this.metadataEnabled) {
       const metadataFallback = await getMetadataFallbackResults(missingUrls, 'Exa');
       results.push(...metadataFallback);
     }
@@ -586,20 +588,26 @@ async function extremeSearch(
   const searxngUrl = preferences?.['zetora-searxng-url'] || serverEnv.SEARXNG_URL;
   const extremeContentProvider = preferences?.['zetora-extreme-content-provider'];
 
+  const prefs = preferences as Record<string, unknown> | null;
+  const notteEnabled = prefs?.['zetora-fallback-notte'] !== false;
+  const metadataEnabled = prefs?.['zetora-fallback-metadata'] !== false;
+  const firecrawlContentEnabled = prefs?.['zetora-fallback-firecrawl-content'] !== false;
+  const exaBrowseEnabled = prefs?.['zetora-fallback-exa-browse'] !== false;
+
   let searchStrategy: SearchProviderStrategy;
   let contentStrategy: ContentExtractionStrategy;
 
   if (extremeContentProvider === 'searxng-fastcrw' && searxngUrl && fastcrwUrl) {
     searchStrategy = new SearXNGSearchStrategy(searxngUrl.replace(/\/$/, ''));
-    contentStrategy = new SelfHostedContentStrategy(fastcrwUrl);
+    contentStrategy = new SelfHostedContentStrategy({ fastcrwUrl, notteEnabled, metadataEnabled });
     console.log('[ExtremeSearch] SearXNG + fastCRW stack');
   } else if (extremeContentProvider === 'notte-only' && searxngUrl) {
     searchStrategy = new SearXNGSearchStrategy(searxngUrl.replace(/\/$/, ''));
-    contentStrategy = new SelfHostedContentStrategy();
+    contentStrategy = new SelfHostedContentStrategy({ notteEnabled, metadataEnabled });
     console.log('[ExtremeSearch] SearXNG + Notte only stack');
   } else {
     searchStrategy = new ExaSearchStrategy(exa);
-    contentStrategy = new ExaContentStrategy(exa, firecrawl);
+    contentStrategy = new ExaContentStrategy(exa, firecrawl, firecrawlContentEnabled, metadataEnabled);
     console.log('[ExtremeSearch] Exa + Firecrawl stack');
   }
 
@@ -1452,7 +1460,7 @@ ${JSON.stringify(plan)}
                     }
                   }
 
-                  if (!content) {
+                  if (!content && notteEnabled && serverEnv.NOTTE_API_KEY && serverEnv.NOTTE_API_KEY !== 'placeholder') {
                     try {
                       const notteResult = await scrapeWebpageWithNotte({
                         url,
@@ -1476,8 +1484,8 @@ ${JSON.stringify(plan)}
                     }
                   }
 
-                  if (!content && !isPdf) {
-                    console.log(`[BrowsePage][${url}] Notte returned empty, trying Exa fallback`);
+                  if (!content && !isPdf && exaBrowseEnabled) {
+                    console.log(`[BrowsePage][${url}] trying Exa fallback`);
                     try {
                       const exaResult = await exa.getContents([url], {
                         text: { maxCharacters: 10000, includeHtmlTags: false },
@@ -1494,7 +1502,7 @@ ${JSON.stringify(plan)}
                     }
                   }
 
-                  if (!content) {
+                  if (!content && firecrawlContentEnabled) {
                     console.log(`[BrowsePage][${url}] trying Firecrawl scrape fallback`);
                     try {
                       const scrapeResult = await firecrawl.scrape(url, {

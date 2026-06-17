@@ -154,11 +154,21 @@ async function scrapeWithMetadata(url: string): Promise<SearchResult | null> {
   }
 }
 
+interface SelfHostedContentOptions {
+  fastcrwUrl?: string;
+  notteEnabled?: boolean;
+  metadataEnabled?: boolean;
+}
+
 export class SelfHostedContentStrategy implements ContentExtractionStrategy {
   private fastcrwUrl: string;
+  private notteEnabled: boolean;
+  private metadataEnabled: boolean;
 
-  constructor(fastcrwUrl?: string) {
-    this.fastcrwUrl = fastcrwUrl || serverEnv.FASTCRW_URL || '';
+  constructor(options: SelfHostedContentOptions = {}) {
+    this.fastcrwUrl = options.fastcrwUrl || serverEnv.FASTCRW_URL || '';
+    this.notteEnabled = options.notteEnabled ?? true;
+    this.metadataEnabled = options.metadataEnabled ?? true;
   }
 
   async getContents(links: string[]): Promise<SearchResult[]> {
@@ -190,8 +200,8 @@ export class SelfHostedContentStrategy implements ContentExtractionStrategy {
       remaining = failed;
     }
 
-    // Phase 2: Notte fallback (only if API key is configured)
-    if (remaining.length > 0 && serverEnv.NOTTE_API_KEY && serverEnv.NOTTE_API_KEY !== 'placeholder') {
+    // Phase 2: Notte fallback (only if API key is configured and not disabled)
+    if (remaining.length > 0 && this.notteEnabled && serverEnv.NOTTE_API_KEY && serverEnv.NOTTE_API_KEY !== 'placeholder') {
       console.log(`[SelfHostedContent] ${remaining.length} URLs remaining, trying Notte`);
       const notteResults = await all(
         Object.fromEntries(remaining.map((url, i) => [`nt:${i}`, async () => scrapeWithNotte(url)])),
@@ -211,8 +221,8 @@ export class SelfHostedContentStrategy implements ContentExtractionStrategy {
       remaining = stillRemaining;
     }
 
-    // Phase 3: Metadata fallback
-    if (remaining.length > 0) {
+    // Phase 3: Metadata fallback (only if not disabled)
+    if (remaining.length > 0 && this.metadataEnabled) {
       console.log(`[SelfHostedContent] ${remaining.length} URLs remaining, trying metadata fallback`);
       const metaResults = await all(
         Object.fromEntries(remaining.map((url, i) => [`md:${i}`, async () => scrapeWithMetadata(url)])),

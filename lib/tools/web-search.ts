@@ -758,7 +758,8 @@ export function webSearchTool(
       };
       let result = await strategy.search(queries, searchOptions);
       const hasNoResults = result.searches.every((s) => s.results.length === 0);
-      if (hasNoResults && normalizedProvider !== 'firecrawl') {
+      const searchFirecrawlFallback = preferences?.['zetora-fallback-search-firecrawl'] !== false;
+      if (hasNoResults && normalizedProvider !== 'firecrawl' && searchFirecrawlFallback) {
         console.log(`${normalizedProvider} returned no results, falling back to Firecrawl`);
         const fallbackStrategy = createSearchStrategy('firecrawl', clients);
         result = await fallbackStrategy.search(queries, searchOptions);

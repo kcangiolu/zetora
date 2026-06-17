@@ -528,6 +528,26 @@ export function PreferencesSection({
     'exa-firecrawl' | 'searxng-fastcrw' | 'notte-only'
   >('zetora-extreme-content-provider', 'exa-firecrawl');
 
+  const [fallbackFirecrawlContent, setFallbackFirecrawlContent] = useSyncedPreferences<boolean>(
+    'zetora-fallback-firecrawl-content',
+    true,
+  );
+  const [fallbackMetadata, setFallbackMetadata] = useSyncedPreferences<boolean>('zetora-fallback-metadata', true);
+  const [fallbackNotte, setFallbackNotte] = useSyncedPreferences<boolean>('zetora-fallback-notte', true);
+  const [fallbackExaBrowse, setFallbackExaBrowse] = useSyncedPreferences<boolean>('zetora-fallback-exa-browse', true);
+  const [fallbackSearchFirecrawl, setFallbackSearchFirecrawl] = useSyncedPreferences<boolean>(
+    'zetora-fallback-search-firecrawl',
+    true,
+  );
+  const [fallbackRetrieveParallel, setFallbackRetrieveParallel] = useSyncedPreferences<boolean>(
+    'zetora-fallback-retrieve-parallel',
+    true,
+  );
+  const [fallbackRetrieveFirecrawl, setFallbackRetrieveFirecrawl] = useSyncedPreferences<boolean>(
+    'zetora-fallback-retrieve-firecrawl',
+    true,
+  );
+
   const [sandboxProvider, setSandboxProvider] = useSyncedPreferences<'daytona' | 'docker'>(
     'zetora-sandbox-provider',
     'daytona',
@@ -1181,6 +1201,17 @@ export function PreferencesSection({
                 </div>
               )}
 
+              {/* Search Firecrawl Fallback */}
+              <div className="flex items-center justify-between py-3.5 gap-6">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Firecrawl Search Fallback</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Relancer la recherche avec Firecrawl si le provider principal renvoie 0 résultats
+                  </p>
+                </div>
+                <Switch checked={fallbackSearchFirecrawl} onCheckedChange={setFallbackSearchFirecrawl} />
+              </div>
+
               {/* Sandbox Provider */}
               <div className="flex items-center justify-between py-3.5 gap-6">
                 <div className="min-w-0">
@@ -1241,6 +1272,62 @@ export function PreferencesSection({
                     <SelectItem value="notte-only">Notte only</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Extreme Search Fallbacks */}
+              {extremeContentProvider === 'exa-firecrawl' && (
+                <>
+                  <div className="flex items-center justify-between py-3.5 gap-6">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">Firecrawl Content Fallback</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Utiliser Firecrawl quand Exa ne peut pas extraire le contenu d'une page
+                      </p>
+                    </div>
+                    <Switch checked={fallbackFirecrawlContent} onCheckedChange={setFallbackFirecrawlContent} />
+                  </div>
+                  <div className="flex items-center justify-between py-3.5 gap-6">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">Metadata Fallback</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Utiliser le scraping de métadonnées en dernier recours (titre + description)
+                      </p>
+                    </div>
+                    <Switch checked={fallbackMetadata} onCheckedChange={setFallbackMetadata} />
+                  </div>
+                </>
+              )}
+              {(extremeContentProvider === 'searxng-fastcrw' || extremeContentProvider === 'notte-only') && (
+                <>
+                  <div className="flex items-center justify-between py-3.5 gap-6">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">Notte Fallback</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Utiliser Notte quand fastCRW ne peut pas scraper une page
+                      </p>
+                    </div>
+                    <Switch checked={fallbackNotte} onCheckedChange={setFallbackNotte} />
+                  </div>
+                  <div className="flex items-center justify-between py-3.5 gap-6">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">Metadata Fallback</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Utiliser le scraping de métadonnées en dernier recours (titre + description)
+                      </p>
+                    </div>
+                    <Switch checked={fallbackMetadata} onCheckedChange={setFallbackMetadata} />
+                  </div>
+                </>
+              )}
+              {/* BrowsePage fallbacks (Extreme Search internal) */}
+              <div className="flex items-center justify-between py-3.5 gap-6">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Exa Browse Fallback</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Utiliser Exa dans la navigation de pages (BrowsePage) après Notte
+                  </p>
+                </div>
+                <Switch checked={fallbackExaBrowse} onCheckedChange={setFallbackExaBrowse} />
               </div>
 
               {/* Lookout Scheduling Provider */}
@@ -1746,6 +1833,36 @@ export function PreferencesSection({
                   onCheckedChange={setRerankEnabled}
                   disabled={!qdrantEnabled}
                 />
+              </div>
+            </div>
+
+            {/* Retrieve Fallbacks */}
+            <div className="rounded-xl border border-border/60 mt-4 overflow-hidden">
+              <div className="px-4 py-3 border-b border-border/40">
+                <p className="text-sm font-medium">Retrieve Fallbacks</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Fournisseurs utilisés en cascade quand Exa ne peut pas lire une URL
+                </p>
+              </div>
+              <div className="px-4 divide-y divide-border/40">
+                <div className="flex items-center justify-between py-3.5 gap-6">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">Parallel AI Fallback</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Utiliser Parallel AI si Exa ne retourne pas de contenu
+                    </p>
+                  </div>
+                  <Switch checked={fallbackRetrieveParallel} onCheckedChange={setFallbackRetrieveParallel} />
+                </div>
+                <div className="flex items-center justify-between py-3.5 gap-6">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">Firecrawl Fallback</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Utiliser Firecrawl en dernier recours si Parallel AI échoue aussi
+                    </p>
+                  </div>
+                  <Switch checked={fallbackRetrieveFirecrawl} onCheckedChange={setFallbackRetrieveFirecrawl} />
+                </div>
               </div>
             </div>
 

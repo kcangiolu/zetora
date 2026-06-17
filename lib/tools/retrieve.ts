@@ -213,7 +213,8 @@ async function retrieveSingleUrl(
   url: string,
   content_type?: 'general' | 'twitter' | 'youtube' | 'tiktok' | 'instagram',
   include_summary: boolean = true,
-  live_crawl: 'never' | 'auto' | 'preferred' = 'preferred'
+  live_crawl: 'never' | 'auto' | 'preferred' = 'preferred',
+  fallbackOptions: { parallelEnabled?: boolean; firecrawlEnabled?: boolean } = {}
 ): Promise<{
   url: string;
   result: any;
@@ -398,6 +399,8 @@ async function retrieveSingleUrl(
 
     // General web scraping with Exa/Parallel/Firecrawl
     console.log(`Retrieving content from ${url} with Exa AI, summary: ${include_summary}, livecrawl: ${live_crawl}`);
+    const parallelEnabled = fallbackOptions.parallelEnabled !== false;
+    const firecrawlEnabled = fallbackOptions.firecrawlEnabled !== false;
     let result;
     let usingParallel = false;
     let usingFirecrawl = false;
@@ -412,12 +415,14 @@ async function retrieveSingleUrl(
 
       if (!result.results || result.results.length === 0 || !result.results[0].text) {
         console.log('Exa AI returned no content, falling back to Parallel');
-        usingParallel = true;
+        usingParallel = parallelEnabled;
+        if (!parallelEnabled) usingFirecrawl = firecrawlEnabled;
       }
     } catch (exaError) {
       console.error('Exa AI error:', exaError);
       console.log('Falling back to Parallel');
-      usingParallel = true;
+      usingParallel = parallelEnabled;
+      if (!parallelEnabled) usingFirecrawl = firecrawlEnabled;
     }
 
     if (usingParallel) {
@@ -455,11 +460,11 @@ async function retrieveSingleUrl(
         }
 
         console.log('Parallel returned no content, falling back to Firecrawl');
-        usingFirecrawl = true;
+        usingFirecrawl = firecrawlEnabled;
       } catch (parallelError) {
         console.error('Parallel error:', parallelError);
         console.log('Falling back to Firecrawl');
-        usingFirecrawl = true;
+        usingFirecrawl = firecrawlEnabled;
       }
     }
 
@@ -558,8 +563,13 @@ export const retrieveTool = tool({
     content_type?: ('general' | 'twitter' | 'youtube' | 'tiktok' | 'instagram')[];
     include_summary?: boolean[];
     live_crawl?: ('never' | 'auto' | 'preferred')[];
-  }) => {
+  }, { experimental_context }: { experimental_context?: unknown } = {}) => {
     const startTime = Date.now();
+    const prefs = (experimental_context as { userPreferences?: Record<string, unknown> } | undefined)?.userPreferences ?? {};
+    const fallbackOptions = {
+      parallelEnabled: prefs['zetora-fallback-retrieve-parallel'] !== false,
+      firecrawlEnabled: prefs['zetora-fallback-retrieve-firecrawl'] !== false,
+    };
 
     try {
       const urlCount = url.length;
@@ -580,10 +590,11 @@ export const retrieveTool = tool({
       // Process all URLs in parallel with their respective parameters
       const urlPromises = url.map((singleUrl, index) =>
         retrieveSingleUrl(
-          singleUrl, 
-          content_types[index], 
-          include_summaries[index], 
-          live_crawls[index]
+          singleUrl,
+          content_types[index],
+          include_summaries[index],
+          live_crawls[index],
+          fallbackOptions,
         )
       );
 

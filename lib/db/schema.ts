@@ -415,6 +415,13 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-graphiti-chunk-size'?: number;
       'zetora-graphiti-max-retries'?: number;
       'zetora-graphiti-chunk-delay-ms'?: number;
+      'zetora-fallback-firecrawl-content'?: boolean;
+      'zetora-fallback-metadata'?: boolean;
+      'zetora-fallback-notte'?: boolean;
+      'zetora-fallback-exa-browse'?: boolean;
+      'zetora-fallback-search-firecrawl'?: boolean;
+      'zetora-fallback-retrieve-parallel'?: boolean;
+      'zetora-fallback-retrieve-firecrawl'?: boolean;
     }>()
     .notNull()
     .default({}),

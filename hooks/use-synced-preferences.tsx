@@ -69,7 +69,14 @@ export type PreferenceKey =
   | 'zetora-voice-enabled'
   | 'zetora-graphiti-chunk-size'
   | 'zetora-graphiti-max-retries'
-  | 'zetora-graphiti-chunk-delay-ms';
+  | 'zetora-graphiti-chunk-delay-ms'
+  | 'zetora-fallback-firecrawl-content'
+  | 'zetora-fallback-metadata'
+  | 'zetora-fallback-notte'
+  | 'zetora-fallback-exa-browse'
+  | 'zetora-fallback-search-firecrawl'
+  | 'zetora-fallback-retrieve-parallel'
+  | 'zetora-fallback-retrieve-firecrawl';
 
 type AutoRouterConfig = {
   routes: Array<{
@@ -201,6 +208,13 @@ function collectLocalStoragePreferences(): Partial<Record<PreferenceKey, Prefere
     'zetora-default-model',
     'zetora-default-provider',
     'zetora-lockout-provider',
+    'zetora-fallback-firecrawl-content',
+    'zetora-fallback-metadata',
+    'zetora-fallback-notte',
+    'zetora-fallback-exa-browse',
+    'zetora-fallback-search-firecrawl',
+    'zetora-fallback-retrieve-parallel',
+    'zetora-fallback-retrieve-firecrawl',
   ];
 
   keys.forEach((key) => {
