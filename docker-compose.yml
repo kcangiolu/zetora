@@ -47,12 +47,12 @@ services:
         NEXT_PUBLIC_MAX_SLUG: ${NEXT_PUBLIC_MAX_SLUG:-placeholder}
     container_name: zetora-app
     ports:
-      - '3000:3000'
+      - '3333:3333'
     env_file:
       - .env
     environment:
       - NODE_ENV=production
-      - PORT=3000
+      - PORT=3333
       - HOSTNAME=0.0.0.0
       # --- Internal service URLs (fixed by this compose's network topology;
       #     do NOT set these in .env, they would be overridden anyway) ---
@@ -67,12 +67,12 @@ services:
       - S3_FORCE_PATH_STYLE=true
       - QDRANT_URL=http://qdrant:6333
       - SEARXNG_URL=http://searxng:8080
-      - FASTCRW_URL=http://fastcrw:3000
+      - FASTCRW_URL=http://fastcrw:3003
       - SANDBOX_PROVIDER=docker
       - DOCKER_SANDBOX_URL=http://sandbox:8000
-      - GRAPHITI_API_URL=http://graphiti-api:8000
+      - GRAPHITI_API_URL=http://graphiti-api:8001
       - BULLMQ_ENABLED=true
-      - BULLMQ_REDIS_URL=redis://bullmq-redis:6379
+      - BULLMQ_REDIS_URL=redis://bullmq-redis:6381
       - BULLMQ_REDIS_PASSWORD=${BULLMQ_REDIS_PASSWORD:-}
       - UPSTASH_REDIS_REST_URL=http://srh:80
       - UPSTASH_REDIS_REST_TOKEN=${UPSTASH_REDIS_REST_TOKEN}
@@ -96,7 +96,7 @@ services:
       graphiti-api:
         condition: service_started
     healthcheck:
-      test: ['CMD', 'node', '-e', "fetch('http://localhost:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test: ['CMD', 'node', '-e', "fetch('http://localhost:3333').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -260,9 +260,9 @@ services:
     image: ghcr.io/us/crw:latest
     container_name: zetora-fastcrw
     ports:
-      - '127.0.0.1:3003:3000'
+      - '127.0.0.1:3003:3003'
     environment:
-      - CRW_PORT=3000
+      - CRW_PORT=3003
       - CRW_NO_AUTH=true
     cap_drop:
       - ALL
@@ -284,7 +284,7 @@ services:
     container_name: zetora-sandbox
     user: root
     ports:
-      - '127.0.0.1:8000:8000'
+      - '127.0.0.1:8003:8000'  # port 8000 fixé dans l'image, non configurable
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
@@ -316,10 +316,11 @@ services:
       dockerfile: Dockerfile
     container_name: zetora-graphiti-api
     ports:
-      - '127.0.0.1:8001:8000'
+      - '127.0.0.1:8001:8001'
     volumes:
       - graphiti-config:/data
     environment:
+      - PORT=8001
       - GRAPH_DB_URL=bolt://falkordb:6379
       - LLM_MODEL=${GRAPHITI_LLM_MODEL:-gpt-4o-mini}
       - LLM_API_KEY=${GRAPHITI_LLM_API_KEY}
@@ -339,10 +340,11 @@ services:
       dockerfile: Dockerfile.mcp
     container_name: zetora-graphiti-mcp
     ports:
-      - '127.0.0.1:8002:8001'
+      - '127.0.0.1:8002:8002'
     volumes:
       - graphiti-config:/data
     environment:
+      - PORT=8002
       - GRAPH_DB_URL=bolt://falkordb:6379
       - LLM_MODEL=${GRAPHITI_LLM_MODEL:-gpt-4o-mini}
       - LLM_API_KEY=${GRAPHITI_LLM_API_KEY}
@@ -363,19 +365,19 @@ services:
     image: redis:7-alpine
     container_name: zetora-bullmq-redis
     ports:
-      - '127.0.0.1:6381:6379'
+      - '127.0.0.1:6381:6381'
     entrypoint: >
       /bin/sh -c "
       if [ -n '${BULLMQ_REDIS_PASSWORD:-}' ]; then
-      exec redis-server --maxmemory-policy noeviction --appendonly yes --appendfsync everysec --requirepass '${BULLMQ_REDIS_PASSWORD:-}';
+      exec redis-server --port 6381 --maxmemory-policy noeviction --appendonly yes --appendfsync everysec --requirepass '${BULLMQ_REDIS_PASSWORD:-}';
       else
-      exec redis-server --maxmemory-policy noeviction --appendonly yes --appendfsync everysec;
+      exec redis-server --port 6381 --maxmemory-policy noeviction --appendonly yes --appendfsync everysec;
       fi
       "
     volumes:
       - bullmq-redis-data:/data
     healthcheck:
-      test: ['CMD-SHELL', "redis-cli $$( [ -n '${BULLMQ_REDIS_PASSWORD:-}' ] && echo -a '${BULLMQ_REDIS_PASSWORD:-}' ) ping | grep -q PONG"]
+      test: ['CMD-SHELL', "redis-cli -p 6381 $$( [ -n '${BULLMQ_REDIS_PASSWORD:-}' ] && echo -a '${BULLMQ_REDIS_PASSWORD:-}' ) ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -387,10 +389,11 @@ services:
     image: nauverse/bull-board:latest
     container_name: zetora-bullboard
     ports:
-      - '127.0.0.1:3001:3000'
+      - '127.0.0.1:3001:3001'
     environment:
+      - PORT=3001
       - REDIS_HOST=bullmq-redis
-      - REDIS_PORT=6379
+      - REDIS_PORT=6381
       - REDIS_PASSWORD=${BULLMQ_REDIS_PASSWORD:-}
       - BULL_PREFIX=bull
     depends_on:
