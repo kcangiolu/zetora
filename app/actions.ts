@@ -322,15 +322,63 @@ export interface GenerateSpeechResult {
 }
 
 export async function generateSpeech(text: string): Promise<GenerateSpeechResult> {
+  const user = await getUser();
+  if (!user) throw new Error('Authentication required');
+
+  const prefs = await getCachedUserPreferencesByUserId(user.id);
+  const p = prefs?.preferences ?? {};
+  const ttsProvider = p['zetora-tts-provider'] || 'elevenlabs';
+
+  if (ttsProvider === 'openai-compatible') {
+    const customProviders = (p['zetora-custom-providers'] ?? []) as Array<{
+      id: string;
+      baseURL: string;
+      apiKey?: string;
+    }>;
+    const providerId = p['zetora-tts-custom-provider-id'] as string | undefined;
+    const customProvider = customProviders.find((cp) => cp.id === providerId);
+    const baseUrl = customProvider?.baseURL || 'http://localhost:8880/v1';
+    const apiKey = customProvider?.apiKey || 'not-needed';
+    const model = (p['zetora-tts-openai-model'] as string) || 'qwen3-tts';
+    const voice = (p['zetora-tts-openai-voice'] as string) || 'af_bella';
+
+    const response = await fetch(`${baseUrl}/audio/speech`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        input: text,
+        voice,
+        response_format: 'mp3',
+      }),
+    });
+
+    if (!response.ok) {
+      const errBody = await response.text().catch(() => 'Unknown error');
+      throw new Error(`TTS server error (${response.status}): ${errBody}`);
+    }
+
+    const audioBuffer = await response.arrayBuffer();
+    const audioBase64 = Buffer.from(audioBuffer).toString('base64');
+
+    return {
+      audio: `data:audio/mp3;base64,${audioBase64}`,
+      alignment: null,
+      normalizedAlignment: null,
+    };
+  }
+
+  // Fallback: ElevenLabs
   const client = new ElevenLabsClient({
     apiKey: serverEnv.ELEVENLABS_API_KEY,
   });
-
   const result = await client.textToSpeech.convertWithTimestamps('90ipbRoKi4CpHXvKVtl0', {
     text,
     modelId: 'eleven_v3',
   });
-
   return {
     audio: `data:audio/mp3;base64,${result.audioBase64}`,
     alignment: result.alignment ?? null,
@@ -1596,6 +1644,13 @@ export async function saveUserPreferences(
     'zetora-tertiary-lang-detect-provider'?: string;
     'zetora-tertiary-extreme-planner-model'?: string;
     'zetora-tertiary-extreme-planner-provider'?: string;
+    'zetora-tts-provider'?: 'elevenlabs' | 'openai-compatible';
+    'zetora-tts-custom-provider-id'?: string;
+    'zetora-tts-openai-model'?: string;
+    'zetora-tts-openai-voice'?: string;
+    'zetora-stt-provider'?: 'elevenlabs' | 'openai-compatible';
+    'zetora-stt-custom-provider-id'?: string;
+    'zetora-stt-openai-model'?: string;
   }>,
 ) {
   'use server';

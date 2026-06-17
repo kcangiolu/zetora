@@ -403,6 +403,24 @@ services:
       - zetora-network
     restart: unless-stopped
 
+  # ---------------------------------------------------------------------------
+  # Whisper STT (speech-to-text, API OpenAI-compatible)
+  # /v1/audio/transcriptions — transcription
+  # /v1/audio/translations   — traduction
+  # ---------------------------------------------------------------------------
+  whisper-stt:
+    image: fedirz/faster-whisper-server:latest-cpu
+    container_name: zetora-whisper-stt
+    ports:
+      - '9002:8000'
+    environment:
+      - WHISPER__MODEL=tiny
+    volumes:
+      - whisper-cache:/root/.cache/huggingface
+    networks:
+      - zetora-network
+    restart: unless-stopped
+
 networks:
   zetora-network:
     name: zetora-network
@@ -414,3 +432,4 @@ volumes:
   falkordb-data:
   graphiti-config:
   bullmq-redis-data:
+  whisper-cache:

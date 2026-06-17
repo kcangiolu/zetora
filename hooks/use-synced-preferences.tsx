@@ -76,7 +76,14 @@ export type PreferenceKey =
   | 'zetora-fallback-exa-browse'
   | 'zetora-fallback-search-firecrawl'
   | 'zetora-fallback-retrieve-parallel'
-  | 'zetora-fallback-retrieve-firecrawl';
+  | 'zetora-fallback-retrieve-firecrawl'
+  | 'zetora-tts-provider'
+  | 'zetora-tts-custom-provider-id'
+  | 'zetora-tts-openai-model'
+  | 'zetora-tts-openai-voice'
+  | 'zetora-stt-provider'
+  | 'zetora-stt-custom-provider-id'
+  | 'zetora-stt-openai-model';
 
 type AutoRouterConfig = {
   routes: Array<{

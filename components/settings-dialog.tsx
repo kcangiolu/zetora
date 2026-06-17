@@ -106,6 +106,8 @@ import {
   Attachment01Icon,
 } from '@hugeicons/core-free-icons';
 import { CONNECTOR_CONFIGS, CONNECTOR_ICONS, type ConnectorProvider } from '@/lib/connectors';
+import { TTS_PROVIDERS, type TTSProvider, getTTSProviderConfig } from '@/lib/tts-providers';
+import { STT_PROVIDERS, type STTProvider, getSTTProviderConfig } from '@/lib/stt-providers';
 // Custom visx-based chart components
 import { AreaChart as CustomAreaChart } from '@/components/charts/area-chart';
 import { Area as CustomArea } from '@/components/charts/area';
@@ -636,6 +638,15 @@ export function PreferencesSection({
     'zetora-xml-tool-parsing-protocol',
     'morph',
   );
+
+  const [ttsProvider, setTtsProvider] = useSyncedPreferences<TTSProvider>('zetora-tts-provider', 'elevenlabs');
+  const [ttsCustomProviderId, setTtsCustomProviderId] = useSyncedPreferences<string>('zetora-tts-custom-provider-id', '');
+  const [ttsOpenAIModel, setTtsOpenAIModel] = useSyncedPreferences<string>('zetora-tts-openai-model', 'qwen3-tts');
+  const [ttsOpenAIVoice, setTtsOpenAIVoice] = useSyncedPreferences<string>('zetora-tts-openai-voice', 'af_bella');
+
+  const [sttProvider, setSttProvider] = useSyncedPreferences<STTProvider>('zetora-stt-provider', 'elevenlabs');
+  const [sttCustomProviderId, setSttCustomProviderId] = useSyncedPreferences<string>('zetora-stt-custom-provider-id', '');
+  const [sttOpenAIModel, setSttOpenAIModel] = useSyncedPreferences<string>('zetora-stt-openai-model', 'whisper-1');
 
   const [content, setContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -1409,6 +1420,163 @@ export function PreferencesSection({
                     onChange={(e) => setGraphitiApiUrl(e.target.value)}
                     className="h-8 text-xs rounded-lg"
                   />
+                </div>
+              )}
+
+              {/* ── TTS Provider ── */}
+              <div className="flex items-center justify-between py-3.5 gap-6">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Voice TTS Provider</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Engine used for voice synthesis</p>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-[220px] h-8 text-xs rounded-lg shrink-0 justify-between font-normal"
+                    >
+                      {getTTSProviderConfig(ttsProvider)?.label ?? 'ElevenLabs'}
+                      <ChevronDown className="size-3.5 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-[300px]">
+                    <DropdownMenuRadioGroup
+                      value={ttsProvider}
+                      onValueChange={(v) => setTtsProvider(v as TTSProvider)}
+                    >
+                      {TTS_PROVIDERS.map((p) => (
+                        <DropdownMenuRadioItem key={p.value} value={p.value} className="text-xs">
+                          <div className="flex flex-col">
+                            <span className="font-medium">{p.label}</span>
+                            <span className="text-[10px] text-muted-foreground">{p.description}</span>
+                          </div>
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              {/* ── Custom TTS config ── */}
+              {ttsProvider === 'openai-compatible' && (
+                <div className="py-3.5 space-y-2.5">
+                  <p className="text-xs text-muted-foreground font-medium">Custom TTS Server</p>
+                  {customProviders.length === 0 ? (
+                    <p className="text-[11px] text-muted-foreground/60">
+                      Add a provider in the <span className="font-medium">Custom AI Providers</span> section first.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1 col-span-2">
+                        <Label className="text-[10px] text-muted-foreground">Provider</Label>
+                        <Select value={ttsCustomProviderId} onValueChange={setTtsCustomProviderId}>
+                          <SelectTrigger className="h-7 text-xs rounded-md">
+                            <SelectValue placeholder="Select a provider…" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {customProviders.map((cp) => (
+                              <SelectItem key={cp.id} value={cp.id} className="text-xs">
+                                {cp.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">Model name</Label>
+                        <Input
+                          value={ttsOpenAIModel}
+                          onChange={(e) => setTtsOpenAIModel(e.target.value)}
+                          placeholder="qwen3-tts"
+                          className="h-7 text-xs rounded-md"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">Voice ID</Label>
+                        <Input
+                          value={ttsOpenAIVoice}
+                          onChange={(e) => setTtsOpenAIVoice(e.target.value)}
+                          placeholder="af_bella"
+                          className="h-7 text-xs rounded-md"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── STT Provider ── */}
+              <div className="flex items-center justify-between py-3.5 gap-6">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Voice STT Provider</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Engine used for speech transcription</p>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-[220px] h-8 text-xs rounded-lg shrink-0 justify-between font-normal"
+                    >
+                      {getSTTProviderConfig(sttProvider)?.label ?? 'ElevenLabs'}
+                      <ChevronDown className="size-3.5 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-[300px]">
+                    <DropdownMenuRadioGroup
+                      value={sttProvider}
+                      onValueChange={(v) => setSttProvider(v as STTProvider)}
+                    >
+                      {STT_PROVIDERS.map((p) => (
+                        <DropdownMenuRadioItem key={p.value} value={p.value} className="text-xs">
+                          <div className="flex flex-col">
+                            <span className="font-medium">{p.label}</span>
+                            <span className="text-[10px] text-muted-foreground">{p.description}</span>
+                          </div>
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              {/* ── Custom STT config ── */}
+              {sttProvider === 'openai-compatible' && (
+                <div className="py-3.5 space-y-2.5">
+                  <p className="text-xs text-muted-foreground font-medium">Custom STT Server</p>
+                  {customProviders.length === 0 ? (
+                    <p className="text-[11px] text-muted-foreground/60">
+                      Add a provider in the <span className="font-medium">Custom AI Providers</span> section first.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1 col-span-2">
+                        <Label className="text-[10px] text-muted-foreground">Provider</Label>
+                        <Select value={sttCustomProviderId} onValueChange={setSttCustomProviderId}>
+                          <SelectTrigger className="h-7 text-xs rounded-md">
+                            <SelectValue placeholder="Select a provider…" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {customProviders.map((cp) => (
+                              <SelectItem key={cp.id} value={cp.id} className="text-xs">
+                                {cp.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1 col-span-2">
+                        <Label className="text-[10px] text-muted-foreground">Model name</Label>
+                        <Input
+                          value={sttOpenAIModel}
+                          onChange={(e) => setSttOpenAIModel(e.target.value)}
+                          placeholder="whisper-1"
+                          className="h-7 text-xs rounded-md"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

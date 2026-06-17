@@ -422,6 +422,13 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-fallback-search-firecrawl'?: boolean;
       'zetora-fallback-retrieve-parallel'?: boolean;
       'zetora-fallback-retrieve-firecrawl'?: boolean;
+      'zetora-tts-provider'?: 'elevenlabs' | 'openai-compatible';
+      'zetora-tts-custom-provider-id'?: string;
+      'zetora-tts-openai-model'?: string;
+      'zetora-tts-openai-voice'?: string;
+      'zetora-stt-provider'?: 'elevenlabs' | 'openai-compatible';
+      'zetora-stt-custom-provider-id'?: string;
+      'zetora-stt-openai-model'?: string;
     }>()
     .notNull()
     .default({}),
