@@ -2625,7 +2625,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
         } catch {
           displayDomain = getDisplayDomain(href);
         }
-        return <>{renderHoverCard(href, displayDomain, true, citationText, key)}</>;
+        return renderHoverCard(href, displayDomain, true, citationText, key);
       },
       [renderHoverCard],
     );
@@ -2749,10 +2749,14 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
             components.push(<span key={key}>{textContent}</span>);
           }
 
-          return components.length === 1 ? components[0] : <Fragment>{components}</Fragment>;
+          return components.length === 1 ? (
+            components[0]
+          ) : (
+            <Fragment key={getElementKey('text', text)}>{components}</Fragment>
+          );
         },
         hr() {
-          return <></>;
+          return <Fragment key={getElementKey('hr')} />;
         },
         paragraph(children) {
           const key = getElementKey('paragraph', String(children));
