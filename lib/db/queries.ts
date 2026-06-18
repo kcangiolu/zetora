@@ -336,6 +336,54 @@ export async function getChatWithUserById({ id }: { id: string }) {
   }
 }
 
+/**
+ * Saves the user message that opens a turn, stamped with the DB server's own
+ * clock (clock_timestamp()) rather than the app host's new Date().
+ *
+ * getLatestUserMessageIdByChatId orders by createdAt to detect whether a
+ * newer turn has started before persisting an in-flight assistant response.
+ * If this row's createdAt came from an app instance with a skewed clock
+ * (e.g. a cold start before NTP sync), it could look "newest" forever and
+ * cause every later assistant response in the chat to be dropped as stale.
+ */
+export async function saveUserTurnMessage({
+  chatId,
+  id,
+  parts,
+  model,
+}: {
+  chatId: string;
+  id: string;
+  parts: Message['parts'];
+  model: string;
+}) {
+  try {
+    await maindb
+      .insert(message)
+      .values({
+        chatId,
+        id,
+        role: 'user',
+        parts,
+        attachments: [],
+        createdAt: sql`clock_timestamp()`,
+        model,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        completionTime: 0,
+      })
+      .onConflictDoNothing({ target: message.id });
+
+    await maindb
+      .update(chat)
+      .set({ updatedAt: sql`clock_timestamp()` })
+      .where(eq(chat.id, chatId));
+  } catch (error) {
+    throw new ChatSDKError('bad_request:database', 'Failed to save user turn message');
+  }
+}
+
 export async function saveMessages({ messages }: { messages: Array<Message> }) {
   if (!messages.length) return [];
 
@@ -556,7 +604,12 @@ export async function getMessageCountByUserId({ id }: { id: string }) {
 
 export async function createStreamId({ streamId, chatId }: { streamId: string; chatId: string }) {
   try {
-    await db.insert(stream).values({ id: streamId, chatId, createdAt: new Date() });
+    // clock_timestamp() (DB server clock) instead of app-host new Date(): a single
+    // app instance with a skewed clock (e.g. a cold start before NTP sync) would
+    // otherwise leave a createdAt in the "future" that getLatestStreamIdByChatId's
+    // ordering would treat as newest forever, silently dropping every later
+    // assistant response as stale.
+    await db.insert(stream).values({ id: streamId, chatId, createdAt: sql`clock_timestamp()` });
   } catch (error) {
     throw new ChatSDKError('bad_request:database', 'Failed to create stream id');
   }
@@ -579,25 +632,36 @@ export async function saveNewChatWithStream({
   visibility: 'public' | 'private';
   streamId: string;
 }) {
-  const now = new Date();
   const safeVisibility: 'public' | 'private' = visibility === 'public' ? 'public' : 'private';
   try {
+    // Use the DB server's own clock (clock_timestamp()) rather than the app
+    // host's new Date(): a single skewed app instance (e.g. a cold start before
+    // NTP sync) would otherwise stamp this chat/stream in the "future", which
+    // getLatestStreamIdByChatId's createdAt ordering would treat as newest
+    // forever, silently dropping every later assistant response as stale.
     await maindb.execute(
       sql`WITH new_chat AS (
         INSERT INTO "chat" (id, "userId", title, visibility, created_at, updated_at)
-        VALUES (${chatId}, ${userId}, ${title}, ${safeVisibility}, ${now}, ${now})
+        VALUES (${chatId}, ${userId}, ${title}, ${safeVisibility}, clock_timestamp(), clock_timestamp())
         RETURNING id
       )
       INSERT INTO "stream" (id, "chatId", "createdAt")
-      SELECT ${streamId}, id, ${now} FROM new_chat`,
+      SELECT ${streamId}, id, clock_timestamp() FROM new_chat`,
     );
   } catch (error) {
     console.error('[saveNewChatWithStream] DB error:', error);
     // Fallback: two sequential inserts
     await maindb
       .insert(chat)
-      .values({ id: chatId, userId, title, visibility: safeVisibility, createdAt: now, updatedAt: now });
-    await maindb.insert(stream).values({ id: streamId, chatId, createdAt: now });
+      .values({
+        id: chatId,
+        userId,
+        title,
+        visibility: safeVisibility,
+        createdAt: sql`clock_timestamp()`,
+        updatedAt: sql`clock_timestamp()`,
+      });
+    await maindb.insert(stream).values({ id: streamId, chatId, createdAt: sql`clock_timestamp()` });
   }
 }
 
@@ -620,6 +684,10 @@ export const getStreamIdsByChatId = cache(async ({ chatId }: { chatId: string })
 /**
  * Returns the most recently created stream ID for a chat.
  * Uses maindb to avoid replica lag when guarding concurrent writes.
+ * Orders by id (uuidv7, chronologically sortable) rather than createdAt:
+ * a single clock-skewed insert (e.g. a cold-started instance) can leave
+ * createdAt in the "future", which would make that stream look newest
+ * forever and cause every later assistant response to be dropped as stale.
  */
 export async function getLatestStreamIdByChatId({ chatId }: { chatId: string }): Promise<string | null> {
   try {
@@ -627,7 +695,7 @@ export async function getLatestStreamIdByChatId({ chatId }: { chatId: string }):
       .select({ id: stream.id })
       .from(stream)
       .where(eq(stream.chatId, chatId))
-      .orderBy(desc(stream.createdAt), desc(stream.id))
+      .orderBy(desc(stream.id))
       .limit(1);
 
     return latestStream?.id ?? null;

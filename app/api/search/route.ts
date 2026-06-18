@@ -37,6 +37,7 @@ import {
   getMessagesByChatId,
   saveNewChatWithStream,
   saveMessages,
+  saveUserTurnMessage,
   incrementExtremeSearchUsage,
   incrementMessageUsage,
   incrementAnthropicUsage,
@@ -627,22 +628,11 @@ export async function POST(req: Request) {
 
     if (latestIncomingUserMessage) {
       opStart = Date.now();
-      await saveMessages({
-        messages: [
-          {
-            chatId: id,
-            id: latestIncomingUserMessage.id,
-            role: 'user',
-            parts: latestIncomingUserMessage.parts,
-            attachments: [],
-            createdAt: new Date(),
-            model: model,
-            inputTokens: 0,
-            outputTokens: 0,
-            totalTokens: 0,
-            completionTime: 0,
-          },
-        ],
+      await saveUserTurnMessage({
+        chatId: id,
+        id: latestIncomingUserMessage.id,
+        parts: latestIncomingUserMessage.parts,
+        model,
       });
       recordTiming('save_user_message', opStart);
     }
