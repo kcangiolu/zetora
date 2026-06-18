@@ -24,6 +24,8 @@ export async function GET() {
       freeUnlimited: true,
       maxOutputTokens: 16000,
       provider: 'custom',
+      customProviderId: m.providerId,
+      customProviderName: m.providerName,
       isNew: true,
     }));
 

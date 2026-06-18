@@ -87,6 +87,8 @@ export interface Model {
   isNew?: boolean;
   parameters?: ModelParameters;
   provider?: ModelProvider; // Optional - will be derived if not specified
+  customProviderId?: string; // Identifies which custom provider this model came from
+  customProviderName?: string;
 }
 
 export const models: Model[] = [

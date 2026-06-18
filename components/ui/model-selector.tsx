@@ -318,7 +318,7 @@ export function ModelSelectorDialog({
 }: ModelSelectorDialogProps) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedProvider, setSelectedProvider] = useState<ModelProvider | 'all'>('all');
+  const [selectedProvider, setSelectedProvider] = useState<string>('all');
   const [showScrollIndicator, setShowScrollIndicator] = useState(true);
   const providerSidebarRef = useRef<HTMLDivElement>(null);
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
@@ -364,27 +364,53 @@ export function ModelSelectorDialog({
     [availableModels, selectedModel],
   );
 
+  // Group key for sidebar tabs - each custom provider gets its own virtual key
+  // (e.g. 'custom:abc123') instead of being collapsed into a single 'custom' tab
+  const getGroupKey = useCallback((model: (typeof availableModels)[0]): string => {
+    if (model.provider === 'custom' && model.customProviderId) {
+      return `custom:${model.customProviderId}`;
+    }
+    return model.provider || getModelProvider(model.value, model.label);
+  }, []);
+
+  // Display name for a virtual custom-provider group, keyed by its group key
+  const customGroupNames = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const model of availableModels) {
+      if (model.provider === 'custom' && model.customProviderId && model.customProviderName) {
+        map.set(`custom:${model.customProviderId}`, model.customProviderName);
+      }
+    }
+    return map;
+  }, [availableModels]);
+
+  const groupLabel = useCallback(
+    (key: string) => customGroupNames.get(key) ?? PROVIDERS[key as ModelProvider]?.name ?? key,
+    [customGroupNames],
+  );
+
   // Get active providers from available models, filtered by configured API keys
   const activeProviders = useMemo(() => {
-    const providerSet = new Set<ModelProvider>();
+    const providerSet = new Set<string>();
     for (const model of availableModels) {
+      const groupKey = getGroupKey(model);
       const provider = model.provider || getModelProvider(model.value, model.label);
       // 'custom' is allowed whenever models exist (configured via preferences)
       const isEnabled = !enabledProviders || enabledProviders.includes(provider) || provider === 'custom';
-      if (isEnabled) providerSet.add(provider);
+      if (isEnabled) providerSet.add(groupKey);
     }
-    return ['all', ...Array.from(providerSet)] as (ModelProvider | 'all')[];
-  }, [availableModels, enabledProviders]);
+    return ['all', ...Array.from(providerSet)];
+  }, [availableModels, enabledProviders, getGroupKey]);
 
   // Count models per provider
   const providerModelCounts = useMemo(() => {
     const counts: Record<string, number> = { all: availableModels.length };
     for (const model of availableModels) {
-      const provider = model.provider || getModelProvider(model.value, model.label);
-      counts[provider] = (counts[provider] || 0) + 1;
+      const groupKey = getGroupKey(model);
+      counts[groupKey] = (counts[groupKey] || 0) + 1;
     }
     return counts;
-  }, [availableModels]);
+  }, [availableModels, getGroupKey]);
 
   // Providers manually flagged via PROVIDERS[x].hasNew
   const providersWithNewModels = useMemo(() => {
@@ -398,11 +424,8 @@ export function ModelSelectorDialog({
   // Filter models by provider
   const filteredByProvider = useMemo(() => {
     if (selectedProvider === 'all') return availableModels;
-    return availableModels.filter((model) => {
-      const provider = model.provider || getModelProvider(model.value, model.label);
-      return provider === selectedProvider;
-    });
-  }, [availableModels, selectedProvider]);
+    return availableModels.filter((model) => getGroupKey(model) === selectedProvider);
+  }, [availableModels, selectedProvider, getGroupKey]);
 
   const sortedModelsForList = useMemo(
     () => sortModelsForList(filteredByProvider, { user, isProUser, isMaxUser }),
@@ -755,7 +778,10 @@ export function ModelSelectorDialog({
                         {isAll ? (
                           <ZetoraLogo width={isMobile ? 16 : 14} height={isMobile ? 16 : 14} />
                         ) : (
-                          <ProviderIcon provider={provider as ModelProvider} size={isMobile ? 16 : 14} />
+                          <ProviderIcon
+                            provider={(provider.startsWith('custom:') ? 'custom' : provider) as ModelProvider}
+                            size={isMobile ? 16 : 14}
+                          />
                         )}
                         {hasNew && (
                           <svg
@@ -785,7 +811,7 @@ export function ModelSelectorDialog({
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side={isMobile ? 'bottom' : 'left'} className="text-xs">
-                    {isAll ? 'All Models' : PROVIDERS[provider as ModelProvider]?.name}
+                    {isAll ? 'All Models' : groupLabel(provider)}
                     {hasNew ? ' (New Model!)' : ''} ({count})
                   </TooltipContent>
                 </Tooltip>
@@ -835,13 +861,11 @@ export function ModelSelectorDialog({
           {selectedProvider !== 'all' && (
             <div className="mx-2 mb-1 px-2 py-1.5 flex items-center gap-2 rounded-md bg-secondary/30 shrink-0">
               <ProviderIcon
-                provider={selectedProvider as ModelProvider}
+                provider={(selectedProvider.startsWith('custom:') ? 'custom' : selectedProvider) as ModelProvider}
                 size={13}
                 className="text-muted-foreground/70"
               />
-              <span className="text-[11px] font-medium text-muted-foreground">
-                {PROVIDERS[selectedProvider as ModelProvider]?.name}
-              </span>
+              <span className="text-[11px] font-medium text-muted-foreground">{groupLabel(selectedProvider)}</span>
               <span className="text-[10px] text-muted-foreground/50 ml-auto">
                 {providerModelCounts[selectedProvider] || 0} models
               </span>

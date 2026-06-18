@@ -17,6 +17,7 @@ export interface CustomProviderConfig {
 export interface CustomModelInfo {
   id: string;
   providerId: string;
+  providerName: string;
   modelName: string;
   label: string;
 }
@@ -102,6 +103,7 @@ export async function getCustomModels(): Promise<CustomModelInfo[]> {
           results.push({
             id: `custom-${provider.id}-${modelName}`,
             providerId: provider.id,
+            providerName: provider.name,
             modelName,
             label: `${modelName} (${provider.name})`,
           });

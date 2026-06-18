@@ -472,6 +472,31 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
 
     const availableModels = useMemo(() => [...baseModels, ...customModels], [baseModels, customModels]);
 
+    // Group key for sidebar tabs - each custom provider gets its own virtual key
+    // (e.g. 'custom:abc123') instead of being collapsed into a single 'custom' tab
+    const getGroupKey = useCallback((model: (typeof availableModels)[0]): string => {
+      if (model.provider === 'custom' && model.customProviderId) {
+        return `custom:${model.customProviderId}`;
+      }
+      return model.provider || getModelProvider(model.value, model.label);
+    }, []);
+
+    // Display name for a virtual custom-provider group, keyed by its group key
+    const customGroupNames = useMemo(() => {
+      const map = new Map<string, string>();
+      for (const model of availableModels) {
+        if (model.provider === 'custom' && model.customProviderId && model.customProviderName) {
+          map.set(`custom:${model.customProviderId}`, model.customProviderName);
+        }
+      }
+      return map;
+    }, [availableModels]);
+
+    const groupLabel = useCallback(
+      (key: string) => customGroupNames.get(key) ?? PROVIDERS[key as ModelProvider]?.name ?? key,
+      [customGroupNames],
+    );
+
     const [showUpgradeDialogState, setShowUpgradeDialogState] = useState(false);
     const [showSignInDialog, setShowSignInDialog] = useState(false);
     const [selectedProModelValue, setSelectedProModelValue] = useState<string | null>(
@@ -531,7 +556,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
     }, [setOpen]);
 
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedProvider, setSelectedProvider] = useState<ModelProvider | 'all'>('all');
+    const [selectedProvider, setSelectedProvider] = useState<string>('all');
     const [showScrollIndicator, setShowScrollIndicator] = useState(true);
     const providerSidebarRef = useRef<HTMLDivElement>(null);
     const [focusedIndex, setFocusedIndex] = useState<number>(-1);
@@ -724,10 +749,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
 
       // Filter by selected provider
       if (selectedProvider !== 'all') {
-        filtered = filtered.filter((model) => {
-          const modelProvider = model.provider || getModelProvider(model.value, model.label);
-          return modelProvider === selectedProvider;
-        });
+        filtered = filtered.filter((model) => getGroupKey(model) === selectedProvider);
       }
 
       // Auto-correct only after subscription state has settled to avoid reload jitter.
@@ -756,6 +778,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       setSelectedModel,
       user,
       isSubscriptionLoading,
+      getGroupKey,
     ]);
 
     // Show all models (including Pro) for everyone; locked models will prompt auth/upgrade on click
@@ -1009,15 +1032,20 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
 
     // Get providers that have models in the current filtered set
     const activeProviders = useMemo(() => {
-      const providerSet = new Set<ModelProvider>();
+      const groupSet = new Set<string>();
       for (const model of availableModels) {
+        const groupKey = getGroupKey(model);
         const provider = model.provider || getModelProvider(model.value, model.label);
         // 'custom' is allowed whenever models exist (configured via preferences)
         const isEnabled = !enabledProviders || enabledProviders.includes(provider) || provider === 'custom';
-        if (isEnabled) providerSet.add(provider);
+        if (isEnabled) groupSet.add(groupKey);
       }
-      return PROVIDER_ORDER.filter((p) => p === 'all' || providerSet.has(p as ModelProvider));
-    }, [availableModels, enabledProviders]);
+      const staticOrdered = PROVIDER_ORDER.filter((p) => p === 'all' || (p !== 'custom' && groupSet.has(p)));
+      const customGroups = Array.from(groupSet)
+        .filter((g) => g.startsWith('custom:'))
+        .sort((a, b) => groupLabel(a).localeCompare(groupLabel(b)));
+      return [...staticOrdered, ...customGroups];
+    }, [availableModels, enabledProviders, getGroupKey, groupLabel]);
 
     // Get model count per provider
     // 'all' count reflects preferred models filter, individual providers show their full count
@@ -1028,11 +1056,11 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
           : availableModels;
       const counts: Record<string, number> = { all: allBase.length };
       for (const model of availableModels) {
-        const provider = model.provider || getModelProvider(model.value, model.label);
-        counts[provider] = (counts[provider] || 0) + 1;
+        const groupKey = getGroupKey(model);
+        counts[groupKey] = (counts[groupKey] || 0) + 1;
       }
       return counts;
-    }, [availableModels, preferredModels]);
+    }, [availableModels, preferredModels, getGroupKey]);
 
     // Providers manually flagged via PROVIDERS[x].hasNew
     const providersWithNewModels = useMemo(() => {
@@ -1443,7 +1471,10 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
                           {isAll ? (
                             <HugeiconsIcon icon={StarIcon} size={isMobile ? 16 : 14} />
                           ) : (
-                            <ProviderIcon provider={provider as ModelProvider} size={isMobile ? 16 : 14} />
+                            <ProviderIcon
+                              provider={(provider.startsWith('custom:') ? 'custom' : provider) as ModelProvider}
+                              size={isMobile ? 16 : 14}
+                            />
                           )}
                           {hasNew && (
                             <svg
@@ -1477,7 +1508,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
                         ? preferredModels && preferredModels.length > 0
                           ? 'Favorites'
                           : 'All Models'
-                        : PROVIDERS[provider as ModelProvider].name}
+                        : groupLabel(provider)}
                       {hasNew ? ' (New Model!)' : ''} ({count})
                     </TooltipContent>
                   </Tooltip>
@@ -1527,13 +1558,11 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
             {selectedProvider !== 'all' && (
               <div className="mx-2 mb-1 px-2 py-1.5 flex items-center gap-2 rounded-md bg-secondary/30 shrink-0">
                 <ProviderIcon
-                  provider={selectedProvider as ModelProvider}
+                  provider={(selectedProvider.startsWith('custom:') ? 'custom' : selectedProvider) as ModelProvider}
                   size={13}
                   className="text-muted-foreground/70"
                 />
-                <span className="text-[11px] font-medium text-muted-foreground">
-                  {PROVIDERS[selectedProvider as ModelProvider].name}
-                </span>
+                <span className="text-[11px] font-medium text-muted-foreground">{groupLabel(selectedProvider)}</span>
                 <span className="text-[10px] text-muted-foreground/50 ml-auto">
                   {providerModelCounts[selectedProvider] || 0} models
                 </span>
