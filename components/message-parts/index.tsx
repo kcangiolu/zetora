@@ -81,6 +81,8 @@ import {
 import { SPEC_DATA_PART_TYPE } from '@json-render/core';
 import { useJsonRenderMessage } from '@json-render/react';
 import { CanvasRendererView } from '@/components/canvas-renderer';
+import { useSpeech } from '@/hooks/use-speech';
+import { extractSpeakableText } from '@/lib/speakable-text';
 import { UseChatHelpers } from '@ai-sdk/react';
 import Image from 'next/image';
 import {
@@ -111,6 +113,8 @@ import {
   Check,
   X,
   AlertCircle,
+  Volume2,
+  Square,
 } from 'lucide-react';
 import {
   ClockIcon as PhosphorClockIcon,
@@ -2425,6 +2429,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
     const { dataStream } = useDataStream();
     const [isRegenerating, setIsRegenerating] = useState(false);
     const [isBranchingOut, setIsBranchingOut] = useState(false);
+    const { speak, stop: stopSpeech, isSpeaking, isLoading } = useSpeech();
     const [inlineElicitationVersion, setInlineElicitationVersion] = useState(0);
     const ignoredInlineElicitationIdsRef = useRef<Set<string>>(new Set());
     const router = useRouter();
@@ -2816,6 +2821,41 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                     </TooltipTrigger>
                     <TooltipContent side="bottom" sideOffset={4}>
                       Copy
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                {/* Read Aloud button */}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          if (isSpeaking || isLoading) {
+                            stopSpeech();
+                          } else {
+                            const speakable = extractSpeakableText(cleanText);
+                            if (speakable) speak(speakable);
+                          }
+                        }}
+                        className={cn(
+                          actionIconButtonClassName,
+                          (isSpeaking || isLoading) && 'bg-primary/10 text-primary border-primary/20 hover:bg-primary/15'
+                        )}
+                      >
+                        {isLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : isSpeaking ? (
+                          <Square className="h-4 w-4" />
+                        ) : (
+                          <Volume2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" sideOffset={4}>
+                      {isLoading ? 'Connecting…' : isSpeaking ? 'Stop' : 'Read Aloud'}
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>

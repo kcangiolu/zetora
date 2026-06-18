@@ -644,6 +644,7 @@ export function PreferencesSection({
   const [ttsCustomProviderId, setTtsCustomProviderId] = useSyncedPreferences<string>('zetora-tts-custom-provider-id', '');
   const [ttsOpenAIModel, setTtsOpenAIModel] = useSyncedPreferences<string>('zetora-tts-openai-model', 'qwen3-tts');
   const [ttsOpenAIVoice, setTtsOpenAIVoice] = useSyncedPreferences<string>('zetora-tts-openai-voice', 'af_bella');
+  const [ttsOpenAILanguage, setTtsOpenAILanguage] = useSyncedPreferences<string>('zetora-tts-openai-language', 'French');
 
   const [sttProvider, setSttProvider] = useSyncedPreferences<STTProvider>('zetora-stt-provider', 'elevenlabs');
   const [sttCustomProviderId, setSttCustomProviderId] = useSyncedPreferences<string>('zetora-stt-custom-provider-id', '');
@@ -1515,6 +1516,15 @@ export function PreferencesSection({
                           value={ttsOpenAIVoice}
                           onChange={(e) => setTtsOpenAIVoice(e.target.value)}
                           placeholder="af_bella"
+                          className="h-7 text-xs rounded-md"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">Language</Label>
+                        <Input
+                          value={ttsOpenAILanguage}
+                          onChange={(e) => setTtsOpenAILanguage(e.target.value)}
+                          placeholder="French"
                           className="h-7 text-xs rounded-md"
                         />
                       </div>

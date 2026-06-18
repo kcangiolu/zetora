@@ -81,6 +81,7 @@ export type PreferenceKey =
   | 'zetora-tts-custom-provider-id'
   | 'zetora-tts-openai-model'
   | 'zetora-tts-openai-voice'
+  | 'zetora-tts-openai-language'
   | 'zetora-stt-provider'
   | 'zetora-stt-custom-provider-id'
   | 'zetora-stt-openai-model';

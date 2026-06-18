@@ -426,6 +426,7 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-tts-custom-provider-id'?: string;
       'zetora-tts-openai-model'?: string;
       'zetora-tts-openai-voice'?: string;
+      'zetora-tts-openai-language'?: string;
       'zetora-stt-provider'?: 'elevenlabs' | 'openai-compatible';
       'zetora-stt-custom-provider-id'?: string;
       'zetora-stt-openai-model'?: string;
