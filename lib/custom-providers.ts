@@ -12,6 +12,7 @@ export interface CustomProviderConfig {
   name: string;
   baseURL: string;
   apiKey?: string;
+  disableAutoDetect?: boolean;
 }
 
 export interface CustomModelInfo {
@@ -96,22 +97,24 @@ export async function getCustomModels(): Promise<CustomModelInfo[]> {
   const results: CustomModelInfo[] = [];
 
   await Promise.allSettled(
-    providers.map(async (provider) => {
-      try {
-        const modelNames = await detectModels(provider.baseURL, provider.apiKey);
-        for (const modelName of modelNames) {
-          results.push({
-            id: `custom-${provider.id}-${modelName}`,
-            providerId: provider.id,
-            providerName: provider.name,
-            modelName,
-            label: `${modelName} (${provider.name})`,
-          });
+    providers
+      .filter((provider) => !provider.disableAutoDetect)
+      .map(async (provider) => {
+        try {
+          const modelNames = await detectModels(provider.baseURL, provider.apiKey);
+          for (const modelName of modelNames) {
+            results.push({
+              id: `custom-${provider.id}-${modelName}`,
+              providerId: provider.id,
+              providerName: provider.name,
+              modelName,
+              label: `${modelName} (${provider.name})`,
+            });
+          }
+        } catch (err) {
+          console.warn(`[custom-providers] Could not detect models for provider ${provider.id}:`, err);
         }
-      } catch (err) {
-        console.warn(`[custom-providers] Could not detect models for provider ${provider.id}:`, err);
-      }
-    }),
+      }),
   );
 
   return results;

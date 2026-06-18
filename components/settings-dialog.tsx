@@ -73,7 +73,7 @@ import { allSettled as betterAllSettled } from 'better-all';
 import { sileo } from 'sileo';
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { getAllMemories, deleteMemory, MemoryItem } from '@/lib/memory-actions';
-import { Loader2, Search, Zap, Pencil, Plus, MoreHorizontal, Link2Off, HardDrive, Timer, CheckCircle2, XCircle, Mail } from 'lucide-react';
+import { Loader2, Search, Zap, ZapOff, Pencil, Plus, MoreHorizontal, Link2Off, HardDrive, Timer, CheckCircle2, XCircle, Mail } from 'lucide-react';
 import { getSearchGroups, type SearchGroupId } from '@/lib/utils';
 import { models, PROVIDERS, getModelProvider, type ModelProvider, type Model } from '@/ai/models';
 import { cn } from '@/lib/utils';
@@ -327,6 +327,7 @@ type CustomProviderConfig = {
   name: string;
   baseURL: string;
   apiKey?: string;
+  disableAutoDetect?: boolean;
 };
 
 type AutoRouterRoute = {
@@ -734,6 +735,22 @@ export function PreferencesSection({
       setCustomProviders(updated);
     } catch {
       sileo.error({ title: 'Failed to remove provider' });
+    }
+  };
+
+  const handleToggleAutoDetect = async (id: string) => {
+    const updated = customProviders.map((p) =>
+      p.id === id ? { ...p, disableAutoDetect: !p.disableAutoDetect } : p,
+    );
+    try {
+      await fetch('/api/custom-providers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ providers: updated }),
+      });
+      setCustomProviders(updated);
+    } catch {
+      sileo.error({ title: 'Failed to update provider' });
     }
   };
 
@@ -2065,15 +2082,27 @@ export function PreferencesSection({
                           <p className="text-[11px] text-muted-foreground/60 truncate">{p.baseURL}</p>
                         </div>
                       </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
-                        onClick={() => handleRemoveProvider(p.id)}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                          title={p.disableAutoDetect ? 'Auto-detect disabled — click to enable' : 'Auto-detect enabled — click to disable'}
+                          onClick={() => handleToggleAutoDetect(p.id)}
+                        >
+                          {p.disableAutoDetect ? <ZapOff className="h-3 w-3" /> : <Zap className="h-3 w-3" />}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                          onClick={() => handleRemoveProvider(p.id)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
