@@ -505,18 +505,20 @@ import { getCustomProviders, getCustomModels } from '@/lib/custom-providers';
 const customProviderInstances = new Map<string, ReturnType<typeof createOpenAICompatible>>();
 
 async function getOrCreateProvider(providerId: string) {
-  if (customProviderInstances.has(providerId)) {
-    return customProviderInstances.get(providerId)!;
-  }
   const providers = await getCustomProviders();
   const config = providers.find((p) => p.id === providerId);
   if (!config) throw new Error(`Custom provider ${providerId} not found`);
+
+  const cacheKey = `${providerId}::${config.baseURL}::${config.apiKey ?? ''}`;
+  if (customProviderInstances.has(cacheKey)) {
+    return customProviderInstances.get(cacheKey)!;
+  }
   const provider = createOpenAICompatible({
     name: config.id,
     baseURL: config.baseURL,
     apiKey: config.apiKey ?? 'not-needed',
   });
-  customProviderInstances.set(providerId, provider);
+  customProviderInstances.set(cacheKey, provider);
   return provider;
 }
 
