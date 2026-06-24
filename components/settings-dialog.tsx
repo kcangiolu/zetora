@@ -653,6 +653,8 @@ export function PreferencesSection({
   const [content, setContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
+  const queryClient = useQueryClient();
+
   // Fetch custom models for the tertiary model selectors
   const { data: customModelsData } = useQuery({
     queryKey: ['customModels'],
@@ -717,6 +719,7 @@ export function PreferencesSection({
       setNewProvider({ name: '', baseURL: '', apiKey: '' });
       setDetectedModels([]);
       setShowCustomProviderForm(false);
+      queryClient.invalidateQueries({ queryKey: ['customModels'] });
       sileo.success({ title: 'Provider saved', description: newProvider.name });
     } catch (e) {
       sileo.error({ title: 'Failed to save provider', description: String(e) });
@@ -734,6 +737,7 @@ export function PreferencesSection({
         body: JSON.stringify({ providers: updated }),
       });
       setCustomProviders(updated);
+      queryClient.invalidateQueries({ queryKey: ['customModels'] });
     } catch {
       sileo.error({ title: 'Failed to remove provider' });
     }
@@ -750,6 +754,7 @@ export function PreferencesSection({
         body: JSON.stringify({ providers: updated }),
       });
       setCustomProviders(updated);
+      queryClient.invalidateQueries({ queryKey: ['customModels'] });
     } catch {
       sileo.error({ title: 'Failed to update provider' });
     }
