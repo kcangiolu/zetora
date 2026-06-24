@@ -412,7 +412,7 @@ services:
     image: fedirz/faster-whisper-server:latest-cpu
     container_name: zetora-whisper-stt
     ports:
-      - '9002:8000'
+      - '127.0.0.1:9002:8000'
     environment:
       - WHISPER__MODEL=tiny
     volumes:
