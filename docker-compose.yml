@@ -2,17 +2,39 @@
 # Zetora — Production docker-compose
 #
 # Usage:
-#   1. Copy .env.example to .env and fill in the required values (see
-#      comments inside .env).
-#   2. docker compose up -d --build
+#   1. Copy .env.example to .env and fill in the required values.
+#   2. Set DATA_DIR in .env (e.g. DATA_DIR=/mnt/user/appdata/zetora).
+#   3. Create the required directories and files on the host:
+#
+#        source .env
+#        mkdir -p \
+#          ${DATA_DIR}/postgres \
+#          ${DATA_DIR}/redis \
+#          ${DATA_DIR}/bullmq-redis \
+#          ${DATA_DIR}/qdrant \
+#          ${DATA_DIR}/minio \
+#          ${DATA_DIR}/searxng \
+#          ${DATA_DIR}/falkordb \
+#          ${DATA_DIR}/graphiti \
+#          ${DATA_DIR}/whisper \
+#          ${DATA_DIR}/qwen3-tts/huggingface \
+#          ${DATA_DIR}/qwen3-tts/output \
+#          ${DATA_DIR}/qwen3-tts/voices \
+#          ${DATA_DIR}/qwen3-tts/prompt_cache \
+#          ${DATA_DIR}/qwen3-tts/venv
+#        touch ${DATA_DIR}/qwen3-tts/voice_cache.json
+#        # Copier aussi server.py dans ${DATA_DIR}/qwen3-tts/server.py
+#        # Copier la config SearXNG dans ${DATA_DIR}/searxng/settings.yml
+#
+#   4. docker compose up -d --build
 #
 # All services share the `zetora-network` network and resolve each other by
 # service name (e.g. the app reaches Postgres at `postgres:5432`).
 #
 # Internal-only services (postgres, redis, minio, qdrant, searxng, sandbox,
 # falkordb, graphiti, bullmq-redis, bullboard) are bound to 127.0.0.1 — put a
-# reverse proxy in front of zetora.app (port 3000) for zetora.example.com, and
-# use an SSH tunnel if you need direct access to an admin UI (MinIO console,
+# reverse proxy in front of zetora.app (port 3333) for your domain, and use
+# an SSH tunnel if you need direct access to an admin UI (MinIO console,
 # Bullboard, SearXNG, Qdrant dashboard, FalkorDB browser).
 #
 # To drop an optional service (minio, qdrant, searxng, sandbox, graphiti,
@@ -22,7 +44,35 @@
 # =============================================================================
 
 services:
+  # ---------------------------------------------------------------------------
+  # DB Migration (runs Drizzle migrations + creates performance indexes)
+  # Exits cleanly after completion; zetora.app waits for it before starting.
+  # ---------------------------------------------------------------------------
+  db-migrate:
+    image: registry.example.com/kcangiolu/zetora-migrate:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migrate
+    container_name: zetora-db-migrate
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/zetora
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - zetora-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    restart: 'no'
+
   zetora.app:
+    image: registry.example.com/kcangiolu/zetora-app:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -77,6 +127,8 @@ services:
       - UPSTASH_REDIS_REST_URL=http://srh:80
       - UPSTASH_REDIS_REST_TOKEN=${UPSTASH_REDIS_REST_TOKEN}
     depends_on:
+      db-migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -103,6 +155,11 @@ services:
       start_period: 40s
     networks:
       - zetora-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
@@ -114,7 +171,7 @@ services:
     ports:
       - '127.0.0.1:5432:5432'
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - ${DATA_DIR}/postgres:/var/lib/postgresql/data
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -126,6 +183,11 @@ services:
       retries: 5
     networks:
       - zetora-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
@@ -137,7 +199,7 @@ services:
     ports:
       - '127.0.0.1:6379:6379'
     volumes:
-      - redis-data:/data
+      - ${DATA_DIR}/redis:/data
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
@@ -145,6 +207,11 @@ services:
       retries: 5
     networks:
       - zetora-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
@@ -163,6 +230,11 @@ services:
         condition: service_healthy
     networks:
       - zetora-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
@@ -175,7 +247,7 @@ services:
       - '127.0.0.1:9000:9000'
       - '127.0.0.1:9001:9001'
     volumes:
-      - ./minio-data:/data:rw
+      - ${DATA_DIR}/minio:/data:rw
     environment:
       - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
@@ -183,6 +255,11 @@ services:
     command: server /data --console-address ":9001"
     networks:
       - zetora-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
     restart: unless-stopped
 
   minio-create-bucket:
@@ -199,6 +276,11 @@ services:
       "
     networks:
       - zetora-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
     restart: 'no'
 
   # ---------------------------------------------------------------------------
@@ -211,11 +293,16 @@ services:
       - '127.0.0.1:6333:6333'
       - '127.0.0.1:6334:6334'
     volumes:
-      - qdrant-data:/qdrant/storage
+      - ${DATA_DIR}/qdrant:/qdrant/storage
     environment:
       - QDRANT__SERVICE__GRPC_PORT=6334
     networks:
       - zetora-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
@@ -227,7 +314,7 @@ services:
     ports:
       - '127.0.0.1:8080:8080'
     volumes:
-      - ./searxng:/etc/searxng:rw
+      - ${DATA_DIR}/searxng:/etc/searxng:rw
     environment:
       - SEARXNG_SETTINGS_PATH=/etc/searxng/settings.yml
       - SEARXNG_REDIS_URL=redis://searxng-redis:6379/0
@@ -241,6 +328,11 @@ services:
       - searxng-redis
     networks:
       - zetora-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
     restart: unless-stopped
 
   searxng-redis:
@@ -248,6 +340,11 @@ services:
     container_name: zetora-searxng-redis
     networks:
       - zetora-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
@@ -273,6 +370,11 @@ services:
     read_only: true
     networks:
       - zetora-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
@@ -293,6 +395,11 @@ services:
       - MEMORY_LIMIT_MB=256
     networks:
       - zetora-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
@@ -305,12 +412,18 @@ services:
       - '127.0.0.1:6380:6379'
       - '127.0.0.1:3002:3002'
     volumes:
-      - falkordb-data:/data
+      - ${DATA_DIR}/falkordb:/data
     networks:
       - zetora-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
     restart: unless-stopped
 
   graphiti-api:
+    image: registry.example.com/kcangiolu/zetora-graphiti-api:latest
     build:
       context: ./graphiti-service
       dockerfile: Dockerfile
@@ -318,7 +431,7 @@ services:
     ports:
       - '127.0.0.1:8001:8001'
     volumes:
-      - graphiti-config:/data
+      - ${DATA_DIR}/graphiti:/data
     environment:
       - PORT=8001
       - GRAPH_DB_URL=bolt://falkordb:6379
@@ -332,9 +445,15 @@ services:
       - falkordb
     networks:
       - zetora-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
     restart: unless-stopped
 
   graphiti-mcp:
+    image: registry.example.com/kcangiolu/zetora-graphiti-mcp:latest
     build:
       context: ./graphiti-service
       dockerfile: Dockerfile.mcp
@@ -342,7 +461,7 @@ services:
     ports:
       - '127.0.0.1:8002:8002'
     volumes:
-      - graphiti-config:/data
+      - ${DATA_DIR}/graphiti:/data
     environment:
       - PORT=8002
       - GRAPH_DB_URL=bolt://falkordb:6379
@@ -356,6 +475,11 @@ services:
       - falkordb
     networks:
       - zetora-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
@@ -375,7 +499,7 @@ services:
       fi
       "
     volumes:
-      - bullmq-redis-data:/data
+      - ${DATA_DIR}/bullmq-redis:/data
     healthcheck:
       test: ['CMD-SHELL', "redis-cli -p 6381 $$( [ -n '${BULLMQ_REDIS_PASSWORD:-}' ] && echo -a '${BULLMQ_REDIS_PASSWORD:-}' ) ping | grep -q PONG"]
       interval: 10s
@@ -383,6 +507,11 @@ services:
       retries: 5
     networks:
       - zetora-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
     restart: unless-stopped
 
   bullboard:
@@ -401,6 +530,88 @@ services:
         condition: service_healthy
     networks:
       - zetora-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Qwen3 TTS (text-to-speech, GPU NVIDIA requis)
+  # ---------------------------------------------------------------------------
+  qwen3-tts:
+    image: registry.example.com/kcangiolu/zetora-tts:latest
+    build:
+      context: ./tts-service
+      dockerfile: Dockerfile
+    container_name: zetora-qwen3-tts
+    runtime: nvidia
+    working_dir: /app
+    ports:
+      - '127.0.0.1:8585:8080'
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - HF_HOME=/data/huggingface
+      - MODEL_ID=Qwen/Qwen3-TTS-12Hz-1.7B-Base
+      - VOICES_DIR=/data/voices
+      - LANG_CODE=french
+      - PROMPT_CACHE_DIR=/data/prompt_cache
+      - SAVE_OUTPUT=false
+    volumes:
+      - ${DATA_DIR}/qwen3-tts/huggingface:/data/huggingface
+      - ${DATA_DIR}/qwen3-tts/output:/data/output
+      - ${DATA_DIR}/qwen3-tts/voices:/data/voices:ro
+      - ${DATA_DIR}/qwen3-tts/prompt_cache:/data/prompt_cache
+      - ${DATA_DIR}/qwen3-tts/voice_cache.json:/data/voice_cache.json
+      - ${DATA_DIR}/qwen3-tts/venv:/opt/venv
+    command: >
+      bash -c "
+        SM_RAW=$$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -1 | tr -d ' ') &&
+        SM_RAW=$${SM_RAW:-0.0} &&
+        SM_MAJOR=$$(echo $$SM_RAW | cut -d. -f1) &&
+        SM_MINOR=$$(echo $$SM_RAW | cut -d. -f2) &&
+        SM_INT=$$(( $$SM_MAJOR * 10 + $$SM_MINOR )) &&
+        echo '==> GPU Compute Capability: '$$SM_RAW' (SM'$$SM_INT')' &&
+        if [ ! -f /opt/venv/bin/activate ]; then
+          echo '==> Creation du venv et installation des dependances...' &&
+          python3 -m venv /opt/venv &&
+          /opt/venv/bin/pip install --quiet --upgrade pip setuptools wheel packaging ninja &&
+          /opt/venv/bin/pip install --quiet torch torchaudio --index-url https://download.pytorch.org/whl/cu130 &&
+          if [ $$SM_INT -ge 120 ]; then
+            echo '==> SM >= 12.0 detecte: compilation flash-attn depuis les sources (MAX_JOBS=1)...' &&
+            MAX_JOBS=1 NVCC_PREPEND_FLAGS='--threads 1' FLASH_ATTENTION_FORCE_BUILD=TRUE TORCH_CUDA_ARCH_LIST=$$SM_RAW \
+              /opt/venv/bin/pip install --pre flash-attn --no-build-isolation 2>&1 | tee /tmp/flash-attn-build.log && echo '==> flash-attn compile' || (tail -30 /tmp/flash-attn-build.log && echo '==> flash-attn: erreur compilation, fallback sdpa')
+          else
+            echo '==> SM < 12.0 detecte: installation flash-attn depuis PyPI (wheels pre-compilees)...' &&
+            /opt/venv/bin/pip install flash-attn 2>&1 && echo '==> flash-attn installe' || echo '==> flash-attn: fallback sdpa'
+          fi &&
+          /opt/venv/bin/pip install --quiet qwen-tts fastapi uvicorn soundfile
+        else
+          echo '==> Venv existant, demarrage direct.'
+        fi &&
+        /opt/venv/bin/uvicorn server:app --host 0.0.0.0 --port 8080 --log-level info
+      "
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          memory: 4G
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8080/health']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 7200s
+    networks:
+      - zetora-network
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
@@ -416,20 +627,16 @@ services:
     environment:
       - WHISPER__MODEL=tiny
     volumes:
-      - whisper-cache:/root/.cache/huggingface
+      - ${DATA_DIR}/whisper:/root/.cache/huggingface
     networks:
       - zetora-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
     restart: unless-stopped
 
 networks:
   zetora-network:
     name: zetora-network
-
-volumes:
-  postgres-data:
-  redis-data:
-  qdrant-data:
-  falkordb-data:
-  graphiti-config:
-  bullmq-redis-data:
-  whisper-cache:

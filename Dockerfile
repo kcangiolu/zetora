@@ -109,3 +109,14 @@ ENV HOSTNAME="0.0.0.0"
 
 # Start the Next.js application
 CMD ["node", "server.js"]
+
+# Stage 4: Database migration runner
+# Used by the db-migrate service in docker-compose to run Drizzle migrations
+# and create performance indexes before the app starts.
+FROM base AS migrate
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY drizzle/ ./drizzle/
+COPY create_indexes.sql ./
+COPY scripts/migrate.js ./scripts/
+CMD ["node", "scripts/migrate.js"]
