@@ -579,14 +579,9 @@ services:
           python3 -m venv /opt/venv &&
           /opt/venv/bin/pip install --quiet --upgrade pip setuptools wheel packaging ninja &&
           /opt/venv/bin/pip install --quiet torch torchaudio --index-url https://download.pytorch.org/whl/cu130 &&
-          if [ $$SM_INT -ge 120 ]; then
-            echo '==> SM >= 12.0 detecte: compilation flash-attn depuis les sources (MAX_JOBS=1)...' &&
-            MAX_JOBS=1 NVCC_PREPEND_FLAGS='--threads 1' FLASH_ATTENTION_FORCE_BUILD=TRUE TORCH_CUDA_ARCH_LIST=$$SM_RAW \
-              /opt/venv/bin/pip install --pre flash-attn --no-build-isolation 2>&1 | tee /tmp/flash-attn-build.log && echo '==> flash-attn compile' || (tail -30 /tmp/flash-attn-build.log && echo '==> flash-attn: erreur compilation, fallback sdpa')
-          else
-            echo '==> SM < 12.0 detecte: installation flash-attn depuis PyPI (wheels pre-compilees)...' &&
-            /opt/venv/bin/pip install flash-attn --no-build-isolation 2>&1 && echo '==> flash-attn installe' || echo '==> flash-attn: fallback sdpa'
-          fi &&
+          echo '==> Compilation flash-attn depuis les sources (SM'$$SM_INT', MAX_JOBS=1)...' &&
+          MAX_JOBS=1 NVCC_PREPEND_FLAGS='--threads 1' FLASH_ATTENTION_FORCE_BUILD=TRUE TORCH_CUDA_ARCH_LIST=$$SM_RAW \
+            /opt/venv/bin/pip install flash-attn --no-build-isolation 2>&1 | tee /tmp/flash-attn-build.log && echo '==> flash-attn compile' || (tail -30 /tmp/flash-attn-build.log && echo '==> flash-attn: erreur compilation, fallback sdpa') &&
           /opt/venv/bin/pip install --quiet qwen-tts fastapi uvicorn soundfile
         else
           echo '==> Venv existant, demarrage direct.'
