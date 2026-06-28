@@ -8,7 +8,7 @@ FROM ${CUDA_IMAGE}
 #   TORCH_VERSION        : version de torch à installer
 ARG TORCH_CUDA_ARCH_LIST=8.6
 ARG TORCH_CUDA_BUILD=cu130
-ARG TORCH_VERSION=2.7.0
+ARG TORCH_VERSION=2.12.1
 
 RUN apt-get update -qq && \
     apt-get install -y -qq \
