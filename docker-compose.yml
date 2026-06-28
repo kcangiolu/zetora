@@ -585,7 +585,7 @@ services:
               /opt/venv/bin/pip install --pre flash-attn --no-build-isolation 2>&1 | tee /tmp/flash-attn-build.log && echo '==> flash-attn compile' || (tail -30 /tmp/flash-attn-build.log && echo '==> flash-attn: erreur compilation, fallback sdpa')
           else
             echo '==> SM < 12.0 detecte: installation flash-attn depuis PyPI (wheels pre-compilees)...' &&
-            /opt/venv/bin/pip install flash-attn 2>&1 && echo '==> flash-attn installe' || echo '==> flash-attn: fallback sdpa'
+            /opt/venv/bin/pip install flash-attn --no-build-isolation 2>&1 && echo '==> flash-attn installe' || echo '==> flash-attn: fallback sdpa'
           fi &&
           /opt/venv/bin/pip install --quiet qwen-tts fastapi uvicorn soundfile
         else
