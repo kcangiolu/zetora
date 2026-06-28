@@ -545,9 +545,12 @@ services:
     build:
       context: ./tts-service
       dockerfile: Dockerfile
+      args:
+        TORCH_CUDA_ARCH_LIST: ${TTS_CUDA_ARCH_LIST:-8.6}
+        TORCH_CUDA_BUILD: ${TTS_TORCH_CUDA_BUILD:-cu130}
+        TORCH_VERSION: ${TTS_TORCH_VERSION:-2.7.0}
     container_name: zetora-qwen3-tts
     runtime: nvidia
-    working_dir: /app
     ports:
       - '127.0.0.1:8585:8080'
     environment:
@@ -565,29 +568,6 @@ services:
       - ${DATA_DIR}/qwen3-tts/voices:/data/voices:ro
       - ${DATA_DIR}/qwen3-tts/prompt_cache:/data/prompt_cache
       - ${DATA_DIR}/qwen3-tts/voice_cache.json:/data/voice_cache.json
-      - ${DATA_DIR}/qwen3-tts/venv:/opt/venv
-    command: >
-      bash -c "
-        SM_RAW=$$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -1 | tr -d ' ') &&
-        SM_RAW=$${SM_RAW:-0.0} &&
-        SM_MAJOR=$$(echo $$SM_RAW | cut -d. -f1) &&
-        SM_MINOR=$$(echo $$SM_RAW | cut -d. -f2) &&
-        SM_INT=$$(( $$SM_MAJOR * 10 + $$SM_MINOR )) &&
-        echo '==> GPU Compute Capability: '$$SM_RAW' (SM'$$SM_INT')' &&
-        if [ ! -f /opt/venv/bin/activate ]; then
-          echo '==> Creation du venv et installation des dependances...' &&
-          python3 -m venv /opt/venv &&
-          /opt/venv/bin/pip install --quiet --upgrade pip setuptools wheel packaging ninja &&
-          /opt/venv/bin/pip install --quiet torch torchaudio --index-url https://download.pytorch.org/whl/cu130 &&
-          echo '==> Compilation flash-attn depuis les sources (SM'$$SM_INT', MAX_JOBS=1)...' &&
-          MAX_JOBS=1 NVCC_PREPEND_FLAGS='--threads 1' FLASH_ATTENTION_FORCE_BUILD=TRUE TORCH_CUDA_ARCH_LIST=$$SM_RAW \
-            /opt/venv/bin/pip install flash-attn --no-build-isolation 2>&1 | tee /tmp/flash-attn-build.log && echo '==> flash-attn compile' || (tail -30 /tmp/flash-attn-build.log && echo '==> flash-attn: erreur compilation, fallback sdpa') &&
-          /opt/venv/bin/pip install --quiet qwen-tts fastapi uvicorn soundfile
-        else
-          echo '==> Venv existant, demarrage direct.'
-        fi &&
-        /opt/venv/bin/uvicorn server:app --host 0.0.0.0 --port 8080 --log-level info
-      "
     deploy:
       resources:
         limits:
