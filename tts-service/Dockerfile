@@ -1,4 +1,4 @@
-ARG CUDA_IMAGE=nvidia/cuda:13.1.2-devel-ubuntu24.04
+ARG CUDA_IMAGE=nvidia/cuda:13.1.2-runtime-ubuntu24.04
 FROM ${CUDA_IMAGE}
 
 ARG TORCH_CUDA_BUILD=cu130
@@ -7,8 +7,7 @@ ARG TORCH_VERSION=2.9.1
 RUN apt-get update -qq && \
     apt-get install -y -qq \
       python3 python3-pip python3-venv \
-      ffmpeg curl sox libsox-fmt-all \
-      ninja-build git && \
+      ffmpeg curl sox libsox-fmt-all git && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
