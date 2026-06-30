@@ -37,7 +37,7 @@ _cuda_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="cuda-tts"
 app = FastAPI(title="Qwen3-TTS Server (OpenAI-compatible)")
 model = None
 warmup_prompt = None
-voice_prompts: dict = {}
+voice_prompts: dict = {}  # key: (name, x_vector_only) -> prompt
 
 LANG_MAP = {
     "french": "French", "fr": "French",
@@ -66,6 +66,7 @@ class SpeechRequest(BaseModel):
     model: str = "tts-1"
     response_format: str = "wav"  # wav | pcm
     speed: float = 1.0
+    language: str | None = None  # overrides LANG_CODE; e.g. "french", "en", "english"
 
 
 # ── Voice prompt cache ─────────────────────────────────────────
@@ -83,10 +84,19 @@ def _find_voice_file(name: str) -> Path | None:
     return None
 
 
-def _load_voice_prompt(name: str):
-    cache_file = PROMPT_CACHE_DIR / f"{name}.pt"
+def _get_voice_ref_lang(name: str) -> str | None:
+    """Retourne la langue de l'audio de référence depuis {voice}.lang, ou None."""
+    lang_file = VOICES_DIR / f"{name}.lang"
+    if lang_file.exists():
+        return lang_file.read_text().strip().lower()
+    return None
+
+
+def _load_voice_prompt(name: str, x_vector_only: bool = False):
+    suffix = ".xvec" if x_vector_only else ""
+    cache_file = PROMPT_CACHE_DIR / f"{name}{suffix}.pt"
     if cache_file.exists():
-        logger.info("Loading cached prompt for voice '%s'", name)
+        logger.info("Loading cached prompt for voice '%s' (xvec=%s)", name, x_vector_only)
         return torch.load(cache_file, weights_only=False)
 
     ref_audio = _find_voice_file(name)
@@ -96,27 +106,47 @@ def _load_voice_prompt(name: str):
     ref_text_file = VOICES_DIR / f"{name}.txt"
     ref_text = ref_text_file.read_text().strip() if ref_text_file.exists() else ""
 
-    logger.info("Creating voice clone prompt for '%s' from %s", name, ref_audio)
+    # x_vector_only forcé si pas de texte de référence (impossible de faire full clone)
+    effective_xvec = x_vector_only or not bool(ref_text)
+    logger.info("Creating voice clone prompt for '%s' (xvec=%s) from %s", name, effective_xvec, ref_audio)
     prompt = model.create_voice_clone_prompt(
         ref_audio=str(ref_audio),
         ref_text=ref_text,
-        x_vector_only_mode=not bool(ref_text),
+        x_vector_only_mode=effective_xvec,
     )
     PROMPT_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     torch.save(prompt, cache_file)
     return prompt
 
 
-def _get_voice_prompt(voice: str):
-    if voice not in voice_prompts:
-        prompt = _load_voice_prompt(voice)
+def _get_voice_prompt(voice: str, x_vector_only: bool = False):
+    key = (voice, x_vector_only)
+    if key not in voice_prompts:
+        prompt = _load_voice_prompt(voice, x_vector_only)
         if prompt is None:
             raise HTTPException(
                 404,
                 f"Voice '{voice}' not found. Place {voice}.wav (or .mp3/.flac) in {VOICES_DIR}",
             )
-        voice_prompts[voice] = prompt
-    return voice_prompts[voice]
+        voice_prompts[key] = prompt
+    return voice_prompts[key]
+
+
+def _resolve_x_vector_only(voice: str, gen_lang_code: str) -> bool:
+    """
+    Retourne True si la langue de l'audio de référence diffère de la langue de génération.
+    Dans ce cas, le clonage en x_vector_only évite le transfert d'accent indésirable.
+    Nécessite un fichier {voice}.lang dans VOICES_DIR (ex: 'french').
+    """
+    ref_lang = _get_voice_ref_lang(voice)
+    if not ref_lang:
+        return False
+    ref_display = LANG_MAP.get(ref_lang, "")
+    gen_display = LANG_MAP.get(gen_lang_code, "")
+    cross_lang = bool(ref_display) and bool(gen_display) and ref_display != gen_display
+    if cross_lang:
+        logger.info("Cross-language cloning: ref='%s' gen='%s' → x_vector_only", ref_display, gen_display)
+    return cross_lang
 
 
 def _save_wav(voice: str, pcm_chunks: list, sample_rate: int) -> None:
@@ -182,12 +212,17 @@ async def startup():
 @app.get("/health")
 async def health():
     cached = [p.stem for p in PROMPT_CACHE_DIR.glob("*.pt")] if PROMPT_CACHE_DIR.exists() else []
+    voice_langs = {}
+    for f in VOICES_DIR.glob("*.lang"):
+        voice_langs[f.stem] = f.read_text().strip()
     return {
         "status": "ok",
         "model": MODEL_ID,
+        "default_language": LANG_CODE,
         "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "none",
         "attn_backend": "flash_attention_2" if HAS_FLASH_ATTN else "sdpa",
         "cached_voices": cached,
+        "voice_languages": voice_langs,
         "save_output": SAVE_OUTPUT,
     }
 
@@ -250,8 +285,10 @@ async def speech(request: Request, req: SpeechRequest):
     if model is None:
         raise HTTPException(503, "Model not loaded yet")
 
-    language = LANG_MAP.get(LANG_CODE, "English")
-    prompt = _get_voice_prompt(req.voice)
+    gen_lang_code = (req.language or LANG_CODE).lower()
+    language = LANG_MAP.get(gen_lang_code, "English")
+    x_vector_only = _resolve_x_vector_only(req.voice, gen_lang_code)
+    prompt = _get_voice_prompt(req.voice, x_vector_only)
     fmt = req.response_format.lower()
     t0 = time.monotonic()
     loop = asyncio.get_running_loop()

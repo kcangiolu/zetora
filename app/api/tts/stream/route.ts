@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
   }
 
   const voice = (p['zetora-tts-openai-voice'] as string) || 'alloy';
+  const language = (p['zetora-tts-language'] as string) || undefined;
 
   const base = provider.baseURL.endsWith('/v1')
     ? provider.baseURL
@@ -44,10 +45,13 @@ export async function POST(req: NextRequest) {
     headers['Authorization'] = `Bearer ${provider.apiKey}`;
   }
 
+  const body: Record<string, string> = { model: 'tts-1', input: text, voice, response_format: 'pcm' };
+  if (language) body.language = language;
+
   const upstream = await fetch(upstreamUrl, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ model: 'tts-1', input: text, voice, response_format: 'pcm' }),
+    body: JSON.stringify(body),
     signal: req.signal,
   });
 
