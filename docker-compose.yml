@@ -561,13 +561,10 @@ services:
       - VOICES_DIR=/data/voices
       - LANG_CODE=french
       - PROMPT_CACHE_DIR=/data/prompt_cache
-      - SAVE_OUTPUT=false
     volumes:
       - ${DATA_DIR}/qwen3-tts/huggingface:/data/huggingface
-      - ${DATA_DIR}/qwen3-tts/output:/data/output
       - ${DATA_DIR}/qwen3-tts/voices:/data/voices:ro
       - ${DATA_DIR}/qwen3-tts/prompt_cache:/data/prompt_cache
-      - ${DATA_DIR}/qwen3-tts/voice_cache.json:/data/voice_cache.json
     deploy:
       resources:
         limits:

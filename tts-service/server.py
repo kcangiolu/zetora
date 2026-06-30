@@ -1,396 +1,357 @@
-#!/usr/bin/env python3
-"""Serveur OpenAI-compatible pour Qwen3-TTS avec clonage vocal persistant."""
-
-import io
-import json
+import asyncio
 import os
-import traceback
-from datetime import datetime
+import queue as stdlib_queue
+import re
+import struct
+import threading
+import time
+import logging
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-import numpy as np
-import soundfile as sf
 import torch
+import numpy as np
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import Response, StreamingResponse
-from pydantic import BaseModel, field_validator, model_validator
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logger = logging.getLogger("qwen3-tts-server")
 
 MODEL_ID = os.getenv("MODEL_ID", "Qwen/Qwen3-TTS-12Hz-1.7B-Base")
-VOICES_DIR = os.getenv("VOICES_DIR", "/data/voices")
-OUTPUT_DIR = os.getenv("OUTPUT_DIR", "/data/output")
+VOICES_DIR = Path(os.getenv("VOICES_DIR", "/data/voices"))
 LANG_CODE = os.getenv("LANG_CODE", "french")
-CACHE_FILE = os.getenv("CACHE_FILE", "/data/voice_cache.json")
-SAVE_OUTPUT = os.getenv("SAVE_OUTPUT", "true").lower() == "true"
-PROMPT_CACHE_DIR = os.getenv("PROMPT_CACHE_DIR", "/data/voices")
+PROMPT_CACHE_DIR = Path(os.getenv("PROMPT_CACHE_DIR", "/data/prompt_cache"))
 
-SUPPORTED_LANGUAGES = [
-    "auto", "chinese", "english", "french", "german",
-    "italian", "japanese", "korean", "portuguese", "russian", "spanish",
-]
+torch.set_float32_matmul_precision("high")
+torch.backends.cuda.matmul.allow_tf32 = True
 
-app = FastAPI(title="Qwen3-TTS API")
+# Thread dédié CUDA unique : torch.compile avec CUDA graphs exige que warmup et
+# inférences s'exécutent dans le même OS thread.
+_cuda_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="cuda-tts")
+
+app = FastAPI(title="Qwen3-TTS Server (OpenAI-compatible)")
 model = None
-voice_registry = {}  # name -> {"ref_audio": ..., "ref_text": ...}
-prompt_cache = {}    # (ref_audio, ref_text) -> prompt
+warmup_prompt = None
+voice_prompts: dict = {}
+
+LANG_MAP = {
+    "french": "French", "fr": "French",
+    "english": "English", "en": "English",
+    "german": "German", "de": "German",
+    "spanish": "Spanish", "es": "Spanish",
+    "italian": "Italian", "it": "Italian",
+    "portuguese": "Portuguese", "pt": "Portuguese",
+    "chinese": "Chinese", "zh": "Chinese",
+    "japanese": "Japanese", "ja": "Japanese",
+    "korean": "Korean", "ko": "Korean",
+}
+
+HAS_FLASH_ATTN = False
+try:
+    import flash_attn
+    HAS_FLASH_ATTN = True
+    logger.info("flash-attn detected: %s", flash_attn.__version__)
+except ImportError:
+    logger.info("flash-attn not installed, using SDPA backend")
 
 
 class SpeechRequest(BaseModel):
-    model: str | None = MODEL_ID
-    input: str | None = None   # champ OpenAI standard
-    text: str | None = None    # alias courant de nombreux clients
-    voice: str | None = None
-    speaker: str | None = None  # alias envoye par certains clients
-    language: str | None = None
-    lang_code: str | None = None
-    ref_audio: str | None = None
-    ref_text: str | None = None
-    temperature: float | None = 0.8
-    top_p: float | None = 0.9
-    repetition_penalty: float | None = 1.05
-    max_tokens: int | None = 2048
-    response_format: str | None = "wav"
-    stream: bool | None = False
-
-    class Config:
-        extra = "allow"
-
-    @model_validator(mode="after")
-    def coerce_text_input(self):
-        # Accepte 'text' comme alias de 'input'
-        if self.input is None and self.text is not None:
-            self.input = self.text
-        if self.input is None:
-            raise ValueError("Le champ 'input' (ou 'text') est requis")
-        if self.voice is None and self.speaker is not None:
-            self.voice = self.speaker
-        return self
-
-    @field_validator("language", "lang_code", mode="before")
-    @classmethod
-    def normalize_lang(cls, v):
-        if v is None:
-            return None
-        v = str(v).lower().strip().replace('"', '').replace("'", '').replace('“', '').replace('”', '')
-        mapping = {
-            "fr": "french", "fra": "french", "fre": "french",
-            "en": "english", "eng": "english",
-            "de": "german", "ger": "german", "deu": "german",
-            "es": "spanish", "spa": "spanish",
-            "it": "italian", "ita": "italian",
-            "ja": "japanese", "jpn": "japanese",
-            "ko": "korean", "kor": "korean",
-            "pt": "portuguese", "por": "portuguese",
-            "ru": "russian", "rus": "russian",
-        }
-        # Gérer les codes région : "fr-fr", "en-us", etc.
-        base = v.split("-")[0].split("_")[0]
-        if v in mapping:
-            return mapping[v]
-        if base in mapping:
-            return mapping[base]
-        if v in SUPPORTED_LANGUAGES:
-            return v
-        if base in SUPPORTED_LANGUAGES:
-            return base
-        raise ValueError(f"Langue non supportee: {v}. Valides: {SUPPORTED_LANGUAGES}")
+    input: str
+    voice: str
+    model: str = "tts-1"
+    response_format: str = "wav"  # wav | pcm
+    speed: float = 1.0
 
 
-class VoiceRegisterRequest(BaseModel):
-    model: str | None = MODEL_ID
-    name: str
-    ref_audio: str
-    ref_text: str
-    language: str | None = LANG_CODE
-    x_vector_only: bool = False  # True = timbre seulement, sans transfert d'accent
+# ── Voice prompt cache ─────────────────────────────────────────
 
-    class Config:
-        extra = "allow"
-
-
-# ── Cache persistant sur disque ────────────────────────────────
-
-def _save_registry():
-    try:
-        with open(CACHE_FILE, "w") as f:
-            json.dump(voice_registry, f, ensure_ascii=False)
-    except Exception:
-        pass
+def _find_voice_file(name: str) -> Path | None:
+    for ext in (".wav", ".mp3", ".flac", ".m4a"):
+        candidate = VOICES_DIR / f"{name}{ext}"
+        if candidate.exists():
+            return candidate
+    subdir = VOICES_DIR / name
+    if subdir.is_dir():
+        for ext in (".wav", ".mp3", ".flac", ".m4a"):
+            for f in subdir.glob(f"*{ext}"):
+                return f
+    return None
 
 
-def _load_registry():
-    global voice_registry
-    try:
-        if os.path.exists(CACHE_FILE) and os.path.isfile(CACHE_FILE):
-            with open(CACHE_FILE) as f:
-                voice_registry = json.load(f)
-            print(f"Cache vocal charge : {list(voice_registry.keys())}")
-    except Exception:
-        pass
+def _load_voice_prompt(name: str):
+    cache_file = PROMPT_CACHE_DIR / f"{name}.pt"
+    if cache_file.exists():
+        logger.info("Loading cached prompt for voice '%s'", name)
+        return torch.load(cache_file, weights_only=False)
 
-
-# ── Cache NPZ des empreintes vocales ───────────────────────────
-
-def _npz_path(name: str) -> Path:
-    return Path(PROMPT_CACHE_DIR) / f"{name}.npz"
-
-
-def _save_prompt_npz(name: str, prompt) -> None:
-    try:
-        torch.save(prompt, str(_npz_path(name)))
-        print(f"Empreinte vocale sauvegardee : {name}.npz")
-    except Exception as e:
-        print(f"Impossible de sauvegarder {name}.npz : {e}")
-
-
-def _load_prompt_npz(name: str):
-    path = _npz_path(name)
-    if not path.exists():
-        return None
-    try:
-        prompt = torch.load(str(path), weights_only=False, map_location="cuda:0")
-        print(f"Empreinte vocale chargee depuis {name}.npz")
-        return prompt
-    except Exception as e:
-        print(f"Impossible de charger {name}.npz : {e}")
+    ref_audio = _find_voice_file(name)
+    if ref_audio is None:
         return None
 
+    ref_text_file = VOICES_DIR / f"{name}.txt"
+    ref_text = ref_text_file.read_text().strip() if ref_text_file.exists() else ""
 
-def _preload_prompt_cache():
-    loaded = []
-    for name, entry in voice_registry.items():
-        cache_key = (entry["ref_audio"], entry["ref_text"], entry.get("x_vector_only", False))
-        if cache_key not in prompt_cache:
-            prompt = _load_prompt_npz(name)
-            if prompt is not None:
-                prompt_cache[cache_key] = prompt
-                loaded.append(name)
-    if loaded:
-        print(f"Empreintes pre-chargees depuis NPZ : {loaded}")
-
-
-# ── Modèle ─────────────────────────────────────────────────────
-
-def _detect_attn():
-    try:
-        import flash_attn
-        print(f"flash_attn {flash_attn.__version__} detecte")
-        return "flash_attention_2"
-    except ImportError:
-        print("flash_attn absent, utilisation de sdpa")
-        return "sdpa"
-
-
-def load_model():
-    global model
-    from qwen_tts import Qwen3TTSModel
-
-    attn = _detect_attn()
-    print(f"Chargement de {MODEL_ID} (attention: {attn})...")
-    model = Qwen3TTSModel.from_pretrained(
-        MODEL_ID,
-        device_map="cuda:0",
-        dtype=torch.bfloat16,
-        attn_implementation=attn,
-    )
-    print("Modele pret.")
-
-
-def get_or_create_clone_prompt(ref_audio, ref_text, x_vector_only=False, name=None):
-    cache_key = (ref_audio, ref_text, x_vector_only)
-    if cache_key in prompt_cache:
-        return prompt_cache[cache_key]
-
-    if name:
-        prompt = _load_prompt_npz(name)
-        if prompt is not None:
-            prompt_cache[cache_key] = prompt
-            return prompt
-
-    mode = "x_vector_only" if x_vector_only else "full_clone"
-    print(f"Creation empreinte vocale depuis {ref_audio} (mode: {mode})...")
+    logger.info("Creating voice clone prompt for '%s' from %s", name, ref_audio)
     prompt = model.create_voice_clone_prompt(
-        ref_audio=ref_audio,
+        ref_audio=str(ref_audio),
         ref_text=ref_text,
-        x_vector_only_mode=x_vector_only,
+        x_vector_only_mode=not bool(ref_text),
     )
-    prompt_cache[cache_key] = prompt
-
-    if name:
-        _save_prompt_npz(name, prompt)
-
+    PROMPT_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    torch.save(prompt, cache_file)
     return prompt
 
 
-def _resolve_voice(req: SpeechRequest):
-    """Retourne (ref_audio, ref_text, x_vector_only) ou lève HTTPException."""
-    if req.voice and req.voice in voice_registry:
-        entry = voice_registry[req.voice]
-        return entry["ref_audio"], entry["ref_text"], entry.get("x_vector_only", False)
-    if req.ref_audio and req.ref_text:
-        ref_audio = req.ref_audio
-        if not os.path.isabs(ref_audio):
-            ref_audio = os.path.join(VOICES_DIR, os.path.basename(ref_audio))
-        return ref_audio, req.ref_text, False
-    available = list(voice_registry.keys())
-    raise HTTPException(
-        400,
-        f"Voix introuvable. Voix enregistrees: {available}. "
-        "Enregistrez d'abord une voix via POST /v1/audio/voices, "
-        "ou passez 'ref_audio'+'ref_text' dans la requete.",
+def _get_voice_prompt(voice: str):
+    if voice not in voice_prompts:
+        prompt = _load_voice_prompt(voice)
+        if prompt is None:
+            raise HTTPException(
+                404,
+                f"Voice '{voice}' not found. Place {voice}.wav (or .mp3/.flac) in {VOICES_DIR}",
+            )
+        voice_prompts[voice] = prompt
+    return voice_prompts[voice]
+
+
+# ── Startup (dans le thread CUDA) ──────────────────────────────
+
+def _do_startup():
+    global model, warmup_prompt
+    from qwen_tts import Qwen3TTSModel
+
+    logger.info("Loading model %s on GPU...", MODEL_ID)
+    load_kwargs = {"torch_dtype": torch.bfloat16, "device_map": "cuda"}
+    if not HAS_FLASH_ATTN:
+        load_kwargs["attn_implementation"] = "sdpa"
+
+    model = Qwen3TTSModel.from_pretrained(MODEL_ID, **load_kwargs)
+    logger.info("Model loaded (attn: %s). Enabling streaming optimizations...",
+                "flash_attention_2" if HAS_FLASH_ATTN else "sdpa")
+
+    model.enable_streaming_optimizations(
+        decode_window_frames=80,
+        use_compile=True,
+        compile_mode="reduce-overhead",
     )
+    logger.info("Warming up (torch.compile first pass)...")
 
-
-def _generate_raw_audio(req: SpeechRequest) -> tuple:
-    """Génère l'audio et retourne (ndarray_float32, sample_rate)."""
-    ref_audio, ref_text, x_vector_only = _resolve_voice(req)
-    if not os.path.exists(ref_audio):
-        raise HTTPException(404, f"Audio introuvable : {ref_audio}")
-
-    prompt = get_or_create_clone_prompt(ref_audio, ref_text, x_vector_only)
-    lang = req.language or req.lang_code or LANG_CODE
-
-    try:
-        wavs, sr = model.generate_voice_clone(
-            text=req.input,
-            language=lang,
-            voice_clone_prompt=prompt,
-            temperature=req.temperature or 0.8,
-            top_p=req.top_p or 0.9,
-            repetition_penalty=req.repetition_penalty or 1.05,
-            max_new_tokens=req.max_tokens or 2048,
-        )
-    except Exception as e:
-        traceback.print_exc()
-        raise HTTPException(500, f"Erreur generation : {str(e)}")
-
-    audio = wavs[0]
-    if hasattr(audio, "numpy"):
-        audio = audio.cpu().numpy()
-    return audio, sr
-
-
-def _save_wav_output(audio, sr, req: SpeechRequest) -> None:
-    if not SAVE_OUTPUT:
-        return
-    buf = io.BytesIO()
-    sf.write(buf, audio, sr, format="WAV")
-    buf.seek(0)
-    voice_label = (req.voice or "adhoc").replace("/", "_")
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    out_path = Path(OUTPUT_DIR) / f"{ts}_{voice_label}.wav"
-    try:
-        out_path.write_bytes(buf.read())
-    except Exception:
+    warmup_audio = (np.zeros(16000, dtype=np.float32), 16000)
+    warmup_prompt = model.create_voice_clone_prompt(
+        ref_audio=warmup_audio,
+        ref_text="",
+        x_vector_only_mode=True,
+    )
+    warmup_prompt[0].ref_spk_embedding = torch.zeros(1, 2048, dtype=torch.bfloat16, device="cuda")
+    for _ in model.stream_generate_voice_clone(
+        text="Warmup.", language="English", voice_clone_prompt=warmup_prompt, max_frames=24
+    ):
         pass
+    logger.info("Server ready. GPU: %s", torch.cuda.get_device_name(0))
 
 
-def _generate_wav_bytes(req: SpeechRequest) -> tuple[bytes, int]:
-    """Génère l'audio et retourne (wav_bytes, sample_rate)."""
-    audio, sr = _generate_raw_audio(req)
-    _save_wav_output(audio, sr, req)
-    buf = io.BytesIO()
-    sf.write(buf, audio, sr, format="WAV")
-    buf.seek(0)
-    return buf.read(), sr
-
-
-def _generate_pcm_bytes(req: SpeechRequest) -> tuple[bytes, int]:
-    """Génère l'audio et retourne (pcm_int16_le_bytes, sample_rate)."""
-    audio, sr = _generate_raw_audio(req)
-    _save_wav_output(audio, sr, req)
-    pcm = (audio * 32767).clip(-32768, 32767).astype(np.int16)
-    return pcm.tobytes(), sr
+@app.on_event("startup")
+async def startup():
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(_cuda_executor, _do_startup)
 
 
 # ── Endpoints ──────────────────────────────────────────────────
 
 @app.get("/health")
-def health():
-    return {"status": "ok", "model": MODEL_ID, "voices": list(voice_registry.keys())}
+async def health():
+    cached = [p.stem for p in PROMPT_CACHE_DIR.glob("*.pt")] if PROMPT_CACHE_DIR.exists() else []
+    return {
+        "status": "ok",
+        "model": MODEL_ID,
+        "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "none",
+        "attn_backend": "flash_attention_2" if HAS_FLASH_ATTN else "sdpa",
+        "cached_voices": cached,
+    }
 
 
 @app.get("/v1/models")
-def list_models():
+async def list_models():
     return {"object": "list", "data": [{"id": MODEL_ID, "object": "model"}]}
 
 
-@app.get("/v1/audio/voices")
-def list_voices():
-    return {"voices": [{"name": n, "npz_cached": _npz_path(n).exists()} for n in voice_registry]}
+_RETRY = object()
+
+_SENTENCE_END = re.compile(r'(?<=[.!?;])\s+')
+_NEWLINE = re.compile(r'\n+')
 
 
-@app.post("/v1/audio/voices")
-def register_voice(req: VoiceRegisterRequest):
-    path = req.ref_audio
-    if not os.path.isabs(path):
-        path = os.path.join(VOICES_DIR, os.path.basename(path))
-    if not os.path.exists(path):
-        raise HTTPException(404, f"Fichier audio introuvable : {path}")
+def _split_sentences(text: str, max_chars: int = 300) -> list[str]:
+    text = _NEWLINE.sub('. ', text).strip()
+    parts = [p.strip() for p in _SENTENCE_END.split(text) if p.strip()]
+    chunks: list[str] = []
+    current = ""
+    for part in parts:
+        if not current:
+            current = part
+        elif len(current) + 1 + len(part) <= max_chars:
+            current += " " + part
+        else:
+            chunks.append(current)
+            current = part
+    if current:
+        chunks.append(current)
+    result: list[str] = []
+    for chunk in chunks:
+        if len(chunk) <= max_chars:
+            result.append(chunk)
+            continue
+        words = chunk.split()
+        buf = ""
+        for word in words:
+            if not buf:
+                buf = word
+            elif len(buf) + 1 + len(word) <= max_chars:
+                buf += " " + word
+            else:
+                result.append(buf)
+                buf = word
+        if buf:
+            result.append(buf)
+    return result or [text]
 
-    get_or_create_clone_prompt(path, req.ref_text, req.x_vector_only, name=req.name)
-    voice_registry[req.name] = {
-        "ref_audio": path,
-        "ref_text": req.ref_text,
-        "x_vector_only": req.x_vector_only,
-    }
-    _save_registry()
-    return {"name": req.name, "status": "registered", "x_vector_only": req.x_vector_only}
+
+def _try_get(q: stdlib_queue.Queue):
+    try:
+        return q.get(timeout=0.05)
+    except stdlib_queue.Empty:
+        return _RETRY
 
 
 @app.post("/v1/audio/speech")
-def generate_speech(req: SpeechRequest):
+async def speech(request: Request, req: SpeechRequest):
     if model is None:
-        raise HTTPException(503, "Modele pas encore charge")
+        raise HTTPException(503, "Model not loaded yet")
 
-    wav_bytes, sr = _generate_wav_bytes(req)
-    fmt = (req.response_format or "wav").lower()
+    language = LANG_MAP.get(LANG_CODE, "English")
+    prompt = _get_voice_prompt(req.voice)
+    fmt = req.response_format.lower()
+    t0 = time.monotonic()
+    loop = asyncio.get_running_loop()
 
-    if fmt not in ("wav", "mp3"):
-        # Ré-encoder pour FLAC/OGG via soundfile
-        buf_in = io.BytesIO(wav_bytes)
-        audio_data, sr = sf.read(buf_in)
-        buf_out = io.BytesIO()
-        sf.write(buf_out, audio_data, sr, format=fmt.upper())
-        buf_out.seek(0)
-        wav_bytes = buf_out.read()
+    sentences = _split_sentences(req.input)
+    chunk_q: stdlib_queue.Queue = stdlib_queue.Queue(maxsize=3)
+    stop_evt = threading.Event()
 
-    mime = {
-        "wav": "audio/wav", "mp3": "audio/mpeg",
-        "flac": "audio/flac", "ogg": "audio/ogg",
-    }
-    return Response(wav_bytes, media_type=mime.get(fmt, "audio/wav"))
+    def _put(data: bytes) -> bool:
+        while not stop_evt.is_set():
+            try:
+                chunk_q.put(data, timeout=0.05)
+                return True
+            except stdlib_queue.Full:
+                continue
+        return False
 
+    def _cuda_gen():
+        try:
+            header_sent = False
+            n_total = 0
+            last_sr = 24000
+            logger.info("[%s] voice='%s' splitting into %d sentences", fmt, req.voice, len(sentences))
+            for s_idx, sentence in enumerate(sentences):
+                if stop_evt.is_set():
+                    break
+                s_max_frames = min(800, max(150, len(sentence) * 3))
+                for audio_chunk, sr in model.stream_generate_voice_clone(
+                    text=sentence,
+                    language=language,
+                    voice_clone_prompt=prompt,
+                    first_chunk_emit_every=5,
+                    first_chunk_decode_window=48,
+                    first_chunk_frames=48,
+                    emit_every_frames=12,
+                    decode_window_frames=80,
+                    overlap_samples=512,
+                    repetition_penalty=1.05,
+                    max_frames=s_max_frames,
+                ):
+                    if stop_evt.is_set():
+                        break
+                    last_sr = sr
+                    to_send = []
+                    if fmt == "wav" and not header_sent:
+                        to_send.append(struct.pack(
+                            "<4sI4s4sIHHIIHH4sI",
+                            b"RIFF", 0xFFFFFFFF, b"WAVE",
+                            b"fmt ", 16, 1, 1, sr, sr * 2, 2, 16,
+                            b"data", 0xFFFFFFFF,
+                        ))
+                        header_sent = True
+                    to_send.append(
+                        (audio_chunk * 32767).clip(-32768, 32767).astype(np.int16).tobytes()
+                    )
+                    for data in to_send:
+                        if not _put(data):
+                            break
+                    n_total += 1
+                # 150ms de silence entre phrases pour une respiration naturelle
+                if s_idx < len(sentences) - 1 and not stop_evt.is_set():
+                    silence = np.zeros(int(last_sr * 0.15), dtype=np.int16).tobytes()
+                    _put(silence)
+            logger.info("[%s] voice='%s' total_chunks=%d sentences=%d wall=%.2fs",
+                        fmt, req.voice, n_total, len(sentences), time.monotonic() - t0)
+        except Exception as e:
+            logger.error("Generation error for voice '%s': %s", req.voice, e)
+            try:
+                chunk_q.put(e, block=False)
+            except stdlib_queue.Full:
+                pass
+        finally:
+            for _ in range(40):
+                try:
+                    chunk_q.put(None, block=False)
+                    return
+                except stdlib_queue.Full:
+                    time.sleep(0.05)
 
-# ── Streaming ──────────────────────────────────────────────────
+    loop.run_in_executor(_cuda_executor, _cuda_gen)
 
-def _stream_wav_bytes(wav_bytes: bytes, chunk_size: int = 8192):
-    for i in range(0, len(wav_bytes), chunk_size):
-        yield wav_bytes[i:i + chunk_size]
+    async def _watch_disconnect():
+        try:
+            msg = await request.receive()
+            if msg.get("type") == "http.disconnect":
+                stop_evt.set()
+                try:
+                    while True:
+                        chunk_q.get_nowait()
+                except stdlib_queue.Empty:
+                    pass
+                logger.warning("[%s] voice='%s' — disconnect after %.2fs",
+                               fmt, req.voice, time.monotonic() - t0)
+        except asyncio.CancelledError:
+            pass
 
+    disconnect_task = asyncio.create_task(_watch_disconnect())
 
-@app.post("/v1/audio/speech/stream")
-def generate_speech_stream(req: SpeechRequest):
-    if model is None:
-        raise HTTPException(503, "Modele pas encore charge")
+    async def stream():
+        try:
+            while True:
+                item = await loop.run_in_executor(None, _try_get, chunk_q)
+                if item is _RETRY:
+                    continue
+                if item is None:
+                    break
+                if isinstance(item, Exception):
+                    raise item
+                yield item
+        except GeneratorExit:
+            stop_evt.set()
+            logger.warning("[%s] voice='%s' — GeneratorExit after %.2fs",
+                           fmt, req.voice, time.monotonic() - t0)
+            try:
+                while True:
+                    chunk_q.get_nowait()
+            except stdlib_queue.Empty:
+                pass
+            raise
+        finally:
+            disconnect_task.cancel()
 
-    wav_bytes, _ = _generate_wav_bytes(req)
-    return StreamingResponse(_stream_wav_bytes(wav_bytes), media_type="audio/wav")
-
-
-@app.post("/v1/tts/stream")
-def generate_tts_stream(req: SpeechRequest):
-    if model is None:
-        raise HTTPException(503, "Modele pas encore charge")
-    pcm_bytes, _ = _generate_pcm_bytes(req)
-    return StreamingResponse(_stream_wav_bytes(pcm_bytes), media_type="application/octet-stream")
-
-
-# ── Démarrage ──────────────────────────────────────────────────
-
-@app.on_event("startup")
-def startup():
-    _load_registry()
-    load_model()
-    _preload_prompt_cache()
-    Path(OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
-    print(f"API prete sur le port 8080. Voix enregistrees: {list(voice_registry.keys())}")
+    media_type = "audio/pcm" if fmt == "pcm" else "audio/wav"
+    return StreamingResponse(stream(), media_type=media_type)

@@ -34,7 +34,7 @@ RUN MAX_JOBS=1 \
     TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST} \
     /opt/venv/bin/pip install flash-attn --no-build-isolation
 
-RUN /opt/venv/bin/pip install --quiet qwen-tts fastapi uvicorn soundfile
+RUN /opt/venv/bin/pip install --quiet qwen-tts fastapi uvicorn
 
 COPY server.py .
 
