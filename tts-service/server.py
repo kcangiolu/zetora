@@ -6,7 +6,9 @@ import struct
 import threading
 import time
 import logging
+import wave
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from pathlib import Path
 
 import torch
@@ -22,6 +24,8 @@ MODEL_ID = os.getenv("MODEL_ID", "Qwen/Qwen3-TTS-12Hz-1.7B-Base")
 VOICES_DIR = Path(os.getenv("VOICES_DIR", "/data/voices"))
 LANG_CODE = os.getenv("LANG_CODE", "french")
 PROMPT_CACHE_DIR = Path(os.getenv("PROMPT_CACHE_DIR", "/data/prompt_cache"))
+SAVE_OUTPUT = os.getenv("SAVE_OUTPUT", "false").lower() == "true"
+OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "/data/output"))
 
 torch.set_float32_matmul_precision("high")
 torch.backends.cuda.matmul.allow_tf32 = True
@@ -115,6 +119,22 @@ def _get_voice_prompt(voice: str):
     return voice_prompts[voice]
 
 
+def _save_wav(voice: str, pcm_chunks: list, sample_rate: int) -> None:
+    try:
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        out_path = OUTPUT_DIR / f"{ts}_{voice}.wav"
+        all_pcm = np.concatenate(pcm_chunks)
+        with wave.open(str(out_path), "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(sample_rate)
+            wf.writeframes(all_pcm.tobytes())
+        logger.info("Saved output to %s (%d samples)", out_path, len(all_pcm))
+    except Exception as e:
+        logger.error("Failed to save output: %s", e)
+
+
 # ── Startup (dans le thread CUDA) ──────────────────────────────
 
 def _do_startup():
@@ -168,6 +188,7 @@ async def health():
         "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "none",
         "attn_backend": "flash_attention_2" if HAS_FLASH_ATTN else "sdpa",
         "cached_voices": cached,
+        "save_output": SAVE_OUTPUT,
     }
 
 
@@ -253,6 +274,8 @@ async def speech(request: Request, req: SpeechRequest):
             header_sent = False
             n_total = 0
             last_sr = 24000
+            pcm_chunks: list[np.ndarray] | None = [] if SAVE_OUTPUT else None
+
             logger.info("[%s] voice='%s' splitting into %d sentences", fmt, req.voice, len(sentences))
             for s_idx, sentence in enumerate(sentences):
                 if stop_evt.is_set():
@@ -274,6 +297,9 @@ async def speech(request: Request, req: SpeechRequest):
                     if stop_evt.is_set():
                         break
                     last_sr = sr
+                    pcm = (audio_chunk * 32767).clip(-32768, 32767).astype(np.int16)
+                    if pcm_chunks is not None:
+                        pcm_chunks.append(pcm.copy())
                     to_send = []
                     if fmt == "wav" and not header_sent:
                         to_send.append(struct.pack(
@@ -283,19 +309,25 @@ async def speech(request: Request, req: SpeechRequest):
                             b"data", 0xFFFFFFFF,
                         ))
                         header_sent = True
-                    to_send.append(
-                        (audio_chunk * 32767).clip(-32768, 32767).astype(np.int16).tobytes()
-                    )
+                    to_send.append(pcm.tobytes())
                     for data in to_send:
                         if not _put(data):
                             break
                     n_total += 1
+
                 # 150ms de silence entre phrases pour une respiration naturelle
                 if s_idx < len(sentences) - 1 and not stop_evt.is_set():
-                    silence = np.zeros(int(last_sr * 0.15), dtype=np.int16).tobytes()
-                    _put(silence)
+                    silence = np.zeros(int(last_sr * 0.15), dtype=np.int16)
+                    if pcm_chunks is not None:
+                        pcm_chunks.append(silence)
+                    _put(silence.tobytes())
+
             logger.info("[%s] voice='%s' total_chunks=%d sentences=%d wall=%.2fs",
                         fmt, req.voice, n_total, len(sentences), time.monotonic() - t0)
+
+            if pcm_chunks and not stop_evt.is_set():
+                _save_wav(req.voice, pcm_chunks, last_sr)
+
         except Exception as e:
             logger.error("Generation error for voice '%s': %s", req.voice, e)
             try:

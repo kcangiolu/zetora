@@ -546,9 +546,8 @@ services:
       context: ./tts-service
       dockerfile: Dockerfile
       args:
-        TORCH_CUDA_ARCH_LIST: ${TTS_CUDA_ARCH_LIST:-8.6}
         TORCH_CUDA_BUILD: ${TTS_TORCH_CUDA_BUILD:-cu130}
-        TORCH_VERSION: ${TTS_TORCH_VERSION:-2.7.0}
+        TORCH_VERSION: ${TTS_TORCH_VERSION:-2.9.1}
     container_name: zetora-qwen3-tts
     runtime: nvidia
     ports:
@@ -561,8 +560,11 @@ services:
       - VOICES_DIR=/data/voices
       - LANG_CODE=french
       - PROMPT_CACHE_DIR=/data/prompt_cache
+      - SAVE_OUTPUT=false
+      - OUTPUT_DIR=/data/output
     volumes:
       - ${DATA_DIR}/qwen3-tts/huggingface:/data/huggingface
+      - ${DATA_DIR}/qwen3-tts/output:/data/output
       - ${DATA_DIR}/qwen3-tts/voices:/data/voices:ro
       - ${DATA_DIR}/qwen3-tts/prompt_cache:/data/prompt_cache
     deploy:
