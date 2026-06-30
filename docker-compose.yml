@@ -20,13 +20,11 @@
 #          ${DATA_DIR}/qwen3-tts/huggingface \
 #          ${DATA_DIR}/qwen3-tts/output \
 #          ${DATA_DIR}/qwen3-tts/voices \
-#          ${DATA_DIR}/qwen3-tts/prompt_cache \
-#          ${DATA_DIR}/qwen3-tts/venv
-#        touch ${DATA_DIR}/qwen3-tts/voice_cache.json
-#        # Copier aussi server.py dans ${DATA_DIR}/qwen3-tts/server.py
+#          ${DATA_DIR}/qwen3-tts/prompt_cache
 #        # Copier la config SearXNG dans ${DATA_DIR}/searxng/settings.yml
+#        # Optionnel : déposer {voice}.wav + {voice}.lang dans qwen3-tts/voices/
 #
-#   4. docker compose up -d --build
+#   4. docker compose pull && docker compose up -d
 #
 # All services share the `zetora-network` network and resolve each other by
 # service name (e.g. the app reaches Postgres at `postgres:5432`).
