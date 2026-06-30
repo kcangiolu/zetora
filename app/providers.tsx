@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TooltipProvider } from '@radix-ui/react-tooltip';
 import { UserProvider } from '@/contexts/user-context';
 import { DataStreamProvider } from '@/components/data-stream-provider';
+import { SpeechProvider } from '@/contexts/speech-context';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -30,6 +31,7 @@ export function Providers({ children }: { children: ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <UserProvider>
         <DataStreamProvider>
+          <SpeechProvider>
           <ThemeProvider
             attribute="class"
             defaultTheme="system"
@@ -39,6 +41,7 @@ export function Providers({ children }: { children: ReactNode }) {
           >
             {children}
           </ThemeProvider>
+          </SpeechProvider>
         </DataStreamProvider>
       </UserProvider>
     </QueryClientProvider>

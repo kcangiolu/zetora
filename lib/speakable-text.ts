@@ -17,27 +17,35 @@ export function extractSpeakableText(markdown: string): string {
   // 5. Supprimer les images
   text = text.replace(/!\[.*?\]\(.*?\)/g, '');
 
-  // 6. Liens markdown → garder uniquement le label
-  text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+  // 6. Supprimer les sections Sources/Références (heading ou bold) et tout ce qui suit
+  text = text.replace(/\n#{1,6}\s*(sources?|références?|references?|liens?|bibliographie)[^\n]*[\s\S]*$/i, '');
+  text = text.replace(/\n\*\*(sources?|références?|references?|liens?)[^*]*\*\*[\s\S]*$/i, '');
 
-  // 7. Bold/italic → garder le texte
+  // 7. Supprimer les citations inline [Titre](url) entièrement — le label est un titre
+  // d'article qui n'a pas de sens à l'oral. Le texte reste cohérent sans lui.
+  text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '');
+
+  // 8. Supprimer les marqueurs de références orphelins [1], [^1], [note]
+  text = text.replace(/\[\^?\d+\]/g, '');
+
+  // 9. Bold/italic → garder le texte
   text = text.replace(/(\*\*|__)(.*?)\1/g, '$2');
   text = text.replace(/(\*|_)(.*?)\1/g, '$2');
   text = text.replace(/~~(.*?)~~/g, '$1');
 
-  // 8. Headings → phrase normale (le titre devient une phrase)
+  // 10. Headings → phrase normale (le titre devient une phrase)
   text = text.replace(/^#{1,6}\s+(.+)$/gm, '$1.');
 
-  // 9. Blockquotes → texte simple
+  // 11. Blockquotes → texte simple
   text = text.replace(/^>\s?/gm, '');
 
-  // 10. Listes → phrases normales
+  // 12. Listes → phrases normales
   // Listes numérotées : "1. Truc" → "Truc."
   text = text.replace(/^\s*\d+\.\s+/gm, '');
   // Listes à puces : "- Truc" → "Truc."
   text = text.replace(/^[\s]*[-*+]\s+/gm, '');
 
-  // 11. Caractères spéciaux → texte naturel
+  // 13. Caractères spéciaux → texte naturel
   text = text.replace(/→/g, ' donc ');
   text = text.replace(/~/g, 'environ ');
   text = text.replace(/×/g, ' par ');
@@ -48,27 +56,27 @@ export function extractSpeakableText(markdown: string): string {
   text = text.replace(/«\s*/g, '');
   text = text.replace(/\s*»/g, '');
 
-  // 12. Supprimer les URLs brutes
+  // 14. Supprimer les URLs brutes
   text = text.replace(/https?:\/\/\S+/g, '');
 
-  // 13. Supprimer tout HTML résiduel
+  // 15. Supprimer tout HTML résiduel
   text = text.replace(/<[^>]*>/g, '');
 
-  // 14. Nettoyer les sauts de ligne
+  // 16. Nettoyer les sauts de ligne
   text = text
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
     .join('. ');
 
-  // 15. Éviter les doubles ponctuations et espaces multiples
+  // 17. Éviter les doubles ponctuations et espaces multiples
   text = text.replace(/\.\s*\./g, '.');
   text = text.replace(/\s{2,}/g, ' ');
   text = text.replace(/\s+\./g, '.');
   text = text.replace(/\.+/g, '.');
   text = text.replace(/\s+,/g, ',');
 
-  // 16. Supprimer les caractères de contrôle restants
+  // 18. Supprimer les caractères de contrôle restants
   text = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
 
   return text.trim();

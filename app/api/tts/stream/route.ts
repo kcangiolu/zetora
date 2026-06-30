@@ -32,12 +32,12 @@ export async function POST(req: NextRequest) {
     return new Response('Custom TTS provider not configured', { status: 400 });
   }
 
-  const speaker = (p['zetora-tts-openai-voice'] as string) || 'ryan';
-  const language = (p['zetora-tts-openai-language'] as string) || 'French';
+  const voice = (p['zetora-tts-openai-voice'] as string) || 'alloy';
 
-  const upstreamUrl = provider.baseURL.endsWith('/v1')
-    ? `${provider.baseURL}/tts/stream`
-    : `${provider.baseURL}/v1/tts/stream`;
+  const base = provider.baseURL.endsWith('/v1')
+    ? provider.baseURL
+    : `${provider.baseURL}/v1`;
+  const upstreamUrl = `${base}/audio/speech`;
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (provider.apiKey) {
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   const upstream = await fetch(upstreamUrl, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ text, speaker, language }),
+    body: JSON.stringify({ model: 'tts-1', input: text, voice, response_format: 'pcm' }),
     signal: req.signal,
   });
 
