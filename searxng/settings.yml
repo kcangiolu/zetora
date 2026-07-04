@@ -14,5 +14,9 @@ server:
 ui:
   static_use_hash: true
 
-redis:
-  url: redis://redis:6379/0
+valkey:
+  url: redis://searxng-redis:6379/0
+
+engines:
+  - name: radio browser
+    disabled: true
