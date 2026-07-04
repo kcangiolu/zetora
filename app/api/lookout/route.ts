@@ -26,6 +26,7 @@ import { eq } from 'drizzle-orm';
 import { all, flow } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
+import { verifyLookoutRequest } from '@/lib/lookout-auth';
 import type { SearchProvider } from '@/lib/utils';
 
 // Import search tools
@@ -563,6 +564,13 @@ async function checkUserIsProById(userId: string): Promise<boolean> {
 
 export async function POST(req: Request) {
   console.log('🔍 Lookout API endpoint hit from QStash');
+
+  // Reject callers that don't present the shared scheduling secret — this
+  // endpoint runs LLM jobs as the userId provided in the body.
+  const verification = verifyLookoutRequest(req);
+  if (!verification.ok) {
+    return new Response(verification.message, { status: verification.status });
+  }
 
   const requestStartTime = Date.now();
   let runDuration = 0;

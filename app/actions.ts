@@ -86,6 +86,7 @@ import {
 } from '@/lib/connectors';
 import { jsonrepair } from 'jsonrepair';
 import { headers } from 'next/headers';
+import { lookoutCallbackHeaders, lookoutQstashHeaders } from '@/lib/lookout-auth';
 import { v7 as uuidv7 } from 'uuid';
 import { saveChat, saveMessages } from '@/lib/db/queries';
 import { all, allSettled } from 'better-all';
@@ -1899,6 +1900,17 @@ export async function getDodoSubscriptionExpirationDate() {
 // Initialize QStash client
 const qstash = new Client({ token: serverEnv.QSTASH_TOKEN });
 
+// Callback URL the scheduler (QStash or the BullMQ worker) posts back to.
+// NEXT_PUBLIC_APP_URL keeps self-hosted deployments working; NGROK_URL lets
+// QStash reach a local dev server.
+function resolveLookoutEndpoint(): string {
+  const base =
+    process.env.NODE_ENV === 'development'
+      ? (process.env.NGROK_URL ?? 'http://localhost:3000')
+      : (process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000');
+  return base.replace(/\/$/, '') + '/api/lookout';
+}
+
 // Helper function to convert frequency to cron schedule with timezone
 function frequencyToCron(frequency: string, time: string, timezone: string, dayOfWeek?: string): string {
   const [hours, minutes] = time.split(':').map(Number);
@@ -2070,10 +2082,7 @@ export async function createScheduledLookout({
     // Small delay to ensure database transaction is committed
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    const lookoutEndpoint =
-      process.env.NODE_ENV === 'development'
-        ? (process.env.NGROK_URL ?? 'http://localhost:3000') + '/api/lookout'
-        : 'https://zetora.ai/api/lookout';
+    const lookoutEndpoint = resolveLookoutEndpoint();
 
     const lookoutBody = { lookoutId: lookout.id, prompt, userId: user.id };
 
@@ -2093,7 +2102,7 @@ export async function createScheduledLookout({
             await scheduleBullMqOnce({
               destination: lookoutEndpoint,
               body: lookoutBody,
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', ...lookoutCallbackHeaders() },
               delayMs: minimumDelay * 1000,
             });
             console.log('✅ [BullMQ] One-time job queued for lookout:', lookout.id, 'delay:', minimumDelay, 's');
@@ -2103,7 +2112,7 @@ export async function createScheduledLookout({
             await qstash.publish({
               url: lookoutEndpoint,
               body: JSON.stringify(lookoutBody),
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', ...lookoutQstashHeaders() },
               delay: minimumDelay,
             });
             console.log('✅ QStash one-time execution scheduled for lookout:', lookout.id, 'delay:', minimumDelay, 's');
@@ -2121,7 +2130,7 @@ export async function createScheduledLookout({
               destination: lookoutEndpoint,
               cron: cronSchedule,
               body: lookoutBody,
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', ...lookoutCallbackHeaders() },
             });
             scheduleId = result.scheduleId;
           } else {
@@ -2130,7 +2139,7 @@ export async function createScheduledLookout({
               method: 'POST',
               cron: cronSchedule,
               body: JSON.stringify(lookoutBody),
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', ...lookoutQstashHeaders() },
             });
             scheduleId = scheduleResponse.scheduleId;
           }
@@ -2357,10 +2366,7 @@ export async function updateLookoutAction({
         console.log(`⏰ [${schedulingProvider}] Recreating schedule for lookout:`, id);
         console.log('📅 Updated cron schedule with timezone:', cronSchedule);
 
-        const lookoutEndpoint =
-          process.env.NODE_ENV === 'development'
-            ? (process.env.NGROK_URL ?? 'http://localhost:3000') + '/api/lookout'
-            : 'https://zetora.ai/api/lookout';
+        const lookoutEndpoint = resolveLookoutEndpoint();
 
         let newScheduleId: string;
 
@@ -2371,7 +2377,7 @@ export async function updateLookoutAction({
             destination: lookoutEndpoint,
             cron: cronSchedule,
             body: { lookoutId: id, prompt: prompt.trim(), userId: user.id },
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...lookoutCallbackHeaders() },
           });
           newScheduleId = result.scheduleId;
         } else {
@@ -2382,7 +2388,7 @@ export async function updateLookoutAction({
             method: 'POST',
             cron: cronSchedule,
             body: JSON.stringify({ lookoutId: id, prompt: prompt.trim(), userId: user.id }),
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...lookoutQstashHeaders() },
           });
           newScheduleId = scheduleResponse.scheduleId;
         }
@@ -2483,17 +2489,13 @@ export async function testLookoutAction({ id }: { id: string }) {
     }
 
     // Make a POST request to the lookout API endpoint to trigger the run
-    const lookoutUrl =
-      process.env.NODE_ENV === 'development'
-        ? process.env.NGROK_URL
-          ? process.env.NGROK_URL + '/api/lookout'
-          : 'http://localhost:3000/api/lookout'
-        : `https://zetora.ai/api/lookout`;
+    const lookoutUrl = resolveLookoutEndpoint();
 
     const response = await fetch(lookoutUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...lookoutCallbackHeaders(),
       },
       body: JSON.stringify({
         lookoutId: lookout.id,
