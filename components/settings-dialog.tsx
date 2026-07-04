@@ -879,7 +879,7 @@ export function PreferencesSection({
           try {
             await fetch('/api/graphiti/config', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'X-Graphiti-Url': graphitiApiUrl },
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 llm_model: parsed.modelName,
                 llm_api_key: parsed.provider.apiKey || null,
@@ -908,7 +908,7 @@ export function PreferencesSection({
           try {
             await fetch('/api/graphiti/config', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'X-Graphiti-Url': graphitiApiUrl },
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 embedding_model: parsed.modelName,
                 embedding_api_key: parsed.provider.apiKey || null,
