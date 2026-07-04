@@ -86,7 +86,7 @@ export const currencyConverterTool = tool({
     const convertedAmount = forwardRate ? forwardRate * amount : undefined;
 
     return {
-      rate: typeof convertedAmount === 'number' ? convertedAmount : 'Rate unavailable',
+      rate: forwardRate ?? 'Rate unavailable',
       forwardRate: forwardRate ?? null,
       reverseRate: reverseRate ?? null,
       fromCurrency: from,

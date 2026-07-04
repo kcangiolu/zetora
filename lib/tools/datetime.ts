@@ -2,7 +2,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 
 export const datetimeTool = tool({
-  description: "Get the current date and time in the user's timezone",
+  description: 'Get the current date and time in UTC',
   inputSchema: z.object({}),
   execute: async () => {
     try {
