@@ -116,7 +116,7 @@ services:
       - S3_FORCE_PATH_STYLE=true
       - QDRANT_URL=http://qdrant:6333
       - SEARXNG_URL=http://searxng:8080
-      - FASTCRW_URL=http://fastcrw:3003
+      - FASTCRW_URL=http://fastcrw:3000
       - SANDBOX_PROVIDER=docker
       - DOCKER_SANDBOX_URL=http://sandbox:8000
       - GRAPHITI_API_URL=http://graphiti-api:8001
@@ -361,10 +361,11 @@ services:
   fastcrw:
     image: ghcr.io/us/crw:latest
     container_name: zetora-fastcrw
+    # The image serves its HTTP API on port 3000 and ignores CRW_PORT, so map
+    # the host port to 3000 and point FASTCRW_URL at :3000 (see zetora.app).
     ports:
-      - '127.0.0.1:3003:3003'
+      - '127.0.0.1:3003:3000'
     environment:
-      - CRW_PORT=3003
       - CRW_NO_AUTH=true
     cap_drop:
       - ALL
