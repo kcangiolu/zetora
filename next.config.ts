@@ -152,7 +152,14 @@ const nextConfig: NextConfig = {
   },
   images: {
     qualities: [75, 100],
+    // Search results can embed SVG favicons/thumbnails from anywhere, so SVG
+    // stays enabled — but serve them inert: no inline rendering as a
+    // document, no script execution.
     dangerouslyAllowSVG: true,
+    contentDispositionType: 'attachment',
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    // A search engine renders thumbnails from arbitrary domains, so the
+    // wildcards are intentional (restricting them breaks result thumbnails).
     remotePatterns: [
       {
         protocol: 'https',
