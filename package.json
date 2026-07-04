@@ -8,6 +8,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "typecheck": "tsgo --noEmit",
     "typecheck:watch": "tsgo --noEmit --watch",
     "fix": "prettier --write . --ignore-path .gitignore",
@@ -192,6 +195,8 @@
     "@types/react-dom": "^19.2.3",
     "@types/react-syntax-highlighter": "^15.5.13",
     "@typescript/native-preview": "^7.0.0-dev.20260320.1",
+    "@vitejs/plugin-react": "^6.0.3",
+    "@vitest/coverage-v8": "^4.1.9",
     "babel-plugin-react-compiler": "^1.0.0",
     "drizzle-kit": "^0.31.10",
     "eslint": "^10.0.3",
@@ -202,7 +207,9 @@
     "react-email": "^5.2.10",
     "tailwindcss": "^4.2.2",
     "tw-animate-css": "^1.4.0",
-    "typescript": "^6.0.0-dev.20260320"
+    "typescript": "^6.0.0-dev.20260320",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^4.1.9"
   },
   "overrides": {
     "react-is": "^19.0.0-rc-69d4b800-20241021"
