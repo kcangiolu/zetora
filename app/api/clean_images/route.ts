@@ -5,7 +5,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { storageClient, STORAGE_BUCKET_NAME } from '@/lib/storage';
 
 export async function GET(req: NextRequest) {
-  if (req.headers.get('Authorization') !== `Bearer ${serverEnv.CRON_SECRET}`) {
+  // Refuse to run with the default "placeholder" secret — otherwise a
+  // missing env var would make this destructive endpoint publicly callable.
+  const secret = serverEnv.CRON_SECRET;
+  if (!secret || secret === 'placeholder') {
+    return new NextResponse('Cron endpoint disabled: CRON_SECRET is not configured', { status: 503 });
+  }
+  if (req.headers.get('Authorization') !== `Bearer ${secret}`) {
     return new NextResponse('Unauthorized', { status: 401 });
   }
 
