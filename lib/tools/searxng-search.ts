@@ -11,6 +11,22 @@ interface SearXNGResult {
   publishedDate?: string;
 }
 
+// SearXNG only supports coarse time ranges — pick the smallest one that
+// still covers the requested start date (other strategies filter exactly).
+function resolveTimeRange(topic: 'general' | 'news', startDate?: string | null): string {
+  if (startDate) {
+    const start = new Date(startDate);
+    if (!Number.isNaN(start.getTime())) {
+      const ageDays = (Date.now() - start.getTime()) / (24 * 60 * 60 * 1000);
+      if (ageDays <= 1) return 'day';
+      if (ageDays <= 7) return 'week';
+      if (ageDays <= 31) return 'month';
+      return 'year';
+    }
+  }
+  return topic === 'news' ? 'week' : '';
+}
+
 export class SearXNGSearchStrategy implements SearchStrategy {
   private baseUrl: string;
   private preferences?: Record<string, unknown>;
@@ -53,7 +69,7 @@ export class SearXNGSearchStrategy implements SearchStrategy {
             format: 'json',
             pageno: '1',
             language: 'en',
-            time_range: topic === 'news' ? 'week' : '',
+            time_range: resolveTimeRange(topic, options.startDates?.[i]),
             safesearch: '1',
           });
 
