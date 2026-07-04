@@ -3,7 +3,6 @@ import { Message } from '@/components/message';
 import { DataUIPart, isToolUIPart } from 'ai';
 import { EnhancedErrorDisplay } from '@/components/message';
 import { MessagePartRenderer } from '@/components/message-parts';
-// import { ZetoraLogoHeader } from '@/components/zetora-logo-header';
 import { deleteTrailingMessages } from '@/app/actions';
 import { Attachment, ChatMessage, CustomUIDataTypes } from '@/lib/types';
 import { UseChatHelpers } from '@ai-sdk/react';
