@@ -14,6 +14,25 @@ type TransformParamsArgs = Parameters<NonNullable<LanguageModelMiddleware['trans
 type WrapStreamArgs = Parameters<NonNullable<LanguageModelMiddleware['wrapStream']>>[0];
 type WrapGenerateArgs = Parameters<NonNullable<LanguageModelMiddleware['wrapGenerate']>>[0];
 
+type PromptMessage = { role: string; [key: string]: unknown };
+
+// morphXmlToolMiddleware injects its tool-instruction system message at the
+// END of the prompt when there is no leading system message. Many local chat
+// templates (e.g. Qwen3 via llama.cpp) enforce "system message must be at the
+// beginning" and hard-fail otherwise. Consolidate every system message into a
+// single one at index 0, preserving order, so the transformed prompt stays
+// compatible with those templates.
+export function hoistSystemMessagesToFront(prompt: PromptMessage[]): PromptMessage[] {
+  const systemMessages = prompt.filter((m) => m.role === 'system');
+  if (systemMessages.length === 0) return prompt;
+
+  const alreadyCorrect = systemMessages.length === 1 && prompt[0]?.role === 'system';
+  if (alreadyCorrect) return prompt;
+
+  const nonSystem = prompt.filter((m) => m.role !== 'system');
+  return [...systemMessages, ...nonSystem];
+}
+
 export const dynamicXmlToolMiddleware: LanguageModelMiddleware = {
   specificationVersion: 'v3',
 
@@ -22,6 +41,7 @@ export const dynamicXmlToolMiddleware: LanguageModelMiddleware = {
     const toolCallMiddleware = (params.providerOptions?.toolCallMiddleware ?? {}) as Record<string, unknown>;
     return {
       ...params,
+      prompt: hoistSystemMessagesToFront(params.prompt as unknown as PromptMessage[]) as typeof params.prompt,
       providerOptions: {
         ...params.providerOptions,
         toolCallMiddleware: {
