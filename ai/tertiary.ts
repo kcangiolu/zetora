@@ -1,6 +1,6 @@
 import 'server-only';
 import { wrapLanguageModel } from 'ai';
-import { morphXmlToolMiddleware, qwen3CoderToolMiddleware } from '@ai-sdk-tool/parser';
+import { dynamicXmlToolMiddleware } from '@/ai/xml-tool-middleware';
 import { zetora, resolveModel } from '@/ai/providers';
 
 export type TertiaryTask =
@@ -70,10 +70,9 @@ export async function resolveTertiaryModel(
   const isCustomModel = customModel?.startsWith('custom-');
 
   if (xmlParsingEnabled && isCustomModel && resolved) {
-    const xmlParsingProtocol = prefs?.['zetora-xml-tool-parsing-protocol'] === 'qwen3-coder' ? 'qwen3-coder' : 'morph';
     return wrapLanguageModel({
       model: resolved,
-      middleware: xmlParsingProtocol === 'qwen3-coder' ? qwen3CoderToolMiddleware : morphXmlToolMiddleware,
+      middleware: dynamicXmlToolMiddleware,
     });
   }
 

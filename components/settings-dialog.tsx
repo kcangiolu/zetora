@@ -635,10 +635,6 @@ export function PreferencesSection({
     'zetora-xml-tool-parsing-enabled',
     false,
   );
-  const [xmlToolParsingProtocol, setXmlToolParsingProtocol] = useSyncedPreferences<'morph' | 'qwen3-coder'>(
-    'zetora-xml-tool-parsing-protocol',
-    'morph',
-  );
 
   const [ttsProvider, setTtsProvider] = useSyncedPreferences<TTSProvider>('zetora-tts-provider', 'elevenlabs');
   const [ttsCustomProviderId, setTtsCustomProviderId] = useSyncedPreferences<string>('zetora-tts-custom-provider-id', '');
@@ -2187,9 +2183,10 @@ export function PreferencesSection({
                 <div className="min-w-0">
                   <p className="text-sm font-medium">XML Tool Call Parsing</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Enable XML tool call parsing for custom providers (Ollama, llama.cpp, vLLM). Required for
-                    models like Qwen, Hermes, and GLM that output tool calls in XML format instead of
-                    OpenAI-compatible JSON.
+                    Enable XML tool call parsing for custom providers (Ollama, llama.cpp, vLLM, OpenRouter).
+                    Required for models like Qwen, Hermes, GLM, and DeepSeek that output tool calls as text
+                    instead of OpenAI-compatible JSON. The format is detected automatically (Morph XML,
+                    Qwen3-Coder, and Hermes JSON).
                   </p>
                 </div>
                 <Switch
@@ -2198,30 +2195,6 @@ export function PreferencesSection({
                   onCheckedChange={setXmlToolParsingEnabled}
                 />
               </div>
-              {xmlToolParsingEnabled && (
-                <div className="flex items-center justify-between px-4 py-3 border-t border-border/40 gap-6">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">XML Tool Call Format</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Morph XML works for most models. Use Qwen3-Coder for the{' '}
-                      <code className="text-[11px]">{'<tool_call><function=...><parameter=...>'}</code> format
-                      emitted by Qwen3 (Coder/Instruct) and similar GGUF builds.
-                    </p>
-                  </div>
-                  <Select
-                    value={xmlToolParsingProtocol ?? 'morph'}
-                    onValueChange={(v) => setXmlToolParsingProtocol(v as 'morph' | 'qwen3-coder')}
-                  >
-                    <SelectTrigger className="w-[140px] h-8 text-xs rounded-lg shrink-0">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="morph">Morph XML</SelectItem>
-                      <SelectItem value="qwen3-coder">Qwen3-Coder</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
             </div>
 
             {/* Tertiary Models */}

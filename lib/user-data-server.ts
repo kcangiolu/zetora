@@ -218,15 +218,30 @@ class LruTtlCache<T> {
   }
 }
 
-const userDataCache = new LruTtlCache<ComprehensiveUserData>(USER_DATA_CACHE_MAX);
-const lightweightAuthCache = new LruTtlCache<LightweightUserAuth>(LIGHTWEIGHT_AUTH_CACHE_MAX);
+// Caches must live on globalThis: in dev (and with route-level code splitting)
+// this module can be instantiated once per route entry, so a plain module-level
+// cache cleared by /api/preferences would NOT clear the instance used by
+// /api/search — stale preferences would then be served for up to the TTL.
+function globalCache<T>(key: string, maxSize: number): LruTtlCache<T> {
+  const store = globalThis as unknown as Record<string, LruTtlCache<T> | undefined>;
+  return (store[key] ??= new LruTtlCache<T>(maxSize));
+}
+
+const userDataCache = globalCache<ComprehensiveUserData>('__zetoraUserDataCache', USER_DATA_CACHE_MAX);
+const lightweightAuthCache = globalCache<LightweightUserAuth>('__zetoraLightweightAuthCache', LIGHTWEIGHT_AUTH_CACHE_MAX);
 
 // Custom instructions cache (per-user)
-const customInstructionsCache = new LruTtlCache<CustomInstructions | null>(CUSTOM_INSTRUCTIONS_CACHE_MAX);
+const customInstructionsCache = globalCache<CustomInstructions | null>(
+  '__zetoraCustomInstructionsCache',
+  CUSTOM_INSTRUCTIONS_CACHE_MAX,
+);
 const CUSTOM_INSTRUCTIONS_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
 // User preferences cache (per-user)
-const userPreferencesCache = new LruTtlCache<UserPreferences | null>(USER_PREFERENCES_CACHE_MAX);
+const userPreferencesCache = globalCache<UserPreferences | null>(
+  '__zetoraUserPreferencesCache',
+  USER_PREFERENCES_CACHE_MAX,
+);
 const USER_PREFERENCES_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
 function getCachedUserData(userId: string): ComprehensiveUserData | null {
