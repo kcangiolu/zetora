@@ -108,19 +108,19 @@ export class SearXNGSearchStrategy implements SearchStrategy {
       }),
     );
 
-    // Étape hybride : fusionner avec Qdrant si activé
+    // Hybrid step: fuse with Qdrant results when enabled
     const allSearxngResults = searches.flatMap((s) => s.results);
     if (this.preferences?.['zetora-hybrid-search-enabled'] === true && allSearxngResults.length > 0) {
       try {
         const { hybridSearch } = await import('@/lib/vector/hybrid-search');
         const fusedResults = await hybridSearch(
-          queries[0], // utiliser la première query comme query principale
+          queries[0], // use the first query as the primary query
           allSearxngResults.map((r) => ({ url: r.url, title: r.title, content: r.content })),
           this.preferences,
           allSearxngResults.length,
         );
-        // Remplacer les résultats de la première search par les résultats fusionnés
-        // Les résultats fusionnés sont déjà dédupliqués et rerankés
+        // Replace the first search's results with the fused results
+        // Fused results are already deduplicated and reranked
         searches[0].results = fusedResults.map((r) => ({
           url: r.url,
           title: r.title,
@@ -133,7 +133,7 @@ export class SearXNGSearchStrategy implements SearchStrategy {
       }
     }
 
-    // Indexation du contenu en arrière-plan (fire-and-forget)
+    // Background content indexing (fire-and-forget)
     if (this.preferences?.['zetora-content-indexing-enabled'] === true) {
       const { indexSearchResults } = await import('@/lib/vector/content-indexer');
       indexSearchResults(

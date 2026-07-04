@@ -30,8 +30,8 @@ OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "/data/output"))
 torch.set_float32_matmul_precision("high")
 torch.backends.cuda.matmul.allow_tf32 = True
 
-# Thread dédié CUDA unique : torch.compile avec CUDA graphs exige que warmup et
-# inférences s'exécutent dans le même OS thread.
+# Single dedicated CUDA thread: torch.compile with CUDA graphs requires warmup
+# and inference to run in the same OS thread.
 _cuda_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="cuda-tts")
 
 app = FastAPI(title="Qwen3-TTS Server (OpenAI-compatible)")
@@ -106,7 +106,7 @@ def _load_voice_prompt(name: str, x_vector_only: bool = False):
     ref_text_file = VOICES_DIR / f"{name}.txt"
     ref_text = ref_text_file.read_text().strip() if ref_text_file.exists() else ""
 
-    # x_vector_only forcé si pas de texte de référence (impossible de faire full clone)
+    # x_vector_only is forced when there is no reference text (full clone impossible)
     effective_xvec = x_vector_only or not bool(ref_text)
     logger.info("Creating voice clone prompt for '%s' (xvec=%s) from %s", name, effective_xvec, ref_audio)
     prompt = model.create_voice_clone_prompt(
@@ -165,7 +165,7 @@ def _save_wav(voice: str, pcm_chunks: list, sample_rate: int) -> None:
         logger.error("Failed to save output: %s", e)
 
 
-# ── Startup (dans le thread CUDA) ──────────────────────────────
+# ── Startup (inside the CUDA thread) ───────────────────────────
 
 def _do_startup():
     global model, warmup_prompt
@@ -352,7 +352,7 @@ async def speech(request: Request, req: SpeechRequest):
                             break
                     n_total += 1
 
-                # 150ms de silence entre phrases pour une respiration naturelle
+                # 150ms of silence between sentences for natural breathing
                 if s_idx < len(sentences) - 1 and not stop_evt.is_set():
                     silence = np.zeros(int(last_sr * 0.15), dtype=np.int16)
                     if pcm_chunks is not None:

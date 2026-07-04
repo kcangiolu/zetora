@@ -180,7 +180,7 @@ export class SelfHostedContentStrategy implements ContentExtractionStrategy {
     const results: SearchResult[] = [];
     let remaining = [...uniqueUrls];
 
-    // Phase 1: fastCRW (si configuré)
+    // Phase 1: fastCRW (when configured)
     if (this.fastcrwUrl) {
       const fastcrwResults = await all(
         Object.fromEntries(uniqueUrls.map((url, i) => [`fc:${i}`, async () => scrapeWithFastCrw(url, this.fastcrwUrl)])),

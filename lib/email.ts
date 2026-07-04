@@ -43,7 +43,7 @@ function getSmtpTransporter(): Transporter | null {
 }
 
 function resolveEmailProvider(userPreference?: 'resend' | 'smtp'): EmailProvider {
-  // 1. Priorité à la préférence utilisateur explicite
+  // 1. Explicit user preference takes priority
   if (userPreference === 'smtp') {
     if (serverEnv.SMTP_HOST && serverEnv.SMTP_USER && serverEnv.SMTP_PASS) {
       return 'smtp';
@@ -57,7 +57,7 @@ function resolveEmailProvider(userPreference?: 'resend' | 'smtp'): EmailProvider
     console.warn('Resend configured as preference but RESEND_API_KEY is missing, falling back');
   }
 
-  // 2. Sinon, détection automatique
+  // 2. Otherwise, auto-detect
   if (serverEnv.SMTP_HOST && serverEnv.SMTP_USER && serverEnv.SMTP_PASS) {
     if (!serverEnv.RESEND_API_KEY || serverEnv.RESEND_API_KEY === 'placeholder') {
       return 'smtp';

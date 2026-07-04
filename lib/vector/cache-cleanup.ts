@@ -6,7 +6,7 @@ export async function cleanupExpiredCache(ttlMs: number = 7 * 24 * 60 * 60 * 100
   const cutoff = Date.now() - ttlMs;
 
   // Qdrant permet de filtrer par payload
-  // On utilise scroll pour parcourir et supprimer
+  // Use scroll to iterate and delete
   const res = await fetch(
     `${process.env.QDRANT_URL || 'http://localhost:6333'}/collections/${CACHE_COLLECTION}/points/scroll`,
     {

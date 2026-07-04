@@ -17,7 +17,7 @@ interface HybridResult {
 /**
  * Reciprocal Rank Fusion
  * score(d) = Σ 1 / (k + rank_i(d))
- * où k est une constante (généralement 60)
+ * where k is a constant (typically 60)
  */
 function rrf(
   resultsArrays: { url: string; rank: number }[][],
@@ -99,19 +99,19 @@ export async function hybridSearch(
 
   const embeddingModel = await getEmbeddingModel(preferences);
 
-  // Si pas d'embedding model, retourne juste SearXNG
+  // Without an embedding model, return the SearXNG results as-is
   if (!embeddingModel) {
     return searxngOnlyResults(searxngResults);
   }
 
   try {
-    // 1. Générer l'embedding de la requête
+    // 1. Generate the query embedding
     const { embedding } = await embed({
       model: embeddingModel,
       value: query,
     });
 
-    // 2. Chercher dans Qdrant (parmi le contenu indexé précédemment)
+    // 2. Search Qdrant (across previously indexed content)
     const client = getQdrantClient(resolveQdrantUrl(preferences));
     const qdrantResults = await client.search(
       SEARCH_INDEX_COLLECTION,
@@ -119,7 +119,7 @@ export async function hybridSearch(
       topK
     );
 
-    // 3. Préparer les rangs pour RRF
+    // 3. Prepare ranks for RRF
     const searxngRanks = searxngResults.map((r, i) => ({
       url: r.url,
       rank: i + 1,
@@ -132,10 +132,10 @@ export async function hybridSearch(
         rank: i + 1,
       }));
 
-    // 4. Fusion RRF
+    // 4. RRF fusion
     const fusedScores = rrf([searxngRanks, qdrantRanks]);
 
-    // 5. Construire les résultats fusionnés
+    // 5. Build the fused result set
     const allResults = new Map<string, HybridResult>();
 
     for (const r of searxngResults) {
@@ -160,7 +160,7 @@ export async function hybridSearch(
       }
     }
 
-    // 6. Trier par score RRF décroissant, puis reranking optionnel
+    // 6. Sort by descending RRF score, then optionally rerank
     const fused = Array.from(allResults.values()).sort((a, b) => b.score - a.score);
     const reranked = await rerankResults(query, fused, topK, preferences);
 

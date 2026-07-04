@@ -21,8 +21,8 @@
 #          ${DATA_DIR}/qwen3-tts/output \
 #          ${DATA_DIR}/qwen3-tts/voices \
 #          ${DATA_DIR}/qwen3-tts/prompt_cache
-#        # Copier la config SearXNG dans ${DATA_DIR}/searxng/settings.yml
-#        # Optionnel : déposer {voice}.wav + {voice}.lang dans qwen3-tts/voices/
+#        # Copy the SearXNG config into ${DATA_DIR}/searxng/settings.yml
+#        # Optional: drop {voice}.wav + {voice}.lang into qwen3-tts/voices/
 #
 #   4. docker compose pull && docker compose up -d
 #
@@ -353,10 +353,10 @@ services:
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
-  # fastCRW (self-hosted web scraper & search — alternative à Firecrawl)
+  # fastCRW (self-hosted web scraper & search — Firecrawl alternative)
   # Single Rust binary, ~50 MB RAM, Firecrawl-compatible API
   # /v1/scrape — content extraction
-  # /v1/search — web search via SearXNG interne
+  # /v1/search — web search via the internal SearXNG
   # ---------------------------------------------------------------------------
   fastcrw:
     image: ghcr.io/us/crw:latest
@@ -391,7 +391,7 @@ services:
     container_name: zetora-sandbox
     user: root
     ports:
-      - '127.0.0.1:8003:8000'  # port 8000 fixé dans l'image, non configurable
+      - '127.0.0.1:8003:8000'  # port 8000 is hardcoded in the image, not configurable
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
@@ -543,7 +543,7 @@ services:
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
-  # Qwen3 TTS (text-to-speech, GPU NVIDIA requis)
+  # Qwen3 TTS (text-to-speech, NVIDIA GPU required)
   # ---------------------------------------------------------------------------
   qwen3-tts:
     image: registry.example.com/kcangiolu/zetora-tts:latest
@@ -594,9 +594,9 @@ services:
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
-  # Whisper STT (speech-to-text, API OpenAI-compatible)
+  # Whisper STT (speech-to-text, OpenAI-compatible API)
   # /v1/audio/transcriptions — transcription
-  # /v1/audio/translations   — traduction
+  # /v1/audio/translations   — translation
   # ---------------------------------------------------------------------------
   whisper-stt:
     image: fedirz/faster-whisper-server:latest-cpu

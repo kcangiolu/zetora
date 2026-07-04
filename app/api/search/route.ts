@@ -1780,7 +1780,7 @@ export async function POST(req: Request) {
 
         newMessageIds.forEach((mid: string) => ingestedMessageIds.add(mid));
 
-        // Nettoyage périodique : vider le Set tous les 10000 IDs
+        // Periodic cleanup: clear the Set every 10000 IDs
         if (ingestedMessageIds.size > 10000) {
           const entries = [...ingestedMessageIds];
           ingestedMessageIds.clear();
@@ -1801,7 +1801,7 @@ export async function POST(req: Request) {
         if (episodeBody) {
           const chunks = splitIntoChunks(episodeBody, chunkSize);
 
-          // Envoi séquentiel pour ne pas saturer le LLM de Graphiti
+          // Send sequentially to avoid overloading Graphiti's LLM
           (async () => {
             for (let index = 0; index < chunks.length; index++) {
               if (index > 0) {

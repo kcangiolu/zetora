@@ -1446,7 +1446,7 @@ ${JSON.stringify(plan)}
                   let content = '';
                   const isPdf = /\.pdf(\?.*)?$/i.test(url);
 
-                  // Phase 0: fastCRW (si configuré)
+                  // Phase 0: fastCRW (when configured)
                   if (!content && fastcrwUrl) {
                     try {
                       const fcResult = await scrapeWithFastCrwForBrowsePage(url, fastcrwUrl);

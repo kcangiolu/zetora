@@ -109,7 +109,7 @@ export async function searchMemories(
     }
   }
 
-  // SuperMemory — comportement existant inchangé
+  // SuperMemory — existing behavior unchanged
   try {
     const result = await supermemoryClient.search.memories({
       q: query,
@@ -147,7 +147,7 @@ export async function getAllMemories(
     }
   }
 
-  // SuperMemory — comportement existant inchangé
+  // SuperMemory — existing behavior unchanged
   try {
     const result = await supermemoryClient.documents.list({
       containerTags: [user.id],
@@ -182,7 +182,7 @@ export async function deleteMemory(memoryId: string) {
     }
   }
 
-  // SuperMemory — comportement existant inchangé
+  // SuperMemory — existing behavior unchanged
   try {
     const data = await supermemoryClient.documents.delete(memoryId);
     return data;
