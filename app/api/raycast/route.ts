@@ -1,8 +1,8 @@
 import { webSearchTool } from '@/lib/tools';
 import { xSearchTool } from '@/lib/tools/x-search';
 import { convertToModelMessages, generateText, stepCountIs } from 'ai';
-import { xai } from '@ai-sdk/xai';
 import { resolveModel } from '@/ai/providers';
+import { z } from 'zod';
 
 export const maxDuration = 800;
 
@@ -64,40 +64,49 @@ Remember, you are designed to be efficient and helpful in the Raycast environmen
     - Avoid using '$' for dollar currency. Use "USD" instead.`,
 };
 
-// Modify the POST function to use the new handler
+const RaycastRequestSchema = z.object({
+  messages: z.array(z.any()).min(1),
+  model: z.string().min(1),
+  group: z.enum(['web', 'x']).default('web'),
+});
+
 export async function POST(req: Request) {
-  const { messages, model, group = 'web' } = await req.json();
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return new Response('Invalid JSON body', { status: 400 });
+  }
 
-  console.log('Running with model: ', model.trim());
-  console.log('Group: ', group);
+  const parsed = RaycastRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return new Response('Invalid request: messages[] and model are required', { status: 400 });
+  }
+  const { messages, model, group } = parsed.data;
 
-  // Get the appropriate system prompt based on the group
-  const systemPrompt = groupSystemPrompts[group as keyof typeof groupSystemPrompts];
+  const systemPrompt = groupSystemPrompts[group];
 
   // Determine which tools to activate based on the group
-  const activeTools =
-    group === 'x'
-      ? ['x_search' as const]
-      : group === 'web'
-        ? ['web_search' as const]
-        : ['web_search' as const, 'x_search' as const];
+  const activeTools: ('web_search' | 'x_search')[] = group === 'x' ? ['x_search'] : ['web_search'];
 
-  const { text, steps } = await generateText({
-    model: await resolveModel(model),
-    system: systemPrompt,
-    stopWhen: stepCountIs(2),
-    messages: await convertToModelMessages(messages),
-    temperature: 0,
-    toolChoice: 'auto',
-    experimental_activeTools: activeTools,
-    tools: {
-      web_search: webSearchTool(undefined, 'exa'),
-      x_search: xSearchTool(undefined),
-    },
-  });
+  try {
+    const { text } = await generateText({
+      model: await resolveModel(model),
+      system: systemPrompt,
+      stopWhen: stepCountIs(2),
+      messages: await convertToModelMessages(messages),
+      temperature: 0,
+      toolChoice: 'auto',
+      experimental_activeTools: activeTools,
+      tools: {
+        web_search: webSearchTool(undefined, 'exa'),
+        x_search: xSearchTool(undefined),
+      },
+    });
 
-  console.log('Text: ', text);
-  console.log('Steps: ', steps);
-
-  return new Response(text);
+    return new Response(text);
+  } catch (error) {
+    console.error('Raycast route error:', error);
+    return new Response('Failed to generate response', { status: 500 });
+  }
 }
