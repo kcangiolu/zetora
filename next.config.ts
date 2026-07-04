@@ -123,6 +123,17 @@ const nextConfig: NextConfig = {
             key: 'Referrer-Policy',
             value: 'strict-origin-when-cross-origin',
           },
+          {
+            // Force HTTPS for two years including subdomains. Safe because the
+            // app is served behind an HTTPS reverse proxy in production.
+            key: 'Strict-Transport-Security',
+            value: 'max-age=63072000; includeSubDomains; preload',
+          },
+          {
+            // Deny access to powerful browser features the app doesn't use.
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(self), geolocation=(self), browsing-topics=()',
+          },
         ],
       },
       {

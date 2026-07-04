@@ -204,6 +204,22 @@ async function handleSubscriptionWebhook(payload: any, status: string) {
   }
 }
 
+// Origins allowed for auth flows. The upstream defaults are kept for the
+// hosted deployment, plus this instance's own URLs from env so a self-hosted
+// fork works without editing this file. ALLOWED_ORIGINS is an optional
+// comma-separated list for any additional domains.
+const configuredOrigins = [
+  'http://localhost:3000',
+  'https://zetora.ai',
+  'https://www.zetora.ai',
+  'https://zetora.example.com',
+  process.env.NEXT_PUBLIC_APP_URL,
+  process.env.BETTER_AUTH_BASE_URL,
+  ...(process.env.ALLOWED_ORIGINS?.split(',').map((o) => o.trim()) ?? []),
+].filter((o): o is string => Boolean(o));
+
+const trustedOrigins = Array.from(new Set(configuredOrigins));
+
 export const auth = betterAuth({
   appName: 'zetora',
   baseURL: process.env.NODE_ENV === 'production' ? process.env.BETTER_AUTH_BASE_URL : 'http://localhost:3000',
@@ -546,16 +562,6 @@ export const auth = betterAuth({
     }),
     nextCookies(),
   ],
-  trustedOrigins: [
-    'http://localhost:3000',
-    'https://zetora.ai',
-    'https://www.zetora.ai',
-    'https://zetora.example.com',
-  ],
-  allowedOrigins: [
-    'http://localhost:3000',
-    'https://zetora.ai',
-    'https://www.zetora.ai',
-    'https://zetora.example.com',
-  ],
+  trustedOrigins,
+  allowedOrigins: trustedOrigins,
 });
