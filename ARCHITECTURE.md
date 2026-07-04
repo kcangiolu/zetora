@@ -111,3 +111,22 @@ Build flow: `Dockerfile` has `deps` → `builder` (Next.js build with placeholde
 3. **Lookouts**: user-scheduled searches; BullMQ repeatable jobs (`lib/services/bullmq.ts`) call back into `/api/lookout` (QStash used instead when BullMQ is disabled).
 4. **Memory**: Graphiti knowledge graph (self-hosted) or Supermemory (SaaS).
 5. **Billing**: Better Auth plugins for Polar and DodoPayments; free tier enforced via usage counters in Postgres/Redis.
+
+## Security & resilience notes
+
+- **Server-side proxies** (`/api/graphiti`, `/api/proxy-image`) never accept the upstream URL from a client header. Graphiti resolves the target from the authenticated user's saved preference; the image proxy allows only http(s), blocks private/reserved IP ranges (re-checked on every redirect hop), and restricts responses to `image/*` capped at 10 MB with a 10 s timeout.
+- **Scheduled search callbacks** (`/api/lookout`) require the `CRON_SECRET` shared secret (sent as `x-lookout-secret`, or `Upstash-Forward-x-lookout-secret` through QStash). The endpoint returns 503 when the secret is unset so a forgotten env var fails closed. `/api/clean_images` follows the same rule.
+- **Rate limiting** (`lib/rate-limit.ts`) is built lazily and fails closed: if Upstash/SRH isn't configured, unauthenticated requests are denied rather than crashing the route.
+- **SQL**: all Drizzle `sql` template interpolations are parameterized (no `sql.raw`), so raw string concatenation is not a SQL-injection vector.
+- **Headers** (`next.config.ts`): `X-Frame-Options: DENY` (except public legal pages), `nosniff`, `Referrer-Policy`, HSTS and a `Permissions-Policy`. Optimized SVGs are served inert (CSP sandbox + `Content-Disposition: attachment`). A global page CSP is intentionally **not** set: the app loads many third-party scripts/styles (analytics, maps, charts, embeds) and a strict policy would need per-source auditing — tracked as future work.
+- **Auth origins**: Better Auth `trustedOrigins`/`allowedOrigins` derive from `NEXT_PUBLIC_APP_URL`, `BETTER_AUTH_BASE_URL` and the optional `ALLOWED_ORIGINS` list, so a self-hosted fork works without code edits.
+- **Custom AI providers** are stored per-user in that user's preferences (`zetora-custom-providers`); the only instance-wide source is the admin-controlled `CUSTOM_AI_PROVIDERS` env var — there is no cross-user overwrite.
+- **Environment validation**: `env/server.ts` (t3-env + Zod) validates every server var at startup; only `DATABASE_URL` and `BETTER_AUTH_SECRET` are required, everything else degrades its feature and logs a `[env]` warning when left at the `"placeholder"` default.
+
+## Tooling
+
+- `pnpm lint` — ESLint 10 flat config (`eslint.config.mjs`). The React Compiler rules from `eslint-plugin-react-hooks` v7 run as warnings (pre-existing findings, non-blocking); `rules-of-hooks` and `exhaustive-deps` keep their defaults.
+- `pnpm typecheck` — `tsgo` (TypeScript native preview).
+- `pnpm test` / `test:coverage` — Vitest unit tests for pure/business-logic modules (`tests/`).
+- `pnpm build` — Next.js standalone build.
+- CI runs all four on push/PR to `main` via `.gitea/workflows/ci.yml` (Gitea Actions must be enabled on the repo and a runner registered for it to execute).
