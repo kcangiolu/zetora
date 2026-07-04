@@ -74,6 +74,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: runner
       args:
         # DATABASE_URL/BETTER_AUTH_SECRET are intentionally NOT passed here —
         # the Dockerfile's build-only placeholders satisfy env/server.ts

@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   }
 
   const voice = (p['zetora-tts-openai-voice'] as string) || 'alloy';
-  const language = (p['zetora-tts-language'] as string) || undefined;
+  const language = (p['zetora-tts-openai-language'] as string) || undefined;
 
   const base = provider.baseURL.endsWith('/v1')
     ? provider.baseURL

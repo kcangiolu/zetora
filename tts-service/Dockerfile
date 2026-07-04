@@ -16,7 +16,7 @@ RUN python3 -m venv /opt/venv && \
     /opt/venv/bin/pip install --quiet --upgrade pip setuptools wheel packaging ninja
 
 RUN /opt/venv/bin/pip install --quiet \
-    torch==${TORCH_VERSION} torchaudio \
+    torch==${TORCH_VERSION} torchaudio==${TORCH_VERSION} \
     --index-url https://download.pytorch.org/whl/${TORCH_CUDA_BUILD}
 
 # Flash-attn depuis wheel pré-compilé (cu130 + torch 2.9, Python 3.12, Linux x86_64)
@@ -28,7 +28,10 @@ RUN /opt/venv/bin/pip install --quiet \
 RUN git clone --quiet https://github.com/rekuenkdr/Qwen3-TTS-streaming /tmp/qwen3-tts-streaming && \
     sed -i 's/@check_model_inputs()/@check_model_inputs/g' \
       /tmp/qwen3-tts-streaming/qwen_tts/core/tokenizer_12hz/modeling_qwen3_tts_tokenizer_v2.py && \
-    cd /tmp/qwen3-tts-streaming && /opt/venv/bin/pip install --quiet .
+    sed -i 's/self\.padding_idx = config\.pad_token_id/self.padding_idx = getattr(config, "pad_token_id", None)/g' \
+      /tmp/qwen3-tts-streaming/qwen_tts/core/models/modeling_qwen3_tts.py && \
+    cd /tmp/qwen3-tts-streaming && /opt/venv/bin/pip install --quiet . && \
+    /opt/venv/bin/pip install --quiet 'transformers==4.57.6'
 
 RUN /opt/venv/bin/pip install --quiet fastapi uvicorn
 
