@@ -7,7 +7,6 @@ const protectedRoutes = ['/settings', '/searches'];
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname === '/api/search') return NextResponse.next();
   if (pathname.startsWith('/new') || pathname.startsWith('/api/search')) {
     return NextResponse.next();
   }
@@ -32,18 +31,8 @@ export async function proxy(request: NextRequest) {
 
   const sessionCookie = getSessionCookie(request);
 
-  // Allow /settings as a real page; still protect it behind auth
-  if (pathname === '/settings') {
-    if (!sessionCookie) {
-      return NextResponse.redirect(new URL('/sign-in', request.url));
-    }
-    return NextResponse.next();
-  }
-
   // If user is authenticated but trying to access auth routes
   if (sessionCookie && authRoutes.some((route) => pathname.startsWith(route))) {
-    console.log('Redirecting to home');
-    console.log('Session cookie: ', sessionCookie);
     return NextResponse.redirect(new URL('/', request.url));
   }
 
