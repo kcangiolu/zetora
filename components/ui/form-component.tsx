@@ -2316,14 +2316,7 @@ const ConnectorSelector: React.FC<ConnectorSelectorProps> = React.memo(
       }
     }, [isProUser, selectedCount, availableConnectors, onConnectorToggle]);
 
-    if (!isProUser || availableConnectors.length === 0) return null;
-
-    const handleToggle = (provider: ConnectorProvider) => {
-      if (isSingleConnector && selectedConnectors.includes(provider)) return;
-      haptics.trigger('selection');
-      onConnectorToggle(provider);
-    };
-
+    // Hooks must run unconditionally — declare before the early return below.
     const handleOpenChange = useCallback(
       (nextOpen: boolean) => {
         setOpen(nextOpen);
@@ -2331,6 +2324,14 @@ const ConnectorSelector: React.FC<ConnectorSelectorProps> = React.memo(
       },
       [haptics],
     );
+
+    if (!isProUser || availableConnectors.length === 0) return null;
+
+    const handleToggle = (provider: ConnectorProvider) => {
+      if (isSingleConnector && selectedConnectors.includes(provider)) return;
+      haptics.trigger('selection');
+      onConnectorToggle(provider);
+    };
 
     const connectorItems = availableConnectors.map(([provider, config]) => {
       const IconComponent = CONNECTOR_ICONS[config.icon];
@@ -2578,7 +2579,7 @@ const McpServerSelector: React.FC<McpServerSelectorProps> = React.memo(({ user, 
                 {isGitHub ? (
                   <HugeiconsIcon icon={Github01Icon} size={20} className="shrink-0 text-foreground" />
                 ) : (
-                  /* eslint-disable-next-line @next/next/no-img-element */
+                   
                   <img
                     src={faviconSrc!}
                     alt=""
@@ -2714,7 +2715,7 @@ const McpServerSelector: React.FC<McpServerSelectorProps> = React.memo(({ user, 
                 {isGitHubMobile ? (
                   <HugeiconsIcon icon={Github01Icon} size={28} className="shrink-0 text-foreground" />
                 ) : (
-                  /* eslint-disable-next-line @next/next/no-img-element */
+                   
                   <img
                     src={faviconSrcMobile!}
                     alt=""
@@ -2977,7 +2978,7 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
               <p className="text-xs font-semibold text-foreground">Monthly Limit Reached</p>
             </div>
             <p className="text-xs leading-snug text-muted-foreground">
-              You've used {SEARCH_LIMITS.EXTREME_SEARCH_LIMIT} extreme searches this month.
+              You&apos;ve used {SEARCH_LIMITS.EXTREME_SEARCH_LIMIT} extreme searches this month.
             </p>
             <div className="grid gap-1.5 border-t border-border pt-2">
               <div className="flex items-center gap-2 text-xs font-semibold text-foreground">

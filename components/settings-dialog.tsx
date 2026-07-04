@@ -4853,6 +4853,10 @@ export function McpSection({ user, isProUser }: { user: any; isProUser?: boolean
 
   const servers = data?.servers ?? [];
 
+  // Hooks must run unconditionally — declare before the pro-gate early return.
+  const [showForm, setShowForm] = useState(false);
+  const [showOAuthAdvanced, setShowOAuthAdvanced] = useState(false);
+
   if (!isProUser) {
     return (
       <div className="space-y-4">
@@ -4868,9 +4872,6 @@ export function McpSection({ user, isProUser }: { user: any; isProUser?: boolean
       </div>
     );
   }
-
-  const [showForm, setShowForm] = useState(false);
-  const [showOAuthAdvanced, setShowOAuthAdvanced] = useState(false);
 
   const resetForm = () => {
     setEditingId(null);

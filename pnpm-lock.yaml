@@ -585,6 +585,9 @@ importers:
       eslint-config-next:
         specifier: ^16.2.1-canary.2
         version: 16.2.6(@typescript-eslint/parser@8.60.0(eslint@10.4.1(jiti@2.7.0))(typescript@6.0.3))(eslint@10.4.1(jiti@2.7.0))(typescript@6.0.3)
+      espree:
+        specifier: ^11.2.0
+        version: 11.2.0
       postcss:
         specifier: ^8.5.8
         version: 8.5.15
@@ -1201,6 +1204,7 @@ packages:
 
   '@daytonaio/sdk@0.140.0':
     resolution: {integrity: sha512-B44ZKUFQMKop9g4M3Tmco4rlYs+hYkUeGOl/jkeOAyTU93aDiMvn16e1SZkM79heKMcgeZrGxtDDq/t+318onA==}
+    deprecated: 'Moved to @daytona/sdk, same API, no breaking changes. Please update: npm uninstall @daytonaio/sdk && npm i @daytona/sdk'
 
   '@daytonaio/toolbox-api-client@0.140.0':
     resolution: {integrity: sha512-Iam5Vw/jTcdybzkorJqF+0uIfEwKx7jWIN0HLgRNsjZjteKe9E8ty4SeojB/K8DYpBacaVnOz+hrnirA81BQRQ==}

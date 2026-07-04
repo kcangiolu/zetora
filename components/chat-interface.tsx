@@ -1,5 +1,5 @@
 'use client';
-/* eslint-disable @next/next/no-img-element */
+ 
 
 // React and React-related imports
 import React, { memo, useCallback, useEffect, useMemo, useRef, useReducer, useState } from 'react';
@@ -1522,7 +1522,7 @@ const ChatInterface = memo(
                         </div>
                         <h2 className="text-xl font-semibold text-foreground mb-2">All Search Limits Reached</h2>
                         <p className="text-sm text-muted-foreground">
-                          You've used {SEARCH_LIMITS.DAILY_SEARCH_LIMIT} regular searches and{' '}
+                          You&apos;ve used {SEARCH_LIMITS.DAILY_SEARCH_LIMIT} regular searches and{' '}
                           {SEARCH_LIMITS.EXTREME_SEARCH_LIMIT} extreme searches
                         </p>
                       </div>

@@ -278,7 +278,7 @@ const MarketsSheet: React.FC<{
               <h2 className="text-base font-semibold text-foreground">Prediction Markets</h2>
             </div>
             <p className="text-xs text-muted-foreground">
-              {markets.length} markets for "{query}"
+              {markets.length} markets for &quot;{query}&quot;
             </p>
           </div>
 
