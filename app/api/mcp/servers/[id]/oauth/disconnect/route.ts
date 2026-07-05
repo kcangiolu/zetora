@@ -1,22 +1,12 @@
-import { getComprehensiveUserData } from '@/lib/user-data-server';
+import { withProAuth } from '@/lib/api/route-handlers';
 import { getUserMcpServerById, updateUserMcpServer } from '@/lib/db/queries';
 import { ChatSDKError } from '@/lib/errors';
 
-function assertProUser(user: Awaited<ReturnType<typeof getComprehensiveUserData>>) {
-  if (!user) throw new ChatSDKError('unauthorized:auth', 'Authentication required');
-  if (!user.isProUser) throw new ChatSDKError('upgrade_required:auth', 'Pro subscription required');
-  return user;
-}
-
-export async function POST(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  try {
-    const user = assertProUser(await getComprehensiveUserData());
-    const { id } = await params;
+export const POST = withProAuth(
+  async (_request, { params, user }) => {
+    const { id } = (await params) as { id: string };
     const server = await getUserMcpServerById({ id, userId: user.id });
-    if (!server) return new ChatSDKError('not_found:api', 'MCP server not found').toResponse();
+    if (!server) throw new ChatSDKError('not_found:api', 'MCP server not found');
 
     await updateUserMcpServer({
       id,
@@ -31,8 +21,6 @@ export async function POST(
     });
 
     return Response.json({ ok: true });
-  } catch (error) {
-    if (error instanceof ChatSDKError) return error.toResponse();
-    return new ChatSDKError('bad_request:api', 'Failed to disconnect OAuth').toResponse();
-  }
-}
+  },
+  { genericError: 'expose' },
+);

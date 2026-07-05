@@ -1,5 +1,6 @@
 import { createMCPClient } from '@ai-sdk/mcp';
 import { z } from 'zod';
+import { withError } from '@/lib/api/route-handlers';
 import { getComprehensiveUserData } from '@/lib/user-data-server';
 import { getUserMcpServerById } from '@/lib/db/queries';
 import { resolveMcpAuthHeaders } from '@/lib/mcp/auth-headers';
@@ -8,20 +9,14 @@ import { ChatSDKError } from '@/lib/errors';
 
 const bridgeRequestSchema = z.object({
   serverId: z.string().min(1),
-  method: z.enum([
-    'tools/call',
-    'resources/list',
-    'resources/read',
-    'resources/templates/list',
-    'prompts/list',
-  ]),
+  method: z.enum(['tools/call', 'resources/list', 'resources/read', 'resources/templates/list', 'prompts/list']),
   params: z.record(z.string(), z.unknown()).optional(),
 });
 
-export async function POST(request: Request) {
-  try {
+export const POST = withError(
+  async (request) => {
     const user = await getComprehensiveUserData();
-    if (!user) return new ChatSDKError('unauthorized:auth').toResponse();
+    if (!user) throw new ChatSDKError('unauthorized:auth');
 
     const input = bridgeRequestSchema.parse(await request.json());
     const server = await getUserMcpServerById({ id: input.serverId, userId: user.id });
@@ -45,9 +40,8 @@ export async function POST(request: Request) {
 
       if (input.method === 'tools/call') {
         const toolName = typeof params.name === 'string' ? params.name : '';
-        const toolArgs = params.arguments && typeof params.arguments === 'object'
-          ? params.arguments as Record<string, unknown>
-          : {};
+        const toolArgs =
+          params.arguments && typeof params.arguments === 'object' ? (params.arguments as Record<string, unknown>) : {};
         if (!toolName) {
           return new ChatSDKError('bad_request:api', 'Tool name is required').toResponse();
         }
@@ -87,14 +81,6 @@ export async function POST(request: Request) {
     } finally {
       await client.close();
     }
-  } catch (error) {
-    if (error instanceof ChatSDKError) return error.toResponse();
-    if (error instanceof z.ZodError) {
-      return new ChatSDKError('bad_request:api', error.issues[0]?.message || 'Invalid request payload').toResponse();
-    }
-    if (error instanceof Error) {
-      return new ChatSDKError('bad_request:api', error.message).toResponse();
-    }
-    return new ChatSDKError('bad_request:api', 'Failed to handle MCP app bridge request').toResponse();
-  }
-}
+  },
+  { genericError: 'expose' },
+);

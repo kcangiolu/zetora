@@ -1,32 +1,25 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getUser } from '@/lib/auth-utils';
+import { z } from 'zod';
+import { parseBody, withAuth } from '@/lib/api/route-handlers';
 import { getCustomProviders } from '@/lib/custom-providers';
 import { resolveGraphitiBaseUrl } from '@/lib/graphiti/config';
+
+const LinkSchema = z.object({
+  providerId: z.string(),
+  target: z.enum(['llm', 'embedding']),
+  modelName: z.string().optional(),
+});
 
 // Links a saved custom AI provider to the Graphiti service as its LLM or
 // embedding backend. The provider's API key is decrypted server-side and
 // forwarded straight to Graphiti — it never needs to round-trip through the
 // browser the way it would if the client assembled the /config payload itself.
-export async function POST(req: NextRequest) {
-  const user = await getUser().catch(() => null);
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const body = await req.json().catch(() => null);
-  const providerId = body?.providerId;
-  const target = body?.target;
-  const modelName = body?.modelName;
-
-  if (typeof providerId !== 'string' || (target !== 'llm' && target !== 'embedding')) {
-    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
-  }
-  if (modelName !== undefined && typeof modelName !== 'string') {
-    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
-  }
+export const POST = withAuth(async (req, { user }) => {
+  const { providerId, target, modelName } = await parseBody(req, LinkSchema);
 
   const providers = await getCustomProviders();
   const provider = providers.find((p) => p.id === providerId);
   if (!provider) {
-    return NextResponse.json({ error: 'Provider not found' }, { status: 404 });
+    return Response.json({ error: 'Provider not found' }, { status: 404 });
   }
 
   const baseUrl = await resolveGraphitiBaseUrl(user.id);
@@ -46,11 +39,11 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
-      return NextResponse.json({ error: `Graphiti service error (${res.status})` }, { status: 502 });
+      return Response.json({ error: `Graphiti service error (${res.status})` }, { status: 502 });
     }
   } catch {
-    return NextResponse.json({ error: 'Could not reach Graphiti service' }, { status: 502 });
+    return Response.json({ error: 'Could not reach Graphiti service' }, { status: 502 });
   }
 
-  return NextResponse.json({ success: true });
-}
+  return Response.json({ success: true });
+});

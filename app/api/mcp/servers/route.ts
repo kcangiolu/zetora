@@ -1,5 +1,4 @@
-import { getComprehensiveUserData } from '@/lib/user-data-server';
-import { ChatSDKError } from '@/lib/errors';
+import { withProAuth } from '@/lib/api/route-handlers';
 import { createUserMcpServer, getUserMcpServersByUserId } from '@/lib/db/queries';
 import {
   getEncryptedMcpCredentials,
@@ -11,7 +10,7 @@ import {
 import { z } from 'zod';
 
 const optionalUrlField = z.preprocess(
-  (value) => typeof value === 'string' && value.trim() === '' ? undefined : value,
+  (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
   z.string().trim().url().optional(),
 );
 
@@ -31,12 +30,6 @@ const createMcpServerSchema = z.object({
   oauthClientSecret: z.string().optional(),
   isEnabled: z.boolean().optional(),
 });
-
-function assertProUser(user: Awaited<ReturnType<typeof getComprehensiveUserData>>) {
-  if (!user) throw new ChatSDKError('unauthorized:auth', 'Authentication required');
-  if (!user.isProUser) throw new ChatSDKError('upgrade_required:auth', 'Pro subscription required');
-  return user;
-}
 
 function serializeMcpServer(server: {
   id: string;
@@ -69,9 +62,7 @@ function serializeMcpServer(server: {
     isEnabled: server.isEnabled,
     hasCredentials: Boolean(server.encryptedCredentials),
     isOAuthConnected: Boolean(
-      server.oauthAccessTokenEncrypted ||
-      server.oauthRefreshTokenEncrypted ||
-      server.oauthConnectedAt,
+      server.oauthAccessTokenEncrypted || server.oauthRefreshTokenEncrypted || server.oauthConnectedAt,
     ),
     oauthConfigured: server.authType === 'oauth',
     oauthIssuerUrl: server.oauthIssuerUrl,
@@ -88,21 +79,13 @@ function serializeMcpServer(server: {
   };
 }
 
-export async function GET() {
-  try {
-    const user = assertProUser(await getComprehensiveUserData());
-    const servers = await getUserMcpServersByUserId({ userId: user.id });
-    return Response.json({ servers: servers.map(serializeMcpServer) });
-  } catch (error) {
-    if (error instanceof ChatSDKError) return error.toResponse();
-    console.error('Failed to list MCP servers:', error);
-    return new ChatSDKError('bad_request:api', 'Failed to list MCP servers').toResponse();
-  }
-}
+export const GET = withProAuth(async (_request, { user }) => {
+  const servers = await getUserMcpServersByUserId({ userId: user.id });
+  return Response.json({ servers: servers.map(serializeMcpServer) });
+});
 
-export async function POST(request: Request) {
-  try {
-    const user = assertProUser(await getComprehensiveUserData());
+export const POST = withProAuth(
+  async (request, { user }) => {
     const input = createMcpServerSchema.parse(await request.json());
     validateMcpServerUrl(input.url);
     validateMcpOAuthConfig(input);
@@ -129,15 +112,6 @@ export async function POST(request: Request) {
     });
 
     return Response.json({ server: serializeMcpServer(created) });
-  } catch (error) {
-    if (error instanceof ChatSDKError) return error.toResponse();
-    if (error instanceof z.ZodError) {
-      return new ChatSDKError('bad_request:api', error.issues[0]?.message || 'Invalid request payload').toResponse();
-    }
-    if (error instanceof Error) {
-      return new ChatSDKError('bad_request:api', error.message).toResponse();
-    }
-    console.error('Failed to create MCP server:', error);
-    return new ChatSDKError('bad_request:api', 'Failed to create MCP server').toResponse();
-  }
-}
+  },
+  { genericError: 'expose' },
+);

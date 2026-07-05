@@ -1,10 +1,6 @@
-import { getComprehensiveUserData } from '@/lib/user-data-server';
+import { withProAuth } from '@/lib/api/route-handlers';
 import { ChatSDKError } from '@/lib/errors';
-import {
-  deleteUserMcpServer,
-  getUserMcpServerById,
-  updateUserMcpServer,
-} from '@/lib/db/queries';
+import { deleteUserMcpServer, getUserMcpServerById, updateUserMcpServer } from '@/lib/db/queries';
 import {
   getEncryptedMcpCredentials,
   getEncryptedOAuthValue,
@@ -15,7 +11,7 @@ import {
 import { z } from 'zod';
 
 const optionalUrlField = z.preprocess(
-  (value) => typeof value === 'string' && value.trim() === '' ? undefined : value,
+  (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
   z.string().trim().url().optional(),
 );
 
@@ -38,12 +34,6 @@ const updateMcpServerSchema = z.object({
   clearOAuthTokens: z.boolean().optional(),
   clearCredentials: z.boolean().optional(),
 });
-
-function assertProUser(user: Awaited<ReturnType<typeof getComprehensiveUserData>>) {
-  if (!user) throw new ChatSDKError('unauthorized:auth', 'Authentication required');
-  if (!user.isProUser) throw new ChatSDKError('upgrade_required:auth', 'Pro subscription required');
-  return user;
-}
 
 function serializeMcpServer(server: {
   id: string;
@@ -78,9 +68,7 @@ function serializeMcpServer(server: {
     disabledTools: server.disabledTools ?? [],
     hasCredentials: Boolean(server.encryptedCredentials),
     isOAuthConnected: Boolean(
-      server.oauthAccessTokenEncrypted ||
-      server.oauthRefreshTokenEncrypted ||
-      server.oauthConnectedAt,
+      server.oauthAccessTokenEncrypted || server.oauthRefreshTokenEncrypted || server.oauthConnectedAt,
     ),
     oauthConfigured: server.authType === 'oauth',
     oauthIssuerUrl: server.oauthIssuerUrl,
@@ -97,13 +85,9 @@ function serializeMcpServer(server: {
   };
 }
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  try {
-    const user = assertProUser(await getComprehensiveUserData());
-    const { id } = await params;
+export const PATCH = withProAuth(
+  async (request, { params, user }) => {
+    const { id } = (await params) as { id: string };
     const existing = await getUserMcpServerById({ id, userId: user.id });
     if (!existing) return new ChatSDKError('not_found:api', 'MCP server not found').toResponse();
 
@@ -129,8 +113,8 @@ export async function PATCH(
     if (input.clearCredentials === true || nextAuthType === 'none' || nextAuthType === 'oauth') {
       encryptedCredentials = null;
     } else if (
-      nextAuthType === 'bearer' && input.bearerToken
-      || nextAuthType === 'header' && input.headerName && input.headerValue
+      (nextAuthType === 'bearer' && input.bearerToken) ||
+      (nextAuthType === 'header' && input.headerName && input.headerValue)
     ) {
       encryptedCredentials = getEncryptedMcpCredentials({
         name: input.name ?? existing.name,
@@ -173,12 +157,14 @@ export async function PATCH(
         isEnabled: input.isEnabled,
         disabledTools: input.disabledTools,
         encryptedCredentials,
-        oauthIssuerUrl: input.oauthIssuerUrl === undefined ? undefined : (input.oauthIssuerUrl.trim() || null),
-        oauthAuthorizationUrl: input.oauthAuthorizationUrl === undefined ? undefined : (input.oauthAuthorizationUrl.trim() || null),
-        oauthTokenUrl: input.oauthTokenUrl === undefined ? undefined : (input.oauthTokenUrl.trim() || null),
+        oauthIssuerUrl: input.oauthIssuerUrl === undefined ? undefined : input.oauthIssuerUrl.trim() || null,
+        oauthAuthorizationUrl:
+          input.oauthAuthorizationUrl === undefined ? undefined : input.oauthAuthorizationUrl.trim() || null,
+        oauthTokenUrl: input.oauthTokenUrl === undefined ? undefined : input.oauthTokenUrl.trim() || null,
         oauthScopes: input.oauthScopes === undefined ? undefined : normalizeMcpScopes(input.oauthScopes),
-        oauthClientId: input.oauthClientId === undefined ? undefined : (input.oauthClientId.trim() || null),
-        oauthClientSecretEncrypted: input.oauthClientSecret === undefined ? undefined : getEncryptedOAuthValue(input.oauthClientSecret),
+        oauthClientId: input.oauthClientId === undefined ? undefined : input.oauthClientId.trim() || null,
+        oauthClientSecretEncrypted:
+          input.oauthClientSecret === undefined ? undefined : getEncryptedOAuthValue(input.oauthClientSecret),
         oauthAccessTokenEncrypted,
         oauthRefreshTokenEncrypted,
         oauthAccessTokenExpiresAt,
@@ -189,33 +175,17 @@ export async function PATCH(
 
     if (!updated) return new ChatSDKError('not_found:api', 'MCP server not found').toResponse();
     return Response.json({ server: serializeMcpServer(updated) });
-  } catch (error) {
-    if (error instanceof ChatSDKError) return error.toResponse();
-    if (error instanceof z.ZodError) {
-      return new ChatSDKError('bad_request:api', error.issues[0]?.message || 'Invalid request payload').toResponse();
-    }
-    if (error instanceof Error) {
-      return new ChatSDKError('bad_request:api', error.message).toResponse();
-    }
-    console.error('Failed to update MCP server:', error);
-    return new ChatSDKError('bad_request:api', 'Failed to update MCP server').toResponse();
-  }
-}
+  },
+  { genericError: 'expose' },
+);
 
-export async function DELETE(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  try {
-    const user = assertProUser(await getComprehensiveUserData());
-    const { id } = await params;
+export const DELETE = withProAuth(
+  async (_request, { params, user }) => {
+    const { id } = (await params) as { id: string };
     const deleted = await deleteUserMcpServer({ id, userId: user.id });
     if (!deleted) return new ChatSDKError('not_found:api', 'MCP server not found').toResponse();
 
     return Response.json({ ok: true });
-  } catch (error) {
-    if (error instanceof ChatSDKError) return error.toResponse();
-    console.error('Failed to delete MCP server:', error);
-    return new ChatSDKError('bad_request:api', 'Failed to delete MCP server').toResponse();
-  }
-}
+  },
+  { genericError: 'expose' },
+);

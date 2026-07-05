@@ -1,3 +1,4 @@
+import { withError } from '@/lib/api/route-handlers';
 import { getComprehensiveUserData } from '@/lib/user-data-server';
 import { ChatSDKError } from '@/lib/errors';
 import { pendingElicitations } from '@/lib/tools/mcp-client';
@@ -22,10 +23,10 @@ const respondSchema = z.object({
   content: z.record(z.string(), z.unknown()).optional(),
 });
 
-export async function POST(request: Request) {
-  try {
+export const POST = withError(
+  async (request) => {
     const user = await getComprehensiveUserData();
-    if (!user) return new ChatSDKError('unauthorized:auth').toResponse();
+    if (!user) throw new ChatSDKError('unauthorized:auth');
 
     const input = respondSchema.parse(await request.json());
     const resolver = pendingElicitations.get(input.elicitationId);
@@ -35,11 +36,7 @@ export async function POST(request: Request) {
     };
 
     // Always persist response so waiting callback can pick it up cross-instance.
-    await redis.set(
-      getElicitationResponseKey(input.elicitationId),
-      responsePayload,
-      { ex: 10 * 60 },
-    );
+    await redis.set(getElicitationResponseKey(input.elicitationId), responsePayload, { ex: 10 * 60 });
 
     if (resolver) {
       resolver(responsePayload);
@@ -49,11 +46,6 @@ export async function POST(request: Request) {
     const stillPending = await redis.exists(getElicitationPendingKey(input.elicitationId));
     if (stillPending) return Response.json({ ok: true, accepted: true });
     return Response.json({ ok: false, error: 'Elicitation not found or already resolved' }, { status: 404 });
-  } catch (error) {
-    if (error instanceof ChatSDKError) return error.toResponse();
-    if (error instanceof z.ZodError) {
-      return new ChatSDKError('bad_request:api').toResponse();
-    }
-    return new ChatSDKError('bad_request:api').toResponse();
-  }
-}
+  },
+  { genericError: 'expose' },
+);

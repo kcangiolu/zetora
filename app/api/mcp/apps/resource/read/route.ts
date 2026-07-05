@@ -1,5 +1,6 @@
 import { createMCPClient } from '@ai-sdk/mcp';
 import { z } from 'zod';
+import { withError } from '@/lib/api/route-handlers';
 import { getComprehensiveUserData } from '@/lib/user-data-server';
 import { getUserMcpServerById } from '@/lib/db/queries';
 import { resolveMcpAuthHeaders } from '@/lib/mcp/auth-headers';
@@ -29,10 +30,10 @@ function extractUiResourceMeta(resource: unknown, content: unknown) {
   };
 }
 
-export async function POST(request: Request) {
-  try {
+export const POST = withError(
+  async (request) => {
     const user = await getComprehensiveUserData();
-    if (!user) return new ChatSDKError('unauthorized:auth').toResponse();
+    if (!user) throw new ChatSDKError('unauthorized:auth');
 
     const input = readMcpAppResourceSchema.parse(await request.json());
     if (!input.resourceUri.startsWith('ui://')) {
@@ -59,9 +60,9 @@ export async function POST(request: Request) {
       const resource = await client.readResource({ uri: input.resourceUri });
       const htmlContent = resource.contents.find(
         (content) =>
-          typeof (content as any)?.text === 'string'
-          && typeof (content as any)?.mimeType === 'string'
-          && ((content as any).mimeType as string).includes('text/html'),
+          typeof (content as any)?.text === 'string' &&
+          typeof (content as any)?.mimeType === 'string' &&
+          ((content as any).mimeType as string).includes('text/html'),
       ) as { text?: string; mimeType?: string; uri?: string; _meta?: Record<string, unknown> } | undefined;
 
       if (!htmlContent?.text) {
@@ -80,15 +81,6 @@ export async function POST(request: Request) {
     } finally {
       await client.close();
     }
-  } catch (error) {
-    if (error instanceof ChatSDKError) return error.toResponse();
-    if (error instanceof z.ZodError) {
-      return new ChatSDKError('bad_request:api', error.issues[0]?.message || 'Invalid request payload').toResponse();
-    }
-    if (error instanceof Error) {
-      return new ChatSDKError('bad_request:api', error.message).toResponse();
-    }
-    return new ChatSDKError('bad_request:api', 'Failed to read MCP app resource').toResponse();
-  }
-}
-
+  },
+  { genericError: 'expose' },
+);

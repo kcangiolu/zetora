@@ -1,21 +1,20 @@
 import { createMCPClient } from '@ai-sdk/mcp';
+import { withError } from '@/lib/api/route-handlers';
 import { getComprehensiveUserData } from '@/lib/user-data-server';
 import { getUserMcpServerById } from '@/lib/db/queries';
 import { resolveMcpAuthHeaders } from '@/lib/mcp/auth-headers';
 import { validateMcpServerUrl } from '@/lib/mcp/server-config';
 import { ChatSDKError } from '@/lib/errors';
 
-export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  try {
+// Session-gated only (no Pro requirement, unlike the other MCP routes).
+export const GET = withError(
+  async (_request, { params }) => {
     const user = await getComprehensiveUserData();
-    if (!user) return new ChatSDKError('unauthorized:auth').toResponse();
+    if (!user) throw new ChatSDKError('unauthorized:auth');
 
-    const { id } = await params;
+    const { id } = (await params) as { id: string };
     const server = await getUserMcpServerById({ id, userId: user.id });
-    if (!server) return new ChatSDKError('not_found:api', 'MCP server not found').toResponse();
+    if (!server) throw new ChatSDKError('not_found:api', 'MCP server not found');
 
     validateMcpServerUrl(server.url);
 
@@ -38,11 +37,6 @@ export async function GET(
     } finally {
       await client.close();
     }
-  } catch (error) {
-    if (error instanceof ChatSDKError) return error.toResponse();
-    if (error instanceof Error) {
-      return new ChatSDKError('bad_request:api', error.message).toResponse();
-    }
-    return new ChatSDKError('bad_request:api', 'Failed to list MCP server tools').toResponse();
-  }
-}
+  },
+  { genericError: 'expose' },
+);

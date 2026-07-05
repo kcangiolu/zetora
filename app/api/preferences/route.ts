@@ -1,4 +1,4 @@
-import { getUser } from '@/lib/auth-utils';
+import { withAuth } from '@/lib/api/route-handlers';
 import { upsertUserPreferences } from '@/lib/db/queries';
 import { clearUserPreferencesCache, getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 
@@ -18,52 +18,30 @@ function redactSecretPreferences(record: Record<string, unknown> | null | undefi
   return rest;
 }
 
-export async function GET() {
-  try {
-    const user = await getUser();
+export const GET = withAuth(async (_req, { user }) => {
+  const record = await getCachedUserPreferencesByUserId(user.id);
+  const preferences = record ? { ...record, preferences: redactSecretPreferences(record.preferences) } : record;
 
-    if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  return Response.json(preferences);
+});
 
-    const record = await getCachedUserPreferencesByUserId(user.id);
-    const preferences = record ? { ...record, preferences: redactSecretPreferences(record.preferences) } : record;
+export const POST = withAuth(async (request, { user }) => {
+  const body = await request.json();
+  const preferences = body?.preferences;
 
-    return Response.json(preferences);
-  } catch (error) {
-    console.error('Failed to fetch user preferences:', error);
-    return Response.json({ error: 'Failed to fetch user preferences' }, { status: 500 });
+  if (!preferences || typeof preferences !== 'object' || Array.isArray(preferences)) {
+    return Response.json({ error: 'Invalid preferences payload' }, { status: 400 });
   }
-}
 
-export async function POST(request: Request) {
-  try {
-    const user = await getUser();
+  const result = await upsertUserPreferences({
+    userId: user.id,
+    preferences,
+  });
 
-    if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  clearUserPreferencesCache(user.id);
 
-    const body = await request.json();
-    const preferences = body?.preferences;
-
-    if (!preferences || typeof preferences !== 'object' || Array.isArray(preferences)) {
-      return Response.json({ error: 'Invalid preferences payload' }, { status: 400 });
-    }
-
-    const result = await upsertUserPreferences({
-      userId: user.id,
-      preferences,
-    });
-
-    clearUserPreferencesCache(user.id);
-
-    return Response.json({
-      success: true,
-      data: { ...result, preferences: redactSecretPreferences(result.preferences) },
-    });
-  } catch (error) {
-    console.error('Failed to save user preferences:', error);
-    return Response.json({ error: 'Failed to save user preferences' }, { status: 500 });
-  }
-}
+  return Response.json({
+    success: true,
+    data: { ...result, preferences: redactSecretPreferences(result.preferences) },
+  });
+});

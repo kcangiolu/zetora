@@ -1,33 +1,29 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getUser } from '@/lib/auth-utils';
+import { z } from 'zod';
+import { parseBody, withAuth } from '@/lib/api/route-handlers';
 import { getCustomProviders, saveCustomProviders, toClientSafeProviders } from '@/lib/custom-providers';
 
-export async function GET() {
-  try {
-    const user = await getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const providers = await getCustomProviders();
-    return NextResponse.json({ providers: toClientSafeProviders(providers) });
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch providers' }, { status: 500 });
-  }
-}
+export const GET = withAuth(async () => {
+  const providers = await getCustomProviders();
+  return Response.json({ providers: toClientSafeProviders(providers) });
+});
 
-export async function POST(req: NextRequest) {
-  try {
-    const user = await getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const { providers } = await req.json();
-    if (!Array.isArray(providers)) {
-      return NextResponse.json({ error: 'providers must be an array' }, { status: 400 });
-    }
-    await saveCustomProviders(providers);
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to save providers' }, { status: 500 });
-  }
-}
+// hasApiKey is the GET-only projection some clients round-trip back;
+// saveCustomProviders strips it before persisting.
+const SaveSchema = z.object({
+  providers: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      baseURL: z.string(),
+      apiKey: z.string().optional(),
+      disableAutoDetect: z.boolean().optional(),
+      hasApiKey: z.unknown().optional(),
+    }),
+  ),
+});
+
+export const POST = withAuth(async (req) => {
+  const { providers } = await parseBody(req, SaveSchema);
+  await saveCustomProviders(providers);
+  return Response.json({ success: true });
+});
