@@ -1,5 +1,5 @@
 import { createMCPClient } from '@ai-sdk/mcp';
-import { getCurrentUser } from '@/app/actions';
+import { getComprehensiveUserData } from '@/lib/user-data-server';
 import { ChatSDKError } from '@/lib/errors';
 import { getUserMcpServerById, updateUserMcpServer } from '@/lib/db/queries';
 import { resolveMcpAuthHeaders } from '@/lib/mcp/auth-headers';
@@ -20,7 +20,7 @@ const testMcpServerSchema = z.object({
   'Provide serverId or transportType/url',
 );
 
-function assertProUser(user: Awaited<ReturnType<typeof getCurrentUser>>) {
+function assertProUser(user: Awaited<ReturnType<typeof getComprehensiveUserData>>) {
   if (!user) throw new ChatSDKError('unauthorized:auth', 'Authentication required');
   if (!user.isProUser) throw new ChatSDKError('upgrade_required:auth', 'Pro subscription required');
   return user;
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
   let errorContext: { transportType?: 'http' | 'sse'; url?: string } | undefined;
 
   try {
-    const user = assertProUser(await getCurrentUser());
+    const user = assertProUser(await getComprehensiveUserData());
     userIdForUpdate = user.id;
     const input = testMcpServerSchema.parse(await request.json());
 

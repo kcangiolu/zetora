@@ -1,6 +1,6 @@
 import { createMCPClient } from '@ai-sdk/mcp';
 import { z } from 'zod';
-import { getCurrentUser } from '@/app/actions';
+import { getComprehensiveUserData } from '@/lib/user-data-server';
 import { getUserMcpServerById } from '@/lib/db/queries';
 import { resolveMcpAuthHeaders } from '@/lib/mcp/auth-headers';
 import { validateMcpServerUrl } from '@/lib/mcp/server-config';
@@ -20,7 +20,7 @@ const bridgeRequestSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const user = await getCurrentUser();
+    const user = await getComprehensiveUserData();
     if (!user) return new ChatSDKError('unauthorized:auth').toResponse();
 
     const input = bridgeRequestSchema.parse(await request.json());

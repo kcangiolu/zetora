@@ -1,4 +1,4 @@
-import { getCurrentUser } from '@/app/actions';
+import { getComprehensiveUserData } from '@/lib/user-data-server';
 import { ChatSDKError } from '@/lib/errors';
 import { createUserMcpServer, getUserMcpServersByUserId } from '@/lib/db/queries';
 import {
@@ -32,7 +32,7 @@ const createMcpServerSchema = z.object({
   isEnabled: z.boolean().optional(),
 });
 
-function assertProUser(user: Awaited<ReturnType<typeof getCurrentUser>>) {
+function assertProUser(user: Awaited<ReturnType<typeof getComprehensiveUserData>>) {
   if (!user) throw new ChatSDKError('unauthorized:auth', 'Authentication required');
   if (!user.isProUser) throw new ChatSDKError('upgrade_required:auth', 'Pro subscription required');
   return user;
@@ -90,7 +90,7 @@ function serializeMcpServer(server: {
 
 export async function GET() {
   try {
-    const user = assertProUser(await getCurrentUser());
+    const user = assertProUser(await getComprehensiveUserData());
     const servers = await getUserMcpServersByUserId({ userId: user.id });
     return Response.json({ servers: servers.map(serializeMcpServer) });
   } catch (error) {
@@ -102,7 +102,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const user = assertProUser(await getCurrentUser());
+    const user = assertProUser(await getComprehensiveUserData());
     const input = createMcpServerSchema.parse(await request.json());
     validateMcpServerUrl(input.url);
     validateMcpOAuthConfig(input);

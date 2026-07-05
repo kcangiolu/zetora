@@ -1,9 +1,9 @@
-import { getCurrentUser } from '@/app/actions';
+import { getComprehensiveUserData } from '@/lib/user-data-server';
 import { getUserMcpServerById, updateUserMcpServer } from '@/lib/db/queries';
 import { ChatSDKError } from '@/lib/errors';
 import { exchangeMcpOAuthCode, verifyMcpOAuthState } from '@/lib/mcp/oauth';
 
-function assertProUser(user: Awaited<ReturnType<typeof getCurrentUser>>) {
+function assertProUser(user: Awaited<ReturnType<typeof getComprehensiveUserData>>) {
   if (!user) throw new ChatSDKError('unauthorized:auth', 'Authentication required');
   if (!user.isProUser) throw new ChatSDKError('upgrade_required:auth', 'Pro subscription required');
   return user;
@@ -22,7 +22,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const user = assertProUser(await getCurrentUser());
+    const user = assertProUser(await getComprehensiveUserData());
     const { id } = await params;
     const requestUrl = new URL(request.url);
     const code = requestUrl.searchParams.get('code');
@@ -58,7 +58,7 @@ export async function GET(
     return redirectToApps(request, 'success');
   } catch (error) {
     const { id } = await params;
-    const user = await getCurrentUser().catch(() => null);
+    const user = await getComprehensiveUserData().catch(() => null);
     if (user?.id) {
       await updateUserMcpServer({
         id,

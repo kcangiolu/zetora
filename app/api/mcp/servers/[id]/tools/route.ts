@@ -1,5 +1,5 @@
 import { createMCPClient } from '@ai-sdk/mcp';
-import { getCurrentUser } from '@/app/actions';
+import { getComprehensiveUserData } from '@/lib/user-data-server';
 import { getUserMcpServerById } from '@/lib/db/queries';
 import { resolveMcpAuthHeaders } from '@/lib/mcp/auth-headers';
 import { validateMcpServerUrl } from '@/lib/mcp/server-config';
@@ -10,7 +10,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const user = await getCurrentUser();
+    const user = await getComprehensiveUserData();
     if (!user) return new ChatSDKError('unauthorized:auth').toResponse();
 
     const { id } = await params;

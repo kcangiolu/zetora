@@ -1,4 +1,4 @@
-import { getCurrentUser } from '@/app/actions';
+import { getComprehensiveUserData } from '@/lib/user-data-server';
 import { ChatSDKError } from '@/lib/errors';
 import { pendingElicitations } from '@/lib/tools/mcp-client';
 import { z } from 'zod';
@@ -24,7 +24,7 @@ const respondSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const user = await getCurrentUser();
+    const user = await getComprehensiveUserData();
     if (!user) return new ChatSDKError('unauthorized:auth').toResponse();
 
     const input = respondSchema.parse(await request.json());

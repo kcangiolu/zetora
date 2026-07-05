@@ -1,4 +1,4 @@
-import { getCurrentUser } from '@/app/actions';
+import { getComprehensiveUserData } from '@/lib/user-data-server';
 import { ChatSDKError } from '@/lib/errors';
 import {
   deleteUserMcpServer,
@@ -39,7 +39,7 @@ const updateMcpServerSchema = z.object({
   clearCredentials: z.boolean().optional(),
 });
 
-function assertProUser(user: Awaited<ReturnType<typeof getCurrentUser>>) {
+function assertProUser(user: Awaited<ReturnType<typeof getComprehensiveUserData>>) {
   if (!user) throw new ChatSDKError('unauthorized:auth', 'Authentication required');
   if (!user.isProUser) throw new ChatSDKError('upgrade_required:auth', 'Pro subscription required');
   return user;
@@ -102,7 +102,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const user = assertProUser(await getCurrentUser());
+    const user = assertProUser(await getComprehensiveUserData());
     const { id } = await params;
     const existing = await getUserMcpServerById({ id, userId: user.id });
     if (!existing) return new ChatSDKError('not_found:api', 'MCP server not found').toResponse();
@@ -207,7 +207,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const user = assertProUser(await getCurrentUser());
+    const user = assertProUser(await getComprehensiveUserData());
     const { id } = await params;
     const deleted = await deleteUserMcpServer({ id, userId: user.id });
     if (!deleted) return new ChatSDKError('not_found:api', 'MCP server not found').toResponse();

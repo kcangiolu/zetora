@@ -1,4 +1,4 @@
-import { getCurrentUser } from '@/app/actions';
+import { getComprehensiveUserData } from '@/lib/user-data-server';
 import {
   convertToModelMessages,
   streamText,
@@ -125,7 +125,7 @@ export async function POST(req: Request) {
   const requestStartTime = Date.now();
   const { messages } = await req.json();
 
-  const user = await getCurrentUser();
+  const user = await getComprehensiveUserData();
 
   if (!user) {
     return new ChatSDKError('unauthorized:auth', 'Authentication required to use this feature').toResponse();

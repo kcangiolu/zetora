@@ -330,60 +330,6 @@ export async function isUserProCached(): Promise<boolean> {
   return proStatus.isProUser;
 }
 
-// Helper to check if user has access to a specific product/tier
-export async function hasAccessToProduct(productId: string): Promise<boolean> {
-  const result = await getSubscriptionDetails();
-  return (
-    result.hasSubscription && result.subscription?.status === 'active' && result.subscription?.productId === productId
-  );
-}
-
-// Helper to get user's current subscription status
-export async function getUserSubscriptionStatus(): Promise<'active' | 'canceled' | 'expired' | 'none'> {
-  try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!session?.user?.id) {
-      return 'none';
-    }
-
-    // First check comprehensive Pro status (includes Dodo Subscriptions)
-    const proStatus = await getComprehensiveProStatus(session.user.id);
-
-    if (proStatus.isProUser) {
-      if (proStatus.source === 'dodo') {
-        return 'active'; // Dodo subscription active = active
-      }
-    }
-
-    // For Polar subscriptions, get detailed status
-    const result = await getSubscriptionDetails();
-
-    if (!result.hasSubscription) {
-      return proStatus.isProUser ? 'active' : 'none';
-    }
-
-    if (result.subscription?.status === 'active') {
-      return 'active';
-    }
-
-    if (result.errorType === 'CANCELED') {
-      return 'canceled';
-    }
-
-    if (result.errorType === 'EXPIRED') {
-      return 'expired';
-    }
-
-    return 'none';
-  } catch (error) {
-    console.error('Error getting user subscription status:', error);
-    return 'none';
-  }
-}
-
 // Helper to get Dodo Subscription expiration date
 export async function getDodoSubscriptionExpirationDate(): Promise<Date | null> {
   try {

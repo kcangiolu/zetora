@@ -707,12 +707,3 @@ export async function isUserPro(): Promise<boolean> {
   return userData?.isProUser || false;
 }
 
-export async function getUserSubscriptionStatus(): Promise<'active' | 'canceled' | 'expired' | 'none'> {
-  const userData = await getComprehensiveUserData();
-  return userData?.subscriptionStatus || 'none';
-}
-
-export async function getProSource(): Promise<'polar' | 'dodo' | 'none'> {
-  const userData = await getComprehensiveUserData();
-  return userData?.proSource || 'none';
-}
