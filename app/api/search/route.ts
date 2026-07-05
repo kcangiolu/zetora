@@ -967,6 +967,17 @@ export async function POST(req: Request) {
       const resolvedModel = shouldUseXaiMultiAgent
         ? xai.responses('grok-4.20-multi-agent')
         : await resolveModel(model, userPreferencesResult?.preferences ?? {});
+      // Custom models parsed via the XML tool middleware need their tool
+      // schemas present on every step: the middleware strips native tools into
+      // a prompt and relies on the schemas to convert the model's XML back into
+      // tool calls. If a later step is left with no tools (see prepareStep's
+      // tool-disabling heuristic) and the model still emits a tool call — as the
+      // local Qwen3 models routinely do — the parser has nothing to match and
+      // the raw <web_search> XML leaks straight to the user.
+      const isXmlParsedCustomModel =
+        !shouldUseXaiMultiAgent &&
+        model.startsWith('custom-') &&
+        userPreferencesResult?.preferences?.['zetora-xml-tool-parsing-enabled'] === true;
       const result = streamText({
         model: resolvedModel,
         messages: processedMessages,
@@ -1481,10 +1492,13 @@ export async function POST(req: Request) {
           }
 
           // Other modes: disable tool calls after first completed tool round.
+          // Never disable for XML-parsed custom models: emptying the tools list
+          // leaves the middleware without schemas, so any further tool call the
+          // model emits leaks to the user as raw XML instead of being parsed.
           const shouldDisableTools = steps.length > 0 && latestStepHasToolRoundTrip;
 
           // Only return object if tools need to be disabled
-          if (shouldDisableTools && model !== 'zetora-sarvam-105b') {
+          if (shouldDisableTools && model !== 'zetora-sarvam-105b' && !isXmlParsedCustomModel) {
             return {
               toolChoice: 'auto' as const,
               activeTools: [],

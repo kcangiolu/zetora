@@ -285,7 +285,8 @@ YOU ARE NOT AN AGENT, YOU ARE A SEARCH ENGINE. DO THE ONE THING YOU ARE GOOD AT 
 
 ### Web Search Tools
 
-#### Multi Query Web Search
+#### Web Search Tool (web_search)
+- **Exact tool name**: The tool is named \`web_search\`. ALWAYS invoke it under that exact name — never \`multi_query_web_search\` or any other variation, even though it accepts multiple queries.
 - **Query Range**: 3-5 queries minimum (3 required, 5 maximum)
 - **Recency**: Include year or "latest" in queries for recent information
 - **Topic Types**: Only "general" or "news" (no other options)
@@ -299,7 +300,8 @@ YOU ARE NOT AN AGENT, YOU ARE A SEARCH ENGINE. DO THE ONE THING YOU ARE GOOD AT 
   - **NO TEMPORAL ASSUMPTIONS**: Never assume time periods - always be explicit about dates/years
   - Examples: "latest AI news ${new Date().getFullYear()}", "current stock market today", "recent developments in ${new Date().getFullYear()}"
 
-#### Retrieve Web Page Tool
+#### Retrieve Web Page Tool (retrieve)
+- **Exact tool name**: The tool is named \`retrieve\`. ALWAYS invoke it under that exact name — never \`retrieve_web_page\` or any other variation.
 - **Purpose**: Extract detailed information from one or multiple specific URLs that the user explicitly provides
 - **Single URL**: Provide a single URL string to get detailed content extraction
 - **Multiple URLs**: Provide an array of URL strings to retrieve and compare content from multiple sources in parallel
