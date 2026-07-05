@@ -1,90 +1,33 @@
 import json
+import logging
 import os
+from datetime import datetime, timezone
 from typing import Any
-from urllib.parse import urlparse
 
 from mcp.server import Server
 from mcp.server.sse import SseServerTransport
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 from starlette.routing import Mount, Route
 import uvicorn
 
 from graphiti_core import Graphiti
-from graphiti_core.cross_encoder.openai_reranker_client import OpenAIRerankerClient
-from graphiti_core.driver.falkordb_driver import FalkorDriver
-from graphiti_core.embedder.openai import OpenAIEmbedder, OpenAIEmbedderConfig
-from graphiti_core.llm_client.config import LLMConfig
-from graphiti_core.llm_client.openai_generic_client import OpenAIGenericClient
 
+from client import build_graphiti_client
+from config import bootstrap_env
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s %(message)s")
+logger = logging.getLogger("graphiti-mcp")
 
 server = Server("zetora-graphiti-mcp")
 graphiti_client: Graphiti | None = None
 
-CONFIG_FILE = os.environ.get("GRAPHITI_CONFIG_PATH", "/data/graphiti_config.json")
 
-
-def apply_persisted_config() -> None:
-    try:
-        with open(CONFIG_FILE) as f:
-            config = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return
-    if config.get("llm_api_key"):
-        os.environ["OPENAI_API_KEY"] = config["llm_api_key"]
-    if config.get("llm_base_url"):
-        os.environ["OPENAI_BASE_URL"] = config["llm_base_url"]
-    if config.get("llm_model"):
-        os.environ["LLM_MODEL"] = config["llm_model"]
-    if config.get("embedding_model"):
-        os.environ["EMBEDDING_MODEL"] = config["embedding_model"]
-    if config.get("embedding_api_key"):
-        os.environ["EMBEDDING_API_KEY"] = config["embedding_api_key"]
-    if config.get("embedding_base_url"):
-        os.environ["EMBEDDING_BASE_URL"] = config["embedding_base_url"]
-
-
-async def init_graphiti():
+async def init_graphiti() -> None:
     global graphiti_client
-
-    llm_api_key = os.environ.get("LLM_API_KEY")
-    llm_base_url = os.environ.get("LLM_BASE_URL")
-    if llm_api_key:
-        os.environ["OPENAI_API_KEY"] = llm_api_key
-    if llm_base_url:
-        os.environ["OPENAI_BASE_URL"] = llm_base_url
-
-    apply_persisted_config()
-
-    graph_db_url = os.environ.get("GRAPH_DB_URL", "bolt://localhost:6379")
-    parsed = urlparse(graph_db_url)
-    host = parsed.hostname or "localhost"
-    port = parsed.port or 6379
-    driver = FalkorDriver(host=host, port=port)
-
-    llm_config = LLMConfig(
-        api_key=os.environ.get("OPENAI_API_KEY") or "not-needed",
-        base_url=os.environ.get("OPENAI_BASE_URL"),
-        model=os.environ.get("LLM_MODEL", "gpt-4o-mini"),
-    )
-    llm_client = OpenAIGenericClient(config=llm_config)
-    cross_encoder = OpenAIRerankerClient(config=llm_config)
-    embedder = OpenAIEmbedder(
-        config=OpenAIEmbedderConfig(
-            api_key=os.environ.get("EMBEDDING_API_KEY") or os.environ.get("OPENAI_API_KEY") or "not-needed",
-            base_url=os.environ.get("EMBEDDING_BASE_URL") or os.environ.get("OPENAI_BASE_URL"),
-            embedding_model=os.environ.get("EMBEDDING_MODEL", "text-embedding-3-small"),
-        )
-    )
-
-    graphiti_client = Graphiti(
-        graph_driver=driver,
-        llm_client=llm_client,
-        embedder=embedder,
-        cross_encoder=cross_encoder,
-    )
-    await graphiti_client.build_indices_and_constraints()
+    bootstrap_env()
+    graphiti_client = await build_graphiti_client()
 
 
 @server.list_tools()
@@ -124,13 +67,13 @@ async def call_tool(name: str, arguments: dict[str, Any]):
     if not graphiti_client:
         await init_graphiti()
 
-    from datetime import datetime
+    now = datetime.now(timezone.utc)
 
     if name == "add_memory":
         result = await graphiti_client.add_episode(
-            name=f"memory-{datetime.utcnow().isoformat()}",
+            name=f"memory-{now.isoformat()}",
             episode_body=arguments["content"],
-            reference_time=datetime.utcnow(),
+            reference_time=now,
             source_description=arguments.get("source", "Claude Code"),
             group_id=arguments.get("group_id"),
         )
@@ -157,8 +100,13 @@ async def handle_sse(request: Request):
     return Response()
 
 
+async def health(request: Request):
+    return JSONResponse({"status": "ok", "initialized": graphiti_client is not None})
+
+
 app = Starlette(
     routes=[
+        Route("/health", endpoint=health),
         Route("/sse", endpoint=handle_sse),
         Mount("/messages/", app=sse.handle_post_message),
     ],

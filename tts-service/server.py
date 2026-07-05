@@ -1,5 +1,7 @@
 import asyncio
 import os
+from collections import OrderedDict
+from contextlib import asynccontextmanager
 import queue as stdlib_queue
 import re
 import struct
@@ -34,10 +36,12 @@ torch.backends.cuda.matmul.allow_tf32 = True
 # and inference to run in the same OS thread.
 _cuda_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="cuda-tts")
 
-app = FastAPI(title="Qwen3-TTS Server (OpenAI-compatible)")
 model = None
 warmup_prompt = None
-voice_prompts: dict = {}  # key: (name, x_vector_only) -> prompt
+# LRU-bounded prompt cache: prompts hold GPU tensors, so cap how many voices
+# stay resident. key: (name, x_vector_only) -> prompt
+VOICE_PROMPT_CACHE_SIZE = int(os.getenv("VOICE_PROMPT_CACHE_SIZE", "8"))
+voice_prompts: OrderedDict = OrderedDict()
 
 LANG_MAP = {
     "french": "French", "fr": "French",
@@ -51,13 +55,13 @@ LANG_MAP = {
     "korean": "Korean", "ko": "Korean",
 }
 
-# flash-attn s'IMPORTE même si aucun kernel n'est compilé pour l'archi du GPU
-# courant (une wheel construite sans sm_120 s'importe très bien sur une
-# Blackwell RTX 5060 Ti, puis crashe au premier forward). L'import ne prouve
-# donc rien : la seule certitude vient d'un vrai kernel exécuté sur le device.
-# HAS_FLASH_ATTN est fixé au démarrage par _flash_attn_usable(), dans le thread
-# CUDA. Ça rend une image unique universelle : flash là où le kernel existe,
-# SDPA en repli, sans crash — RTX 3090 (sm_86) comme RTX 5060 Ti (sm_120).
+# flash-attn IMPORTS fine even when no kernel was compiled for the current
+# GPU arch (a wheel built without sm_120 imports happily on a Blackwell
+# RTX 5060 Ti, then crashes on the first forward). Import proves nothing:
+# only a real kernel executed on the device does. HAS_FLASH_ATTN is set at
+# startup by _flash_attn_usable(), inside the CUDA thread. This makes a
+# single image universal: flash where the kernel exists, SDPA fallback,
+# no crash — RTX 3090 (sm_86) and RTX 5060 Ti (sm_120) alike.
 _FLASH_IMPORTED = False
 try:
     import flash_attn
@@ -70,8 +74,8 @@ HAS_FLASH_ATTN = False
 
 
 def _flash_attn_usable() -> bool:
-    """Teste un vrai kernel flash-attn sur le GPU. Seul un forward réussi
-    prouve que la wheel couvre l'architecture de CE device."""
+    """Run a real flash-attn kernel on the GPU. Only a successful forward
+    proves the wheel covers THIS device's architecture."""
     if not _FLASH_IMPORTED:
         return False
     try:
@@ -115,7 +119,7 @@ def _find_voice_file(name: str) -> Path | None:
 
 
 def _get_voice_ref_lang(name: str) -> str | None:
-    """Retourne la langue de l'audio de référence depuis {voice}.lang, ou None."""
+    """Return the reference audio's language from {voice}.lang, or None."""
     lang_file = VOICES_DIR / f"{name}.lang"
     if lang_file.exists():
         return lang_file.read_text().strip().lower()
@@ -151,22 +155,28 @@ def _load_voice_prompt(name: str, x_vector_only: bool = False):
 
 def _get_voice_prompt(voice: str, x_vector_only: bool = False):
     key = (voice, x_vector_only)
-    if key not in voice_prompts:
-        prompt = _load_voice_prompt(voice, x_vector_only)
-        if prompt is None:
-            raise HTTPException(
-                404,
-                f"Voice '{voice}' not found. Place {voice}.wav (or .mp3/.flac) in {VOICES_DIR}",
-            )
-        voice_prompts[key] = prompt
+    if key in voice_prompts:
+        voice_prompts.move_to_end(key)
+        return voice_prompts[key]
+
+    prompt = _load_voice_prompt(voice, x_vector_only)
+    if prompt is None:
+        raise HTTPException(
+            404,
+            f"Voice '{voice}' not found. Place {voice}.wav (or .mp3/.flac) in {VOICES_DIR}",
+        )
+    voice_prompts[key] = prompt
+    while len(voice_prompts) > VOICE_PROMPT_CACHE_SIZE:
+        evicted, _ = voice_prompts.popitem(last=False)
+        logger.info("Evicted voice prompt %s from cache (size cap %d)", evicted, VOICE_PROMPT_CACHE_SIZE)
     return voice_prompts[key]
 
 
 def _resolve_x_vector_only(voice: str, gen_lang_code: str) -> bool:
     """
-    Retourne True si la langue de l'audio de référence diffère de la langue de génération.
-    Dans ce cas, le clonage en x_vector_only évite le transfert d'accent indésirable.
-    Nécessite un fichier {voice}.lang dans VOICES_DIR (ex: 'french').
+    Return True when the reference audio's language differs from the generation
+    language; x_vector_only cloning then avoids unwanted accent transfer.
+    Requires a {voice}.lang file in VOICES_DIR (e.g. 'french').
     """
     ref_lang = _get_voice_ref_lang(voice)
     if not ref_lang:
@@ -201,7 +211,7 @@ def _do_startup():
     global model, warmup_prompt, HAS_FLASH_ATTN
     from qwen_tts import Qwen3TTSModel
 
-    # Probe le kernel sur le device réel (thread CUDA) avant de choisir le backend.
+    # Probe the kernel on the real device (CUDA thread) before picking the backend.
     HAS_FLASH_ATTN = _flash_attn_usable()
 
     logger.info("Loading model %s on GPU...", MODEL_ID)
@@ -234,10 +244,20 @@ def _do_startup():
     logger.info("Server ready. GPU: %s", torch.cuda.get_device_name(0))
 
 
-@app.on_event("startup")
-async def startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Fail fast: if the model can't load, exit instead of serving 503s
+    # forever — the container's restart policy handles retries.
     loop = asyncio.get_event_loop()
-    await loop.run_in_executor(_cuda_executor, _do_startup)
+    try:
+        await loop.run_in_executor(_cuda_executor, _do_startup)
+    except Exception:
+        logger.critical("Model startup failed — exiting so the container restarts", exc_info=True)
+        raise
+    yield
+
+
+app = FastAPI(title="Qwen3-TTS Server (OpenAI-compatible)", lifespan=lifespan)
 
 
 # ── Endpoints ──────────────────────────────────────────────────
@@ -372,6 +392,10 @@ async def speech(request: Request, req: SpeechRequest):
                         pcm_chunks.append(pcm.copy())
                     to_send = []
                     if fmt == "wav" and not header_sent:
+                        # Streaming WAV header: total length is unknown up
+                        # front, so RIFF and data sizes use the 0xFFFFFFFF
+                        # "unspecified" convention players accept for live
+                        # streams (16-bit mono PCM at the model sample rate).
                         to_send.append(struct.pack(
                             "<4sI4s4sIHHIIHH4sI",
                             b"RIFF", 0xFFFFFFFF, b"WAVE",

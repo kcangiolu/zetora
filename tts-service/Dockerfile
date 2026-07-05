@@ -52,17 +52,28 @@ RUN set -e; \
         exit 1 ;; \
     esac
 
-# Fork rekuenkdr/Qwen3-TTS-streaming (streaming réel avec CUDA graphs)
-# Le décorateur @check_model_inputs() doit être sans parenthèses dans ce fork
+# Fork rekuenkdr/Qwen3-TTS-streaming (true streaming with CUDA graphs),
+# pinned to a commit so builds are reproducible. The two sed patches adapt it
+# to transformers 4.57 (@check_model_inputs decorator without parentheses,
+# tolerant pad_token_id lookup); each patch is verified so a silent sed no-op
+# on a changed upstream fails the build instead of shipping broken code.
+ARG QWEN3_TTS_STREAMING_COMMIT=b8db6ff1cebc0d6554cf0977045850bcc796b383
 RUN git clone --quiet https://github.com/rekuenkdr/Qwen3-TTS-streaming /tmp/qwen3-tts-streaming && \
+    git -C /tmp/qwen3-tts-streaming checkout --quiet "$QWEN3_TTS_STREAMING_COMMIT" && \
     sed -i 's/@check_model_inputs()/@check_model_inputs/g' \
       /tmp/qwen3-tts-streaming/qwen_tts/core/tokenizer_12hz/modeling_qwen3_tts_tokenizer_v2.py && \
+    grep -q '@check_model_inputs$' \
+      /tmp/qwen3-tts-streaming/qwen_tts/core/tokenizer_12hz/modeling_qwen3_tts_tokenizer_v2.py && \
     sed -i 's/self\.padding_idx = config\.pad_token_id/self.padding_idx = getattr(config, "pad_token_id", None)/g' \
+      /tmp/qwen3-tts-streaming/qwen_tts/core/models/modeling_qwen3_tts.py && \
+    grep -q 'getattr(config, "pad_token_id", None)' \
       /tmp/qwen3-tts-streaming/qwen_tts/core/models/modeling_qwen3_tts.py && \
     cd /tmp/qwen3-tts-streaming && /opt/venv/bin/pip install --quiet . && \
     /opt/venv/bin/pip install --quiet 'transformers==4.57.6'
 
-RUN /opt/venv/bin/pip install --quiet fastapi uvicorn
+# Web layer pinned via requirements.lock (uv pip compile requirements.txt)
+COPY requirements.lock .
+RUN /opt/venv/bin/pip install --quiet -r requirements.lock
 
 # WSL2: torch.compile/Triton links its runtime kernel helper with `-lcuda`, but
 # WSL exposes only a versioned libcuda.so.1 (no unversioned libcuda.so), so the
@@ -72,5 +83,8 @@ RUN /opt/venv/bin/pip install --quiet fastapi uvicorn
 ENV LIBRARY_PATH=/usr/local/cuda/compat
 
 COPY server.py .
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10m --retries=5 \
+  CMD curl -fsS http://127.0.0.1:8080/health || exit 1
 
 CMD ["/opt/venv/bin/uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8080", "--log-level", "info"]
