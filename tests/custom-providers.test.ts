@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseCustomModelId, type CustomProviderConfig } from '@/lib/custom-providers';
+import { parseCustomModelId, toClientSafeProviders, type CustomProviderConfig } from '@/lib/custom-providers';
 
 const providers: CustomProviderConfig[] = [
   { id: 'prov1', name: 'Provider One', baseURL: 'https://one.example/v1' },
@@ -25,5 +25,30 @@ describe('parseCustomModelId', () => {
 
   it('returns null when no provider id matches', () => {
     expect(parseCustomModelId('custom-unknown-model', providers)).toBeNull();
+  });
+});
+
+describe('toClientSafeProviders', () => {
+  it('strips the apiKey and reports only its presence', () => {
+    const safe = toClientSafeProviders([
+      { id: 'a', name: 'A', baseURL: 'https://a.example/v1', apiKey: 'sk-super-secret' },
+      { id: 'b', name: 'B', baseURL: 'https://b.example/v1' },
+      { id: 'c', name: 'C', baseURL: 'https://c.example/v1', apiKey: '' },
+    ]);
+
+    expect(safe).toEqual([
+      { id: 'a', name: 'A', baseURL: 'https://a.example/v1', hasApiKey: true },
+      { id: 'b', name: 'B', baseURL: 'https://b.example/v1', hasApiKey: false },
+      { id: 'c', name: 'C', baseURL: 'https://c.example/v1', hasApiKey: false },
+    ]);
+    expect(JSON.stringify(safe)).not.toContain('sk-super-secret');
+  });
+
+  it('preserves unrelated fields like disableAutoDetect', () => {
+    const [safe] = toClientSafeProviders([
+      { id: 'a', name: 'A', baseURL: 'https://a.example/v1', apiKey: 'k', disableAutoDetect: true },
+    ]);
+    expect(safe.disableAutoDetect).toBe(true);
+    expect('apiKey' in safe).toBe(false);
   });
 });

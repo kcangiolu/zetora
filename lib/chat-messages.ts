@@ -4,8 +4,6 @@ import { type Message } from '@/lib/db/schema';
 import { ChatMessage, ChatTools, CustomUIDataTypes } from '@/lib/types';
 
 export function convertToUIMessages(messages: Message[]): ChatMessage[] {
-  console.log('Messages: ', messages);
-
   return messages.map((message) => {
     const partsArray = Array.isArray(message.parts) ? message.parts : [];
     const convertedParts = partsArray
