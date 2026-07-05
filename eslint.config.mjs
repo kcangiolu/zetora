@@ -11,6 +11,7 @@ const eslintConfig = [
       'public/**',
       'next-env.d.ts',
       'tsconfig.tsbuildinfo',
+      'coverage/**',
     ],
   },
   ...coreWebVitals,
