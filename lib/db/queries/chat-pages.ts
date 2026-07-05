@@ -1,9 +1,9 @@
 import 'server-only';
 
 import { eq } from 'drizzle-orm';
-import { chat, type User, message, type Message, type Chat } from './schema';
-import { ChatSDKError } from '../errors';
-import { db, maindb } from './index';
+import { chat, type User, message, type Message, type Chat } from '../schema';
+import { ChatSDKError } from '../../errors';
+import { db, maindb } from '../index';
 
 interface MessagePage {
   hasMoreMessages: boolean;

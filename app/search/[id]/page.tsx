@@ -1,7 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { ChatInterface } from '@/components/chat-interface';
 import { getUser } from '@/lib/auth-utils';
-import { getChatWithUserAndInitialMessages } from '@/lib/db/chat-queries';
+import { getChatWithUserAndInitialMessages } from '@/lib/db/queries';
 import { maindb } from '@/lib/db';
 import { getChatById } from '@/lib/db/queries';
 import { chat as chatTable, message as messageTable, Message, type Chat, type User } from '@/lib/db/schema';
