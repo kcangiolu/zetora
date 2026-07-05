@@ -6,8 +6,17 @@ import { serverEnv } from '@/env/server';
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12;
 
+// MCP_CREDENTIALS_ENCRYPTION_KEY defaults to "placeholder" in env/server.ts
+// (same pattern as CRON_SECRET) — treat that, and an empty value, as unset so
+// a forgotten env var never silently degrades to a well-known encryption key.
 function getEncryptionKey() {
-  return createHash('sha256').update(serverEnv.MCP_CREDENTIALS_ENCRYPTION_KEY, 'utf8').digest();
+  const key = serverEnv.MCP_CREDENTIALS_ENCRYPTION_KEY;
+  if (!key || key === 'placeholder') {
+    throw new Error(
+      'MCP_CREDENTIALS_ENCRYPTION_KEY is not configured. Set it to a strong random value before storing MCP credentials or user API keys.',
+    );
+  }
+  return createHash('sha256').update(key, 'utf8').digest();
 }
 
 export function encryptMcpCredentials(value: string) {

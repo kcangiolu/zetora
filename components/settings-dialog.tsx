@@ -326,7 +326,10 @@ type CustomProviderConfig = {
   id: string;
   name: string;
   baseURL: string;
+  // Never populated from GET /api/custom-providers (server redacts stored
+  // keys) — only set locally while typing a new provider into the add form.
   apiKey?: string;
+  hasApiKey?: boolean;
   disableAutoDetect?: boolean;
 };
 
@@ -582,7 +585,6 @@ export function PreferencesSection({
   const [graphitiApiUrl, setGraphitiApiUrl] = useSyncedPreferences<string>('zetora-graphiti-api-url', '');
   const [graphitiLlmModel, setGraphitiLlmModel] = useSyncedPreferences<string>('zetora-graphiti-llm-model', '');
   const [, setGraphitiLlmBaseUrl] = useSyncedPreferences<string>('zetora-graphiti-llm-base-url', '');
-  const [, setGraphitiLlmApiKey] = useSyncedPreferences<string>('zetora-graphiti-llm-api-key', '');
   const [graphitiEmbeddingProvider, setGraphitiEmbeddingProvider] = useSyncedPreferences<string>(
     'zetora-graphiti-embedding-provider',
     '',
@@ -867,6 +869,21 @@ export function PreferencesSection({
     }
   };
 
+  // The provider's API key is decrypted server-side and forwarded straight to
+  // Graphiti by /api/graphiti/link-provider — it never touches the browser.
+  const linkGraphitiProvider = async (providerId: string, target: 'llm' | 'embedding', modelName: string) => {
+    try {
+      const res = await fetch('/api/graphiti/link-provider', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ providerId, target, modelName }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+    } catch {
+      sileo.error({ title: 'Could not configure Graphiti service' });
+    }
+  };
+
   const handleGraphitiLlmSelect = async (modelId: string) => {
     setSelectedGraphitiProvider(modelId);
     if (modelId) {
@@ -874,27 +891,13 @@ export function PreferencesSection({
       if (parsed) {
         setGraphitiLlmModel(parsed.modelName);
         setGraphitiLlmBaseUrl(parsed.provider.baseURL);
-        setGraphitiLlmApiKey(parsed.provider.apiKey ?? '');
         if (graphitiApiUrl) {
-          try {
-            await fetch('/api/graphiti/config', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                llm_model: parsed.modelName,
-                llm_api_key: parsed.provider.apiKey || null,
-                llm_base_url: parsed.provider.baseURL || null,
-              }),
-            });
-          } catch {
-            sileo.error({ title: 'Could not configure Graphiti service' });
-          }
+          await linkGraphitiProvider(parsed.provider.id, 'llm', parsed.modelName);
         }
       }
     } else {
       setGraphitiLlmModel('');
       setGraphitiLlmBaseUrl('');
-      setGraphitiLlmApiKey('');
     }
   };
 
@@ -905,19 +908,7 @@ export function PreferencesSection({
       if (parsed) {
         setGraphitiEmbeddingModel(parsed.modelName);
         if (graphitiApiUrl) {
-          try {
-            await fetch('/api/graphiti/config', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                embedding_model: parsed.modelName,
-                embedding_api_key: parsed.provider.apiKey || null,
-                embedding_base_url: parsed.provider.baseURL || null,
-              }),
-            });
-          } catch {
-            sileo.error({ title: 'Could not configure Graphiti service' });
-          }
+          await linkGraphitiProvider(parsed.provider.id, 'embedding', parsed.modelName);
         }
       }
     } else {

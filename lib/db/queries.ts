@@ -26,6 +26,7 @@ import { db, maindb } from './index';
 import { getDodoSubscriptions, setDodoSubscriptions, getDodoProStatus, setDodoProStatus } from '../performance-cache';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
+import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
 
 type VisibilityType = 'public' | 'private';
 type DodoSubscriptionRow = typeof dodosubscription.$inferSelect;
@@ -1239,6 +1240,68 @@ export async function deleteCustomInstructions({ userId }: { userId: string }) {
 }
 
 // User Preferences CRUD operations
+//
+// Two preference fields hold third-party API keys the user types in
+// (zetora-custom-providers[].apiKey, zetora-graphiti-llm-api-key). They are
+// encrypted at rest with the same AES-256-GCM scheme as MCP credentials, so a
+// DB dump/backup/replica never contains a usable secret. Encryption happens
+// on write (upsertUserPreferences) and decryption on read
+// (getUserPreferencesByUserId) so every caller — internal usage and the
+// user's own settings UI alike — keeps seeing plain values.
+const ENCRYPTED_SECRET_PATTERN = /^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/;
+
+function isEncryptedSecret(value: unknown): value is string {
+  return typeof value === 'string' && ENCRYPTED_SECRET_PATTERN.test(value);
+}
+
+// Applies `transform` to a single field, but never lets a bad key or corrupt
+// value take down the whole preferences read/write — it logs and leaves that
+// one field as-is instead.
+function applyToSecret(value: string, transform: (value: string) => string, label: string): string {
+  try {
+    return transform(value);
+  } catch (error) {
+    console.error(`[preferences] Failed to process secret field "${label}":`, error);
+    return value;
+  }
+}
+
+function mapPreferenceSecrets<T extends Record<string, unknown>>(
+  preferences: T,
+  transform: (value: string) => string,
+  shouldTransform: (value: unknown) => value is string,
+): T {
+  const next: Record<string, unknown> = { ...preferences };
+
+  const graphitiKey = next['zetora-graphiti-llm-api-key'];
+  if (shouldTransform(graphitiKey)) {
+    next['zetora-graphiti-llm-api-key'] = applyToSecret(graphitiKey, transform, 'zetora-graphiti-llm-api-key');
+  }
+
+  if (Array.isArray(next['zetora-custom-providers'])) {
+    next['zetora-custom-providers'] = (next['zetora-custom-providers'] as Array<{ apiKey?: unknown }>).map(
+      (provider) =>
+        provider && shouldTransform(provider.apiKey)
+          ? { ...provider, apiKey: applyToSecret(provider.apiKey, transform, 'zetora-custom-providers.apiKey') }
+          : provider,
+    );
+  }
+
+  return next as T;
+}
+
+function encryptPreferenceSecrets<T extends Record<string, unknown>>(preferences: T): T {
+  return mapPreferenceSecrets(
+    preferences,
+    encryptMcpCredentials,
+    (value): value is string => typeof value === 'string' && value.length > 0 && !isEncryptedSecret(value),
+  );
+}
+
+function decryptPreferenceSecrets<T extends Record<string, unknown>>(preferences: T): T {
+  return mapPreferenceSecrets(preferences, decryptMcpCredentials, isEncryptedSecret);
+}
+
 export async function getUserPreferencesByUserId({ userId }: { userId: string }) {
   try {
     const [preferences] = await maindb
@@ -1247,7 +1310,9 @@ export async function getUserPreferencesByUserId({ userId }: { userId: string })
       .where(eq(userPreferences.userId, userId))
       .limit(1);
 
-    return preferences || null;
+    if (!preferences) return null;
+
+    return { ...preferences, preferences: decryptPreferenceSecrets(preferences.preferences) };
   } catch (error) {
     console.error('Error getting user preferences:', error);
     return null;
@@ -1312,6 +1377,11 @@ export async function upsertUserPreferences({
   }>;
 }) {
   try {
+    // Encrypt secret fields (custom-provider / Graphiti API keys) before they
+    // ever reach the DB — existingPrefs read below is already encrypted, so
+    // only the caller-supplied delta needs transforming here.
+    const encryptedUpdates = encryptPreferenceSecrets(preferences);
+
     // Use transaction to ensure atomicity of read-modify-write
     return await maindb.transaction(async (tx) => {
       // Lock the row for the duration of the transaction so concurrent
@@ -1329,7 +1399,7 @@ export async function upsertUserPreferences({
       // Merge existing with new updates
       const mergedPreferences = {
         ...existingPrefs,
-        ...preferences,
+        ...encryptedUpdates,
       };
 
       if (existing) {
@@ -1342,7 +1412,7 @@ export async function upsertUserPreferences({
           })
           .where(eq(userPreferences.userId, userId))
           .returning();
-        return updated;
+        return { ...updated, preferences: decryptPreferenceSecrets(updated.preferences) };
       } else {
         // Insert new record. If a concurrent transaction inserted the row
         // first (FOR UPDATE locks nothing on a row that doesn't exist yet),
@@ -1361,7 +1431,7 @@ export async function upsertUserPreferences({
             },
           })
           .returning();
-        return newPreferences;
+        return { ...newPreferences, preferences: decryptPreferenceSecrets(newPreferences.preferences) };
       }
     });
   } catch (error) {

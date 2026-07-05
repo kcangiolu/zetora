@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUser } from '@/lib/auth-utils';
-import { getCustomProviders, saveCustomProviders } from '@/lib/custom-providers';
+import { getCustomProviders, saveCustomProviders, toClientSafeProviders } from '@/lib/custom-providers';
 
 export async function GET() {
   try {
@@ -9,7 +9,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const providers = await getCustomProviders();
-    return NextResponse.json({ providers });
+    return NextResponse.json({ providers: toClientSafeProviders(providers) });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to fetch providers' }, { status: 500 });
   }

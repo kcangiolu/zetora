@@ -1,28 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { serverEnv } from '@/env/server';
 import { getUser } from '@/lib/auth-utils';
-import { getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
-
-const DEFAULT_GRAPHITI_URL = serverEnv.GRAPHITI_API_URL || 'http://localhost:8001';
-
-// Resolve the upstream Graphiti URL from the authenticated user's saved
-// preferences (never from request headers — a client-controlled target would
-// turn this proxy into an SSRF gateway).
-async function resolveBaseUrl(userId: string): Promise<string> {
-  try {
-    const prefs = await getCachedUserPreferencesByUserId(userId);
-    const custom = prefs?.preferences?.['zetora-graphiti-api-url'];
-    if (typeof custom === 'string' && custom) {
-      const parsed = new URL(custom);
-      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-        return custom.replace(/\/$/, '');
-      }
-    }
-  } catch {
-    // Invalid preference value — fall back to the configured default.
-  }
-  return DEFAULT_GRAPHITI_URL;
-}
+import { resolveGraphitiBaseUrl as resolveBaseUrl } from '@/lib/graphiti/config';
 
 async function parseResponse(res: Response): Promise<{ data: unknown; status: number }> {
   const text = await res.text();

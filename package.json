@@ -16,6 +16,7 @@
     "fix": "prettier --write . --ignore-path .gitignore",
     "knip": "knip",
     "email:dev": "email dev --dir ./components/emails",
+    "migrate:encrypt-secrets": "node scripts/encrypt-preference-secrets.js",
     "deploy": "vc --prod",
     "deploy:preview": "vc"
   },

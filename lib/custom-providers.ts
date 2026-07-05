@@ -55,13 +55,38 @@ export async function getCustomProviders(): Promise<CustomProviderConfig[]> {
   return providers;
 }
 
-export async function saveCustomProviders(configs: CustomProviderConfig[]): Promise<void> {
+export type ClientSafeCustomProvider = Omit<CustomProviderConfig, 'apiKey'> & { hasApiKey: boolean };
+
+// GET /api/custom-providers never sends stored API keys back to the browser
+// (same principle as MCP server credentials) — just whether one is set.
+export function toClientSafeProviders(providers: CustomProviderConfig[]): ClientSafeCustomProvider[] {
+  return providers.map(({ apiKey, ...rest }) => ({ ...rest, hasApiKey: Boolean(apiKey) }));
+}
+
+// Accepts the client's raw JSON body, which may still carry the GET-only
+// `hasApiKey` projection (e.g. an unrelated edit round-tripping the list
+// fetched from GET /api/custom-providers) — stripped below before persisting.
+export async function saveCustomProviders(
+  configs: Array<CustomProviderConfig & { hasApiKey?: unknown }>,
+): Promise<void> {
   const user = await getUser();
   if (!user) throw new Error('Unauthorized');
 
+  // The client only ever holds a real apiKey for a provider it just typed
+  // one in for (add form). Editing/removing/toggling other providers round-trips
+  // them with apiKey omitted, so preserve each one's existing stored key by id
+  // instead of wiping it out.
+  const prefs = await getCachedUserPreferencesByUserId(user.id);
+  const existingById = new Map(
+    ((prefs?.preferences?.['zetora-custom-providers'] ?? []) as CustomProviderConfig[]).map((p) => [p.id, p]),
+  );
+  const merged = configs.map(({ hasApiKey: _hasApiKey, ...config }) =>
+    config.apiKey !== undefined ? config : { ...config, apiKey: existingById.get(config.id)?.apiKey },
+  );
+
   await upsertUserPreferences({
     userId: user.id,
-    preferences: { 'zetora-custom-providers': configs },
+    preferences: { 'zetora-custom-providers': merged },
   });
 
   clearUserPreferencesCache(user.id);
