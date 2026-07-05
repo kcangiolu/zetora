@@ -67,11 +67,9 @@ import { resolveTertiaryModel } from '@/ai/tertiary';
 import { GoogleGenerativeAIProviderOptions, GoogleLanguageModelOptions } from '@ai-sdk/google';
 import { unauthenticatedRateLimit, getClientIdentifier } from '@/lib/rate-limit';
 import { loadConfiguredTools } from '@/lib/search/tool-loader';
-import { graphitiClient, createGraphitiClient } from '@/lib/graphiti/client';
+import { ingestChatIntoGraphiti } from '@/lib/search/graphiti-ingest';
 import { CohereChatModelOptions } from '@ai-sdk/cohere';
 import { xai } from '@ai-sdk/xai';
-
-const ingestedMessageIds = new Set<string>();
 
 interface CriticalChecksResult {
   canProceed: boolean;
@@ -379,11 +377,6 @@ function initializeChatAndChecks({
   );
 
   return { criticalChecksPromise, chatInitializationPromise };
-}
-
-export async function getStreamContext() {
-  const { getResumableStreamClients } = await import('@/lib/redis');
-  return getResumableStreamClients();
 }
 
 export async function POST(req: Request) {
@@ -1763,88 +1756,12 @@ export async function POST(req: Request) {
       const episodeTitle = userQueryText ? userQueryText.slice(0, 100).replace(/\n/g, ' ').trim() : `chat-${id}`;
 
       // Graphiti ingestion — fire-and-forget, does not block response
-      const memoryProvider = userPreferencesResult?.preferences?.['zetora-memory-provider'] || 'supermemory';
-      if (memoryProvider === 'graphiti') {
-        const graphitiApiUrl = userPreferencesResult?.preferences?.['zetora-graphiti-api-url'] as string | undefined;
-        const client = graphitiApiUrl ? createGraphitiClient(graphitiApiUrl) : graphitiClient;
-
-        const chunkSizePref = userPreferencesResult?.preferences?.['zetora-graphiti-chunk-size'];
-        const chunkSize = typeof chunkSizePref === 'number' && chunkSizePref > 0 ? chunkSizePref : 8000;
-
-        const maxRetriesPref = userPreferencesResult?.preferences?.['zetora-graphiti-max-retries'];
-        const maxRetries = typeof maxRetriesPref === 'number' && maxRetriesPref >= 0 ? maxRetriesPref : 2;
-
-        const extractText = (parts: any[]): string =>
-          parts
-            .filter((p: any) => p.type === 'text' && typeof p.text === 'string' && p.text.trim())
-            .map((p: any) => p.text.trim())
-            .join(' ');
-
-        const newMessageIds = messagesToPersist.map((m: ChatMessage) => m.id);
-        const allAlreadyIngested = newMessageIds.every((mid: string) => ingestedMessageIds.has(mid));
-
-        if (allAlreadyIngested) {
-          console.log('[Graphiti] All messages already ingested, skipping');
-          return;
-        }
-
-        newMessageIds.forEach((mid: string) => ingestedMessageIds.add(mid));
-
-        // Periodic cleanup: clear the Set every 10000 IDs
-        if (ingestedMessageIds.size > 10000) {
-          const entries = [...ingestedMessageIds];
-          ingestedMessageIds.clear();
-          entries.slice(-5000).forEach((mid) => ingestedMessageIds.add(mid));
-        }
-
-        const rawBody = messagesToPersist
-          .filter((m: ChatMessage) => m.role === 'user' || m.role === 'assistant')
-          .map((m: ChatMessage) => {
-            const text = Array.isArray(m.parts) ? extractText(m.parts) : '';
-            return text ? `${m.role}: ${text}` : null;
-          })
-          .filter(Boolean)
-          .join('\n');
-
-        const episodeBody = cleanEpisodeBody(rawBody);
-
-        if (episodeBody) {
-          const chunks = splitIntoChunks(episodeBody, chunkSize);
-
-          // Send sequentially to avoid overloading Graphiti's LLM
-          (async () => {
-            for (let index = 0; index < chunks.length; index++) {
-              if (index > 0) {
-                // Pause de 2 secondes entre chaque chunk pour laisser le LLM respirer
-                await new Promise((resolve) => setTimeout(resolve, 2000));
-              }
-
-              try {
-                await ingestWithRetry(
-                  client,
-                  {
-                    name: `${episodeTitle}-part${index + 1}`,
-                    episodeBody: chunks[index],
-                    referenceTime: new Date().toISOString(),
-                    sourceDescription: 'Zetora conversation',
-                    groupId: lightweightUser.userId,
-                  },
-                  maxRetries,
-                  index,
-                );
-              } catch (err) {
-                console.error(
-                  `[Graphiti] Chunk ${index} ingestion failed after ${maxRetries} retries:`,
-                  err instanceof Error ? err.message : err,
-                );
-                // Continue avec les chunks suivants
-              }
-            }
-          })().catch((err) =>
-            console.error('[Graphiti] Batch ingestion failed:', err instanceof Error ? err.message : err),
-          );
-        }
-      }
+      ingestChatIntoGraphiti({
+        messages: messagesToPersist,
+        episodeTitle,
+        groupId: lightweightUser.userId,
+        preferences: userPreferencesResult?.preferences,
+      });
     },
   });
   const { getResumableStreamClients } = await import('@/lib/redis');
@@ -1864,69 +1781,4 @@ export async function POST(req: Request) {
   }
 
   return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
-}
-
-function cleanEpisodeBody(text: string): string {
-  return text
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    .replace(/^---$/gm, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
-function splitIntoChunks(text: string, maxChars: number): string[] {
-  if (text.length <= maxChars) return [text];
-
-  const chunks: string[] = [];
-  let remaining = text;
-
-  while (remaining.length > 0) {
-    if (remaining.length <= maxChars) {
-      chunks.push(remaining);
-      break;
-    }
-
-    let cutPoint = remaining.lastIndexOf('\n', maxChars);
-    if (cutPoint === -1 || cutPoint < maxChars / 2) {
-      cutPoint = remaining.lastIndexOf(' ', maxChars);
-    }
-    if (cutPoint === -1 || cutPoint < maxChars / 2) {
-      cutPoint = maxChars;
-    }
-
-    chunks.push(remaining.slice(0, cutPoint).trim());
-    remaining = remaining.slice(cutPoint).trim();
-  }
-
-  return chunks.filter((c) => c.length > 0);
-}
-
-async function ingestWithRetry(
-  client: ReturnType<typeof createGraphitiClient>,
-  episode: { name: string; episodeBody: string; referenceTime: string; sourceDescription: string; groupId: string },
-  maxRetries: number,
-  chunkIndex: number,
-): Promise<void> {
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      await client.addEpisode(episode);
-      return;
-    } catch (error) {
-      const isLastAttempt = attempt === maxRetries;
-      const errorMsg = error instanceof Error ? error.message : String(error);
-
-      const isRetryable =
-        errorMsg.includes('empty response') || errorMsg.includes('Expecting value') || errorMsg.includes('char 0');
-
-      if (isRetryable && !isLastAttempt) {
-        console.warn(
-          `[Graphiti] Chunk ${chunkIndex} attempt ${attempt + 1}/${maxRetries + 1} failed, retrying in ${500 * (attempt + 1)}ms...`,
-        );
-        await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
-        continue;
-      }
-
-      throw error;
-    }
-  }
 }
