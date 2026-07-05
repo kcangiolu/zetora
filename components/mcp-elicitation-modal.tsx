@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -280,8 +280,8 @@ interface McpElicitationModalProps {
 }
 
 export function McpElicitationModal({ elicitation, onClose }: McpElicitationModalProps) {
-  const schema = parseSchema(elicitation?.requestedSchema);
-  const properties = schema.properties ?? {};
+  const schema = useMemo(() => parseSchema(elicitation?.requestedSchema), [elicitation?.requestedSchema]);
+  const properties = useMemo<Record<string, SchemaProperty>>(() => schema.properties ?? {}, [schema]);
   const requiredFields = schema.required ?? [];
 
   const [values, setValues] = useState<Record<string, unknown>>(() =>

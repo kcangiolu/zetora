@@ -825,7 +825,7 @@ const ChatInterface = memo(
         setLocalChatTitle(chatMeta.title);
         setTitleInput(chatMeta.title);
       }
-    }, [chatMeta?.title, isEditingTitle]);
+    }, [chatMeta?.title, isEditingTitle, localChatTitle]);
 
     // Handle text highlighting and quoting
     const handleHighlight = useCallback(
@@ -1186,7 +1186,7 @@ const ChatInterface = memo(
           console.log('🍞 Error toast shown: Failed to update chat visibility');
         }
       },
-      [chatId],
+      [chatId, queryClient, user],
     );
 
     // Keyboard shortcut for temporary chat toggle (⌘⇧J)

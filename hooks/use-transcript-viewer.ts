@@ -196,12 +196,20 @@ function useTranscriptViewer({
 
   const [currentWordIndex, setCurrentWordIndex] = useState<number>(() => (words.length ? 0 : -1));
 
-  useEffect(() => {
+  // Reset playback state when a new transcript loads — done during render
+  // (React's "adjusting state when props change" pattern) instead of in an
+  // effect, so there is no extra committed frame with stale state.
+  const [prevTranscript, setPrevTranscript] = useState<{ alignment: typeof alignment; duration: number }>({
+    alignment,
+    duration: guessedDuration,
+  });
+  if (prevTranscript.alignment !== alignment || prevTranscript.duration !== guessedDuration) {
+    setPrevTranscript({ alignment, duration: guessedDuration });
     setCurrentTime(0);
     setDuration(guessedDuration);
     setIsPlaying(false);
     setCurrentWordIndex(words.length ? 0 : -1);
-  }, [words.length, alignment, guessedDuration]);
+  }
 
   const findWordIndex = useCallback(
     (time: number) => {

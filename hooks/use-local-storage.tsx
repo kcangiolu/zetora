@@ -1,91 +1,72 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 
-// Get the initial value synchronously during initialization
-function getStoredValue<T>(key: string, defaultValue: T): T {
-  // Always return defaultValue on server-side
-  if (typeof window === 'undefined') return defaultValue;
+// Parse cache keyed by storage key so getSnapshot returns a stable identity
+// for unchanged raw values (useSyncExternalStore requires cached snapshots).
+const parseCache = new Map<string, { raw: string; value: unknown }>();
 
-  const item = localStorage.getItem(key);
-  if (!item) return defaultValue;
+function readStoredValue<T>(key: string, defaultValue: T): T {
+  const raw = localStorage.getItem(key);
+  if (raw === null || raw === 'undefined') return defaultValue;
 
-  // Handle special case for undefined
-  if (item === 'undefined') return defaultValue;
+  const cached = parseCache.get(key);
+  if (cached && cached.raw === raw) return cached.value as T;
 
+  let value: unknown;
   try {
-    return JSON.parse(item);
+    value = JSON.parse(raw);
   } catch {
-    return item as unknown as T;
+    value = raw;
   }
+  parseCache.set(key, { raw, value });
+  return value as T;
+}
+
+function subscribeToKey(key: string, onStoreChange: () => void) {
+  // Cross-tab updates
+  const handleStorageChange = (e: StorageEvent) => {
+    if (e.key === key) onStoreChange();
+  };
+  // Same-tab updates (dispatched by setValue below)
+  const handleCustomStorageChange = (e: Event) => {
+    if ((e as CustomEvent).detail?.key === key) onStoreChange();
+  };
+
+  window.addEventListener('storage', handleStorageChange);
+  window.addEventListener('localStorage-change', handleCustomStorageChange);
+  return () => {
+    window.removeEventListener('storage', handleStorageChange);
+    window.removeEventListener('localStorage-change', handleCustomStorageChange);
+  };
 }
 
 export function useLocalStorage<T>(key: string, defaultValue: T): [T, (value: T | ((val: T) => T)) => void] {
-  // Always start with defaultValue so the first client render matches the server
-  // render, then load the persisted value after mount to avoid hydration mismatches.
-  const [storedValue, setStoredValue] = useState<T>(defaultValue);
+  const subscribe = useCallback((onStoreChange: () => void) => subscribeToKey(key, onStoreChange), [key]);
 
-  useEffect(() => {
-    setStoredValue(getStoredValue(key, defaultValue));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
-
-  // Listen for storage changes from other components/tabs
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === key && e.newValue !== null) {
-        try {
-          const newValue = JSON.parse(e.newValue);
-          setStoredValue(newValue);
-        } catch {
-          // If parsing fails, use the raw value
-          setStoredValue(e.newValue as unknown as T);
-        }
-      }
-    };
-
-    // Listen for custom events (for same-tab updates)
-    const handleCustomStorageChange = (e: CustomEvent) => {
-      if (e.detail.key === key) {
-        setStoredValue(e.detail.value);
-      }
-    };
-
-    // Add event listeners
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('localStorage-change', handleCustomStorageChange as EventListener);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('localStorage-change', handleCustomStorageChange as EventListener);
-    };
-  }, [key]);
+  // Server snapshot is the default so hydration matches SSR output; the real
+  // stored value is read on the client without a post-mount setState pass.
+  const storedValue = useSyncExternalStore(
+    subscribe,
+    () => readStoredValue(key, defaultValue),
+    () => defaultValue,
+  );
 
   const setValue = useCallback(
     (value: T | ((val: T) => T)) => {
       try {
-        const nextValue = value instanceof Function ? value(storedValue) : value;
-        // Update React state
-        setStoredValue(nextValue);
-        // Update localStorage
-        if (typeof window !== 'undefined') {
-          if (nextValue === undefined) {
-            localStorage.removeItem(key);
-          } else {
-            localStorage.setItem(key, JSON.stringify(nextValue));
-          }
-
-          // Dispatch custom event for same-tab synchronization
-          const customEvent = new CustomEvent('localStorage-change', {
-            detail: { key, value: nextValue },
-          });
-          window.dispatchEvent(customEvent);
+        const nextValue = value instanceof Function ? value(readStoredValue(key, defaultValue)) : value;
+        if (nextValue === undefined) {
+          localStorage.removeItem(key);
+        } else {
+          localStorage.setItem(key, JSON.stringify(nextValue));
         }
+
+        // Notify same-tab subscribers ('storage' only fires across tabs)
+        window.dispatchEvent(new CustomEvent('localStorage-change', { detail: { key, value: nextValue } }));
       } catch (error) {
         console.warn(`Error saving to localStorage key "${key}":`, error);
       }
     },
-    [key, storedValue],
+    [key, defaultValue],
   );
 
   return [storedValue, setValue];

@@ -3645,7 +3645,7 @@ export function UploadsSection() {
     staleTime: 1000 * 60,
   });
 
-  const allFiles = data?.pages.flatMap((p) => p.files) ?? [];
+  const allFiles = useMemo(() => data?.pages.flatMap((p) => p.files) ?? [], [data?.pages]);
 
   // Derived counts per filter
   const counts = useMemo(

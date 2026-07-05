@@ -827,7 +827,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       }
 
       return modelsToShow;
-    }, [filteredModels, selectedProvider, isProUser, isMaxUser, user, preferredModels]);
+    }, [filteredModels, isProUser, isMaxUser, user, preferredModels]);
 
     const rankedModels = useMemo(() => {
       const query = searchQuery.trim();
@@ -974,7 +974,17 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
         console.log(`Auto-switching from pro model '${selectedModel}' to 'zetora-default' - user lost pro access`);
         setSelectedModel('zetora-default');
       }
-    }, [selectedModel, isProUser, isMaxUser, isSubscriptionLoading, setSelectedModel, countryCode, user, currentModel]);
+    }, [
+      selectedModel,
+      isProUser,
+      isMaxUser,
+      isSubscriptionLoading,
+      setSelectedModel,
+      countryCode,
+      user,
+      currentModel,
+      availableModels,
+    ]);
 
     const handleModelChange = useCallback(
       (value: string) => {
@@ -1018,7 +1028,18 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
           onModelSelect(model);
         }
       },
-      [availableModels, user, isProUser, isMaxUser, isSubscriptionLoading, setSelectedModel, onModelSelect, haptics],
+      [
+        availableModels,
+        user,
+        isProUser,
+        isMaxUser,
+        isSubscriptionLoading,
+        setSelectedModel,
+        onModelSelect,
+        haptics,
+        setSelectedProModel,
+        setShowUpgradeDialog,
+      ],
     );
 
     const [enabledProviders, setEnabledProviders] = useState<string[] | null>(null);
@@ -1197,6 +1218,9 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
         handleModelChange,
         activeProviders,
         selectedProvider,
+        setOpen,
+        setSelectedProModel,
+        setShowUpgradeDialog,
       ],
     );
 
@@ -1703,7 +1727,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
           });
         }
       },
-      [externalInputRef, haptics],
+      [externalInputRef, haptics, setOpen],
     );
 
     const handlePopoverOpenChange = useCallback(
@@ -1711,7 +1735,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
         setOpen(nextOpen);
         if (nextOpen) haptics.trigger('light');
       },
-      [haptics],
+      [haptics, setOpen],
     );
 
     return (
@@ -2435,7 +2459,7 @@ const McpServerSelector: React.FC<McpServerSelectorProps> = React.memo(({ user, 
     staleTime: 10_000,
   });
 
-  const servers = data?.servers ?? [];
+  const servers = useMemo(() => data?.servers ?? [], [data?.servers]);
   // Only count servers that are actually usable (OAuth servers must be connected)
   const isReady = (s: { authType: string; isOAuthConnected: boolean }) => s.authType !== 'oauth' || s.isOAuthConnected;
   const enabledCount = servers.filter((s) => s.isEnabled && isReady(s)).length;
@@ -3063,7 +3087,15 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
           onGroupSelect(extremeGroup);
         }
       }
-    }, [isExtreme, onGroupSelect, dynamicSearchGroups, isAuthenticated, isProUser, extremeSearchCountExceeded]);
+    }, [
+      isExtreme,
+      onGroupSelect,
+      dynamicSearchGroups,
+      isAuthenticated,
+      isProUser,
+      extremeSearchCountExceeded,
+      onShowUpgrade,
+    ]);
 
     const handleWebProviderChange = useCallback(
       (provider: SearchProvider) => {
@@ -3112,7 +3144,7 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
           setOpen(false);
         }
       },
-      [visibleGroups, isProUser, onOpenSettings, isAuthenticated, onGroupSelect],
+      [visibleGroups, isProUser, onOpenSettings, isAuthenticated, onGroupSelect, onShowUpgrade],
     );
 
     // Handle opening the dropdown/drawer
@@ -3993,7 +4025,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
     isProcessing,
     isProUser,
     setInput,
-    inputRef,
     typewriterText,
     isEnhancing,
     setShowUpgradeDialog,
@@ -4298,7 +4329,17 @@ const FormComponent: React.FC<FormComponentProps> = ({
         inputRef.current?.focus();
       }
     },
-    [setSelectedGroup, inputRef, isEnhancing, isTypewriting, selectedModel, setSelectedModel, user, isProUser],
+    [
+      setSelectedGroup,
+      inputRef,
+      isEnhancing,
+      isTypewriting,
+      selectedModel,
+      setSelectedModel,
+      user,
+      isProUser,
+      setIsMultiAgentModeEnabled,
+    ],
   );
 
   // Handle trigger popup group selection: switch mode + strip the trigger text from input
@@ -4433,7 +4474,17 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
     setTriggerPopup(null);
     setTriggerFilter('');
-  }, [setIsMultiAgentModeEnabled, isProUser, triggerPopup, inputRef, setInput, setShowUpgradeDialog, setSelectedGroup]);
+  }, [
+    setIsMultiAgentModeEnabled,
+    isProUser,
+    triggerPopup,
+    inputRef,
+    setInput,
+    setShowUpgradeDialog,
+    setSelectedGroup,
+    isMultiAgentModeEnabled,
+    selectedGroup,
+  ]);
 
   const handleConnectorToggle = useCallback(
     (provider: ConnectorProvider) => {
@@ -4713,7 +4764,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
         event.target.value = '';
       }
     },
-    [attachments.length, setAttachments, selectedModel, setSelectedModel, isProUser, uploadFile],
+    [attachments.length, setAttachments, isProUser, uploadFile],
   );
 
   const removeAttachment = useCallback(
@@ -5183,6 +5234,11 @@ const FormComponent: React.FC<FormComponentProps> = ({
     inputRef,
     setHasSubmitted,
     lastSubmittedQueryRef,
+    formQueryClient,
+    isMultiAgentModeEnabled,
+    isProUser,
+    onBeforeSubmit,
+    selectedGroup,
   ]);
 
   const submitForm = useCallback(() => executeSubmit(), [executeSubmit]);

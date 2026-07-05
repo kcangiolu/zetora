@@ -534,7 +534,7 @@ export const AppSidebar = memo(({ user, onHistoryClick, isProUser }: AppSidebarP
     refetchOnReconnect: true,
   });
 
-  const recentChats = chatsData?.chats || [];
+  const recentChats = useMemo(() => chatsData?.chats || [], [chatsData?.chats]);
 
   const pinnedRecentChats = useMemo(() => recentChats.filter((chat) => chat.isPinned), [recentChats]);
 

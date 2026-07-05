@@ -1047,7 +1047,7 @@ export const BuildWebSearchResult = memo(function BuildWebSearchResult({
   state: string;
   annotations: DataBuildSearchPart[];
 }) {
-  const queries = input?.queries ?? [];
+  const queries = useMemo(() => input?.queries ?? [], [input?.queries]);
   const inputActionTitle = input?.actionTitle as string | undefined;
   const [isOpen, setIsOpen] = useState(true);
 
@@ -1082,7 +1082,7 @@ export const BuildWebSearchResult = memo(function BuildWebSearchResult({
       isDone: allCompleted,
       actionTitle: latestActionTitle ?? inputActionTitle,
     };
-  }, [annotations, state, queries, inputActionTitle]);
+  }, [annotations, state, queries, inputActionTitle, result]);
 
   return (
     <div className="relative ml-4">

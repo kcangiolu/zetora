@@ -1014,7 +1014,7 @@ function McpAppOutputBlock({
     return () => {
       cancelled = true;
     };
-  }, [app.kind, app.resourceUri, app.serverId, app.html]);
+  }, [app.kind, app.resourceUri, app.serverId, app.html, app.toolName, sandboxUrl]);
 
   useEffect(() => {
     if (app.kind !== 'ui-resource' || !app.serverId) return;
@@ -1764,15 +1764,21 @@ function McpInlineElicitationCard({
 }) {
   const [submitting, setSubmitting] = useState<'accept' | 'decline' | 'cancel' | null>(null);
   const schema = useMemo(() => parseInlineSchema(elicitation.requestedSchema), [elicitation.requestedSchema]);
-  const properties = schema.properties ?? {};
+  const properties = useMemo(() => schema.properties ?? {}, [schema]);
   const requiredFields = schema.required ?? [];
   const hasFields = elicitation.mode === 'form' && Object.keys(properties).length > 0;
-  const [values, setValues] = useState<Record<string, unknown>>({});
 
-  useEffect(() => {
-    const nextValues = Object.fromEntries(Object.entries(properties).map(([k, p]) => [k, getInlineDefaultValue(p)]));
-    setValues(nextValues);
-  }, [elicitation.elicitationId, properties]);
+  const computeDefaultValues = () =>
+    Object.fromEntries(Object.entries(properties).map(([k, p]) => [k, getInlineDefaultValue(p)]));
+  const [values, setValues] = useState<Record<string, unknown>>(computeDefaultValues);
+
+  // Reset the form when a new elicitation (or schema) arrives — render-phase
+  // adjustment instead of an effect, so no stale-values frame is committed.
+  const [prevElicitation, setPrevElicitation] = useState({ id: elicitation.elicitationId, properties });
+  if (prevElicitation.id !== elicitation.elicitationId || prevElicitation.properties !== properties) {
+    setPrevElicitation({ id: elicitation.elicitationId, properties });
+    setValues(computeDefaultValues());
+  }
 
   const respond = async (action: 'accept' | 'decline' | 'cancel') => {
     if (submitting) return;
