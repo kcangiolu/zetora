@@ -558,8 +558,13 @@ services:
       context: ./tts-service
       dockerfile: Dockerfile
       args:
+        CUDA_IMAGE: ${TTS_CUDA_IMAGE:-nvidia/cuda:13.1.2-runtime-ubuntu24.04}
         TORCH_CUDA_BUILD: ${TTS_TORCH_CUDA_BUILD:-cu130}
         TORCH_VERSION: ${TTS_TORCH_VERSION:-2.9.1}
+        # flash-attn: prebuilt (default, covers RTX 3090 + 5060 Ti) | compile | none.
+        # 'compile' also needs TTS_CUDA_IMAGE set to a -devel image (for nvcc).
+        FLASH_ATTN_MODE: ${TTS_FLASH_ATTN_MODE:-prebuilt}
+        FLASH_ATTN_ARCH_LIST: ${TTS_FLASH_ATTN_ARCH_LIST:-8.0;8.6;8.9;9.0;10.0;12.0}
     container_name: zetora-qwen3-tts
     runtime: nvidia
     ports:

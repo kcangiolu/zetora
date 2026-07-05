@@ -56,3 +56,5 @@ video/node_modules
 
 # docker-compose runtime data
 /minio-data/
+# Local-only compose override (WSL libcuda fix, machine-specific)
+docker-compose.override.yml

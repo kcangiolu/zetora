@@ -51,13 +51,43 @@ LANG_MAP = {
     "korean": "Korean", "ko": "Korean",
 }
 
-HAS_FLASH_ATTN = False
+# flash-attn s'IMPORTE même si aucun kernel n'est compilé pour l'archi du GPU
+# courant (une wheel construite sans sm_120 s'importe très bien sur une
+# Blackwell RTX 5060 Ti, puis crashe au premier forward). L'import ne prouve
+# donc rien : la seule certitude vient d'un vrai kernel exécuté sur le device.
+# HAS_FLASH_ATTN est fixé au démarrage par _flash_attn_usable(), dans le thread
+# CUDA. Ça rend une image unique universelle : flash là où le kernel existe,
+# SDPA en repli, sans crash — RTX 3090 (sm_86) comme RTX 5060 Ti (sm_120).
+_FLASH_IMPORTED = False
 try:
     import flash_attn
-    HAS_FLASH_ATTN = True
-    logger.info("flash-attn detected: %s", flash_attn.__version__)
+    _FLASH_IMPORTED = True
+    logger.info("flash-attn present: %s (kernel probe pending)", flash_attn.__version__)
 except ImportError:
     logger.info("flash-attn not installed, using SDPA backend")
+
+HAS_FLASH_ATTN = False
+
+
+def _flash_attn_usable() -> bool:
+    """Teste un vrai kernel flash-attn sur le GPU. Seul un forward réussi
+    prouve que la wheel couvre l'architecture de CE device."""
+    if not _FLASH_IMPORTED:
+        return False
+    try:
+        from flash_attn import flash_attn_func
+        q = torch.zeros(1, 2, 8, 64, dtype=torch.bfloat16, device="cuda")
+        flash_attn_func(q, q, q)
+        torch.cuda.synchronize()
+        logger.info("flash-attn kernel OK on %s", torch.cuda.get_device_name(0))
+        return True
+    except Exception as e:
+        logger.warning(
+            "flash-attn imported but unusable on this GPU (%s: %s) — falling "
+            "back to SDPA. GPU=%s",
+            type(e).__name__, e, torch.cuda.get_device_name(0),
+        )
+        return False
 
 
 class SpeechRequest(BaseModel):
@@ -168,8 +198,11 @@ def _save_wav(voice: str, pcm_chunks: list, sample_rate: int) -> None:
 # ── Startup (inside the CUDA thread) ───────────────────────────
 
 def _do_startup():
-    global model, warmup_prompt
+    global model, warmup_prompt, HAS_FLASH_ATTN
     from qwen_tts import Qwen3TTSModel
+
+    # Probe le kernel sur le device réel (thread CUDA) avant de choisir le backend.
+    HAS_FLASH_ATTN = _flash_attn_usable()
 
     logger.info("Loading model %s on GPU...", MODEL_ID)
     load_kwargs = {"torch_dtype": torch.bfloat16, "device_map": "cuda"}
