@@ -72,7 +72,9 @@ export default function XWrappedPage() {
               Username
             </label>
             <div className="relative">
-              <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground">@</span>
+              <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground">
+                @
+              </span>
               <Input
                 id="username"
                 type="text"

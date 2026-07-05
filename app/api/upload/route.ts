@@ -69,7 +69,10 @@ const DeleteRequestSchema = z.object({
 
 // Only allow alphanumeric + a few safe chars as file extension to prevent key injection
 function sanitizeExtension(raw: string): string {
-  const cleaned = raw.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().slice(0, 10);
+  const cleaned = raw
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .toLowerCase()
+    .slice(0, 10);
   return cleaned || 'bin';
 }
 
@@ -140,26 +143,31 @@ export async function GET(request: NextRequest) {
   // can automatically maximise parallelism across the four tasks.
   // Errors in r2List / dbQuery are caught internally so dependent tasks always
   // receive a safe fallback — the overall `all()` never rejects.
-  const { r2Res, r2Files, legacyFiles } = await all({
-    // ── Independent sources ── start immediately in parallel ──────────────
-    async r2List() {
-      try {
-        return await storageClient.send(new ListObjectsV2Command({
-          Bucket: STORAGE_BUCKET_NAME,
-          Prefix: prefix,
-          MaxKeys: maxKeys,
-          ContinuationToken: continuationToken,
-        }));
-      } catch (e) {
-        console.error('R2 list error:', e);
-        return null;
-      }
-    },
+  const { r2Res, r2Files, legacyFiles } = await all(
+    {
+      // ── Independent sources ── start immediately in parallel ──────────────
+      async r2List() {
+        try {
+          return await storageClient.send(
+            new ListObjectsV2Command({
+              Bucket: STORAGE_BUCKET_NAME,
+              Prefix: prefix,
+              MaxKeys: maxKeys,
+              ContinuationToken: continuationToken,
+            }),
+          );
+        } catch (e) {
+          console.error('R2 list error:', e);
+          return null;
+        }
+      },
 
-    async dbQuery() {
-      try {
-        if (continuationToken) return [] as DbFileRow[];
-        return await db.execute<DbFileRow>(sql`
+      async dbQuery() {
+        try {
+          if (continuationToken) return [] as DbFileRow[];
+          return await db
+            .execute<DbFileRow>(
+              sql`
             SELECT DISTINCT ON (elem->>'url')
               m.chat_id          AS "chatId",
               elem->>'url'       AS url,
@@ -177,112 +185,119 @@ export async function GET(request: NextRequest) {
             )
             ORDER BY elem->>'url', m.created_at DESC
             LIMIT 200
-          `).then((r) => r.rows);
-      } catch (e) {
-        console.error('DB file query error:', e);
-        return [] as DbFileRow[];
-      }
-    },
-
-    // ── r2Res ── alias so callers can read pagination metadata ────────────
-    async r2Res() {
-      return await this.$.r2List;
-    },
-
-    // ── r2Files ── waits for r2List + dbQuery to enrich with metadata ──────
-    async r2Files() {
-      const r2Result = await this.$.r2List;
-      const dbRows   = await this.$.dbQuery;
-
-      const dbMeta = new Map<string, DbFileRow>();
-      for (const row of dbRows) dbMeta.set(row.url, row);
-
-      return (r2Result?.Contents ?? []).map((obj) => {
-        const url  = `${STORAGE_PUBLIC_URL}/${obj.Key}`;
-        const meta = dbMeta.get(url);
-        return {
-          key:          obj.Key!,
-          url,
-          size:         obj.Size ?? 0,
-          lastModified: obj.LastModified?.toISOString() ?? null,
-          filename:     meta?.name || (obj.Key!.split('/').pop() ?? obj.Key!),
-          mediaType:    meta?.mediaType ?? null,
-          chatId:       meta?.chatId ?? null,
-          source:       'r2' as const,
-        } satisfies UploadedFile;
-      });
-    },
-
-    // ── legacyFiles ── waits for r2Files + dbQuery, then fires HeadObjects ─
-    async legacyFiles() {
-      const r2Built    = await this.$.r2Files;
-      const dbRows     = await this.$.dbQuery;
-
-      const r2Urls     = new Set(r2Built.map((f) => f.url));
-      const legacyRows = dbRows.filter((r) => !r2Urls.has(r.url));
-
-      const r2LegacyRows   = legacyRows.filter((r) => !isVercelBlobUrl(r.url)).slice(0, 20);
-      const blobLegacyRows = legacyRows.filter((r) => isVercelBlobUrl(r.url)).slice(0, 20);
-
-      // Fetch metadata for both storage types in parallel
-      const metaMap = Object.keys({ ...r2LegacyRows, ...blobLegacyRows }).length > 0
-        ? await all(
-            {
-              ...Object.fromEntries(
-                r2LegacyRows.map((r, i) => [
-                  `r2:${i}`,
-                  async () => storageClient.send(new HeadObjectCommand({
-                    Bucket: STORAGE_BUCKET_NAME,
-                    Key: new URL(r.url).pathname.slice(1),
-                  })).catch(() => null),
-                ]),
-              ),
-              ...Object.fromEntries(
-                blobLegacyRows.map((r, i) => [
-                  `blob:${i}`,
-                  async () => blobHead(r.url).catch(() => null),
-                ]),
-              ),
-            },
-            getBetterAllOptions(),
-          )
-        : {} as Record<string, null>;
-
-      return legacyRows.map((r) => {
-        const isBlob = isVercelBlobUrl(r.url);
-        let size = 0;
-        let lastModified: string | null = null;
-
-        if (isBlob) {
-          const idx  = blobLegacyRows.findIndex((lr) => lr.url === r.url);
-          const meta = idx >= 0 ? metaMap[`blob:${idx}`] : null;
-          size         = (meta as any)?.size ?? 0;
-          lastModified = (meta as any)?.uploadedAt ? new Date((meta as any).uploadedAt).toISOString() : null;
-        } else {
-          const idx  = r2LegacyRows.findIndex((lr) => lr.url === r.url);
-          const meta = idx >= 0 ? metaMap[`r2:${idx}`] : null;
-          size         = (meta as any)?.ContentLength ?? 0;
-          lastModified = (meta as any)?.LastModified ? new Date((meta as any).LastModified).toISOString() : null;
+          `,
+            )
+            .then((r) => r.rows);
+        } catch (e) {
+          console.error('DB file query error:', e);
+          return [] as DbFileRow[];
         }
+      },
 
-        const key = isBlob ? r.url : r.url.replace(`${STORAGE_PUBLIC_URL}/`, '');
-        return {
-          key,
-          url:          r.url,
-          size,
-          lastModified,
-          filename:     r.name ?? key.split('/').pop() ?? key,
-          mediaType:    r.mediaType ?? null,
-          chatId:       r.chatId,
-          source:       (isBlob ? 'vercel-blob' : 'legacy') as UploadedFile['source'],
-        } satisfies UploadedFile;
-      });
+      // ── r2Res ── alias so callers can read pagination metadata ────────────
+      async r2Res() {
+        return await this.$.r2List;
+      },
+
+      // ── r2Files ── waits for r2List + dbQuery to enrich with metadata ──────
+      async r2Files() {
+        const r2Result = await this.$.r2List;
+        const dbRows = await this.$.dbQuery;
+
+        const dbMeta = new Map<string, DbFileRow>();
+        for (const row of dbRows) dbMeta.set(row.url, row);
+
+        return (r2Result?.Contents ?? []).map((obj) => {
+          const url = `${STORAGE_PUBLIC_URL}/${obj.Key}`;
+          const meta = dbMeta.get(url);
+          return {
+            key: obj.Key!,
+            url,
+            size: obj.Size ?? 0,
+            lastModified: obj.LastModified?.toISOString() ?? null,
+            filename: meta?.name || (obj.Key!.split('/').pop() ?? obj.Key!),
+            mediaType: meta?.mediaType ?? null,
+            chatId: meta?.chatId ?? null,
+            source: 'r2' as const,
+          } satisfies UploadedFile;
+        });
+      },
+
+      // ── legacyFiles ── waits for r2Files + dbQuery, then fires HeadObjects ─
+      async legacyFiles() {
+        const r2Built = await this.$.r2Files;
+        const dbRows = await this.$.dbQuery;
+
+        const r2Urls = new Set(r2Built.map((f) => f.url));
+        const legacyRows = dbRows.filter((r) => !r2Urls.has(r.url));
+
+        const r2LegacyRows = legacyRows.filter((r) => !isVercelBlobUrl(r.url)).slice(0, 20);
+        const blobLegacyRows = legacyRows.filter((r) => isVercelBlobUrl(r.url)).slice(0, 20);
+
+        // Fetch metadata for both storage types in parallel
+        const metaMap =
+          Object.keys({ ...r2LegacyRows, ...blobLegacyRows }).length > 0
+            ? await all(
+                {
+                  ...Object.fromEntries(
+                    r2LegacyRows.map((r, i) => [
+                      `r2:${i}`,
+                      async () =>
+                        storageClient
+                          .send(
+                            new HeadObjectCommand({
+                              Bucket: STORAGE_BUCKET_NAME,
+                              Key: new URL(r.url).pathname.slice(1),
+                            }),
+                          )
+                          .catch(() => null),
+                    ]),
+                  ),
+                  ...Object.fromEntries(
+                    blobLegacyRows.map((r, i) => [`blob:${i}`, async () => blobHead(r.url).catch(() => null)]),
+                  ),
+                },
+                getBetterAllOptions(),
+              )
+            : ({} as Record<string, null>);
+
+        return legacyRows.map((r) => {
+          const isBlob = isVercelBlobUrl(r.url);
+          let size = 0;
+          let lastModified: string | null = null;
+
+          if (isBlob) {
+            const idx = blobLegacyRows.findIndex((lr) => lr.url === r.url);
+            const meta = idx >= 0 ? metaMap[`blob:${idx}`] : null;
+            size = (meta as any)?.size ?? 0;
+            lastModified = (meta as any)?.uploadedAt ? new Date((meta as any).uploadedAt).toISOString() : null;
+          } else {
+            const idx = r2LegacyRows.findIndex((lr) => lr.url === r.url);
+            const meta = idx >= 0 ? metaMap[`r2:${idx}`] : null;
+            size = (meta as any)?.ContentLength ?? 0;
+            lastModified = (meta as any)?.LastModified ? new Date((meta as any).LastModified).toISOString() : null;
+          }
+
+          const key = isBlob ? r.url : r.url.replace(`${STORAGE_PUBLIC_URL}/`, '');
+          return {
+            key,
+            url: r.url,
+            size,
+            lastModified,
+            filename: r.name ?? key.split('/').pop() ?? key,
+            mediaType: r.mediaType ?? null,
+            chatId: r.chatId,
+            source: (isBlob ? 'vercel-blob' : 'legacy') as UploadedFile['source'],
+          } satisfies UploadedFile;
+        });
+      },
     },
-  }, getBetterAllOptions());
+    getBetterAllOptions(),
+  );
 
-  const nextCursor  = r2Res?.NextContinuationToken ?? null;
+  const nextCursor = r2Res?.NextContinuationToken ?? null;
   const isTruncated = r2Res?.IsTruncated ?? false;
-  const files       = [...r2Files, ...legacyFiles];
+  const files = [...r2Files, ...legacyFiles];
 
   return NextResponse.json(
     { files, nextCursor, isTruncated },
@@ -308,10 +323,7 @@ export async function POST(request: NextRequest) {
     const validated = UploadRequestSchema.safeParse(body);
 
     if (!validated.success) {
-      return NextResponse.json(
-        { error: validated.error.issues[0]?.message || 'Invalid request' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: validated.error.issues[0]?.message || 'Invalid request' }, { status: 400 });
     }
 
     const { filename, contentType, size } = validated.data;
@@ -356,10 +368,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error generating presigned URL:', error);
-    return NextResponse.json(
-      { error: 'Failed to generate upload URL' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to generate upload URL' }, { status: 500 });
   }
 }
 
@@ -395,8 +404,8 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Ownership check via DB for all non-new-format files
-    const r2Key       = isBlob ? '' : new URL(url).pathname.slice(1);
-    const isOwnR2Key  = !isBlob && r2Key.startsWith(`zetora/users/${userId}/`);
+    const r2Key = isBlob ? '' : new URL(url).pathname.slice(1);
+    const isOwnR2Key = !isBlob && r2Key.startsWith(`zetora/users/${userId}/`);
 
     if (!isOwnR2Key) {
       const rows = await db
@@ -404,11 +413,7 @@ export async function DELETE(request: NextRequest) {
         .from(message)
         .innerJoin(chat, eq(message.chatId, chat.id))
         .where(
-          and(
-            eq(chat.userId, userId),
-            eq(message.role, 'user'),
-            sql`${message.parts}::text LIKE ${'%' + url + '%'}`,
-          ),
+          and(eq(chat.userId, userId), eq(message.role, 'user'), sql`${message.parts}::text LIKE ${'%' + url + '%'}`),
         )
         .limit(1);
 

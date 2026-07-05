@@ -30,11 +30,11 @@ try {
   // client.query() never opens one implicitly — this is safe.
   const statements = indexSql
     .split('\n')
-    .filter(line => !line.trim().startsWith('--'))
+    .filter((line) => !line.trim().startsWith('--'))
     .join('\n')
     .split(';')
-    .map(s => s.trim())
-    .filter(s => s.length > 0);
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
 
   for (const stmt of statements) {
     await client.query(stmt);

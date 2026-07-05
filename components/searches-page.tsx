@@ -31,7 +31,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Globe, MoreHorizontal, Check, Pencil, Trash2, Share2, Lock, Plus, Pin, PinOff, Clock, Cpu, ChevronDown } from 'lucide-react';
+import {
+  Globe,
+  MoreHorizontal,
+  Check,
+  Pencil,
+  Trash2,
+  Share2,
+  Lock,
+  Plus,
+  Pin,
+  PinOff,
+  Clock,
+  Cpu,
+  ChevronDown,
+} from 'lucide-react';
 import { sileo } from 'sileo';
 import Link from 'next/link';
 import {
@@ -123,13 +137,15 @@ function advancedSearch(
 
   if (query.startsWith('public:')) return chat.visibility === 'public' && fuzzySearch(query.slice(7), chat.title);
   if (query.startsWith('private:')) return chat.visibility === 'private' && fuzzySearch(query.slice(8), chat.title);
-  if (query.startsWith('today:')) return isToday(new Date(chat.updatedAt || chat.createdAt)) && fuzzySearch(query.slice(6), chat.title);
+  if (query.startsWith('today:'))
+    return isToday(new Date(chat.updatedAt || chat.createdAt)) && fuzzySearch(query.slice(6), chat.title);
   if (query.startsWith('week:')) {
     const chatDate = new Date(chat.updatedAt || chat.createdAt);
     const daysDiff = differenceInDays(new Date(), chatDate);
     return daysDiff >= 0 && daysDiff <= 7 && fuzzySearch(query.slice(5), chat.title);
   }
-  if (query.startsWith('month:')) return isThisMonth(new Date(chat.updatedAt || chat.createdAt)) && fuzzySearch(query.slice(6), chat.title);
+  if (query.startsWith('month:'))
+    return isThisMonth(new Date(chat.updatedAt || chat.createdAt)) && fuzzySearch(query.slice(6), chat.title);
 
   return fuzzySearch(query, chat.title);
 }
@@ -230,7 +246,8 @@ export function SearchesPage({ userId }: SearchesPageProps) {
   }, [displayedChats]);
 
   const hasMore = !!hasNextPage;
-  const hasActiveFilters = visibilityFilter !== 'all' || dateFilter !== 'all' || searchQuery.length > 0 || sortOrder !== 'newest';
+  const hasActiveFilters =
+    visibilityFilter !== 'all' || dateFilter !== 'all' || searchQuery.length > 0 || sortOrder !== 'newest';
 
   const toggleChatSelection = useCallback((chatId: string) => {
     setSelectedChatIds((prev) => {
@@ -393,40 +410,41 @@ export function SearchesPage({ userId }: SearchesPageProps) {
         )}
         <div className="flex items-start py-4 px-1">
           <Link href={`/search/${chat.id}`} className="flex-1 min-w-0 space-y-1.5 pr-8">
-          {/* Title */}
-          <div className="flex items-center gap-1.5">
-            <p className="text-[15px] font-medium leading-snug truncate group-hover:text-primary transition-colors duration-150">
-              {chat.title}
-            </p>
-            {chat.isPinned && <Pin className="size-3 shrink-0 text-muted-foreground/40 fill-muted-foreground/20" />}
-            {chat.visibility === 'public' && <Globe className="size-3 shrink-0 text-muted-foreground/40" />}
-          </div>
+            {/* Title */}
+            <div className="flex items-center gap-1.5">
+              <p className="text-[15px] font-medium leading-snug truncate group-hover:text-primary transition-colors duration-150">
+                {chat.title}
+              </p>
+              {chat.isPinned && <Pin className="size-3 shrink-0 text-muted-foreground/40 fill-muted-foreground/20" />}
+              {chat.visibility === 'public' && <Globe className="size-3 shrink-0 text-muted-foreground/40" />}
+            </div>
 
-          {/* Preview — 2 lines */}
-          {chat.preview && (
-            <p className="text-sm text-muted-foreground/60 line-clamp-2 leading-relaxed">
-              {chat.preview}
-            </p>
-          )}
-
-          {/* Metadata */}
-          <div className="flex items-center gap-2 pt-0.5 flex-wrap">
-            {modelLabel && (
-              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground/50 border border-border/50 rounded-sm px-1.5 py-0.5 leading-none">
-                <Cpu className="size-3" />
-                {modelLabel}
-              </span>
+            {/* Preview — 2 lines */}
+            {chat.preview && (
+              <p className="text-sm text-muted-foreground/60 line-clamp-2 leading-relaxed">{chat.preview}</p>
             )}
-            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground/40 tabular-nums">
-              <Clock className="size-3" />
-              {formatDistanceToNow(activityDate, { addSuffix: true })}
-            </span>
-          </div>
-        </Link>
+
+            {/* Metadata */}
+            <div className="flex items-center gap-2 pt-0.5 flex-wrap">
+              {modelLabel && (
+                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground/50 border border-border/50 rounded-sm px-1.5 py-0.5 leading-none">
+                  <Cpu className="size-3" />
+                  {modelLabel}
+                </span>
+              )}
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground/40 tabular-nums">
+                <Clock className="size-3" />
+                {formatDistanceToNow(activityDate, { addSuffix: true })}
+              </span>
+            </div>
+          </Link>
 
           {/* Always-visible menu */}
           <div className="absolute right-1 top-4 shrink-0">
-            <DropdownMenu open={openDropdownId === chat.id} onOpenChange={(open) => setOpenDropdownId(open ? chat.id : null)}>
+            <DropdownMenu
+              open={openDropdownId === chat.id}
+              onOpenChange={(open) => setOpenDropdownId(open ? chat.id : null)}
+            >
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
@@ -439,23 +457,75 @@ export function SearchesPage({ userId }: SearchesPageProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-44">
-                <DropdownMenuItem onClick={(e) => { e.preventDefault(); handlePinToggle(chat); }} className="gap-2 text-xs">
-                  {chat.isPinned ? <><PinOff className="size-3.5" />Unpin</> : <><Pin className="size-3.5" />Pin</>}
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handlePinToggle(chat);
+                  }}
+                  className="gap-2 text-xs"
+                >
+                  {chat.isPinned ? (
+                    <>
+                      <PinOff className="size-3.5" />
+                      Unpin
+                    </>
+                  ) : (
+                    <>
+                      <Pin className="size-3.5" />
+                      Pin
+                    </>
+                  )}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={(e) => { e.preventDefault(); handleSelectClick(chat.id); }} className="gap-2 text-xs">
-                  <Check className="size-3.5" />Select
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleSelectClick(chat.id);
+                  }}
+                  className="gap-2 text-xs"
+                >
+                  <Check className="size-3.5" />
+                  Select
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={(e) => { e.preventDefault(); handleShareClick(chat); }} className="gap-2 text-xs">
-                  {chat.visibility === 'public'
-                    ? <><Lock className="size-3.5" />Make private</>
-                    : <><Share2 className="size-3.5" />Share</>}
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleShareClick(chat);
+                  }}
+                  className="gap-2 text-xs"
+                >
+                  {chat.visibility === 'public' ? (
+                    <>
+                      <Lock className="size-3.5" />
+                      Make private
+                    </>
+                  ) : (
+                    <>
+                      <Share2 className="size-3.5" />
+                      Share
+                    </>
+                  )}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={(e) => { e.preventDefault(); handleRenameClick(chat); }} className="gap-2 text-xs">
-                  <Pencil className="size-3.5" />Rename
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleRenameClick(chat);
+                  }}
+                  className="gap-2 text-xs"
+                >
+                  <Pencil className="size-3.5" />
+                  Rename
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={(e) => { e.preventDefault(); handleDeleteClick(chat); }} variant="destructive" className="gap-2 text-xs">
-                  <Trash2 className="size-3.5" />Delete
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleDeleteClick(chat);
+                  }}
+                  variant="destructive"
+                  className="gap-2 text-xs"
+                >
+                  <Trash2 className="size-3.5" />
+                  Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -474,7 +544,12 @@ export function SearchesPage({ userId }: SearchesPageProps) {
             <div className="md:hidden">
               <SidebarTrigger />
             </div>
-            <HugeiconsIcon icon={FolderLibraryIcon} size={18} strokeWidth={1.5} className="shrink-0 text-foreground/70" />
+            <HugeiconsIcon
+              icon={FolderLibraryIcon}
+              size={18}
+              strokeWidth={1.5}
+              className="shrink-0 text-foreground/70"
+            />
             <h1 className="text-base font-semibold tracking-tight">Library</h1>
             {!isLoading && displayedChats.length > 0 && (
               <span className="text-xs text-muted-foreground/50 tabular-nums">{displayedChats.length}</span>
@@ -493,7 +568,12 @@ export function SearchesPage({ userId }: SearchesPageProps) {
         {/* Search — static */}
         <div className="shrink-0 pt-3 pb-2.5 px-4 md:px-6">
           <div className="relative">
-            <HugeiconsIcon icon={Search01Icon} size={15} strokeWidth={1.5} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 pointer-events-none" />
+            <HugeiconsIcon
+              icon={Search01Icon}
+              size={15}
+              strokeWidth={1.5}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 pointer-events-none"
+            />
             <Input
               type="text"
               placeholder="Search threads..."
@@ -508,7 +588,10 @@ export function SearchesPage({ userId }: SearchesPageProps) {
         <div className="shrink-0 pb-2.5 flex items-center gap-1.5 px-4 md:px-6">
           {/* Select / Done */}
           <button
-            onClick={() => { setIsSelectMode((v) => !v); setSelectedChatIds(new Set()); }}
+            onClick={() => {
+              setIsSelectMode((v) => !v);
+              setSelectedChatIds(new Set());
+            }}
             className={cn(
               'inline-flex items-center h-7 px-2.5 text-xs rounded-md border transition-colors',
               isSelectMode
@@ -522,18 +605,33 @@ export function SearchesPage({ userId }: SearchesPageProps) {
           {/* Date filter */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className={cn(
-                'inline-flex items-center gap-1 h-7 px-2.5 text-xs rounded-md border transition-colors',
-                dateFilter !== 'all'
-                  ? 'border-foreground/40 text-foreground font-medium'
-                  : 'border-border/60 text-foreground/70 hover:text-foreground hover:border-border',
-              )}>
-                {dateFilter === 'all' ? 'Any time' : dateFilter === 'today' ? 'Today' : dateFilter === 'week' ? 'Last 7 days' : 'This month'}
+              <button
+                className={cn(
+                  'inline-flex items-center gap-1 h-7 px-2.5 text-xs rounded-md border transition-colors',
+                  dateFilter !== 'all'
+                    ? 'border-foreground/40 text-foreground font-medium'
+                    : 'border-border/60 text-foreground/70 hover:text-foreground hover:border-border',
+                )}
+              >
+                {dateFilter === 'all'
+                  ? 'Any time'
+                  : dateFilter === 'today'
+                    ? 'Today'
+                    : dateFilter === 'week'
+                      ? 'Last 7 days'
+                      : 'This month'}
                 <ChevronDown className="size-3 opacity-60" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-36">
-              {([['all', 'Any time'], ['today', 'Today'], ['week', 'Last 7 days'], ['month', 'This month']] as const).map(([v, label]) => (
+              {(
+                [
+                  ['all', 'Any time'],
+                  ['today', 'Today'],
+                  ['week', 'Last 7 days'],
+                  ['month', 'This month'],
+                ] as const
+              ).map(([v, label]) => (
                 <DropdownMenuItem key={v} onClick={() => setDateFilter(v)} className="text-xs gap-2">
                   {label}
                   {dateFilter === v && <Check className="size-3 ml-auto" />}
@@ -545,18 +643,26 @@ export function SearchesPage({ userId }: SearchesPageProps) {
           {/* Visibility filter */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className={cn(
-                'inline-flex items-center gap-1 h-7 px-2.5 text-xs rounded-md border transition-colors',
-                visibilityFilter !== 'all'
-                  ? 'border-foreground/40 text-foreground font-medium'
-                  : 'border-border/60 text-foreground/70 hover:text-foreground hover:border-border',
-              )}>
+              <button
+                className={cn(
+                  'inline-flex items-center gap-1 h-7 px-2.5 text-xs rounded-md border transition-colors',
+                  visibilityFilter !== 'all'
+                    ? 'border-foreground/40 text-foreground font-medium'
+                    : 'border-border/60 text-foreground/70 hover:text-foreground hover:border-border',
+                )}
+              >
                 {visibilityFilter === 'all' ? 'Type' : visibilityFilter === 'private' ? 'Private' : 'Shared'}
                 <ChevronDown className="size-3 opacity-60" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-32">
-              {([['all', 'All'], ['private', 'Private'], ['public', 'Shared']] as const).map(([v, label]) => (
+              {(
+                [
+                  ['all', 'All'],
+                  ['private', 'Private'],
+                  ['public', 'Shared'],
+                ] as const
+              ).map(([v, label]) => (
                 <DropdownMenuItem key={v} onClick={() => setVisibilityFilter(v)} className="text-xs gap-2">
                   {label}
                   {visibilityFilter === v && <Check className="size-3 ml-auto" />}
@@ -568,18 +674,25 @@ export function SearchesPage({ userId }: SearchesPageProps) {
           {/* Sort — right-aligned */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className={cn(
-                'inline-flex items-center gap-1 h-7 px-2.5 text-xs rounded-md border transition-colors ml-auto',
-                sortOrder !== 'newest'
-                  ? 'border-foreground/40 text-foreground font-medium'
-                  : 'border-border/60 text-foreground/70 hover:text-foreground hover:border-border',
-              )}>
+              <button
+                className={cn(
+                  'inline-flex items-center gap-1 h-7 px-2.5 text-xs rounded-md border transition-colors ml-auto',
+                  sortOrder !== 'newest'
+                    ? 'border-foreground/40 text-foreground font-medium'
+                    : 'border-border/60 text-foreground/70 hover:text-foreground hover:border-border',
+                )}
+              >
                 Sort: {sortOrder === 'newest' ? 'Newest' : 'Oldest'}
                 <ChevronDown className="size-3 opacity-60" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-36">
-              {([['newest', 'Newest first'], ['oldest', 'Oldest first']] as const).map(([v, label]) => (
+              {(
+                [
+                  ['newest', 'Newest first'],
+                  ['oldest', 'Oldest first'],
+                ] as const
+              ).map(([v, label]) => (
                 <DropdownMenuItem key={v} onClick={() => setSortOrder(v)} className="text-xs gap-2">
                   {label}
                   {sortOrder === v && <Check className="size-3 ml-auto" />}
@@ -618,10 +731,17 @@ export function SearchesPage({ userId }: SearchesPageProps) {
           {!isLoading && !error && displayedChats.length === 0 && !hasActiveFilters && (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <div className="size-11 rounded-xl bg-muted/60 flex items-center justify-center mb-4 border border-border/40">
-                <HugeiconsIcon icon={FolderLibraryIcon} size={22} strokeWidth={1.5} className="text-muted-foreground/70" />
+                <HugeiconsIcon
+                  icon={FolderLibraryIcon}
+                  size={22}
+                  strokeWidth={1.5}
+                  className="text-muted-foreground/70"
+                />
               </div>
               <p className="text-sm font-medium text-foreground mb-1 text-balance">Your library is empty</p>
-              <p className="text-xs text-muted-foreground text-pretty mb-5">Start a conversation and it will appear here</p>
+              <p className="text-xs text-muted-foreground text-pretty mb-5">
+                Start a conversation and it will appear here
+              </p>
               <Link href="/">
                 <Button variant="outline" size="sm" className="h-8 text-xs rounded-lg">
                   Start chatting
@@ -635,14 +755,23 @@ export function SearchesPage({ userId }: SearchesPageProps) {
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <p className="text-sm font-medium text-foreground mb-1 text-balance">No results found</p>
               <p className="text-xs text-muted-foreground text-pretty mb-4">
-                {searchQuery.trim().length > 0
-                  ? <>Nothing matched &ldquo;{searchQuery}&rdquo;</>
-                  : dateFilter !== 'all'
-                    ? <>No chats from {dateFilter === 'today' ? 'today' : dateFilter === 'week' ? 'the last 7 days' : 'this month'}</>
-                    : <>No {visibilityFilter} chats found</>}
+                {searchQuery.trim().length > 0 ? (
+                  <>Nothing matched &ldquo;{searchQuery}&rdquo;</>
+                ) : dateFilter !== 'all' ? (
+                  <>
+                    No chats from{' '}
+                    {dateFilter === 'today' ? 'today' : dateFilter === 'week' ? 'the last 7 days' : 'this month'}
+                  </>
+                ) : (
+                  <>No {visibilityFilter} chats found</>
+                )}
               </p>
               <button
-                onClick={() => { setSearchQuery(''); setDateFilter('all'); setVisibilityFilter('all'); }}
+                onClick={() => {
+                  setSearchQuery('');
+                  setDateFilter('all');
+                  setVisibilityFilter('all');
+                }}
                 className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline transition-colors"
               >
                 Clear filters
@@ -661,9 +790,7 @@ export function SearchesPage({ userId }: SearchesPageProps) {
                     <p className="text-[11px] font-medium text-muted-foreground/40 uppercase tracking-wide px-1 pb-1 select-none">
                       {GROUP_LABELS[groupKey]}
                     </p>
-                    <div>
-                      {chats.map(renderChatRow)}
-                    </div>
+                    <div>{chats.map(renderChatRow)}</div>
                   </div>
                 );
               })}
@@ -722,10 +849,10 @@ export function SearchesPage({ userId }: SearchesPageProps) {
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {selectedChatIds.size} chat{selectedChatIds.size > 1 ? 's' : ''}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone.
-            </AlertDialogDescription>
+            <AlertDialogTitle>
+              Delete {selectedChatIds.size} chat{selectedChatIds.size > 1 ? 's' : ''}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
@@ -753,14 +880,20 @@ export function SearchesPage({ userId }: SearchesPageProps) {
               onChange={(e) => setNewTitle(e.target.value)}
               placeholder="Chat name"
               className="rounded-lg"
-              onKeyDown={(e) => { if (e.key === 'Enter') handleRenameSubmit(); }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleRenameSubmit();
+              }}
               autoFocus
             />
           </div>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => { setShowRenameDialog(false); setRenamingChat(null); setNewTitle(''); }}
+              onClick={() => {
+                setShowRenameDialog(false);
+                setRenamingChat(null);
+                setNewTitle('');
+              }}
               disabled={isRenaming}
               className="rounded-lg"
             >
@@ -789,7 +922,10 @@ export function SearchesPage({ userId }: SearchesPageProps) {
           <AlertDialogFooter>
             <AlertDialogCancel
               disabled={deletingChatId !== null}
-              onClick={() => { setShowSingleDeleteDialog(false); setChatToDelete(null); }}
+              onClick={() => {
+                setShowSingleDeleteDialog(false);
+                setChatToDelete(null);
+              }}
             >
               Cancel
             </AlertDialogCancel>
@@ -812,15 +948,20 @@ export function SearchesPage({ userId }: SearchesPageProps) {
               {chatToShare?.visibility === 'public' ? 'Make private?' : 'Share chat?'}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {chatToShare?.visibility === 'public'
-                ? <>Only you will be able to access &ldquo;{chatToShare?.title}&rdquo;.</>
-                : <>Anyone with the link will be able to view &ldquo;{chatToShare?.title}&rdquo;.</>}
+              {chatToShare?.visibility === 'public' ? (
+                <>Only you will be able to access &ldquo;{chatToShare?.title}&rdquo;.</>
+              ) : (
+                <>Anyone with the link will be able to view &ldquo;{chatToShare?.title}&rdquo;.</>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel
               disabled={isChangingVisibility}
-              onClick={() => { setShowVisibilityDialog(false); setChatToShare(null); }}
+              onClick={() => {
+                setShowVisibilityDialog(false);
+                setChatToShare(null);
+              }}
             >
               Cancel
             </AlertDialogCancel>

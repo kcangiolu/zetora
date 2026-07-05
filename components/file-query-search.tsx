@@ -50,7 +50,7 @@ const getFileIcon = (fileName: string) => {
   const ext = fileName.split('.').pop()?.toLowerCase() || '';
   const spreadsheetExts = ['csv', 'xlsx', 'xls'];
   const codeExts = ['json', 'xml', 'html', 'js', 'ts', 'jsx', 'tsx'];
-  
+
   if (spreadsheetExts.includes(ext)) {
     return FileSpreadsheet;
   }
@@ -71,9 +71,7 @@ const FileQueryResultCard: React.FC<{ result: FileQueryResult }> = ({ result }) 
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <h3 className="text-xs font-medium text-foreground line-clamp-1 flex-1">
-              {result.fileName}
-            </h3>
+            <h3 className="text-xs font-medium text-foreground line-clamp-1 flex-1">{result.fileName}</h3>
             <span className="font-pixel text-[9px] text-muted-foreground/50 tabular-nums shrink-0 tracking-wider">
               {(result.score * 100).toFixed(0)}%
             </span>
@@ -88,9 +86,12 @@ const FileQueryResultCard: React.FC<{ result: FileQueryResult }> = ({ result }) 
 };
 
 // Loading State Component
-const SearchLoadingState: React.FC<{ queries: string[]; annotations: DataQueryCompletionPart[] }> = ({ queries, annotations }) => {
+const SearchLoadingState: React.FC<{ queries: string[]; annotations: DataQueryCompletionPart[] }> = ({
+  queries,
+  annotations,
+}) => {
   const [isExpanded, setIsExpanded] = useState(true);
-  
+
   const queryAnnotations = annotations.filter((a) => a.type === 'data-query_completion');
   const totalResults = queryAnnotations.reduce((sum, a) => sum + (a.data.resultsCount || 0), 0);
 
@@ -144,14 +145,24 @@ const SearchLoadingState: React.FC<{ queries: string[]; annotations: DataQueryCo
             >
               {queries.length ? (
                 queries.map((query, i) => {
-                  const isCompleted = queryAnnotations.some((a) => a.data.query === query && a.data.status === 'completed');
+                  const isCompleted = queryAnnotations.some(
+                    (a) => a.data.query === query && a.data.status === 'completed',
+                  );
                   const annotation = queryAnnotations.find((a) => a.data.query === query);
                   const resultsCount = annotation?.data.resultsCount || 0;
                   return (
                     <span key={i} className="inline-flex items-center gap-1.5 text-[10px] shrink-0">
-                      {isCompleted ? <Icons.Check className="w-2.5 h-2.5 text-muted-foreground" /> : <Spinner className="w-2.5 h-2.5" />}
-                      <span className={cn('font-medium', isCompleted ? 'text-foreground' : 'text-muted-foreground')}>{query}</span>
-                      {resultsCount > 0 && <span className="text-[9px] text-muted-foreground/50 tabular-nums">({resultsCount})</span>}
+                      {isCompleted ? (
+                        <Icons.Check className="w-2.5 h-2.5 text-muted-foreground" />
+                      ) : (
+                        <Spinner className="w-2.5 h-2.5" />
+                      )}
+                      <span className={cn('font-medium', isCompleted ? 'text-foreground' : 'text-muted-foreground')}>
+                        {query}
+                      </span>
+                      {resultsCount > 0 && (
+                        <span className="text-[9px] text-muted-foreground/50 tabular-nums">({resultsCount})</span>
+                      )}
                       {i < queries.length - 1 && <span className="text-muted-foreground/30 ml-1">/</span>}
                     </span>
                   );
@@ -169,8 +180,14 @@ const SearchLoadingState: React.FC<{ queries: string[]; annotations: DataQueryCo
                 <div key={i} className="px-3.5 py-2 flex items-center gap-2.5">
                   <FileText className="h-3.5 w-3.5 text-muted-foreground/20 shrink-0 animate-pulse" />
                   <div className="flex-1 space-y-1">
-                    <div className="h-3 bg-muted/30 rounded animate-pulse w-3/4" style={{ animationDelay: `${i * 100}ms` }} />
-                    <div className="h-2 bg-muted/20 rounded animate-pulse w-1/2" style={{ animationDelay: `${i * 100 + 50}ms` }} />
+                    <div
+                      className="h-3 bg-muted/30 rounded animate-pulse w-3/4"
+                      style={{ animationDelay: `${i * 100}ms` }}
+                    />
+                    <div
+                      className="h-2 bg-muted/20 rounded animate-pulse w-1/2"
+                      style={{ animationDelay: `${i * 100 + 50}ms` }}
+                    />
                   </div>
                 </div>
               ))}

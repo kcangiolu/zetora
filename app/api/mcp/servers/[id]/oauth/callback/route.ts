@@ -17,10 +17,7 @@ function redirectToApps(request: Request, status: 'success' | 'error', message?:
   return Response.redirect(url.toString(), 302);
 }
 
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = assertProUser(await getComprehensiveUserData());
     const { id } = await params;

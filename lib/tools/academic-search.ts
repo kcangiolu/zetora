@@ -19,7 +19,10 @@ export function academicSearchTool(dataStream?: UIMessageStreamWriter<ChatMessag
         .describe('Array of search queries for academic papers. Minimum 1, recommended 3-5.')
         .min(1)
         .max(5),
-      maxResults: z.array(z.number()).optional().describe('Array of maximum results per query. Default is 20 per query.'),
+      maxResults: z
+        .array(z.number())
+        .optional()
+        .describe('Array of maximum results per query. Default is 20 per query.'),
     }),
     execute: async ({ queries, maxResults }: { queries: string[]; maxResults?: number[] }) => {
       try {

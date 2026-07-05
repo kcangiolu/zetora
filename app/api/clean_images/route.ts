@@ -40,7 +40,7 @@ async function deleteAllObjectsWithPrefix(prefix: string): Promise<number> {
         Prefix: prefix,
         MaxKeys: 1000,
         ContinuationToken: continuationToken,
-      })
+      }),
     );
 
     const objects = listResponse.Contents;
@@ -54,7 +54,7 @@ async function deleteAllObjectsWithPrefix(prefix: string): Promise<number> {
             Objects: objects.map((obj) => ({ Key: obj.Key })),
             Quiet: true,
           },
-        })
+        }),
       );
 
       totalDeleted += objects.length;

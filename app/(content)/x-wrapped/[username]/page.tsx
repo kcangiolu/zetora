@@ -58,7 +58,7 @@ function StatCard({
       transition={{ duration: 0.4, delay }}
       className={cn(
         'group relative overflow-hidden rounded-2xl border border-border/50 bg-card p-6 transition-colors hover:border-border',
-        className
+        className,
       )}
     >
       <div className="relative z-10">
@@ -71,7 +71,17 @@ function StatCard({
   );
 }
 
-function SentimentBar({ positive, neutral, negative, delay = 0 }: { positive: number; neutral: number; negative: number; delay?: number }) {
+function SentimentBar({
+  positive,
+  neutral,
+  negative,
+  delay = 0,
+}: {
+  positive: number;
+  neutral: number;
+  negative: number;
+  delay?: number;
+}) {
   return (
     <motion.div
       initial={{ opacity: 0, scaleX: 0 }}
@@ -301,7 +311,12 @@ export default function XWrappedUsernamePage() {
           className="mt-4 rounded-2xl border border-border/50 bg-card p-6"
         >
           <p className="mb-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">Sentiment</p>
-          <SentimentBar positive={d.sentiment.positive} neutral={d.sentiment.neutral} negative={d.sentiment.negative} delay={0.35} />
+          <SentimentBar
+            positive={d.sentiment.positive}
+            neutral={d.sentiment.neutral}
+            negative={d.sentiment.negative}
+            delay={0.35}
+          />
           <div className="mt-3 flex justify-between text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <span className="size-2 rounded-full bg-primary" /> Positive {d.sentiment.positive}%

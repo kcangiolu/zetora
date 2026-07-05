@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { motion, useSpring } from "motion/react";
-import type { RefObject } from "react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { cn } from "@/lib/utils";
+import { motion, useSpring } from 'motion/react';
+import type { RefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { cn } from '@/lib/utils';
 
 // Spring config for smooth tooltip movement
 const springConfig = { stiffness: 100, damping: 20 };
@@ -43,7 +43,7 @@ export function TooltipBox({
   containerWidth,
   containerHeight,
   offset = 16,
-  className = "",
+  className = '',
   children,
   left: leftOverride,
   top: topOverride,
@@ -78,10 +78,7 @@ export function TooltipBox({
   const targetX = shouldFlipX ? x - offset - tooltipWidth : x + offset;
 
   // Vertical positioning with bounds clamping
-  const targetY = Math.max(
-    offset,
-    Math.min(y - tooltipHeight / 2, containerHeight - tooltipHeight - offset)
-  );
+  const targetY = Math.max(offset, Math.min(y - tooltipHeight / 2, containerHeight - tooltipHeight - offset));
 
   // Track flip state for animation
   const prevFlipRef = useRef(shouldFlipX);
@@ -110,7 +107,7 @@ export function TooltipBox({
   const finalLeft = leftOverride ?? animatedLeft;
   const finalTop = topOverride ?? animatedTop;
   const isFlipped = flippedOverride ?? shouldFlipX;
-  const transformOrigin = isFlipped ? "right top" : "left top";
+  const transformOrigin = isFlipped ? 'right top' : 'left top';
 
   // Use portal to render into the container
   const container = containerRef.current;
@@ -119,7 +116,7 @@ export function TooltipBox({
   }
 
   // Dynamic import to avoid SSR issues
-  const { createPortal } = require("react-dom") as typeof import("react-dom");
+  const { createPortal } = require('react-dom') as typeof import('react-dom');
 
   if (!visible) {
     return null;
@@ -128,7 +125,7 @@ export function TooltipBox({
   return createPortal(
     <motion.div
       animate={{ opacity: 1 }}
-      className={cn("pointer-events-none absolute z-50", className)}
+      className={cn('pointer-events-none absolute z-50', className)}
       exit={{ opacity: 0 }}
       initial={{ opacity: 0 }}
       ref={tooltipRef}
@@ -141,15 +138,15 @@ export function TooltipBox({
         initial={{ scale: 0.85, opacity: 0, x: isFlipped ? 20 : -20 }}
         key={flipKey}
         style={{ transformOrigin }}
-        transition={{ type: "spring", stiffness: 300, damping: 25 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 25 }}
       >
         {children}
       </motion.div>
     </motion.div>,
-    container
+    container,
   );
 }
 
-TooltipBox.displayName = "TooltipBox";
+TooltipBox.displayName = 'TooltipBox';
 
 export default TooltipBox;

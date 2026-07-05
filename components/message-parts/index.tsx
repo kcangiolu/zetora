@@ -2842,7 +2842,8 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                         }}
                         className={cn(
                           actionIconButtonClassName,
-                          (isSpeaking || isLoading) && 'bg-primary/10 text-primary border-primary/20 hover:bg-primary/15'
+                          (isSpeaking || isLoading) &&
+                            'bg-primary/10 text-primary border-primary/20 hover:bg-primary/15',
                         )}
                       >
                         {isLoading ? (

@@ -9,6 +9,4 @@ export function getMcpCatalogIcon(serverUrl: string): string | undefined {
 }
 
 /** URLs that use a React component icon instead of an img src. */
-export const MCP_COMPONENT_ICON_URLS = new Set([
-  'https://api.githubcopilot.com/mcp',
-]);
+export const MCP_COMPONENT_ICON_URLS = new Set(['https://api.githubcopilot.com/mcp']);

@@ -757,10 +757,7 @@ export default function PricingTable({ subscriptionDetails, user }: PricingTable
                 <Check className="w-3.5 h-3.5 text-primary shrink-0" />
                 All standard paid features
               </li>
-              {[
-                'All Anthropic Models (60/week)',
-                'Gemini 3.1 Pro (80/month)',
-              ].map((item) => (
+              {['All Anthropic Models (60/week)', 'Gemini 3.1 Pro (80/month)'].map((item) => (
                 <li key={item} className="flex items-center gap-3 text-sm text-foreground/80">
                   <Check className="w-3.5 h-3.5 text-primary shrink-0" />
                   {item}

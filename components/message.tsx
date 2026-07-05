@@ -34,11 +34,7 @@ import { deleteTrailingMessages } from '@/app/actions';
 import { getErrorActions, getErrorIcon, isSignInRequired, isProRequired, isRateLimited } from '@/lib/errors';
 import { UserIcon } from '@phosphor-icons/react';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
-import {
-  Copy01Icon,
-  Crown02Icon,
-  PencilEdit02Icon,
-} from '@hugeicons/core-free-icons';
+import { Copy01Icon, Crown02Icon, PencilEdit02Icon } from '@hugeicons/core-free-icons';
 import { Attachment, ChatMessage, ChatTools, CustomUIDataTypes } from '@/lib/types';
 import { UseChatHelpers } from '@ai-sdk/react';
 import { ComprehensiveUserData } from '@/lib/user-data-server';
@@ -445,7 +441,9 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
         url,
       };
     } catch (error) {
-      sileo.error({ title: `Failed to upload ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}` });
+      sileo.error({
+        title: `Failed to upload ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
       throw error;
     }
   }, []);
@@ -523,7 +521,9 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
           if (moderationResult !== 'safe') {
             const [status, category] = moderationResult.split('\n');
             if (status === 'unsafe') {
-              sileo.error({ title: `Image content violates safety guidelines (${category}). Please choose different images.` });
+              sileo.error({
+                title: `Image content violates safety guidelines (${category}). Please choose different images.`,
+              });
               onFinish();
               return;
             }
@@ -571,7 +571,9 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
           });
 
           setHasAttachmentEdits(true);
-          sileo.success({ title: `${uploadedAttachments.length} file${uploadedAttachments.length > 1 ? 's' : ''} uploaded successfully` });
+          sileo.success({
+            title: `${uploadedAttachments.length} file${uploadedAttachments.length > 1 ? 's' : ''} uploaded successfully`,
+          });
         } else {
           sileo.error({ title: 'No files were successfully uploaded' });
         }
@@ -700,11 +702,10 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
 
   const isUnchanged =
     draftContent.trim() ===
-    message.parts
-      ?.map((part) => (part.type === 'text' ? part.text : ''))
-      .join('')
-      .trim() &&
-    !hasAttachmentEdits;
+      message.parts
+        ?.map((part) => (part.type === 'text' ? part.text : ''))
+        .join('')
+        .trim() && !hasAttachmentEdits;
 
   return (
     <form onSubmit={handleSubmit} className="w-full space-y-3">
@@ -985,18 +986,20 @@ export const Message: React.FC<MessageProps> = ({
                     className={`relative ${!isExpanded && exceedsMaxHeight ? 'max-h-[125px] overflow-hidden' : ''}`}
                   >
                     <div className="bg-accent/80 rounded-md px-4 py-2.5">
-                      <div className={`font-sans font-normal max-w-none ${getDynamicFontSize(combinedUserText)} text-foreground dark:text-foreground whitespace-pre-wrap wrap-break-word`}>
+                      <div
+                        className={`font-sans font-normal max-w-none ${getDynamicFontSize(combinedUserText)} text-foreground dark:text-foreground whitespace-pre-wrap wrap-break-word`}
+                      >
                         {combinedUserText}
                       </div>
                       {fileAttachments.length > 0 && (
-                          <div className="mt-2">
-                            {attachmentsRenderer ? (
-                              attachmentsRenderer(fileAttachments)
-                            ) : (
-                              <AttachmentsBadge attachments={fileAttachments} />
-                            )}
-                          </div>
-                        )}
+                        <div className="mt-2">
+                          {attachmentsRenderer ? (
+                            attachmentsRenderer(fileAttachments)
+                          ) : (
+                            <AttachmentsBadge attachments={fileAttachments} />
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {!isExpanded && exceedsMaxHeight && (
@@ -1333,76 +1336,82 @@ export const EditableAttachmentsBadge = ({
                       </object>
                     </div>
                   </div>
-                ) : (() => {
-                  const editDocType = getEditableDocumentType(fileAttachments[selectedIndex]);
-                  if (editDocType === 'csv' || editDocType === 'xlsx' || editDocType === 'docx') {
-                    const fileLabel =
-                      editDocType === 'csv' ? 'CSV Spreadsheet' : editDocType === 'xlsx' ? 'Excel Spreadsheet' : 'Word Document';
-                    return (
-                      <div className="flex flex-col items-center justify-center h-[60vh] w-full">
-                        <div className="flex flex-col items-center justify-center p-8 rounded-xl border border-border bg-muted/30">
-                          <div className="p-4 rounded-full bg-muted mb-4">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="48"
-                              height="48"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              className="text-muted-foreground"
+                ) : (
+                  (() => {
+                    const editDocType = getEditableDocumentType(fileAttachments[selectedIndex]);
+                    if (editDocType === 'csv' || editDocType === 'xlsx' || editDocType === 'docx') {
+                      const fileLabel =
+                        editDocType === 'csv'
+                          ? 'CSV Spreadsheet'
+                          : editDocType === 'xlsx'
+                            ? 'Excel Spreadsheet'
+                            : 'Word Document';
+                      return (
+                        <div className="flex flex-col items-center justify-center h-[60vh] w-full">
+                          <div className="flex flex-col items-center justify-center p-8 rounded-xl border border-border bg-muted/30">
+                            <div className="p-4 rounded-full bg-muted mb-4">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="48"
+                                height="48"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="text-muted-foreground"
+                              >
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                {editDocType === 'csv' && (
+                                  <>
+                                    <line x1="8" y1="13" x2="16" y2="13"></line>
+                                    <line x1="8" y1="17" x2="16" y2="17"></line>
+                                  </>
+                                )}
+                                {editDocType === 'xlsx' && (
+                                  <>
+                                    <rect x="8" y="12" width="8" height="6" rx="1"></rect>
+                                    <line x1="12" y1="12" x2="12" y2="18"></line>
+                                    <line x1="8" y1="15" x2="16" y2="15"></line>
+                                  </>
+                                )}
+                                {editDocType === 'docx' && (
+                                  <>
+                                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                                    <line x1="10" y1="9" x2="8" y2="9"></line>
+                                  </>
+                                )}
+                              </svg>
+                            </div>
+                            <h3 className="text-lg font-semibold text-foreground mb-1">
+                              {fileAttachments[selectedIndex].name || `${fileLabel} ${selectedIndex + 1}`}
+                            </h3>
+                            <p className="text-sm text-muted-foreground mb-4">{fileLabel}</p>
+                            <a
+                              href={fileAttachments[selectedIndex].url}
+                              download={fileAttachments[selectedIndex].name}
+                              className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:bg-primary/90 transition-colors"
                             >
-                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                              <polyline points="14 2 14 8 20 8"></polyline>
-                              {editDocType === 'csv' && (
-                                <>
-                                  <line x1="8" y1="13" x2="16" y2="13"></line>
-                                  <line x1="8" y1="17" x2="16" y2="17"></line>
-                                </>
-                              )}
-                              {editDocType === 'xlsx' && (
-                                <>
-                                  <rect x="8" y="12" width="8" height="6" rx="1"></rect>
-                                  <line x1="12" y1="12" x2="12" y2="18"></line>
-                                  <line x1="8" y1="15" x2="16" y2="15"></line>
-                                </>
-                              )}
-                              {editDocType === 'docx' && (
-                                <>
-                                  <line x1="16" y1="13" x2="8" y2="13"></line>
-                                  <line x1="16" y1="17" x2="8" y2="17"></line>
-                                  <line x1="10" y1="9" x2="8" y2="9"></line>
-                                </>
-                              )}
-                            </svg>
+                              Download File
+                            </a>
                           </div>
-                          <h3 className="text-lg font-semibold text-foreground mb-1">
-                            {fileAttachments[selectedIndex].name || `${fileLabel} ${selectedIndex + 1}`}
-                          </h3>
-                          <p className="text-sm text-muted-foreground mb-4">{fileLabel}</p>
-                          <a
-                            href={fileAttachments[selectedIndex].url}
-                            download={fileAttachments[selectedIndex].name}
-                            className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:bg-primary/90 transition-colors"
-                          >
-                            Download File
-                          </a>
                         </div>
+                      );
+                    }
+                    return (
+                      <div className="flex items-center justify-center h-[60vh]">
+                        <img
+                          src={fileAttachments[selectedIndex].url}
+                          alt={fileAttachments[selectedIndex].name || `Image ${selectedIndex + 1}`}
+                          className="max-w-full max-h-[60vh] object-contain rounded-md mx-auto"
+                        />
                       </div>
                     );
-                  }
-                  return (
-                    <div className="flex items-center justify-center h-[60vh]">
-                      <img
-                        src={fileAttachments[selectedIndex].url}
-                        alt={fileAttachments[selectedIndex].name || `Image ${selectedIndex + 1}`}
-                        className="max-w-full max-h-[60vh] object-contain rounded-md mx-auto"
-                      />
-                    </div>
-                  );
-                })()}
+                  })()
+                )}
 
                 {fileAttachments.length > 1 && (
                   <>
@@ -1436,10 +1445,11 @@ export const EditableAttachmentsBadge = ({
                       <button
                         key={idx}
                         onClick={() => setSelectedIndex(idx)}
-                        className={`relative h-10 w-10 rounded-md overflow-hidden shrink-0 transition-all ${selectedIndex === idx
+                        className={`relative h-10 w-10 rounded-md overflow-hidden shrink-0 transition-all ${
+                          selectedIndex === idx
                             ? 'ring-2 ring-primary ring-offset-1 ring-offset-background'
                             : 'opacity-70 hover:opacity-100'
-                          }`}
+                        }`}
                       >
                         {thumbEditDocType === 'image' ? (
                           <img
@@ -1516,9 +1526,7 @@ export const AttachmentsBadge = ({ attachments }: { attachments: Attachment[] })
   const fileAttachments = attachments.filter((att) => {
     const contentType = att.contentType || att.mediaType || '';
     return (
-      contentType.startsWith('image/') ||
-      contentType === 'application/pdf' ||
-      documentMimeTypes.includes(contentType)
+      contentType.startsWith('image/') || contentType === 'application/pdf' || documentMimeTypes.includes(contentType)
     );
   });
 
@@ -1600,9 +1608,7 @@ export const AttachmentsBadge = ({ attachments }: { attachments: Attachment[] })
                   );
                 })()}
               </div>
-              <span className="text-xs font-medium text-foreground dark:text-foreground truncate">
-                {truncatedName}
-              </span>
+              <span className="text-xs font-medium text-foreground dark:text-foreground truncate">{truncatedName}</span>
             </button>
           );
         })}
@@ -1719,7 +1725,11 @@ export const AttachmentsBadge = ({ attachments }: { attachments: Attachment[] })
 
                   if (docType === 'csv' || docType === 'xlsx' || docType === 'docx') {
                     const fileLabel =
-                      docType === 'csv' ? 'CSV Spreadsheet' : docType === 'xlsx' ? 'Excel Spreadsheet' : 'Word Document';
+                      docType === 'csv'
+                        ? 'CSV Spreadsheet'
+                        : docType === 'xlsx'
+                          ? 'Excel Spreadsheet'
+                          : 'Word Document';
 
                     return (
                       <div className="flex flex-col items-center justify-center h-[60vh] w-full">
@@ -1822,10 +1832,11 @@ export const AttachmentsBadge = ({ attachments }: { attachments: Attachment[] })
                       <button
                         key={idx}
                         onClick={() => setSelectedIndex(idx)}
-                        className={`relative h-10 w-10 rounded-md overflow-hidden shrink-0 transition-all ${selectedIndex === idx
+                        className={`relative h-10 w-10 rounded-md overflow-hidden shrink-0 transition-all ${
+                          selectedIndex === idx
                             ? 'ring-2 ring-primary ring-offset-1 ring-offset-background'
                             : 'opacity-70 hover:opacity-100'
-                          }`}
+                        }`}
                       >
                         {thumbDocType === 'image' ? (
                           <img

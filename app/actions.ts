@@ -167,9 +167,7 @@ export async function suggestQuestions(history: any[]) {
   console.log(history);
 
   const suggestUser = await getUser().catch(() => null);
-  const suggestPrefs = suggestUser
-    ? await getCachedUserPreferencesByUserId(suggestUser.id).catch(() => null)
-    : null;
+  const suggestPrefs = suggestUser ? await getCachedUserPreferencesByUserId(suggestUser.id).catch(() => null) : null;
   const suggestPrefsMap = (suggestPrefs?.preferences ?? {}) as Record<string, string>;
 
   const { output } = await generateText({
@@ -1637,15 +1635,15 @@ export async function testEmailDelivery() {
     }
 
     const prefs = await getCachedUserPreferencesByUserId(user.id).catch(() => null);
-    const emailProvider = (prefs?.preferences as Record<string, string>)?.[
-      'zetora-email-provider'
-    ] as 'resend' | 'smtp' | undefined;
+    const emailProvider = (prefs?.preferences as Record<string, string>)?.['zetora-email-provider'] as
+      | 'resend'
+      | 'smtp'
+      | undefined;
 
     const result = await sendLookoutCompletionEmail({
       to: user.email,
       chatTitle: 'Test Email',
-      assistantResponse:
-        'This is a test email from Zetora. Your email provider is configured correctly.',
+      assistantResponse: 'This is a test email from Zetora. Your email provider is configured correctly.',
       chatId: 'test',
       emailProvider,
     });

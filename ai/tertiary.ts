@@ -17,10 +17,10 @@ export type TertiaryTask =
   | 'extreme-agent';
 
 const TASK_DEFAULTS: Record<TertiaryTask, string> = {
-  'default': 'zetora-default',
+  default: 'zetora-default',
   'chat-title': 'zetora-name',
-  'followup': 'zetora-follow-up',
-  'enhance': 'zetora-enhance',
+  followup: 'zetora-follow-up',
+  enhance: 'zetora-enhance',
   'tool-repair': 'zetora-default',
   'auto-router': 'zetora-arch-router',
   'translate-text': 'zetora-gemini-3-flash',
@@ -31,23 +31,29 @@ const TASK_DEFAULTS: Record<TertiaryTask, string> = {
 };
 
 const PREF_KEYS: Record<TertiaryTask, { model: string; provider: string }> = {
-  'default': { model: 'zetora-default-model', provider: 'zetora-default-provider' },
+  default: { model: 'zetora-default-model', provider: 'zetora-default-provider' },
   'chat-title': { model: 'zetora-tertiary-chat-title-model', provider: 'zetora-tertiary-chat-title-provider' },
-  'followup': { model: 'zetora-tertiary-followup-model', provider: 'zetora-tertiary-followup-provider' },
-  'enhance': { model: 'zetora-tertiary-enhance-model', provider: 'zetora-tertiary-enhance-provider' },
+  followup: { model: 'zetora-tertiary-followup-model', provider: 'zetora-tertiary-followup-provider' },
+  enhance: { model: 'zetora-tertiary-enhance-model', provider: 'zetora-tertiary-enhance-provider' },
   'tool-repair': { model: 'zetora-tertiary-tool-repair-model', provider: 'zetora-tertiary-tool-repair-provider' },
   'auto-router': { model: 'zetora-tertiary-auto-router-model', provider: 'zetora-tertiary-auto-router-provider' },
-  'translate-text': { model: 'zetora-tertiary-translate-text-model', provider: 'zetora-tertiary-translate-text-provider' },
-  'translate-vision': { model: 'zetora-tertiary-translate-vision-model', provider: 'zetora-tertiary-translate-vision-provider' },
+  'translate-text': {
+    model: 'zetora-tertiary-translate-text-model',
+    provider: 'zetora-tertiary-translate-text-provider',
+  },
+  'translate-vision': {
+    model: 'zetora-tertiary-translate-vision-model',
+    provider: 'zetora-tertiary-translate-vision-provider',
+  },
   'lang-detect': { model: 'zetora-tertiary-lang-detect-model', provider: 'zetora-tertiary-lang-detect-provider' },
-  'extreme-planner': { model: 'zetora-tertiary-extreme-planner-model', provider: 'zetora-tertiary-extreme-planner-provider' },
+  'extreme-planner': {
+    model: 'zetora-tertiary-extreme-planner-model',
+    provider: 'zetora-tertiary-extreme-planner-provider',
+  },
   'extreme-agent': { model: 'zetora-tertiary-extreme-agent-model', provider: 'zetora-tertiary-extreme-agent-provider' },
 };
 
-export async function resolveTertiaryModel(
-  task: TertiaryTask,
-  preferences: Record<string, string> | null,
-) {
+export async function resolveTertiaryModel(task: TertiaryTask, preferences: Record<string, string> | null) {
   const keys = PREF_KEYS[task];
   const customModel = preferences?.[keys.model];
 

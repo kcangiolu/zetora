@@ -8,8 +8,8 @@ search:
 server:
   # MUST be replaced with a random value before deploying (used to sign
   # image_proxy URLs and the limiter). Generate with: openssl rand -hex 32
-  secret_key: "CHANGE_ME_openssl_rand_hex_32"
-  bind_address: "0.0.0.0"
+  secret_key: 'CHANGE_ME_openssl_rand_hex_32'
+  bind_address: '0.0.0.0'
   limiter: false
   image_proxy: true
 

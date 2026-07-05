@@ -1,18 +1,15 @@
-"use client";
+'use client';
 
-import React, { memo } from "react";
-import { type Spec } from "@json-render/react";
-import { CanvasRenderer as CanvasRendererCore } from "@/lib/canvas/renderer";
+import React, { memo } from 'react';
+import { type Spec } from '@json-render/react';
+import { CanvasRenderer as CanvasRendererCore } from '@/lib/canvas/renderer';
 
 interface CanvasRendererProps {
   spec: Spec | null;
   loading?: boolean;
 }
 
-export const CanvasRendererView = memo(function CanvasRendererView({
-  spec,
-  loading,
-}: CanvasRendererProps) {
+export const CanvasRendererView = memo(function CanvasRendererView({ spec, loading }: CanvasRendererProps) {
   if (!spec && !loading) return null;
 
   if (spec) {

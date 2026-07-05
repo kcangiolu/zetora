@@ -106,7 +106,9 @@ const SocialButton = ({ title, provider, loading, setLoading, callbackURL, icon,
       <div className="w-4 h-4 flex items-center justify-center">
         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : icon}
       </div>
-      <span className="text-xs font-medium text-foreground/80 group-hover:text-foreground transition-colors">{title}</span>
+      <span className="text-xs font-medium text-foreground/80 group-hover:text-foreground transition-colors">
+        {title}
+      </span>
       {isLastUsed && (
         <span className="absolute right-3 font-pixel text-[9px] uppercase tracking-wider text-primary/70">
           Last used
@@ -242,9 +244,7 @@ export default function AuthCard({ title, description, mode = 'sign-in' }: AuthC
           </div>
         </div>
 
-        {error && (
-          <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</p>
-        )}
+        {error && <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</p>}
 
         <button
           type="submit"

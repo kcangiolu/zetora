@@ -115,8 +115,7 @@ const markdownStyles = {
     padding: '2px 6px',
     borderRadius: '4px',
     fontSize: '13px',
-    fontFamily:
-      'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
+    fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
   },
   blockQuote: {
     borderLeft: `3px solid ${colors.primary}`,
@@ -127,11 +126,7 @@ const markdownStyles = {
   },
 };
 
-function LookoutCompletedEmail({
-  chatTitle,
-  assistantResponse,
-  chatId,
-}: LookoutCompletedEmailProps) {
+function LookoutCompletedEmail({ chatTitle, assistantResponse, chatId }: LookoutCompletedEmailProps) {
   const previewText = `Your Daily Lookout is ready: ${chatTitle}`;
 
   return (
@@ -141,10 +136,7 @@ function LookoutCompletedEmail({
         <Preview>{previewText}</Preview>
         <Body className="bg-brand-background font-sans m-0 p-0">
           {/* Outer wrapper for mobile padding */}
-          <Container
-            className="mx-auto"
-            style={{ maxWidth: '100%', width: '100%', padding: '16px' }}
-          >
+          <Container className="mx-auto" style={{ maxWidth: '100%', width: '100%', padding: '16px' }}>
             {/* Inner card */}
             <Container
               className="mx-auto bg-brand-card overflow-hidden"
@@ -155,16 +147,10 @@ function LookoutCompletedEmail({
               }}
             >
               {/* Header with accent bar */}
-              <Section
-                className="h-1.5"
-                style={{ backgroundColor: colors.primary }}
-              />
+              <Section className="h-1.5" style={{ backgroundColor: colors.primary }} />
 
               {/* Logo and title */}
-              <Section
-                className="text-center"
-                style={{ padding: '32px 24px 20px' }}
-              >
+              <Section className="text-center" style={{ padding: '32px 24px 20px' }}>
                 <Img
                   src="https://zetora.ai/icon.png"
                   alt="Zetora AI"
@@ -192,18 +178,14 @@ function LookoutCompletedEmail({
                 </Text>
               </Section>
 
-              <Hr
-                className="border-brand-border my-0"
-                style={{ marginLeft: '24px', marginRight: '24px' }}
-              />
+              <Hr className="border-brand-border my-0" style={{ marginLeft: '24px', marginRight: '24px' }} />
 
               {/* Content */}
               <Section style={{ padding: '24px' }}>
                 <Markdown
                   markdownCustomStyles={markdownStyles}
                   markdownContainerStyles={{
-                    fontFamily:
-                      "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                    fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
                   }}
                 >
                   {assistantResponse}
@@ -227,10 +209,7 @@ function LookoutCompletedEmail({
               </Section>
 
               {/* Footer */}
-              <Section
-                className="bg-brand-muted text-center"
-                style={{ padding: '24px' }}
-              >
+              <Section className="bg-brand-muted text-center" style={{ padding: '24px' }}>
                 <Img
                   src="https://zetora.ai/icon.png"
                   alt="Zetora AI"
@@ -239,20 +218,11 @@ function LookoutCompletedEmail({
                   className="mx-auto"
                   style={{ marginBottom: '12px', opacity: 0.7 }}
                 />
-                <Text
-                  className="text-brand-muted-foreground m-0"
-                  style={{ fontSize: '12px', marginBottom: '4px' }}
-                >
+                <Text className="text-brand-muted-foreground m-0" style={{ fontSize: '12px', marginBottom: '4px' }}>
                   This is an automated notification from your Daily Lookout.
                 </Text>
-                <Text
-                  className="text-brand-muted-foreground m-0"
-                  style={{ fontSize: '12px' }}
-                >
-                  <Link
-                    href="https://zetora.ai"
-                    className="text-brand-primary no-underline"
-                  >
+                <Text className="text-brand-muted-foreground m-0" style={{ fontSize: '12px' }}>
+                  <Link href="https://zetora.ai" className="text-brand-primary no-underline">
                     zetora.ai
                   </Link>
                 </Text>

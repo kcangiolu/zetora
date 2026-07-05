@@ -125,7 +125,7 @@ export function KeyboardShortcutsDialog({ open, onOpenChange }: KeyboardShortcut
         },
         {
           keys: ['⌘', '⇧', 'J'],
-          description: 'Toggle unsaved chat (messages won\'t be saved)',
+          description: "Toggle unsaved chat (messages won't be saved)",
           context: 'Chat Input',
         },
         {

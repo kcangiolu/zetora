@@ -7,8 +7,7 @@ function isBetterAllDebugEnabled() {
   return process.env.NODE_ENV === 'development';
 }
 
-const betterAllOptions: BetterAllOptions | undefined =
-  isBetterAllDebugEnabled() ? { debug: true } : undefined;
+const betterAllOptions: BetterAllOptions | undefined = isBetterAllDebugEnabled() ? { debug: true } : undefined;
 
 export function getBetterAllOptions() {
   return betterAllOptions;

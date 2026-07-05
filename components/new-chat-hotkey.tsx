@@ -37,4 +37,3 @@ export function NewChatHotkey() {
 
   return null;
 }
-

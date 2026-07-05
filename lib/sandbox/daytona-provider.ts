@@ -30,13 +30,14 @@ export class DaytonaSandboxProvider implements SandboxProvider {
       }
 
       const rawCharts = execution.artifacts?.charts ?? [];
-      const charts = rawCharts.length > 0
-        ? rawCharts.map((chart: any) => {
-            const rawPng: string | undefined = chart.png;
-            const png = rawPng?.replace(/^data:image\/\w+;base64,/, '');
-            return { type: chart.type ?? 'image', title: chart.title ?? 'Chart', elements: chart.elements, png };
-          })
-        : undefined;
+      const charts =
+        rawCharts.length > 0
+          ? rawCharts.map((chart: any) => {
+              const rawPng: string | undefined = chart.png;
+              const png = rawPng?.replace(/^data:image\/\w+;base64,/, '');
+              return { type: chart.type ?? 'image', title: chart.title ?? 'Chart', elements: chart.elements, png };
+            })
+          : undefined;
 
       return {
         stdout: message.trim(),

@@ -91,11 +91,7 @@ describe('convertToUIMessages', () => {
       type: 'reasoning',
       text: '',
       reasoning: 'main thought',
-      details: [
-        { type: 'text', text: 'detail one' },
-        { type: 'redacted' },
-        { type: 'text', text: 'detail two' },
-      ],
+      details: [{ type: 'text', text: 'detail one' }, { type: 'redacted' }, { type: 'text', text: 'detail two' }],
     };
     const [ui] = convertToUIMessages([makeMessage({ parts: [legacy] as never })]);
     expect(ui.parts[0]).toEqual({

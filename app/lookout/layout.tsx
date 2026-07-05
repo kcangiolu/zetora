@@ -9,8 +9,7 @@ const description =
 export const metadata: Metadata = {
   title,
   description,
-  keywords:
-    'automated search, monitoring, scheduled queries, AI lookouts, search automation, trend tracking',
+  keywords: 'automated search, monitoring, scheduled queries, AI lookouts, search automation, trend tracking',
   openGraph: {
     title,
     description,

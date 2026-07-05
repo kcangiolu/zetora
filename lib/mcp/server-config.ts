@@ -66,9 +66,7 @@ export function getEncryptedMcpCredentials(input: McpServerInput) {
     const headerValue = input.headerValue?.trim();
     if (!headerName || !headerValue) throw new Error('Custom header name and value are required');
 
-    return encryptMcpCredentials(
-      JSON.stringify({ headerName, headerValue } satisfies McpCredentialPayload),
-    );
+    return encryptMcpCredentials(JSON.stringify({ headerName, headerValue } satisfies McpCredentialPayload));
   }
 
   return null;
@@ -123,10 +121,12 @@ export function normalizeMcpScopes(scopes: string | undefined) {
   return cleaned || null;
 }
 
-export function validateMcpOAuthConfig(input: Pick<
-  McpServerInput,
-  'authType' | 'oauthIssuerUrl' | 'oauthAuthorizationUrl' | 'oauthTokenUrl' | 'oauthClientId'
->) {
+export function validateMcpOAuthConfig(
+  input: Pick<
+    McpServerInput,
+    'authType' | 'oauthIssuerUrl' | 'oauthAuthorizationUrl' | 'oauthTokenUrl' | 'oauthClientId'
+  >,
+) {
   if (input.authType !== 'oauth') return;
 
   const issuerUrl = input.oauthIssuerUrl?.trim();

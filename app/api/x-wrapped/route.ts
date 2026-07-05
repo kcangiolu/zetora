@@ -230,7 +230,7 @@ Hard rules:
 
   ${searchSteps.map((s) => `${s.step}. ${s.query} (purpose: ${s.purpose})`).join('\n')}
 
-  After completing all ${searchSteps.length} searches, stop.`
+  After completing all ${searchSteps.length} searches, stop.`,
         },
       ],
       tools: {
@@ -276,15 +276,15 @@ Hard rules:
 
               const tweetUser = (tweet as any).user as
                 | {
-                  name?: string;
-                  screen_name?: string;
-                  profile_image_url_https?: string;
-                  profile_image_url?: string;
-                  followers_count?: number;
-                  friends_count?: number;
-                  verified?: boolean;
-                  verified_type?: string | null;
-                }
+                    name?: string;
+                    screen_name?: string;
+                    profile_image_url_https?: string;
+                    profile_image_url?: string;
+                    followers_count?: number;
+                    friends_count?: number;
+                    verified?: boolean;
+                    verified_type?: string | null;
+                  }
                 | undefined;
 
               const favoriteCount = (tweet as any).favorite_count as number | undefined;
@@ -310,14 +310,11 @@ Hard rules:
 
     // Filter to only include posts BY the target user (not mentions or replies from others)
     const authorPosts = tweetResults.filter(
-      (t): t is NonNullable<typeof t> =>
-        !!t && t.screenName === cleanUsername.toLowerCase()
+      (t): t is NonNullable<typeof t> => !!t && t.screenName === cleanUsername.toLowerCase(),
     );
 
     // Sort by favorite_count (likes) descending and take top 5
-    const topPosts = authorPosts
-      .sort((a, b) => (b.favoriteCount ?? 0) - (a.favoriteCount ?? 0))
-      .slice(0, 5);
+    const topPosts = authorPosts.sort((a, b) => (b.favoriteCount ?? 0) - (a.favoriteCount ?? 0)).slice(0, 5);
     const totalPosts = authorPosts.length;
 
     const monthCounts = new Map<string, number>();
@@ -328,13 +325,11 @@ Hard rules:
       const month = toMonthName(d);
       monthCounts.set(month, (monthCounts.get(month) ?? 0) + 1);
     }
-    const mostActiveMonth =
-      Array.from(monthCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'Unknown';
+    const mostActiveMonth = Array.from(monthCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'Unknown';
 
     const firstUser = authorPosts.find((t) => t.user)?.user;
     const displayName = typeof firstUser?.name === 'string' && firstUser.name.length > 0 ? firstUser.name : undefined;
-    const avatarUrlRaw =
-      firstUser?.profile_image_url_https || firstUser?.profile_image_url || undefined;
+    const avatarUrlRaw = firstUser?.profile_image_url_https || firstUser?.profile_image_url || undefined;
     // Replace _normal with _400x400 for higher resolution avatar
     const avatarUrl =
       typeof avatarUrlRaw === 'string' && avatarUrlRaw.length > 0
@@ -392,7 +387,7 @@ Output must match the schema exactly.`,
 
           content: `User: @${cleanUsername}\nYear: ${year}\n\nSearch Context (from X search results for details about users verified status and follower count):\n${text || 'No additional context available.'}\n\nPost texts (sample):\n${tweetTexts
             .map((t, i) => `(${i + 1}) ${t}`)
-            .join('\n')}`
+            .join('\n')}`,
         },
       ],
       // Lower temperature so sentiment percentages are more stable and less random.
@@ -441,4 +436,3 @@ Output must match the schema exactly.`,
     return NextResponse.json({ error: 'Failed to generate X Wrapped', details: String(error) }, { status: 500 });
   }
 }
-

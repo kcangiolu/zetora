@@ -59,13 +59,13 @@ async function getGraphitiClientForUser(userId: string) {
 
 function graphitiEpisodeToMemoryItem(episode: any, index: number): MemoryItem {
   const now = new Date().toISOString();
-  const content = typeof episode === 'string'
-    ? episode
-    : episode.content || episode.episode_body || episode.summary || JSON.stringify(episode);
+  const content =
+    typeof episode === 'string'
+      ? episode
+      : episode.content || episode.episode_body || episode.summary || JSON.stringify(episode);
 
-  const title = typeof episode === 'string'
-    ? content.slice(0, 100)
-    : episode.name || episode.title || content.slice(0, 100);
+  const title =
+    typeof episode === 'string' ? content.slice(0, 100) : episode.name || episode.title || content.slice(0, 100);
 
   return {
     id: episode.uuid || episode.id || `graphiti-${index}`,
@@ -83,11 +83,7 @@ function graphitiEpisodeToMemoryItem(episode: any, index: number): MemoryItem {
   };
 }
 
-export async function searchMemories(
-  query: string,
-  page = 1,
-  pageSize = 20,
-): Promise<MemoryResponse> {
+export async function searchMemories(query: string, page = 1, pageSize = 20): Promise<MemoryResponse> {
   const user = await getUser();
   if (!user) throw new Error('Authentication required');
   if (!query.trim()) return { memories: [], total: 0 };
@@ -99,9 +95,7 @@ export async function searchMemories(
       const client = await getGraphitiClientForUser(user.id);
       const result = await client.search(query, user.id, pageSize);
       const episodes = result.results || [];
-      const memories = episodes.map((ep: any, i: number) =>
-        graphitiEpisodeToMemoryItem(ep, i),
-      );
+      const memories = episodes.map((ep: any, i: number) => graphitiEpisodeToMemoryItem(ep, i));
       return { memories, total: memories.length };
     } catch (error) {
       console.error('Error searching Graphiti memories:', error);
@@ -123,10 +117,7 @@ export async function searchMemories(
   }
 }
 
-export async function getAllMemories(
-  page = 1,
-  pageSize = 20,
-): Promise<MemoryResponse> {
+export async function getAllMemories(page = 1, pageSize = 20): Promise<MemoryResponse> {
   const user = await getUser();
   if (!user) throw new Error('Authentication required');
 
@@ -137,9 +128,7 @@ export async function getAllMemories(
       const client = await getGraphitiClientForUser(user.id);
       const result = await client.listEpisodes(user.id, pageSize, (page - 1) * pageSize);
       const episodes = result.episodes || [];
-      const memories = episodes.map((ep: any, i: number) =>
-        graphitiEpisodeToMemoryItem(ep, i),
-      );
+      const memories = episodes.map((ep: any, i: number) => graphitiEpisodeToMemoryItem(ep, i));
       return { memories, total: result.total || memories.length };
     } catch (error) {
       console.error('Error fetching Graphiti memories:', error);

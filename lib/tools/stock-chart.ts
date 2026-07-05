@@ -426,7 +426,10 @@ function buildSecFilings(params: {
     }));
 }
 
-function extractFinancialData(params: { allResults: any[]; financialPromises: FinancialPromise[] }): FinancialDataBundle {
+function extractFinancialData(params: {
+  allResults: any[];
+  financialPromises: FinancialPromise[];
+}): FinancialDataBundle {
   const bundle: FinancialDataBundle = {
     companyStatistics: {},
     balanceSheets: {},
@@ -661,25 +664,23 @@ export const stockChartTool = tool({
     for (const query of news_queries) {
       tavilyPromises.push({ query, topic: 'finance', index: promiseIndex });
       allPromises.push(
-        tvly
-          .search(query, {
-            topic: 'finance',
-            days: 7,
-            maxResults: 3,
-            searchDepth: 'advanced',
-          }),
+        tvly.search(query, {
+          topic: 'finance',
+          days: 7,
+          maxResults: 3,
+          searchDepth: 'advanced',
+        }),
       );
       promiseMap.set(`tavily-finance-${query}`, promiseIndex++);
 
       tavilyPromises.push({ query, topic: 'news', index: promiseIndex });
       allPromises.push(
-        tvly
-          .search(query, {
-            topic: 'news',
-            days: 7,
-            maxResults: 3,
-            searchDepth: 'advanced',
-          }),
+        tvly.search(query, {
+          topic: 'news',
+          days: 7,
+          maxResults: 3,
+          searchDepth: 'advanced',
+        }),
       );
       promiseMap.set(`tavily-news-${query}`, promiseIndex++);
     }
@@ -689,12 +690,11 @@ export const stockChartTool = tool({
     companies.forEach((company) => {
       exaPromises.push({ company, index: promiseIndex });
       allPromises.push(
-        exa
-          .search(`${company} financial report analysis`, {
-            category: 'financial report',
-            type: 'instant',
-            numResults: 10,
-          }),
+        exa.search(`${company} financial report analysis`, {
+          category: 'financial report',
+          type: 'instant',
+          numResults: 10,
+        }),
       );
       promiseMap.set(`exa-${company}`, promiseIndex++);
     });
@@ -703,13 +703,12 @@ export const stockChartTool = tool({
     const stockQuery = `What are the stock prices for ${companies.join(' and ')} for time period ${time_period}?`;
 
     allPromises.push(
-      valyu
-        .search(stockQuery, {
-          searchType: 'proprietary',
-          isToolCall: true,
-          includedSources: ['valyu/valyu-stocks-US'],
-          maxPrice: 100,
-        }),
+      valyu.search(stockQuery, {
+        searchType: 'proprietary',
+        isToolCall: true,
+        includedSources: ['valyu/valyu-stocks-US'],
+        maxPrice: 100,
+      }),
     );
     promiseMap.set('valyu-stocks', promiseIndex++);
 
@@ -717,13 +716,12 @@ export const stockChartTool = tool({
     if (actualIncludeEarnings) {
       const earningsQuery = `What are the earnings for ${companies.join(' and ')} for time period ${time_period}?`;
       allPromises.push(
-        valyu
-          .search(earningsQuery, {
-            searchType: 'proprietary',
-            isToolCall: true,
-            includedSources: ['valyu/valyu-earnings-US'],
-            maxPrice: 100,
-          }),
+        valyu.search(earningsQuery, {
+          searchType: 'proprietary',
+          isToolCall: true,
+          includedSources: ['valyu/valyu-earnings-US'],
+          maxPrice: 100,
+        }),
       );
       promiseMap.set('valyu-earnings', promiseIndex++);
     }
@@ -740,14 +738,13 @@ export const stockChartTool = tool({
 
           secPromises.push({ company, filingType, index: promiseIndex });
           allPromises.push(
-            valyu
-              .search(secQuery, {
-                searchType: 'proprietary',
-                isToolCall: true,
-                includedSources: ['valyu/valyu-sec-filings'],
-                responseLength: secResponseLength,
-                maxPrice: 100,
-              }),
+            valyu.search(secQuery, {
+              searchType: 'proprietary',
+              isToolCall: true,
+              includedSources: ['valyu/valyu-sec-filings'],
+              responseLength: secResponseLength,
+              maxPrice: 100,
+            }),
           );
           promiseMap.set(`sec-${company}-${filingType}`, promiseIndex++);
         });
@@ -762,13 +759,12 @@ export const stockChartTool = tool({
       companies.forEach((company) => {
         financialPromises.push({ type: 'statistics', company, index: promiseIndex });
         allPromises.push(
-          valyu
-            .search(`${company} company statistics`, {
-              searchType: 'proprietary',
-              isToolCall: true,
-              includedSources: ['valyu/valyu-statistics-US'],
-              maxPrice: 100,
-            }),
+          valyu.search(`${company} company statistics`, {
+            searchType: 'proprietary',
+            isToolCall: true,
+            includedSources: ['valyu/valyu-statistics-US'],
+            maxPrice: 100,
+          }),
         );
         promiseMap.set(`stats-${company}`, promiseIndex++);
       });
@@ -786,13 +782,12 @@ export const stockChartTool = tool({
 
         financialPromises.push({ type: 'balance', company, index: promiseIndex });
         allPromises.push(
-          valyu
-            .search(buildFinancialQuery(company, 'balance sheet'), {
-              searchType: 'proprietary',
-              isToolCall: true,
-              includedSources: ['valyu/valyu-balance-sheet-US'],
-              maxPrice: 100,
-            }),
+          valyu.search(buildFinancialQuery(company, 'balance sheet'), {
+            searchType: 'proprietary',
+            isToolCall: true,
+            includedSources: ['valyu/valyu-balance-sheet-US'],
+            maxPrice: 100,
+          }),
         );
         promiseMap.set(`balance-${company}`, promiseIndex++);
       });
@@ -810,13 +805,12 @@ export const stockChartTool = tool({
 
         financialPromises.push({ type: 'income', company, index: promiseIndex });
         allPromises.push(
-          valyu
-            .search(buildFinancialQuery(company, 'income statement'), {
-              searchType: 'proprietary',
-              isToolCall: true,
-              includedSources: ['valyu/valyu-income-statement-US'],
-              maxPrice: 100,
-            }),
+          valyu.search(buildFinancialQuery(company, 'income statement'), {
+            searchType: 'proprietary',
+            isToolCall: true,
+            includedSources: ['valyu/valyu-income-statement-US'],
+            maxPrice: 100,
+          }),
         );
         promiseMap.set(`income-${company}`, promiseIndex++);
       });
@@ -834,13 +828,12 @@ export const stockChartTool = tool({
 
         financialPromises.push({ type: 'cash', company, index: promiseIndex });
         allPromises.push(
-          valyu
-            .search(buildFinancialQuery(company, 'cash flow'), {
-              searchType: 'proprietary',
-              isToolCall: true,
-              includedSources: ['valyu/valyu-cash-flow-US'],
-              maxPrice: 100,
-            }),
+          valyu.search(buildFinancialQuery(company, 'cash flow'), {
+            searchType: 'proprietary',
+            isToolCall: true,
+            includedSources: ['valyu/valyu-cash-flow-US'],
+            maxPrice: 100,
+          }),
         );
         promiseMap.set(`cash-${company}`, promiseIndex++);
       });
@@ -851,13 +844,12 @@ export const stockChartTool = tool({
       companies.forEach((company) => {
         financialPromises.push({ type: 'dividends', company, index: promiseIndex });
         allPromises.push(
-          valyu
-            .search(`${company} dividends ${time_period}`, {
-              searchType: 'proprietary',
-              isToolCall: true,
-              includedSources: ['valyu/valyu-dividends-US'],
-              maxPrice: 100,
-            }),
+          valyu.search(`${company} dividends ${time_period}`, {
+            searchType: 'proprietary',
+            isToolCall: true,
+            includedSources: ['valyu/valyu-dividends-US'],
+            maxPrice: 100,
+          }),
         );
         promiseMap.set(`dividends-${company}`, promiseIndex++);
       });
@@ -869,13 +861,12 @@ export const stockChartTool = tool({
         const timeHint = time_period && time_period.trim().length > 0 ? time_period : 'recent';
         financialPromises.push({ type: 'insider', company, index: promiseIndex });
         allPromises.push(
-          valyu
-            .search(`${company} insider transactions ${timeHint}`, {
-              searchType: 'proprietary',
-              isToolCall: true,
-              includedSources: ['valyu/valyu-insider-transactions-US'],
-              maxPrice: 100,
-            }),
+          valyu.search(`${company} insider transactions ${timeHint}`, {
+            searchType: 'proprietary',
+            isToolCall: true,
+            includedSources: ['valyu/valyu-insider-transactions-US'],
+            maxPrice: 100,
+          }),
         );
         promiseMap.set(`insider-${company}`, promiseIndex++);
       });
@@ -885,46 +876,41 @@ export const stockChartTool = tool({
     if (actualIncludeMarketMovers) {
       financialPromises.push({ type: 'gainers', index: promiseIndex });
       allPromises.push(
-        valyu
-          .search('top market gainers today stocks', {
-            searchType: 'proprietary',
-            isToolCall: true,
-            includedSources: ['valyu/valyu-market-movers-US'],
-            maxPrice: 100,
-          }),
+        valyu.search('top market gainers today stocks', {
+          searchType: 'proprietary',
+          isToolCall: true,
+          includedSources: ['valyu/valyu-market-movers-US'],
+          maxPrice: 100,
+        }),
       );
       promiseMap.set('gainers', promiseIndex++);
 
       financialPromises.push({ type: 'losers', index: promiseIndex });
       allPromises.push(
-        valyu
-          .search('top market losers today stocks', {
-            searchType: 'proprietary',
-            isToolCall: true,
-            includedSources: ['valyu/valyu-market-movers-US'],
-            maxPrice: 100,
-          }),
+        valyu.search('top market losers today stocks', {
+          searchType: 'proprietary',
+          isToolCall: true,
+          includedSources: ['valyu/valyu-market-movers-US'],
+          maxPrice: 100,
+        }),
       );
       promiseMap.set('losers', promiseIndex++);
 
       financialPromises.push({ type: 'active', index: promiseIndex });
       allPromises.push(
-        valyu
-          .search('most active stocks today', {
-            searchType: 'proprietary',
-            isToolCall: true,
-            includedSources: ['valyu/valyu-market-movers-US'],
-            maxPrice: 100,
-          }),
+        valyu.search('most active stocks today', {
+          searchType: 'proprietary',
+          isToolCall: true,
+          includedSources: ['valyu/valyu-market-movers-US'],
+          maxPrice: 100,
+        }),
       );
       promiseMap.set('active', promiseIndex++);
     }
 
     // Execute all promises in parallel
     console.log(`Executing ${allPromises.length} API calls in parallel...`);
-    const indexToKey = new Map<number, string>(
-      Array.from(promiseMap.entries()).map(([key, index]) => [index, key]),
-    );
+    const indexToKey = new Map<number, string>(Array.from(promiseMap.entries()).map(([key, index]) => [index, key]));
     const buildTaskMap = (promises: Promise<any>[]) =>
       Object.fromEntries(promises.map((promise, index) => [`task:${index}`, async () => promise]));
     const getTaskLabel = (index: number) => indexToKey.get(index) ?? `task:${index}`;

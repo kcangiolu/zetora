@@ -23,10 +23,7 @@ export const codeInterpreterTool = tool({
       ),
     icon: z.enum(['stock', 'date', 'calculation', 'default']).describe('The icon to display for the code snippet.'),
   }),
-  execute: async (
-    { code, title, icon }: { code: string; title: string; icon: string },
-    { experimental_context },
-  ) => {
+  execute: async ({ code, title, icon }: { code: string; title: string; icon: string }, { experimental_context }) => {
     console.log('Code:', code);
     console.log('Title:', title);
     console.log('Icon:', icon);

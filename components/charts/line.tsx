@@ -1,15 +1,15 @@
-"use client";
+'use client';
 
-import { curveNatural } from "@visx/curve";
-import { LinePath } from "@visx/shape";
+import { curveNatural } from '@visx/curve';
+import { LinePath } from '@visx/shape';
 
 // CurveFactory type - simplified version compatible with visx
 // biome-ignore lint/suspicious/noExplicitAny: d3 curve factory type
 type CurveFactory = any;
 
-import { motion, useMotionTemplate, useSpring } from "motion/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { chartCssVars, useChart } from "./chart-context";
+import { motion, useMotionTemplate, useSpring } from 'motion/react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { chartCssVars, useChart } from './chart-context';
 
 export interface LineProps {
   /** Key in data to use for y values */
@@ -37,27 +37,15 @@ export function Line({
   fadeEdges = true,
   showHighlight = true,
 }: LineProps) {
-  const {
-    data,
-    xScale,
-    yScale,
-    innerHeight,
-    innerWidth,
-    tooltipData,
-    isLoaded,
-    animationDuration,
-    xAccessor,
-  } = useChart();
+  const { data, xScale, yScale, innerHeight, innerWidth, tooltipData, isLoaded, animationDuration, xAccessor } =
+    useChart();
 
   const pathRef = useRef<SVGPathElement>(null);
   const [pathLength, setPathLength] = useState(0);
   const [clipWidth, setClipWidth] = useState(0);
 
   // Unique gradient ID for this line
-  const gradientId = useMemo(
-    () => `line-gradient-${dataKey}-${Math.random().toString(36).slice(2, 9)}`,
-    [dataKey]
-  );
+  const gradientId = useMemo(() => `line-gradient-${dataKey}-${Math.random().toString(36).slice(2, 9)}`, [dataKey]);
 
   // Measure path length and trigger animation
   useEffect(() => {
@@ -129,12 +117,7 @@ export function Line({
   useEffect(() => {
     offsetSpring.set(-segmentBounds.startLength);
     segmentLengthSpring.set(segmentBounds.segmentLength);
-  }, [
-    segmentBounds.startLength,
-    segmentBounds.segmentLength,
-    offsetSpring,
-    segmentLengthSpring,
-  ]);
+  }, [segmentBounds.startLength, segmentBounds.segmentLength, offsetSpring, segmentLengthSpring]);
 
   // Create animated strokeDasharray using motion template
   const animatedDasharray = useMotionTemplate`${segmentLengthSpring} ${pathLength}`;
@@ -143,13 +126,13 @@ export function Line({
   const getY = useCallback(
     (d: Record<string, unknown>) => {
       const value = d[dataKey];
-      return typeof value === "number" ? (yScale(value) ?? 0) : 0;
+      return typeof value === 'number' ? (yScale(value) ?? 0) : 0;
     },
-    [dataKey, yScale]
+    [dataKey, yScale],
   );
 
   const isHovering = tooltipData !== null;
-  const easing = "cubic-bezier(0.85, 0, 0.15, 1)";
+  const easing = 'cubic-bezier(0.85, 0, 0.15, 1)';
 
   return (
     <>
@@ -172,10 +155,7 @@ export function Line({
             <rect
               height={innerHeight + 20}
               style={{
-                transition:
-                  !isLoaded && clipWidth > 0
-                    ? `width ${animationDuration}ms ${easing}`
-                    : "none",
+                transition: !isLoaded && clipWidth > 0 ? `width ${animationDuration}ms ${easing}` : 'none',
               }}
               width={isLoaded ? innerWidth : clipWidth}
               x={0}
@@ -190,7 +170,7 @@ export function Line({
         <motion.g
           animate={{ opacity: isHovering && showHighlight ? 0.3 : 1 }}
           initial={{ opacity: 1 }}
-          transition={{ duration: 0.4, ease: "easeInOut" }}
+          transition={{ duration: 0.4, ease: 'easeInOut' }}
         >
           <LinePath
             curve={curve}
@@ -209,7 +189,7 @@ export function Line({
       {showHighlight && isHovering && isLoaded && pathRef.current && (
         <motion.path
           animate={{ opacity: 1 }}
-          d={pathRef.current.getAttribute("d") || ""}
+          d={pathRef.current.getAttribute('d') || ''}
           exit={{ opacity: 0 }}
           fill="none"
           initial={{ opacity: 0 }}
@@ -220,13 +200,13 @@ export function Line({
             strokeDasharray: animatedDasharray,
             strokeDashoffset: offsetSpring,
           }}
-          transition={{ duration: 0.4, ease: "easeInOut" }}
+          transition={{ duration: 0.4, ease: 'easeInOut' }}
         />
       )}
     </>
   );
 }
 
-Line.displayName = "Line";
+Line.displayName = 'Line';
 
 export default Line;

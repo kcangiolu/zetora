@@ -42,10 +42,7 @@ function getTimeRangeAtIndex(timeRanges: TimeRange[] | undefined, index: number)
   return timeRanges[index] ?? timeRanges[0];
 }
 
-async function parallelSearch(
-  parallel: Parallel,
-  params: { query: string; maxResults: number; afterDate?: string },
-) {
+async function parallelSearch(parallel: Parallel, params: { query: string; maxResults: number; afterDate?: string }) {
   return (await parallel.beta.search({
     objective: params.query,
     search_queries: [params.query],
@@ -67,7 +64,10 @@ export function redditSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>
         .describe('Array of search queries to execute on Reddit. Minimum 1, recommended 3-5.')
         .min(1)
         .max(5),
-      maxResults: z.array(z.number()).optional().describe('Array of maximum results per query. Default is 20 per query.'),
+      maxResults: z
+        .array(z.number())
+        .optional()
+        .describe('Array of maximum results per query. Default is 20 per query.'),
       timeRange: z
         .array(z.enum(['day', 'week', 'month', 'year']))
         .optional()
@@ -114,32 +114,32 @@ export function redditSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>
               processedResults: async function () {
                 const data = await this.$.data;
                 return data.results.map((result) => {
-                const subredditMatch =
-                  typeof result.url === 'string' ? result.url.match(/reddit\.com\/r\/([^/]+)/i) : null;
-                const subreddit = subredditMatch ? subredditMatch[1] : 'unknown';
-                const isRedditPost =
-                  typeof result.url === 'string' ? /reddit\.com\/r\/[^/]+\/comments\//i.test(result.url) : false;
+                  const subredditMatch =
+                    typeof result.url === 'string' ? result.url.match(/reddit\.com\/r\/([^/]+)/i) : null;
+                  const subreddit = subredditMatch ? subredditMatch[1] : 'unknown';
+                  const isRedditPost =
+                    typeof result.url === 'string' ? /reddit\.com\/r\/[^/]+\/comments\//i.test(result.url) : false;
 
-                const rawExcerpts = result.excerpts as unknown;
-                let excerptsArray: string[] = [];
+                  const rawExcerpts = result.excerpts as unknown;
+                  let excerptsArray: string[] = [];
 
-                if (Array.isArray(rawExcerpts)) {
-                  excerptsArray = (rawExcerpts as unknown[]).filter(
-                    (excerpt): excerpt is string => typeof excerpt === 'string' && excerpt.length > 0,
-                  );
-                } else if (typeof rawExcerpts === 'string' && rawExcerpts.length > 0) {
-                  excerptsArray = [rawExcerpts];
-                }
+                  if (Array.isArray(rawExcerpts)) {
+                    excerptsArray = (rawExcerpts as unknown[]).filter(
+                      (excerpt): excerpt is string => typeof excerpt === 'string' && excerpt.length > 0,
+                    );
+                  } else if (typeof rawExcerpts === 'string' && rawExcerpts.length > 0) {
+                    excerptsArray = [rawExcerpts];
+                  }
 
-                return {
-                  url: result.url,
-                  title: result.title ?? result.url,
-                  content: excerptsArray.join('\n\n'),
-                  published_date: result.publish_date ?? undefined,
-                  subreddit,
-                  isRedditPost,
-                  comments: excerptsArray,
-                };
+                  return {
+                    url: result.url,
+                    title: result.title ?? result.url,
+                    content: excerptsArray.join('\n\n'),
+                    published_date: result.publish_date ?? undefined,
+                    subreddit,
+                    isRedditPost,
+                    comments: excerptsArray,
+                  };
                 });
               },
             },

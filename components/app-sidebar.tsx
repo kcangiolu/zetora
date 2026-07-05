@@ -17,12 +17,7 @@ import {
   BugIcon,
   UsersIcon,
 } from '@phosphor-icons/react';
-import {
-  Crown02Icon,
-  BinocularsIcon,
-  SearchList02Icon,
-  FolderLibraryIcon,
-} from '@hugeicons/core-free-icons';
+import { Crown02Icon, BinocularsIcon, SearchList02Icon, FolderLibraryIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import {
   RocketIcon as VercelIcon,

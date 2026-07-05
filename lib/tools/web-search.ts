@@ -500,8 +500,8 @@ class ExaSearchStrategy implements SearchStrategy {
                 ...(endPublishedDate && { endPublishedDate }),
                 contents: {
                   highlights: {
-                    maxCharacters: 4000
-                  }
+                    maxCharacters: 4000,
+                  },
                 },
               });
             },
@@ -560,7 +560,9 @@ class ExaSearchStrategy implements SearchStrategy {
         return {
           query,
           results: deduplicateByDomainAndUrl(results),
-          images: deduplicateByDomainAndUrl(images.filter((img: { url: string; description: string }) => img.url && img.description)),
+          images: deduplicateByDomainAndUrl(
+            images.filter((img: { url: string; description: string }) => img.url && img.description),
+          ),
         };
       } catch (error) {
         console.error(`Exa search error for query "${query}":`, error);

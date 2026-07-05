@@ -1,5 +1,5 @@
 // /components/github-search.tsx
- 
+
 import React, { useState } from 'react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
@@ -180,7 +180,8 @@ const GitHubSourceCard: React.FC<{
 
           {/* Content */}
           <p className="text-[12px] text-muted-foreground line-clamp-2 leading-relaxed">
-            {result.description || (result.content.length > 150 ? result.content.substring(0, 150) + '...' : result.content)}
+            {result.description ||
+              (result.content.length > 150 ? result.content.substring(0, 150) + '...' : result.content)}
           </p>
         </div>
       </div>
@@ -251,7 +252,10 @@ const GitHubSourcesSheet: React.FC<{
 };
 
 // Loading state component - Minimal Design
-const SearchLoadingState: React.FC<{ queries: string[]; annotations: DataUIPart<CustomUIDataTypes>[] }> = ({ queries, annotations }) => {
+const SearchLoadingState: React.FC<{ queries: string[]; annotations: DataUIPart<CustomUIDataTypes>[] }> = ({
+  queries,
+  annotations,
+}) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const loadingQueryTagsRef = React.useRef<HTMLDivElement>(null);
   const totalResults = annotations.reduce((sum, a) => sum + (a.data.resultsCount || 0), 0);
@@ -323,15 +327,9 @@ const SearchLoadingState: React.FC<{ queries: string[]; annotations: DataUIPart<
                           : 'bg-card border-border/60 text-muted-foreground',
                       )}
                     >
-                      {isCompleted ? (
-                        <Icons.Check className="w-2.5 h-2.5" />
-                      ) : (
-                        <Spinner className="w-2.5 h-2.5" />
-                      )}
+                      {isCompleted ? <Icons.Check className="w-2.5 h-2.5" /> : <Spinner className="w-2.5 h-2.5" />}
                       <span className="font-medium">{query}</span>
-                      {resultsCount > 0 && (
-                        <span className="text-[10px] opacity-70">({resultsCount})</span>
-                      )}
+                      {resultsCount > 0 && <span className="text-[10px] opacity-70">({resultsCount})</span>}
                     </span>
                   );
                 })

@@ -61,22 +61,22 @@ export function ShareDialog({
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
-      sileo.success({ 
+      sileo.success({
         title: 'Link copied to clipboard',
         description: 'You can now paste it anywhere',
         icon: <Copy className="h-4 w-4" />,
         button: {
           title: 'Open link',
-          onClick: () => window.open(shareUrl, '_blank', 'noopener,noreferrer')
-        }
+          onClick: () => window.open(shareUrl, '_blank', 'noopener,noreferrer'),
+        },
       });
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       console.error('Failed to copy to clipboard:', error);
-      sileo.error({ 
+      sileo.error({
         title: 'Failed to copy link',
         description: 'Please try again',
-        icon: <XLogoIcon className="h-4 w-4" weight="fill" />
+        icon: <XLogoIcon className="h-4 w-4" weight="fill" />,
       });
     }
   };
@@ -91,10 +91,10 @@ export function ShareDialog({
       await handleCopyLink();
     } catch (error) {
       console.error('Error sharing chat:', error);
-      sileo.error({ 
+      sileo.error({
         title: 'Failed to share chat',
         description: 'Please try again',
-        icon: <XLogoIcon className="h-4 w-4" weight="fill" />
+        icon: <XLogoIcon className="h-4 w-4" weight="fill" />,
       });
     } finally {
       setIsChangingVisibility(false);
@@ -108,18 +108,18 @@ export function ShareDialog({
       await onVisibilityChange('private');
       setChoice('private');
       setIsShared(false);
-      sileo.success({ 
+      sileo.success({
         title: 'Chat is now private',
         description: 'Your chat is no longer publicly accessible',
-        icon: <LockIcon className="h-4 w-4" weight="fill" />
+        icon: <LockIcon className="h-4 w-4" weight="fill" />,
       });
       onOpenChange(false);
     } catch (error) {
       console.error('Error making chat private:', error);
-      sileo.error({ 
+      sileo.error({
         title: 'Failed to make chat private',
         description: 'Please try again',
-        icon: <XLogoIcon className="h-4 w-4" weight="fill" />
+        icon: <XLogoIcon className="h-4 w-4" weight="fill" />,
       });
     } finally {
       setIsChangingVisibility(false);

@@ -15,7 +15,7 @@ export function getSandboxProvider(preferredProvider?: SandboxProviderType): San
   if (!serverEnv.DAYTONA_API_KEY) {
     throw new Error(
       'DAYTONA_API_KEY is required when using Daytona sandbox provider. ' +
-      'Set SANDBOX_PROVIDER=docker to use the local Docker sandbox instead.'
+        'Set SANDBOX_PROVIDER=docker to use the local Docker sandbox instead.',
     );
   }
 

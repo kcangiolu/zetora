@@ -33,12 +33,7 @@ export function useCachedUserData() {
   // Prefer fresh server data when available; only fall back to cached localStorage
   // data during initial load (before React Query has returned any data).
   // When signed out (session known to be null), never expose cached data.
-  const user =
-    !isSessionPending && !session
-      ? null
-      : freshUser !== undefined
-        ? freshUser
-        : cachedUser;
+  const user = !isSessionPending && !session ? null : freshUser !== undefined ? freshUser : cachedUser;
 
   // Show loading only if we have no cached data and fresh data is loading
   const isLoading = !cachedUser && isFreshLoading;
@@ -93,23 +88,23 @@ export function useCachedUserData() {
     // Legacy compatibility helpers
     subscriptionData: user?.polarSubscription
       ? {
-        hasSubscription: true,
-        subscription: user.polarSubscription,
-      }
+          hasSubscription: true,
+          subscription: user.polarSubscription,
+        }
       : { hasSubscription: false },
 
     // Map dodoSubscription to legacy dodoProStatus structure for settings dialog
     dodoProStatus: user?.dodoSubscription
       ? {
-        isProUser: proSource === 'dodo' && isProUser,
-        hasSubscriptions: user.dodoSubscription.hasSubscriptions,
-        expiresAt: user.dodoSubscription.expiresAt,
-        mostRecentSubscription: user.dodoSubscription.mostRecentSubscription,
-        daysUntilExpiration: user.dodoSubscription.daysUntilExpiration,
-        isExpired: user.dodoSubscription.isExpired,
-        isExpiringSoon: user.dodoSubscription.isExpiringSoon,
-        source: proSource,
-      }
+          isProUser: proSource === 'dodo' && isProUser,
+          hasSubscriptions: user.dodoSubscription.hasSubscriptions,
+          expiresAt: user.dodoSubscription.expiresAt,
+          mostRecentSubscription: user.dodoSubscription.mostRecentSubscription,
+          daysUntilExpiration: user.dodoSubscription.daysUntilExpiration,
+          isExpired: user.dodoSubscription.isExpired,
+          isExpiringSoon: user.dodoSubscription.isExpiringSoon,
+          source: proSource,
+        }
       : null,
 
     expiresAt: user?.dodoSubscription?.expiresAt,

@@ -84,7 +84,12 @@ const THEMES: ThemeConfig[] = [
 function ThemeSwatch({ colors, size = 'sm' }: { colors: [string, string, string]; size?: 'sm' | 'md' }) {
   const s = size === 'sm' ? 16 : 20;
   return (
-    <svg width={s} height={s} viewBox="0 0 20 20" className="shrink-0 rounded-[4px] border border-border/50 overflow-hidden">
+    <svg
+      width={s}
+      height={s}
+      viewBox="0 0 20 20"
+      className="shrink-0 rounded-[4px] border border-border/50 overflow-hidden"
+    >
       <rect width="20" height="20" fill={colors[0]} />
       <circle cx="7" cy="10" r="4" fill={colors[1]} />
       <rect x="12" y="6" width="6" height="8" rx="1.5" fill={colors[2]} />
@@ -184,9 +189,7 @@ function ThemeSwitcher() {
                     <div className="text-xs font-medium leading-tight">{t.label}</div>
                     <div className="text-[10px] text-muted-foreground leading-tight mt-0.5">{t.description}</div>
                   </div>
-                  {isActive && (
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                  )}
+                  {isActive && <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
                 </button>
               );
             })}

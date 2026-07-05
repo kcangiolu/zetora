@@ -35,11 +35,7 @@ function getElicitationPendingKey(elicitationId: string) {
 function getToolUiResourceUri(toolDef: any): string | null {
   const meta = toolDef?._meta;
   if (!meta || typeof meta !== 'object') return null;
-  const candidates = [
-    meta['ui/resourceUri'],
-    meta['ui.resourceUri'],
-    meta?.ui?.resourceUri,
-  ];
+  const candidates = [meta['ui/resourceUri'], meta['ui.resourceUri'], meta?.ui?.resourceUri];
   for (const value of candidates) {
     if (typeof value === 'string' && value.startsWith('ui://')) return value;
   }
@@ -74,11 +70,13 @@ function withMcpAppBridgeMeta({
 }
 
 function toSafeSlug(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 24) || 'server';
+  return (
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 24) || 'server'
+  );
 }
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
@@ -129,7 +127,9 @@ function waitForElicitation(elicitationId: string): Promise<ElicitResult> {
       }
     };
 
-    interval = setInterval(() => { void pollRedis(); }, 500);
+    interval = setInterval(() => {
+      void pollRedis();
+    }, 500);
     void pollRedis();
   });
 }
@@ -297,9 +297,18 @@ export async function resolveUserMcpTools({
 
   async function closeAll() {
     await all(
-      Object.fromEntries(clients.map((client, i) => [`client:${i}`, async () => {
-        try { await client.close(); } catch { /* ignore close errors */ }
-      }])),
+      Object.fromEntries(
+        clients.map((client, i) => [
+          `client:${i}`,
+          async () => {
+            try {
+              await client.close();
+            } catch {
+              /* ignore close errors */
+            }
+          },
+        ]),
+      ),
       getBetterAllOptions(),
     );
   }

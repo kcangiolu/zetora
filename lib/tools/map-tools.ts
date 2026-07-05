@@ -198,122 +198,124 @@ export const nearbyPlacesSearchTool = tool({
 
       const placesSlice = data.results.slice(0, 20);
       const placePromises: Array<Promise<any>> = placesSlice.map(async (place: any) => {
-          try {
-            const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,formatted_address,formatted_phone_number,website,rating,reviews,opening_hours,photos,price_level,types&key=${googleApiKey}`;
-            const detailsResponse = await fetch(detailsUrl);
-            const details = await detailsResponse.json();
+        try {
+          const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,formatted_address,formatted_phone_number,website,rating,reviews,opening_hours,photos,price_level,types&key=${googleApiKey}`;
+          const detailsResponse = await fetch(detailsUrl);
+          const details = await detailsResponse.json();
 
-            let detailsData = details.status === 'OK' ? details.result : {};
+          let detailsData = details.status === 'OK' ? details.result : {};
 
-            const lat1 = searchLat!;
-            const lon1 = searchLng!;
-            const lat2 = place.geometry.location.lat;
-            const lon2 = place.geometry.location.lng;
+          const lat1 = searchLat!;
+          const lon1 = searchLng!;
+          const lat2 = place.geometry.location.lat;
+          const lon2 = place.geometry.location.lng;
 
-            const R = 6371000;
-            const dLat = ((lat2 - lat1) * Math.PI) / 180;
-            const dLon = ((lon2 - lon1) * Math.PI) / 180;
-            const a =
-              Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-              Math.cos((lat1 * Math.PI) / 180) *
-                Math.cos((lat2 * Math.PI) / 180) *
-                Math.sin(dLon / 2) *
-                Math.sin(dLon / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            const distance = R * c;
+          const R = 6371000;
+          const dLat = ((lat2 - lat1) * Math.PI) / 180;
+          const dLon = ((lon2 - lon1) * Math.PI) / 180;
+          const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos((lat1 * Math.PI) / 180) *
+              Math.cos((lat2 * Math.PI) / 180) *
+              Math.sin(dLon / 2) *
+              Math.sin(dLon / 2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+          const distance = R * c;
 
-            const formatPriceLevel = (priceLevel: number | undefined): string => {
-              if (priceLevel === undefined || priceLevel === null) return 'Not Available';
-              switch (priceLevel) {
-                case 0:
-                  return 'Free';
-                case 1:
-                  return 'Inexpensive';
-                case 2:
-                  return 'Moderate';
-                case 3:
-                  return 'Expensive';
-                case 4:
-                  return 'Very Expensive';
-                default:
-                  return 'Not Available';
-              }
-            };
+          const formatPriceLevel = (priceLevel: number | undefined): string => {
+            if (priceLevel === undefined || priceLevel === null) return 'Not Available';
+            switch (priceLevel) {
+              case 0:
+                return 'Free';
+              case 1:
+                return 'Inexpensive';
+              case 2:
+                return 'Moderate';
+              case 3:
+                return 'Expensive';
+              case 4:
+                return 'Very Expensive';
+              default:
+                return 'Not Available';
+            }
+          };
 
-            console.log('[Place][Details][Reviews]', detailsData.reviews);
+          console.log('[Place][Details][Reviews]', detailsData.reviews);
 
-            return {
-              place_id: place.place_id,
-              name: place.name,
-              formatted_address: detailsData.formatted_address || place.vicinity,
-              location: {
-                lat: place.geometry.location.lat,
-                lng: place.geometry.location.lng,
-              },
-              rating: place.rating || detailsData.rating,
-              price_level: formatPriceLevel(place.price_level || detailsData.price_level),
-              types: place.types,
-              distance: Math.round(distance),
-              is_open: place.opening_hours?.open_now,
-              photos:
-                (detailsData.photos || place.photos)?.slice(0, 3).map((photo: any) => ({
-                  photo_reference: photo.photo_reference,
-                  width: photo.width,
-                  height: photo.height,
-                  url: `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photo.photo_reference}&key=${googleApiKey}`,
-                })) || [],
-              phone: detailsData.formatted_phone_number,
-              website: detailsData.website,
-              opening_hours: detailsData.opening_hours?.weekday_text || [],
-              reviews_count: detailsData.reviews?.length || 0,
-              reviews:
-                detailsData.reviews?.map((r: any) => ({
-                  author_name: r.author_name,
-                  rating: r.rating,
-                  text: r.text,
-                  time_description: r.relative_time_description,
-                })) || [],
-              source: 'google_places',
-            };
-          } catch (error) {
-            console.error(`Failed to get details for place ${place.name}:`, error);
+          return {
+            place_id: place.place_id,
+            name: place.name,
+            formatted_address: detailsData.formatted_address || place.vicinity,
+            location: {
+              lat: place.geometry.location.lat,
+              lng: place.geometry.location.lng,
+            },
+            rating: place.rating || detailsData.rating,
+            price_level: formatPriceLevel(place.price_level || detailsData.price_level),
+            types: place.types,
+            distance: Math.round(distance),
+            is_open: place.opening_hours?.open_now,
+            photos:
+              (detailsData.photos || place.photos)?.slice(0, 3).map((photo: any) => ({
+                photo_reference: photo.photo_reference,
+                width: photo.width,
+                height: photo.height,
+                url: `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photo.photo_reference}&key=${googleApiKey}`,
+              })) || [],
+            phone: detailsData.formatted_phone_number,
+            website: detailsData.website,
+            opening_hours: detailsData.opening_hours?.weekday_text || [],
+            reviews_count: detailsData.reviews?.length || 0,
+            reviews:
+              detailsData.reviews?.map((r: any) => ({
+                author_name: r.author_name,
+                rating: r.rating,
+                text: r.text,
+                time_description: r.relative_time_description,
+              })) || [],
+            source: 'google_places',
+          };
+        } catch (error) {
+          console.error(`Failed to get details for place ${place.name}:`, error);
 
-            const formatPriceLevel = (priceLevel: number | undefined): string => {
-              if (priceLevel === undefined || priceLevel === null) return 'Not Available';
-              switch (priceLevel) {
-                case 0:
-                  return 'Free';
-                case 1:
-                  return 'Inexpensive';
-                case 2:
-                  return 'Moderate';
-                case 3:
-                  return 'Expensive';
-                case 4:
-                  return 'Very Expensive';
-                default:
-                  return 'Not Available';
-              }
-            };
+          const formatPriceLevel = (priceLevel: number | undefined): string => {
+            if (priceLevel === undefined || priceLevel === null) return 'Not Available';
+            switch (priceLevel) {
+              case 0:
+                return 'Free';
+              case 1:
+                return 'Inexpensive';
+              case 2:
+                return 'Moderate';
+              case 3:
+                return 'Expensive';
+              case 4:
+                return 'Very Expensive';
+              default:
+                return 'Not Available';
+            }
+          };
 
-            return {
-              place_id: place.place_id,
-              name: place.name,
-              formatted_address: place.vicinity,
-              location: {
-                lat: place.geometry.location.lat,
-                lng: place.geometry.location.lng,
-              },
-              rating: place.rating,
-              price_level: formatPriceLevel(place.price_level),
-              types: place.types,
-              distance: 0,
-              source: 'google_places',
-            };
-          }
-        });
+          return {
+            place_id: place.place_id,
+            name: place.name,
+            formatted_address: place.vicinity,
+            location: {
+              lat: place.geometry.location.lat,
+              lng: place.geometry.location.lng,
+            },
+            rating: place.rating,
+            price_level: formatPriceLevel(place.price_level),
+            types: place.types,
+            distance: 0,
+            source: 'google_places',
+          };
+        }
+      });
       const placeMap = await all(
-        Object.fromEntries(placePromises.map((promise: Promise<any>, index: number) => [`p:${index}`, async () => promise])),
+        Object.fromEntries(
+          placePromises.map((promise: Promise<any>, index: number) => [`p:${index}`, async () => promise]),
+        ),
         getBetterAllOptions(),
       );
       const detailedPlaces = placesSlice.map((_: any, index: number) => placeMap[`p:${index}`]);

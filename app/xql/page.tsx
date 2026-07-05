@@ -182,7 +182,9 @@ function XQLPageContent() {
           <div className="mt-8 space-y-4">
             <div className="text-center">
               <p className="text-sm text-muted-foreground mb-1">Try these queries</p>
-              <p className="font-pixel text-[11px] text-muted-foreground uppercase tracking-wider">Search X posts with natural language</p>
+              <p className="font-pixel text-[11px] text-muted-foreground uppercase tracking-wider">
+                Search X posts with natural language
+              </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               {[
@@ -226,7 +228,9 @@ function XQLPageContent() {
                       </div>
                     </div>
                     <p className="text-sm text-foreground mb-1 font-medium leading-tight">{example.query}</p>
-                    <p className="font-pixel text-[9px] text-muted-foreground/50 uppercase tracking-wider leading-tight">{example.description}</p>
+                    <p className="font-pixel text-[9px] text-muted-foreground/50 uppercase tracking-wider leading-tight">
+                      {example.description}
+                    </p>
                   </CardContent>
                 </Card>
               ))}
@@ -326,7 +330,10 @@ function XQLPageContent() {
                             </div>
                             <div className="relative">
                               <pre className="text-xs sm:text-sm bg-muted/30 p-2 sm:p-3 rounded-lg border leading-relaxed overflow-x-auto w-full max-w-full">
-                                <code className="font-mono!" dangerouslySetInnerHTML={{ __html: highlight(buildSQLQuery()) }} />
+                                <code
+                                  className="font-mono!"
+                                  dangerouslySetInnerHTML={{ __html: highlight(buildSQLQuery()) }}
+                                />
                               </pre>
                             </div>
                           </div>
@@ -404,9 +411,7 @@ function XQLPageContent() {
                         <div className="flex flex-wrap items-center justify-between gap-2 p-3 sm:p-4">
                           <div className="flex items-center gap-2 min-w-0">
                             <ZetoraLogo className="size-5 text-foreground shrink-0" />
-                            <span className="text-sm font-semibold text-foreground">
-                              {citations.length} Posts
-                            </span>
+                            <span className="text-sm font-semibold text-foreground">{citations.length} Posts</span>
                           </div>
 
                           {citations.length > 0 && (
@@ -471,7 +476,9 @@ function XQLPageContent() {
                                 <XLogoIcon className="h-5 w-5 opacity-50" />
                               </div>
                               <p className="text-sm mb-1">No posts found</p>
-                              <p className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">Try a different query</p>
+                              <p className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">
+                                Try a different query
+                              </p>
                             </div>
                           )}
                         </div>

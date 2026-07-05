@@ -1,22 +1,15 @@
-"use client";
+'use client';
 
-import { curveMonotoneX } from "@visx/curve";
-import { AreaClosed, LinePath } from "@visx/shape";
+import { curveMonotoneX } from '@visx/curve';
+import { AreaClosed, LinePath } from '@visx/shape';
 
 // CurveFactory type - simplified version compatible with visx
 // biome-ignore lint/suspicious/noExplicitAny: d3 curve factory type
 type CurveFactory = any;
 
-import { motion, useSpring } from "motion/react";
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { chartCssVars, useChart } from "./chart-context";
+import { motion, useSpring } from 'motion/react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { chartCssVars, useChart } from './chart-context';
 
 export interface AreaProps {
   /** Key in data to use for y values */
@@ -56,17 +49,8 @@ export function Area({
   gradientToOpacity = 0,
   fadeEdges = false,
 }: AreaProps) {
-  const {
-    data,
-    xScale,
-    yScale,
-    innerHeight,
-    innerWidth,
-    tooltipData,
-    isLoaded,
-    animationDuration,
-    xAccessor,
-  } = useChart();
+  const { data, xScale, yScale, innerHeight, innerWidth, tooltipData, isLoaded, animationDuration, xAccessor } =
+    useChart();
 
   const pathRef = useRef<SVGPathElement>(null);
   const [pathLength, setPathLength] = useState(0);
@@ -74,14 +58,10 @@ export function Area({
 
   // Unique IDs for this area
   const uniqueId = useId();
-  const gradientId = useMemo(
-    () => `area-gradient-${dataKey}-${Math.random().toString(36).slice(2, 9)}`,
-    [dataKey]
-  );
+  const gradientId = useMemo(() => `area-gradient-${dataKey}-${Math.random().toString(36).slice(2, 9)}`, [dataKey]);
   const strokeGradientId = useMemo(
-    () =>
-      `area-stroke-gradient-${dataKey}-${Math.random().toString(36).slice(2, 9)}`,
-    [dataKey]
+    () => `area-stroke-gradient-${dataKey}-${Math.random().toString(36).slice(2, 9)}`,
+    [dataKey],
   );
   const edgeMaskId = `area-edge-mask-${dataKey}-${uniqueId}`;
   const edgeGradientId = `${edgeMaskId}-gradient`;
@@ -107,7 +87,7 @@ export function Area({
   // Calculate dash props for highlight segment
   const getDashProps = useCallback(() => {
     if (!(tooltipData && pathRef.current) || pathLength === 0) {
-      return { strokeDasharray: "none", strokeDashoffset: 0 };
+      return { strokeDasharray: 'none', strokeDashoffset: 0 };
     }
 
     const idx = tooltipData.index;
@@ -137,7 +117,7 @@ export function Area({
     const startPoint = data[startIdx];
     const endPoint = data[endIdx];
     if (!(startPoint && endPoint)) {
-      return { strokeDasharray: "none", strokeDashoffset: 0 };
+      return { strokeDasharray: 'none', strokeDashoffset: 0 };
     }
 
     const startX = xScale(xAccessor(startPoint)) ?? 0;
@@ -167,13 +147,13 @@ export function Area({
   const getY = useCallback(
     (d: Record<string, unknown>) => {
       const value = d[dataKey];
-      return typeof value === "number" ? (yScale(value) ?? 0) : 0;
+      return typeof value === 'number' ? (yScale(value) ?? 0) : 0;
     },
-    [dataKey, yScale]
+    [dataKey, yScale],
   );
 
   const isHovering = tooltipData !== null;
-  const easing = "cubic-bezier(0.85, 0, 0.15, 1)";
+  const easing = 'cubic-bezier(0.85, 0, 0.15, 1)';
 
   return (
     <>
@@ -181,71 +161,29 @@ export function Area({
       <defs>
         {/* Fill gradient - fades from fillOpacity at top to gradientToOpacity at bottom */}
         <linearGradient id={gradientId} x1="0%" x2="0%" y1="0%" y2="100%">
-          <stop
-            offset="0%"
-            style={{ stopColor: fill, stopOpacity: fillOpacity }}
-          />
-          <stop
-            offset="100%"
-            style={{ stopColor: fill, stopOpacity: gradientToOpacity }}
-          />
+          <stop offset="0%" style={{ stopColor: fill, stopOpacity: fillOpacity }} />
+          <stop offset="100%" style={{ stopColor: fill, stopOpacity: gradientToOpacity }} />
         </linearGradient>
 
         {/* Stroke gradient - fades at edges */}
         <linearGradient id={strokeGradientId} x1="0%" x2="100%" y1="0%" y2="0%">
-          <stop
-            offset="0%"
-            style={{ stopColor: resolvedStroke, stopOpacity: 0 }}
-          />
-          <stop
-            offset="15%"
-            style={{ stopColor: resolvedStroke, stopOpacity: 1 }}
-          />
-          <stop
-            offset="85%"
-            style={{ stopColor: resolvedStroke, stopOpacity: 1 }}
-          />
-          <stop
-            offset="100%"
-            style={{ stopColor: resolvedStroke, stopOpacity: 0 }}
-          />
+          <stop offset="0%" style={{ stopColor: resolvedStroke, stopOpacity: 0 }} />
+          <stop offset="15%" style={{ stopColor: resolvedStroke, stopOpacity: 1 }} />
+          <stop offset="85%" style={{ stopColor: resolvedStroke, stopOpacity: 1 }} />
+          <stop offset="100%" style={{ stopColor: resolvedStroke, stopOpacity: 0 }} />
         </linearGradient>
 
         {/* Edge fade mask for area fill */}
         {fadeEdges && (
           <>
-            <linearGradient
-              id={edgeGradientId}
-              x1="0%"
-              x2="100%"
-              y1="0%"
-              y2="0%"
-            >
-              <stop
-                offset="0%"
-                style={{ stopColor: "white", stopOpacity: 0 }}
-              />
-              <stop
-                offset="20%"
-                style={{ stopColor: "white", stopOpacity: 1 }}
-              />
-              <stop
-                offset="80%"
-                style={{ stopColor: "white", stopOpacity: 1 }}
-              />
-              <stop
-                offset="100%"
-                style={{ stopColor: "white", stopOpacity: 0 }}
-              />
+            <linearGradient id={edgeGradientId} x1="0%" x2="100%" y1="0%" y2="0%">
+              <stop offset="0%" style={{ stopColor: 'white', stopOpacity: 0 }} />
+              <stop offset="20%" style={{ stopColor: 'white', stopOpacity: 1 }} />
+              <stop offset="80%" style={{ stopColor: 'white', stopOpacity: 1 }} />
+              <stop offset="100%" style={{ stopColor: 'white', stopOpacity: 0 }} />
             </linearGradient>
             <mask id={edgeMaskId}>
-              <rect
-                fill={`url(#${edgeGradientId})`}
-                height={innerHeight}
-                width={innerWidth}
-                x="0"
-                y="0"
-              />
+              <rect fill={`url(#${edgeGradientId})`} height={innerHeight} width={innerWidth} x="0" y="0" />
             </mask>
           </>
         )}
@@ -258,10 +196,7 @@ export function Area({
             <rect
               height={innerHeight + 20}
               style={{
-                transition:
-                  !isLoaded && clipWidth > 0
-                    ? `width ${animationDuration}ms ${easing}`
-                    : "none",
+                transition: !isLoaded && clipWidth > 0 ? `width ${animationDuration}ms ${easing}` : 'none',
               }}
               width={isLoaded ? innerWidth : clipWidth}
               x={0}
@@ -276,7 +211,7 @@ export function Area({
         <motion.g
           animate={{ opacity: isHovering && showHighlight ? 0.6 : 1 }}
           initial={{ opacity: 1 }}
-          transition={{ duration: 0.4, ease: "easeInOut" }}
+          transition={{ duration: 0.4, ease: 'easeInOut' }}
         >
           {/* Area fill */}
           <g mask={fadeEdges ? `url(#${edgeMaskId})` : undefined}>
@@ -307,29 +242,25 @@ export function Area({
       </g>
 
       {/* Highlight segment on hover */}
-      {showHighlight &&
-        showLine &&
-        isHovering &&
-        isLoaded &&
-        pathRef.current && (
-          <motion.path
-            animate={{ opacity: 1 }}
-            d={pathRef.current.getAttribute("d") || ""}
-            exit={{ opacity: 0 }}
-            fill="none"
-            initial={{ opacity: 0 }}
-            stroke={resolvedStroke}
-            strokeDasharray={dashProps.strokeDasharray}
-            strokeLinecap="round"
-            strokeWidth={strokeWidth}
-            style={{ strokeDashoffset: offsetSpring }}
-            transition={{ duration: 0.4, ease: "easeInOut" }}
-          />
-        )}
+      {showHighlight && showLine && isHovering && isLoaded && pathRef.current && (
+        <motion.path
+          animate={{ opacity: 1 }}
+          d={pathRef.current.getAttribute('d') || ''}
+          exit={{ opacity: 0 }}
+          fill="none"
+          initial={{ opacity: 0 }}
+          stroke={resolvedStroke}
+          strokeDasharray={dashProps.strokeDasharray}
+          strokeLinecap="round"
+          strokeWidth={strokeWidth}
+          style={{ strokeDashoffset: offsetSpring }}
+          transition={{ duration: 0.4, ease: 'easeInOut' }}
+        />
+      )}
     </>
   );
 }
 
-Area.displayName = "Area";
+Area.displayName = 'Area';
 
 export default Area;

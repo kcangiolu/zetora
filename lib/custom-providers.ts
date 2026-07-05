@@ -109,9 +109,7 @@ export async function detectModels(baseURL: string, apiKey?: string): Promise<st
   }
 
   const data = await response.json();
-  const models: string[] = Array.isArray(data?.data)
-    ? data.data.map((m: { id: string }) => m.id)
-    : [];
+  const models: string[] = Array.isArray(data?.data) ? data.data.map((m: { id: string }) => m.id) : [];
 
   modelsCache.set(cacheKey, { models, expiresAt: Date.now() + MODELS_CACHE_TTL_MS });
   return models;

@@ -11,9 +11,9 @@ class PCMProcessor extends AudioWorkletProcessor {
     this.isMuted = false;
 
     this.port.onmessage = (event) => {
-      if (event.data.type === "config") {
+      if (event.data.type === 'config') {
         this.chunkSizeSamples = event.data.chunkSizeSamples;
-      } else if (event.data.type === "mute") {
+      } else if (event.data.type === 'mute') {
         this.isMuted = event.data.muted;
       }
     };
@@ -31,7 +31,7 @@ class PCMProcessor extends AudioWorkletProcessor {
       sum += input[i] * input[i];
     }
     this.port.postMessage({
-      type: "volume",
+      type: 'volume',
       volume: Math.sqrt(sum / input.length),
     });
 
@@ -76,4 +76,4 @@ class PCMProcessor extends AudioWorkletProcessor {
   }
 }
 
-registerProcessor("pcm-processor", PCMProcessor);
+registerProcessor('pcm-processor', PCMProcessor);

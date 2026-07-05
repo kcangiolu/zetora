@@ -183,7 +183,9 @@ export class SelfHostedContentStrategy implements ContentExtractionStrategy {
     // Phase 1: fastCRW (when configured)
     if (this.fastcrwUrl) {
       const fastcrwResults = await all(
-        Object.fromEntries(uniqueUrls.map((url, i) => [`fc:${i}`, async () => scrapeWithFastCrw(url, this.fastcrwUrl)])),
+        Object.fromEntries(
+          uniqueUrls.map((url, i) => [`fc:${i}`, async () => scrapeWithFastCrw(url, this.fastcrwUrl)]),
+        ),
         getBetterAllOptions(),
       );
 
@@ -201,7 +203,12 @@ export class SelfHostedContentStrategy implements ContentExtractionStrategy {
     }
 
     // Phase 2: Notte fallback (only if API key is configured and not disabled)
-    if (remaining.length > 0 && this.notteEnabled && serverEnv.NOTTE_API_KEY && serverEnv.NOTTE_API_KEY !== 'placeholder') {
+    if (
+      remaining.length > 0 &&
+      this.notteEnabled &&
+      serverEnv.NOTTE_API_KEY &&
+      serverEnv.NOTTE_API_KEY !== 'placeholder'
+    ) {
       console.log(`[SelfHostedContent] ${remaining.length} URLs remaining, trying Notte`);
       const notteResults = await all(
         Object.fromEntries(remaining.map((url, i) => [`nt:${i}`, async () => scrapeWithNotte(url)])),

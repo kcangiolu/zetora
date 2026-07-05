@@ -80,7 +80,11 @@ const AcademicSourceCard: React.FC<{
             {formattedAuthors && paper.publishedDate && <span className="text-[10px] text-muted-foreground/30">·</span>}
             {paper.publishedDate && (
               <span className="text-[10px] text-muted-foreground/50 tabular-nums">
-                {new Date(paper.publishedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                {new Date(paper.publishedDate).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}
               </span>
             )}
           </div>
@@ -115,7 +119,9 @@ const AcademicPapersSheet: React.FC<{
           <div className="px-5 py-4 border-b border-border/40">
             <div className="flex items-center gap-2 mb-0.5">
               <Book className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="font-pixel text-xs text-muted-foreground/80 uppercase tracking-wider">Academic Papers</span>
+              <span className="font-pixel text-xs text-muted-foreground/80 uppercase tracking-wider">
+                Academic Papers
+              </span>
             </div>
             <p className="text-xs text-muted-foreground">
               {totalResults} from {searches.length} {searches.length === 1 ? 'query' : 'queries'}
@@ -215,14 +221,24 @@ const AcademicSearchLoadingState: React.FC<{ queries: string[]; annotations: Dat
                   return (
                     <span key={i} className="inline-flex items-center gap-1.5 text-[10px] shrink-0">
                       {isCompleted ? (
-                        <svg className="w-2.5 h-2.5 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <svg
+                          className="w-2.5 h-2.5 text-muted-foreground"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
                           <path d="M20 6L9 17l-5-5" />
                         </svg>
                       ) : (
                         <Spinner className="w-2.5 h-2.5" />
                       )}
-                      <span className={cn('font-medium', isCompleted ? 'text-foreground' : 'text-muted-foreground')}>{query}</span>
-                      {resultsCount > 0 && <span className="text-[9px] text-muted-foreground/50 tabular-nums">({resultsCount})</span>}
+                      <span className={cn('font-medium', isCompleted ? 'text-foreground' : 'text-muted-foreground')}>
+                        {query}
+                      </span>
+                      {resultsCount > 0 && (
+                        <span className="text-[9px] text-muted-foreground/50 tabular-nums">({resultsCount})</span>
+                      )}
                       {i < queries.length - 1 && <span className="text-muted-foreground/30 ml-1">/</span>}
                     </span>
                   );
@@ -240,8 +256,14 @@ const AcademicSearchLoadingState: React.FC<{ queries: string[]; annotations: Dat
                 <div key={i} className="px-3.5 py-2 flex items-center gap-2.5">
                   <Book className="h-3.5 w-3.5 text-muted-foreground/20 shrink-0 animate-pulse" />
                   <div className="flex-1 space-y-1">
-                    <div className="h-3 bg-muted/30 rounded animate-pulse w-3/4" style={{ animationDelay: `${i * 100}ms` }} />
-                    <div className="h-2 bg-muted/20 rounded animate-pulse w-1/2" style={{ animationDelay: `${i * 100 + 50}ms` }} />
+                    <div
+                      className="h-3 bg-muted/30 rounded animate-pulse w-3/4"
+                      style={{ animationDelay: `${i * 100}ms` }}
+                    />
+                    <div
+                      className="h-2 bg-muted/20 rounded animate-pulse w-1/2"
+                      style={{ animationDelay: `${i * 100 + 50}ms` }}
+                    />
                   </div>
                 </div>
               ))}

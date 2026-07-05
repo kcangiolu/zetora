@@ -6,7 +6,7 @@ import { CSVReader } from '@vectorstores/readers/csv';
 import { DocxReader } from '@vectorstores/readers/docx';
 import { ExcelReader } from '@vectorstores/excel';
 import { vercelEmbedding } from '@vectorstores/vercel';
-import { cohere } from "@ai-sdk/cohere";
+import { cohere } from '@ai-sdk/cohere';
 import { all, allSettled } from 'better-all';
 import { ChatMessage } from '@/lib/types';
 import { getBetterAllOptions } from '@/lib/better-all';
@@ -111,7 +111,7 @@ async function searchFiles(
   supportedFiles: FileContext[],
   retrieversByUrl: Map<string, BaseRetriever>,
   maxResults: number = 5,
-  shouldRerank: boolean = false
+  shouldRerank: boolean = false,
 ): Promise<FileQueryResult[]> {
   const fileTasks = supportedFiles.reduce(
     (tasks, file, index) => {
@@ -193,19 +193,17 @@ export function createFileQuerySearchTool(files: FileContext[], dataStream?: UIM
         .array(z.string())
         .min(1)
         .max(5)
-        .describe('Array of search queries (1-5) to find information in the uploaded files. Use multiple queries to search for different aspects or topics.'),
-      maxResults: z
-        .number()
-        .min(1)
-        .max(20)
-        .optional()
-        .default(10)
-        .describe('Maximum results per query (default: 10)'),
+        .describe(
+          'Array of search queries (1-5) to find information in the uploaded files. Use multiple queries to search for different aspects or topics.',
+        ),
+      maxResults: z.number().min(1).max(20).optional().default(10).describe('Maximum results per query (default: 10)'),
       rerank: z
         .boolean()
         .optional()
         .default(false)
-        .describe('Whether to rerank results using Cohere rerank-v3.5 for improved relevance (adds ~100-300ms latency)'),
+        .describe(
+          'Whether to rerank results using Cohere rerank-v3.5 for improved relevance (adds ~100-300ms latency)',
+        ),
     }),
     execute: async ({ queries, maxResults = 10, rerank: shouldRerank = false }) => {
       try {

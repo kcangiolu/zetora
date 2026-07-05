@@ -20,7 +20,9 @@ export function xSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>) {
       .object({
         queries: z
           .array(z.string())
-          .describe('Array of search queries for X posts. Minimum 1, recommended 3-5. If the user gives you a link to a post then put it as the first query.')
+          .describe(
+            'Array of search queries for X posts. Minimum 1, recommended 3-5. If the user gives you a link to a post then put it as the first query.',
+          )
           .min(1)
           .max(5),
         startDate: z
@@ -56,13 +58,7 @@ export function xSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>) {
           path: ['includeXHandles', 'excludeXHandles'],
         },
       ),
-    execute: async ({
-      queries,
-      startDate,
-      endDate,
-      includeXHandles,
-      excludeXHandles,
-    }) => {
+    execute: async ({ queries, startDate, endDate, includeXHandles, excludeXHandles }) => {
       try {
         const sanitizeHandle = (handle: string) => handle.replace(/^@+/, '').trim();
 
@@ -116,10 +112,12 @@ export function xSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>) {
             const { text, sources } = await generateText({
               model: xai.responses('grok-4-1-fast-non-reasoning'),
               system: `You are a helpful assistant that searches for X content with all the tools available to you. Do not use user search tool. Max limit of results is 30. You can search for the thread or the content of the post. You can also search for the content of the post using thread fetch tool. Go deep to find the latest information on the topic. NO NEED TO WRITE A SINGLE WORD AFTER RUNNING THE TOOLs AT ALL COSTS!!`,
-              messages: [{
-                role: 'user',
-                content: query
-              }],
+              messages: [
+                {
+                  role: 'user',
+                  content: query,
+                },
+              ],
               maxOutputTokens: 5,
               stopWhen: stepCountIs(2),
               tools: {
@@ -151,30 +149,29 @@ export function xSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>) {
                   return false;
                 });
 
-              const tweetFetchPromises = uniqueCitations
-                .map(async (link) => {
-                  try {
-                    const tweetUrl = link.url || '';
-                    const tweetId = extractTweetId(tweetUrl);
+              const tweetFetchPromises = uniqueCitations.map(async (link) => {
+                try {
+                  const tweetUrl = link.url || '';
+                  const tweetId = extractTweetId(tweetUrl);
 
-                    if (!tweetId) return null;
+                  if (!tweetId) return null;
 
-                    const tweetData = await getTweet(tweetId);
-                    if (!tweetData) return null;
+                  const tweetData = await getTweet(tweetId);
+                  if (!tweetData) return null;
 
-                    const text = tweetData.text;
-                    if (!text) return null;
+                  const text = tweetData.text;
+                  if (!text) return null;
 
-                    return {
-                      text: text,
-                      link: canonicalTweetLink(tweetId, tweetUrl),
-                      id: tweetId,
-                    };
-                  } catch (error) {
-                    console.error(`Error fetching tweet data for ${link.sourceType === 'url' ? link.url : ''}:`, error);
-                    return null;
-                  }
-                });
+                  return {
+                    text: text,
+                    link: canonicalTweetLink(tweetId, tweetUrl),
+                    id: tweetId,
+                  };
+                } catch (error) {
+                  console.error(`Error fetching tweet data for ${link.sourceType === 'url' ? link.url : ''}:`, error);
+                  return null;
+                }
+              });
 
               const tweetMap = await all(
                 Object.fromEntries(tweetFetchPromises.map((promise, index) => [`t:${index}`, async () => promise])),
@@ -270,8 +267,8 @@ export function xSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>) {
 
         // Deduplicate posts across all queries based on tweet URL
         const seenUrls = new Set<string>();
-        const deduplicatedSearches = searches.map(search => {
-          const uniqueSources = search.sources.filter(source => {
+        const deduplicatedSearches = searches.map((search) => {
+          const uniqueSources = search.sources.filter((source) => {
             const key = source?.link || source?.id;
             if (source && key && !seenUrls.has(key)) {
               seenUrls.add(key);

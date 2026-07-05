@@ -652,16 +652,14 @@ export async function saveNewChatWithStream({
   } catch (error) {
     console.error('[saveNewChatWithStream] DB error:', error);
     // Fallback: two sequential inserts
-    await maindb
-      .insert(chat)
-      .values({
-        id: chatId,
-        userId,
-        title,
-        visibility: safeVisibility,
-        createdAt: sql`clock_timestamp()`,
-        updatedAt: sql`clock_timestamp()`,
-      });
+    await maindb.insert(chat).values({
+      id: chatId,
+      userId,
+      title,
+      visibility: safeVisibility,
+      createdAt: sql`clock_timestamp()`,
+      updatedAt: sql`clock_timestamp()`,
+    });
     await maindb.insert(stream).values({ id: streamId, chatId, createdAt: sql`clock_timestamp()` });
   }
 }

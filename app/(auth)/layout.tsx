@@ -27,9 +27,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             {/* Logo */}
             <Link href="/" className="inline-flex items-center gap-3 mb-12 group">
               <ZetoraLogo className="size-10 transition-transform duration-300 group-hover:scale-110" />
-              <span className="text-4xl font-light tracking-tighter font-be-vietnam-pro text-foreground">
-                zetora
-              </span>
+              <span className="text-4xl font-light tracking-tighter font-be-vietnam-pro text-foreground">zetora</span>
             </Link>
 
             {/* Tagline */}
@@ -71,14 +69,16 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </header>
 
         {/* Form Container */}
-        <div className="flex-1 flex items-center justify-center px-6 py-12">
-          {children}
-        </div>
+        <div className="flex-1 flex items-center justify-center px-6 py-12">{children}</div>
 
         {/* Footer */}
         <footer className="flex items-center justify-center gap-6 h-12 text-xs text-muted-foreground px-6">
-          <Link href="/about" className="hover:text-foreground transition-colors">About</Link>
-          <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
+          <Link href="/about" className="hover:text-foreground transition-colors">
+            About
+          </Link>
+          <Link href="/terms" className="hover:text-foreground transition-colors">
+            Terms
+          </Link>
         </footer>
       </div>
     </div>

@@ -2,7 +2,14 @@
 
 import React from 'react';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
-import { PlusSignIcon, BinocularsIcon, RefreshIcon, Cancel01Icon, ViewIcon, ShuffleIcon } from '@hugeicons/core-free-icons';
+import {
+  PlusSignIcon,
+  BinocularsIcon,
+  RefreshIcon,
+  Cancel01Icon,
+  ViewIcon,
+  ShuffleIcon,
+} from '@hugeicons/core-free-icons';
 import { Button } from '@/components/ui/button';
 import { Tabs as KumoTabs } from '@cloudflare/kumo';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -34,7 +41,13 @@ import { LookoutCard } from './components/lookout-card';
 import { ProUpgradeScreen } from './components/pro-upgrade-screen';
 import { LookoutForm } from './components/lookout-form';
 import { useLookoutForm } from './hooks/use-lookout-form';
-import { getRandomExamples, allExampleLookouts, LOOKOUT_LIMITS, LOOKOUT_SEARCH_MODES, timezoneOptions } from './constants';
+import {
+  getRandomExamples,
+  allExampleLookouts,
+  LOOKOUT_LIMITS,
+  LOOKOUT_SEARCH_MODES,
+  timezoneOptions,
+} from './constants';
 import { formatFrequency } from './utils/time-utils';
 
 interface Lookout {
@@ -294,7 +307,13 @@ export default function LookoutPage() {
               <div className="border-b border-border/40 px-4 py-3 shrink-0">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <HugeiconsIcon icon={BinocularsIcon} size={16} color="currentColor" strokeWidth={1.5} className="text-muted-foreground" />
+                    <HugeiconsIcon
+                      icon={BinocularsIcon}
+                      size={16}
+                      color="currentColor"
+                      strokeWidth={1.5}
+                      className="text-muted-foreground"
+                    />
                     <span className="text-sm font-semibold tracking-tight">Details</span>
                   </div>
                   <Button variant="ghost" size="sm" onClick={() => setIsSidebarOpen(false)} className="h-7 w-7 p-0">
@@ -332,7 +351,13 @@ export default function LookoutPage() {
                 <div className="md:hidden absolute left-0">
                   <SidebarTrigger />
                 </div>
-                <HugeiconsIcon icon={BinocularsIcon} size={24} color="currentColor" strokeWidth={1.5} className="text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={BinocularsIcon}
+                  size={24}
+                  color="currentColor"
+                  strokeWidth={1.5}
+                  className="text-muted-foreground"
+                />
                 <h1 className="text-xl font-semibold tracking-tight">Lookout</h1>
                 <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">
                   {totalLookouts}/{LOOKOUT_LIMITS.TOTAL_LOOKOUTS}
@@ -483,67 +508,71 @@ export default function LookoutPage() {
 
             {/* Main Content */}
             <div className="space-y-6">
-              {activeTab === 'active' && <div className="space-y-6">
-                {isLoading ? (
-                  <LoadingSkeletons count={3} />
-                ) : filteredLookouts.length === 0 ? (
-                  <NoActiveLookoutsEmpty />
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {filteredLookouts.map((lookout) => (
-                      <LookoutCard
-                        key={lookout.id}
-                        lookout={lookout}
-                        isMutating={isMutating}
-                        onStatusChange={handleStatusChange}
-                        onDelete={handleDelete}
-                        onTest={handleTest}
-                        onForceStop={handleForceStop}
-                        onOpenDetails={handleOpenLookoutDetails}
-                      />
-                    ))}
+              {activeTab === 'active' && (
+                <div className="space-y-6">
+                  {isLoading ? (
+                    <LoadingSkeletons count={3} />
+                  ) : filteredLookouts.length === 0 ? (
+                    <NoActiveLookoutsEmpty />
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {filteredLookouts.map((lookout) => (
+                        <LookoutCard
+                          key={lookout.id}
+                          lookout={lookout}
+                          isMutating={isMutating}
+                          onStatusChange={handleStatusChange}
+                          onDelete={handleDelete}
+                          onTest={handleTest}
+                          onForceStop={handleForceStop}
+                          onOpenDetails={handleOpenLookoutDetails}
+                        />
+                      ))}
 
-                    {/* Add new lookout card */}
-                    {canCreateMore && (
-                      <Card
-                        className="shadow-none cursor-pointer border-dashed border border-border/60 hover:border-primary/40 transition-all duration-200 flex items-center justify-center h-full min-h-[200px] group rounded-xl"
-                        onClick={() => formHook.handleDialogOpenChange(true)}
-                      >
-                        <div className="flex flex-col items-center gap-2.5 text-muted-foreground group-hover:text-primary transition-colors">
-                          <div className="w-10 h-10 rounded-xl bg-muted/50 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-                            <HugeiconsIcon icon={PlusSignIcon} size={18} color="currentColor" strokeWidth={1.5} />
+                      {/* Add new lookout card */}
+                      {canCreateMore && (
+                        <Card
+                          className="shadow-none cursor-pointer border-dashed border border-border/60 hover:border-primary/40 transition-all duration-200 flex items-center justify-center h-full min-h-[200px] group rounded-xl"
+                          onClick={() => formHook.handleDialogOpenChange(true)}
+                        >
+                          <div className="flex flex-col items-center gap-2.5 text-muted-foreground group-hover:text-primary transition-colors">
+                            <div className="w-10 h-10 rounded-xl bg-muted/50 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+                              <HugeiconsIcon icon={PlusSignIcon} size={18} color="currentColor" strokeWidth={1.5} />
+                            </div>
+                            <span className="font-pixel text-[10px] uppercase tracking-wider">New lookout</span>
                           </div>
-                          <span className="font-pixel text-[10px] uppercase tracking-wider">New lookout</span>
-                        </div>
-                      </Card>
-                    )}
-                  </div>
-                )}
-              </div>}
+                        </Card>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
-              {activeTab === 'archived' && <div>
-                {isLoading ? (
-                  <LoadingSkeletons count={2} showActions={false} />
-                ) : filteredLookouts.length === 0 ? (
-                  <NoArchivedLookoutsEmpty />
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {filteredLookouts.map((lookout) => (
-                      <LookoutCard
-                        key={lookout.id}
-                        lookout={lookout}
-                        isMutating={isMutating}
-                        onStatusChange={handleStatusChange}
-                        onDelete={handleDelete}
-                        onTest={handleTest}
-                        onForceStop={handleForceStop}
-                        onOpenDetails={handleOpenLookoutDetails}
-                        showActions={false}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>}
+              {activeTab === 'archived' && (
+                <div>
+                  {isLoading ? (
+                    <LoadingSkeletons count={2} showActions={false} />
+                  ) : filteredLookouts.length === 0 ? (
+                    <NoArchivedLookoutsEmpty />
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {filteredLookouts.map((lookout) => (
+                        <LookoutCard
+                          key={lookout.id}
+                          lookout={lookout}
+                          isMutating={isMutating}
+                          onStatusChange={handleStatusChange}
+                          onDelete={handleDelete}
+                          onTest={handleTest}
+                          onForceStop={handleForceStop}
+                          onOpenDetails={handleOpenLookoutDetails}
+                          showActions={false}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Example Cards */}
@@ -551,7 +580,9 @@ export default function LookoutPage() {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <h2 className="text-sm font-semibold">Examples</h2>
-                  <span className="font-pixel text-[9px] text-muted-foreground/50 uppercase tracking-wider">{allExampleLookouts.length}</span>
+                  <span className="font-pixel text-[9px] text-muted-foreground/50 uppercase tracking-wider">
+                    {allExampleLookouts.length}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
@@ -565,84 +596,105 @@ export default function LookoutPage() {
                   <Dialog open={isAllExamplesOpen} onOpenChange={setIsAllExamplesOpen}>
                     <DialogTrigger asChild>
                       <Button variant="outline" size="sm">
-                        <HugeiconsIcon icon={ViewIcon} size={14} color="currentColor" strokeWidth={1.5} className="mr-1.5" />
+                        <HugeiconsIcon
+                          icon={ViewIcon}
+                          size={14}
+                          color="currentColor"
+                          strokeWidth={1.5}
+                          className="mr-1.5"
+                        />
                         View All
                       </Button>
                     </DialogTrigger>
-                  <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-hidden flex flex-col">
-                    <DialogHeader className="pb-4">
-                      <DialogTitle className="text-lg">All Example Lookouts</DialogTitle>
-                    </DialogHeader>
+                    <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-hidden flex flex-col">
+                      <DialogHeader className="pb-4">
+                        <DialogTitle className="text-lg">All Example Lookouts</DialogTitle>
+                      </DialogHeader>
 
-                    {/* Mode Filter Tabs */}
-                    <div className="flex flex-wrap gap-1.5 pb-4 border-b border-border/40">
-                      <Button
-                        variant={selectedModeFilter === null ? 'default' : 'outline'}
-                        size="sm"
-                        className="h-7 text-xs"
-                        onClick={() => setSelectedModeFilter(null)}
-                      >
-                        All <span className="font-pixel text-[8px] text-inherit/70 ml-1 uppercase">{allExampleLookouts.length}</span>
-                      </Button>
-                      {LOOKOUT_SEARCH_MODES.map((mode) => {
-                        const count = allExampleLookouts.filter((e) => e.searchMode === mode.value).length;
-                        if (count === 0) return null;
-                        return (
-                          <Button
-                            key={mode.value}
-                            variant={selectedModeFilter === mode.value ? 'default' : 'outline'}
-                            size="sm"
-                            className="h-7 text-xs"
-                            onClick={() => setSelectedModeFilter(mode.value)}
-                          >
-                            <HugeiconsIcon icon={mode.icon} size={12} color="currentColor" strokeWidth={1.5} className="mr-1" />
-                            {mode.label} <span className="font-pixel text-[8px] text-inherit/70 ml-1 uppercase">{count}</span>
-                          </Button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Examples Grid */}
-                    <div className="flex-1 overflow-y-auto pr-2 -mr-2">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-2">
-                        {filteredExamples.map((example, index) => {
-                          const modeConfig = LOOKOUT_SEARCH_MODES.find((m) => m.value === example.searchMode);
+                      {/* Mode Filter Tabs */}
+                      <div className="flex flex-wrap gap-1.5 pb-4 border-b border-border/40">
+                        <Button
+                          variant={selectedModeFilter === null ? 'default' : 'outline'}
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => setSelectedModeFilter(null)}
+                        >
+                          All{' '}
+                          <span className="font-pixel text-[8px] text-inherit/70 ml-1 uppercase">
+                            {allExampleLookouts.length}
+                          </span>
+                        </Button>
+                        {LOOKOUT_SEARCH_MODES.map((mode) => {
+                          const count = allExampleLookouts.filter((e) => e.searchMode === mode.value).length;
+                          if (count === 0) return null;
                           return (
-                            <Card
-                              key={index}
-                              className="cursor-pointer transition-all duration-200 group border hover:border-primary/30 shadow-none"
-                              onClick={() => {
-                                formHook.handleUseExample(example);
-                                setIsAllExamplesOpen(false);
-                              }}
+                            <Button
+                              key={mode.value}
+                              variant={selectedModeFilter === mode.value ? 'default' : 'outline'}
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => setSelectedModeFilter(mode.value)}
                             >
-                              <CardHeader className="pb-2">
-                                <div className="flex items-start justify-between gap-2">
-                                  <CardTitle className="text-sm font-medium group-hover:text-primary transition-colors line-clamp-1">
-                                    {example.title}
-                                  </CardTitle>
-                                  {modeConfig && (
-                                    <span className="flex items-center gap-1 font-pixel text-[9px] text-muted-foreground/50 bg-muted px-1.5 py-0.5 rounded-md shrink-0 uppercase tracking-wider">
-                                      <HugeiconsIcon icon={modeConfig.icon} size={10} color="currentColor" strokeWidth={1.5} />
-                                      {modeConfig.label}
-                                    </span>
-                                  )}
-                                </div>
-                              </CardHeader>
-                              <CardContent className="pt-0">
-                                <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
-                                  {example.prompt.slice(0, 120)}...
-                                </p>
-                                <p className="font-pixel text-[9px] text-muted-foreground/50 uppercase tracking-wider">
-                                  {formatFrequency(example.frequency, example.time)}
-                                </p>
-                              </CardContent>
-                            </Card>
+                              <HugeiconsIcon
+                                icon={mode.icon}
+                                size={12}
+                                color="currentColor"
+                                strokeWidth={1.5}
+                                className="mr-1"
+                              />
+                              {mode.label}{' '}
+                              <span className="font-pixel text-[8px] text-inherit/70 ml-1 uppercase">{count}</span>
+                            </Button>
                           );
                         })}
                       </div>
-                    </div>
-                  </DialogContent>
+
+                      {/* Examples Grid */}
+                      <div className="flex-1 overflow-y-auto pr-2 -mr-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-2">
+                          {filteredExamples.map((example, index) => {
+                            const modeConfig = LOOKOUT_SEARCH_MODES.find((m) => m.value === example.searchMode);
+                            return (
+                              <Card
+                                key={index}
+                                className="cursor-pointer transition-all duration-200 group border hover:border-primary/30 shadow-none"
+                                onClick={() => {
+                                  formHook.handleUseExample(example);
+                                  setIsAllExamplesOpen(false);
+                                }}
+                              >
+                                <CardHeader className="pb-2">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <CardTitle className="text-sm font-medium group-hover:text-primary transition-colors line-clamp-1">
+                                      {example.title}
+                                    </CardTitle>
+                                    {modeConfig && (
+                                      <span className="flex items-center gap-1 font-pixel text-[9px] text-muted-foreground/50 bg-muted px-1.5 py-0.5 rounded-md shrink-0 uppercase tracking-wider">
+                                        <HugeiconsIcon
+                                          icon={modeConfig.icon}
+                                          size={10}
+                                          color="currentColor"
+                                          strokeWidth={1.5}
+                                        />
+                                        {modeConfig.label}
+                                      </span>
+                                    )}
+                                  </div>
+                                </CardHeader>
+                                <CardContent className="pt-0">
+                                  <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
+                                    {example.prompt.slice(0, 120)}...
+                                  </p>
+                                  <p className="font-pixel text-[9px] text-muted-foreground/50 uppercase tracking-wider">
+                                    {formatFrequency(example.frequency, example.time)}
+                                  </p>
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </DialogContent>
                   </Dialog>
                 </div>
               </div>

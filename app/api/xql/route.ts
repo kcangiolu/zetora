@@ -56,13 +56,7 @@ const xqlTool = tool({
         path: ['includeXHandles', 'excludeXHandles'],
       },
     ),
-  async execute({
-    query,
-    startDate,
-    endDate,
-    includeXHandles,
-    excludeXHandles,
-  }) {
+  async execute({ query, startDate, endDate, includeXHandles, excludeXHandles }) {
     const sanitizeHandle = (handle: string) => handle.replace(/^@+/, '').trim();
 
     const normalizedInclude = Array.isArray(includeXHandles)
@@ -103,8 +97,9 @@ const xqlTool = tool({
     });
 
     const citations =
-      result.sources?.map((source) => (source.sourceType === 'url' ? source.url : null)).filter((url) => url !== null) ||
-      [];
+      result.sources
+        ?.map((source) => (source.sourceType === 'url' ? source.url : null))
+        .filter((url) => url !== null) || [];
 
     console.log('XQL Result: ', result);
     console.log('XQL Sources: ', result.sources);

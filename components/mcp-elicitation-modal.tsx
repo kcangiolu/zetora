@@ -1,7 +1,14 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -69,7 +76,10 @@ function FormField({
     return (
       <div className="flex items-center justify-between gap-3">
         <div>
-          <Label className="text-sm font-medium">{label}{required && <span className="text-destructive ml-0.5">*</span>}</Label>
+          <Label className="text-sm font-medium">
+            {label}
+            {required && <span className="text-destructive ml-0.5">*</span>}
+          </Label>
           {prop.description && <p className="text-[11px] text-muted-foreground mt-0.5">{prop.description}</p>}
         </div>
         <Switch checked={Boolean(value ?? prop.default ?? false)} onCheckedChange={onChange} />
@@ -80,12 +90,21 @@ function FormField({
   if (isEnum) {
     return (
       <div className="space-y-1.5">
-        <Label className="text-sm font-medium">{label}{required && <span className="text-destructive ml-0.5">*</span>}</Label>
+        <Label className="text-sm font-medium">
+          {label}
+          {required && <span className="text-destructive ml-0.5">*</span>}
+        </Label>
         {prop.description && <p className="text-[11px] text-muted-foreground">{prop.description}</p>}
         <Select value={String(value ?? prop.default ?? '')} onValueChange={onChange}>
-          <SelectTrigger className="h-8 text-sm"><SelectValue placeholder={`Select ${label}`} /></SelectTrigger>
+          <SelectTrigger className="h-8 text-sm">
+            <SelectValue placeholder={`Select ${label}`} />
+          </SelectTrigger>
           <SelectContent>
-            {prop.enum!.map((opt) => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+            {prop.enum!.map((opt) => (
+              <SelectItem key={opt} value={opt}>
+                {opt}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -95,12 +114,21 @@ function FormField({
   if (isOneOf) {
     return (
       <div className="space-y-1.5">
-        <Label className="text-sm font-medium">{label}{required && <span className="text-destructive ml-0.5">*</span>}</Label>
+        <Label className="text-sm font-medium">
+          {label}
+          {required && <span className="text-destructive ml-0.5">*</span>}
+        </Label>
         {prop.description && <p className="text-[11px] text-muted-foreground">{prop.description}</p>}
         <Select value={String(value ?? prop.default ?? '')} onValueChange={onChange}>
-          <SelectTrigger className="h-8 text-sm"><SelectValue placeholder={`Select ${label}`} /></SelectTrigger>
+          <SelectTrigger className="h-8 text-sm">
+            <SelectValue placeholder={`Select ${label}`} />
+          </SelectTrigger>
           <SelectContent>
-            {prop.oneOf!.map((opt) => <SelectItem key={opt.const} value={opt.const}>{opt.title}</SelectItem>)}
+            {prop.oneOf!.map((opt) => (
+              <SelectItem key={opt.const} value={opt.const}>
+                {opt.title}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -112,14 +140,15 @@ function FormField({
     const titles = prop.items?.anyOf ? Object.fromEntries(prop.items.anyOf.map((o) => [o.const, o.title])) : {};
     const selected = Array.isArray(value) ? (value as string[]) : [];
     const toggle = (opt: string) => {
-      const next = selected.includes(opt)
-        ? selected.filter((v) => v !== opt)
-        : [...selected, opt];
+      const next = selected.includes(opt) ? selected.filter((v) => v !== opt) : [...selected, opt];
       onChange(next);
     };
     return (
       <div className="space-y-1.5">
-        <Label className="text-sm font-medium">{label}{required && <span className="text-destructive ml-0.5">*</span>}</Label>
+        <Label className="text-sm font-medium">
+          {label}
+          {required && <span className="text-destructive ml-0.5">*</span>}
+        </Label>
         {prop.description && <p className="text-[11px] text-muted-foreground">{prop.description}</p>}
         <div className="flex flex-wrap gap-1.5 mt-1">
           {options.map((opt) => (
@@ -142,16 +171,25 @@ function FormField({
     );
   }
 
-  const inputType = prop.type === 'number' || prop.type === 'integer' ? 'number'
-    : prop.format === 'email' ? 'email'
-    : prop.format === 'uri' ? 'url'
-    : prop.format === 'date' ? 'date'
-    : prop.format === 'date-time' ? 'datetime-local'
-    : 'text';
+  const inputType =
+    prop.type === 'number' || prop.type === 'integer'
+      ? 'number'
+      : prop.format === 'email'
+        ? 'email'
+        : prop.format === 'uri'
+          ? 'url'
+          : prop.format === 'date'
+            ? 'date'
+            : prop.format === 'date-time'
+              ? 'datetime-local'
+              : 'text';
 
   return (
     <div className="space-y-1.5">
-      <Label className="text-sm font-medium">{label}{required && <span className="text-destructive ml-0.5">*</span>}</Label>
+      <Label className="text-sm font-medium">
+        {label}
+        {required && <span className="text-destructive ml-0.5">*</span>}
+      </Label>
       {prop.description && <p className="text-[11px] text-muted-foreground">{prop.description}</p>}
       <Input
         type={inputType}
@@ -177,10 +215,7 @@ function getDefaultValue(prop: SchemaProperty): unknown {
   return undefined;
 }
 
-function buildElicitationContent(
-  values: Record<string, unknown>,
-  properties: Record<string, SchemaProperty>,
-) {
+function buildElicitationContent(values: Record<string, unknown>, properties: Record<string, SchemaProperty>) {
   const content: Record<string, unknown> = {};
 
   for (const [name, prop] of Object.entries(properties)) {
@@ -255,28 +290,30 @@ export function McpElicitationModal({ elicitation, onClose }: McpElicitationModa
   const [submitting, setSubmitting] = useState<'accept' | 'decline' | 'cancel' | null>(null);
   const [urlConsented, setUrlConsented] = useState(false);
 
-  const respond = useCallback(async (action: 'accept' | 'decline' | 'cancel') => {
-    if (!elicitation) return;
-    setSubmitting(action);
-    try {
-      const content = action === 'accept' && elicitation.mode === 'form'
-        ? buildElicitationContent(values, properties)
-        : undefined;
+  const respond = useCallback(
+    async (action: 'accept' | 'decline' | 'cancel') => {
+      if (!elicitation) return;
+      setSubmitting(action);
+      try {
+        const content =
+          action === 'accept' && elicitation.mode === 'form' ? buildElicitationContent(values, properties) : undefined;
 
-      await fetch('/api/mcp/elicitation/respond', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          elicitationId: elicitation.elicitationId,
-          action,
-          content,
-        }),
-      });
-    } finally {
-      setSubmitting(null);
-      onClose();
-    }
-  }, [elicitation, values, properties, onClose]);
+        await fetch('/api/mcp/elicitation/respond', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            elicitationId: elicitation.elicitationId,
+            action,
+            content,
+          }),
+        });
+      } finally {
+        setSubmitting(null);
+        onClose();
+      }
+    },
+    [elicitation, values, properties, onClose],
+  );
 
   const handleOpen = useCallback(() => {
     if (elicitation?.url) window.open(elicitation.url, '_blank', 'noopener,noreferrer');
@@ -286,13 +323,22 @@ export function McpElicitationModal({ elicitation, onClose }: McpElicitationModa
   if (!elicitation) return null;
 
   const urlHostname = (() => {
-    try { return new URL(elicitation.url ?? '').hostname; } catch { return elicitation.url; }
+    try {
+      return new URL(elicitation.url ?? '').hostname;
+    } catch {
+      return elicitation.url;
+    }
   })();
 
   const hasFields = Object.keys(properties).length > 0;
 
   return (
-    <Dialog open={Boolean(elicitation)} onOpenChange={(open) => { if (!open) respond('cancel'); }}>
+    <Dialog
+      open={Boolean(elicitation)}
+      onOpenChange={(open) => {
+        if (!open) respond('cancel');
+      }}
+    >
       <DialogContent className="max-w-lg overflow-hidden p-0 border-border/60">
         <DialogHeader className="px-5 pt-5 pb-3 border-b border-border/60 bg-muted/20">
           <div className="flex items-center gap-2 mb-1">
@@ -360,30 +406,21 @@ export function McpElicitationModal({ elicitation, onClose }: McpElicitationModa
             {submitting === 'cancel' ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
             Cancel
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={Boolean(submitting)}
-            onClick={() => respond('decline')}
-          >
+          <Button size="sm" variant="outline" disabled={Boolean(submitting)} onClick={() => respond('decline')}>
             {submitting === 'decline' ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
             Decline
           </Button>
           {elicitation.mode === 'url' ? (
-            <Button
-              size="sm"
-              disabled={!urlConsented || Boolean(submitting)}
-              onClick={handleOpen}
-            >
-              {submitting === 'accept' ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <ExternalLink className="h-3 w-3 mr-1" />}
+            <Button size="sm" disabled={!urlConsented || Boolean(submitting)} onClick={handleOpen}>
+              {submitting === 'accept' ? (
+                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+              ) : (
+                <ExternalLink className="h-3 w-3 mr-1" />
+              )}
               Open
             </Button>
           ) : (
-            <Button
-              size="sm"
-              disabled={Boolean(submitting)}
-              onClick={() => respond('accept')}
-            >
+            <Button size="sm" disabled={Boolean(submitting)} onClick={() => respond('accept')}>
               {submitting === 'accept' ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
               {hasFields ? 'Submit' : 'Accept'}
             </Button>

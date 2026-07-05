@@ -1,5 +1,5 @@
 // /components/reddit-search.tsx
- 
+
 import React, { useState } from 'react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
@@ -108,7 +108,9 @@ const RedditSourceCard: React.FC<{
             <Icons.ArrowUpRight className="w-2.5 h-2.5 shrink-0 text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
           <div className="flex items-center gap-1.5 mt-0.5">
-            <span className="font-pixel text-[8px] text-orange-600 dark:text-orange-400 uppercase tracking-wider">r/{subreddit}</span>
+            <span className="font-pixel text-[8px] text-orange-600 dark:text-orange-400 uppercase tracking-wider">
+              r/{subreddit}
+            </span>
             {result.score !== undefined && (
               <>
                 <span className="text-muted-foreground/30 text-[10px]">·</span>
@@ -173,13 +175,7 @@ const RedditSourcesSheet: React.FC<{
 
                 <div className="divide-y divide-border/20">
                   {search.results.map((result, resultIndex) => (
-                    <a
-                      key={resultIndex}
-                      href={result.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block"
-                    >
+                    <a key={resultIndex} href={result.url} target="_blank" rel="noopener noreferrer" className="block">
                       <RedditSourceCard result={result} />
                     </a>
                   ))}
@@ -194,7 +190,10 @@ const RedditSourcesSheet: React.FC<{
 };
 
 // Loading state component - Minimal Design
-const SearchLoadingState: React.FC<{ queries: string[]; annotations: DataUIPart<CustomUIDataTypes>[] }> = ({ queries, annotations }) => {
+const SearchLoadingState: React.FC<{ queries: string[]; annotations: DataUIPart<CustomUIDataTypes>[] }> = ({
+  queries,
+  annotations,
+}) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const loadingQueryTagsRef = React.useRef<HTMLDivElement>(null);
   const totalResults = annotations.reduce((sum, a) => sum + (a.data.resultsCount || 0), 0);
@@ -255,9 +254,17 @@ const SearchLoadingState: React.FC<{ queries: string[]; annotations: DataUIPart<
                   const resultsCount = annotation?.data.resultsCount || 0;
                   return (
                     <span key={i} className="inline-flex items-center gap-1.5 text-[10px] shrink-0">
-                      {isCompleted ? <Icons.Check className="w-2.5 h-2.5 text-muted-foreground" /> : <Spinner className="w-2.5 h-2.5" />}
-                      <span className={cn('font-medium', isCompleted ? 'text-foreground' : 'text-muted-foreground')}>{query}</span>
-                      {resultsCount > 0 && <span className="text-[9px] text-muted-foreground/50 tabular-nums">({resultsCount})</span>}
+                      {isCompleted ? (
+                        <Icons.Check className="w-2.5 h-2.5 text-muted-foreground" />
+                      ) : (
+                        <Spinner className="w-2.5 h-2.5" />
+                      )}
+                      <span className={cn('font-medium', isCompleted ? 'text-foreground' : 'text-muted-foreground')}>
+                        {query}
+                      </span>
+                      {resultsCount > 0 && (
+                        <span className="text-[9px] text-muted-foreground/50 tabular-nums">({resultsCount})</span>
+                      )}
                       {i < queries.length - 1 && <span className="text-muted-foreground/30 ml-1">/</span>}
                     </span>
                   );
@@ -275,8 +282,14 @@ const SearchLoadingState: React.FC<{ queries: string[]; annotations: DataUIPart<
                 <div key={i} className="px-3.5 py-2 flex items-center gap-2.5">
                   <RedditLogoIcon className="h-3.5 w-3.5 text-orange-500/20 shrink-0 animate-pulse" />
                   <div className="flex-1 space-y-1">
-                    <div className="h-3 bg-muted/30 rounded animate-pulse w-3/4" style={{ animationDelay: `${i * 100}ms` }} />
-                    <div className="h-2 bg-muted/20 rounded animate-pulse w-1/2" style={{ animationDelay: `${i * 100 + 50}ms` }} />
+                    <div
+                      className="h-3 bg-muted/30 rounded animate-pulse w-3/4"
+                      style={{ animationDelay: `${i * 100}ms` }}
+                    />
+                    <div
+                      className="h-2 bg-muted/20 rounded animate-pulse w-1/2"
+                      style={{ animationDelay: `${i * 100 + 50}ms` }}
+                    />
                   </div>
                 </div>
               ))}

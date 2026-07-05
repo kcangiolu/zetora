@@ -190,11 +190,7 @@ function initializeChatAndChecks({
         ) {
           throw new ChatSDKError('rate_limit:model', 'Daily Anthropic limit reached for Max users.');
         }
-        if (
-          isMaxGoogleModel &&
-          googleUsageResult.count !== undefined &&
-          googleUsageResult.count >= 80
-        ) {
+        if (isMaxGoogleModel && googleUsageResult.count !== undefined && googleUsageResult.count >= 80) {
           throw new ChatSDKError('rate_limit:model', 'Monthly Gemini limit reached for Max users.');
         }
 
@@ -294,11 +290,7 @@ function initializeChatAndChecks({
       ) {
         throw new ChatSDKError('rate_limit:model', 'Daily Anthropic limit reached for Max users.');
       }
-      if (
-        isMaxGoogleModel &&
-        googleUsageResult.count !== undefined &&
-        googleUsageResult.count >= 80
-      ) {
+      if (isMaxGoogleModel && googleUsageResult.count !== undefined && googleUsageResult.count >= 80) {
         throw new ChatSDKError('rate_limit:model', 'Monthly Gemini limit reached for Max users.');
       }
 
@@ -861,8 +853,11 @@ export async function POST(req: Request) {
         lightweightUser,
         selectedConnectors,
         searxngUrl: (userPreferencesResult?.preferences?.['zetora-searxng-url'] as string | undefined) || undefined,
-        memoryProvider: (userPreferencesResult?.preferences?.['zetora-memory-provider'] as 'supermemory' | 'graphiti' | undefined) || 'supermemory',
-        graphitiApiUrl: (userPreferencesResult?.preferences?.['zetora-graphiti-api-url'] as string | undefined) || undefined,
+        memoryProvider:
+          (userPreferencesResult?.preferences?.['zetora-memory-provider'] as 'supermemory' | 'graphiti' | undefined) ||
+          'supermemory',
+        graphitiApiUrl:
+          (userPreferencesResult?.preferences?.['zetora-graphiti-api-url'] as string | undefined) || undefined,
         userPreferences: (userPreferencesResult?.preferences ?? {}) as Record<string, unknown>,
       });
 
@@ -1131,7 +1126,9 @@ export async function POST(req: Request) {
                           ? 'none'
                           : 'medium',
                   parallelToolCalls:
-                    model === 'zetora-gpt-5.2-thinking-xhigh' || model === 'zetora-gpt-5.4-thinking-xhigh' ? true : false,
+                    model === 'zetora-gpt-5.2-thinking-xhigh' || model === 'zetora-gpt-5.4-thinking-xhigh'
+                      ? true
+                      : false,
                   reasoningSummary: 'detailed',
                   promptCacheKey: 'zetora-oai',
                   ...(model === 'zetora-gpt-5.1' ||
@@ -1441,7 +1438,9 @@ export async function POST(req: Request) {
 
           // Download for models that can't fetch R2 URLs directly
           const requiresDownload =
-            model.startsWith('zetora-anthropic') || model.startsWith('zetora-google') || model.startsWith('zetora-gemini');
+            model.startsWith('zetora-anthropic') ||
+            model.startsWith('zetora-google') ||
+            model.startsWith('zetora-gemini');
 
           if (!requiresDownload) {
             // Let other models handle URLs directly
@@ -1582,8 +1581,7 @@ export async function POST(req: Request) {
                     step.toolCalls?.some((toolCall) => toolCall && toolCall.toolName === 'extreme_search'),
                   );
                 const shouldTrackAnthropicUsage = getModelProvider(model) === 'anthropic' && lightweightUser.isMaxUser;
-                const shouldTrackGoogleUsage =
-                  getModelProvider(model) === 'google' && lightweightUser.isMaxUser;
+                const shouldTrackGoogleUsage = getModelProvider(model) === 'google' && lightweightUser.isMaxUser;
 
                 if (
                   shouldTrackMessageUsage ||
@@ -1762,9 +1760,7 @@ export async function POST(req: Request) {
         }),
       });
 
-      const episodeTitle = userQueryText
-        ? userQueryText.slice(0, 100).replace(/\n/g, ' ').trim()
-        : `chat-${id}`;
+      const episodeTitle = userQueryText ? userQueryText.slice(0, 100).replace(/\n/g, ' ').trim() : `chat-${id}`;
 
       // Graphiti ingestion — fire-and-forget, does not block response
       const memoryProvider = userPreferencesResult?.preferences?.['zetora-memory-provider'] || 'supermemory';
@@ -1920,9 +1916,7 @@ async function ingestWithRetry(
       const errorMsg = error instanceof Error ? error.message : String(error);
 
       const isRetryable =
-        errorMsg.includes('empty response') ||
-        errorMsg.includes('Expecting value') ||
-        errorMsg.includes('char 0');
+        errorMsg.includes('empty response') || errorMsg.includes('Expecting value') || errorMsg.includes('char 0');
 
       if (isRetryable && !isLastAttempt) {
         console.warn(

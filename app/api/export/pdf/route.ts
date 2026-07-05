@@ -391,7 +391,7 @@ export async function POST(req: NextRequest) {
         const existingAnnots: any = page.node.get(PDFName.of('Annots'));
         if (existingAnnots) (existingAnnots as any).push(linkRef);
         else page.node.set(PDFName.of('Annots'), pdfDoc.context.obj([linkRef]));
-      } catch { }
+      } catch {}
     };
 
     const svgToPngImage = async (svg: string, scaleFactor: number) => {
@@ -1434,7 +1434,7 @@ export async function POST(req: NextRequest) {
         let inlineTokens: any[] | undefined;
         try {
           inlineTokens = Lexer.lexInline(item.text);
-        } catch { }
+        } catch {}
         const built = inlineTokens
           ? flattenInline(inlineTokens, font, fontSize)
           : [{ text: String(item.text), font, size: fontSize }];

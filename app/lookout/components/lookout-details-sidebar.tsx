@@ -97,25 +97,40 @@ export function LookoutDetailsSidebar({
       timeout: { icon: AlertCircleIcon, className: 'text-yellow-500' },
     };
     const config = iconMap[status] || { icon: Activity01Icon, className: 'text-muted-foreground' };
-    return <HugeiconsIcon icon={config.icon} size={14} color="currentColor" strokeWidth={1.5} className={config.className} />;
+    return (
+      <HugeiconsIcon icon={config.icon} size={14} color="currentColor" strokeWidth={1.5} className={config.className} />
+    );
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
-        return <span className="font-pixel text-[9px] text-green-600 dark:text-green-400 uppercase tracking-wider">Active</span>;
+        return (
+          <span className="font-pixel text-[9px] text-green-600 dark:text-green-400 uppercase tracking-wider">
+            Active
+          </span>
+        );
       case 'paused':
         return <span className="font-pixel text-[9px] text-muted-foreground uppercase tracking-wider">Paused</span>;
       case 'running':
         return (
-          <Badge variant="default" className="gap-1 bg-primary/10 text-primary border-primary/20 relative overflow-hidden text-xs">
-            <BorderTrail className="bg-primary/60" size={20} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }} />
+          <Badge
+            variant="default"
+            className="gap-1 bg-primary/10 text-primary border-primary/20 relative overflow-hidden text-xs"
+          >
+            <BorderTrail
+              className="bg-primary/60"
+              size={20}
+              transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+            />
             <HugeiconsIcon icon={PlayIcon} size={10} color="currentColor" strokeWidth={1.5} />
             Running
           </Badge>
         );
       case 'archived':
-        return <span className="font-pixel text-[9px] text-muted-foreground/50 uppercase tracking-wider">Archived</span>;
+        return (
+          <span className="font-pixel text-[9px] text-muted-foreground/50 uppercase tracking-wider">Archived</span>
+        );
       default:
         return <span className="font-pixel text-[9px] text-muted-foreground uppercase tracking-wider">{status}</span>;
     }
@@ -128,11 +143,16 @@ export function LookoutDetailsSidebar({
           /* Analytics View */
           <div className="space-y-4">
             <div>
-              <p className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider mb-3">Performance</p>
+              <p className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider mb-3">
+                Performance
+              </p>
               <div className="rounded-xl border border-border/60 divide-y divide-border/40">
                 {[
                   { label: 'Success Rate', value: `${successRate.toFixed(1)}%` },
-                  { label: 'Avg Duration', value: averageDuration > 0 ? `${(averageDuration / 1000).toFixed(1)}s` : 'N/A' },
+                  {
+                    label: 'Avg Duration',
+                    value: averageDuration > 0 ? `${(averageDuration / 1000).toFixed(1)}s` : 'N/A',
+                  },
                   { label: 'Total Runs', value: `${totalRuns}` },
                   { label: 'Failed', value: `${failedRuns}`, className: failedRuns > 0 ? 'text-red-500' : '' },
                 ].map((item) => (
@@ -163,13 +183,18 @@ export function LookoutDetailsSidebar({
 
             {failedRuns > 0 && (
               <div>
-                <p className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider mb-3">Recent Errors</p>
+                <p className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider mb-3">
+                  Recent Errors
+                </p>
                 <div className="space-y-2 max-h-32 overflow-y-auto">
                   {runHistory
                     .filter((run) => run.status === 'error')
                     .slice(-3)
                     .map((run, index) => (
-                      <div key={index} className="rounded-lg border border-red-200/60 dark:border-red-800/40 bg-red-50/30 dark:bg-red-950/20 p-3">
+                      <div
+                        key={index}
+                        className="rounded-lg border border-red-200/60 dark:border-red-800/40 bg-red-50/30 dark:bg-red-950/20 p-3"
+                      >
                         <p className="text-[11px] font-medium text-red-700 dark:text-red-400 mb-1">
                           {format(new Date(run.runAt), 'MMM d, h:mm a')}
                         </p>
@@ -203,8 +228,18 @@ export function LookoutDetailsSidebar({
                     >
                       <div className="flex items-center gap-2.5">
                         <div className="relative p-1 rounded-lg border border-primary/20 overflow-hidden">
-                          <BorderTrail className="bg-primary/60" size={14} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }} />
-                          <HugeiconsIcon icon={PlayIcon} size={10} color="currentColor" strokeWidth={1.5} className="text-primary" />
+                          <BorderTrail
+                            className="bg-primary/60"
+                            size={14}
+                            transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                          />
+                          <HugeiconsIcon
+                            icon={PlayIcon}
+                            size={10}
+                            color="currentColor"
+                            strokeWidth={1.5}
+                            className="text-primary"
+                          />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{runningLookout.title}</p>
@@ -224,7 +259,9 @@ export function LookoutDetailsSidebar({
               <h2 className="text-base font-semibold tracking-tight mb-2">{lookout.title}</h2>
               <div className="flex items-center gap-2 mb-3">
                 {getStatusBadge(lookout.status)}
-                <span className="font-pixel text-[9px] text-muted-foreground/50 uppercase tracking-wider">{lookout.frequency}</span>
+                <span className="font-pixel text-[9px] text-muted-foreground/50 uppercase tracking-wider">
+                  {lookout.frequency}
+                </span>
               </div>
 
               <div className="font-pixel text-[9px] text-muted-foreground/50 uppercase tracking-wider space-y-1 mb-4">
@@ -239,7 +276,13 @@ export function LookoutDetailsSidebar({
                 {modeConfig && (
                   <div className="border-t border-border/40 mt-3 pt-3">
                     <div className="flex items-center gap-2">
-                      <HugeiconsIcon icon={modeConfig.icon} size={12} color="currentColor" strokeWidth={1.5} className="text-muted-foreground" />
+                      <HugeiconsIcon
+                        icon={modeConfig.icon}
+                        size={12}
+                        color="currentColor"
+                        strokeWidth={1.5}
+                        className="text-muted-foreground"
+                      />
                       <span className="text-xs font-medium">{modeConfig.label}</span>
                       <span className="text-xs text-muted-foreground">· {modeConfig.description}</span>
                     </div>
@@ -257,16 +300,22 @@ export function LookoutDetailsSidebar({
                   <p className="text-lg font-semibold tabular-nums">{totalRuns}</p>
                 </div>
                 <div className="rounded-xl border border-border/60 p-3">
-                  <p className="font-pixel text-[9px] text-muted-foreground/50 uppercase tracking-wider mb-1">Success</p>
+                  <p className="font-pixel text-[9px] text-muted-foreground/50 uppercase tracking-wider mb-1">
+                    Success
+                  </p>
                   <p className="text-lg font-semibold tabular-nums">{successRate.toFixed(0)}%</p>
                   <Progress value={successRate} className="mt-1.5 h-1" />
                 </div>
                 <div className="rounded-xl border border-border/60 p-3">
-                  <p className="font-pixel text-[9px] text-muted-foreground/50 uppercase tracking-wider mb-1">This Week</p>
+                  <p className="font-pixel text-[9px] text-muted-foreground/50 uppercase tracking-wider mb-1">
+                    This Week
+                  </p>
                   <p className="text-lg font-semibold tabular-nums">{lastWeekRuns}</p>
                 </div>
                 <div className="rounded-xl border border-border/60 p-3">
-                  <p className="font-pixel text-[9px] text-muted-foreground/50 uppercase tracking-wider mb-1">Avg Time</p>
+                  <p className="font-pixel text-[9px] text-muted-foreground/50 uppercase tracking-wider mb-1">
+                    Avg Time
+                  </p>
                   <p className="text-lg font-semibold tabular-nums">
                     {averageDuration > 0 ? `${(averageDuration / 1000).toFixed(1)}s` : '—'}
                   </p>
@@ -285,7 +334,10 @@ export function LookoutDetailsSidebar({
                     .slice(-10)
                     .reverse()
                     .map((run, index) => (
-                      <div key={`${run.chatId}-${index}`} className="px-3.5 py-2.5 hover:bg-accent/20 transition-colors">
+                      <div
+                        key={`${run.chatId}-${index}`}
+                        className="px-3.5 py-2.5 hover:bg-accent/20 transition-colors"
+                      >
                         <div className="flex items-start justify-between">
                           <div className="flex items-start gap-2 flex-1">
                             {getStatusIcon(run.status)}
@@ -309,7 +361,12 @@ export function LookoutDetailsSidebar({
                           {run.status === 'success' && (
                             <Link href={`/search/${run.chatId}`}>
                               <Button variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-md">
-                                <HugeiconsIcon icon={ArrowUpRightIcon} size={12} color="currentColor" strokeWidth={1.5} />
+                                <HugeiconsIcon
+                                  icon={ArrowUpRightIcon}
+                                  size={12}
+                                  color="currentColor"
+                                  strokeWidth={1.5}
+                                />
                               </Button>
                             </Link>
                           )}
@@ -319,9 +376,17 @@ export function LookoutDetailsSidebar({
                 ) : (
                   <div className="text-center py-8">
                     <div className="w-10 h-10 rounded-xl bg-muted/50 mx-auto mb-3 flex items-center justify-center">
-                      <HugeiconsIcon icon={Activity01Icon} size={16} color="currentColor" strokeWidth={1.5} className="text-muted-foreground" />
+                      <HugeiconsIcon
+                        icon={Activity01Icon}
+                        size={16}
+                        color="currentColor"
+                        strokeWidth={1.5}
+                        className="text-muted-foreground"
+                      />
                     </div>
-                    <p className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">No runs yet</p>
+                    <p className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">
+                      No runs yet
+                    </p>
                   </div>
                 )}
               </div>
@@ -342,11 +407,19 @@ export function LookoutDetailsSidebar({
                 onClick={() => onEditLookout?.(lookout)}
                 disabled={lookout.status === 'running'}
               >
-                <HugeiconsIcon icon={Settings01Icon} size={14} color="currentColor" strokeWidth={1.5} className="mr-1" />
+                <HugeiconsIcon
+                  icon={Settings01Icon}
+                  size={14}
+                  color="currentColor"
+                  strokeWidth={1.5}
+                  className="mr-1"
+                />
                 Edit
               </Button>
             </TooltipTrigger>
-            <TooltipContent><p>{lookout.status === 'running' ? 'Cannot edit while running' : 'Edit lookout settings'}</p></TooltipContent>
+            <TooltipContent>
+              <p>{lookout.status === 'running' ? 'Cannot edit while running' : 'Edit lookout settings'}</p>
+            </TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -362,7 +435,13 @@ export function LookoutDetailsSidebar({
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>{lookout.status === 'running' ? 'Cannot test while running' : lookout.status === 'archived' ? 'Cannot test archived' : 'Run test now'}</p>
+              <p>
+                {lookout.status === 'running'
+                  ? 'Cannot test while running'
+                  : lookout.status === 'archived'
+                    ? 'Cannot test archived'
+                    : 'Run test now'}
+              </p>
             </TooltipContent>
           </Tooltip>
           <Tooltip>
@@ -377,7 +456,9 @@ export function LookoutDetailsSidebar({
                 {showAnalytics ? 'Overview' : 'Analytics'}
               </Button>
             </TooltipTrigger>
-            <TooltipContent><p>{showAnalytics ? 'Show overview' : 'Show analytics'}</p></TooltipContent>
+            <TooltipContent>
+              <p>{showAnalytics ? 'Show overview' : 'Show analytics'}</p>
+            </TooltipContent>
           </Tooltip>
         </div>
       </div>

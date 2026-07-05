@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-export type VoiceType = "Ara" | "Rex" | "Sal" | "Eve" | "Leo";
-export type AgentState = null | "thinking" | "listening" | "talking";
+export type VoiceType = 'Ara' | 'Rex' | 'Sal' | 'Eve' | 'Leo';
+export type AgentState = null | 'thinking' | 'listening' | 'talking';
 
 interface VoiceClientOptions {
   voice?: VoiceType;
@@ -12,12 +12,12 @@ interface VoiceClientOptions {
 }
 
 export interface ConversationTurn {
-  role: "user" | "assistant" | "tool";
+  role: 'user' | 'assistant' | 'tool';
   text: string;
   name?: string;
   args?: string;
   callId?: string;
-  kind?: "call" | "output";
+  kind?: 'call' | 'output';
   /** True when the assistant message was cut off by user speech (interruption) */
   interrupted?: boolean;
 }
@@ -132,8 +132,7 @@ Then: Continue the conversation naturally
 - Talk naturally and conversationally - don't sound like you're reading a manual`;
 
 // External XAI voice backend (../xai-voice/xai/backend-nodejs)
-const VOICE_BACKEND_URL =
-  process.env.NEXT_PUBLIC_VOICE_BACKEND_URL ?? "http://localhost:8000";
+const VOICE_BACKEND_URL = process.env.NEXT_PUBLIC_VOICE_BACKEND_URL ?? 'http://localhost:8000';
 
 interface SessionResponse {
   client_secret: {
@@ -146,26 +145,26 @@ interface SessionResponse {
 }
 
 function getMicrophoneAccessErrorMessage(err: unknown): string | null {
-  if (!err || typeof err !== "object") return null;
-  if (!("name" in err)) return null;
+  if (!err || typeof err !== 'object') return null;
+  if (!('name' in err)) return null;
 
   const name = String((err as { name?: unknown }).name);
 
   // https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia#exceptions
-  if (name === "NotAllowedError" || name === "PermissionDeniedError") {
-    return "Microphone access was blocked. Please allow mic permission for this site and try again.";
+  if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+    return 'Microphone access was blocked. Please allow mic permission for this site and try again.';
   }
-  if (name === "NotFoundError" || name === "DevicesNotFoundError") {
-    return "No microphone was found. Please connect a mic and try again.";
+  if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+    return 'No microphone was found. Please connect a mic and try again.';
   }
-  if (name === "NotReadableError" || name === "TrackStartError") {
-    return "Your microphone is in use by another app. Close other apps using the mic and try again.";
+  if (name === 'NotReadableError' || name === 'TrackStartError') {
+    return 'Your microphone is in use by another app. Close other apps using the mic and try again.';
   }
-  if (name === "OverconstrainedError" || name === "ConstraintNotSatisfiedError") {
-    return "Could not start the microphone with the requested settings. Try again or switch devices.";
+  if (name === 'OverconstrainedError' || name === 'ConstraintNotSatisfiedError') {
+    return 'Could not start the microphone with the requested settings. Try again or switch devices.';
   }
-  if (name === "SecurityError") {
-    return "Microphone access is blocked by the browser security model (HTTPS required).";
+  if (name === 'SecurityError') {
+    return 'Microphone access is blocked by the browser security model (HTTPS required).';
   }
 
   return null;
@@ -182,7 +181,7 @@ function int16ToBase64Chunked(int16Array: Int16Array): string {
     const chunk = bytes.subarray(i, i + BASE64_CHUNK_BYTES);
     parts.push(String.fromCharCode.apply(null, Array.from(chunk)));
   }
-  return btoa(parts.join(""));
+  return btoa(parts.join(''));
 }
 
 // Convert base64 PCM16 to Float32Array (matches xai-voice utils)
@@ -200,15 +199,13 @@ function base64PCM16ToFloat32(base64: string): Float32Array {
   return float32;
 }
 
-export function useVoiceClient(
-  options: VoiceClientOptions = {}
-): UseVoiceClientReturn {
-  const { voice = "Ara", instructions, initialMuted = false } = options;
+export function useVoiceClient(options: VoiceClientOptions = {}): UseVoiceClientReturn {
+  const { voice = 'Ara', instructions, initialMuted = false } = options;
 
   const [agentState, setAgentState] = useState<AgentState>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [transcript, setTranscript] = useState("");
+  const [transcript, setTranscript] = useState('');
   const [isMuted, setIsMuted] = useState(initialMuted);
   const [conversation, setConversation] = useState<ConversationTurn[]>([]);
   const [stats, setStats] = useState<VoiceStats>({
@@ -238,7 +235,7 @@ export function useVoiceClient(
   const inputVolumeRef = useRef(0);
   const outputVolumeRef = useRef(0);
   const isMutedRef = useRef(false);
-  const assistantBufferRef = useRef("");
+  const assistantBufferRef = useRef('');
   const voiceRef = useRef<VoiceType>(voice);
   // Keep ref in sync during render (not just in effect) to avoid stale values
   voiceRef.current = voice;
@@ -256,7 +253,7 @@ export function useVoiceClient(
   const connectionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queuedPlaybackSourcesRef = useRef<AudioBufferSourceNode[]>([]);
   const nextPlayTimeRef = useRef(0);
-  const cleanupRef = useRef<() => void>(() => { });
+  const cleanupRef = useRef<() => void>(() => {});
 
   function countWords(text: string) {
     const trimmed = text.trim();
@@ -296,9 +293,7 @@ export function useVoiceClient(
   const getAudioContext = useCallback(() => {
     if (!audioContextRef.current) {
       const AudioContextConstructor =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext })
-          .webkitAudioContext;
+        window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       try {
         // Try to create AudioContext with 48000 Hz
         audioContextRef.current = new AudioContextConstructor({ sampleRate: 48000 });
@@ -314,10 +309,10 @@ export function useVoiceClient(
   const startCapture = useCallback(
     async (onChunk: (base64Audio: string) => void): Promise<number> => {
       if (!window.isSecureContext) {
-        throw new Error("Microphone requires a secure context (HTTPS).");
+        throw new Error('Microphone requires a secure context (HTTPS).');
       }
       if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error("Microphone access is not supported in this browser.");
+        throw new Error('Microphone access is not supported in this browser.');
       }
 
       const audioContext = getAudioContext();
@@ -337,41 +332,41 @@ export function useVoiceClient(
 
       stream.getTracks().forEach((track) => {
         track.onended = () => {
-          setError("Microphone disconnected. Please check your device and try again.");
+          setError('Microphone disconnected. Please check your device and try again.');
           cleanupRef.current();
         };
       });
 
-      if (audioContext.state === "suspended") {
+      if (audioContext.state === 'suspended') {
         await audioContext.resume();
       }
 
       // Load PCM worklet (outputs 16-bit PCM; required for xAI Realtime)
-      await audioContext.audioWorklet.addModule("/pcm-processor-worklet.js");
+      await audioContext.audioWorklet.addModule('/pcm-processor-worklet.js');
 
       const source = audioContext.createMediaStreamSource(stream);
       sourceNodeRef.current = source;
 
       const chunkSizeSamples = (SAMPLE_RATE * CHUNK_DURATION_MS) / 1000;
 
-      const processor = new AudioWorkletNode(audioContext, "pcm-processor", {
+      const processor = new AudioWorkletNode(audioContext, 'pcm-processor', {
         numberOfInputs: 1,
         numberOfOutputs: 1,
         channelCount: 1,
       });
 
       processor.port.postMessage({
-        type: "config",
+        type: 'config',
         chunkSizeSamples,
       });
 
       processor.port.postMessage({
-        type: "mute",
+        type: 'mute',
         muted: isMutedRef.current,
       });
 
       processor.port.onmessage = (event) => {
-        if (event.data.type === "volume") {
+        if (event.data.type === 'volume') {
           inputVolumeRef.current = event.data.volume;
         } else if (event.data instanceof Int16Array) {
           const base64Audio = int16ToBase64Chunked(event.data);
@@ -393,7 +388,7 @@ export function useVoiceClient(
       // Always return 48000 Hz for session configuration
       return SAMPLE_RATE;
     },
-    [getAudioContext]
+    [getAudioContext],
   );
 
   const stopCapture = useCallback(() => {
@@ -444,7 +439,7 @@ export function useVoiceClient(
   const cancelAssistantResponse = useCallback(() => {
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: "response.cancel" }));
+      ws.send(JSON.stringify({ type: 'response.cancel' }));
     }
   }, []);
 
@@ -456,11 +451,7 @@ export function useVoiceClient(
     }
 
     const chunk = playbackQueueRef.current.shift()!;
-    const audioBuffer = audioContext.createBuffer(
-      1,
-      chunk.length,
-      audioContext.sampleRate
-    );
+    const audioBuffer = audioContext.createBuffer(1, chunk.length, audioContext.sampleRate);
     audioBuffer.getChannelData(0).set(chunk);
 
     const source = audioContext.createBufferSource();
@@ -504,10 +495,10 @@ export function useVoiceClient(
           playNextChunk(audioContext);
         }
       } catch (err) {
-        console.error("Error playing audio:", err);
+        console.error('Error playing audio:', err);
       }
     },
-    [getAudioContext, playNextChunk]
+    [getAudioContext, playNextChunk],
   );
 
   const cleanup = useCallback(() => {
@@ -538,12 +529,12 @@ export function useVoiceClient(
   const connect = useCallback(async () => {
     try {
       setError(null);
-      setAgentState("thinking");
+      setAgentState('thinking');
       intentionalDisconnectRef.current = false;
 
       // REQUIRED for Safari: create and resume AudioContext from user gesture before any await
       const audioContext = getAudioContext();
-      if (audioContext.state === "suspended") {
+      if (audioContext.state === 'suspended') {
         await audioContext.resume();
       }
 
@@ -555,23 +546,21 @@ export function useVoiceClient(
 
         ws.send(
           JSON.stringify({
-            type: "input_audio_buffer.append",
+            type: 'input_audio_buffer.append',
             audio: base64Audio,
-          })
+          }),
         );
       });
 
       const sessionResponse = await fetch(`${VOICE_BACKEND_URL}/session`, {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
       });
 
       if (!sessionResponse.ok) {
-        throw new Error(
-          `Failed to create session (${sessionResponse.status})`
-        );
+        throw new Error(`Failed to create session (${sessionResponse.status})`);
       }
 
       const data: SessionResponse = await sessionResponse.json();
@@ -592,10 +581,10 @@ export function useVoiceClient(
       };
       isSessionConfiguredRef.current = false;
 
-      const ws = new WebSocket("wss://api.x.ai/v1/realtime", [
-        "realtime",
+      const ws = new WebSocket('wss://api.x.ai/v1/realtime', [
+        'realtime',
         `xai-client-secret.${ephemeralToken}`,
-        "openai-beta.realtime-v1",
+        'openai-beta.realtime-v1',
       ]);
 
       wsRef.current = ws;
@@ -604,7 +593,7 @@ export function useVoiceClient(
       connectionTimeoutRef.current = setTimeout(() => {
         if (ws.readyState !== WebSocket.OPEN) {
           connectionTimeoutRef.current = null;
-          setError("Connection timed out. Please try again.");
+          setError('Connection timed out. Please try again.');
           cleanup();
         }
       }, CONNECTION_TIMEOUT_MS);
@@ -621,13 +610,9 @@ export function useVoiceClient(
         const message = JSON.parse(event.data);
         const type = message.type as string | undefined;
 
-        const pushToolCall = (tool: {
-          callId?: string;
-          name?: string;
-          args?: string;
-        }) => {
+        const pushToolCall = (tool: { callId?: string; name?: string; args?: string }) => {
           const callId = tool.callId;
-          const name = tool.name ?? "tool";
+          const name = tool.name ?? 'tool';
           const args = tool.args;
 
           if (callId) {
@@ -642,27 +627,20 @@ export function useVoiceClient(
           setConversation((prev) => [
             ...prev,
             {
-              role: "tool",
-              kind: "call",
+              role: 'tool',
+              kind: 'call',
               name,
               callId,
               args,
-              text: "",
+              text: '',
             },
           ]);
         };
 
-        const pushToolOutput = (tool: {
-          callId?: string;
-          name?: string;
-          output?: string;
-        }) => {
+        const pushToolOutput = (tool: { callId?: string; name?: string; output?: string }) => {
           const callId = tool.callId;
-          const output = tool.output ?? "";
-          const resolvedName =
-            tool.name ??
-            (callId ? toolCallByIdRef.current.get(callId)?.name : undefined) ??
-            "tool";
+          const output = tool.output ?? '';
+          const resolvedName = tool.name ?? (callId ? toolCallByIdRef.current.get(callId)?.name : undefined) ?? 'tool';
 
           if (callId) {
             if (seenToolOutputsRef.current.has(callId)) return;
@@ -678,8 +656,8 @@ export function useVoiceClient(
           setConversation((prev) => [
             ...prev,
             {
-              role: "tool",
-              kind: "output",
+              role: 'tool',
+              kind: 'output',
               name: resolvedName,
               callId,
               text: output,
@@ -688,45 +666,39 @@ export function useVoiceClient(
         };
 
         switch (type) {
-          case "conversation.created": {
+          case 'conversation.created': {
             if (!isSessionConfiguredRef.current && sessionConfigRef.current) {
-              const {
-                voice: backendVoice,
-                instructions: backendInstructions,
-              } = sessionConfigRef.current;
+              const { voice: backendVoice, instructions: backendInstructions } = sessionConfigRef.current;
 
               const sessionUpdate = {
-                type: "session.update",
+                type: 'session.update',
                 session: {
                   instructions: backendInstructions,
                   voice: backendVoice,
                   audio: {
                     input: {
                       format: {
-                        type: "audio/pcm",
+                        type: 'audio/pcm',
                         rate: 48000,
                       },
                     },
                     output: {
                       format: {
-                        type: "audio/pcm",
+                        type: 'audio/pcm',
                         rate: 48000,
                       },
                     },
                   },
                   turn_detection: {
-                    type: "server_vad",
+                    type: 'server_vad',
                     threshold: 0.4,
                     prefix_padding_ms: 200,
                     silence_duration_ms: 100,
                   },
                   input_audio_transcription: {
-                    model: "grok-2-audio",
+                    model: 'grok-2-audio',
                   },
-                  tools: [
-                    { type: "web_search" },
-                    { type: "x_search" },
-                  ],
+                  tools: [{ type: 'web_search' }, { type: 'x_search' }],
                 },
               };
 
@@ -735,22 +707,22 @@ export function useVoiceClient(
             break;
           }
 
-          case "session.updated": {
+          case 'session.updated': {
             if (!isSessionConfiguredRef.current) {
               isSessionConfiguredRef.current = true;
-              setAgentState("listening");
+              setAgentState('listening');
             }
             break;
           }
 
-          case "input_audio_buffer.speech_started": {
-            if (isPlayingRef.current || agentStateRef.current === "talking") {
+          case 'input_audio_buffer.speech_started': {
+            if (isPlayingRef.current || agentStateRef.current === 'talking') {
               stopPlayback();
               cancelAssistantResponse();
               setConversation((prev) => {
                 if (prev.length === 0) return prev;
                 const last = prev[prev.length - 1];
-                if (last.role === "assistant") {
+                if (last.role === 'assistant') {
                   const next = [...prev];
                   next[next.length - 1] = { ...last, interrupted: true };
                   return next;
@@ -758,60 +730,58 @@ export function useVoiceClient(
                 return prev;
               });
             }
-            setAgentState("listening");
+            setAgentState('listening');
             lastSpeechStartTsRef.current = performance.now();
             lastSpeechStopTsRef.current = null;
             break;
           }
 
-          case "input_audio_buffer.speech_stopped": {
-            setAgentState("thinking");
+          case 'input_audio_buffer.speech_stopped': {
+            setAgentState('thinking');
             lastSpeechStopTsRef.current = performance.now();
             break;
           }
 
-          case "response.created": {
+          case 'response.created': {
             currentResponseIdRef.current = (message.response as { id?: string } | undefined)?.id ?? null;
-            assistantBufferRef.current = "";
-            setAgentState("thinking");
+            assistantBufferRef.current = '';
+            setAgentState('thinking');
             lastResponseCreatedTsRef.current = performance.now();
             firstAssistantActivityTsRef.current = null;
             assistantTranscriptStartTsRef.current = null;
             break;
           }
 
-          case "response.output_item.added": {
-            if (message.item?.type === "message") {
-              setAgentState("talking");
+          case 'response.output_item.added': {
+            if (message.item?.type === 'message') {
+              setAgentState('talking');
             }
             break;
           }
 
-          case "response.function_call_arguments.done": {
+          case 'response.function_call_arguments.done': {
             // Some servers emit this; others only emit response.output_item.done with item.type=function_call.
             // We handle both, and dedupe by call_id when available.
-            const callId =
-              (message.call_id as string | undefined) ??
-              (message.callId as string | undefined);
+            const callId = (message.call_id as string | undefined) ?? (message.callId as string | undefined);
             const name = message.name as string | undefined;
             const args = message.arguments as string | undefined;
             pushToolCall({ callId, name, args });
             break;
           }
 
-          case "response.output_item.done": {
+          case 'response.output_item.done': {
             // Example (tool call):
             // { type: "response.output_item.done", item: { type:"function_call", call_id, name, arguments } }
             const item = message.item as
               | {
-                type?: string;
-                call_id?: string;
-                name?: string;
-                arguments?: string;
-              }
+                  type?: string;
+                  call_id?: string;
+                  name?: string;
+                  arguments?: string;
+                }
               | undefined;
 
-            if (item?.type === "function_call") {
+            if (item?.type === 'function_call') {
               pushToolCall({
                 callId: item.call_id,
                 name: item.name,
@@ -821,18 +791,18 @@ export function useVoiceClient(
             break;
           }
 
-          case "conversation.item.added": {
+          case 'conversation.item.added': {
             // Tool outputs typically come through as a conversation item.
             const item = message.item as
               | {
-                type?: string;
-                call_id?: string;
-                name?: string;
-                output?: string;
-              }
+                  type?: string;
+                  call_id?: string;
+                  name?: string;
+                  output?: string;
+                }
               | undefined;
 
-            if (item?.type === "function_call_output") {
+            if (item?.type === 'function_call_output') {
               pushToolOutput({
                 callId: item.call_id,
                 name: item.name,
@@ -842,14 +812,14 @@ export function useVoiceClient(
             break;
           }
 
-          case "response.output_audio.delta": {
+          case 'response.output_audio.delta': {
             if (message.delta) {
               playAudio(message.delta as string);
             }
             break;
           }
 
-          case "response.output_audio_transcript.delta": {
+          case 'response.output_audio_transcript.delta': {
             if (message.delta) {
               const delta = String(message.delta);
 
@@ -861,11 +831,11 @@ export function useVoiceClient(
               setConversation((prev) => {
                 const nextText = assistantBufferRef.current;
                 if (prev.length === 0) {
-                  return [{ role: "assistant", text: nextText }];
+                  return [{ role: 'assistant', text: nextText }];
                 }
 
                 const lastTurn = prev[prev.length - 1];
-                if (lastTurn.role === "assistant") {
+                if (lastTurn.role === 'assistant') {
                   const updated = [...prev];
                   updated[updated.length - 1] = {
                     ...lastTurn,
@@ -874,7 +844,7 @@ export function useVoiceClient(
                   return updated;
                 }
 
-                return [...prev, { role: "assistant", text: nextText }];
+                return [...prev, { role: 'assistant', text: nextText }];
               });
 
               // Track timing / latency for the first token.
@@ -885,8 +855,7 @@ export function useVoiceClient(
                   firstAssistantActivityTsRef.current = now;
                   const speechStop = lastSpeechStopTsRef.current;
                   const responseCreated = lastResponseCreatedTsRef.current;
-                  const latencyMs =
-                    speechStop ? now - speechStop : responseCreated ? now - responseCreated : null;
+                  const latencyMs = speechStop ? now - speechStop : responseCreated ? now - responseCreated : null;
                   if (latencyMs !== null) {
                     setStats((prev) => ({ ...prev, lastLatencyMs: Math.max(0, latencyMs) }));
                   }
@@ -896,7 +865,7 @@ export function useVoiceClient(
             break;
           }
 
-          case "response.output_audio_transcript.done": {
+          case 'response.output_audio_transcript.done': {
             if (assistantBufferRef.current.trim().length > 0) {
               const text = assistantBufferRef.current.trim();
               const words = countWords(text);
@@ -911,11 +880,11 @@ export function useVoiceClient(
               // Finalize the last assistant turn text (already streamed incrementally above).
               setConversation((prev) => {
                 if (prev.length === 0) {
-                  return [{ role: "assistant", text }];
+                  return [{ role: 'assistant', text }];
                 }
 
                 const lastTurn = prev[prev.length - 1];
-                if (lastTurn.role === "assistant") {
+                if (lastTurn.role === 'assistant') {
                   const updated = [...prev];
                   updated[updated.length - 1] = {
                     ...lastTurn,
@@ -924,25 +893,25 @@ export function useVoiceClient(
                   return updated;
                 }
 
-                return [...prev, { role: "assistant", text }];
+                return [...prev, { role: 'assistant', text }];
               });
 
-              assistantBufferRef.current = "";
+              assistantBufferRef.current = '';
             }
             break;
           }
 
-          case "response.done": {
+          case 'response.done': {
             currentResponseIdRef.current = null;
-            setAgentState("listening");
+            setAgentState('listening');
             outputVolumeRef.current = 0;
             break;
           }
 
-          case "conversation.item.input_audio_transcription.completed": {
+          case 'conversation.item.input_audio_transcription.completed': {
             if (message.transcript) {
               const text = String(message.transcript);
-              setConversation((prev) => [...prev, { role: "user", text }]);
+              setConversation((prev) => [...prev, { role: 'user', text }]);
 
               const start = lastSpeechStartTsRef.current;
               const stop = lastSpeechStopTsRef.current;
@@ -957,19 +926,19 @@ export function useVoiceClient(
             break;
           }
 
-          case "error": {
+          case 'error': {
             const messageText =
               message.error?.message ??
-              (typeof message.error === "string" ? message.error : null) ??
-              "An error occurred";
+              (typeof message.error === 'string' ? message.error : null) ??
+              'An error occurred';
             setError(messageText);
             break;
           }
 
           default: {
-            if (process.env.NODE_ENV !== "production") {
+            if (process.env.NODE_ENV !== 'production') {
               // Useful while iterating; avoids spamming prod logs.
-              console.log("Unknown message type:", type, message);
+              console.log('Unknown message type:', type, message);
             }
             break;
           }
@@ -977,9 +946,9 @@ export function useVoiceClient(
       };
 
       ws.onerror = (err) => {
-        console.error("WebSocket error:", err);
+        console.error('WebSocket error:', err);
         if (!intentionalDisconnectRef.current) {
-          setError("Connection error");
+          setError('Connection error');
         }
         cleanup();
       };
@@ -988,12 +957,9 @@ export function useVoiceClient(
         cleanup();
       };
     } catch (err) {
-      console.error("Failed to connect:", err);
+      console.error('Failed to connect:', err);
       const micMessage = getMicrophoneAccessErrorMessage(err);
-      setError(
-        micMessage ??
-        (err instanceof Error ? err.message : "Failed to connect")
-      );
+      setError(micMessage ?? (err instanceof Error ? err.message : 'Failed to connect'));
       setAgentState(null);
       cleanup();
     }
@@ -1001,7 +967,7 @@ export function useVoiceClient(
 
   const disconnect = useCallback(() => {
     intentionalDisconnectRef.current = true;
-    setTranscript("");
+    setTranscript('');
     setConversation([]);
     setStats({
       lastLatencyMs: null,
@@ -1017,11 +983,11 @@ export function useVoiceClient(
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(
         JSON.stringify({
-          type: "session.update",
+          type: 'session.update',
           session: {
             voice: newVoice,
           },
-        })
+        }),
       );
     }
   }, []);
@@ -1031,12 +997,12 @@ export function useVoiceClient(
 
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      setError("Not connected. Please start a voice session first.");
+      setError('Not connected. Please start a voice session first.');
       return;
     }
 
     if (!isSessionConfiguredRef.current) {
-      setError("Session not ready. Please wait for connection.");
+      setError('Session not ready. Please wait for connection.');
       return;
     }
 
@@ -1044,31 +1010,31 @@ export function useVoiceClient(
     setError(null);
 
     // Add user message to conversation immediately
-    setConversation((prev) => [...prev, { role: "user", text: text.trim() }]);
-    setAgentState("thinking");
+    setConversation((prev) => [...prev, { role: 'user', text: text.trim() }]);
+    setAgentState('thinking');
 
     // Send text input via WebSocket
     ws.send(
       JSON.stringify({
-        type: "conversation.item.create",
+        type: 'conversation.item.create',
         item: {
-          type: "message",
-          role: "user",
+          type: 'message',
+          role: 'user',
           content: [
             {
-              type: "input_text",
+              type: 'input_text',
               text: text.trim(),
             },
           ],
         },
-      })
+      }),
     );
 
     // Request the server to create a new assistant response
     ws.send(
       JSON.stringify({
-        type: "response.create",
-      })
+        type: 'response.create',
+      }),
     );
   }, []);
 

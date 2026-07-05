@@ -46,7 +46,10 @@ export function MarqueeText({ text, className }: { text: string; className?: str
         className={cn('overflow-hidden', scrollOffset > 0 && 'marquee-container', className)}
         style={
           scrollOffset > 0
-            ? ({ '--marquee-duration': `${duration}s`, '--marquee-offset': `-${scrollOffset}px` } as React.CSSProperties)
+            ? ({
+                '--marquee-duration': `${duration}s`,
+                '--marquee-offset': `-${scrollOffset}px`,
+              } as React.CSSProperties)
             : undefined
         }
       >

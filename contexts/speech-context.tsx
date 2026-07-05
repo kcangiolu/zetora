@@ -99,13 +99,11 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
       }
     },
-    [stop]
+    [stop],
   );
 
   return (
-    <SpeechContext.Provider value={{ speak, stop, isSpeaking, isLoading, error }}>
-      {children}
-    </SpeechContext.Provider>
+    <SpeechContext.Provider value={{ speak, stop, isSpeaking, isLoading, error }}>{children}</SpeechContext.Provider>
   );
 }
 

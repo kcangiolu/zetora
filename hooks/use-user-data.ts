@@ -66,23 +66,23 @@ export function useUserData() {
     // Legacy compatibility helpers
     subscriptionData: userData?.polarSubscription
       ? {
-        hasSubscription: true,
-        subscription: userData.polarSubscription,
-      }
+          hasSubscription: true,
+          subscription: userData.polarSubscription,
+        }
       : { hasSubscription: false },
 
     // Map dodoSubscription to legacy dodoProStatus structure for settings dialog
     dodoProStatus: userData?.dodoSubscription
       ? {
-        isProUser: userData.proSource === 'dodo' && userData.isProUser,
-        hasSubscriptions: userData.dodoSubscription.hasSubscriptions,
-        expiresAt: userData.dodoSubscription.expiresAt,
-        mostRecentSubscription: userData.dodoSubscription.mostRecentSubscription,
-        daysUntilExpiration: userData.dodoSubscription.daysUntilExpiration,
-        isExpired: userData.dodoSubscription.isExpired,
-        isExpiringSoon: userData.dodoSubscription.isExpiringSoon,
-        source: userData.proSource,
-      }
+          isProUser: userData.proSource === 'dodo' && userData.isProUser,
+          hasSubscriptions: userData.dodoSubscription.hasSubscriptions,
+          expiresAt: userData.dodoSubscription.expiresAt,
+          mostRecentSubscription: userData.dodoSubscription.mostRecentSubscription,
+          daysUntilExpiration: userData.dodoSubscription.daysUntilExpiration,
+          isExpired: userData.dodoSubscription.isExpired,
+          isExpiringSoon: userData.dodoSubscription.isExpiringSoon,
+          source: userData.proSource,
+        }
       : null,
 
     expiresAt: userData?.dodoSubscription?.expiresAt,

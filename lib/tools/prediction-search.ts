@@ -221,13 +221,7 @@ export function predictionSearchTool(dataStream?: UIMessageStreamWriter<ChatMess
         .default(15)
         .describe('Maximum number of results to return. Default is 15.'),
     }),
-    execute: async ({
-      query,
-      maxResults = 15,
-    }: {
-      query: string;
-      maxResults?: number;
-    }) => {
+    execute: async ({ query, maxResults = 15 }: { query: string; maxResults?: number }) => {
       console.log('Prediction market search query:', query);
       console.log('Max results:', maxResults);
 
@@ -287,9 +281,7 @@ export function predictionSearchTool(dataStream?: UIMessageStreamWriter<ChatMess
         });
 
         // Filter out markets with no active markets (empty market arrays)
-        const filteredMarkets = markets.filter(
-          (market) => market.markets.length > 0 || market.description.length > 0,
-        );
+        const filteredMarkets = markets.filter((market) => market.markets.length > 0 || market.description.length > 0);
 
         // Rerank results using Cohere for better relevance
         let activeMarkets = filteredMarkets;

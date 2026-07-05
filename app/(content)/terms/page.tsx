@@ -74,9 +74,9 @@ export default function TermsPage() {
                 </span>
               </div>
               <p className="text-sm text-foreground/80 leading-relaxed">
-                Zetora AI is free to use with optional paid plans including Pro at $15/mo and Max at $60/mo. Max includes
-                access to Anthropic Claude models with a 60 requests per week usage cap. We don&apos;t store payment
-                data. You own your queries. Be respectful, don&apos;t scrape, and verify important answers
+                Zetora AI is free to use with optional paid plans including Pro at $15/mo and Max at $60/mo. Max
+                includes access to Anthropic Claude models with a 60 requests per week usage cap. We don&apos;t store
+                payment data. You own your queries. Be respectful, don&apos;t scrape, and verify important answers
                 independently. Cancel anytime; no refunds on subscriptions.
               </p>
             </div>
@@ -84,19 +84,19 @@ export default function TermsPage() {
             {/* Content */}
             <div className="prose prose-neutral dark:prose-invert max-w-none prose-headings:font-be-vietnam-pro prose-headings:font-light prose-headings:tracking-tight prose-h2:text-lg prose-h2:mt-14 prose-h2:mb-4 prose-h2:scroll-mt-20 prose-p:text-muted-foreground prose-p:leading-relaxed prose-p:text-[15px] prose-li:text-muted-foreground prose-li:text-[15px] prose-a:text-foreground prose-a:font-medium prose-a:no-underline hover:prose-a:underline prose-strong:text-foreground prose-strong:font-medium">
               <p className="text-base text-foreground/80 leading-relaxed">
-                Welcome to Zetora AI. These Terms of Service govern your use of our website and services. By using Zetora
-                AI, you agree to these terms in full. If you disagree with any part of these terms, please do not use
-                our service.
+                Welcome to Zetora AI. These Terms of Service govern your use of our website and services. By using
+                Zetora AI, you agree to these terms in full. If you disagree with any part of these terms, please do not
+                use our service.
               </p>
 
               <h2 id="acceptance">
                 <span className="font-pixel text-xs text-muted-foreground/50 mr-2">01</span>Acceptance of Terms
               </h2>
               <p>
-                By accessing or using Zetora AI, you acknowledge that you have read, understood, and agree to be bound by
-                these Terms of Service. We reserve the right to modify these terms at any time, and such modifications
-                shall be effective immediately upon posting. Your continued use of Zetora AI after any modifications
-                indicates your acceptance of the modified terms.
+                By accessing or using Zetora AI, you acknowledge that you have read, understood, and agree to be bound
+                by these Terms of Service. We reserve the right to modify these terms at any time, and such
+                modifications shall be effective immediately upon posting. Your continued use of Zetora AI after any
+                modifications indicates your acceptance of the modified terms.
               </p>
 
               <h2 id="service">
@@ -193,8 +193,8 @@ export default function TermsPage() {
                   <strong>Free Plan:</strong> Includes limited daily searches with access to basic AI models
                 </li>
                 <li>
-                  <strong>Zetora Pro:</strong> $15/month subscription with unlimited searches and access to standard paid
-                  features and non-Max AI models
+                  <strong>Zetora Pro:</strong> $15/month subscription with unlimited searches and access to standard
+                  paid features and non-Max AI models
                 </li>
                 <li>
                   <strong>Zetora Max:</strong> $60/month subscription with all paid features plus Anthropic Claude
@@ -202,8 +202,8 @@ export default function TermsPage() {
                 </li>
               </ul>
               <p>
-                <strong>Important:</strong> Zetora AI does not store any payment card details, bank information, or other
-                sensitive payment data. All payment information is processed directly by our payment providers.
+                <strong>Important:</strong> Zetora AI does not store any payment card details, bank information, or
+                other sensitive payment data. All payment information is processed directly by our payment providers.
               </p>
 
               <h2 id="cancellation">

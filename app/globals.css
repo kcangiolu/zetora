@@ -1618,10 +1618,12 @@ body {
 
 /* Marquee scroll animation for overflowing model names */
 @keyframes marquee-scroll {
-  0%, 20% {
+  0%,
+  20% {
     transform: translateX(0);
   }
-  80%, 100% {
+  80%,
+  100% {
     transform: translateX(var(--marquee-offset, 0px));
   }
 }
@@ -1643,4 +1645,3 @@ body {
 }
 
 /* Sugar-high syntax highlighting styles */
-

@@ -9,8 +9,7 @@ export default function TestEmailTemplate() {
         <Container style={container}>
           <Heading style={h1}>✅ Email Configured</Heading>
           <Text style={text}>
-            Your email provider is correctly configured. You will now receive lookout completion emails at this
-            address.
+            Your email provider is correctly configured. You will now receive lookout completion emails at this address.
           </Text>
           <Text style={footer}>Sent by Zetora</Text>
         </Container>

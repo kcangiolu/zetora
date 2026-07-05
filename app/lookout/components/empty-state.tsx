@@ -21,7 +21,9 @@ export function EmptyState({
   variant = 'dashed',
 }: EmptyStateProps) {
   return (
-    <Card className={`shadow-none rounded-xl ${variant === 'dashed' ? 'border-dashed border-border/60' : 'border-border/60'}`}>
+    <Card
+      className={`shadow-none rounded-xl ${variant === 'dashed' ? 'border-dashed border-border/60' : 'border-border/60'}`}
+    >
       <CardContent className="flex flex-col items-center justify-center py-12">
         <div className="w-12 h-12 rounded-xl bg-muted/50 flex items-center justify-center mb-4">
           <HugeiconsIcon
@@ -33,7 +35,9 @@ export function EmptyState({
           />
         </div>
         <h3 className="text-sm font-semibold mb-1">{title}</h3>
-        <p className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider text-center max-w-xs mb-4">{description}</p>
+        <p className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider text-center max-w-xs mb-4">
+          {description}
+        </p>
         {children}
       </CardContent>
     </Card>

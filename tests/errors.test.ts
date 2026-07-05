@@ -62,9 +62,7 @@ describe('ChatSDKError', () => {
 
 describe('getMessageByErrorCode', () => {
   it('always returns the generic database message for database surfaces', () => {
-    expect(getMessageByErrorCode('not_found:database')).toBe(
-      'An error occurred while executing a database query.',
-    );
+    expect(getMessageByErrorCode('not_found:database')).toBe('An error occurred while executing a database query.');
   });
 
   it('falls back to a generic message for unknown codes', () => {

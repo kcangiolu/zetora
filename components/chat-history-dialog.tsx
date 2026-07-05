@@ -91,8 +91,7 @@ function parseChatDate(value: Date | string | number): Date {
   if (typeof value === 'string') {
     const trimmedValue = value.trim();
     const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/.test(trimmedValue);
-    const isPostgresTimestampWithoutTimezone =
-      /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(trimmedValue);
+    const isPostgresTimestampWithoutTimezone = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(trimmedValue);
 
     if (isPostgresTimestampWithoutTimezone && !hasTimezone) {
       return new Date(`${trimmedValue.replace(' ', 'T')}Z`);
@@ -690,7 +689,8 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
     if (!open || allChats.length === 0) return;
 
     // Use requestIdleCallback (or setTimeout fallback) to defer prefetching
-    const scheduleCallback = typeof requestIdleCallback !== 'undefined' ? requestIdleCallback : (cb: () => void) => setTimeout(cb, 200);
+    const scheduleCallback =
+      typeof requestIdleCallback !== 'undefined' ? requestIdleCallback : (cb: () => void) => setTimeout(cb, 200);
 
     const idleId = scheduleCallback(() => {
       // Only prefetch the first 5 visible chat routes (not 10+10)
@@ -869,11 +869,14 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
     setDeletingBulk(true);
   }, [selectedChatIds]);
 
-  const togglePinnedChat = useCallback((chatId: string) => {
-    const selectedChat = allChats.find((chat) => chat.id === chatId);
-    if (!selectedChat) return;
-    pinMutation.mutate({ id: chatId, isPinned: !selectedChat.isPinned });
-  }, [allChats, pinMutation]);
+  const togglePinnedChat = useCallback(
+    (chatId: string) => {
+      const selectedChat = allChats.find((chat) => chat.id === chatId);
+      if (!selectedChat) return;
+      pinMutation.mutate({ id: chatId, isPinned: !selectedChat.isPinned });
+    },
+    [allChats, pinMutation],
+  );
 
   const confirmBulkDelete = useCallback(async () => {
     const idsToDelete = Array.from(selectedChatIds);
@@ -938,7 +941,7 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
         className={cn(
           'flex items-center py-2.5 px-3 mx-1 my-0.5 rounded-lg transition-all duration-200 ease-in-out cursor-pointer',
           isDeleting &&
-          'bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/30 shadow-sm',
+            'bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/30 shadow-sm',
           isEditing && 'bg-muted/30 dark:bg-muted/20 border border-muted-foreground/20 shadow-sm',
           isSelected && 'bg-accent border border-accent-foreground/10 shadow-sm ring-1 ring-accent-foreground/5',
           !isDeleting && !isEditing && !isSelected && 'hover:bg-accent/50 border border-transparent',
@@ -1100,7 +1103,7 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
                           updateTitleMutation.isPending ||
                           !!deletingChatId ||
                           !!editingChatId) &&
-                        'opacity-50 pointer-events-none',
+                          'opacity-50 pointer-events-none',
                       )}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -1130,7 +1133,7 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
                           updateTitleMutation.isPending ||
                           !!deletingChatId ||
                           !!editingChatId) &&
-                        'opacity-50 pointer-events-none',
+                          'opacity-50 pointer-events-none',
                       )}
                       onClick={(e) => handleEditTitle(e, chat.id, chat.title)}
                       aria-label={`Edit title of ${displayTitle}`}
@@ -1156,7 +1159,7 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
                           updateTitleMutation.isPending ||
                           !!deletingChatId ||
                           !!editingChatId) &&
-                        'opacity-50 pointer-events-none',
+                          'opacity-50 pointer-events-none',
                       )}
                       onClick={(e) => handleDeleteChat(e, chat.id)}
                       aria-label={`Delete ${displayTitle}`}
@@ -1495,7 +1498,6 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
                     </Empty>
                   </CommandEmpty>
                 )}
-
               </>
             )}
             {/* Loading indicator for next page */}

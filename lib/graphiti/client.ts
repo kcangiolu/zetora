@@ -63,11 +63,7 @@ class GraphitiClient {
     return res.json();
   }
 
-  async search(
-    query: string,
-    groupId?: string,
-    numResults: number = 10,
-  ): Promise<GraphitiSearchResult> {
+  async search(query: string, groupId?: string, numResults: number = 10): Promise<GraphitiSearchResult> {
     const res = await fetch(`${this.baseUrl}/search`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

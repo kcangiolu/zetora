@@ -81,15 +81,13 @@ export class SearXNGSearchStrategy implements SearchStrategy {
 
           const data = await response.json();
 
-          const results = (data.results || [])
-            .slice(0, maxResults)
-            .map((r: SearXNGResult) => ({
-              url: r.url,
-              title: r.title,
-              content: r.content || '',
-              published_date: r.publishedDate || undefined,
-              author: undefined,
-            }));
+          const results = (data.results || []).slice(0, maxResults).map((r: SearXNGResult) => ({
+            url: r.url,
+            title: r.title,
+            content: r.content || '',
+            published_date: r.publishedDate || undefined,
+            author: undefined,
+          }));
 
           options.dataStream?.write({
             type: 'data-query_completion',

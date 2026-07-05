@@ -147,7 +147,13 @@ services:
       graphiti-api:
         condition: service_started
     healthcheck:
-      test: ['CMD', 'node', '-e', "fetch('http://localhost:3333').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:3333').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -398,7 +404,7 @@ services:
     container_name: zetora-sandbox
     user: root
     ports:
-      - '127.0.0.1:8003:8000'  # port 8000 is hardcoded in the image, not configurable
+      - '127.0.0.1:8003:8000' # port 8000 is hardcoded in the image, not configurable
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
@@ -513,7 +519,11 @@ services:
     volumes:
       - ${DATA_DIR}/bullmq-redis:/data
     healthcheck:
-      test: ['CMD-SHELL', "redis-cli -p 6381 $$( [ -n '${BULLMQ_REDIS_PASSWORD:-}' ] && echo -a '${BULLMQ_REDIS_PASSWORD:-}' ) ping | grep -q PONG"]
+      test:
+        [
+          'CMD-SHELL',
+          "redis-cli -p 6381 $$( [ -n '${BULLMQ_REDIS_PASSWORD:-}' ] && echo -a '${BULLMQ_REDIS_PASSWORD:-}' ) ping | grep -q PONG",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5

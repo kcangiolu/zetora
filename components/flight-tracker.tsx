@@ -199,7 +199,9 @@ export function FlightTracker({ data }: FlightTrackerProps) {
             <div className="px-4 py-2.5 border-b border-border/40 flex items-center justify-between">
               <div className="flex items-center gap-2.5 min-w-0">
                 <Plane className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span className="font-pixel text-xs text-muted-foreground/80 uppercase tracking-wider">{flightNumber}</span>
+                <span className="font-pixel text-xs text-muted-foreground/80 uppercase tracking-wider">
+                  {flightNumber}
+                </span>
                 <span className="text-[10px] text-muted-foreground/50 truncate">{flight.airline.name}</span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -216,7 +218,9 @@ export function FlightTracker({ data }: FlightTrackerProps) {
                 {/* Departure */}
                 <div className="min-w-0 flex-1">
                   <div className="text-lg font-semibold text-foreground leading-none tabular-nums">{departureTime}</div>
-                  <div className="text-base font-pixel uppercase tracking-wider text-foreground/80 mt-1.5 leading-none">{originCode}</div>
+                  <div className="text-base font-pixel uppercase tracking-wider text-foreground/80 mt-1.5 leading-none">
+                    {originCode}
+                  </div>
                   <div className="text-[10px] text-muted-foreground/60 mt-1 truncate">{flight.departure.airport}</div>
                   <div className="text-[9px] text-muted-foreground/40 mt-0.5">{departureDate}</div>
                 </div>
@@ -239,7 +243,9 @@ export function FlightTracker({ data }: FlightTrackerProps) {
                 {/* Arrival */}
                 <div className="text-right min-w-0 flex-1">
                   <div className="text-lg font-semibold text-foreground leading-none tabular-nums">{arrivalTime}</div>
-                  <div className="text-base font-pixel uppercase tracking-wider text-foreground/80 mt-1.5 leading-none">{destCode}</div>
+                  <div className="text-base font-pixel uppercase tracking-wider text-foreground/80 mt-1.5 leading-none">
+                    {destCode}
+                  </div>
                   <div className="text-[10px] text-muted-foreground/60 mt-1 truncate">{flight.arrival.airport}</div>
                   <div className="text-[9px] text-muted-foreground/40 mt-0.5">{arrivalDate}</div>
                 </div>

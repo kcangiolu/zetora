@@ -97,13 +97,15 @@ async function detectLanguageCode(text: string, preferences: Record<string, stri
 export const textTranslateTool = tool({
   description: 'Translate text from one language to another. Can also extract and translate text from images.',
   inputSchema: z.object({
-    text: z.string().describe('The text to translate. If empty and images are provided, text will be extracted from images first.'),
+    text: z
+      .string()
+      .describe('The text to translate. If empty and images are provided, text will be extracted from images first.'),
     to: z.string().describe('The language to translate to in the format of ISO 639-1.'),
     from: z.string().optional().describe('Optional source language ISO 639-1 code. If omitted, it will be detected.'),
   }),
   execute: async (
     { text, to, from }: TextTranslateToolInput,
-    { experimental_context }
+    { experimental_context },
   ): Promise<TextTranslateToolOutput> => {
     console.log('[text-translate] Starting translation...');
     console.log('[text-translate] Input:', { text: text?.substring(0, 100), to, from });
@@ -116,11 +118,11 @@ export const textTranslateTool = tool({
 
     const targetLanguageCode = normalizeLanguageCode(to);
     console.log('[text-translate] Target language code:', targetLanguageCode);
-    
+
     // Detect source language from text if provided
     const detectedLanguage = from
       ? normalizeLanguageCode(from)
-      : (text && text.trim() !== '')
+      : text && text.trim() !== ''
         ? await detectLanguageCode(text, translatePrefs)
         : 'auto';
     console.log('[text-translate] Detected source language:', detectedLanguage);
@@ -128,7 +130,7 @@ export const textTranslateTool = tool({
     // If we have images, pass them directly to TranslateGemma (vision model)
     if (hasImages) {
       console.log('[text-translate] Processing with images...');
-      
+
       // Build the image-specific prompt
       const imagePromptText = renderTranslateGemmaImagePrompt({
         sourceLanguageName: detectedLanguage === 'auto' ? 'Auto-detected' : getLanguageName(detectedLanguage),
@@ -137,7 +139,7 @@ export const textTranslateTool = tool({
         targetLanguageCode,
       });
       console.log('[text-translate] Image prompt built:', imagePromptText);
-      
+
       console.log('[text-translate] Calling model with', images.length, 'images...');
       const { text: translatedText } = await generateText({
         model: await resolveTertiaryModel('translate-vision', translatePrefs),

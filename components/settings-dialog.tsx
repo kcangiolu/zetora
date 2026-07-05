@@ -73,7 +73,21 @@ import { allSettled as betterAllSettled } from 'better-all';
 import { sileo } from 'sileo';
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { getAllMemories, deleteMemory, MemoryItem } from '@/lib/memory-actions';
-import { Loader2, Search, Zap, ZapOff, Pencil, Plus, MoreHorizontal, Link2Off, HardDrive, Timer, CheckCircle2, XCircle, Mail } from 'lucide-react';
+import {
+  Loader2,
+  Search,
+  Zap,
+  ZapOff,
+  Pencil,
+  Plus,
+  MoreHorizontal,
+  Link2Off,
+  HardDrive,
+  Timer,
+  CheckCircle2,
+  XCircle,
+  Mail,
+} from 'lucide-react';
 import { getSearchGroups, type SearchGroupId } from '@/lib/utils';
 import { models, PROVIDERS, getModelProvider, type ModelProvider, type Model } from '@/ai/models';
 import { cn } from '@/lib/utils';
@@ -437,7 +451,10 @@ function TertiaryModelRow({
       </div>
       <div className="flex items-center gap-1.5 shrink-0">
         {!model && (
-          <span className="text-[11px] text-muted-foreground/70 shrink-0 max-w-[160px] truncate" title={`Default : ${defaultModelLabel}`}>
+          <span
+            className="text-[11px] text-muted-foreground/70 shrink-0 max-w-[160px] truncate"
+            title={`Default : ${defaultModelLabel}`}
+          >
             Default : {defaultModelLabel}
           </span>
         )}
@@ -458,7 +475,10 @@ function TertiaryModelRow({
             size="icon"
             className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
             title="Reset to default"
-            onClick={() => { setModel(''); setProvider(''); }}
+            onClick={() => {
+              setModel('');
+              setProvider('');
+            }}
           >
             <X className="h-3 w-3" />
           </Button>
@@ -564,10 +584,7 @@ export function PreferencesSection({
     'cloudflare-r2',
   );
 
-  const [emailProvider, setEmailProvider] = useSyncedPreferences<'resend' | 'smtp'>(
-    'zetora-email-provider',
-    'resend',
-  );
+  const [emailProvider, setEmailProvider] = useSyncedPreferences<'resend' | 'smtp'>('zetora-email-provider', 'resend');
 
   const [lockoutProvider, setLockoutProvider] = useSyncedPreferences<'qstash' | 'bullmq'>(
     'zetora-lockout-provider',
@@ -618,7 +635,10 @@ export function PreferencesSection({
     'zetora-embedding-provider',
     '',
   );
-  const [embeddingModel, setEmbeddingModel] = useSyncedPreferences<string>('zetora-embedding-model', 'nomic-embed-text');
+  const [embeddingModel, setEmbeddingModel] = useSyncedPreferences<string>(
+    'zetora-embedding-model',
+    'nomic-embed-text',
+  );
 
   const [qdrantEnabled, setQdrantEnabled] = useSyncedPreferences<boolean>('zetora-qdrant-enabled', false);
   const [qdrantUrl, setQdrantUrl] = useSyncedPreferences<string>('zetora-qdrant-url', '');
@@ -639,13 +659,22 @@ export function PreferencesSection({
   );
 
   const [ttsProvider, setTtsProvider] = useSyncedPreferences<TTSProvider>('zetora-tts-provider', 'elevenlabs');
-  const [ttsCustomProviderId, setTtsCustomProviderId] = useSyncedPreferences<string>('zetora-tts-custom-provider-id', '');
+  const [ttsCustomProviderId, setTtsCustomProviderId] = useSyncedPreferences<string>(
+    'zetora-tts-custom-provider-id',
+    '',
+  );
   const [ttsOpenAIModel, setTtsOpenAIModel] = useSyncedPreferences<string>('zetora-tts-openai-model', 'qwen3-tts');
   const [ttsOpenAIVoice, setTtsOpenAIVoice] = useSyncedPreferences<string>('zetora-tts-openai-voice', 'af_bella');
-  const [ttsOpenAILanguage, setTtsOpenAILanguage] = useSyncedPreferences<string>('zetora-tts-openai-language', 'French');
+  const [ttsOpenAILanguage, setTtsOpenAILanguage] = useSyncedPreferences<string>(
+    'zetora-tts-openai-language',
+    'French',
+  );
 
   const [sttProvider, setSttProvider] = useSyncedPreferences<STTProvider>('zetora-stt-provider', 'elevenlabs');
-  const [sttCustomProviderId, setSttCustomProviderId] = useSyncedPreferences<string>('zetora-stt-custom-provider-id', '');
+  const [sttCustomProviderId, setSttCustomProviderId] = useSyncedPreferences<string>(
+    'zetora-stt-custom-provider-id',
+    '',
+  );
   const [sttOpenAIModel, setSttOpenAIModel] = useSyncedPreferences<string>('zetora-stt-openai-model', 'whisper-1');
 
   const [content, setContent] = useState('');
@@ -742,9 +771,7 @@ export function PreferencesSection({
   };
 
   const handleToggleAutoDetect = async (id: string) => {
-    const updated = customProviders.map((p) =>
-      p.id === id ? { ...p, disableAutoDetect: !p.disableAutoDetect } : p,
-    );
+    const updated = customProviders.map((p) => (p.id === id ? { ...p, disableAutoDetect: !p.disableAutoDetect } : p));
     try {
       await fetch('/api/custom-providers', {
         method: 'POST',
@@ -846,7 +873,6 @@ export function PreferencesSection({
       icon: <Timer className="h-4 w-4" />,
     });
   };
-
 
   function parseCustomModel(modelId: string) {
     if (!modelId.startsWith('custom-')) return null;
@@ -1282,7 +1308,9 @@ export function PreferencesSection({
                 </div>
                 <Select
                   value={extremeContentProvider}
-                  onValueChange={(v) => setExtremeContentProvider(v as 'exa-firecrawl' | 'searxng-fastcrw' | 'notte-only')}
+                  onValueChange={(v) =>
+                    setExtremeContentProvider(v as 'exa-firecrawl' | 'searxng-fastcrw' | 'notte-only')
+                  }
                 >
                   <SelectTrigger className="w-[160px] h-8 text-xs rounded-lg shrink-0">
                     <SelectValue />
@@ -1355,11 +1383,12 @@ export function PreferencesSection({
               <div className="flex items-center justify-between py-3.5 gap-6">
                 <div className="min-w-0">
                   <p className="text-sm font-medium">Lookout Scheduler</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Scheduling backend for automated searches
-                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Scheduling backend for automated searches</p>
                 </div>
-                <Select value={lockoutProvider} onValueChange={(v) => handleLockoutProviderChange(v as 'qstash' | 'bullmq')}>
+                <Select
+                  value={lockoutProvider}
+                  onValueChange={(v) => handleLockoutProviderChange(v as 'qstash' | 'bullmq')}
+                >
                   <SelectTrigger className="w-[140px] h-8 text-xs rounded-lg shrink-0">
                     <SelectValue />
                   </SelectTrigger>
@@ -1377,9 +1406,7 @@ export function PreferencesSection({
               <div className="flex items-center justify-between py-3.5 gap-6">
                 <div className="min-w-0">
                   <p className="text-sm font-medium">Email Provider</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    How lookout completion emails are sent
-                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">How lookout completion emails are sent</p>
                 </div>
                 <Select value={emailProvider} onValueChange={(v) => setEmailProvider(v as 'resend' | 'smtp')}>
                   <SelectTrigger className="w-[140px] h-8 text-xs rounded-lg shrink-0">
@@ -1405,7 +1432,10 @@ export function PreferencesSection({
                   <p className="text-sm font-medium">Memory Provider</p>
                   <p className="text-xs text-muted-foreground mt-0.5">Backend for long-term memory storage</p>
                 </div>
-                <Select value={memoryProvider} onValueChange={(v) => handleMemoryProviderChange(v as 'supermemory' | 'graphiti')}>
+                <Select
+                  value={memoryProvider}
+                  onValueChange={(v) => handleMemoryProviderChange(v as 'supermemory' | 'graphiti')}
+                >
                   <SelectTrigger className="w-[140px] h-8 text-xs rounded-lg shrink-0">
                     <SelectValue />
                   </SelectTrigger>
@@ -1451,10 +1481,7 @@ export function PreferencesSection({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-[300px]">
-                    <DropdownMenuRadioGroup
-                      value={ttsProvider}
-                      onValueChange={(v) => setTtsProvider(v as TTSProvider)}
-                    >
+                    <DropdownMenuRadioGroup value={ttsProvider} onValueChange={(v) => setTtsProvider(v as TTSProvider)}>
                       {TTS_PROVIDERS.map((p) => (
                         <DropdownMenuRadioItem key={p.value} value={p.value} className="text-xs">
                           <div className="flex flex-col">
@@ -1543,10 +1570,7 @@ export function PreferencesSection({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-[300px]">
-                    <DropdownMenuRadioGroup
-                      value={sttProvider}
-                      onValueChange={(v) => setSttProvider(v as STTProvider)}
-                    >
+                    <DropdownMenuRadioGroup value={sttProvider} onValueChange={(v) => setSttProvider(v as STTProvider)}>
                       {STT_PROVIDERS.map((p) => (
                         <DropdownMenuRadioItem key={p.value} value={p.value} className="text-xs">
                           <div className="flex flex-col">
@@ -1697,7 +1721,6 @@ export function PreferencesSection({
                   )}
                 </div>
               )}
-
             </div>
 
             {/* Tools */}
@@ -1893,11 +1916,7 @@ export function PreferencesSection({
                   <p className="text-sm font-medium">Vector Database</p>
                   <p className="text-xs text-muted-foreground mt-0.5">Enable hybrid search via Qdrant</p>
                 </div>
-                <Switch
-                  id="qdrant-enabled"
-                  checked={qdrantEnabled ?? false}
-                  onCheckedChange={setQdrantEnabled}
-                />
+                <Switch id="qdrant-enabled" checked={qdrantEnabled ?? false} onCheckedChange={setQdrantEnabled} />
               </div>
 
               {qdrantEnabled && (
@@ -1928,15 +1947,9 @@ export function PreferencesSection({
               <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
                 <div className="min-w-0">
                   <p className="text-sm font-medium">Search Embedding</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Embedding model for semantic search (Qdrant)
-                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Embedding model for semantic search (Qdrant)</p>
                 </div>
-                <Switch
-                  checked={embeddingEnabled}
-                  onCheckedChange={setEmbeddingEnabled}
-                  disabled={!qdrantEnabled}
-                />
+                <Switch checked={embeddingEnabled} onCheckedChange={setEmbeddingEnabled} disabled={!qdrantEnabled} />
               </div>
 
               {embeddingEnabled && (
@@ -2010,9 +2023,7 @@ export function PreferencesSection({
               <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
                 <div className="min-w-0">
                   <p className="text-sm font-medium">Reranking</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Reorders fused results using an LLM
-                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Reorders fused results using an LLM</p>
                 </div>
                 <Switch
                   id="rerank-enabled"
@@ -2035,9 +2046,7 @@ export function PreferencesSection({
                 <div className="flex items-center justify-between py-3.5 gap-6">
                   <div className="min-w-0">
                     <p className="text-sm font-medium">Parallel AI Fallback</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Use Parallel AI if Exa returns no content
-                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Use Parallel AI if Exa returns no content</p>
                   </div>
                   <Switch checked={fallbackRetrieveParallel} onCheckedChange={setFallbackRetrieveParallel} />
                 </div>
@@ -2090,7 +2099,11 @@ export function PreferencesSection({
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                          title={p.disableAutoDetect ? 'Auto-detect disabled — click to enable' : 'Auto-detect enabled — click to disable'}
+                          title={
+                            p.disableAutoDetect
+                              ? 'Auto-detect disabled — click to enable'
+                              : 'Auto-detect enabled — click to disable'
+                          }
                           onClick={() => handleToggleAutoDetect(p.id)}
                         >
                           {p.disableAutoDetect ? <ZapOff className="h-3 w-3" /> : <Zap className="h-3 w-3" />}
@@ -2174,10 +2187,10 @@ export function PreferencesSection({
                 <div className="min-w-0">
                   <p className="text-sm font-medium">XML Tool Call Parsing</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Enable XML tool call parsing for custom providers (Ollama, llama.cpp, vLLM, OpenRouter).
-                    Required for models like Qwen, Hermes, GLM, and DeepSeek that output tool calls as text
-                    instead of OpenAI-compatible JSON. The format is detected automatically (Morph XML,
-                    Qwen3-Coder, and Hermes JSON).
+                    Enable XML tool call parsing for custom providers (Ollama, llama.cpp, vLLM, OpenRouter). Required
+                    for models like Qwen, Hermes, GLM, and DeepSeek that output tool calls as text instead of
+                    OpenAI-compatible JSON. The format is detected automatically (Morph XML, Qwen3-Coder, and Hermes
+                    JSON).
                   </p>
                 </div>
                 <Switch
@@ -2903,7 +2916,6 @@ export function UsageSection({ user }: any) {
                     </div>
                   );
                 })()} */}
-
               </div>
             )}
           </div>
@@ -4649,7 +4661,6 @@ export function ConnectorsSection({ user }: { user: any }) {
           })}
         </div>
       )}
-
     </div>
   );
 }

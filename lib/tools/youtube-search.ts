@@ -178,7 +178,11 @@ async function buildTranscriptArtifacts(supadata: Supadata, videoUrl: string, fa
           if (jobResult.status === 'completed' && jobResult.result) {
             const content = jobResult.result.content;
             const chunks = Array.isArray(content) ? content : undefined;
-            const transcriptText = chunks ? chunks.map((c) => c.text).join('\n') : typeof content === 'string' ? content : undefined;
+            const transcriptText = chunks
+              ? chunks.map((c) => c.text).join('\n')
+              : typeof content === 'string'
+                ? content
+                : undefined;
 
             return {
               transcriptText,
@@ -204,7 +208,11 @@ async function buildTranscriptArtifacts(supadata: Supadata, videoUrl: string, fa
       // Immediate result
       const content = transcriptResult.content;
       const chunks = Array.isArray(content) ? content : undefined;
-      const transcriptText = chunks ? chunks.map((c) => c.text).join('\n') : typeof content === 'string' ? content : undefined;
+      const transcriptText = chunks
+        ? chunks.map((c) => c.text).join('\n')
+        : typeof content === 'string'
+          ? content
+          : undefined;
 
       return {
         transcriptText,
@@ -412,23 +420,23 @@ async function getVideosForMode({
   const normalizedIds =
     mode === 'channel'
       ? await (async () => {
-        // First, try to resolve the channel identifier from the query
-        const resolvedId = await resolveChannelIdFromQuery(supadata, query);
-        const channelIdentifier = resolvedId || query;
+          // First, try to resolve the channel identifier from the query
+          const resolvedId = await resolveChannelIdFromQuery(supadata, query);
+          const channelIdentifier = resolvedId || query;
 
-        // Now fetch videos using the resolved identifier
-        const ids = await fetchChannelVideos(channelIdentifier);
-        return ids;
-      })()
+          // Now fetch videos using the resolved identifier
+          const ids = await fetchChannelVideos(channelIdentifier);
+          return ids;
+        })()
       : await (async () => {
-        const preExtractedId = extractPlaylistId(query);
-        const directIds = await fetchPlaylistVideos(preExtractedId ?? query);
-        if (directIds.length > 0) return directIds;
+          const preExtractedId = extractPlaylistId(query);
+          const directIds = await fetchPlaylistVideos(preExtractedId ?? query);
+          if (directIds.length > 0) return directIds;
 
-        const resolvedId = await resolvePlaylistIdFromQuery(supadata, query);
-        if (!resolvedId) return directIds;
-        return fetchPlaylistVideos(resolvedId);
-      })();
+          const resolvedId = await resolvePlaylistIdFromQuery(supadata, query);
+          if (!resolvedId) return directIds;
+          return fetchPlaylistVideos(resolvedId);
+        })();
 
   if (normalizedIds.length === 0) {
     console.warn(`⚠️ No video IDs resolved for mode="${mode}". Falling back to general search.`);
@@ -472,11 +480,13 @@ async function getVideosForMode({
           duration: media?.duration,
           viewCount: metadata.stats?.views ?? undefined,
           uploadDate: metadata.createdAt,
-          channel: metadata.author ? {
-            id: metadata.author.username,
-            name: metadata.author.displayName,
-            thumbnail: metadata.author.avatarUrl,
-          } : undefined,
+          channel: metadata.author
+            ? {
+                id: metadata.author.username,
+                name: metadata.author.displayName,
+                thumbnail: metadata.author.avatarUrl,
+              }
+            : undefined,
           tags: metadata.tags,
           url: `${YOUTUBE_BASE_URL}${id}`,
         } as SupadataYouTubeVideo;
@@ -570,7 +580,9 @@ export const youtubeSearchTool = tool({
                   const transcripts = await buildTranscriptArtifacts(supadata, video.url ?? videoUrl, v.description);
 
                   // Only fetch metadata if we don't have basic data from search
-                  const metadata = hasBasicData ? null : await fetchMetadataWithRetry(supadata, video.url ?? videoUrl, videoId);
+                  const metadata = hasBasicData
+                    ? null
+                    : await fetchMetadataWithRetry(supadata, video.url ?? videoUrl, videoId);
 
                   const metadataAuthor = metadata?.author;
                   const metadataStats = metadata?.stats;
@@ -579,11 +591,11 @@ export const youtubeSearchTool = tool({
                   const stats: VideoStats | undefined =
                     metadataStats != null || v.viewCount != null
                       ? {
-                        views: resolveNumber(metadataStats?.views ?? v.viewCount),
-                        likes: resolveNumber(metadataStats?.likes),
-                        comments: resolveNumber(metadataStats?.comments),
-                        shares: resolveNumber(metadataStats?.shares),
-                      }
+                          views: resolveNumber(metadataStats?.views ?? v.viewCount),
+                          likes: resolveNumber(metadataStats?.likes),
+                          comments: resolveNumber(metadataStats?.comments),
+                          shares: resolveNumber(metadataStats?.shares),
+                        }
                       : undefined;
 
                   const processedVideo: VideoResult = {
@@ -594,8 +606,14 @@ export const youtubeSearchTool = tool({
                       author_name: v.channel?.name ?? metadataAuthor?.displayName,
                       author_url: v.channel?.id
                         ? `https://www.youtube.com/channel/${v.channel.id}`
-                        : v.channel?.url ?? (metadataAuthor?.username ? `https://www.youtube.com/@${metadataAuthor.username}` : undefined),
-                      thumbnail_url: v.thumbnail ?? metadataMedia?.thumbnailUrl ?? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+                        : (v.channel?.url ??
+                          (metadataAuthor?.username
+                            ? `https://www.youtube.com/@${metadataAuthor.username}`
+                            : undefined)),
+                      thumbnail_url:
+                        v.thumbnail ??
+                        metadataMedia?.thumbnailUrl ??
+                        `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
                       provider_name: 'YouTube',
                       provider_url: 'https://www.youtube.com',
                       author_avatar_url: v.channel?.thumbnail ?? metadataAuthor?.avatarUrl,

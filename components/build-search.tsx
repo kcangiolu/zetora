@@ -835,7 +835,6 @@ function BoxAgentResultInner({
     if (containerRef.current && status !== 'completed') {
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
-     
   }, [entryCount, status]);
 
   const isMobile = useIsMobile();
@@ -879,7 +878,9 @@ function BoxAgentResultInner({
                     <span className="text-[11px] font-medium text-foreground/70 leading-none">Claude Code</span>
                     <StatusBadge status={status} />
                   </div>
-                  {prompt && <p className="text-[11px] text-muted-foreground/60 truncate mt-0.5 leading-snug">{prompt}</p>}
+                  {prompt && (
+                    <p className="text-[11px] text-muted-foreground/60 truncate mt-0.5 leading-snug">{prompt}</p>
+                  )}
                 </div>
                 {prompt && (
                   <Tooltip>
@@ -968,7 +969,8 @@ function BoxAgentResultInner({
                                   <span className="font-medium text-foreground/60">{entry.toolName}</span>
                                   {summary && (
                                     <span className="text-muted-foreground/50 ml-1.5 truncate block">
-                                      {prefix}{summary}
+                                      {prefix}
+                                      {summary}
                                     </span>
                                   )}
                                 </div>
@@ -1098,7 +1100,9 @@ export const BuildWebSearchResult = memo(function BuildWebSearchResult({
         onClick={() => setIsOpen(!isOpen)}
       >
         <Search className="size-3 text-muted-foreground/70 shrink-0" />
-        <span className="text-foreground/80 text-[11px] leading-snug flex-1 truncate">{actionTitle ?? 'Searching'}</span>
+        <span className="text-foreground/80 text-[11px] leading-snug flex-1 truncate">
+          {actionTitle ?? 'Searching'}
+        </span>
         {allSources.length > 0 && (
           <span className="text-[10px] tabular-nums text-muted-foreground/60 px-1.5 py-px rounded-full bg-muted/70 border border-border/50 shrink-0">
             {allSources.length} sources
@@ -1277,7 +1281,9 @@ export const BoxCodeResult = memo(function BoxCodeResult({
       {exitCode != null && (
         <div className="px-3 py-1 text-[10px] text-muted-foreground/40 bg-muted/20 flex items-center gap-1">
           <span>exit</span>
-          <span className={cn('font-medium', exitCode !== 0 ? 'text-destructive/60' : 'text-emerald-500/70')}>{exitCode}</span>
+          <span className={cn('font-medium', exitCode !== 0 ? 'text-destructive/60' : 'text-emerald-500/70')}>
+            {exitCode}
+          </span>
         </div>
       )}
     </CollapsibleCard>

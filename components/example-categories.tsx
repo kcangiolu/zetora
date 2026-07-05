@@ -33,7 +33,7 @@ const categories: Category[] = [
     name: 'X Search',
     icon: NewTwitterIcon,
     examples: [
-      { text: "What has Elon Musk posted about AI this week?", group: 'x' },
+      { text: 'What has Elon Musk posted about AI this week?', group: 'x' },
       { text: 'Latest announcements from OpenAI', group: 'x' },
       { text: 'Tips for using Claude Code with other models', group: 'x' },
       { text: 'What are developers saying about Cursor IDE?', group: 'x' },

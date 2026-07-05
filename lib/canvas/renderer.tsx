@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useMemo, type ReactNode } from "react";
+import { useMemo, type ReactNode } from 'react';
 import {
   Renderer,
   type ComponentRenderer,
@@ -8,9 +8,9 @@ import {
   StateProvider,
   VisibilityProvider,
   ActionProvider,
-} from "@json-render/react";
+} from '@json-render/react';
 
-import { registry, Fallback } from "./registry";
+import { registry, Fallback } from './registry';
 
 // =============================================================================
 // CanvasRenderer
@@ -21,9 +21,7 @@ interface CanvasRendererProps {
   loading?: boolean;
 }
 
-const fallback: ComponentRenderer = ({ element }) => (
-  <Fallback type={element.type} />
-);
+const fallback: ComponentRenderer = ({ element }) => <Fallback type={element.type} />;
 
 /** Ensure all element children fields are arrays (AI sometimes outputs a single string) */
 function sanitizeSpec(spec: Spec): Spec {
@@ -37,10 +35,7 @@ function sanitizeSpec(spec: Spec): Spec {
   return { ...spec, elements };
 }
 
-export function CanvasRenderer({
-  spec,
-  loading,
-}: CanvasRendererProps): ReactNode {
+export function CanvasRenderer({ spec, loading }: CanvasRendererProps): ReactNode {
   const safeSpec = useMemo(() => (spec ? sanitizeSpec(spec) : null), [spec]);
 
   if (!safeSpec) return null;
@@ -49,13 +44,8 @@ export function CanvasRenderer({
     <StateProvider initialState={safeSpec.state ?? {}}>
       <VisibilityProvider>
         <ActionProvider>
-          <div className={loading ? "" : "canvas-stagger"}>
-            <Renderer
-              spec={safeSpec}
-              registry={registry}
-              fallback={fallback}
-              loading={loading}
-            />
+          <div className={loading ? '' : 'canvas-stagger'}>
+            <Renderer spec={safeSpec} registry={registry} fallback={fallback} loading={loading} />
           </div>
         </ActionProvider>
       </VisibilityProvider>

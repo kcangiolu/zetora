@@ -294,23 +294,28 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
     const currentWeather = weatherData[0];
 
     // Process Open-Meteo 16-day forecast
-    const openMeteo16Day: OpenMeteo16DayData[] =
-      result.open_meteo_forecast?.daily
-        ? result.open_meteo_forecast.daily.time.map((dateStr: string, index: number) => {
-            const weatherInfo = mapWMOCodeToWeather(result.open_meteo_forecast.daily.weathercode[index]);
-            return {
-              date: dateStr,
-              timestamp: new Date(dateStr).getTime() / 1000,
-              minTemp: result.open_meteo_forecast.daily.temperature_2m_min[index] != null ? Number(result.open_meteo_forecast.daily.temperature_2m_min[index].toFixed(1)) : 0,
-              maxTemp: result.open_meteo_forecast.daily.temperature_2m_max[index] != null ? Number(result.open_meteo_forecast.daily.temperature_2m_max[index].toFixed(1)) : 0,
-              humidity: result.open_meteo_forecast.daily.relative_humidity_2m_max[index],
-              windSpeed: convertWindSpeed(result.open_meteo_forecast.daily.windspeed_10m_max[index]),
-              description: weatherInfo.description,
-              icon: weatherInfo.icon,
-              pop: result.open_meteo_forecast.daily.precipitation_probability_max[index] || 0,
-            };
-          })
-        : [];
+    const openMeteo16Day: OpenMeteo16DayData[] = result.open_meteo_forecast?.daily
+      ? result.open_meteo_forecast.daily.time.map((dateStr: string, index: number) => {
+          const weatherInfo = mapWMOCodeToWeather(result.open_meteo_forecast.daily.weathercode[index]);
+          return {
+            date: dateStr,
+            timestamp: new Date(dateStr).getTime() / 1000,
+            minTemp:
+              result.open_meteo_forecast.daily.temperature_2m_min[index] != null
+                ? Number(result.open_meteo_forecast.daily.temperature_2m_min[index].toFixed(1))
+                : 0,
+            maxTemp:
+              result.open_meteo_forecast.daily.temperature_2m_max[index] != null
+                ? Number(result.open_meteo_forecast.daily.temperature_2m_max[index].toFixed(1))
+                : 0,
+            humidity: result.open_meteo_forecast.daily.relative_humidity_2m_max[index],
+            windSpeed: convertWindSpeed(result.open_meteo_forecast.daily.windspeed_10m_max[index]),
+            description: weatherInfo.description,
+            icon: weatherInfo.icon,
+            pop: result.open_meteo_forecast.daily.precipitation_probability_max[index] || 0,
+          };
+        })
+      : [];
 
     return {
       chartData,
@@ -378,14 +383,12 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
       const lowerDesc = desc.toLowerCase();
       if (lowerDesc.includes('rain') || lowerDesc.includes('drizzle'))
         return 'bg-blue-500/10 text-blue-600 dark:text-blue-400';
-      if (lowerDesc.includes('cloud'))
-        return 'bg-muted text-muted-foreground';
+      if (lowerDesc.includes('cloud')) return 'bg-muted text-muted-foreground';
       if (lowerDesc.includes('clear')) return 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400';
       if (lowerDesc.includes('snow')) return 'bg-sky-500/10 text-sky-600 dark:text-sky-400';
       if (lowerDesc.includes('thunder') || lowerDesc.includes('storm'))
         return 'bg-purple-500/10 text-purple-600 dark:text-purple-400';
-      if (lowerDesc.includes('mist') || lowerDesc.includes('fog'))
-        return 'bg-muted text-muted-foreground';
+      if (lowerDesc.includes('mist') || lowerDesc.includes('fog')) return 'bg-muted text-muted-foreground';
       return 'bg-muted text-muted-foreground';
     };
 
@@ -420,9 +423,7 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
           {/* Current Weather Brief */}
           <div className="flex items-center ml-4">
             <div className="text-right">
-              <div className="text-2xl sm:text-3xl font-light text-foreground">
-                {currentWeather.temp}°C
-              </div>
+              <div className="text-2xl sm:text-3xl font-light text-foreground">{currentWeather.temp}°C</div>
               <div className="text-[10px] sm:text-xs text-muted-foreground">
                 Feels like {currentWeather.feelsLike}°C
               </div>
@@ -442,33 +443,19 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
 
         {/* Current weather details - compact layout with icons */}
         <div className="flex flex-wrap gap-1.5 mt-3">
-          <Badge
-            variant="outline"
-            className="flex items-center gap-1 py-1 px-3 border-border rounded-full bg-muted/50"
-          >
+          <Badge variant="outline" className="flex items-center gap-1 py-1 px-3 border-border rounded-full bg-muted/50">
             <Thermometer className="h-3 w-3 text-rose-500" />
-            <span className="font-medium text-foreground">
-              {currentWeather.humidity}% Humidity
-            </span>
+            <span className="font-medium text-foreground">{currentWeather.humidity}% Humidity</span>
           </Badge>
-          <Badge
-            variant="outline"
-            className="flex items-center gap-1 py-1 px-3 border-border rounded-full bg-muted/50"
-          >
+          <Badge variant="outline" className="flex items-center gap-1 py-1 px-3 border-border rounded-full bg-muted/50">
             <Wind className="h-3 w-3 text-blue-500" />
             <span className="font-medium text-foreground">{currentWeather.windSpeed} km/h</span>
           </Badge>
-          <Badge
-            variant="outline"
-            className="flex items-center gap-1 py-1 px-3 border-border rounded-full bg-muted/50"
-          >
+          <Badge variant="outline" className="flex items-center gap-1 py-1 px-3 border-border rounded-full bg-muted/50">
             <Droplets className="h-3 w-3 text-sky-500" />
             <span className="font-medium text-foreground">{currentWeather.pressure} hPa</span>
           </Badge>
-          <Badge
-            variant="outline"
-            className="flex items-center gap-1 py-1 px-3 border-border rounded-full bg-muted/50"
-          >
+          <Badge variant="outline" className="flex items-center gap-1 py-1 px-3 border-border rounded-full bg-muted/50">
             <Cloud className="h-3 w-3 text-muted-foreground" />
             <span className="font-medium text-foreground">{currentWeather.clouds}% Clouds</span>
           </Badge>
@@ -493,509 +480,507 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
             />
           </div>
 
-          {weatherTab === 'chart' && <div className="pt-2 px-2 sm:px-4 pb-0">
-            {/* Legend for 5-day overview */}
-            <div className="flex items-center justify-center gap-4 mb-2">
-              <div className="flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-chart-1" />
-                <span className="text-[9px] sm:text-[10px] text-muted-foreground">
-                  Min Temperature
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-chart-2" />
-                <span className="text-[9px] sm:text-[10px] text-muted-foreground">
-                  Max Temperature
-                </span>
-              </div>
-            </div>
-            <div className="h-[180px] sm:h-[200px]">
-              <LineChart
-                data={lineChartData}
-                xDataKey="date"
-                margin={{ top: 10, right: 10, bottom: 30, left: 10 }}
-                animationDuration={800}
-                aspectRatio="auto"
-                className="h-full"
-              >
-                <Grid horizontal numTicksRows={4} />
-                <Line
-                  dataKey="minTemp"
-                  stroke={chartColors.minTemp}
-                  strokeWidth={2}
-                />
-                <Line
-                  dataKey="maxTemp"
-                  stroke={chartColors.maxTemp}
-                  strokeWidth={2}
-                />
-                <ChartTooltip
-                  showDatePill
-                  rows={(point) => [
-                    {
-                      color: chartColors.minTemp,
-                      label: 'Min Temp',
-                      value: `${point.minTemp}°C`,
-                    },
-                    {
-                      color: chartColors.maxTemp,
-                      label: 'Max Temp',
-                      value: `${point.maxTemp}°C`,
-                    },
-                  ] as TooltipRow[]}
-                />
-              </LineChart>
-            </div>
-
-            {/* 5-day forecast details in columns */}
-            <div className="mt-3 mb-2">
-              <div className="flex justify-between overflow-x-auto no-scrollbar pb-2">
-                {chartData.map((day, index) => (
-                  <div
-                    key={index}
-                    className="flex flex-col items-center min-w-[60px] sm:min-w-[70px] p-1.5 sm:p-2 mx-0.5"
-                  >
-                    <div className="text-xs font-medium text-foreground">
-                      {index === 0
-                        ? 'Today'
-                        : index === 1
-                          ? 'Tmrw'
-                          : new Date(day.date).toLocaleDateString(undefined, { weekday: 'short' })}
-                    </div>
-
-                    <Image
-                      src={getWeatherIconUrl(day.icon)}
-                      alt={day.description}
-                      className="h-8 w-8 my-1"
-                      width={32}
-                      height={32}
-                      unoptimized
-                    />
-
-                    <div className="flex items-center gap-1 text-xs">
-                      <span className="font-medium text-rose-500 dark:text-rose-400">{day.maxTemp}°</span>
-                      <span className="text-muted-foreground">{day.minTemp}°</span>
-                    </div>
-
-                    {day.pop > 20 && (
-                      <div className="mt-1 flex items-center gap-0.5 text-[10px] text-blue-500 dark:text-blue-400">
-                        <Droplets className="h-3 w-3" />
-                        {day.pop}%
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>}
-
-          {weatherTab === 'detailed' && <div className="px-2 sm:px-4 pb-2">
-            {/* Day selector tabs */}
-            <div className="mb-3 -mx-1 px-1">
-              <div className="flex overflow-x-auto no-scrollbar gap-1 py-1">
-                {days.map((day, index) => (
-                  <button
-                    key={day}
-                    onClick={() => setSelectedDay(day)}
-                    className={`px-3 py-1 text-xs rounded-full transition-colors whitespace-nowrap shrink-0 ${
-                      selectedDay === day
-                        ? 'bg-primary/10 text-primary font-medium'
-                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                    }`}
-                  >
-                    {index === 0
-                      ? 'Today'
-                      : index === 1
-                        ? 'Tomorrow'
-                        : new Date(day).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Hourly forecast chart for selected day */}
-            {selectedDay && hourlyChartData.length > 0 && (
-              <div className="mt-2">
-                {/* Legend for hourly forecast */}
-                <div className="flex items-center justify-center gap-4 mb-2">
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2 h-2 rounded-full bg-chart-1" />
-                    <span className="text-[10px] text-muted-foreground">Temperature</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2 h-2 rounded-full bg-chart-3" />
-                    <span className="text-[10px] text-muted-foreground">Feels Like</span>
-                  </div>
+          {weatherTab === 'chart' && (
+            <div className="pt-2 px-2 sm:px-4 pb-0">
+              {/* Legend for 5-day overview */}
+              <div className="flex items-center justify-center gap-4 mb-2">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-chart-1" />
+                  <span className="text-[9px] sm:text-[10px] text-muted-foreground">Min Temperature</span>
                 </div>
-                <div className="h-[200px]">
-                  <AreaChart
-                    data={hourlyChartData}
-                    xDataKey="date"
-                    margin={{ top: 10, right: 10, bottom: 30, left: 10 }}
-                    animationDuration={800}
-                    aspectRatio="auto"
-                    className="h-full"
-                  >
-                    <Grid horizontal numTicksRows={4} />
-                    <Area
-                      dataKey="temp"
-                      fill={chartColors.temp}
-                      fillOpacity={0.3}
-                      stroke={chartColors.temp}
-                      strokeWidth={2}
-                    />
-                    <Area
-                      dataKey="feelsLike"
-                      fill={chartColors.feelsLike}
-                      fillOpacity={0.2}
-                      stroke={chartColors.feelsLike}
-                      strokeWidth={1.5}
-                    />
-                    <ChartTooltip
-                      showDatePill
-                      rows={(point) => [
-                        {
-                          color: chartColors.temp,
-                          label: 'Temperature',
-                          value: `${point.temp}°C`,
-                        },
-                        {
-                          color: chartColors.feelsLike,
-                          label: 'Feels Like',
-                          value: `${point.feelsLike}°C`,
-                        },
-                        {
-                          color: chartColors.muted,
-                          label: 'Rain Chance',
-                          value: `${point.pop}%`,
-                        },
-                      ] as TooltipRow[]}
-                    />
-                  </AreaChart>
-                </div>
-
-                {/* Icons and conditions underneath the chart */}
-                <div className="flex justify-between overflow-x-auto py-2 mt-1 -mx-1 px-1">
-                  {hourlyDataByDay[selectedDay].map((item, i) => (
-                    <div key={i} className="flex flex-col items-center px-1 min-w-[40px]">
-                      <div className="text-[10px] text-muted-foreground">
-                        {formatTime(item.timestamp)}
-                      </div>
-                      <Image
-                        src={getWeatherIconUrl(item.icon)}
-                        alt={item.description}
-                        className="h-6 w-6"
-                        width={24}
-                        height={24}
-                        unoptimized
-                      />
-                      <div className="text-[10px] font-medium text-foreground">
-                        {item.temp}°C
-                      </div>
-                    </div>
-                  ))}
+                <div className="flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-chart-2" />
+                  <span className="text-[9px] sm:text-[10px] text-muted-foreground">Max Temperature</span>
                 </div>
               </div>
-            )}
-          </div>}
-
-          {weatherTab === 'extended' && <div className="px-2 sm:px-4 pb-2">
-            {extendedChartData.length > 0 ? (
-              <div className="mt-2">
-                {/* Legend for 16-day forecast */}
-                <div className="flex items-center justify-center gap-4 mb-2">
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2 h-2 rounded-full bg-chart-2" />
-                    <span className="text-[10px] text-muted-foreground">Max Temp</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2 h-2 rounded-full bg-chart-1" />
-                    <span className="text-[10px] text-muted-foreground">Min Temp</span>
-                  </div>
-                </div>
-                {/* 16-day forecast chart */}
-                <div className="h-[180px] sm:h-[200px] mb-4">
-                  <AreaChart
-                    data={extendedChartData}
-                    xDataKey="date"
-                    margin={{ top: 10, right: 10, bottom: 30, left: 10 }}
-                    animationDuration={800}
-                    aspectRatio="auto"
-                    className="h-full"
-                  >
-                    <Grid horizontal numTicksRows={4} />
-                    <Area
-                      dataKey="maxTemp"
-                      fill={chartColors.maxTemp}
-                      fillOpacity={0.3}
-                      stroke={chartColors.maxTemp}
-                      strokeWidth={2}
-                    />
-                    <Area
-                      dataKey="minTemp"
-                      fill={chartColors.minTemp}
-                      fillOpacity={0.3}
-                      stroke={chartColors.minTemp}
-                      strokeWidth={2}
-                    />
-                    <ChartTooltip
-                      showDatePill
-                      rows={(point) => [
-                        {
-                          color: chartColors.maxTemp,
-                          label: 'Max Temp',
-                          value: `${point.maxTemp}°C`,
-                        },
+              <div className="h-[180px] sm:h-[200px]">
+                <LineChart
+                  data={lineChartData}
+                  xDataKey="date"
+                  margin={{ top: 10, right: 10, bottom: 30, left: 10 }}
+                  animationDuration={800}
+                  aspectRatio="auto"
+                  className="h-full"
+                >
+                  <Grid horizontal numTicksRows={4} />
+                  <Line dataKey="minTemp" stroke={chartColors.minTemp} strokeWidth={2} />
+                  <Line dataKey="maxTemp" stroke={chartColors.maxTemp} strokeWidth={2} />
+                  <ChartTooltip
+                    showDatePill
+                    rows={(point) =>
+                      [
                         {
                           color: chartColors.minTemp,
                           label: 'Min Temp',
                           value: `${point.minTemp}°C`,
                         },
                         {
-                          color: chartColors.muted,
-                          label: 'Rain Chance',
-                          value: `${point.pop}%`,
+                          color: chartColors.maxTemp,
+                          label: 'Max Temp',
+                          value: `${point.maxTemp}°C`,
                         },
-                      ] as TooltipRow[]}
-                    />
-                  </AreaChart>
+                      ] as TooltipRow[]
+                    }
+                  />
+                </LineChart>
+              </div>
+
+              {/* 5-day forecast details in columns */}
+              <div className="mt-3 mb-2">
+                <div className="flex justify-between overflow-x-auto no-scrollbar pb-2">
+                  {chartData.map((day, index) => (
+                    <div
+                      key={index}
+                      className="flex flex-col items-center min-w-[60px] sm:min-w-[70px] p-1.5 sm:p-2 mx-0.5"
+                    >
+                      <div className="text-xs font-medium text-foreground">
+                        {index === 0
+                          ? 'Today'
+                          : index === 1
+                            ? 'Tmrw'
+                            : new Date(day.date).toLocaleDateString(undefined, { weekday: 'short' })}
+                      </div>
+
+                      <Image
+                        src={getWeatherIconUrl(day.icon)}
+                        alt={day.description}
+                        className="h-8 w-8 my-1"
+                        width={32}
+                        height={32}
+                        unoptimized
+                      />
+
+                      <div className="flex items-center gap-1 text-xs">
+                        <span className="font-medium text-rose-500 dark:text-rose-400">{day.maxTemp}°</span>
+                        <span className="text-muted-foreground">{day.minTemp}°</span>
+                      </div>
+
+                      {day.pop > 20 && (
+                        <div className="mt-1 flex items-center gap-0.5 text-[10px] text-blue-500 dark:text-blue-400">
+                          <Droplets className="h-3 w-3" />
+                          {day.pop}%
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
+              </div>
+            </div>
+          )}
 
-                {/* 16-day forecast cards - scrollable */}
-                <div className="max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-300 dark:scrollbar-thumb-neutral-700 scrollbar-track-transparent pr-1">
-                  <div className="space-y-2">
-                    {openMeteo16Day.map((day: OpenMeteo16DayData, index: number) => (
-                      <div
-                        key={day.timestamp}
-                        className="flex items-center justify-between p-2 rounded-lg bg-card border border-border"
-                      >
-                        <div className="flex items-center gap-2 sm:gap-3 flex-1">
-                          <div className="w-8 sm:w-10 text-center shrink-0">
-                            <div className="text-xs font-medium text-foreground">
-                              {index === 0
-                                ? 'Today'
-                                : index === 1
-                                  ? 'Tmrw'
-                                  : new Date(day.timestamp * 1000).toLocaleDateString(undefined, { weekday: 'short' })}
-                            </div>
-                            <div className="text-[10px] text-muted-foreground">
-                              {new Date(day.timestamp * 1000).toLocaleDateString(undefined, {
-                                month: 'short',
-                                day: 'numeric',
-                              })}
-                            </div>
-                          </div>
+          {weatherTab === 'detailed' && (
+            <div className="px-2 sm:px-4 pb-2">
+              {/* Day selector tabs */}
+              <div className="mb-3 -mx-1 px-1">
+                <div className="flex overflow-x-auto no-scrollbar gap-1 py-1">
+                  {days.map((day, index) => (
+                    <button
+                      key={day}
+                      onClick={() => setSelectedDay(day)}
+                      className={`px-3 py-1 text-xs rounded-full transition-colors whitespace-nowrap shrink-0 ${
+                        selectedDay === day
+                          ? 'bg-primary/10 text-primary font-medium'
+                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                      }`}
+                    >
+                      {index === 0
+                        ? 'Today'
+                        : index === 1
+                          ? 'Tomorrow'
+                          : new Date(day).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-                          <div className="w-8 sm:w-10 shrink-0">
-                            <Image
-                              src={getWeatherIconUrl(day.icon)}
-                              alt={day.description}
-                              className="h-10 w-10"
-                              width={40}
-                              height={40}
-                              unoptimized
-                            />
-                          </div>
+              {/* Hourly forecast chart for selected day */}
+              {selectedDay && hourlyChartData.length > 0 && (
+                <div className="mt-2">
+                  {/* Legend for hourly forecast */}
+                  <div className="flex items-center justify-center gap-4 mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full bg-chart-1" />
+                      <span className="text-[10px] text-muted-foreground">Temperature</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full bg-chart-3" />
+                      <span className="text-[10px] text-muted-foreground">Feels Like</span>
+                    </div>
+                  </div>
+                  <div className="h-[200px]">
+                    <AreaChart
+                      data={hourlyChartData}
+                      xDataKey="date"
+                      margin={{ top: 10, right: 10, bottom: 30, left: 10 }}
+                      animationDuration={800}
+                      aspectRatio="auto"
+                      className="h-full"
+                    >
+                      <Grid horizontal numTicksRows={4} />
+                      <Area
+                        dataKey="temp"
+                        fill={chartColors.temp}
+                        fillOpacity={0.3}
+                        stroke={chartColors.temp}
+                        strokeWidth={2}
+                      />
+                      <Area
+                        dataKey="feelsLike"
+                        fill={chartColors.feelsLike}
+                        fillOpacity={0.2}
+                        stroke={chartColors.feelsLike}
+                        strokeWidth={1.5}
+                      />
+                      <ChartTooltip
+                        showDatePill
+                        rows={(point) =>
+                          [
+                            {
+                              color: chartColors.temp,
+                              label: 'Temperature',
+                              value: `${point.temp}°C`,
+                            },
+                            {
+                              color: chartColors.feelsLike,
+                              label: 'Feels Like',
+                              value: `${point.feelsLike}°C`,
+                            },
+                            {
+                              color: chartColors.muted,
+                              label: 'Rain Chance',
+                              value: `${point.pop}%`,
+                            },
+                          ] as TooltipRow[]
+                        }
+                      />
+                    </AreaChart>
+                  </div>
 
-                          <div className="flex-1 min-w-0">
-                            <div className="text-xs capitalize text-muted-foreground truncate">
-                              {day.description}
-                            </div>
-                            {day.pop > 20 && (
-                              <div className="text-[10px] text-blue-500 dark:text-blue-400 flex items-center gap-0.5">
-                                <Droplets className="h-3 w-3" />
-                                {day.pop}% chance of rain
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                          <div className="text-right">
-                            <div className="text-sm font-medium text-foreground">
-                              {day.maxTemp}°
-                            </div>
-                            <div className="text-xs text-muted-foreground">{day.minTemp}°</div>
-                          </div>
-
-                          <div className="border-l border-border pl-2 flex flex-col items-end">
-                            <div className="text-[10px] text-muted-foreground flex items-center">
-                              <Wind className="h-3 w-3 mr-0.5 text-blue-500" />
-                              {day.windSpeed}
-                            </div>
-                            <div className="text-[10px] text-muted-foreground flex items-center">
-                              <Droplets className="h-3 w-3 mr-0.5 text-sky-500" />
-                              {day.humidity}%
-                            </div>
-                          </div>
-                        </div>
+                  {/* Icons and conditions underneath the chart */}
+                  <div className="flex justify-between overflow-x-auto py-2 mt-1 -mx-1 px-1">
+                    {hourlyDataByDay[selectedDay].map((item, i) => (
+                      <div key={i} className="flex flex-col items-center px-1 min-w-[40px]">
+                        <div className="text-[10px] text-muted-foreground">{formatTime(item.timestamp)}</div>
+                        <Image
+                          src={getWeatherIconUrl(item.icon)}
+                          alt={item.description}
+                          className="h-6 w-6"
+                          width={24}
+                          height={24}
+                          unoptimized
+                        />
+                        <div className="text-[10px] font-medium text-foreground">{item.temp}°C</div>
                       </div>
                     ))}
                   </div>
                 </div>
-              </div>
-            ) : (
-              <div className="text-center py-10 text-muted-foreground">
-                16-day forecast data not available for this location
-              </div>
-            )}
-          </div>}
+              )}
+            </div>
+          )}
 
-          {weatherTab === 'airquality' && <div className="px-2 sm:px-4 pb-2">
-            <div className="mb-3">
-              {airPollution ? (
-                <div className="space-y-4">
-                  {/* Current Air Quality Card */}
-                  <div className="rounded-lg border border-border bg-card p-4">
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <h3 className="text-sm font-medium text-card-foreground">
-                          Current Air Quality
-                        </h3>
-                        <div className="mt-1">
-                          {(() => {
-                            const { label, colorClass } = getAirQualityInfo(airPollution.main.aqi);
-                            return (
-                              <Badge className={`font-normal py-1 px-2 ${colorClass}`}>
-                                {label} (AQI: {airPollution.main.aqi})
-                              </Badge>
-                            );
-                          })()}
-                        </div>
-                      </div>
-                      <div className="text-sm text-right text-muted-foreground">
-                        {new Date(airPollution.dt * 1000).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </div>
+          {weatherTab === 'extended' && (
+            <div className="px-2 sm:px-4 pb-2">
+              {extendedChartData.length > 0 ? (
+                <div className="mt-2">
+                  {/* Legend for 16-day forecast */}
+                  <div className="flex items-center justify-center gap-4 mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full bg-chart-2" />
+                      <span className="text-[10px] text-muted-foreground">Max Temp</span>
                     </div>
-
-                    {/* Air Quality Components */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-                      <div className="rounded-md bg-muted p-2">
-                        <div className="text-[10px] uppercase text-muted-foreground">PM2.5</div>
-                        <div className="font-medium text-sm text-foreground">{airPollution.components.pm2_5.toFixed(1)} µg/m³</div>
-                      </div>
-                      <div className="rounded-md bg-muted p-2">
-                        <div className="text-[10px] uppercase text-muted-foreground">PM10</div>
-                        <div className="font-medium text-sm text-foreground">{airPollution.components.pm10.toFixed(1)} µg/m³</div>
-                      </div>
-                      <div className="rounded-md bg-muted p-2">
-                        <div className="text-[10px] uppercase text-muted-foreground">NO₂</div>
-                        <div className="font-medium text-sm text-foreground">{airPollution.components.no2.toFixed(1)} µg/m³</div>
-                      </div>
-                      <div className="rounded-md bg-muted p-2">
-                        <div className="text-[10px] uppercase text-muted-foreground">O₃</div>
-                        <div className="font-medium text-sm text-foreground">{airPollution.components.o3.toFixed(1)} µg/m³</div>
-                      </div>
-                      <div className="rounded-md bg-muted p-2">
-                        <div className="text-[10px] uppercase text-muted-foreground">SO₂</div>
-                        <div className="font-medium text-sm text-foreground">{airPollution.components.so2.toFixed(1)} µg/m³</div>
-                      </div>
-                      <div className="rounded-md bg-muted p-2">
-                        <div className="text-[10px] uppercase text-muted-foreground">CO</div>
-                        <div className="font-medium text-sm text-foreground">{airPollution.components.co.toFixed(1)} µg/m³</div>
-                      </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full bg-chart-1" />
+                      <span className="text-[10px] text-muted-foreground">Min Temp</span>
                     </div>
                   </div>
+                  {/* 16-day forecast chart */}
+                  <div className="h-[180px] sm:h-[200px] mb-4">
+                    <AreaChart
+                      data={extendedChartData}
+                      xDataKey="date"
+                      margin={{ top: 10, right: 10, bottom: 30, left: 10 }}
+                      animationDuration={800}
+                      aspectRatio="auto"
+                      className="h-full"
+                    >
+                      <Grid horizontal numTicksRows={4} />
+                      <Area
+                        dataKey="maxTemp"
+                        fill={chartColors.maxTemp}
+                        fillOpacity={0.3}
+                        stroke={chartColors.maxTemp}
+                        strokeWidth={2}
+                      />
+                      <Area
+                        dataKey="minTemp"
+                        fill={chartColors.minTemp}
+                        fillOpacity={0.3}
+                        stroke={chartColors.minTemp}
+                        strokeWidth={2}
+                      />
+                      <ChartTooltip
+                        showDatePill
+                        rows={(point) =>
+                          [
+                            {
+                              color: chartColors.maxTemp,
+                              label: 'Max Temp',
+                              value: `${point.maxTemp}°C`,
+                            },
+                            {
+                              color: chartColors.minTemp,
+                              label: 'Min Temp',
+                              value: `${point.minTemp}°C`,
+                            },
+                            {
+                              color: chartColors.muted,
+                              label: 'Rain Chance',
+                              value: `${point.pop}%`,
+                            },
+                          ] as TooltipRow[]
+                        }
+                      />
+                    </AreaChart>
+                  </div>
 
-                  {/* Air Pollution Forecast Chart */}
-                  <div className="rounded-lg border border-border bg-card p-4">
-                    <h3 className="text-sm font-medium mb-4 text-card-foreground">
-                      Air Quality Forecast
-                    </h3>
+                  {/* 16-day forecast cards - scrollable */}
+                  <div className="max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-300 dark:scrollbar-thumb-neutral-700 scrollbar-track-transparent pr-1">
+                    <div className="space-y-2">
+                      {openMeteo16Day.map((day: OpenMeteo16DayData, index: number) => (
+                        <div
+                          key={day.timestamp}
+                          className="flex items-center justify-between p-2 rounded-lg bg-card border border-border"
+                        >
+                          <div className="flex items-center gap-2 sm:gap-3 flex-1">
+                            <div className="w-8 sm:w-10 text-center shrink-0">
+                              <div className="text-xs font-medium text-foreground">
+                                {index === 0
+                                  ? 'Today'
+                                  : index === 1
+                                    ? 'Tmrw'
+                                    : new Date(day.timestamp * 1000).toLocaleDateString(undefined, {
+                                        weekday: 'short',
+                                      })}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground">
+                                {new Date(day.timestamp * 1000).toLocaleDateString(undefined, {
+                                  month: 'short',
+                                  day: 'numeric',
+                                })}
+                              </div>
+                            </div>
 
-                    {aqiChartData.length > 0 ? (
-                      <>
-                        {/* Legend for air quality forecast */}
-                        <div className="flex items-center justify-center gap-4 mb-2">
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-2 h-2 rounded-full bg-chart-5" />
-                            <span className="text-[10px] text-muted-foreground">
-                              Air Quality Index
-                            </span>
+                            <div className="w-8 sm:w-10 shrink-0">
+                              <Image
+                                src={getWeatherIconUrl(day.icon)}
+                                alt={day.description}
+                                className="h-10 w-10"
+                                width={40}
+                                height={40}
+                                unoptimized
+                              />
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs capitalize text-muted-foreground truncate">{day.description}</div>
+                              {day.pop > 20 && (
+                                <div className="text-[10px] text-blue-500 dark:text-blue-400 flex items-center gap-0.5">
+                                  <Droplets className="h-3 w-3" />
+                                  {day.pop}% chance of rain
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                            <div className="text-right">
+                              <div className="text-sm font-medium text-foreground">{day.maxTemp}°</div>
+                              <div className="text-xs text-muted-foreground">{day.minTemp}°</div>
+                            </div>
+
+                            <div className="border-l border-border pl-2 flex flex-col items-end">
+                              <div className="text-[10px] text-muted-foreground flex items-center">
+                                <Wind className="h-3 w-3 mr-0.5 text-blue-500" />
+                                {day.windSpeed}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground flex items-center">
+                                <Droplets className="h-3 w-3 mr-0.5 text-sky-500" />
+                                {day.humidity}%
+                              </div>
+                            </div>
                           </div>
                         </div>
-                        <div className="h-[180px] sm:h-[200px]">
-                          <AreaChart
-                            data={aqiChartData}
-                            xDataKey="date"
-                            margin={{ top: 10, right: 10, bottom: 30, left: 10 }}
-                            animationDuration={800}
-                            aspectRatio="auto"
-                            className="h-full"
-                          >
-                            <Grid horizontal numTicksRows={5} />
-                            <Area
-                              dataKey="aqi"
-                              fill={chartColors.aqi}
-                              fillOpacity={0.4}
-                              stroke={chartColors.aqi}
-                              strokeWidth={2}
-                            />
-                            <ChartTooltip
-                              showDatePill
-                              rows={(point) => {
-                                const { label } = getAirQualityInfo(point.aqi as number);
-                                return [
-                                  {
-                                    color: chartColors.aqi,
-                                    label: 'AQI',
-                                    value: `${point.aqi} (${label})`,
-                                  },
-                                  {
-                                    color: chartColors.muted,
-                                    label: 'PM2.5',
-                                    value: `${(point.pm2_5 as number).toFixed(1)} µg/m³`,
-                                  },
-                                  {
-                                    color: chartColors.muted,
-                                    label: 'PM10',
-                                    value: `${(point.pm10 as number).toFixed(1)} µg/m³`,
-                                  },
-                                ] as TooltipRow[];
-                              }}
-                            />
-                          </AreaChart>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="text-sm text-muted-foreground text-center py-8">
-                        No forecast data available
-                      </div>
-                    )}
-
-                    {/* AQI Legend */}
-                    <div className="mt-4 flex flex-wrap gap-2 justify-center">
-                      <Badge className="bg-muted text-muted-foreground font-normal">
-                        0: None
-                      </Badge>
-                      <Badge className="bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300 font-normal">
-                        1: Good
-                      </Badge>
-                      <Badge className="bg-lime-50 text-lime-700 dark:bg-lime-900/30 dark:text-lime-300 font-normal">
-                        2: Fair
-                      </Badge>
-                      <Badge className="bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300 font-normal">
-                        3: Moderate
-                      </Badge>
-                      <Badge className="bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 font-normal">
-                        4: Poor
-                      </Badge>
-                      <Badge className="bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300 font-normal">
-                        5: Very Poor
-                      </Badge>
+                      ))}
                     </div>
                   </div>
                 </div>
               ) : (
                 <div className="text-center py-10 text-muted-foreground">
-                  Air quality data not available for this location
+                  16-day forecast data not available for this location
                 </div>
               )}
             </div>
-          </div>}
+          )}
+
+          {weatherTab === 'airquality' && (
+            <div className="px-2 sm:px-4 pb-2">
+              <div className="mb-3">
+                {airPollution ? (
+                  <div className="space-y-4">
+                    {/* Current Air Quality Card */}
+                    <div className="rounded-lg border border-border bg-card p-4">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h3 className="text-sm font-medium text-card-foreground">Current Air Quality</h3>
+                          <div className="mt-1">
+                            {(() => {
+                              const { label, colorClass } = getAirQualityInfo(airPollution.main.aqi);
+                              return (
+                                <Badge className={`font-normal py-1 px-2 ${colorClass}`}>
+                                  {label} (AQI: {airPollution.main.aqi})
+                                </Badge>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                        <div className="text-sm text-right text-muted-foreground">
+                          {new Date(airPollution.dt * 1000).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Air Quality Components */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                        <div className="rounded-md bg-muted p-2">
+                          <div className="text-[10px] uppercase text-muted-foreground">PM2.5</div>
+                          <div className="font-medium text-sm text-foreground">
+                            {airPollution.components.pm2_5.toFixed(1)} µg/m³
+                          </div>
+                        </div>
+                        <div className="rounded-md bg-muted p-2">
+                          <div className="text-[10px] uppercase text-muted-foreground">PM10</div>
+                          <div className="font-medium text-sm text-foreground">
+                            {airPollution.components.pm10.toFixed(1)} µg/m³
+                          </div>
+                        </div>
+                        <div className="rounded-md bg-muted p-2">
+                          <div className="text-[10px] uppercase text-muted-foreground">NO₂</div>
+                          <div className="font-medium text-sm text-foreground">
+                            {airPollution.components.no2.toFixed(1)} µg/m³
+                          </div>
+                        </div>
+                        <div className="rounded-md bg-muted p-2">
+                          <div className="text-[10px] uppercase text-muted-foreground">O₃</div>
+                          <div className="font-medium text-sm text-foreground">
+                            {airPollution.components.o3.toFixed(1)} µg/m³
+                          </div>
+                        </div>
+                        <div className="rounded-md bg-muted p-2">
+                          <div className="text-[10px] uppercase text-muted-foreground">SO₂</div>
+                          <div className="font-medium text-sm text-foreground">
+                            {airPollution.components.so2.toFixed(1)} µg/m³
+                          </div>
+                        </div>
+                        <div className="rounded-md bg-muted p-2">
+                          <div className="text-[10px] uppercase text-muted-foreground">CO</div>
+                          <div className="font-medium text-sm text-foreground">
+                            {airPollution.components.co.toFixed(1)} µg/m³
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Air Pollution Forecast Chart */}
+                    <div className="rounded-lg border border-border bg-card p-4">
+                      <h3 className="text-sm font-medium mb-4 text-card-foreground">Air Quality Forecast</h3>
+
+                      {aqiChartData.length > 0 ? (
+                        <>
+                          {/* Legend for air quality forecast */}
+                          <div className="flex items-center justify-center gap-4 mb-2">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2 h-2 rounded-full bg-chart-5" />
+                              <span className="text-[10px] text-muted-foreground">Air Quality Index</span>
+                            </div>
+                          </div>
+                          <div className="h-[180px] sm:h-[200px]">
+                            <AreaChart
+                              data={aqiChartData}
+                              xDataKey="date"
+                              margin={{ top: 10, right: 10, bottom: 30, left: 10 }}
+                              animationDuration={800}
+                              aspectRatio="auto"
+                              className="h-full"
+                            >
+                              <Grid horizontal numTicksRows={5} />
+                              <Area
+                                dataKey="aqi"
+                                fill={chartColors.aqi}
+                                fillOpacity={0.4}
+                                stroke={chartColors.aqi}
+                                strokeWidth={2}
+                              />
+                              <ChartTooltip
+                                showDatePill
+                                rows={(point) => {
+                                  const { label } = getAirQualityInfo(point.aqi as number);
+                                  return [
+                                    {
+                                      color: chartColors.aqi,
+                                      label: 'AQI',
+                                      value: `${point.aqi} (${label})`,
+                                    },
+                                    {
+                                      color: chartColors.muted,
+                                      label: 'PM2.5',
+                                      value: `${(point.pm2_5 as number).toFixed(1)} µg/m³`,
+                                    },
+                                    {
+                                      color: chartColors.muted,
+                                      label: 'PM10',
+                                      value: `${(point.pm10 as number).toFixed(1)} µg/m³`,
+                                    },
+                                  ] as TooltipRow[];
+                                }}
+                              />
+                            </AreaChart>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-sm text-muted-foreground text-center py-8">No forecast data available</div>
+                      )}
+
+                      {/* AQI Legend */}
+                      <div className="mt-4 flex flex-wrap gap-2 justify-center">
+                        <Badge className="bg-muted text-muted-foreground font-normal">0: None</Badge>
+                        <Badge className="bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300 font-normal">
+                          1: Good
+                        </Badge>
+                        <Badge className="bg-lime-50 text-lime-700 dark:bg-lime-900/30 dark:text-lime-300 font-normal">
+                          2: Fair
+                        </Badge>
+                        <Badge className="bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300 font-normal">
+                          3: Moderate
+                        </Badge>
+                        <Badge className="bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 font-normal">
+                          4: Poor
+                        </Badge>
+                        <Badge className="bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300 font-normal">
+                          5: Very Poor
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-10 text-muted-foreground">
+                    Air quality data not available for this location
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </CardContent>
 

@@ -1,4 +1,3 @@
- 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Film, Tv, Star, Calendar, Clock, Users } from 'lucide-react';

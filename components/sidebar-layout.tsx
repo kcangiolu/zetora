@@ -38,13 +38,9 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
         isProUser={isProUser}
       />
       <SidebarInset>{children}</SidebarInset>
-      
+
       {/* Chat History Dialog */}
-      <ChatHistoryDialog
-        open={commandDialogOpen}
-        onOpenChange={setCommandDialogOpen}
-        user={user ?? null}
-      />
+      <ChatHistoryDialog open={commandDialogOpen} onOpenChange={setCommandDialogOpen} user={user ?? null} />
     </>
   );
 }

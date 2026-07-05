@@ -117,9 +117,7 @@ async function fetchUserPreferences(): Promise<UserPreferencesRecord | null> {
   return response.json();
 }
 
-async function persistUserPreferences(
-  preferences: Partial<Record<PreferenceKey, PreferenceValue>>,
-): Promise<void> {
+async function persistUserPreferences(preferences: Partial<Record<PreferenceKey, PreferenceValue>>): Promise<void> {
   const response = await fetch('/api/preferences', {
     method: 'POST',
     credentials: 'include',
@@ -289,7 +287,7 @@ export function useSyncedPreferences<T extends PreferenceValue>(
   const lastSyncedUserIdRef = useRef<string | null>(null);
   // Track current local value to compare without causing re-renders
   const localValueRef = useRef<T>(localValue);
-  
+
   // Keep ref in sync with state
   useEffect(() => {
     localValueRef.current = localValue;
@@ -386,13 +384,10 @@ export function useSyncedPreferences<T extends PreferenceValue>(
             pendingSaveCountRef.current -= 1;
             // Update the cache directly to avoid a round-trip refetch that can
             // race with in-progress keystrokes and overwrite the local value.
-            queryClient.setQueryData(
-              ['userPreferences', user.id],
-              (old: UserPreferencesRecord | null | undefined) => ({
-                ...old,
-                preferences: { ...old?.preferences, ...toSave },
-              }),
-            );
+            queryClient.setQueryData(['userPreferences', user.id], (old: UserPreferencesRecord | null | undefined) => ({
+              ...old,
+              preferences: { ...old?.preferences, ...toSave },
+            }));
           })
           .catch((error) => {
             console.error('Failed to save preferences to DB:', error);
@@ -450,4 +445,3 @@ export function useSyncedPreferences<T extends PreferenceValue>(
 
   return [localValue, setValue];
 }
-

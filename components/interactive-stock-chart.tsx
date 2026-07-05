@@ -6,7 +6,7 @@ import { useTheme } from 'next-themes';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMediaQuery } from '@/hooks/use-media-query';
 
-import ReactECharts from "echarts-for-react";
+import ReactECharts from 'echarts-for-react';
 
 import { cn } from '@/lib/utils';
 import {
@@ -69,25 +69,25 @@ const CURRENCY_SYMBOLS = {
 const getChartColors = (isDark: boolean) => {
   if (isDark) {
     return [
-      { line: '#2dd4bf', area: 'rgba(45, 212, 191, 0.15)' },   // teal
-      { line: '#f472b6', area: 'rgba(244, 114, 182, 0.15)' },  // pink
-      { line: '#a78bfa', area: 'rgba(167, 139, 250, 0.15)' },  // violet
-      { line: '#60a5fa', area: 'rgba(96, 165, 250, 0.15)' },   // blue
-      { line: '#fbbf24', area: 'rgba(251, 191, 36, 0.15)' },   // amber
-      { line: '#34d399', area: 'rgba(52, 211, 153, 0.15)' },   // emerald
-      { line: '#fb923c', area: 'rgba(251, 146, 60, 0.15)' },   // orange
-      { line: '#e879f9', area: 'rgba(232, 121, 249, 0.15)' },  // fuchsia
+      { line: '#2dd4bf', area: 'rgba(45, 212, 191, 0.15)' }, // teal
+      { line: '#f472b6', area: 'rgba(244, 114, 182, 0.15)' }, // pink
+      { line: '#a78bfa', area: 'rgba(167, 139, 250, 0.15)' }, // violet
+      { line: '#60a5fa', area: 'rgba(96, 165, 250, 0.15)' }, // blue
+      { line: '#fbbf24', area: 'rgba(251, 191, 36, 0.15)' }, // amber
+      { line: '#34d399', area: 'rgba(52, 211, 153, 0.15)' }, // emerald
+      { line: '#fb923c', area: 'rgba(251, 146, 60, 0.15)' }, // orange
+      { line: '#e879f9', area: 'rgba(232, 121, 249, 0.15)' }, // fuchsia
     ];
   }
   return [
-    { line: '#0d9488', area: 'rgba(13, 148, 136, 0.12)' },   // teal
-    { line: '#db2777', area: 'rgba(219, 39, 119, 0.12)' },   // pink
-    { line: '#7c3aed', area: 'rgba(124, 58, 237, 0.12)' },   // violet
-    { line: '#2563eb', area: 'rgba(37, 99, 235, 0.12)' },    // blue
-    { line: '#d97706', area: 'rgba(217, 119, 6, 0.12)' },    // amber
-    { line: '#059669', area: 'rgba(5, 150, 105, 0.12)' },    // emerald
-    { line: '#ea580c', area: 'rgba(234, 88, 12, 0.12)' },    // orange
-    { line: '#c026d3', area: 'rgba(192, 38, 211, 0.12)' },   // fuchsia
+    { line: '#0d9488', area: 'rgba(13, 148, 136, 0.12)' }, // teal
+    { line: '#db2777', area: 'rgba(219, 39, 119, 0.12)' }, // pink
+    { line: '#7c3aed', area: 'rgba(124, 58, 237, 0.12)' }, // violet
+    { line: '#2563eb', area: 'rgba(37, 99, 235, 0.12)' }, // blue
+    { line: '#d97706', area: 'rgba(217, 119, 6, 0.12)' }, // amber
+    { line: '#059669', area: 'rgba(5, 150, 105, 0.12)' }, // emerald
+    { line: '#ea580c', area: 'rgba(234, 88, 12, 0.12)' }, // orange
+    { line: '#c026d3', area: 'rgba(192, 38, 211, 0.12)' }, // fuchsia
   ];
 };
 
@@ -456,10 +456,10 @@ export const InteractiveStockChart = React.memo(
 
         const date = new Date(params[0].value[0]);
         // Format tooltip date
-        const formattedDate = date.toLocaleDateString('en-US', { 
-          month: 'short', 
+        const formattedDate = date.toLocaleDateString('en-US', {
+          month: 'short',
           day: 'numeric',
-          year: 'numeric'
+          year: 'numeric',
         });
 
         // Theme-aware tooltip colors
@@ -472,10 +472,10 @@ export const InteractiveStockChart = React.memo(
         // Build tooltip rows
         let rowsHtml = '';
         const items = params.length > 1 ? params : [params[0]];
-        
+
         items.forEach((param) => {
           if (!param.value || param.value.length < 2) return;
-          
+
           const currentPrice = param.value[1];
           const seriesIndex = param.seriesIndex !== undefined ? param.seriesIndex : 0;
           const colorIndex = seriesIndex % themeColors.length;
@@ -516,7 +516,7 @@ export const InteractiveStockChart = React.memo(
             </div>
           </div>
         `;
-        
+
         return tooltipHtml;
       },
       [processedDataByLabel, isDark, themeColors],
@@ -536,36 +536,36 @@ export const InteractiveStockChart = React.memo(
       // Create a multi-axis chart if needed
       const yAxis = hasMultipleCurrencies
         ? uniqueCurrencies.map((currency, i) => ({
-          type: 'value' as const,
-          position: i === 0 ? ('right' as const) : ('left' as const),
-          axisLine: { show: false },
-          axisTick: { show: false },
-          axisLabel: {
-            formatter: (value: number) => formatCurrency(value, currency),
-            color: subTextColor,
-            fontSize: 10,
-          },
-          splitLine: {
-            lineStyle: { color: gridColor, type: 'dashed' as const },
-          },
-        }))
-        : {
-          type: 'value',
-          position: 'right',
-          axisLine: { show: false },
-          axisTick: { show: false },
-          axisLabel: {
-            formatter: (value: number) => {
-              const currency = processedData[0]?.currency || 'USD';
-              return formatCurrency(value, currency);
+            type: 'value' as const,
+            position: i === 0 ? ('right' as const) : ('left' as const),
+            axisLine: { show: false },
+            axisTick: { show: false },
+            axisLabel: {
+              formatter: (value: number) => formatCurrency(value, currency),
+              color: subTextColor,
+              fontSize: 10,
             },
-            color: subTextColor,
-            fontSize: 10,
-          },
-          splitLine: {
-            lineStyle: { color: gridColor, type: 'dashed' as const },
-          },
-        };
+            splitLine: {
+              lineStyle: { color: gridColor, type: 'dashed' as const },
+            },
+          }))
+        : {
+            type: 'value',
+            position: 'right',
+            axisLine: { show: false },
+            axisTick: { show: false },
+            axisLabel: {
+              formatter: (value: number) => {
+                const currency = processedData[0]?.currency || 'USD';
+                return formatCurrency(value, currency);
+              },
+              color: subTextColor,
+              fontSize: 10,
+            },
+            splitLine: {
+              lineStyle: { color: gridColor, type: 'dashed' as const },
+            },
+          };
 
       return {
         backgroundColor: 'transparent',
@@ -709,22 +709,22 @@ export const InteractiveStockChart = React.memo(
           },
           ...(estimateData.length > 0
             ? [
-              {
-                name: 'Estimate',
-                type: 'line' as const,
-                data: estimateData,
-                lineStyle: {
-                  color: color.line,
-                  width: 1.5,
-                  type: 'dashed' as const,
-                  opacity: 0.6,
+                {
+                  name: 'Estimate',
+                  type: 'line' as const,
+                  data: estimateData,
+                  lineStyle: {
+                    color: color.line,
+                    width: 1.5,
+                    type: 'dashed' as const,
+                    opacity: 0.6,
+                  },
+                  itemStyle: { color: color.line, opacity: 0.6 },
+                  showSymbol: false,
+                  smooth: 0.4,
+                  emphasis: { focus: 'series' },
                 },
-                itemStyle: { color: color.line, opacity: 0.6 },
-                showSymbol: false,
-                smooth: 0.4,
-                emphasis: { focus: 'series' },
-              },
-            ]
+              ]
             : []),
         ];
 
@@ -747,14 +747,14 @@ export const InteractiveStockChart = React.memo(
               if (!Array.isArray(params) || params.length === 0) return '';
 
               const date = new Date(params[0].value[0]);
-              const formattedDate = date.toLocaleDateString('en-US', { 
-                month: 'short', 
+              const formattedDate = date.toLocaleDateString('en-US', {
+                month: 'short',
                 day: 'numeric',
-                year: 'numeric'
+                year: 'numeric',
               });
-              
+
               const shadowColor = isDark ? 'rgba(0, 0, 0, 0.5)' : 'rgba(0, 0, 0, 0.08)';
-              
+
               let rowsHtml = '';
               params.forEach((param: any) => {
                 const value = param.value[1];
@@ -859,19 +859,23 @@ export const InteractiveStockChart = React.memo(
                     <HugeiconsIcon icon={Chart03Icon} className="size-3.5 text-primary" strokeWidth={2} />
                   </div>
                   <div className="flex flex-col items-start gap-0.5 min-w-0">
-                    <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">Stock Analysis</span>
+                    <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">
+                      Stock Analysis
+                    </span>
                     <h2 className="text-xs font-medium text-foreground truncate">{title}</h2>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-[10px] text-muted-foreground/60 tabular-nums hidden sm:inline">{lastUpdated}</span>
+                  <span className="text-[10px] text-muted-foreground/60 tabular-nums hidden sm:inline">
+                    {lastUpdated}
+                  </span>
                   <Badge
                     variant="outline"
                     className={cn(
                       'text-[10px] font-semibold px-2 py-0.5 border',
                       totalChange.isPositive
                         ? 'border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
-                        : 'border-red-500/30 text-red-600 dark:text-red-400'
+                        : 'border-red-500/30 text-red-600 dark:text-red-400',
                     )}
                   >
                     {totalChange.isPositive ? (
@@ -889,9 +893,13 @@ export const InteractiveStockChart = React.memo(
               <div className="p-4 space-y-4">
                 {/* Title and interval */}
                 <div className="flex items-center gap-2">
-                  <span className="font-pixel text-[9px] text-muted-foreground/40 uppercase tracking-wider">{interval}</span>
+                  <span className="font-pixel text-[9px] text-muted-foreground/40 uppercase tracking-wider">
+                    {interval}
+                  </span>
                   <span className="text-[9px] text-muted-foreground/30">/</span>
-                  <span className="text-[10px] text-muted-foreground/50 tabular-nums">{processedData.length} {processedData.length === 1 ? 'series' : 'series'}</span>
+                  <span className="text-[10px] text-muted-foreground/50 tabular-nums">
+                    {processedData.length} {processedData.length === 1 ? 'series' : 'series'}
+                  </span>
                 </div>
 
                 {/* Chart */}
@@ -907,8 +915,8 @@ export const InteractiveStockChart = React.memo(
                 {/* Stock Cards */}
                 <div className="rounded-lg border border-border/40 divide-y divide-border/30 overflow-hidden">
                   {processedData.map((series) => (
-                    <div 
-                      key={series.label} 
+                    <div
+                      key={series.label}
                       className="flex items-center justify-between px-3.5 py-2.5 hover:bg-muted/20 transition-colors"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
@@ -924,10 +932,14 @@ export const InteractiveStockChart = React.memo(
                             'text-[11px] font-semibold flex items-center gap-0.5 tabular-nums min-w-[60px] justify-end',
                             series.priceChange >= 0
                               ? 'text-emerald-600 dark:text-emerald-400'
-                              : 'text-red-600 dark:text-red-400'
+                              : 'text-red-600 dark:text-red-400',
                           )}
                         >
-                          {series.priceChange >= 0 ? <ArrowUpRight className="size-3" /> : <ArrowDownRight className="size-3" />}
+                          {series.priceChange >= 0 ? (
+                            <ArrowUpRight className="size-3" />
+                          ) : (
+                            <ArrowDownRight className="size-3" />
+                          )}
                           {series.priceChange >= 0 ? '+' : ''}
                           {series.percentChange}%
                         </span>
@@ -942,7 +954,9 @@ export const InteractiveStockChart = React.memo(
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <Target className="size-3.5 text-muted-foreground" strokeWidth={2} />
-                        <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">Earnings</span>
+                        <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">
+                          Earnings
+                        </span>
                       </div>
 
                       <div className="flex items-center gap-0.5 bg-muted/40 rounded-md p-0.5 border border-border/30">
@@ -984,9 +998,13 @@ export const InteractiveStockChart = React.memo(
                                   style={{ backgroundColor: getSeriesColor(companyIndex, isDark).line }}
                                 />
                                 <span className="text-xs font-medium">{company.companyName}</span>
-                                <span className="font-pixel text-[9px] text-muted-foreground/50 uppercase tracking-wider">{company.ticker}</span>
+                                <span className="font-pixel text-[9px] text-muted-foreground/50 uppercase tracking-wider">
+                                  {company.ticker}
+                                </span>
                               </div>
-                              <span className="text-[10px] text-muted-foreground tabular-nums">{company.earnings.length} reports</span>
+                              <span className="text-[10px] text-muted-foreground tabular-nums">
+                                {company.earnings.length} reports
+                              </span>
                             </div>
                             <div className="w-full h-44 p-1.5">
                               <ReactECharts
@@ -1006,10 +1024,7 @@ export const InteractiveStockChart = React.memo(
                         {earnings_data.map((company, companyIndex) => {
                           const isExpanded = expandedCompanies.has(company.ticker);
                           return (
-                            <div
-                              key={company.ticker}
-                              className="rounded-lg border border-border/40 overflow-hidden"
-                            >
+                            <div key={company.ticker} className="rounded-lg border border-border/40 overflow-hidden">
                               <button
                                 onClick={() => toggleCompanyExpansion(company.ticker)}
                                 className="w-full px-3 py-2.5 flex items-center justify-between hover:bg-muted/20 transition-colors"
@@ -1020,10 +1035,14 @@ export const InteractiveStockChart = React.memo(
                                     style={{ backgroundColor: getSeriesColor(companyIndex, isDark).line }}
                                   />
                                   <span className="text-xs font-medium">{company.companyName}</span>
-                                  <span className="font-pixel text-[9px] text-muted-foreground/50 uppercase tracking-wider">{company.ticker}</span>
+                                  <span className="font-pixel text-[9px] text-muted-foreground/50 uppercase tracking-wider">
+                                    {company.ticker}
+                                  </span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-[10px] text-muted-foreground tabular-nums">{company.earnings.length}</span>
+                                  <span className="text-[10px] text-muted-foreground tabular-nums">
+                                    {company.earnings.length}
+                                  </span>
                                   {isExpanded ? (
                                     <ChevronUp className="size-3.5 text-muted-foreground/60" strokeWidth={2} />
                                   ) : (
@@ -1055,7 +1074,9 @@ export const InteractiveStockChart = React.memo(
                                                 year: '2-digit',
                                               })}
                                             </span>
-                                            <span className="text-[9px] text-muted-foreground/50 uppercase">{earning.time}</span>
+                                            <span className="text-[9px] text-muted-foreground/50 uppercase">
+                                              {earning.time}
+                                            </span>
                                             <div className="flex items-center gap-2 text-[11px]">
                                               <span className="text-muted-foreground/60">Act</span>
                                               <span className="font-semibold text-foreground tabular-nums">
@@ -1109,7 +1130,9 @@ export const InteractiveStockChart = React.memo(
                   <div className="pt-4 border-t border-border/30">
                     <div className="flex items-center gap-2 mb-3">
                       <FileText className="size-3.5 text-muted-foreground" strokeWidth={2} />
-                      <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">SEC Filings</span>
+                      <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">
+                        SEC Filings
+                      </span>
                     </div>
 
                     <div className="space-y-2">
@@ -1126,10 +1149,7 @@ export const InteractiveStockChart = React.memo(
                       ).map(([companyName, companyFilings]) => {
                         const isExpanded = !expandedCompanies.has(`sec-${companyName}`);
                         return (
-                          <div
-                            key={companyName}
-                            className="rounded-lg border border-border/40 overflow-hidden"
-                          >
+                          <div key={companyName} className="rounded-lg border border-border/40 overflow-hidden">
                             <button
                               onClick={() => toggleCompanyExpansion(`sec-${companyName}`)}
                               className="w-full px-3 py-2.5 flex items-center justify-between hover:bg-muted/20 transition-colors"
@@ -1137,7 +1157,9 @@ export const InteractiveStockChart = React.memo(
                               <div className="flex items-center gap-2">
                                 <Building2 className="size-3.5 text-muted-foreground" strokeWidth={2} />
                                 <span className="text-xs font-medium">{companyName}</span>
-                                <span className="text-[10px] text-muted-foreground tabular-nums">{companyFilings?.length || 0}</span>
+                                <span className="text-[10px] text-muted-foreground tabular-nums">
+                                  {companyFilings?.length || 0}
+                                </span>
                               </div>
                               {isExpanded ? (
                                 <ChevronUp className="size-3.5 text-muted-foreground/60" strokeWidth={2} />
@@ -1162,17 +1184,21 @@ export const InteractiveStockChart = React.memo(
                                                 'font-pixel text-[9px] uppercase tracking-wider shrink-0 px-1.5 py-0.5 rounded',
                                                 (filing.metadata?.document_type === '10-K' ||
                                                   filing.metadata?.form_type === '10-K') &&
-                                                'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+                                                  'bg-blue-500/10 text-blue-600 dark:text-blue-400',
                                                 (filing.metadata?.document_type === '10-Q' ||
                                                   filing.metadata?.form_type === '10-Q') &&
-                                                'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+                                                  'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
                                                 (filing.metadata?.document_type === '8-K' ||
                                                   filing.metadata?.form_type === '8-K') &&
-                                                'bg-orange-500/10 text-orange-600 dark:text-orange-400',
-                                                !(filing.metadata?.document_type === '10-K' || filing.metadata?.form_type === '10-K' ||
-                                                  filing.metadata?.document_type === '10-Q' || filing.metadata?.form_type === '10-Q' ||
-                                                  filing.metadata?.document_type === '8-K' || filing.metadata?.form_type === '8-K') &&
-                                                'bg-muted/50 text-muted-foreground',
+                                                  'bg-orange-500/10 text-orange-600 dark:text-orange-400',
+                                                !(
+                                                  filing.metadata?.document_type === '10-K' ||
+                                                  filing.metadata?.form_type === '10-K' ||
+                                                  filing.metadata?.document_type === '10-Q' ||
+                                                  filing.metadata?.form_type === '10-Q' ||
+                                                  filing.metadata?.document_type === '8-K' ||
+                                                  filing.metadata?.form_type === '8-K'
+                                                ) && 'bg-muted/50 text-muted-foreground',
                                               )}
                                             >
                                               {filing.metadata?.document_type ||
@@ -1186,13 +1212,14 @@ export const InteractiveStockChart = React.memo(
                                           <div className="flex items-center gap-2 shrink-0">
                                             {getFilingDate(filing.metadata) && (
                                               <span className="text-[10px] text-muted-foreground/60 tabular-nums">
-                                                {parseSecFilingDate(
-                                                  getFilingDate(filing.metadata)!,
-                                                ).toLocaleDateString('en-US', {
-                                                  month: 'short',
-                                                  day: 'numeric',
-                                                  year: '2-digit',
-                                                })}
+                                                {parseSecFilingDate(getFilingDate(filing.metadata)!).toLocaleDateString(
+                                                  'en-US',
+                                                  {
+                                                    month: 'short',
+                                                    day: 'numeric',
+                                                    year: '2-digit',
+                                                  },
+                                                )}
                                               </span>
                                             )}
                                             <ArrowUpRight className="size-3 text-muted-foreground/40 group-hover:text-primary transition-colors" />
@@ -1213,9 +1240,15 @@ export const InteractiveStockChart = React.memo(
                                             <span
                                               className={cn(
                                                 'font-pixel text-[10px] uppercase tracking-wider px-2 py-0.5 rounded',
-                                                (filing.metadata?.document_type === '10-K' || filing.metadata?.form_type === '10-K') && 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
-                                                (filing.metadata?.document_type === '10-Q' || filing.metadata?.form_type === '10-Q') && 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-                                                (filing.metadata?.document_type === '8-K' || filing.metadata?.form_type === '8-K') && 'bg-orange-500/10 text-orange-600 dark:text-orange-400',
+                                                (filing.metadata?.document_type === '10-K' ||
+                                                  filing.metadata?.form_type === '10-K') &&
+                                                  'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+                                                (filing.metadata?.document_type === '10-Q' ||
+                                                  filing.metadata?.form_type === '10-Q') &&
+                                                  'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+                                                (filing.metadata?.document_type === '8-K' ||
+                                                  filing.metadata?.form_type === '8-K') &&
+                                                  'bg-orange-500/10 text-orange-600 dark:text-orange-400',
                                               )}
                                             >
                                               {filing.metadata?.document_type || filing.metadata?.form_type}
@@ -1231,7 +1264,9 @@ export const InteractiveStockChart = React.memo(
                                             </span>
                                           )}
                                           {filing.metadata?.accession_number && (
-                                            <span className="text-[10px] text-muted-foreground/60">{filing.metadata.accession_number}</span>
+                                            <span className="text-[10px] text-muted-foreground/60">
+                                              {filing.metadata.accession_number}
+                                            </span>
                                           )}
                                         </div>
 
@@ -1269,7 +1304,9 @@ export const InteractiveStockChart = React.memo(
                   <div className="pt-4 border-t border-border/30">
                     <div className="flex items-center gap-2 mb-3">
                       <Activity className="size-3.5 text-muted-foreground" />
-                      <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">Key Metrics</span>
+                      <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">
+                        Key Metrics
+                      </span>
                     </div>
                     <div className="space-y-2">
                       {Object.entries(company_statistics).map(([company, stats]: [string, any]) => (
@@ -1280,17 +1317,52 @@ export const InteractiveStockChart = React.memo(
                           </div>
                           <div className="divide-y divide-border/20">
                             {[
-                              { label: 'Market Cap', value: stats.valuations_metrics?.market_capitalization ? `$${(stats.valuations_metrics.market_capitalization / 1e9).toFixed(2)}B` : 'N/A' },
+                              {
+                                label: 'Market Cap',
+                                value: stats.valuations_metrics?.market_capitalization
+                                  ? `$${(stats.valuations_metrics.market_capitalization / 1e9).toFixed(2)}B`
+                                  : 'N/A',
+                              },
                               { label: 'P/E', value: stats.valuations_metrics?.trailing_pe?.toFixed(2) || 'N/A' },
                               { label: 'P/B', value: stats.valuations_metrics?.price_to_book_mrq?.toFixed(2) || 'N/A' },
-                              { label: 'Revenue (TTM)', value: stats.financials?.income_statement?.revenue_ttm ? `$${(stats.financials.income_statement.revenue_ttm / 1e9).toFixed(2)}B` : 'N/A' },
-                              { label: 'Profit Margin', value: stats.financials?.profit_margin ? `${(stats.financials.profit_margin * 100).toFixed(1)}%` : 'N/A' },
-                              { label: 'ROE', value: stats.financials?.return_on_equity_ttm ? `${(stats.financials.return_on_equity_ttm * 100).toFixed(1)}%` : 'N/A' },
-                              { label: '52W Range', value: stats.stock_price_summary?.fifty_two_week_low && stats.stock_price_summary?.fifty_two_week_high ? `$${stats.stock_price_summary.fifty_two_week_low} - $${stats.stock_price_summary.fifty_two_week_high}` : 'N/A' },
+                              {
+                                label: 'Revenue (TTM)',
+                                value: stats.financials?.income_statement?.revenue_ttm
+                                  ? `$${(stats.financials.income_statement.revenue_ttm / 1e9).toFixed(2)}B`
+                                  : 'N/A',
+                              },
+                              {
+                                label: 'Profit Margin',
+                                value: stats.financials?.profit_margin
+                                  ? `${(stats.financials.profit_margin * 100).toFixed(1)}%`
+                                  : 'N/A',
+                              },
+                              {
+                                label: 'ROE',
+                                value: stats.financials?.return_on_equity_ttm
+                                  ? `${(stats.financials.return_on_equity_ttm * 100).toFixed(1)}%`
+                                  : 'N/A',
+                              },
+                              {
+                                label: '52W Range',
+                                value:
+                                  stats.stock_price_summary?.fifty_two_week_low &&
+                                  stats.stock_price_summary?.fifty_two_week_high
+                                    ? `$${stats.stock_price_summary.fifty_two_week_low} - $${stats.stock_price_summary.fifty_two_week_high}`
+                                    : 'N/A',
+                              },
                               { label: 'Beta', value: stats.stock_price_summary?.beta?.toFixed(2) || 'N/A' },
-                              { label: 'Div. Yield', value: stats.dividends_and_splits?.forward_annual_dividend_yield ? `${(stats.dividends_and_splits.forward_annual_dividend_yield * 100).toFixed(2)}%` : 'N/A' },
+                              {
+                                label: 'Div. Yield',
+                                value: stats.dividends_and_splits?.forward_annual_dividend_yield
+                                  ? `${(stats.dividends_and_splits.forward_annual_dividend_yield * 100).toFixed(2)}%`
+                                  : 'N/A',
+                              },
                             ].map(({ label, value }) => (
-                              <div key={label} className="flex items-center justify-between px-3.5 py-2 hover:bg-muted/10 transition-colors">
+                              <div
+                                key={label}
+                                className="flex items-center justify-between px-3.5 py-2 hover:bg-muted/10 transition-colors"
+                              >
                                 <span className="text-[11px] text-muted-foreground">{label}</span>
                                 <span className="text-[11px] font-semibold text-foreground tabular-nums">{value}</span>
                               </div>
@@ -1304,187 +1376,285 @@ export const InteractiveStockChart = React.memo(
 
                 {/* Financial Statements Section */}
                 {(balance_sheets && Object.keys(balance_sheets).length > 0) ||
-                  (income_statements && Object.keys(income_statements).length > 0) ||
-                  (cash_flows && Object.keys(cash_flows).length > 0)
+                (income_statements && Object.keys(income_statements).length > 0) ||
+                (cash_flows && Object.keys(cash_flows).length > 0)
                   ? (() => {
-                    const hasIncome = !!(income_statements && Object.keys(income_statements).length > 0);
-                    const hasBalance = !!(balance_sheets && Object.keys(balance_sheets).length > 0);
-                    const hasCash = !!(cash_flows && Object.keys(cash_flows).length > 0);
+                      const hasIncome = !!(income_statements && Object.keys(income_statements).length > 0);
+                      const hasBalance = !!(balance_sheets && Object.keys(balance_sheets).length > 0);
+                      const hasCash = !!(cash_flows && Object.keys(cash_flows).length > 0);
 
-                    const availableTabs = [];
-                    if (hasIncome) availableTabs.push('income');
-                    if (hasBalance) availableTabs.push('balance');
-                    if (hasCash) availableTabs.push('cash');
+                      const availableTabs = [];
+                      if (hasIncome) availableTabs.push('income');
+                      if (hasBalance) availableTabs.push('balance');
+                      if (hasCash) availableTabs.push('cash');
 
-                    const defaultTab = availableTabs[0] || 'income';
-                    const gridCols =
-                      availableTabs.length === 1
-                        ? 'grid-cols-1'
-                        : availableTabs.length === 2
-                          ? 'grid-cols-2'
-                          : 'grid-cols-3';
+                      const defaultTab = availableTabs[0] || 'income';
+                      const gridCols =
+                        availableTabs.length === 1
+                          ? 'grid-cols-1'
+                          : availableTabs.length === 2
+                            ? 'grid-cols-2'
+                            : 'grid-cols-3';
 
-                    const renderIncomeTable = (company: string, statements: any[]) => (
-                      <div key={company} className="rounded-lg border border-border/40 overflow-hidden">
-                        <div className="px-3 py-2 border-b border-border/30 bg-muted/20 flex items-center gap-2">
-                          <Building2 className="size-3.5 text-muted-foreground" />
-                          <span className="text-xs font-medium">{company}</span>
-                        </div>
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-[11px]">
-                            <thead>
-                              <tr className="border-b border-border/30 bg-muted/10">
-                                <th className="text-left py-2 px-3 text-muted-foreground/70 font-medium">Period</th>
-                                <th className="text-right px-3 text-muted-foreground/70 font-medium">Revenue</th>
-                                <th className="text-right px-3 text-muted-foreground/70 font-medium hidden sm:table-cell">Gross Profit</th>
-                                <th className="text-right px-3 text-muted-foreground/70 font-medium hidden md:table-cell">Op. Income</th>
-                                <th className="text-right px-3 text-muted-foreground/70 font-medium">Net Income</th>
-                                <th className="text-right px-3 text-muted-foreground/70 font-medium">EPS</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {statements.slice(0, 5).map((stmt, idx) => (
-                                <tr key={idx} className="border-b border-border/15 hover:bg-muted/10 transition-colors">
-                                  <td className="py-2 px-3 text-muted-foreground tabular-nums">
-                                    {new Date(stmt.fiscal_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
-                                  </td>
-                                  <td className="text-right px-3 font-semibold tabular-nums">${(stmt.sales / 1e9).toFixed(2)}B</td>
-                                  <td className="text-right px-3 tabular-nums hidden sm:table-cell">${(stmt.gross_profit / 1e9).toFixed(2)}B</td>
-                                  <td className="text-right px-3 tabular-nums hidden md:table-cell">${(stmt.operating_income / 1e9).toFixed(2)}B</td>
-                                  <td className="text-right px-3 font-semibold tabular-nums">${(stmt.net_income / 1e9).toFixed(2)}B</td>
-                                  <td className="text-right px-3 tabular-nums">${stmt.eps_diluted?.toFixed(2) || 'N/A'}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    );
-
-                    const renderBalanceTable = (company: string, sheets: any[]) => (
-                      <div key={company} className="rounded-lg border border-border/40 overflow-hidden">
-                        <div className="px-3 py-2 border-b border-border/30 bg-muted/20 flex items-center gap-2">
-                          <Building2 className="size-3.5 text-muted-foreground" />
-                          <span className="text-xs font-medium">{company}</span>
-                        </div>
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-[11px]">
-                            <thead>
-                              <tr className="border-b border-border/30 bg-muted/10">
-                                <th className="text-left py-2 px-3 text-muted-foreground/70 font-medium">Period</th>
-                                <th className="text-right px-3 text-muted-foreground/70 font-medium">Assets</th>
-                                <th className="text-right px-3 text-muted-foreground/70 font-medium">Liabilities</th>
-                                <th className="text-right px-3 text-muted-foreground/70 font-medium hidden sm:table-cell">Equity</th>
-                                <th className="text-right px-3 text-muted-foreground/70 font-medium hidden md:table-cell">Cash</th>
-                                <th className="text-right px-3 text-muted-foreground/70 font-medium">D/E</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {sheets.slice(0, 5).map((sheet, idx) => (
-                                <tr key={idx} className="border-b border-border/15 hover:bg-muted/10 transition-colors">
-                                  <td className="py-2 px-3 text-muted-foreground tabular-nums">{sheet.year}</td>
-                                  <td className="text-right px-3 font-semibold tabular-nums">${(sheet.assets.total_assets / 1e9).toFixed(2)}B</td>
-                                  <td className="text-right px-3 tabular-nums">${(sheet.liabilities.total_liabilities / 1e9).toFixed(2)}B</td>
-                                  <td className="text-right px-3 tabular-nums hidden sm:table-cell">${(sheet.shareholders_equity.total_shareholders_equity / 1e9).toFixed(2)}B</td>
-                                  <td className="text-right px-3 tabular-nums hidden md:table-cell">${(sheet.assets.current_assets.cash_and_cash_equivalents / 1e9).toFixed(2)}B</td>
-                                  <td className="text-right px-3 tabular-nums">{((sheet.liabilities.non_current_liabilities.long_term_debt / sheet.shareholders_equity.total_shareholders_equity) * 100).toFixed(1)}%</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    );
-
-                    const renderCashFlowTable = (company: string, flows: any[]) => (
-                      <div key={company} className="rounded-lg border border-border/40 overflow-hidden">
-                        <div className="px-3 py-2 border-b border-border/30 bg-muted/20 flex items-center gap-2">
-                          <Building2 className="size-3.5 text-muted-foreground" />
-                          <span className="text-xs font-medium">{company}</span>
-                        </div>
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-[11px]">
-                            <thead>
-                              <tr className="border-b border-border/30 bg-muted/10">
-                                <th className="text-left py-2 px-3 text-muted-foreground/70 font-medium">Period</th>
-                                <th className="text-right px-3 text-muted-foreground/70 font-medium">Operating</th>
-                                <th className="text-right px-3 text-muted-foreground/70 font-medium hidden sm:table-cell">Investing</th>
-                                <th className="text-right px-3 text-muted-foreground/70 font-medium hidden md:table-cell">Financing</th>
-                                <th className="text-right px-3 text-muted-foreground/70 font-medium">FCF</th>
-                                <th className="text-right px-3 text-muted-foreground/70 font-medium">Cash End</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {flows.slice(0, 5).map((flow, idx) => (
-                                <tr key={idx} className="border-b border-border/15 hover:bg-muted/10 transition-colors">
-                                  <td className="py-2 px-3 text-muted-foreground tabular-nums">{flow.year}</td>
-                                  <td className="text-right px-3 font-semibold tabular-nums">${(flow.operating_activities.operating_cash_flow / 1e9).toFixed(2)}B</td>
-                                  <td className="text-right px-3 tabular-nums hidden sm:table-cell">${(flow.investing_activities.investing_cash_flow / 1e9).toFixed(2)}B</td>
-                                  <td className="text-right px-3 tabular-nums hidden md:table-cell">${(flow.financing_activities.financing_cash_flow / 1e9).toFixed(2)}B</td>
-                                  <td className="text-right px-3 font-semibold tabular-nums">${(flow.free_cash_flow / 1e9).toFixed(2)}B</td>
-                                  <td className="text-right px-3 tabular-nums">${(flow.end_cash_position / 1e9).toFixed(2)}B</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    );
-
-                    return (
-                      <div className="pt-4 border-t border-border/30">
-                        <div className="flex items-center gap-2 mb-3">
-                          <Wallet className="size-3.5 text-muted-foreground" />
-                          <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">
-                            {availableTabs.length === 1
-                              ? hasIncome ? 'Income Statement' : hasBalance ? 'Balance Sheet' : 'Cash Flow'
-                              : 'Financials'}
-                          </span>
-                        </div>
-
-                        {availableTabs.length > 1 ? (
-                          <Tabs defaultValue={defaultTab} className="w-full">
-                            <TabsList className={`grid w-full ${gridCols} mb-3 h-8`}>
-                              {hasIncome && <TabsTrigger value="income" className="text-[10px]">Income</TabsTrigger>}
-                              {hasBalance && <TabsTrigger value="balance" className="text-[10px]">Balance</TabsTrigger>}
-                              {hasCash && <TabsTrigger value="cash" className="text-[10px]">Cash Flow</TabsTrigger>}
-                            </TabsList>
-
-                            <TabsContent value="income" className="space-y-2">
-                              {income_statements && Object.entries(income_statements).map(([company, statements]: [string, any[]]) => renderIncomeTable(company, statements))}
-                            </TabsContent>
-                            <TabsContent value="balance" className="space-y-2">
-                              {balance_sheets && Object.entries(balance_sheets).map(([company, sheets]: [string, any[]]) => renderBalanceTable(company, sheets))}
-                            </TabsContent>
-                            <TabsContent value="cash" className="space-y-2">
-                              {cash_flows && Object.entries(cash_flows).map(([company, flows]: [string, any[]]) => renderCashFlowTable(company, flows))}
-                            </TabsContent>
-                          </Tabs>
-                        ) : (
-                          <div className="space-y-2">
-                            {hasIncome && income_statements && Object.entries(income_statements).map(([company, statements]: [string, any[]]) => renderIncomeTable(company, statements))}
-                            {hasBalance && balance_sheets && Object.entries(balance_sheets).map(([company, sheets]: [string, any[]]) => renderBalanceTable(company, sheets))}
-                            {hasCash && cash_flows && Object.entries(cash_flows).map(([company, flows]: [string, any[]]) => renderCashFlowTable(company, flows))}
+                      const renderIncomeTable = (company: string, statements: any[]) => (
+                        <div key={company} className="rounded-lg border border-border/40 overflow-hidden">
+                          <div className="px-3 py-2 border-b border-border/30 bg-muted/20 flex items-center gap-2">
+                            <Building2 className="size-3.5 text-muted-foreground" />
+                            <span className="text-xs font-medium">{company}</span>
                           </div>
-                        )}
-                      </div>
-                    );
-                  })()
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-[11px]">
+                              <thead>
+                                <tr className="border-b border-border/30 bg-muted/10">
+                                  <th className="text-left py-2 px-3 text-muted-foreground/70 font-medium">Period</th>
+                                  <th className="text-right px-3 text-muted-foreground/70 font-medium">Revenue</th>
+                                  <th className="text-right px-3 text-muted-foreground/70 font-medium hidden sm:table-cell">
+                                    Gross Profit
+                                  </th>
+                                  <th className="text-right px-3 text-muted-foreground/70 font-medium hidden md:table-cell">
+                                    Op. Income
+                                  </th>
+                                  <th className="text-right px-3 text-muted-foreground/70 font-medium">Net Income</th>
+                                  <th className="text-right px-3 text-muted-foreground/70 font-medium">EPS</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {statements.slice(0, 5).map((stmt, idx) => (
+                                  <tr
+                                    key={idx}
+                                    className="border-b border-border/15 hover:bg-muted/10 transition-colors"
+                                  >
+                                    <td className="py-2 px-3 text-muted-foreground tabular-nums">
+                                      {new Date(stmt.fiscal_date).toLocaleDateString('en-US', {
+                                        month: 'short',
+                                        year: 'numeric',
+                                      })}
+                                    </td>
+                                    <td className="text-right px-3 font-semibold tabular-nums">
+                                      ${(stmt.sales / 1e9).toFixed(2)}B
+                                    </td>
+                                    <td className="text-right px-3 tabular-nums hidden sm:table-cell">
+                                      ${(stmt.gross_profit / 1e9).toFixed(2)}B
+                                    </td>
+                                    <td className="text-right px-3 tabular-nums hidden md:table-cell">
+                                      ${(stmt.operating_income / 1e9).toFixed(2)}B
+                                    </td>
+                                    <td className="text-right px-3 font-semibold tabular-nums">
+                                      ${(stmt.net_income / 1e9).toFixed(2)}B
+                                    </td>
+                                    <td className="text-right px-3 tabular-nums">
+                                      ${stmt.eps_diluted?.toFixed(2) || 'N/A'}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+
+                      const renderBalanceTable = (company: string, sheets: any[]) => (
+                        <div key={company} className="rounded-lg border border-border/40 overflow-hidden">
+                          <div className="px-3 py-2 border-b border-border/30 bg-muted/20 flex items-center gap-2">
+                            <Building2 className="size-3.5 text-muted-foreground" />
+                            <span className="text-xs font-medium">{company}</span>
+                          </div>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-[11px]">
+                              <thead>
+                                <tr className="border-b border-border/30 bg-muted/10">
+                                  <th className="text-left py-2 px-3 text-muted-foreground/70 font-medium">Period</th>
+                                  <th className="text-right px-3 text-muted-foreground/70 font-medium">Assets</th>
+                                  <th className="text-right px-3 text-muted-foreground/70 font-medium">Liabilities</th>
+                                  <th className="text-right px-3 text-muted-foreground/70 font-medium hidden sm:table-cell">
+                                    Equity
+                                  </th>
+                                  <th className="text-right px-3 text-muted-foreground/70 font-medium hidden md:table-cell">
+                                    Cash
+                                  </th>
+                                  <th className="text-right px-3 text-muted-foreground/70 font-medium">D/E</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {sheets.slice(0, 5).map((sheet, idx) => (
+                                  <tr
+                                    key={idx}
+                                    className="border-b border-border/15 hover:bg-muted/10 transition-colors"
+                                  >
+                                    <td className="py-2 px-3 text-muted-foreground tabular-nums">{sheet.year}</td>
+                                    <td className="text-right px-3 font-semibold tabular-nums">
+                                      ${(sheet.assets.total_assets / 1e9).toFixed(2)}B
+                                    </td>
+                                    <td className="text-right px-3 tabular-nums">
+                                      ${(sheet.liabilities.total_liabilities / 1e9).toFixed(2)}B
+                                    </td>
+                                    <td className="text-right px-3 tabular-nums hidden sm:table-cell">
+                                      ${(sheet.shareholders_equity.total_shareholders_equity / 1e9).toFixed(2)}B
+                                    </td>
+                                    <td className="text-right px-3 tabular-nums hidden md:table-cell">
+                                      ${(sheet.assets.current_assets.cash_and_cash_equivalents / 1e9).toFixed(2)}B
+                                    </td>
+                                    <td className="text-right px-3 tabular-nums">
+                                      {(
+                                        (sheet.liabilities.non_current_liabilities.long_term_debt /
+                                          sheet.shareholders_equity.total_shareholders_equity) *
+                                        100
+                                      ).toFixed(1)}
+                                      %
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+
+                      const renderCashFlowTable = (company: string, flows: any[]) => (
+                        <div key={company} className="rounded-lg border border-border/40 overflow-hidden">
+                          <div className="px-3 py-2 border-b border-border/30 bg-muted/20 flex items-center gap-2">
+                            <Building2 className="size-3.5 text-muted-foreground" />
+                            <span className="text-xs font-medium">{company}</span>
+                          </div>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-[11px]">
+                              <thead>
+                                <tr className="border-b border-border/30 bg-muted/10">
+                                  <th className="text-left py-2 px-3 text-muted-foreground/70 font-medium">Period</th>
+                                  <th className="text-right px-3 text-muted-foreground/70 font-medium">Operating</th>
+                                  <th className="text-right px-3 text-muted-foreground/70 font-medium hidden sm:table-cell">
+                                    Investing
+                                  </th>
+                                  <th className="text-right px-3 text-muted-foreground/70 font-medium hidden md:table-cell">
+                                    Financing
+                                  </th>
+                                  <th className="text-right px-3 text-muted-foreground/70 font-medium">FCF</th>
+                                  <th className="text-right px-3 text-muted-foreground/70 font-medium">Cash End</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {flows.slice(0, 5).map((flow, idx) => (
+                                  <tr
+                                    key={idx}
+                                    className="border-b border-border/15 hover:bg-muted/10 transition-colors"
+                                  >
+                                    <td className="py-2 px-3 text-muted-foreground tabular-nums">{flow.year}</td>
+                                    <td className="text-right px-3 font-semibold tabular-nums">
+                                      ${(flow.operating_activities.operating_cash_flow / 1e9).toFixed(2)}B
+                                    </td>
+                                    <td className="text-right px-3 tabular-nums hidden sm:table-cell">
+                                      ${(flow.investing_activities.investing_cash_flow / 1e9).toFixed(2)}B
+                                    </td>
+                                    <td className="text-right px-3 tabular-nums hidden md:table-cell">
+                                      ${(flow.financing_activities.financing_cash_flow / 1e9).toFixed(2)}B
+                                    </td>
+                                    <td className="text-right px-3 font-semibold tabular-nums">
+                                      ${(flow.free_cash_flow / 1e9).toFixed(2)}B
+                                    </td>
+                                    <td className="text-right px-3 tabular-nums">
+                                      ${(flow.end_cash_position / 1e9).toFixed(2)}B
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+
+                      return (
+                        <div className="pt-4 border-t border-border/30">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Wallet className="size-3.5 text-muted-foreground" />
+                            <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">
+                              {availableTabs.length === 1
+                                ? hasIncome
+                                  ? 'Income Statement'
+                                  : hasBalance
+                                    ? 'Balance Sheet'
+                                    : 'Cash Flow'
+                                : 'Financials'}
+                            </span>
+                          </div>
+
+                          {availableTabs.length > 1 ? (
+                            <Tabs defaultValue={defaultTab} className="w-full">
+                              <TabsList className={`grid w-full ${gridCols} mb-3 h-8`}>
+                                {hasIncome && (
+                                  <TabsTrigger value="income" className="text-[10px]">
+                                    Income
+                                  </TabsTrigger>
+                                )}
+                                {hasBalance && (
+                                  <TabsTrigger value="balance" className="text-[10px]">
+                                    Balance
+                                  </TabsTrigger>
+                                )}
+                                {hasCash && (
+                                  <TabsTrigger value="cash" className="text-[10px]">
+                                    Cash Flow
+                                  </TabsTrigger>
+                                )}
+                              </TabsList>
+
+                              <TabsContent value="income" className="space-y-2">
+                                {income_statements &&
+                                  Object.entries(income_statements).map(([company, statements]: [string, any[]]) =>
+                                    renderIncomeTable(company, statements),
+                                  )}
+                              </TabsContent>
+                              <TabsContent value="balance" className="space-y-2">
+                                {balance_sheets &&
+                                  Object.entries(balance_sheets).map(([company, sheets]: [string, any[]]) =>
+                                    renderBalanceTable(company, sheets),
+                                  )}
+                              </TabsContent>
+                              <TabsContent value="cash" className="space-y-2">
+                                {cash_flows &&
+                                  Object.entries(cash_flows).map(([company, flows]: [string, any[]]) =>
+                                    renderCashFlowTable(company, flows),
+                                  )}
+                              </TabsContent>
+                            </Tabs>
+                          ) : (
+                            <div className="space-y-2">
+                              {hasIncome &&
+                                income_statements &&
+                                Object.entries(income_statements).map(([company, statements]: [string, any[]]) =>
+                                  renderIncomeTable(company, statements),
+                                )}
+                              {hasBalance &&
+                                balance_sheets &&
+                                Object.entries(balance_sheets).map(([company, sheets]: [string, any[]]) =>
+                                  renderBalanceTable(company, sheets),
+                                )}
+                              {hasCash &&
+                                cash_flows &&
+                                Object.entries(cash_flows).map(([company, flows]: [string, any[]]) =>
+                                  renderCashFlowTable(company, flows),
+                                )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()
                   : null}
 
                 {/* Dividends */}
                 {dividends_data &&
-                  Object.keys(dividends_data).length > 0 &&
-                  (() => {
-                    const hasValidDividends = Object.values(dividends_data).some(
-                      (dividends: any[]) => dividends.length > 0,
-                    );
-                    return hasValidDividends;
-                  })() ? (
+                Object.keys(dividends_data).length > 0 &&
+                (() => {
+                  const hasValidDividends = Object.values(dividends_data).some(
+                    (dividends: any[]) => dividends.length > 0,
+                  );
+                  return hasValidDividends;
+                })() ? (
                   <div className="pt-4 border-t border-border/30">
                     <div className="flex items-center gap-2 mb-3">
                       <Banknote className="size-3.5 text-muted-foreground" />
-                      <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">Dividends</span>
+                      <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">
+                        Dividends
+                      </span>
                     </div>
                     <div className="space-y-2">
                       {Object.entries(dividends_data).map(([company, dividends]: [string, any[]]) => {
@@ -1537,14 +1707,23 @@ export const InteractiveStockChart = React.memo(
                             type: 'time',
                             axisLine: { show: false },
                             axisTick: { show: false },
-                            axisLabel: { fontSize: 9, color: divSubTextColor, formatter: (value: any) => new Date(value).getFullYear().toString(), margin: 6 },
+                            axisLabel: {
+                              fontSize: 9,
+                              color: divSubTextColor,
+                              formatter: (value: any) => new Date(value).getFullYear().toString(),
+                              margin: 6,
+                            },
                             splitLine: { show: false },
                           },
                           yAxis: {
                             type: 'value',
                             axisLine: { show: false },
                             axisTick: { show: false },
-                            axisLabel: { fontSize: 9, color: divSubTextColor, formatter: (value: number) => `$${value.toFixed(2)}` },
+                            axisLabel: {
+                              fontSize: 9,
+                              color: divSubTextColor,
+                              formatter: (value: number) => `$${value.toFixed(2)}`,
+                            },
                             splitLine: { lineStyle: { color: divGridColor, type: 'dashed' as const } },
                           },
                           tooltip: {
@@ -1554,22 +1733,38 @@ export const InteractiveStockChart = React.memo(
                             padding: 0,
                             formatter: (params: any) => {
                               const point = params[0];
-                              const formattedDate = new Date(point.value[0]).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                              const formattedDate = new Date(point.value[0]).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                              });
                               const shadowColor = isDark ? 'rgba(0, 0, 0, 0.5)' : 'rgba(0, 0, 0, 0.08)';
                               return `<div style="padding:8px 12px;border-radius:8px;font-family:system-ui;background:${divTooltipBg};backdrop-filter:blur(12px);box-shadow:0 4px 20px ${shadowColor},0 0 0 1px ${divTooltipBorder};"><div style="color:${divSubTextColor};font-size:9px;font-weight:500;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">${formattedDate}</div><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;"><div style="display:flex;align-items:center;gap:6px;"><div style="width:6px;height:6px;border-radius:50%;background:${divLineColor};"></div><span style="color:${divSubTextColor};font-size:10px;">Dividend</span></div><span style="color:${divTextColor};font-weight:600;font-size:11px;font-variant-numeric:tabular-nums;">$${point.value[1].toFixed(2)}</span></div></div>`;
                             },
                           },
-                          series: [{
-                            type: 'line',
-                            data: chartData.map((d) => [d.date, d.amount]),
-                            lineStyle: { color: divLineColor, width: 2 },
-                            itemStyle: { color: divLineColor },
-                            areaStyle: {
-                              color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: divAreaColorStart }, { offset: 1, color: 'rgba(0,0,0,0)' }] },
+                          series: [
+                            {
+                              type: 'line',
+                              data: chartData.map((d) => [d.date, d.amount]),
+                              lineStyle: { color: divLineColor, width: 2 },
+                              itemStyle: { color: divLineColor },
+                              areaStyle: {
+                                color: {
+                                  type: 'linear',
+                                  x: 0,
+                                  y: 0,
+                                  x2: 0,
+                                  y2: 1,
+                                  colorStops: [
+                                    { offset: 0, color: divAreaColorStart },
+                                    { offset: 1, color: 'rgba(0,0,0,0)' },
+                                  ],
+                                },
+                              },
+                              smooth: 0.4,
+                              showSymbol: false,
                             },
-                            smooth: 0.4,
-                            showSymbol: false,
-                          }],
+                          ],
                         };
 
                         const isExpanded = expandedDividendCompanies.has(company);
@@ -1591,10 +1786,13 @@ export const InteractiveStockChart = React.memo(
                                 <span
                                   className={cn(
                                     'text-[10px] font-semibold tabular-nums shrink-0',
-                                    growthRate >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400',
+                                    growthRate >= 0
+                                      ? 'text-emerald-600 dark:text-emerald-400'
+                                      : 'text-red-600 dark:text-red-400',
                                   )}
                                 >
-                                  {growthRate >= 0 ? '+' : ''}{growthRate.toFixed(1)}%
+                                  {growthRate >= 0 ? '+' : ''}
+                                  {growthRate.toFixed(1)}%
                                 </span>
                               </div>
                               {isExpanded ? (
@@ -1606,17 +1804,32 @@ export const InteractiveStockChart = React.memo(
                             {isExpanded ? (
                               <div className="border-t border-border/30 p-3 space-y-2">
                                 <div className="w-full h-40 rounded-md border border-border/30 p-1">
-                                  <ReactECharts option={dividendChartOptions} style={{ height: '100%', width: '100%' }} />
+                                  <ReactECharts
+                                    option={dividendChartOptions}
+                                    style={{ height: '100%', width: '100%' }}
+                                  />
                                 </div>
                                 <div className="divide-y divide-border/20 max-h-36 overflow-y-auto rounded-md border border-border/30">
-                                  {sortedDividends.slice(-10).reverse().map((div, idx) => (
-                                    <div key={idx} className="flex items-center justify-between px-3 py-1.5 hover:bg-muted/10 transition-colors">
-                                      <span className="text-[11px] text-muted-foreground tabular-nums">
-                                        {new Date(div.ex_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
-                                      </span>
-                                      <span className="text-[11px] font-semibold tabular-nums">${div.amount.toFixed(2)}</span>
-                                    </div>
-                                  ))}
+                                  {sortedDividends
+                                    .slice(-10)
+                                    .reverse()
+                                    .map((div, idx) => (
+                                      <div
+                                        key={idx}
+                                        className="flex items-center justify-between px-3 py-1.5 hover:bg-muted/10 transition-colors"
+                                      >
+                                        <span className="text-[11px] text-muted-foreground tabular-nums">
+                                          {new Date(div.ex_date).toLocaleDateString('en-US', {
+                                            month: 'short',
+                                            day: 'numeric',
+                                            year: '2-digit',
+                                          })}
+                                        </span>
+                                        <span className="text-[11px] font-semibold tabular-nums">
+                                          ${div.amount.toFixed(2)}
+                                        </span>
+                                      </div>
+                                    ))}
                                 </div>
                               </div>
                             ) : null}
@@ -1632,7 +1845,9 @@ export const InteractiveStockChart = React.memo(
                   <div className="pt-4 border-t border-border/30">
                     <div className="flex items-center gap-2 mb-3">
                       <UserCheck className="size-3.5 text-muted-foreground" />
-                      <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">Insider Transactions</span>
+                      <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">
+                        Insider Transactions
+                      </span>
                     </div>
                     <div className="space-y-2">
                       {Object.entries(insider_transactions).map(([company, transactions]: [string, any[]]) => (
@@ -1642,7 +1857,9 @@ export const InteractiveStockChart = React.memo(
                               <Building2 className="size-3.5 text-muted-foreground" />
                               <span className="text-xs font-medium">{company}</span>
                             </div>
-                            <span className="text-[10px] text-muted-foreground tabular-nums">{transactions.length}</span>
+                            <span className="text-[10px] text-muted-foreground tabular-nums">
+                              {transactions.length}
+                            </span>
                           </div>
                           <div
                             className="divide-y divide-border/20 max-h-56 overflow-y-auto"
@@ -1669,15 +1886,22 @@ export const InteractiveStockChart = React.memo(
                               const price = priceMatch ? parseFloat(priceMatch[1]) : null;
 
                               return (
-                                <div key={idx} className="flex items-center justify-between px-3.5 py-2 hover:bg-muted/10 transition-colors">
+                                <div
+                                  key={idx}
+                                  className="flex items-center justify-between px-3.5 py-2 hover:bg-muted/10 transition-colors"
+                                >
                                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
                                     <div className="min-w-0">
                                       <div className="flex items-center gap-1.5">
-                                        <span className="text-[11px] font-medium text-foreground truncate max-w-[140px]">{trans.full_name}</span>
+                                        <span className="text-[11px] font-medium text-foreground truncate max-w-[140px]">
+                                          {trans.full_name}
+                                        </span>
                                         <span
                                           className={cn(
                                             'font-pixel text-[8px] uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0',
-                                            isBuy ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-muted/50 text-muted-foreground',
+                                            isBuy
+                                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                              : 'bg-muted/50 text-muted-foreground',
                                           )}
                                         >
                                           {transType}
@@ -1686,7 +1910,9 @@ export const InteractiveStockChart = React.memo(
                                       <div className="flex items-center gap-2 text-[10px] text-muted-foreground/60">
                                         <span className="truncate max-w-[120px]">{trans.position}</span>
                                         <span className="tabular-nums">{trans.shares.toLocaleString()} shr</span>
-                                        {price && price > 0 && <span className="tabular-nums">@ ${price.toFixed(2)}</span>}
+                                        {price && price > 0 && (
+                                          <span className="tabular-nums">@ ${price.toFixed(2)}</span>
+                                        )}
                                       </div>
                                     </div>
                                   </div>
@@ -1695,7 +1921,11 @@ export const InteractiveStockChart = React.memo(
                                       {trans.value > 0 ? `$${(trans.value / 1e6).toFixed(2)}M` : 'Grant'}
                                     </span>
                                     <span className="text-[9px] text-muted-foreground/50 tabular-nums">
-                                      {new Date(trans.date_reported).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
+                                      {new Date(trans.date_reported).toLocaleDateString('en-US', {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        year: '2-digit',
+                                      })}
                                     </span>
                                   </div>
                                 </div>
@@ -1710,11 +1940,13 @@ export const InteractiveStockChart = React.memo(
 
                 {/* News Results Section */}
                 {news_results &&
-                  news_results.some((group) => group.topic !== 'financial' && group.results.length > 0) ? (
+                news_results.some((group) => group.topic !== 'financial' && group.results.length > 0) ? (
                   <div className="pt-4 border-t border-border/30">
                     <div className="flex items-center gap-2 mb-3">
                       <Newspaper className="size-3.5 text-muted-foreground" />
-                      <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">Related News</span>
+                      <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">
+                        Related News
+                      </span>
                     </div>
 
                     <div className="flex overflow-x-auto gap-2 no-scrollbar pb-1 snap-x snap-mandatory">
@@ -1729,8 +1961,12 @@ export const InteractiveStockChart = React.memo(
                               className="min-w-56 max-w-64 sm:w-56 shrink-0 rounded-lg border border-border/40 hover:border-border/60 transition-colors snap-start overflow-hidden group"
                             >
                               <div className="p-2.5">
-                                <h4 className="text-[11px] font-medium line-clamp-2 group-hover:text-primary transition-colors leading-snug">{news.title}</h4>
-                                <p className="text-[10px] text-muted-foreground/70 line-clamp-2 mt-1 leading-relaxed">{news.content}</p>
+                                <h4 className="text-[11px] font-medium line-clamp-2 group-hover:text-primary transition-colors leading-snug">
+                                  {news.title}
+                                </h4>
+                                <p className="text-[10px] text-muted-foreground/70 line-clamp-2 mt-1 leading-relaxed">
+                                  {news.content}
+                                </p>
                               </div>
                               <div className="px-2.5 py-1.5 border-t border-border/20 flex items-center justify-between bg-muted/10">
                                 <div className="flex items-center gap-1.5">
@@ -1752,7 +1988,10 @@ export const InteractiveStockChart = React.memo(
                                 </div>
                                 {news.published_date && (
                                   <time className="text-[9px] text-muted-foreground/50 tabular-nums">
-                                    {new Date(news.published_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                    {new Date(news.published_date).toLocaleDateString(undefined, {
+                                      month: 'short',
+                                      day: 'numeric',
+                                    })}
                                   </time>
                                 )}
                               </div>
@@ -1765,11 +2004,13 @@ export const InteractiveStockChart = React.memo(
 
                 {/* Financial Reports */}
                 {news_results &&
-                  news_results.some((group) => group.topic === 'financial' && group.results.length > 0) ? (
+                news_results.some((group) => group.topic === 'financial' && group.results.length > 0) ? (
                   <div className="pt-4 border-t border-border/30">
                     <div className="flex items-center gap-2 mb-3">
                       <ChartBarIcon className="size-3.5 text-muted-foreground" />
-                      <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">Financial Reports</span>
+                      <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">
+                        Financial Reports
+                      </span>
                     </div>
 
                     <div className="flex overflow-x-auto gap-2 no-scrollbar pb-1 snap-x snap-mandatory">
@@ -1785,10 +2026,16 @@ export const InteractiveStockChart = React.memo(
                             >
                               <div className="p-2.5">
                                 <div className="flex items-center gap-1.5 mb-1">
-                                  <span className="font-pixel text-[8px] text-amber-600 dark:text-amber-400 uppercase tracking-wider bg-amber-500/10 px-1.5 py-0.5 rounded">Financial</span>
+                                  <span className="font-pixel text-[8px] text-amber-600 dark:text-amber-400 uppercase tracking-wider bg-amber-500/10 px-1.5 py-0.5 rounded">
+                                    Financial
+                                  </span>
                                 </div>
-                                <h4 className="text-[11px] font-medium line-clamp-2 group-hover:text-primary transition-colors leading-snug">{news.title}</h4>
-                                <p className="text-[10px] text-muted-foreground/70 line-clamp-2 mt-1 leading-relaxed">{news.content}</p>
+                                <h4 className="text-[11px] font-medium line-clamp-2 group-hover:text-primary transition-colors leading-snug">
+                                  {news.title}
+                                </h4>
+                                <p className="text-[10px] text-muted-foreground/70 line-clamp-2 mt-1 leading-relaxed">
+                                  {news.content}
+                                </p>
                               </div>
                               <div className="px-2.5 py-1.5 border-t border-border/20 flex items-center justify-between bg-muted/10">
                                 <div className="flex items-center gap-1.5">
@@ -1810,7 +2057,10 @@ export const InteractiveStockChart = React.memo(
                                 </div>
                                 {news.published_date ? (
                                   <time className="text-[9px] text-muted-foreground/50 tabular-nums">
-                                    {new Date(news.published_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                    {new Date(news.published_date).toLocaleDateString(undefined, {
+                                      month: 'short',
+                                      day: 'numeric',
+                                    })}
                                   </time>
                                 ) : null}
                               </div>
@@ -1826,32 +2076,56 @@ export const InteractiveStockChart = React.memo(
                   <div className="pt-4 border-t border-border/30">
                     <div className="flex items-center gap-2 mb-3">
                       <Activity className="size-3.5 text-muted-foreground" />
-                      <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">Market Movers</span>
+                      <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">
+                        Market Movers
+                      </span>
                     </div>
 
                     <Tabs defaultValue="gainers" className="w-full">
                       <TabsList className="grid w-full grid-cols-3 mb-3 h-8">
-                        <TabsTrigger value="gainers" className="text-[10px]">Gainers</TabsTrigger>
-                        <TabsTrigger value="losers" className="text-[10px]">Losers</TabsTrigger>
-                        <TabsTrigger value="active" className="text-[10px]">Active</TabsTrigger>
+                        <TabsTrigger value="gainers" className="text-[10px]">
+                          Gainers
+                        </TabsTrigger>
+                        <TabsTrigger value="losers" className="text-[10px]">
+                          Losers
+                        </TabsTrigger>
+                        <TabsTrigger value="active" className="text-[10px]">
+                          Active
+                        </TabsTrigger>
                       </TabsList>
 
                       {(['gainers', 'losers', 'active'] as const).map((tab) => {
-                        const items = tab === 'gainers' ? market_movers.gainers : tab === 'losers' ? market_movers.losers : market_movers.most_active;
+                        const items =
+                          tab === 'gainers'
+                            ? market_movers.gainers
+                            : tab === 'losers'
+                              ? market_movers.losers
+                              : market_movers.most_active;
                         return (
                           <TabsContent key={tab} value={tab}>
                             <div className="rounded-lg border border-border/40 divide-y divide-border/20 overflow-hidden">
                               {items.map((stock, idx) => (
-                                <div key={idx} className="flex items-center justify-between px-3.5 py-2 hover:bg-muted/10 transition-colors">
+                                <div
+                                  key={idx}
+                                  className="flex items-center justify-between px-3.5 py-2 hover:bg-muted/10 transition-colors"
+                                >
                                   <div className="flex items-center gap-2.5 min-w-0">
-                                    <span className="text-[11px] font-semibold text-foreground tabular-nums min-w-[48px]">{stock.symbol}</span>
-                                    <span className="text-[10px] text-muted-foreground/60 truncate max-w-[160px]">{stock.name}</span>
+                                    <span className="text-[11px] font-semibold text-foreground tabular-nums min-w-[48px]">
+                                      {stock.symbol}
+                                    </span>
+                                    <span className="text-[10px] text-muted-foreground/60 truncate max-w-[160px]">
+                                      {stock.name}
+                                    </span>
                                   </div>
                                   <div className="flex items-center gap-3 shrink-0">
                                     {tab === 'active' && (
-                                      <span className="text-[9px] text-muted-foreground/50 tabular-nums">{(stock.volume / 1e6).toFixed(1)}M</span>
+                                      <span className="text-[9px] text-muted-foreground/50 tabular-nums">
+                                        {(stock.volume / 1e6).toFixed(1)}M
+                                      </span>
                                     )}
-                                    <span className="text-[11px] font-semibold tabular-nums">${stock.last.toFixed(2)}</span>
+                                    <span className="text-[11px] font-semibold tabular-nums">
+                                      ${stock.last.toFixed(2)}
+                                    </span>
                                     <span
                                       className={cn(
                                         'text-[10px] font-semibold tabular-nums flex items-center gap-0.5 min-w-[56px] justify-end',
@@ -1860,8 +2134,13 @@ export const InteractiveStockChart = React.memo(
                                           : 'text-red-600 dark:text-red-400',
                                       )}
                                     >
-                                      {stock.percent_change >= 0 ? <TrendingUp className="size-2.5" /> : <TrendingDown className="size-2.5" />}
-                                      {stock.percent_change >= 0 ? '+' : ''}{stock.percent_change.toFixed(2)}%
+                                      {stock.percent_change >= 0 ? (
+                                        <TrendingUp className="size-2.5" />
+                                      ) : (
+                                        <TrendingDown className="size-2.5" />
+                                      )}
+                                      {stock.percent_change >= 0 ? '+' : ''}
+                                      {stock.percent_change.toFixed(2)}%
                                     </span>
                                   </div>
                                 </div>

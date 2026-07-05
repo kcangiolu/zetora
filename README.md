@@ -20,29 +20,30 @@ Research at the speed of thought. The agentic research platform that plans, retr
 
 ### Search Modes (17 modes)
 
-| Mode | Description |
-|---|---|
-| **Web** | Search the entire web with AI-powered analysis |
-| **Chat** | Talk to the model directly, no search |
-| **X** | Real-time posts, trends, and conversations |
-| **Stocks** | Market data, charts, and financial analysis |
-| **Code** | Get context about languages and frameworks |
-| **Academic** | Research papers, citations, and scholarly sources |
-| **Extreme** | Deep research with multiple sources and analysis |
-| **Reddit** | Discussions, opinions, and community insights |
-| **GitHub** | Repositories, code, and developer discussions |
-| **Crypto** | Cryptocurrency research powered by CoinGecko |
-| **Prediction** | Prediction markets from Polymarket and Kalshi |
-| **YouTube** | Video summaries, transcripts, and analysis |
-| **Spotify** | Search songs, artists, and albums |
-| **Connectors** | Search Google Drive, Notion & OneDrive *(Pro)* |
-| **Memory** | Your personal memory companion *(Pro)* |
-| **Voice** | Conversational AI with real-time voice *(Pro)* |
-| **XQL** | Advanced X query language for tweet analysis *(Pro)* |
+| Mode           | Description                                          |
+| -------------- | ---------------------------------------------------- |
+| **Web**        | Search the entire web with AI-powered analysis       |
+| **Chat**       | Talk to the model directly, no search                |
+| **X**          | Real-time posts, trends, and conversations           |
+| **Stocks**     | Market data, charts, and financial analysis          |
+| **Code**       | Get context about languages and frameworks           |
+| **Academic**   | Research papers, citations, and scholarly sources    |
+| **Extreme**    | Deep research with multiple sources and analysis     |
+| **Reddit**     | Discussions, opinions, and community insights        |
+| **GitHub**     | Repositories, code, and developer discussions        |
+| **Crypto**     | Cryptocurrency research powered by CoinGecko         |
+| **Prediction** | Prediction markets from Polymarket and Kalshi        |
+| **YouTube**    | Video summaries, transcripts, and analysis           |
+| **Spotify**    | Search songs, artists, and albums                    |
+| **Connectors** | Search Google Drive, Notion & OneDrive _(Pro)_       |
+| **Memory**     | Your personal memory companion _(Pro)_               |
+| **Voice**      | Conversational AI with real-time voice _(Pro)_       |
+| **XQL**        | Advanced X query language for tweet analysis _(Pro)_ |
 
 ### Tools (28 tools)
 
 #### Search & Retrieval
+
 - **Web search** — Multi-query parallel web search with deduplication using Exa, Firecrawl, Parallel, and Tavily (or self-hosted SearXNG)
 - **Extreme search** — LLM-driven deep research agent with multi-step planning, code execution, and artifact storage
 - **Academic search** — Search academic papers and research using Exa and Firecrawl
@@ -54,22 +55,26 @@ Research at the speed of thought. The agentic research platform that plans, retr
 - **URL content retrieval** — Extract content from any URL including tweets, YouTube, TikTok, and Instagram
 
 #### Financial & Market Data
+
 - **Stock charts** — Interactive stock charts with OHLC data, earnings, and news using Valyu, Tavily, and Exa
 - **Currency converter** — Forex and crypto conversion with real-time rates using Valyu
 - **Crypto tools** — Cryptocurrency data, contract lookups, and OHLC charts using CoinGecko
 - **Prediction markets** — Query Polymarket and Kalshi data with Cohere reranking using Valyu
 
 #### Location & Travel
+
 - **Weather** — Current weather, 5-day forecast, air quality, and 16-day extended forecast using OpenWeatherMap and Open-Meteo
 - **Maps & geocoding** — Forward/reverse geocoding and nearby place discovery using Google Maps API
 - **Flight tracking** — Real-time flight status with departure/arrival details
 
 #### Media & Entertainment
+
 - **Movie/TV search** — Search movies and TV shows with detailed cast, ratings, and metadata using TMDB
 - **Trending movies** — Today's trending movies from TMDB
 - **Trending TV shows** — Today's trending TV shows from TMDB
 
 #### Productivity & Utilities
+
 - **Code interpreter** — Write and execute Python code in a sandboxed environment (self-hosted Docker sandbox or Daytona) with chart generation
 - **Code context** — Get contextual information about programming topics using Exa Context API
 - **Text translation** — Translate text (and text within images) between languages using AI models
@@ -101,16 +106,16 @@ Research at the speed of thought. The agentic research platform that plans, retr
 
 This fork bundles a complete self-hosted stack in [`docker-compose.yml`](docker-compose.yml), so Zetora can run with little to no dependency on third-party cloud services beyond your chosen AI provider API keys.
 
-| Service | Container(s) | Cloud equivalent (Scira default) | Purpose |
-|---|---|---|---|
-| **PostgreSQL 17** | `postgres` | Vercel Postgres / Neon | Primary application database |
-| **Redis 7** | `redis` | Upstash Redis | Sessions, cache, rate limiting |
-| **MinIO** | `minio`, `minio-create-bucket` | Cloudflare R2 / Vercel Blob | S3-compatible object storage for uploads (`STORAGE_PROVIDER=minio`) |
-| **Qdrant** | `qdrant` | *(new — no Scira equivalent)* | Vector store for the hybrid RAG pipeline (content indexing, RRF fusion, reranking) |
-| **SearXNG** | `searxng`, `searxng-redis` | Tavily / Exa | Self-hosted metasearch engine for the Web search mode |
-| **Code Interpreter** | `sandbox` | Daytona | Sandboxed Python execution for the Code Interpreter tool (`SANDBOX_PROVIDER=docker`) |
-| **FalkorDB + Graphiti** | `falkordb`, `graphiti-api`, `graphiti-mcp` | Supermemory / Mem0 | Self-hosted knowledge-graph memory provider |
-| **BullMQ** | `bullmq-redis`, `bullboard` | Upstash QStash | Self-hosted scheduler for Lookouts (recurring research agents), with a Bull Board admin UI |
+| Service                 | Container(s)                               | Cloud equivalent (Scira default) | Purpose                                                                                    |
+| ----------------------- | ------------------------------------------ | -------------------------------- | ------------------------------------------------------------------------------------------ |
+| **PostgreSQL 17**       | `postgres`                                 | Vercel Postgres / Neon           | Primary application database                                                               |
+| **Redis 7**             | `redis`                                    | Upstash Redis                    | Sessions, cache, rate limiting                                                             |
+| **MinIO**               | `minio`, `minio-create-bucket`             | Cloudflare R2 / Vercel Blob      | S3-compatible object storage for uploads (`STORAGE_PROVIDER=minio`)                        |
+| **Qdrant**              | `qdrant`                                   | _(new — no Scira equivalent)_    | Vector store for the hybrid RAG pipeline (content indexing, RRF fusion, reranking)         |
+| **SearXNG**             | `searxng`, `searxng-redis`                 | Tavily / Exa                     | Self-hosted metasearch engine for the Web search mode                                      |
+| **Code Interpreter**    | `sandbox`                                  | Daytona                          | Sandboxed Python execution for the Code Interpreter tool (`SANDBOX_PROVIDER=docker`)       |
+| **FalkorDB + Graphiti** | `falkordb`, `graphiti-api`, `graphiti-mcp` | Supermemory / Mem0               | Self-hosted knowledge-graph memory provider                                                |
+| **BullMQ**              | `bullmq-redis`, `bullboard`                | Upstash QStash                   | Self-hosted scheduler for Lookouts (recurring research agents), with a Bull Board admin UI |
 
 All services share the `zetora-network` Docker network and resolve each other by service name. Internal-only services are bound to `127.0.0.1` — only `zetora.app` (port 3000) needs to be exposed through a reverse proxy.
 
@@ -126,16 +131,16 @@ Beyond the bundled infrastructure, this fork also adds:
 
 If you'd rather not run the bundled services, Zetora can run entirely against managed/cloud providers, closer to the original Scira setup. Don't start the corresponding compose services and set the matching environment variables instead:
 
-| Self-hosted service | Cloud alternative | Configuration |
-|---|---|---|
-| Postgres | Vercel Postgres / Neon / Supabase | `DATABASE_URL` (+ optional `READ_DB_1`/`READ_DB_2` read replicas) |
-| Redis | Upstash Redis | `REDIS_URL` |
-| MinIO | Cloudflare R2 / Vercel Blob | `STORAGE_PROVIDER=cloudflare-r2` (default) with R2 credentials |
-| Qdrant | — (disabled) | leave `QDRANT_URL` unset to disable the vector cache |
-| SearXNG | Tavily / Exa | `TAVILY_API_KEY`, `EXA_API_KEY` (used automatically when `SEARXNG_URL` is unset) |
-| Sandbox | Daytona | `SANDBOX_PROVIDER=daytona` (default) with `DAYTONA_API_KEY` |
-| FalkorDB + Graphiti | Supermemory | `SUPERMEMORY_API_KEY` |
-| BullMQ | Upstash QStash | `QSTASH_TOKEN` and related QStash variables |
+| Self-hosted service | Cloud alternative                 | Configuration                                                                    |
+| ------------------- | --------------------------------- | -------------------------------------------------------------------------------- |
+| Postgres            | Vercel Postgres / Neon / Supabase | `DATABASE_URL` (+ optional `READ_DB_1`/`READ_DB_2` read replicas)                |
+| Redis               | Upstash Redis                     | `REDIS_URL`                                                                      |
+| MinIO               | Cloudflare R2 / Vercel Blob       | `STORAGE_PROVIDER=cloudflare-r2` (default) with R2 credentials                   |
+| Qdrant              | — (disabled)                      | leave `QDRANT_URL` unset to disable the vector cache                             |
+| SearXNG             | Tavily / Exa                      | `TAVILY_API_KEY`, `EXA_API_KEY` (used automatically when `SEARXNG_URL` is unset) |
+| Sandbox             | Daytona                           | `SANDBOX_PROVIDER=daytona` (default) with `DAYTONA_API_KEY`                      |
+| FalkorDB + Graphiti | Supermemory                       | `SUPERMEMORY_API_KEY`                                                            |
+| BullMQ              | Upstash QStash                    | `QSTASH_TOKEN` and related QStash variables                                      |
 
 See `.env.example` for the full catalog of provider and feature environment variables.
 
@@ -227,6 +232,7 @@ Use this to deploy the full stack (app + Postgres, Redis, MinIO, Qdrant, SearXNG
    - Optional but recommended: `BULLMQ_REDIS_PASSWORD`, Graphiti `GRAPHITI_LLM_*`/`GRAPHITI_EMBEDDING_*` keys, OAuth provider credentials, payment provider keys.
 
    See `.env.example` for the full list of available variables, and the comments at the top of `docker-compose.yml` for how to drop optional services.
+
 3. Build and start the stack:
    ```bash
    docker compose up -d --build

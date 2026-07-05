@@ -156,7 +156,10 @@ const SpotifyTrackCard: React.FC<{
 
           {isCurrentTrack && (
             <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black/20">
-              <div className="h-full bg-[#1DB954] transition-all duration-100" style={{ width: `${progressPercent}%` }} />
+              <div
+                className="h-full bg-[#1DB954] transition-all duration-100"
+                style={{ width: `${progressPercent}%` }}
+              />
             </div>
           )}
         </div>
@@ -175,9 +178,7 @@ const SpotifyTrackCard: React.FC<{
             >
               {track.name}
             </a>
-            {track.explicit && (
-              <Icons.Explicit className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
-            )}
+            {track.explicit && <Icons.Explicit className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />}
           </div>
           <div className="text-[11px] text-muted-foreground truncate mt-0.5">
             {track.artists.map((a) => a.name).join(', ')}
@@ -332,7 +333,11 @@ const FeaturedArtistCard: React.FC<{ artist: SpotifyArtistResult }> = ({ artist 
     <div className="relative overflow-hidden">
       {artist.image && (
         <div className="absolute inset-0 -z-10">
-          <img src={artist.image} alt="" className="w-full h-full object-cover scale-110 blur-2xl opacity-20 dark:opacity-15" />
+          <img
+            src={artist.image}
+            alt=""
+            className="w-full h-full object-cover scale-110 blur-2xl opacity-20 dark:opacity-15"
+          />
           <div className="absolute inset-0 bg-linear-to-r from-card/80 to-card/60" />
         </div>
       )}
@@ -402,7 +407,11 @@ const FeaturedAlbumCard: React.FC<{ album: SpotifyAlbumResult }> = ({ album }) =
     <div className="relative overflow-hidden">
       {album.image && (
         <div className="absolute inset-0 -z-10">
-          <img src={album.image} alt="" className="w-full h-full object-cover scale-110 blur-2xl opacity-20 dark:opacity-15" />
+          <img
+            src={album.image}
+            alt=""
+            className="w-full h-full object-cover scale-110 blur-2xl opacity-20 dark:opacity-15"
+          />
           <div className="absolute inset-0 bg-linear-to-r from-card/80 to-card/60" />
         </div>
       )}
@@ -426,7 +435,9 @@ const FeaturedAlbumCard: React.FC<{ album: SpotifyAlbumResult }> = ({ album }) =
           </div>
 
           <div className="flex-1 min-w-0 flex flex-col justify-center py-0.5">
-            <div className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">{album.albumType}</div>
+            <div className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">
+              {album.albumType}
+            </div>
             <a
               href={album.url}
               target="_blank"
@@ -470,7 +481,11 @@ const FeaturedPlaylistCard: React.FC<{ playlist: SpotifyPlaylistResult }> = ({ p
     <div className="relative overflow-hidden">
       {playlist.image && (
         <div className="absolute inset-0 -z-10">
-          <img src={playlist.image} alt="" className="w-full h-full object-cover scale-110 blur-2xl opacity-20 dark:opacity-15" />
+          <img
+            src={playlist.image}
+            alt=""
+            className="w-full h-full object-cover scale-110 blur-2xl opacity-20 dark:opacity-15"
+          />
           <div className="absolute inset-0 bg-linear-to-r from-card/80 to-card/60" />
         </div>
       )}
@@ -504,13 +519,12 @@ const FeaturedPlaylistCard: React.FC<{ playlist: SpotifyPlaylistResult }> = ({ p
               {playlist.name}
             </a>
 
-            <div className="text-[13px] text-muted-foreground truncate mt-1">
-              By {playlist.owner.name}
-            </div>
+            <div className="text-[13px] text-muted-foreground truncate mt-1">By {playlist.owner.name}</div>
 
             <div className="text-[11px] text-muted-foreground/60 truncate mt-0.5">
               {playlist.totalTracks} tracks
-              {playlist.description && ` · ${playlist.description.slice(0, 50)}${playlist.description.length > 50 ? '...' : ''}`}
+              {playlist.description &&
+                ` · ${playlist.description.slice(0, 50)}${playlist.description.length > 50 ? '...' : ''}`}
             </div>
 
             <div className="flex items-center gap-2 mt-3">
@@ -547,7 +561,11 @@ const FeaturedTrackCard: React.FC<{
     <div className="relative overflow-hidden">
       {track.album.image && (
         <div className="absolute inset-0 -z-10">
-          <img src={track.album.image} alt="" className="w-full h-full object-cover scale-110 blur-2xl opacity-20 dark:opacity-15" />
+          <img
+            src={track.album.image}
+            alt=""
+            className="w-full h-full object-cover scale-110 blur-2xl opacity-20 dark:opacity-15"
+          />
           <div className="absolute inset-0 bg-linear-to-r from-card/80 to-card/60" />
         </div>
       )}
@@ -595,7 +613,10 @@ const FeaturedTrackCard: React.FC<{
 
             {isCurrentTrack && (
               <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/30">
-                <div className="h-full bg-[#1DB954] transition-all duration-100" style={{ width: `${progressPercent}%` }} />
+                <div
+                  className="h-full bg-[#1DB954] transition-all duration-100"
+                  style={{ width: `${progressPercent}%` }}
+                />
               </div>
             )}
           </div>
@@ -764,14 +785,17 @@ export const SpotifySearchResults: React.FC<SpotifySearchResultsProps> = ({ resu
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
     });
 
-    audio.play().then(() => {
-      setPlayerState({ currentTrackId: track.id, isPlaying: true, progress: 0, duration: track.durationMs });
-      progressIntervalRef.current = setInterval(() => {
-        if (audioRef.current) {
-          setPlayerState((prev) => ({ ...prev, progress: audioRef.current!.currentTime * 1000 }));
-        }
-      }, 100);
-    }).catch(console.error);
+    audio
+      .play()
+      .then(() => {
+        setPlayerState({ currentTrackId: track.id, isPlaying: true, progress: 0, duration: track.durationMs });
+        progressIntervalRef.current = setInterval(() => {
+          if (audioRef.current) {
+            setPlayerState((prev) => ({ ...prev, progress: audioRef.current!.currentTime * 1000 }));
+          }
+        }, 100);
+      })
+      .catch(console.error);
   }, []);
 
   const pauseTrack = useCallback(() => {
@@ -811,7 +835,13 @@ export const SpotifySearchResults: React.FC<SpotifySearchResultsProps> = ({ resu
     { id: 'tracks' as const, label: 'Tracks', count: tracks.length, icon: Icons.Music, show: hasTracks },
     { id: 'artists' as const, label: 'Artists', count: artists.length, icon: Icons.User, show: hasArtists },
     { id: 'albums' as const, label: 'Albums', count: albums.length, icon: Icons.Disc, show: hasAlbums },
-    { id: 'playlists' as const, label: 'Playlists', count: playlists.length, icon: Icons.ListMusic, show: hasPlaylists },
+    {
+      id: 'playlists' as const,
+      label: 'Playlists',
+      count: playlists.length,
+      icon: Icons.ListMusic,
+      show: hasPlaylists,
+    },
   ].filter((t) => t.show);
 
   const showTabs = tabs.length > 1;
@@ -838,7 +868,10 @@ export const SpotifySearchResults: React.FC<SpotifySearchResultsProps> = ({ resu
               return (
                 <button
                   key={tab.id}
-                  onClick={() => { setActiveTab(tab.id); setIsExpanded(false); }}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    setIsExpanded(false);
+                  }}
                   className={cn(
                     'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors shrink-0',
                     activeTab === tab.id
@@ -893,7 +926,11 @@ export const SpotifySearchResults: React.FC<SpotifySearchResultsProps> = ({ resu
                 >
                   <span>{isExpanded ? 'Show less' : `Show ${remainingTracks.length} more tracks`}</span>
                   <Icons.ChevronDown
-                    className={cn('h-3.5 w-3.5 transition-transform duration-200', !isExpanded && 'group-hover:translate-y-0.5', isExpanded && 'rotate-180')}
+                    className={cn(
+                      'h-3.5 w-3.5 transition-transform duration-200',
+                      !isExpanded && 'group-hover:translate-y-0.5',
+                      isExpanded && 'rotate-180',
+                    )}
                   />
                 </button>
 
@@ -928,7 +965,11 @@ export const SpotifySearchResults: React.FC<SpotifySearchResultsProps> = ({ resu
                 >
                   <span>{isExpanded ? 'Show less' : `Show ${artists.length - 1} more artists`}</span>
                   <Icons.ChevronDown
-                    className={cn('h-3.5 w-3.5 transition-transform duration-200', !isExpanded && 'group-hover:translate-y-0.5', isExpanded && 'rotate-180')}
+                    className={cn(
+                      'h-3.5 w-3.5 transition-transform duration-200',
+                      !isExpanded && 'group-hover:translate-y-0.5',
+                      isExpanded && 'rotate-180',
+                    )}
                   />
                 </button>
                 {isExpanded && (
@@ -954,7 +995,11 @@ export const SpotifySearchResults: React.FC<SpotifySearchResultsProps> = ({ resu
                 >
                   <span>{isExpanded ? 'Show less' : `Show ${albums.length - 1} more albums`}</span>
                   <Icons.ChevronDown
-                    className={cn('h-3.5 w-3.5 transition-transform duration-200', !isExpanded && 'group-hover:translate-y-0.5', isExpanded && 'rotate-180')}
+                    className={cn(
+                      'h-3.5 w-3.5 transition-transform duration-200',
+                      !isExpanded && 'group-hover:translate-y-0.5',
+                      isExpanded && 'rotate-180',
+                    )}
                   />
                 </button>
                 {isExpanded && (
@@ -980,7 +1025,11 @@ export const SpotifySearchResults: React.FC<SpotifySearchResultsProps> = ({ resu
                 >
                   <span>{isExpanded ? 'Show less' : `Show ${playlists.length - 1} more playlists`}</span>
                   <Icons.ChevronDown
-                    className={cn('h-3.5 w-3.5 transition-transform duration-200', !isExpanded && 'group-hover:translate-y-0.5', isExpanded && 'rotate-180')}
+                    className={cn(
+                      'h-3.5 w-3.5 transition-transform duration-200',
+                      !isExpanded && 'group-hover:translate-y-0.5',
+                      isExpanded && 'rotate-180',
+                    )}
                   />
                 </button>
                 {isExpanded && (

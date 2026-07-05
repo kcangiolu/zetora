@@ -61,9 +61,7 @@ const getPointStatus = (point?: any): string | null => {
   if (!point) return null;
 
   return (
-    getStatusValue(point?.arrival?.status) ??
-    getStatusValue(point?.departure?.status) ??
-    getStatusValue(point?.status)
+    getStatusValue(point?.arrival?.status) ?? getStatusValue(point?.departure?.status) ?? getStatusValue(point?.status)
   );
 };
 
@@ -304,15 +302,15 @@ export const flightTrackerTool = tool({
           // Parse duration from leg
           const durationMinutes = leg.scheduledLegDuration
             ? (() => {
-              const duration = leg.scheduledLegDuration;
-              const matches = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
-              if (matches) {
-                const hours = parseInt(matches[1] || '0');
-                const minutes = parseInt(matches[2] || '0');
-                return hours * 60 + minutes;
-              }
-              return null;
-            })()
+                const duration = leg.scheduledLegDuration;
+                const matches = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
+                if (matches) {
+                  const hours = parseInt(matches[1] || '0');
+                  const minutes = parseInt(matches[2] || '0');
+                  return hours * 60 + minutes;
+                }
+                return null;
+              })()
             : null;
 
           const flightStatus = determineFlightStatus({

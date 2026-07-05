@@ -4,23 +4,23 @@ Zetora is a self-hosted, AI-powered agentic search engine (fork of [Scira](https
 
 ## Tech stack
 
-| Layer | Technology |
-| --- | --- |
-| Framework | Next.js 16 (App Router, standalone output, React 19, React Compiler) |
-| Language | TypeScript (strict), checked with `tsgo` (`@typescript/native-preview`) |
-| AI | Vercel AI SDK v6 (`ai`) + many providers (`@ai-sdk/*`, OpenRouter, Ollama, custom OpenAI-compatible providers) |
-| UI | Tailwind CSS v4, Shadcn/Radix UI, Framer Motion, ECharts/visx/Recharts |
-| Auth | Better Auth (GitHub / Google / Twitter OAuth), Polar & DodoPayments plugins for billing |
-| ORM / DB | Drizzle ORM + PostgreSQL 17 (migrations in `drizzle/migrations`) |
-| Caching / rate limiting | Redis (`ioredis` / `redis`), Upstash-compatible REST via SRH (`hiett/serverless-redis-http`), `@upstash/ratelimit` |
-| Object storage | MinIO (S3-compatible) or Cloudflare R2 (`STORAGE_PROVIDER`) |
-| Vector store | Qdrant (search-result cache, hybrid search) |
-| Web search | SearXNG (self-hosted metasearch), fastCRW (Firecrawl-compatible scraper), plus SaaS fallbacks (Tavily, Exa, Firecrawl, Valyu, Parallel) |
-| Knowledge graph | Graphiti (Python FastAPI service) backed by FalkorDB |
-| Job scheduling | BullMQ + dedicated Redis (self-hosted alternative to QStash) — powers "Lookouts" (scheduled searches) |
-| Code sandbox | Docker-based code interpreter (`onyxdotapp/code-interpreter`) or Daytona (SaaS) |
-| Voice | Qwen3 TTS (GPU, FastAPI, `tts-service/`) and faster-whisper STT; ElevenLabs as SaaS alternative |
-| Email | Resend or SMTP (nodemailer), templates in `components/emails` (react-email) |
+| Layer                   | Technology                                                                                                                              |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Framework               | Next.js 16 (App Router, standalone output, React 19, React Compiler)                                                                    |
+| Language                | TypeScript (strict), checked with `tsgo` (`@typescript/native-preview`)                                                                 |
+| AI                      | Vercel AI SDK v6 (`ai`) + many providers (`@ai-sdk/*`, OpenRouter, Ollama, custom OpenAI-compatible providers)                          |
+| UI                      | Tailwind CSS v4, Shadcn/Radix UI, Framer Motion, ECharts/visx/Recharts                                                                  |
+| Auth                    | Better Auth (GitHub / Google / Twitter OAuth), Polar & DodoPayments plugins for billing                                                 |
+| ORM / DB                | Drizzle ORM + PostgreSQL 17 (migrations in `drizzle/migrations`)                                                                        |
+| Caching / rate limiting | Redis (`ioredis` / `redis`), Upstash-compatible REST via SRH (`hiett/serverless-redis-http`), `@upstash/ratelimit`                      |
+| Object storage          | MinIO (S3-compatible) or Cloudflare R2 (`STORAGE_PROVIDER`)                                                                             |
+| Vector store            | Qdrant (search-result cache, hybrid search)                                                                                             |
+| Web search              | SearXNG (self-hosted metasearch), fastCRW (Firecrawl-compatible scraper), plus SaaS fallbacks (Tavily, Exa, Firecrawl, Valyu, Parallel) |
+| Knowledge graph         | Graphiti (Python FastAPI service) backed by FalkorDB                                                                                    |
+| Job scheduling          | BullMQ + dedicated Redis (self-hosted alternative to QStash) — powers "Lookouts" (scheduled searches)                                   |
+| Code sandbox            | Docker-based code interpreter (`onyxdotapp/code-interpreter`) or Daytona (SaaS)                                                         |
+| Voice                   | Qwen3 TTS (GPU, FastAPI, `tts-service/`) and faster-whisper STT; ElevenLabs as SaaS alternative                                         |
+| Email                   | Resend or SMTP (nodemailer), templates in `components/emails` (react-email)                                                             |
 
 ## Repository layout
 
@@ -59,19 +59,19 @@ public/                 Static assets
 
 ## API routes (`app/api`)
 
-| Route | Purpose |
-| --- | --- |
-| `search` (POST) | Main chat/search endpoint — streams AI responses with tools (73 KB route) |
-| `search/[id]/stream`, `search/[id]/stop` | Resumable stream reconnect / stop |
-| `auth/[...all]` | Better Auth handler |
-| `upload`, `clean_images`, `proxy-image` | File upload (S3/R2/Blob), image cleaning/proxying |
-| `export/docx`, `export/pdf` | Chat export |
-| `lookout` | Scheduled search execution (BullMQ/QStash callback) |
-| `mcp/*` | MCP server CRUD, OAuth flows, elicitation, apps bridge |
-| `custom-providers*` | Custom OpenAI-compatible provider management (detect, models) |
-| `graphiti/[...path]` | Proxy to the Graphiti API |
-| `tts/stream`, `transcribe` | Voice synthesis / transcription |
-| `suggest`, `xql`, `x-wrapped`, `raycast`, `preferences`, `provider-status` | Misc features |
+| Route                                                                      | Purpose                                                                   |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `search` (POST)                                                            | Main chat/search endpoint — streams AI responses with tools (73 KB route) |
+| `search/[id]/stream`, `search/[id]/stop`                                   | Resumable stream reconnect / stop                                         |
+| `auth/[...all]`                                                            | Better Auth handler                                                       |
+| `upload`, `clean_images`, `proxy-image`                                    | File upload (S3/R2/Blob), image cleaning/proxying                         |
+| `export/docx`, `export/pdf`                                                | Chat export                                                               |
+| `lookout`                                                                  | Scheduled search execution (BullMQ/QStash callback)                       |
+| `mcp/*`                                                                    | MCP server CRUD, OAuth flows, elicitation, apps bridge                    |
+| `custom-providers*`                                                        | Custom OpenAI-compatible provider management (detect, models)             |
+| `graphiti/[...path]`                                                       | Proxy to the Graphiti API                                                 |
+| `tts/stream`, `transcribe`                                                 | Voice synthesis / transcription                                           |
+| `suggest`, `xql`, `x-wrapped`, `raycast`, `preferences`, `provider-status` | Misc features                                                             |
 
 ## Environment & configuration
 
@@ -83,24 +83,24 @@ public/                 Static assets
 
 All services live on the `zetora-network` bridge; only `zetora.app` (port 3333) is meant to be exposed. Everything else binds to `127.0.0.1`.
 
-| Service | Image | Host port | Role |
-| --- | --- | --- | --- |
-| `zetora.app` | built from `Dockerfile` (target `runner`) | 3333 | Next.js app |
-| `db-migrate` | same image, target `migrate` | — | Runs Drizzle migrations, exits |
-| `postgres` | postgres:17-alpine | 5432 | Primary DB |
-| `redis` | redis:7-alpine | 6379 | Cache / sessions / rate limits |
-| `srh` | hiett/serverless-redis-http | — | Upstash REST shim over `redis` |
-| `minio` (+ `minio-create-bucket`) | minio | 9000/9001 | S3 storage + console |
-| `qdrant` | qdrant | 6333/6334 | Vector cache |
-| `searxng` (+ `searxng-redis`) | searxng | 8080 | Metasearch |
-| `fastcrw` | ghcr.io/us/crw | 3003 | Scraper/search (Firecrawl-compatible) |
-| `sandbox` | onyxdotapp/code-interpreter | 8003→8000 | Python code execution (docker.sock) |
-| `falkordb` | falkordb | 6380→6379, 3002 | Graph DB |
-| `graphiti-api` / `graphiti-mcp` | built from `graphiti-service/` | 8001 / 8002 | Knowledge graph API + MCP |
-| `bullmq-redis` | redis:7-alpine (port 6381, AOF) | 6381 | BullMQ backing store |
-| `bullboard` | nauverse/bull-board | 3001 | Queue dashboard |
-| `qwen3-tts` | built from `tts-service/` (GPU) | 8585→8080 | Text-to-speech |
-| `whisper-stt` | fedirz/faster-whisper-server | 9002→8000 | Speech-to-text |
+| Service                           | Image                                     | Host port       | Role                                  |
+| --------------------------------- | ----------------------------------------- | --------------- | ------------------------------------- |
+| `zetora.app`                      | built from `Dockerfile` (target `runner`) | 3333            | Next.js app                           |
+| `db-migrate`                      | same image, target `migrate`              | —               | Runs Drizzle migrations, exits        |
+| `postgres`                        | postgres:17-alpine                        | 5432            | Primary DB                            |
+| `redis`                           | redis:7-alpine                            | 6379            | Cache / sessions / rate limits        |
+| `srh`                             | hiett/serverless-redis-http               | —               | Upstash REST shim over `redis`        |
+| `minio` (+ `minio-create-bucket`) | minio                                     | 9000/9001       | S3 storage + console                  |
+| `qdrant`                          | qdrant                                    | 6333/6334       | Vector cache                          |
+| `searxng` (+ `searxng-redis`)     | searxng                                   | 8080            | Metasearch                            |
+| `fastcrw`                         | ghcr.io/us/crw                            | 3003            | Scraper/search (Firecrawl-compatible) |
+| `sandbox`                         | onyxdotapp/code-interpreter               | 8003→8000       | Python code execution (docker.sock)   |
+| `falkordb`                        | falkordb                                  | 6380→6379, 3002 | Graph DB                              |
+| `graphiti-api` / `graphiti-mcp`   | built from `graphiti-service/`            | 8001 / 8002     | Knowledge graph API + MCP             |
+| `bullmq-redis`                    | redis:7-alpine (port 6381, AOF)           | 6381            | BullMQ backing store                  |
+| `bullboard`                       | nauverse/bull-board                       | 3001            | Queue dashboard                       |
+| `qwen3-tts`                       | built from `tts-service/` (GPU)           | 8585→8080       | Text-to-speech                        |
+| `whisper-stt`                     | fedirz/faster-whisper-server              | 9002→8000       | Speech-to-text                        |
 
 Build flow: `Dockerfile` has `deps` → `builder` (Next.js build with placeholder secrets) → `runner` (standalone output) and a `migrate` target (drizzle migrations + `create_indexes.sql`).
 

@@ -413,7 +413,9 @@ const Messages: React.FC<MessagesProps> = ({
                 onBeforeSubmit={onBeforeSubmit}
                 shouldReduceHeight={
                   message.role === 'assistant'
-                    ? isTransitioning || status === 'submitted' || memoizedMessages[memoizedMessages.length - 1]?.role === 'user'
+                    ? isTransitioning ||
+                      status === 'submitted' ||
+                      memoizedMessages[memoizedMessages.length - 1]?.role === 'user'
                       ? true
                       : status === 'streaming'
                         ? activeAssistantIndex !== -1

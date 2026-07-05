@@ -50,9 +50,10 @@ describe('routeWithAutoRouter', () => {
       success: false,
       error: 'Query cannot be empty',
     });
-    expect(
-      await routeWithAutoRouter({ query: 'q', routes: [{ name: ' ', description: '', model: '' }] }),
-    ).toEqual({ success: false, error: 'No routes configured' });
+    expect(await routeWithAutoRouter({ query: 'q', routes: [{ name: ' ', description: '', model: '' }] })).toEqual({
+      success: false,
+      error: 'No routes configured',
+    });
   });
 
   it('routes to the model of the matched route', async () => {
@@ -62,9 +63,7 @@ describe('routeWithAutoRouter', () => {
       model: 'model-code',
       route: 'coding',
     });
-    expect(generateText).toHaveBeenCalledWith(
-      expect.objectContaining({ model: 'tertiary-model', temperature: 0 }),
-    );
+    expect(generateText).toHaveBeenCalledWith(expect.objectContaining({ model: 'tertiary-model', temperature: 0 }));
   });
 
   it('repairs slightly malformed JSON around the route answer', async () => {

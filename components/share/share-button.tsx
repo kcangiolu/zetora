@@ -82,17 +82,7 @@ export function ShareButton({
         );
       case 'icon':
       default:
-        return (
-          <IconArrowOutOfBox
-            className={
-              size === 'sm'
-                ? 'h-3.5 w-3.5'
-                : size === 'lg'
-                  ? 'h-5 w-5'
-                  : 'h-4 w-4'
-            }
-          />
-        );
+        return <IconArrowOutOfBox className={size === 'sm' ? 'h-3.5 w-3.5' : size === 'lg' ? 'h-5 w-5' : 'h-4 w-4'} />;
     }
   };
 
@@ -109,8 +99,9 @@ export function ShareButton({
           ...baseProps,
           variant: selectedVisibilityType === 'public' ? ('secondary' as const) : ('ghost' as const),
           size: 'sm' as const,
-          className: `${className} !h-8 px-3 gap-2 font-medium transition-all ${selectedVisibilityType === 'public' ? 'bg-primary/5 hover:bg-primary/10 border-primary/20' : ''
-            }`,
+          className: `${className} !h-8 px-3 gap-2 font-medium transition-all ${
+            selectedVisibilityType === 'public' ? 'bg-primary/5 hover:bg-primary/10 border-primary/20' : ''
+          }`,
         };
       case 'button':
         return {
@@ -140,7 +131,9 @@ export function ShareButton({
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>{button}</TooltipTrigger>
-            <TooltipContent side="bottom" sideOffset={4}>{tooltipContent}</TooltipContent>
+            <TooltipContent side="bottom" sideOffset={4}>
+              {tooltipContent}
+            </TooltipContent>
           </Tooltip>
         </TooltipProvider>
       ) : (

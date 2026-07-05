@@ -89,11 +89,7 @@ export async function getChatWithInitialMessages({
 }
 
 // Optimized query to get chat with user data for ownership checks
-export async function getChatWithUserAndInitialMessages({
-  id,
-}: {
-  id: string;
-}): Promise<{
+export async function getChatWithUserAndInitialMessages({ id }: { id: string }): Promise<{
   chat: Chat | null;
   user: User | null;
   messages: Message[];
@@ -164,7 +160,6 @@ export async function getChatsWithInitialMessages({
     console.log('🔍 [DB-OPTIMIZED] getChatsWithInitialMessages: Starting batch query (db.query.chat)...');
     const startTime = Date.now();
 
-
     const chatsWithMessages = await db.query.chat.findMany({
       where: (fields, { inArray }) => inArray(fields.id, chatIds),
       with: {
@@ -227,7 +222,6 @@ export async function getChatVisibilityAndOwnership({ id, userId }: { id: string
   try {
     console.log('🔍 [DB-OPTIMIZED] getChatVisibilityAndOwnership: Starting visibility check (db.query.chat)...');
     const startTime = Date.now();
-
 
     const record = await db.query.chat.findFirst({
       where: eq(chat.id, id),

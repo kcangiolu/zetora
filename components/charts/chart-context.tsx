@@ -1,40 +1,28 @@
-"use client";
+'use client';
 
-import type { scaleBand, scaleLinear, scaleTime } from "@visx/scale";
+import type { scaleBand, scaleLinear, scaleTime } from '@visx/scale';
 
-type ScaleLinear<Output, _Input = number> = ReturnType<
-  typeof scaleLinear<Output>
->;
-type ScaleTime<Output, _Input = Date | number> = ReturnType<
-  typeof scaleTime<Output>
->;
-type ScaleBand<Domain extends { toString(): string }> = ReturnType<
-  typeof scaleBand<Domain>
->;
+type ScaleLinear<Output, _Input = number> = ReturnType<typeof scaleLinear<Output>>;
+type ScaleTime<Output, _Input = Date | number> = ReturnType<typeof scaleTime<Output>>;
+type ScaleBand<Domain extends { toString(): string }> = ReturnType<typeof scaleBand<Domain>>;
 
-import {
-  createContext,
-  type Dispatch,
-  type RefObject,
-  type SetStateAction,
-  useContext,
-} from "react";
+import { createContext, type Dispatch, type RefObject, type SetStateAction, useContext } from 'react';
 
 // CSS variable references for theming
 export const chartCssVars = {
-  background: "var(--chart-background)",
-  foreground: "var(--chart-foreground)",
-  foregroundMuted: "var(--chart-foreground-muted)",
-  label: "var(--chart-label)",
-  linePrimary: "var(--chart-line-primary)",
-  lineSecondary: "var(--chart-line-secondary)",
-  crosshair: "var(--chart-crosshair)",
-  grid: "var(--chart-grid)",
-  markerBackground: "var(--chart-marker-background)",
-  markerBorder: "var(--chart-marker-border)",
-  markerForeground: "var(--chart-marker-foreground)",
-  badgeBackground: "var(--chart-marker-badge-background)",
-  badgeForeground: "var(--chart-marker-badge-foreground)",
+  background: 'var(--chart-background)',
+  foreground: 'var(--chart-foreground)',
+  foregroundMuted: 'var(--chart-foreground-muted)',
+  label: 'var(--chart-label)',
+  linePrimary: 'var(--chart-line-primary)',
+  lineSecondary: 'var(--chart-line-secondary)',
+  crosshair: 'var(--chart-crosshair)',
+  grid: 'var(--chart-grid)',
+  markerBackground: 'var(--chart-marker-background)',
+  markerBorder: 'var(--chart-marker-border)',
+  markerForeground: 'var(--chart-marker-foreground)',
+  badgeBackground: 'var(--chart-marker-badge-background)',
+  badgeForeground: 'var(--chart-marker-badge-foreground)',
 };
 
 export interface Margin {
@@ -113,7 +101,7 @@ export interface ChartContextValue {
   /** X accessor for bar charts (returns string instead of Date) */
   barXAccessor?: (d: Record<string, unknown>) => string;
   /** Bar chart orientation */
-  orientation?: "vertical" | "horizontal";
+  orientation?: 'vertical' | 'horizontal';
   /** Whether bars are stacked */
   stacked?: boolean;
   /** Stack offsets: Map of data index -> Map of dataKey -> cumulative offset */
@@ -122,24 +110,16 @@ export interface ChartContextValue {
 
 const ChartContext = createContext<ChartContextValue | null>(null);
 
-export function ChartProvider({
-  children,
-  value,
-}: {
-  children: React.ReactNode;
-  value: ChartContextValue;
-}) {
-  return (
-    <ChartContext.Provider value={value}>{children}</ChartContext.Provider>
-  );
+export function ChartProvider({ children, value }: { children: React.ReactNode; value: ChartContextValue }) {
+  return <ChartContext.Provider value={value}>{children}</ChartContext.Provider>;
 }
 
 export function useChart(): ChartContextValue {
   const context = useContext(ChartContext);
   if (!context) {
     throw new Error(
-      "useChart must be used within a ChartProvider. " +
-        "Make sure your component is wrapped in <LineChart>, <AreaChart>, or <BarChart>."
+      'useChart must be used within a ChartProvider. ' +
+        'Make sure your component is wrapped in <LineChart>, <AreaChart>, or <BarChart>.',
     );
   }
   return context;

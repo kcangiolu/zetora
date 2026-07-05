@@ -148,7 +148,8 @@ const formatDuration = (durationSeconds?: number): string | null => {
 };
 
 const formatCount = (value?: string | number): string | null => {
-  const num = typeof value === 'number' ? value : typeof value === 'string' ? Number(value.replace(/[^0-9]/g, '')) : undefined;
+  const num =
+    typeof value === 'number' ? value : typeof value === 'string' ? Number(value.replace(/[^0-9]/g, '')) : undefined;
   if (num == null || !Number.isFinite(num)) return null;
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
   if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
@@ -240,9 +241,7 @@ const YouTubeVideoCard: React.FC<{
           </div>
 
           <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-muted-foreground/60">
-            {video.details?.author_name && (
-              <span className="truncate max-w-[100px]">{video.details.author_name}</span>
-            )}
+            {video.details?.author_name && <span className="truncate max-w-[100px]">{video.details.author_name}</span>}
             {video.details?.author_name && viewCount && <span className="text-muted-foreground/30">·</span>}
             {viewCount && <span className="tabular-nums">{viewCount} views</span>}
             {viewCount && likeCount && <span className="text-muted-foreground/30">·</span>}
@@ -330,7 +329,9 @@ const VideoDetailContent: React.FC<{
         </a>
 
         <div>
-          <h3 className="font-semibold text-sm text-foreground line-clamp-2">{video.details?.title || 'YouTube Video'}</h3>
+          <h3 className="font-semibold text-sm text-foreground line-clamp-2">
+            {video.details?.title || 'YouTube Video'}
+          </h3>
           {video.details?.author_name && (
             <a
               href={video.details.author_url || '#'}
@@ -390,26 +391,28 @@ const VideoDetailContent: React.FC<{
               />
             </div>
             <div className="space-y-1">
-              {(chapterSearch.trim() ? filteredChapters : video.timestamps || []).map((timestamp: string, i: number) => {
-                const { time, description } = formatTimestamp(timestamp);
-                const seconds = timestampToSeconds(time);
-                if (!time || seconds === 0) return null;
+              {(chapterSearch.trim() ? filteredChapters : video.timestamps || []).map(
+                (timestamp: string, i: number) => {
+                  const { time, description } = formatTimestamp(timestamp);
+                  const seconds = timestampToSeconds(time);
+                  if (!time || seconds === 0) return null;
 
-                return (
-                  <a
-                    key={i}
-                    href={`${video.url}&t=${seconds}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2.5 p-2 rounded-md hover:bg-accent transition-colors"
-                  >
-                    <span className="shrink-0 w-12 text-center text-[11px] font-mono font-medium text-red-600 bg-red-50 dark:bg-red-900/20 rounded px-1.5 py-0.5">
-                      {time}
-                    </span>
-                    <span className="text-xs text-foreground line-clamp-1 flex-1">{description}</span>
-                  </a>
-                );
-              })}
+                  return (
+                    <a
+                      key={i}
+                      href={`${video.url}&t=${seconds}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2.5 p-2 rounded-md hover:bg-accent transition-colors"
+                    >
+                      <span className="shrink-0 w-12 text-center text-[11px] font-mono font-medium text-red-600 bg-red-50 dark:bg-red-900/20 rounded px-1.5 py-0.5">
+                        {time}
+                      </span>
+                      <span className="text-xs text-foreground line-clamp-1 flex-1">{description}</span>
+                    </a>
+                  );
+                },
+              )}
               {chapterSearch.trim() && filteredChapters.length === 0 && (
                 <p className="text-center text-xs text-muted-foreground py-4">No chapters found</p>
               )}
@@ -531,7 +534,10 @@ const YouTubeLoadingState: React.FC = () => {
           <div className="flex items-center gap-2">
             <Spinner className="w-3 h-3 text-muted-foreground/40" />
             <Icons.ChevronDown
-              className={cn('h-3 w-3 text-muted-foreground/60 transition-transform duration-200', isExpanded && 'rotate-180')}
+              className={cn(
+                'h-3 w-3 text-muted-foreground/60 transition-transform duration-200',
+                isExpanded && 'rotate-180',
+              )}
             />
           </div>
         </button>
@@ -548,12 +554,21 @@ const YouTubeLoadingState: React.FC = () => {
             <div className="divide-y divide-border/20">
               {[...Array(3)].map((_, i) => (
                 <div key={i} className="px-3.5 py-2 flex items-start gap-2.5">
-                  <div className="w-20 h-[45px] rounded-md bg-muted/20 animate-pulse shrink-0 flex items-center justify-center" style={{ animationDelay: `${i * 100}ms` }}>
+                  <div
+                    className="w-20 h-[45px] rounded-md bg-muted/20 animate-pulse shrink-0 flex items-center justify-center"
+                    style={{ animationDelay: `${i * 100}ms` }}
+                  >
                     <Icons.YouTube className="h-3.5 w-3.5 text-red-500/15" />
                   </div>
                   <div className="flex-1 space-y-1">
-                    <div className="h-3 bg-muted/30 rounded animate-pulse w-3/4" style={{ animationDelay: `${i * 100 + 50}ms` }} />
-                    <div className="h-2 bg-muted/20 rounded animate-pulse w-1/2" style={{ animationDelay: `${i * 100 + 80}ms` }} />
+                    <div
+                      className="h-3 bg-muted/30 rounded animate-pulse w-3/4"
+                      style={{ animationDelay: `${i * 100 + 50}ms` }}
+                    />
+                    <div
+                      className="h-2 bg-muted/20 rounded animate-pulse w-1/2"
+                      style={{ animationDelay: `${i * 100 + 80}ms` }}
+                    />
                   </div>
                 </div>
               ))}
@@ -619,7 +634,10 @@ export const YouTubeSearchResults: React.FC<YouTubeSearchResultsProps> = ({ resu
               </button>
             )}
             <Icons.ChevronDown
-              className={cn('h-3 w-3 text-muted-foreground/60 transition-transform duration-200', isExpanded && 'rotate-180')}
+              className={cn(
+                'h-3 w-3 text-muted-foreground/60 transition-transform duration-200',
+                isExpanded && 'rotate-180',
+              )}
             />
           </div>
         </button>
@@ -657,4 +675,11 @@ export const YouTubeSearchResults: React.FC<YouTubeSearchResultsProps> = ({ resu
 };
 
 // Export types for external use
-export type { VideoDetails, VideoResult, VideoStats, YouTubeSearchResponse, YouTubeSearchResultsProps, TranscriptChunk };
+export type {
+  VideoDetails,
+  VideoResult,
+  VideoStats,
+  YouTubeSearchResponse,
+  YouTubeSearchResultsProps,
+  TranscriptChunk,
+};

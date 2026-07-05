@@ -24,7 +24,7 @@ export function LookoutSkeleton({ showActions = true }: { showActions?: boolean 
           <Skeleton className="h-3 w-full" />
           <Skeleton className="h-3 w-2/3" />
         </div>
-        
+
         {/* Status and run info footer */}
         <div className="mt-auto space-y-2">
           <div className="flex items-center gap-1.5">

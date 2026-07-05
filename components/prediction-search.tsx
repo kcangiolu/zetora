@@ -64,26 +64,14 @@ const SourceLogo: React.FC<{ source: 'Polymarket' | 'Kalshi'; className?: string
   if (source === 'Polymarket') {
     return (
       <div className={cn('flex items-center justify-center rounded-full overflow-hidden', className)}>
-        <Image
-          src="/polymarket-logo.png"
-          alt="Polymarket"
-          width={20}
-          height={20}
-          className="object-contain"
-        />
+        <Image src="/polymarket-logo.png" alt="Polymarket" width={20} height={20} className="object-contain" />
       </div>
     );
   }
   return (
     <div className={cn('flex items-center justify-center rounded-full overflow-hidden', className)}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/kalshi-logo.svg"
-        alt="Kalshi"
-        width={20}
-        height={20}
-        className="object-contain"
-      />
+      <img src="/kalshi-logo.svg" alt="Kalshi" width={20} height={20} className="object-contain" />
     </div>
   );
 };
@@ -218,9 +206,7 @@ const MarketCard: React.FC<{
                 <span className={cn('px-1.5 py-0.5 rounded-sm text-[10px] font-medium', sourceColors)}>
                   {market.source}
                 </span>
-                {market.category && (
-                  <span className="text-[10px] text-muted-foreground">{market.category}</span>
-                )}
+                {market.category && <span className="text-[10px] text-muted-foreground">{market.category}</span>}
               </div>
             </div>
           </div>
@@ -228,9 +214,7 @@ const MarketCard: React.FC<{
         </div>
 
         {/* Probability */}
-        {primaryMarket && primaryMarket.outcomes.length > 0 && (
-          <ProbabilityBar outcomes={primaryMarket.outcomes} />
-        )}
+        {primaryMarket && primaryMarket.outcomes.length > 0 && <ProbabilityBar outcomes={primaryMarket.outcomes} />}
 
         {/* Metadata */}
         <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
@@ -341,11 +325,7 @@ const SearchLoadingState: React.FC<{
                     : 'bg-card border-border/60 text-muted-foreground',
                 )}
               >
-                {isCompleted ? (
-                  <Icons.Check className="w-2.5 h-2.5" />
-                ) : (
-                  <Spinner className="w-2.5 h-2.5" />
-                )}
+                {isCompleted ? <Icons.Check className="w-2.5 h-2.5" /> : <Spinner className="w-2.5 h-2.5" />}
                 <span className="font-medium">{query || 'Searching markets...'}</span>
                 {resultsCount > 0 && <span className="text-[10px] opacity-70">({resultsCount})</span>}
               </span>
@@ -383,7 +363,9 @@ const SearchLoadingState: React.FC<{
 const PredictionSearch: React.FC<{
   result: PredictionSearchResponse | null;
   args: PredictionSearchArgs;
-  annotations?: Array<DataUIPart<CustomUIDataTypes> & { data: { query: string; status: string; resultsCount?: number } }>;
+  annotations?: Array<
+    DataUIPart<CustomUIDataTypes> & { data: { query: string; status: string; resultsCount?: number } }
+  >;
 }> = ({ result, args, annotations = [] }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);

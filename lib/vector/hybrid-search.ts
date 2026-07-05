@@ -19,10 +19,7 @@ interface HybridResult {
  * score(d) = Σ 1 / (k + rank_i(d))
  * where k is a constant (typically 60)
  */
-function rrf(
-  resultsArrays: { url: string; rank: number }[][],
-  k: number = 60
-): Map<string, number> {
+function rrf(resultsArrays: { url: string; rank: number }[][], k: number = 60): Map<string, number> {
   const scores = new Map<string, number>();
 
   for (const results of resultsArrays) {
@@ -35,9 +32,7 @@ function rrf(
   return scores;
 }
 
-function searxngOnlyResults(
-  searxngResults: { url: string; title: string; content: string }[]
-): HybridResult[] {
+function searxngOnlyResults(searxngResults: { url: string; title: string; content: string }[]): HybridResult[] {
   return searxngResults.map((r, i) => ({
     ...r,
     score: 1 - i / searxngResults.length,
@@ -49,7 +44,7 @@ async function rerankResults(
   query: string,
   candidates: HybridResult[],
   topK: number,
-  preferences: Record<string, unknown>
+  preferences: Record<string, unknown>,
 ): Promise<HybridResult[]> {
   if (preferences['zetora-rerank-enabled'] !== true || candidates.length === 0) {
     return candidates.slice(0, topK);
@@ -91,7 +86,7 @@ export async function hybridSearch(
   query: string,
   searxngResults: { url: string; title: string; content: string }[],
   preferences: Record<string, unknown>,
-  topK: number = 10
+  topK: number = 10,
 ): Promise<HybridResult[]> {
   if (preferences['zetora-hybrid-search-enabled'] !== true) {
     return searxngOnlyResults(searxngResults);
@@ -113,11 +108,7 @@ export async function hybridSearch(
 
     // 2. Search Qdrant (across previously indexed content)
     const client = getQdrantClient(resolveQdrantUrl(preferences));
-    const qdrantResults = await client.search(
-      SEARCH_INDEX_COLLECTION,
-      embedding,
-      topK
-    );
+    const qdrantResults = await client.search(SEARCH_INDEX_COLLECTION, embedding, topK);
 
     // 3. Prepare ranks for RRF
     const searxngRanks = searxngResults.map((r, i) => ({
@@ -164,9 +155,7 @@ export async function hybridSearch(
     const fused = Array.from(allResults.values()).sort((a, b) => b.score - a.score);
     const reranked = await rerankResults(query, fused, topK, preferences);
 
-    console.log(
-      `[HYBRID-SEARCH] RRF fusion applied, ${fused.length} candidates → ${reranked.length} after reranking`,
-    );
+    console.log(`[HYBRID-SEARCH] RRF fusion applied, ${fused.length} candidates → ${reranked.length} after reranking`);
 
     return reranked;
   } catch (error) {

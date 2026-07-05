@@ -1147,8 +1147,8 @@ export default function AboutPage() {
                 <ProAccordionItem value="item-6">
                   <ProAccordionTrigger>How does Zetora ensure accuracy?</ProAccordionTrigger>
                   <ProAccordionContent>
-                    Zetora grounds outputs in retrieved sources (RAG + search grounding) and includes inline citations so
-                    you can audit the evidence. Agents cross-check multiple sources before synthesizing an answer.
+                    Zetora grounds outputs in retrieved sources (RAG + search grounding) and includes inline citations
+                    so you can audit the evidence. Agents cross-check multiple sources before synthesizing an answer.
                   </ProAccordionContent>
                 </ProAccordionItem>
               </ProAccordion>

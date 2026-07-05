@@ -48,7 +48,9 @@ async function getChatWithMessagesFromPrimary({
   return { chat: chat as unknown as Chat, messages: messages as unknown as Message[] };
 }
 
-async function getChatWithMessagesFromPrimaryWithBackoff(id: string): Promise<{ chat: Chat | null; messages: Message[] }> {
+async function getChatWithMessagesFromPrimaryWithBackoff(
+  id: string,
+): Promise<{ chat: Chat | null; messages: Message[] }> {
   const deadline = Date.now() + CHAT_PRIMARY_BACKOFF_MAX_WAIT_MS;
   let delayMs = CHAT_PRIMARY_BACKOFF_INITIAL_DELAY_MS;
   let result: { chat: Chat | null; messages: Message[] } = { chat: null, messages: [] };

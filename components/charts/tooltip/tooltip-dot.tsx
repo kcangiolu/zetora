@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { motion, useSpring } from "motion/react";
-import { useEffect } from "react";
-import { chartCssVars } from "../chart-context";
+import { motion, useSpring } from 'motion/react';
+import { useEffect } from 'react';
+import { chartCssVars } from '../chart-context';
 
 // Faster spring to stay in sync with indicator
 const crosshairSpringConfig = { stiffness: 300, damping: 30 };
@@ -39,17 +39,10 @@ export function TooltipDot({
   }
 
   return (
-    <motion.circle
-      cx={animatedX}
-      cy={animatedY}
-      fill={color}
-      r={size}
-      stroke={strokeColor}
-      strokeWidth={strokeWidth}
-    />
+    <motion.circle cx={animatedX} cy={animatedY} fill={color} r={size} stroke={strokeColor} strokeWidth={strokeWidth} />
   );
 }
 
-TooltipDot.displayName = "TooltipDot";
+TooltipDot.displayName = 'TooltipDot';
 
 export default TooltipDot;

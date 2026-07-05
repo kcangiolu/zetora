@@ -248,8 +248,14 @@ function createTrackDocument(track: SpotifyTrackResult): string {
 
 function createArtistDocument(artist: SpotifyArtistResult): string {
   const genreStr = artist.genres.length > 0 ? ` (${artist.genres.slice(0, 3).join(', ')})` : '';
-  const popularityLabel = artist.popularity >= 70 ? 'very popular' : artist.popularity >= 40 ? 'popular' : 'lesser known';
-  const followerStr = artist.followers >= 1000000 ? `${(artist.followers / 1000000).toFixed(1)}M` : artist.followers >= 1000 ? `${(artist.followers / 1000).toFixed(0)}K` : artist.followers;
+  const popularityLabel =
+    artist.popularity >= 70 ? 'very popular' : artist.popularity >= 40 ? 'popular' : 'lesser known';
+  const followerStr =
+    artist.followers >= 1000000
+      ? `${(artist.followers / 1000000).toFixed(1)}M`
+      : artist.followers >= 1000
+        ? `${(artist.followers / 1000).toFixed(0)}K`
+        : artist.followers;
   return `${artist.name}${genreStr} - ${followerStr} followers (${popularityLabel} artist, popularity: ${artist.popularity}/100)`;
 }
 

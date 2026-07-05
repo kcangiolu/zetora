@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import { useRouter } from "next/navigation";
-import { Search, Code, Database } from "lucide-react";
-import { ZetoraLogo } from "@/components/logos/zetora-logo";
+import { useRouter } from 'next/navigation';
+import { Search, Code, Database } from 'lucide-react';
+import { ZetoraLogo } from '@/components/logos/zetora-logo';
 
 const FEATURES = [
-  { icon: Search, label: "Natural language X post queries" },
-  { icon: Code, label: "SQL-like query generation" },
-  { icon: Database, label: "Advanced filtering and search" },
+  { icon: Search, label: 'Natural language X post queries' },
+  { icon: Code, label: 'SQL-like query generation' },
+  { icon: Database, label: 'Advanced filtering and search' },
 ];
 
 export function XQLProUpgradeScreen() {
@@ -28,11 +28,12 @@ export function XQLProUpgradeScreen() {
 
       <div className="flex flex-1 items-center justify-center px-4 py-16">
         <div className="w-full max-w-sm flex flex-col gap-5">
-
           {/* Title block */}
           <div className="flex flex-col gap-1.5">
             <div className="inline-flex items-center gap-1.5 w-fit rounded-full border border-border/50 bg-muted/40 px-2.5 py-1">
-              <span className="font-pixel text-[9px] text-muted-foreground/70 tracking-wider uppercase">Pro feature</span>
+              <span className="font-pixel text-[9px] text-muted-foreground/70 tracking-wider uppercase">
+                Pro feature
+              </span>
             </div>
             <h1 className="text-lg font-semibold tracking-tight text-foreground">Unlock XQL</h1>
             <p className="text-sm text-muted-foreground leading-relaxed">
@@ -56,20 +57,19 @@ export function XQLProUpgradeScreen() {
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => router.push("/new")}
+              onClick={() => router.push('/new')}
               className="flex-1 h-9 rounded-lg border border-border/50 bg-transparent text-sm text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
             >
               Back to search
             </button>
             <button
               type="button"
-              onClick={() => router.push("/pricing")}
+              onClick={() => router.push('/pricing')}
               className="flex-1 h-9 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
             >
               Upgrade to Pro
             </button>
           </div>
-
         </div>
       </div>
     </div>

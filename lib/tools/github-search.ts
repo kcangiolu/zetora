@@ -128,9 +128,18 @@ export function githubSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>
         .describe('Array of search queries to execute on GitHub. Minimum 1, recommended 3-5.')
         .min(1)
         .max(5),
-      maxResults: z.array(z.number()).optional().describe('Array of maximum results per query. Default is 10 per query.'),
-      startDate: z.string().optional().describe('Start date for filtering results in ISO format (e.g., 2025-01-01T00:00:00.000Z)'),
-      endDate: z.string().optional().describe('End date for filtering results in ISO format (e.g., 2025-12-31T23:59:59.999Z)'),
+      maxResults: z
+        .array(z.number())
+        .optional()
+        .describe('Array of maximum results per query. Default is 10 per query.'),
+      startDate: z
+        .string()
+        .optional()
+        .describe('Start date for filtering results in ISO format (e.g., 2025-01-01T00:00:00.000Z)'),
+      endDate: z
+        .string()
+        .optional()
+        .describe('End date for filtering results in ISO format (e.g., 2025-12-31T23:59:59.999Z)'),
     }),
     execute: async ({
       queries,
@@ -191,55 +200,56 @@ export function githubSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>
                 if (!firecrawlResults.web || !Array.isArray(firecrawlResults.web)) return [];
 
                 return firecrawlResults.web
-                .map((result): GitHubResult | null => {
-                  const url = getGitHubResultUrl(result);
-                  if (!isGitHubRepoUrl(url)) return null;
+                  .map((result): GitHubResult | null => {
+                    const url = getGitHubResultUrl(result);
+                    if (!isGitHubRepoUrl(url)) return null;
 
-                  const r = result as any;
-                  const title =
-                    (typeof r?.title === 'string' ? r.title : undefined) ||
-                    (typeof r?.metadata?.title === 'string' ? r.metadata.title : undefined) ||
-                    url;
-                  const description =
-                    (typeof r?.description === 'string' ? r.description : undefined) ||
-                    (typeof r?.metadata?.description === 'string' ? r.metadata.description : undefined) ||
-                    '';
-                  const markdown = typeof r?.markdown === 'string' ? r.markdown : '';
-                  const json = r?.json;
-                  const extracted = json && typeof json === 'object' ? (json as any) : undefined;
+                    const r = result as any;
+                    const title =
+                      (typeof r?.title === 'string' ? r.title : undefined) ||
+                      (typeof r?.metadata?.title === 'string' ? r.metadata.title : undefined) ||
+                      url;
+                    const description =
+                      (typeof r?.description === 'string' ? r.description : undefined) ||
+                      (typeof r?.metadata?.description === 'string' ? r.metadata.description : undefined) ||
+                      '';
+                    const markdown = typeof r?.markdown === 'string' ? r.markdown : '';
+                    const json = r?.json;
+                    const extracted = json && typeof json === 'object' ? (json as any) : undefined;
 
-                  const authorMatch = url.match(/github\.com\/([^/]+)/);
-                  const author = authorMatch ? authorMatch[1] : undefined;
-                  const stars = parseCount(extracted?.stars);
-                  const language =
-                    (typeof extracted?.primaryLanguage === 'string' ? extracted.primaryLanguage : undefined) ||
-                    (typeof extracted?.language === 'string' ? extracted.language : undefined) ||
-                    (typeof r?.metadata?.language === 'string' ? r.metadata.language : undefined);
-                  const image = typeof r?.metadata?.ogImage === 'string' ? r.metadata.ogImage : undefined;
-                  const favicon = typeof r?.metadata?.favicon === 'string' ? r.metadata.favicon : undefined;
-                  const publishedDate =
-                    (typeof r?.metadata?.publishedTime === 'string' ? r.metadata.publishedTime : undefined) ||
-                    (typeof r?.metadata?.modifiedTime === 'string' ? r.metadata.modifiedTime : undefined) ||
-                    (typeof extracted?.lastUpdated === 'string' ? extracted.lastUpdated : undefined);
+                    const authorMatch = url.match(/github\.com\/([^/]+)/);
+                    const author = authorMatch ? authorMatch[1] : undefined;
+                    const stars = parseCount(extracted?.stars);
+                    const language =
+                      (typeof extracted?.primaryLanguage === 'string' ? extracted.primaryLanguage : undefined) ||
+                      (typeof extracted?.language === 'string' ? extracted.language : undefined) ||
+                      (typeof r?.metadata?.language === 'string' ? r.metadata.language : undefined);
+                    const image = typeof r?.metadata?.ogImage === 'string' ? r.metadata.ogImage : undefined;
+                    const favicon = typeof r?.metadata?.favicon === 'string' ? r.metadata.favicon : undefined;
+                    const publishedDate =
+                      (typeof r?.metadata?.publishedTime === 'string' ? r.metadata.publishedTime : undefined) ||
+                      (typeof r?.metadata?.modifiedTime === 'string' ? r.metadata.modifiedTime : undefined) ||
+                      (typeof extracted?.lastUpdated === 'string' ? extracted.lastUpdated : undefined);
 
-                  const out: GitHubResult = {
-                    url,
-                    title,
-                    content: description || markdown,
-                  };
-                  if (publishedDate) out.publishedDate = publishedDate;
-                  if (author) out.author = author;
-                  if (image) out.image = image;
-                  if (favicon) out.favicon = favicon;
-                  if (typeof stars === 'number') out.stars = stars;
-                  if (language) out.language = language;
-                  const extractedDescription = typeof extracted?.description === 'string' ? extracted.description : undefined;
-                  if (extractedDescription) out.description = extractedDescription;
-                  else if (description) out.description = description.substring(0, 300);
-                  if (json !== undefined) out.json = json;
+                    const out: GitHubResult = {
+                      url,
+                      title,
+                      content: description || markdown,
+                    };
+                    if (publishedDate) out.publishedDate = publishedDate;
+                    if (author) out.author = author;
+                    if (image) out.image = image;
+                    if (favicon) out.favicon = favicon;
+                    if (typeof stars === 'number') out.stars = stars;
+                    if (language) out.language = language;
+                    const extractedDescription =
+                      typeof extracted?.description === 'string' ? extracted.description : undefined;
+                    if (extractedDescription) out.description = extractedDescription;
+                    else if (description) out.description = description.substring(0, 300);
+                    if (json !== undefined) out.json = json;
 
-                  return out;
-                })
+                    return out;
+                  })
                   .filter((r): r is GitHubResult => r !== null);
               },
             },

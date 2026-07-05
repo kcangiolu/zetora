@@ -130,7 +130,13 @@ export function SupportedDomainsList({ className }: SupportedDomainsListProps) {
                   {filteredDomains.length}
                 </span>
               )}
-              <Button variant="ghost" size="sm" onClick={refreshDomains} disabled={isLoading} className="rounded-lg h-8 w-8 p-0">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={refreshDomains}
+                disabled={isLoading}
+                className="rounded-lg h-8 w-8 p-0"
+              >
                 <RefreshCw className={cn('w-3.5 h-3.5', isLoading && 'animate-spin')} />
               </Button>
             </div>
@@ -162,7 +168,9 @@ export function SupportedDomainsList({ className }: SupportedDomainsListProps) {
                       >
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-medium truncate">{getDomainDisplayName(domain)}</p>
-                          <code className="font-pixel text-[9px] text-muted-foreground/40 uppercase tracking-wider">{domain}</code>
+                          <code className="font-pixel text-[9px] text-muted-foreground/40 uppercase tracking-wider">
+                            {domain}
+                          </code>
                         </div>
                         <span className="font-pixel text-[8px] text-muted-foreground/30 uppercase tracking-wider shrink-0 ml-3">
                           {getDomainType(domain)}
@@ -171,7 +179,9 @@ export function SupportedDomainsList({ className }: SupportedDomainsListProps) {
                     ))
                   ) : (
                     <div className="py-10 text-center">
-                      <p className="text-xs text-muted-foreground">{searchTerm ? 'No domains match your search' : 'No domains available'}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {searchTerm ? 'No domains match your search' : 'No domains available'}
+                      </p>
                     </div>
                   )}
                 </div>

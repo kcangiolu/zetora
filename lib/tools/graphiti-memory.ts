@@ -32,9 +32,7 @@ export function createGraphitiMemoryTools(userId: string, customApiUrl?: string)
     description:
       'Search long-term memory for information about the user. Use this to recall preferences, past decisions, relationships, or any previously stored information.',
     inputSchema: z.object({
-      informationToGet: z
-        .string()
-        .describe('The information to search for in memory'),
+      informationToGet: z.string().describe('The information to search for in memory'),
     }),
     execute: async ({ informationToGet }: { informationToGet: string }) => {
       try {

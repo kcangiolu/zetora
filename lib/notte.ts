@@ -81,9 +81,7 @@ function getNotteApiKey(providedApiKey?: string) {
 }
 
 function compactObject<T extends Record<string, unknown>>(value: T) {
-  return Object.fromEntries(
-    Object.entries(value).filter(([, entry]) => entry !== undefined),
-  ) as T;
+  return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined)) as T;
 }
 
 function buildScrapePayload(request: NotteScrapeRequest) {
@@ -144,9 +142,6 @@ export function createNotteClient(providedApiKey?: string): NotteClient {
   };
 }
 
-export async function scrapeWebpageWithNotte<T = unknown>(
-  request: NotteScrapeRequest,
-  providedApiKey?: string,
-) {
+export async function scrapeWebpageWithNotte<T = unknown>(request: NotteScrapeRequest, providedApiKey?: string) {
   return createNotteClient(providedApiKey).scrapeWebpage<T>(request);
 }

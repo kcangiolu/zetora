@@ -17,9 +17,7 @@ export async function generateTitleFromUserMessage({ message }: { message: UIMes
   console.log('Prompt: ', prompt);
 
   const titleUser = await getUser().catch(() => null);
-  const titlePrefs = titleUser
-    ? await getCachedUserPreferencesByUserId(titleUser.id).catch(() => null)
-    : null;
+  const titlePrefs = titleUser ? await getCachedUserPreferencesByUserId(titleUser.id).catch(() => null) : null;
   const titlePrefsMap = (titlePrefs?.preferences ?? {}) as Record<string, string>;
 
   const { text: rawTitle } = await generateText({
@@ -73,9 +71,7 @@ export async function generateTitleFromUserMessage({ message }: { message: UIMes
     },
   });
 
-  const afterThink = rawTitle.includes('</think>')
-    ? rawTitle.split('</think>').pop()!
-    : rawTitle;
+  const afterThink = rawTitle.includes('</think>') ? rawTitle.split('</think>').pop()! : rawTitle;
   const title = afterThink
     .replace(/<response>[\s\S]*?<\/response>/g, '')
     .replace(/\n+/g, ' ')

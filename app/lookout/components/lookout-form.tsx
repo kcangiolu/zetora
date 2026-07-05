@@ -171,10 +171,19 @@ export function LookoutForm({
                     <Button
                       variant="outline"
                       size="sm"
-                      className={cn('w-full text-left font-normal h-9 rounded-lg', !selectedDate && 'text-muted-foreground')}
+                      className={cn(
+                        'w-full text-left font-normal h-9 rounded-lg',
+                        !selectedDate && 'text-muted-foreground',
+                      )}
                     >
                       {selectedDate ? format(selectedDate, 'MMM d, yyyy') : <span>Pick date</span>}
-                      <HugeiconsIcon icon={Calendar01Icon} size={12} color="currentColor" strokeWidth={1.5} className="ml-auto opacity-50" />
+                      <HugeiconsIcon
+                        icon={Calendar01Icon}
+                        size={12}
+                        color="currentColor"
+                        strokeWidth={1.5}
+                        className="ml-auto opacity-50"
+                      />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">

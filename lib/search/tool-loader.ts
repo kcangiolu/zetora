@@ -156,11 +156,7 @@ export async function loadConfiguredTools({
         }
         case 'extreme_search': {
           const { extremeSearchTool } = await import('@/lib/tools/extreme-search');
-          tools.extreme_search = extremeSearchTool(
-            dataStream,
-            contextFiles,
-            includeMcpTools ? mcpDynamicTools : {},
-          );
+          tools.extreme_search = extremeSearchTool(dataStream, contextFiles, includeMcpTools ? mcpDynamicTools : {});
           return;
         }
         case 'greeting': {

@@ -91,9 +91,7 @@ export const weatherTool = tool({
             return fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lng}&appid=${apiKey}`);
           },
           async airPollutionResponse() {
-            return fetch(
-              `https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lng}&appid=${apiKey}`,
-            );
+            return fetch(`https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lng}&appid=${apiKey}`);
           },
           async openMeteoResponse() {
             return fetch(

@@ -125,7 +125,9 @@ const SourceCard: React.FC<{ result: RetrieveResult; onClick?: () => void }> = R
               </>
             )}
           </div>
-          <p className="text-[10px] text-muted-foreground/50 line-clamp-1 mt-0.5 leading-relaxed">{result.description}</p>
+          <p className="text-[10px] text-muted-foreground/50 line-clamp-1 mt-0.5 leading-relaxed">
+            {result.description}
+          </p>
         </div>
       </div>
     </div>
@@ -150,7 +152,11 @@ export const RetrieveSingleResult: React.FC<{ result: RetrieveResponse }> = ({ r
   }
 
   const hostname = (() => {
-    try { return new URL(singleResult.url).hostname.replace('www.', ''); } catch { return singleResult.url; }
+    try {
+      return new URL(singleResult.url).hostname.replace('www.', '');
+    } catch {
+      return singleResult.url;
+    }
   })();
 
   return (
@@ -202,12 +208,16 @@ export const RetrieveSingleResult: React.FC<{ result: RetrieveResponse }> = ({ r
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-sm font-medium text-foreground truncate">{singleResult.title || 'Retrieved Content'}</h2>
+            <h2 className="text-sm font-medium text-foreground truncate">
+              {singleResult.title || 'Retrieved Content'}
+            </h2>
             <div className="flex items-center gap-2 mt-1.5">
               {singleResult.author && (
                 <span className="text-[10px] text-muted-foreground/60">{singleResult.author}</span>
               )}
-              {singleResult.author && singleResult.publishedDate && <span className="text-[10px] text-muted-foreground/30">·</span>}
+              {singleResult.author && singleResult.publishedDate && (
+                <span className="text-[10px] text-muted-foreground/30">·</span>
+              )}
               {singleResult.publishedDate && (
                 <span className="text-[10px] text-muted-foreground/50 tabular-nums">
                   {new Date(singleResult.publishedDate).toLocaleDateString()}
@@ -216,7 +226,9 @@ export const RetrieveSingleResult: React.FC<{ result: RetrieveResponse }> = ({ r
               {result.response_time && (
                 <>
                   <span className="text-[10px] text-muted-foreground/30">·</span>
-                  <span className="text-[10px] text-muted-foreground/40 tabular-nums">{result.response_time.toFixed(1)}s</span>
+                  <span className="text-[10px] text-muted-foreground/40 tabular-nums">
+                    {result.response_time.toFixed(1)}s
+                  </span>
                 </>
               )}
             </div>
@@ -331,7 +343,9 @@ const EnhancedSourceCard: React.FC<{ result: RetrieveResult; index: number }> = 
             )}
           </div>
 
-          <p className="text-[10px] text-muted-foreground/50 mt-0.5 line-clamp-1 leading-relaxed">{result.description}</p>
+          <p className="text-[10px] text-muted-foreground/50 mt-0.5 line-clamp-1 leading-relaxed">
+            {result.description}
+          </p>
         </div>
       </div>
     </div>

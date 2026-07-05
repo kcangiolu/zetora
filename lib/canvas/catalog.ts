@@ -1,6 +1,6 @@
-import { defineCatalog } from "@json-render/core";
-import { schema } from "@json-render/react/schema";
-import { z } from "zod";
+import { defineCatalog } from '@json-render/core';
+import { schema } from '@json-render/react/schema';
+import { z } from 'zod';
 
 /**
  * Canvas Mode Catalog
@@ -14,13 +14,13 @@ export const canvasCatalog = defineCatalog(schema, {
     // Layout
     Stack: {
       props: z.object({
-        direction: z.enum(["horizontal", "vertical"]).nullable(),
-        gap: z.enum(["sm", "md", "lg"]).nullable(),
+        direction: z.enum(['horizontal', 'vertical']).nullable(),
+        gap: z.enum(['sm', 'md', 'lg']).nullable(),
         wrap: z.boolean().nullable(),
       }),
-      slots: ["default"],
-      description: "Flex layout container",
-      example: { direction: "vertical", gap: "md", wrap: null },
+      slots: ['default'],
+      description: 'Flex layout container',
+      example: { direction: 'vertical', gap: 'md', wrap: null },
     },
 
     Card: {
@@ -28,29 +28,29 @@ export const canvasCatalog = defineCatalog(schema, {
         title: z.string().nullable(),
         description: z.string().nullable(),
       }),
-      slots: ["default"],
-      description: "Card container with optional title and description",
-      example: { title: "Key Findings", description: "Summary of research" },
+      slots: ['default'],
+      description: 'Card container with optional title and description',
+      example: { title: 'Key Findings', description: 'Summary of research' },
     },
 
     Grid: {
       props: z.object({
-        columns: z.enum(["1", "2", "3"]).nullable(),
-        gap: z.enum(["sm", "md", "lg"]).nullable(),
+        columns: z.enum(['1', '2', '3']).nullable(),
+        gap: z.enum(['sm', 'md', 'lg']).nullable(),
       }),
-      slots: ["default"],
-      description: "Responsive grid layout. Max 3 columns. Use 2 columns when children have long text.",
-      example: { columns: "3", gap: "md" },
+      slots: ['default'],
+      description: 'Responsive grid layout. Max 3 columns. Use 2 columns when children have long text.',
+      example: { columns: '3', gap: 'md' },
     },
 
     // Typography
     Heading: {
       props: z.object({
         text: z.string(),
-        level: z.enum(["h1", "h2", "h3", "h4"]).nullable(),
+        level: z.enum(['h1', 'h2', 'h3', 'h4']).nullable(),
       }),
-      description: "Section heading",
-      example: { text: "Research Dashboard", level: "h1" },
+      description: 'Section heading',
+      example: { text: 'Research Dashboard', level: 'h1' },
     },
 
     Text: {
@@ -58,34 +58,32 @@ export const canvasCatalog = defineCatalog(schema, {
         content: z.string(),
         muted: z.boolean().nullable(),
       }),
-      description: "Text content",
-      example: { content: "Here is your data overview." },
+      description: 'Text content',
+      example: { content: 'Here is your data overview.' },
     },
 
     // Data Display
     Badge: {
       props: z.object({
         text: z.string(),
-        variant: z
-          .enum(["default", "secondary", "destructive", "outline"])
-          .nullable(),
+        variant: z.enum(['default', 'secondary', 'destructive', 'outline']).nullable(),
       }),
-      description: "Status badge",
-      example: { text: "Live", variant: "default" },
+      description: 'Status badge',
+      example: { text: 'Live', variant: 'default' },
     },
 
     Alert: {
       props: z.object({
-        variant: z.enum(["default", "destructive"]).nullable(),
+        variant: z.enum(['default', 'destructive']).nullable(),
         title: z.string(),
         description: z.string().nullable(),
       }),
-      description: "Alert or info message",
+      description: 'Alert or info message',
     },
 
     Separator: {
       props: z.object({}),
-      description: "Visual divider",
+      description: 'Visual divider',
     },
 
     Metric: {
@@ -93,15 +91,15 @@ export const canvasCatalog = defineCatalog(schema, {
         label: z.string(),
         value: z.string(),
         detail: z.string().nullable(),
-        trend: z.enum(["up", "down", "neutral"]).nullable(),
+        trend: z.enum(['up', 'down', 'neutral']).nullable(),
       }),
       description:
-        "Single metric display. Keep value SHORT (numbers, short names). For long text values use Text inside a Card instead.",
+        'Single metric display. Keep value SHORT (numbers, short names). For long text values use Text inside a Card instead.',
       example: {
-        label: "Growth Rate",
-        value: "12.5%",
-        detail: "Up from 8.2%",
-        trend: "up",
+        label: 'Growth Rate',
+        value: '12.5%',
+        detail: 'Up from 8.2%',
+        trend: 'up',
       },
     },
 
@@ -116,13 +114,12 @@ export const canvasCatalog = defineCatalog(schema, {
         ),
         emptyMessage: z.string().nullable(),
       }),
-      description:
-        'Data table. Use { "$state": "/path" } to bind read-only data from state.',
+      description: 'Data table. Use { "$state": "/path" } to bind read-only data from state.',
       example: {
-        data: { $state: "/results" },
+        data: { $state: '/results' },
         columns: [
-          { key: "name", label: "Name" },
-          { key: "value", label: "Value" },
+          { key: 'name', label: 'Name' },
+          { key: 'value', label: 'Value' },
         ],
       },
     },
@@ -132,8 +129,9 @@ export const canvasCatalog = defineCatalog(schema, {
         text: z.string(),
         href: z.string(),
       }),
-      description: "A pill-shaped link showing a favicon + domain. Use for referencing external sources inline. href must be a full URL.",
-      example: { text: "openai.com", href: "https://openai.com/blog/gpt-5" },
+      description:
+        'A pill-shaped link showing a favicon + domain. Use for referencing external sources inline. href must be a full URL.',
+      example: { text: 'openai.com', href: 'https://openai.com/blog/gpt-5' },
     },
 
     Image: {
@@ -143,11 +141,11 @@ export const canvasCatalog = defineCatalog(schema, {
         caption: z.string().nullable(),
       }),
       description:
-        "Display a chart image generated by code execution during research. Use ONLY for R2-hosted chart PNG URLs returned by extreme_search. Do NOT use for random web images.",
+        'Display a chart image generated by code execution during research. Use ONLY for R2-hosted chart PNG URLs returned by extreme_search. Do NOT use for random web images.',
       example: {
-        src: "https://r2.example.com/charts/abc123.png",
-        alt: "Revenue trend chart",
-        caption: "Generated from Q4 2025 data",
+        src: 'https://r2.example.com/charts/abc123.png',
+        alt: 'Revenue trend chart',
+        caption: 'Generated from Q4 2025 data',
       },
     },
 
@@ -159,7 +157,7 @@ export const canvasCatalog = defineCatalog(schema, {
         xKey: z.string(),
         yKey: z.string(),
         yKeys: z.array(z.string()).max(3).nullable(),
-        aggregate: z.enum(["sum", "count", "avg"]).nullable(),
+        aggregate: z.enum(['sum', 'count', 'avg']).nullable(),
         color: z.string().nullable(),
         height: z.number().nullable(),
       }),
@@ -173,7 +171,7 @@ export const canvasCatalog = defineCatalog(schema, {
         data: z.array(z.record(z.string(), z.unknown())),
         xKey: z.string(),
         yKey: z.string(),
-        aggregate: z.enum(["sum", "count", "avg"]).nullable(),
+        aggregate: z.enum(['sum', 'count', 'avg']).nullable(),
         color: z.string().nullable(),
         height: z.number().nullable(),
       }),
@@ -193,19 +191,17 @@ export const canvasCatalog = defineCatalog(schema, {
         'Pie/donut chart for proportional data. Use { "$state": "/path" } to bind read-only data. nameKey is the label field, valueKey is the numeric value field.',
     },
 
-
     Callout: {
       props: z.object({
-        type: z.enum(["info", "tip", "warning", "important"]).nullable(),
+        type: z.enum(['info', 'tip', 'warning', 'important']).nullable(),
         title: z.string().nullable(),
         content: z.string(),
       }),
-      description:
-        "Highlighted callout box for tips, warnings, notes, or key information",
+      description: 'Highlighted callout box for tips, warnings, notes, or key information',
       example: {
-        type: "tip",
-        title: "Key Insight",
-        content: "This data suggests a strong upward trend.",
+        type: 'tip',
+        title: 'Key Insight',
+        content: 'This data suggests a strong upward trend.',
       },
     },
 
@@ -217,13 +213,12 @@ export const canvasCatalog = defineCatalog(schema, {
             content: z.string(),
           }),
         ),
-        type: z.enum(["single", "multiple"]).nullable(),
+        type: z.enum(['single', 'multiple']).nullable(),
       }),
-      description:
-        "Collapsible accordion sections for organizing detailed content",
+      description: 'Collapsible accordion sections for organizing detailed content',
       example: {
-        items: [{ title: "Overview", content: "A brief introduction." }],
-        type: "multiple",
+        items: [{ title: 'Overview', content: 'A brief introduction.' }],
+        type: 'multiple',
       },
     },
 
@@ -234,19 +229,18 @@ export const canvasCatalog = defineCatalog(schema, {
             title: z.string(),
             description: z.string().nullable(),
             date: z.string().nullable(),
-            status: z.enum(["completed", "current", "upcoming"]).nullable(),
+            status: z.enum(['completed', 'current', 'upcoming']).nullable(),
           }),
         ),
       }),
-      description:
-        "Vertical timeline showing ordered events, steps, or historical milestones",
+      description: 'Vertical timeline showing ordered events, steps, or historical milestones',
       example: {
         items: [
           {
-            title: "Discovery",
-            description: "Initial breakthrough",
-            date: "1905",
-            status: "completed",
+            title: 'Discovery',
+            description: 'Initial breakthrough',
+            date: '1905',
+            status: 'completed',
           },
         ],
       },
@@ -260,17 +254,17 @@ export const canvasCatalog = defineCatalog(schema, {
         labelB: z.string(),
         valueB: z.string(),
         delta: z.string().nullable(),
-        trend: z.enum(["up", "down", "neutral"]).nullable(),
+        trend: z.enum(['up', 'down', 'neutral']).nullable(),
       }),
       description:
-        "Side-by-side comparison of two values with a delta indicator. Use for A vs B, before/after, or model comparisons.",
+        'Side-by-side comparison of two values with a delta indicator. Use for A vs B, before/after, or model comparisons.',
       example: {
-        labelA: "GPT-5.2",
-        valueA: "57%",
-        labelB: "GPT-5.3",
-        valueB: "60%",
-        delta: "+3%",
-        trend: "up",
+        labelA: 'GPT-5.2',
+        valueA: '57%',
+        labelB: 'GPT-5.3',
+        valueB: '60%',
+        delta: '+3%',
+        trend: 'up',
       },
     },
 
@@ -282,32 +276,35 @@ export const canvasCatalog = defineCatalog(schema, {
         href: z.string().nullable(),
       }),
       description:
-        "Styled blockquote with attribution. Use for notable quotes, statements, or key findings from research sources.",
+        'Styled blockquote with attribution. Use for notable quotes, statements, or key findings from research sources.',
       example: {
         text: "This is the most significant advance in reasoning we've seen.",
-        author: "Sam Altman",
-        source: "X post",
-        href: "https://x.com/sama/status/123",
+        author: 'Sam Altman',
+        source: 'X post',
+        href: 'https://x.com/sama/status/123',
       },
     },
 
     KPIRow: {
       props: z.object({
-        items: z.array(
-          z.object({
-            label: z.string(),
-            value: z.string(),
-            detail: z.string().nullable(),
-          }),
-        ).min(2).max(4),
+        items: z
+          .array(
+            z.object({
+              label: z.string(),
+              value: z.string(),
+              detail: z.string().nullable(),
+            }),
+          )
+          .min(2)
+          .max(4),
       }),
       description:
-        "A single horizontal banner showing 2-4 top-level stats. MAXIMUM 4 items — never more. Each item has a label (short uppercase), value (number/percentage), and optional detail. Use INSTEAD of Grid+Metric for a compact hero section. Items is an array of objects, NOT nested components.",
+        'A single horizontal banner showing 2-4 top-level stats. MAXIMUM 4 items — never more. Each item has a label (short uppercase), value (number/percentage), and optional detail. Use INSTEAD of Grid+Metric for a compact hero section. Items is an array of objects, NOT nested components.',
       example: {
         items: [
-          { label: "Revenue", value: "$4.2B", detail: "+18% YoY" },
-          { label: "Users", value: "120M", detail: "Monthly active" },
-          { label: "Growth", value: "32%", detail: null },
+          { label: 'Revenue', value: '$4.2B', detail: '+18% YoY' },
+          { label: 'Users', value: '120M', detail: 'Monthly active' },
+          { label: 'Growth', value: '32%', detail: null },
         ],
       },
     },
@@ -319,10 +316,10 @@ export const canvasCatalog = defineCatalog(schema, {
         href: z.string().nullable(),
       }),
       description:
-        "A layered visual card with a small label on top and a bold title below. Use for feature highlights, key findings, or navigation-style callouts. Place in Grid(2) or Grid(3).",
+        'A layered visual card with a small label on top and a bold title below. Use for feature highlights, key findings, or navigation-style callouts. Place in Grid(2) or Grid(3).',
       example: {
-        label: "Key Finding",
-        title: "GPT-5.3 achieves SOTA on 6 of 7 benchmarks",
+        label: 'Key Finding',
+        title: 'GPT-5.3 achieves SOTA on 6 of 7 benchmarks',
         href: null,
       },
     },
@@ -334,11 +331,11 @@ export const canvasCatalog = defineCatalog(schema, {
         description: z.string().nullable(),
       }),
       description:
-        "Compact research source card with favicon, domain, and snippet. Use to cite important sources in the dashboard.",
+        'Compact research source card with favicon, domain, and snippet. Use to cite important sources in the dashboard.',
       example: {
-        url: "https://openai.com/blog/gpt-5",
-        title: "Introducing GPT-5",
-        description: "Our most capable model yet with breakthrough reasoning.",
+        url: 'https://openai.com/blog/gpt-5',
+        title: 'Introducing GPT-5',
+        description: 'Our most capable model yet with breakthrough reasoning.',
       },
     },
   },

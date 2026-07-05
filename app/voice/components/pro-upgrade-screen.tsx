@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useRouter } from "next/navigation";
-import { Mic, Globe, Zap } from "lucide-react";
-import { ZetoraLogo } from "@/components/logos/zetora-logo";
-import { Orb } from "@/components/ui/orb";
+import { useRouter } from 'next/navigation';
+import { Mic, Globe, Zap } from 'lucide-react';
+import { ZetoraLogo } from '@/components/logos/zetora-logo';
+import { Orb } from '@/components/ui/orb';
 
 interface ProUpgradeScreenProps {
   user: unknown;
@@ -12,9 +12,9 @@ interface ProUpgradeScreenProps {
 }
 
 const FEATURES = [
-  { icon: Mic, label: "Voice conversations" },
-  { icon: Globe, label: "Real-time web search" },
-  { icon: Zap, label: "5 voices to choose from" },
+  { icon: Mic, label: 'Voice conversations' },
+  { icon: Globe, label: 'Real-time web search' },
+  { icon: Zap, label: '5 voices to choose from' },
 ];
 
 export function ProUpgradeScreen({ user }: ProUpgradeScreenProps) {
@@ -23,14 +23,11 @@ export function ProUpgradeScreen({ user }: ProUpgradeScreenProps) {
   return (
     <div className="relative flex h-dvh w-full flex-col items-center overflow-hidden bg-background">
       <div className="relative z-10 flex min-h-0 flex-1 w-full max-w-lg flex-col items-center p-4 sm:p-6 safe-area-inset-bottom">
-
         {/* Header */}
         <header className="flex w-full shrink-0 items-center pt-2 sm:pt-4">
           <div className="flex items-center gap-2">
             <ZetoraLogo className="shrink-0 size-7 sm:size-8" />
-            <h1 className="font-pixel text-base sm:text-2xl text-foreground tracking-wider">
-              Voice
-            </h1>
+            <h1 className="font-pixel text-base sm:text-2xl text-foreground tracking-wider">Voice</h1>
           </div>
         </header>
 
@@ -38,7 +35,7 @@ export function ProUpgradeScreen({ user }: ProUpgradeScreenProps) {
         <div className="flex flex-1 min-h-0 items-center justify-center w-full">
           <div className="relative size-[260px] sm:size-[300px] opacity-30 pointer-events-none">
             <Orb
-              colors={["#6B5B4F", "#8B7355"]}
+              colors={['#6B5B4F', '#8B7355']}
               agentState={null}
               volumeMode="auto"
               inputVolumeRef={{ current: 0 }}
@@ -51,14 +48,16 @@ export function ProUpgradeScreen({ user }: ProUpgradeScreenProps) {
         {/* Upgrade card — sits where the accordion + controls live */}
         <div className="flex w-full shrink-0 flex-col gap-3 pb-2 sm:pb-0">
           <div className="w-full rounded-xl border border-border/60 bg-card/30 p-4 flex flex-col gap-4">
-
             <div className="flex flex-col gap-1">
               <div className="inline-flex items-center gap-1.5 w-fit rounded-full border border-border/50 bg-muted/40 px-2.5 py-1 mb-1">
-                <span className="font-pixel text-[9px] text-muted-foreground/70 tracking-wider uppercase">Pro feature</span>
+                <span className="font-pixel text-[9px] text-muted-foreground/70 tracking-wider uppercase">
+                  Pro feature
+                </span>
               </div>
               <p className="text-sm font-medium text-foreground">Unlock Voice</p>
               <p className="text-xs text-muted-foreground/70 leading-relaxed">
-                Have natural voice conversations with Zetora. Ask questions, search the web, and get real-time responses.
+                Have natural voice conversations with Zetora. Ask questions, search the web, and get real-time
+                responses.
               </p>
             </div>
 
@@ -76,14 +75,14 @@ export function ProUpgradeScreen({ user }: ProUpgradeScreenProps) {
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => router.push("/new")}
+                onClick={() => router.push('/new')}
                 className="flex-1 h-9 rounded-lg border border-border/50 bg-transparent text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
               >
                 Back to search
               </button>
               <button
                 type="button"
-                onClick={() => router.push("/pricing")}
+                onClick={() => router.push('/pricing')}
                 className="flex-1 h-9 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-opacity"
               >
                 Upgrade to Pro
@@ -91,7 +90,6 @@ export function ProUpgradeScreen({ user }: ProUpgradeScreenProps) {
             </div>
           </div>
         </div>
-
       </div>
     </div>
   );

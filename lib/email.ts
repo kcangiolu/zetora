@@ -138,10 +138,7 @@ export async function sendLookoutCompletionEmail({
     );
     return { success: true, id: 'id' in data ? data.id : (data as any).messageId };
   } catch (error) {
-    console.error(
-      `❌ Failed to send lookout completion email via ${provider}:`,
-      error,
-    );
+    console.error(`❌ Failed to send lookout completion email via ${provider}:`, error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',

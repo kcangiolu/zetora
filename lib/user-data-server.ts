@@ -228,7 +228,10 @@ function globalCache<T>(key: string, maxSize: number): LruTtlCache<T> {
 }
 
 const userDataCache = globalCache<ComprehensiveUserData>('__zetoraUserDataCache', USER_DATA_CACHE_MAX);
-const lightweightAuthCache = globalCache<LightweightUserAuth>('__zetoraLightweightAuthCache', LIGHTWEIGHT_AUTH_CACHE_MAX);
+const lightweightAuthCache = globalCache<LightweightUserAuth>(
+  '__zetoraLightweightAuthCache',
+  LIGHTWEIGHT_AUTH_CACHE_MAX,
+);
 
 // Custom instructions cache (per-user)
 const customInstructionsCache = globalCache<CustomInstructions | null>(
@@ -706,4 +709,3 @@ export async function isUserPro(): Promise<boolean> {
   const userData = await getComprehensiveUserData();
   return userData?.isProUser || false;
 }
-

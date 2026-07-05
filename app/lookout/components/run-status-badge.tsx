@@ -43,4 +43,3 @@ export function RunStatusBadge({ status, size = 'sm' }: RunStatusBadgeProps) {
     </Badge>
   );
 }
-

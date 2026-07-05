@@ -110,7 +110,9 @@ Best regards`;
         {!showEmailDraft ? (
           <div className="space-y-3 pt-1">
             <div className="space-y-1.5">
-              <Label htmlFor="university" className="text-[11px] text-muted-foreground">University Name *</Label>
+              <Label htmlFor="university" className="text-[11px] text-muted-foreground">
+                University Name *
+              </Label>
               <Input
                 id="university"
                 placeholder="e.g., Stanford University"
@@ -121,7 +123,9 @@ Best regards`;
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="domain" className="text-[11px] text-muted-foreground">Email Domain *</Label>
+              <Label htmlFor="domain" className="text-[11px] text-muted-foreground">
+                Email Domain *
+              </Label>
               <Input
                 id="domain"
                 placeholder="e.g., @stanford.edu"
@@ -132,7 +136,9 @@ Best regards`;
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="student-email" className="text-[11px] text-muted-foreground">Your Student Email *</Label>
+              <Label htmlFor="student-email" className="text-[11px] text-muted-foreground">
+                Your Student Email *
+              </Label>
               <Input
                 id="student-email"
                 type="email"
@@ -144,7 +150,9 @@ Best regards`;
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="additional-info" className="text-[11px] text-muted-foreground">Additional Info</Label>
+              <Label htmlFor="additional-info" className="text-[11px] text-muted-foreground">
+                Additional Info
+              </Label>
               <Textarea
                 id="additional-info"
                 placeholder="Any additional details..."
@@ -160,7 +168,12 @@ Best regards`;
                 <Send className="w-3 h-3" />
                 Send Request
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setShowEmailDraft(true)} className="gap-1.5 rounded-lg h-8 text-xs">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowEmailDraft(true)}
+                className="gap-1.5 rounded-lg h-8 text-xs"
+              >
                 <Copy className="w-3 h-3" />
                 Preview
               </Button>
@@ -191,7 +204,12 @@ Best regards`;
                 <Copy className="w-3 h-3" />
                 Copy
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => setShowEmailDraft(false)} className="rounded-lg h-8 text-xs">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowEmailDraft(false)}
+                className="rounded-lg h-8 text-xs"
+              >
                 Back
               </Button>
             </div>

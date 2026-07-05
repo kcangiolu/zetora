@@ -59,8 +59,7 @@ export const dynamicXmlToolMiddleware: LanguageModelMiddleware = {
     let next = args.doStream;
     for (const middleware of parserChain) {
       const doStream = next;
-      next = () =>
-        middleware.wrapStream!({ ...args, doStream }) as ReturnType<WrapStreamArgs['doStream']>;
+      next = () => middleware.wrapStream!({ ...args, doStream }) as ReturnType<WrapStreamArgs['doStream']>;
     }
     return next();
   },
@@ -69,8 +68,7 @@ export const dynamicXmlToolMiddleware: LanguageModelMiddleware = {
     let next = args.doGenerate;
     for (const middleware of parserChain) {
       const doGenerate = next;
-      next = () =>
-        middleware.wrapGenerate!({ ...args, doGenerate }) as ReturnType<WrapGenerateArgs['doGenerate']>;
+      next = () => middleware.wrapGenerate!({ ...args, doGenerate }) as ReturnType<WrapGenerateArgs['doGenerate']>;
     }
     return next();
   },

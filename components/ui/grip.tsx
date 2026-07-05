@@ -37,7 +37,9 @@ const GripIcon = forwardRef<GripIconHandle, GripIconProps>(
 
     useEffect(() => {
       isMountedRef.current = true;
-      return () => { isMountedRef.current = false; };
+      return () => {
+        isMountedRef.current = false;
+      };
     }, []);
 
     useImperativeHandle(ref, () => {

@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { localPoint } from "@visx/event";
-import { ParentSize } from "@visx/responsive";
-import { scaleLinear, scaleTime } from "@visx/scale";
-import { bisector } from "d3-array";
+import { localPoint } from '@visx/event';
+import { ParentSize } from '@visx/responsive';
+import { scaleLinear, scaleTime } from '@visx/scale';
+import { bisector } from 'd3-array';
 import {
   Children,
   isValidElement,
@@ -14,15 +14,10 @@ import {
   useMemo,
   useRef,
   useState,
-} from "react";
-import { cn } from "@/lib/utils";
-import { Area, type AreaProps } from "./area";
-import {
-  ChartProvider,
-  type LineConfig,
-  type Margin,
-  type TooltipData,
-} from "./chart-context";
+} from 'react';
+import { cn } from '@/lib/utils';
+import { Area, type AreaProps } from './area';
+import { ChartProvider, type LineConfig, type Margin, type TooltipData } from './chart-context';
 
 // Check if a component should render after the mouse overlay (markers need to be on top for interaction)
 function isPostOverlayComponent(child: ReactElement): boolean {
@@ -38,12 +33,9 @@ function isPostOverlayComponent(child: ReactElement): boolean {
   }
 
   // Fallback to displayName check
-  const componentName =
-    typeof child.type === "function"
-      ? childType.displayName || childType.name || ""
-      : "";
+  const componentName = typeof child.type === 'function' ? childType.displayName || childType.name || '' : '';
 
-  return componentName === "ChartMarkers" || componentName === "MarkerGroup";
+  return componentName === 'ChartMarkers' || componentName === 'MarkerGroup';
 }
 
 export interface AreaChartProps {
@@ -79,22 +71,19 @@ function extractAreaConfigs(children: ReactNode): LineConfig[] {
       displayName?: string;
       name?: string;
     };
-    const componentName =
-      typeof child.type === "function"
-        ? childType.displayName || childType.name || ""
-        : "";
+    const componentName = typeof child.type === 'function' ? childType.displayName || childType.name || '' : '';
 
     // Check by displayName, or by props having dataKey (duck typing)
     const props = child.props as AreaProps | undefined;
     const isAreaComponent =
-      componentName === "Area" ||
+      componentName === 'Area' ||
       child.type === Area ||
-      (props && typeof props.dataKey === "string" && props.dataKey.length > 0);
+      (props && typeof props.dataKey === 'string' && props.dataKey.length > 0);
 
     if (isAreaComponent && props?.dataKey) {
       configs.push({
         dataKey: props.dataKey,
-        stroke: props.stroke || props.fill || "var(--chart-line-primary)",
+        stroke: props.stroke || props.fill || 'var(--chart-line-primary)',
         strokeWidth: props.strokeWidth || 2,
       });
     }
@@ -139,14 +128,11 @@ function ChartInner({
       const value = d[xDataKey];
       return value instanceof Date ? value : new Date(value as string | number);
     },
-    [xDataKey]
+    [xDataKey],
   );
 
   // Create bisector for finding nearest data point
-  const bisectDate = useMemo(
-    () => bisector<Record<string, unknown>, Date>((d) => xAccessor(d)).left,
-    [xAccessor]
-  );
+  const bisectDate = useMemo(() => bisector<Record<string, unknown>, Date>((d) => xAccessor(d)).left, [xAccessor]);
 
   // X scale (time) - use exact data domain for tight fit
   const xScale = useMemo(() => {
@@ -175,7 +161,7 @@ function ChartInner({
     for (const line of lines) {
       for (const d of data) {
         const value = d[line.dataKey];
-        if (typeof value === "number" && value > maxValue) {
+        if (typeof value === 'number' && value > maxValue) {
           maxValue = value;
         }
       }
@@ -197,12 +183,12 @@ function ChartInner({
   const dateLabels = useMemo(
     () =>
       data.map((d) =>
-        xAccessor(d).toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-        })
+        xAccessor(d).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+        }),
       ),
-    [data, xAccessor]
+    [data, xAccessor],
   );
 
   // Animation timing
@@ -247,7 +233,7 @@ function ChartInner({
       const yPositions: Record<string, number> = {};
       for (const line of lines) {
         const value = d[line.dataKey];
-        if (typeof value === "number") {
+        if (typeof value === 'number') {
           yPositions[line.dataKey] = yScale(value) ?? 0;
         }
       }
@@ -259,7 +245,7 @@ function ChartInner({
         yPositions,
       });
     },
-    [xScale, yScale, data, lines, margin.left, xAccessor, bisectDate]
+    [xScale, yScale, data, lines, margin.left, xAccessor, bisectDate],
   );
 
   const handleMouseLeave = useCallback(() => {
@@ -318,9 +304,7 @@ function ChartInner({
             <rect
               height={innerHeight + 20}
               style={{
-                transition: isLoaded
-                  ? "none"
-                  : `width ${animationDuration}ms cubic-bezier(0.85, 0, 0.15, 1)`,
+                transition: isLoaded ? 'none' : `width ${animationDuration}ms cubic-bezier(0.85, 0, 0.15, 1)`,
               }}
               width={isLoaded ? innerWidth : 0}
               x={0}
@@ -335,17 +319,11 @@ function ChartInner({
         <g
           onMouseLeave={canInteract ? handleMouseLeave : undefined}
           onMouseMove={canInteract ? handleMouseMove : undefined}
-          style={{ cursor: canInteract ? "crosshair" : "default" }}
+          style={{ cursor: canInteract ? 'crosshair' : 'default' }}
           transform={`translate(${margin.left},${margin.top})`}
         >
           {/* Background rect for mouse event detection */}
-          <rect
-            fill="transparent"
-            height={innerHeight}
-            width={innerWidth}
-            x={0}
-            y={0}
-          />
+          <rect fill="transparent" height={innerHeight} width={innerWidth} x={0} y={0} />
 
           {/* SVG children rendered before markers (Grid, Area, etc.) */}
           {preOverlayChildren}
@@ -360,22 +338,18 @@ function ChartInner({
 
 export function AreaChart({
   data,
-  xDataKey = "date",
+  xDataKey = 'date',
   margin: marginProp,
   animationDuration = 1100,
-  aspectRatio = "2 / 1",
-  className = "",
+  aspectRatio = '2 / 1',
+  className = '',
   children,
 }: AreaChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const margin = { ...DEFAULT_MARGIN, ...marginProp };
 
   return (
-    <div
-      className={cn("relative w-full", className)}
-      ref={containerRef}
-      style={{ aspectRatio }}
-    >
+    <div className={cn('relative w-full', className)} ref={containerRef} style={{ aspectRatio }}>
       <ParentSize debounceTime={10}>
         {({ width, height }) => (
           <ChartInner
@@ -396,6 +370,6 @@ export function AreaChart({
 }
 
 // Re-export Area for convenience
-export { Area, type AreaProps } from "./area";
+export { Area, type AreaProps } from './area';
 
 export default AreaChart;

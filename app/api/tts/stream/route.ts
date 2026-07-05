@@ -35,9 +35,7 @@ export async function POST(req: NextRequest) {
   const voice = (p['zetora-tts-openai-voice'] as string) || 'alloy';
   const language = (p['zetora-tts-openai-language'] as string) || undefined;
 
-  const base = provider.baseURL.endsWith('/v1')
-    ? provider.baseURL
-    : `${provider.baseURL}/v1`;
+  const base = provider.baseURL.endsWith('/v1') ? provider.baseURL : `${provider.baseURL}/v1`;
   const upstreamUrl = `${base}/audio/speech`;
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };

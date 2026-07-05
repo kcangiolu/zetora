@@ -32,15 +32,24 @@ export function Providers({ children }: { children: ReactNode }) {
       <UserProvider>
         <DataStreamProvider>
           <SpeechProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-            themes={["light", "dark", "colourful", "t3chat", "claudedark", "claudelight", "neutrallight", "neutraldark"]}
-          >
-            {children}
-          </ThemeProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+              themes={[
+                'light',
+                'dark',
+                'colourful',
+                't3chat',
+                'claudedark',
+                'claudelight',
+                'neutrallight',
+                'neutraldark',
+              ]}
+            >
+              {children}
+            </ThemeProvider>
           </SpeechProvider>
         </DataStreamProvider>
       </UserProvider>

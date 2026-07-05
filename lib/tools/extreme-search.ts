@@ -202,7 +202,6 @@ async function searchFilesForQuery(
   return allResults.slice(0, maxResults);
 }
 
-
 interface MetadataZetoraResponse {
   url?: string;
   canonical?: string;
@@ -544,15 +543,15 @@ class SearXNGSearchStrategy implements SearchProviderStrategy {
 
       const data = await response.json();
 
-      const mappedResults = (data.results || []).slice(0, 8).map(
-        (r: { url: string; title?: string; content?: string; publishedDate?: string }) => ({
+      const mappedResults = (data.results || [])
+        .slice(0, 8)
+        .map((r: { url: string; title?: string; content?: string; publishedDate?: string }) => ({
           title: r.title || '',
           url: r.url,
           content: '',
           publishedDate: r.publishedDate || '',
           favicon: `https://www.google.com/s2/favicons?domain=${new URL(r.url).hostname}&sz=128`,
-        }),
-      ) as SearchResult[];
+        })) as SearchResult[];
 
       console.log(`[SearXNG] search returning ${mappedResults.length} results`);
       return mappedResults;
@@ -577,7 +576,7 @@ async function extremeSearch(
   preferences: Record<string, string> | null = null,
 ): Promise<Research> {
   const modelId = preferences?.['zetora-tertiary-extreme-agent-model'] || 'zetora-ext-1';
-  const sandboxPreference = (preferences?.['zetora-sandbox-provider'] as SandboxProviderType | undefined);
+  const sandboxPreference = preferences?.['zetora-sandbox-provider'] as SandboxProviderType | undefined;
   const allSources: SearchResult[] = [];
 
   // Initialize clients
@@ -1460,7 +1459,12 @@ ${JSON.stringify(plan)}
                     }
                   }
 
-                  if (!content && notteEnabled && serverEnv.NOTTE_API_KEY && serverEnv.NOTTE_API_KEY !== 'placeholder') {
+                  if (
+                    !content &&
+                    notteEnabled &&
+                    serverEnv.NOTTE_API_KEY &&
+                    serverEnv.NOTTE_API_KEY !== 'placeholder'
+                  ) {
                     try {
                       const notteResult = await scrapeWebpageWithNotte({
                         url,

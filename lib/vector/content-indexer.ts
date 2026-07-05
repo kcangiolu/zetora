@@ -123,7 +123,9 @@ export async function indexSearchResults(
       await client.upsert(INDEX_COLLECTION, points.slice(i, i + UPSERT_BATCH_SIZE));
     }
 
-    console.log(`[CONTENT-INDEX] Background content indexing: ${points.length} chunks indexed (from ${resultsToIndex.length} result(s))`);
+    console.log(
+      `[CONTENT-INDEX] Background content indexing: ${points.length} chunks indexed (from ${resultsToIndex.length} result(s))`,
+    );
   } catch (error) {
     console.warn('[CONTENT-INDEX] Indexing failed:', error);
   }

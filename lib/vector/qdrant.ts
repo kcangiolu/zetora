@@ -47,16 +47,13 @@ export function getQdrantClient(baseUrl: string = DEFAULT_QDRANT_URL) {
 
     async upsert(
       collectionName: string,
-      points: { id: string | number; vector: number[]; payload?: Record<string, any> }[]
+      points: { id: string | number; vector: number[]; payload?: Record<string, any> }[],
     ) {
-      const res = await fetch(
-        `${QDRANT_URL}/collections/${collectionName}/points?wait=true`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ points }),
-        }
-      );
+      const res = await fetch(`${QDRANT_URL}/collections/${collectionName}/points?wait=true`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ points }),
+      });
 
       if (!res.ok) {
         const err = await res.json();
@@ -68,7 +65,7 @@ export function getQdrantClient(baseUrl: string = DEFAULT_QDRANT_URL) {
       collectionName: string,
       vector: number[],
       limit: number = 10,
-      scoreThreshold?: number
+      scoreThreshold?: number,
     ): Promise<SearchResult[]> {
       const body: Record<string, any> = {
         vector,
@@ -80,14 +77,11 @@ export function getQdrantClient(baseUrl: string = DEFAULT_QDRANT_URL) {
         body.score_threshold = scoreThreshold;
       }
 
-      const res = await fetch(
-        `${QDRANT_URL}/collections/${collectionName}/points/search`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        }
-      );
+      const res = await fetch(`${QDRANT_URL}/collections/${collectionName}/points/search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
 
       if (!res.ok) {
         const err = await res.json();
@@ -112,9 +106,7 @@ export function getQdrantClient(baseUrl: string = DEFAULT_QDRANT_URL) {
     },
 
     async count(collectionName: string): Promise<number> {
-      const res = await fetch(
-        `${QDRANT_URL}/collections/${collectionName}`
-      );
+      const res = await fetch(`${QDRANT_URL}/collections/${collectionName}`);
       if (!res.ok) return 0;
       const data = await res.json();
       return data.result?.points_count ?? 0;

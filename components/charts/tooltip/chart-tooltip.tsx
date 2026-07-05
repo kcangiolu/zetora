@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import { motion, useSpring } from "motion/react";
-import { useEffect, useMemo, useState } from "react";
-import { chartCssVars, useChart } from "../chart-context";
-import { DateTicker } from "./date-ticker";
-import { TooltipBox } from "./tooltip-box";
-import { TooltipContent, type TooltipRow } from "./tooltip-content";
-import { TooltipDot } from "./tooltip-dot";
-import { TooltipIndicator } from "./tooltip-indicator";
+import { motion, useSpring } from 'motion/react';
+import { useEffect, useMemo, useState } from 'react';
+import { chartCssVars, useChart } from '../chart-context';
+import { DateTicker } from './date-ticker';
+import { TooltipBox } from './tooltip-box';
+import { TooltipContent, type TooltipRow } from './tooltip-content';
+import { TooltipDot } from './tooltip-dot';
+import { TooltipIndicator } from './tooltip-indicator';
 
 // Spring config for crosshair
 const crosshairSpringConfig = { stiffness: 300, damping: 30 };
@@ -20,10 +20,7 @@ export interface ChartTooltipProps {
   /** Whether to show dots on the lines. Default: true */
   showDots?: boolean;
   /** Custom content renderer for the tooltip box */
-  content?: (props: {
-    point: Record<string, unknown>;
-    index: number;
-  }) => React.ReactNode;
+  content?: (props: { point: Record<string, unknown>; index: number }) => React.ReactNode;
   /** Custom row renderer - return array of TooltipRow */
   rows?: (point: Record<string, unknown>) => TooltipRow[];
   /** Additional content to show below rows (e.g., markers) */
@@ -39,7 +36,7 @@ export function ChartTooltip({
   content,
   rows: rowsRenderer,
   children,
-  className = "",
+  className = '',
 }: ChartTooltipProps) {
   const {
     tooltipData,
@@ -56,7 +53,7 @@ export function ChartTooltip({
     barXAccessor,
   } = useChart();
 
-  const isHorizontal = orientation === "horizontal";
+  const isHorizontal = orientation === 'horizontal';
 
   const [mounted, setMounted] = useState(false);
 
@@ -71,9 +68,7 @@ export function ChartTooltip({
 
   // For horizontal charts, get the y position from the first line's yPosition (center of bar)
   const firstLineDataKey = lines[0]?.dataKey;
-  const firstLineY = firstLineDataKey
-    ? (tooltipData?.yPositions[firstLineDataKey] ?? 0)
-    : 0;
+  const firstLineY = firstLineDataKey ? (tooltipData?.yPositions[firstLineDataKey] ?? 0) : 0;
   const yWithMargin = firstLineY + margin.top;
 
   // Animated crosshair position
@@ -111,10 +106,10 @@ export function ChartTooltip({
       return barXAccessor(tooltipData.point);
     }
     // For vertical charts, use the date
-    return xAccessor(tooltipData.point).toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
+    return xAccessor(tooltipData.point).toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
     });
   }, [tooltipData, isHorizontal, barXAccessor, xAccessor]);
 
@@ -126,18 +121,13 @@ export function ChartTooltip({
   }
 
   // Dynamic import to avoid SSR issues
-  const { createPortal } = require("react-dom") as typeof import("react-dom");
+  const { createPortal } = require('react-dom') as typeof import('react-dom');
 
   const tooltipContent = (
     <>
       {/* Crosshair indicator - rendered as SVG overlay */}
       {showCrosshair && (
-        <svg
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0"
-          height="100%"
-          width="100%"
-        >
+        <svg aria-hidden="true" className="pointer-events-none absolute inset-0" height="100%" width="100%">
           <g transform={`translate(${margin.left},${margin.top})`}>
             <TooltipIndicator
               colorEdge={chartCssVars.crosshair}
@@ -155,12 +145,7 @@ export function ChartTooltip({
 
       {/* Dots on bars/lines - show for vertical charts only */}
       {showDots && visible && !isHorizontal && (
-        <svg
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0"
-          height="100%"
-          width="100%"
-        >
+        <svg aria-hidden="true" className="pointer-events-none absolute inset-0" height="100%" width="100%">
           <g transform={`translate(${margin.left},${margin.top})`}>
             {lines.map((line) => (
               <TooltipDot
@@ -205,15 +190,11 @@ export function ChartTooltip({
           className="pointer-events-none absolute z-50"
           style={{
             left: animatedX,
-            transform: "translateX(-50%)",
+            transform: 'translateX(-50%)',
             bottom: 4,
           }}
         >
-          <DateTicker
-            currentIndex={tooltipData?.index ?? 0}
-            labels={dateLabels}
-            visible={visible}
-          />
+          <DateTicker currentIndex={tooltipData?.index ?? 0} labels={dateLabels} visible={visible} />
         </motion.div>
       )}
     </>
@@ -222,6 +203,6 @@ export function ChartTooltip({
   return createPortal(tooltipContent, container);
 }
 
-ChartTooltip.displayName = "ChartTooltip";
+ChartTooltip.displayName = 'ChartTooltip';
 
 export default ChartTooltip;

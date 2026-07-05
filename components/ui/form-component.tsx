@@ -2579,7 +2579,6 @@ const McpServerSelector: React.FC<McpServerSelectorProps> = React.memo(({ user, 
                 {isGitHub ? (
                   <HugeiconsIcon icon={Github01Icon} size={20} className="shrink-0 text-foreground" />
                 ) : (
-                   
                   <img
                     src={faviconSrc!}
                     alt=""
@@ -2715,7 +2714,6 @@ const McpServerSelector: React.FC<McpServerSelectorProps> = React.memo(({ user, 
                 {isGitHubMobile ? (
                   <HugeiconsIcon icon={Github01Icon} size={28} className="shrink-0 text-foreground" />
                 ) : (
-                   
                   <img
                     src={faviconSrcMobile!}
                     alt=""

@@ -199,7 +199,7 @@ export async function listUserConnections(userId: string) {
 
     const connectionMap = await all(
       Object.fromEntries(connectionPromises.map((promise, index) => [`p:${index}`, async () => promise])),
-    getBetterAllOptions(),
+      getBetterAllOptions(),
     );
     const allConnections = providers.map((_, index) => connectionMap[`p:${index}`]);
     const flatConnections = allConnections.flat();

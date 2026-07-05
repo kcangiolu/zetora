@@ -8,10 +8,7 @@ function getAppOrigin(request: Request) {
   return new URL(request.url).origin.replace(/\/+$/, '');
 }
 
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ serverId: string }> },
-) {
+export async function GET(request: Request, { params }: { params: Promise<{ serverId: string }> }) {
   const { serverId } = await params;
   const origin = getAppOrigin(request);
   const callbackUri = `${origin}/api/mcp/oauth/callback`;

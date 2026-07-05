@@ -82,10 +82,7 @@ async function checkDodoSubscriptionProStatus(userId: string): Promise<boolean> 
     let userSubscriptions = getDodoSubscriptions(userId);
     if (!userSubscriptions) {
       // Use maindb to avoid replication lag for immediate subscription recognition
-      userSubscriptions = await maindb
-        .select()
-        .from(dodosubscription)
-        .where(eq(dodosubscription.userId, userId));
+      userSubscriptions = await maindb.select().from(dodosubscription).where(eq(dodosubscription.userId, userId));
       setDodoSubscriptions(userId, userSubscriptions);
     }
 
@@ -102,7 +99,7 @@ async function checkDodoSubscriptionProStatus(userId: string): Promise<boolean> 
       isProUser,
       hasSubscriptions: userSubscriptions.length > 0,
       subscriptionEndDate: activeSubscription?.currentPeriodEnd
-        ? toDate(activeSubscription.currentPeriodEnd)?.toISOString() ?? null
+        ? (toDate(activeSubscription.currentPeriodEnd)?.toISOString() ?? null)
         : null,
     };
     setDodoProStatus(userId, statusData);
@@ -138,11 +135,13 @@ async function getComprehensiveProStatus(
         },
         async dodoSubscriptions() {
           const cached = getDodoSubscriptions(userId);
-          const subs = cached ?? await (async () => {
-            const data = await maindb.select().from(dodosubscription).where(eq(dodosubscription.userId, userId));
-            setDodoSubscriptions(userId, data);
-            return data;
-          })();
+          const subs =
+            cached ??
+            (await (async () => {
+              const data = await maindb.select().from(dodosubscription).where(eq(dodosubscription.userId, userId));
+              setDodoSubscriptions(userId, data);
+              return data;
+            })());
           const now = new Date();
           const active = subs.find((sub: any) => {
             const periodEnd = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : null;

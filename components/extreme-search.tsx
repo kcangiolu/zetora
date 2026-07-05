@@ -9,7 +9,21 @@ import type { extremeSearchTool, Research } from '@/lib/tools/extreme-search';
 import type { UIToolInvocation } from 'ai';
 import React, { useEffect, useState, memo, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronRight, Search, Target, Code2, FlaskConical, Lightbulb, Download, Loader2, X, MoreVertical, ExternalLink, Globe } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  Search,
+  Target,
+  Code2,
+  FlaskConical,
+  Lightbulb,
+  Download,
+  Loader2,
+  X,
+  MoreVertical,
+  ExternalLink,
+  Globe,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -29,7 +43,7 @@ import { XLogoIcon } from '@phosphor-icons/react/dist/ssr';
 import dynamic from 'next/dynamic';
 import { Spinner } from '@/components/ui/spinner';
 
-const Tweet = dynamic(() => import('react-tweet').then(mod => ({ default: mod.Tweet })), {
+const Tweet = dynamic(() => import('react-tweet').then((mod) => ({ default: mod.Tweet })), {
   ssr: false,
   loading: () => (
     <div className="w-full h-[200px] rounded-lg border border-border bg-muted/30 animate-pulse flex items-center justify-center">
@@ -80,92 +94,114 @@ async function downloadImageBlob(url: string, filename: string): Promise<void> {
 }
 
 // Chart wrapper component with Cambio expand and 3-dot dropdown for actions
-const ChartWithFullView = memo(({ chart, index }: { chart: any; index: number }) => {
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
+const ChartWithFullView = memo(
+  ({ chart, index }: { chart: any; index: number }) => {
+    const [isDownloading, setIsDownloading] = useState(false);
+    const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  const chartTitle = chart.title || `Chart ${index + 1}`;
-  const sanitizedTitle = chartTitle.replace(/[^a-z0-9]/gi, '-').toLowerCase();
-  const imageUrl = chart.url;
+    const chartTitle = chart.title || `Chart ${index + 1}`;
+    const sanitizedTitle = chartTitle.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+    const imageUrl = chart.url;
 
-  const handleDownload = useCallback(async () => {
-    if (!imageUrl) return;
-    const filename = `${sanitizedTitle}.png`;
+    const handleDownload = useCallback(async () => {
+      if (!imageUrl) return;
+      const filename = `${sanitizedTitle}.png`;
 
-    setIsDownloading(true);
-    try {
-      await downloadImageBlob(imageUrl, filename);
-    } catch {
-      // CORS or network error — fall back to opening in new tab
-      window.open(imageUrl, '_blank');
-    } finally {
-      setIsDownloading(false);
-    }
-  }, [imageUrl, sanitizedTitle]);
+      setIsDownloading(true);
+      try {
+        await downloadImageBlob(imageUrl, filename);
+      } catch {
+        // CORS or network error — fall back to opening in new tab
+        window.open(imageUrl, '_blank');
+      } finally {
+        setIsDownloading(false);
+      }
+    }, [imageUrl, sanitizedTitle]);
 
-  const handleOpenInNewTab = useCallback(() => {
-    if (imageUrl) window.open(imageUrl, '_blank');
-  }, [imageUrl]);
+    const handleOpenInNewTab = useCallback(() => {
+      if (imageUrl) window.open(imageUrl, '_blank');
+    }, [imageUrl]);
 
-  if (!imageUrl) return null;
+    if (!imageUrl) return null;
 
-  return (
-    <div className="relative group h-full">
-      <Cambio.Root motion="smooth">
-        <Cambio.Trigger className="w-full h-full rounded-lg border border-border overflow-hidden cursor-zoom-in block bg-card shadow-none">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="h-full"
-          >
-            <img src={imageUrl} alt={chartTitle} className="w-full h-full object-cover" draggable={false} loading="lazy" />
-          </motion.div>
-        </Cambio.Trigger>
-        <Cambio.Portal>
-          <Cambio.Backdrop className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm" />
-          <Cambio.Popup className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="relative">
+    return (
+      <div className="relative group h-full">
+        <Cambio.Root motion="smooth">
+          <Cambio.Trigger className="w-full h-full rounded-lg border border-border overflow-hidden cursor-zoom-in block bg-card shadow-none">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="h-full"
+            >
               <img
                 src={imageUrl}
                 alt={chartTitle}
-                className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg"
+                className="w-full h-full object-cover"
                 draggable={false}
+                loading="lazy"
               />
-              <Cambio.Close className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50 text-white backdrop-blur-sm hover:bg-black/70 transition-colors cursor-pointer">
-                <X className="h-3.5 w-3.5" />
-              </Cambio.Close>
-            </div>
-          </Cambio.Popup>
-        </Cambio.Portal>
-      </Cambio.Root>
-      {/* 3-dot dropdown menu */}
-      <div className={cn(
-        "absolute top-3 right-3 transition-all duration-200 rotate-90",
-        dropdownOpen ? "opacity-100 translate-y-0" : "opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0"
-      )}>
-        <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" className="h-7 w-7 rounded-lg bg-background/95 backdrop-blur-md border border-border/50 shadow-none hover:bg-accent">
-              <MoreVertical className="h-3.5 w-3.5" />
-              <span className="sr-only">Chart options</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" sideOffset={4}>
-            <DropdownMenuItem onClick={handleDownload} disabled={isDownloading}>
-              {isDownloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-              {isDownloading ? 'Downloading...' : 'Download as PNG'}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleOpenInNewTab}>
-              <ExternalLink className="h-3.5 w-3.5" />
-              Open in new tab
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </motion.div>
+          </Cambio.Trigger>
+          <Cambio.Portal>
+            <Cambio.Backdrop className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm" />
+            <Cambio.Popup className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div className="relative">
+                <img
+                  src={imageUrl}
+                  alt={chartTitle}
+                  className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg"
+                  draggable={false}
+                />
+                <Cambio.Close className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50 text-white backdrop-blur-sm hover:bg-black/70 transition-colors cursor-pointer">
+                  <X className="h-3.5 w-3.5" />
+                </Cambio.Close>
+              </div>
+            </Cambio.Popup>
+          </Cambio.Portal>
+        </Cambio.Root>
+        {/* 3-dot dropdown menu */}
+        <div
+          className={cn(
+            'absolute top-3 right-3 transition-all duration-200 rotate-90',
+            dropdownOpen
+              ? 'opacity-100 translate-y-0'
+              : 'opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0',
+          )}
+        >
+          <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="h-7 w-7 rounded-lg bg-background/95 backdrop-blur-md border border-border/50 shadow-none hover:bg-accent"
+              >
+                <MoreVertical className="h-3.5 w-3.5" />
+                <span className="sr-only">Chart options</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" sideOffset={4}>
+              <DropdownMenuItem onClick={handleDownload} disabled={isDownloading}>
+                {isDownloading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5" />
+                )}
+                {isDownloading ? 'Downloading...' : 'Download as PNG'}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleOpenInNewTab}>
+                <ExternalLink className="h-3.5 w-3.5" />
+                Open in new tab
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
-    </div>
-  );
-}, (prev, next) => prev.chart?.url === next.chart?.url && prev.chart?.title === next.chart?.title && prev.index === next.index);
+    );
+  },
+  (prev, next) =>
+    prev.chart?.url === next.chart?.url && prev.chart?.title === next.chart?.title && prev.index === next.index,
+);
 
 ChartWithFullView.displayName = 'ChartWithFullView';
 
@@ -425,9 +461,7 @@ const ExtremeSearchComponent = ({
     // Also check if annotations indicate completion
     if (annotations?.length) {
       // Check for done annotation
-      const doneAnnotation = annotations.find(
-        (ann) => ann.type === 'data-extreme_search' && ann.data.kind === 'done',
-      );
+      const doneAnnotation = annotations.find((ann) => ann.type === 'data-extreme_search' && ann.data.kind === 'done');
       if (doneAnnotation) {
         return true;
       }
@@ -463,9 +497,7 @@ const ExtremeSearchComponent = ({
     }
 
     // Check for done annotation (wrapping up state)
-    const doneAnnotation = annotations.find(
-      (ann) => ann.type === 'data-extreme_search' && ann.data.kind === 'done',
-    );
+    const doneAnnotation = annotations.find((ann) => ann.type === 'data-extreme_search' && ann.data.kind === 'done');
     if (doneAnnotation) {
       return { currentStatus: 'Wrapping up research...', planData: null };
     }
@@ -477,14 +509,28 @@ const ExtremeSearchComponent = ({
     const hasPlan = plan !== null;
 
     // Get tool annotations for state tracking
-    const queryAnnotations = annotations.filter((ann) => ann.type === 'data-extreme_search' && ann.data.kind === 'query');
-    const xSearchAnnotations = annotations.filter((ann) => ann.type === 'data-extreme_search' && ann.data.kind === 'x_search');
+    const queryAnnotations = annotations.filter(
+      (ann) => ann.type === 'data-extreme_search' && ann.data.kind === 'query',
+    );
+    const xSearchAnnotations = annotations.filter(
+      (ann) => ann.type === 'data-extreme_search' && ann.data.kind === 'x_search',
+    );
     const codeAnnotations = annotations.filter((ann) => ann.type === 'data-extreme_search' && ann.data.kind === 'code');
-    const thinkingAnnotations = annotations.filter((ann) => ann.type === 'data-extreme_search' && ann.data.kind === 'thinking');
-    const fileQueryAnnotations = annotations.filter((ann) => ann.type === 'data-extreme_search' && ann.data.kind === 'file_query');
-    const browsePageAnnotations = annotations.filter((ann) => ann.type === 'data-extreme_search' && ann.data.kind === 'browse_page');
+    const thinkingAnnotations = annotations.filter(
+      (ann) => ann.type === 'data-extreme_search' && ann.data.kind === 'thinking',
+    );
+    const fileQueryAnnotations = annotations.filter(
+      (ann) => ann.type === 'data-extreme_search' && ann.data.kind === 'file_query',
+    );
+    const browsePageAnnotations = annotations.filter(
+      (ann) => ann.type === 'data-extreme_search' && ann.data.kind === 'browse_page',
+    );
 
-    const hasSearches = queryAnnotations.length > 0 || xSearchAnnotations.length > 0 || fileQueryAnnotations.length > 0 || browsePageAnnotations.length > 0;
+    const hasSearches =
+      queryAnnotations.length > 0 ||
+      xSearchAnnotations.length > 0 ||
+      fileQueryAnnotations.length > 0 ||
+      browsePageAnnotations.length > 0;
     const hasThinking = thinkingAnnotations.length > 0;
 
     // Get latest states
@@ -518,7 +564,9 @@ const ExtremeSearchComponent = ({
       const isReadingContent = latestQuery?.data?.kind === 'query' && latestQuery.data.status === 'reading_content';
       const isXSearching = latestXSearch?.data?.kind === 'x_search' && latestXSearch.data.status === 'started';
       const isFileQuerying = latestFileQuery?.data?.kind === 'file_query' && latestFileQuery.data.status === 'started';
-      const isBrowsing = latestBrowsePage?.data?.kind === 'browse_page' && (latestBrowsePage.data.status === 'started' || latestBrowsePage.data.status === 'browsing');
+      const isBrowsing =
+        latestBrowsePage?.data?.kind === 'browse_page' &&
+        (latestBrowsePage.data.status === 'started' || latestBrowsePage.data.status === 'browsing');
       const isRunningCode = latestCode?.data?.kind === 'code' && latestCode.data.status === 'running';
 
       if (isCurrentlyThinking) {
@@ -970,15 +1018,15 @@ const ExtremeSearchComponent = ({
     }
 
     if (annotations?.length) {
-      const doneAnnotation = annotations.find(
-        (ann) => ann.type === 'data-extreme_search' && ann.data.kind === 'done',
-      );
+      const doneAnnotation = annotations.find((ann) => ann.type === 'data-extreme_search' && ann.data.kind === 'done');
 
       if (doneAnnotation && doneAnnotation.data.kind === 'done') {
-        return [{
-          id: 'done-0',
-          summary: doneAnnotation.data.summary,
-        }];
+        return [
+          {
+            id: 'done-0',
+            summary: doneAnnotation.data.summary,
+          },
+        ];
       }
     }
 
@@ -1124,8 +1172,7 @@ const ExtremeSearchComponent = ({
           if (tr.toolName === 'thinking') {
             const resultData = tr.result || tr.output || {};
             const thought = resultData.thought || tr.args?.thought || tr.input?.thought || '';
-            const nextStep =
-              resultData.nextStep || tr.args?.nextStep || tr.input?.nextStep || tr.args?.next_step;
+            const nextStep = resultData.nextStep || tr.args?.nextStep || tr.input?.nextStep || tr.args?.next_step;
             const thinkingItem: ThinkingExecution = {
               id: tr.toolCallId || `thinking-${Math.random().toString(36).slice(2)}`,
               thought,
@@ -1265,7 +1312,9 @@ const ExtremeSearchComponent = ({
               return acc;
             }, {}),
           ).map((group) => ({ kind: 'file_query_group', item: group }) as TimelineItem),
-          ...browsePageExecutions.map((bp) => ({ kind: 'browse_page_group', item: { id: bp.id, executions: [bp] } }) as TimelineItem),
+          ...browsePageExecutions.map(
+            (bp) => ({ kind: 'browse_page_group', item: { id: bp.id, executions: [bp] } }) as TimelineItem,
+          ),
           ...doneExecutions.map((d) => ({ kind: 'done', item: d }) as TimelineItem),
         ];
 
@@ -1277,13 +1326,17 @@ const ExtremeSearchComponent = ({
           (ann) => ann.type === 'data-extreme_search' && ann.data.kind === 'thinking',
         );
 
-        return hasThinkingAnnotation ? [{
-          kind: 'thinking',
-          item: {
-            id: 'thinking-pending',
-            thought: '',
-          },
-        }] : [];
+        return hasThinkingAnnotation
+          ? [
+              {
+                kind: 'thinking',
+                item: {
+                  id: 'thinking-pending',
+                  thought: '',
+                },
+              },
+            ]
+          : [];
       }
       return items;
     }
@@ -1315,10 +1368,23 @@ const ExtremeSearchComponent = ({
           return acc;
         }, {}),
       ).map((group) => ({ kind: 'file_query_group', item: group }) as TimelineItem),
-      ...browsePageExecutions.map((bp) => ({ kind: 'browse_page_group', item: { id: bp.id, executions: [bp] } }) as TimelineItem),
+      ...browsePageExecutions.map(
+        (bp) => ({ kind: 'browse_page_group', item: { id: bp.id, executions: [bp] } }) as TimelineItem,
+      ),
       ...doneExecutions.map((d) => ({ kind: 'done', item: d }) as TimelineItem),
     ];
-  }, [isCompleted, toolInvocation, annotations, searchQueries, xSearchExecutions, codeExecutions, thinkingExecutions, fileQueryExecutions, browsePageExecutions, doneExecutions]);
+  }, [
+    isCompleted,
+    toolInvocation,
+    annotations,
+    searchQueries,
+    xSearchExecutions,
+    codeExecutions,
+    thinkingExecutions,
+    fileQueryExecutions,
+    browsePageExecutions,
+    doneExecutions,
+  ]);
 
   const hasActiveTimelineItems = useMemo(() => {
     return combinedTimelineItems.some((timelineItem, index) => {
@@ -1592,13 +1658,21 @@ const ExtremeSearchComponent = ({
 
       combinedTimelineItems.forEach((timelineItem: TimelineItem, index: number) => {
         const itemId =
-          timelineItem.kind === 'query_group' ? timelineItem.item.id :
-            timelineItem.kind === 'x_search_group' ? timelineItem.item.id :
-              timelineItem.kind === 'file_query_group' ? timelineItem.item.id :
-                timelineItem.kind === 'browse_page_group' ? timelineItem.item.id :
-                  timelineItem.kind === 'code' ? timelineItem.item.id :
-                    timelineItem.kind === 'thinking' ? timelineItem.item.id :
-                      timelineItem.kind === 'done' ? timelineItem.item.id : null;
+          timelineItem.kind === 'query_group'
+            ? timelineItem.item.id
+            : timelineItem.kind === 'x_search_group'
+              ? timelineItem.item.id
+              : timelineItem.kind === 'file_query_group'
+                ? timelineItem.item.id
+                : timelineItem.kind === 'browse_page_group'
+                  ? timelineItem.item.id
+                  : timelineItem.kind === 'code'
+                    ? timelineItem.item.id
+                    : timelineItem.kind === 'thinking'
+                      ? timelineItem.item.id
+                      : timelineItem.kind === 'done'
+                        ? timelineItem.item.id
+                        : null;
 
         if (!itemId) return;
 
@@ -1622,7 +1696,9 @@ const ExtremeSearchComponent = ({
           isItemCompleted = group.queries.every((q) => q.status === 'completed' || q.status === 'error');
         } else if (timelineItem.kind === 'browse_page_group') {
           isActive = timelineItem.item.executions.some((bp) => bp.status === 'started' || bp.status === 'browsing');
-          isItemCompleted = timelineItem.item.executions.every((bp) => bp.status === 'completed' || bp.status === 'error');
+          isItemCompleted = timelineItem.item.executions.every(
+            (bp) => bp.status === 'completed' || bp.status === 'error',
+          );
         } else if (timelineItem.kind === 'code') {
           isActive = timelineItem.item.status === 'running';
           isItemCompleted = timelineItem.item.status === 'completed';
@@ -1819,7 +1895,10 @@ const ExtremeSearchComponent = ({
                                   className="flex items-center gap-2.5 px-2 py-1.5 text-[12px] hover:bg-accent/50 rounded-sm transition-colors"
                                 >
                                   <img
-                                    src={source.favicon || `https://www.google.com/s2/favicons?sz=128&domain=${encodeURIComponent(hostname)}`}
+                                    src={
+                                      source.favicon ||
+                                      `https://www.google.com/s2/favicons?sz=128&domain=${encodeURIComponent(hostname)}`
+                                    }
                                     alt=""
                                     className="h-4 w-4 rounded shrink-0"
                                     onError={(e) => {
@@ -1831,9 +1910,7 @@ const ExtremeSearchComponent = ({
                                   <div className="flex-1 min-w-0 text-foreground truncate">
                                     {source.title || hostname}
                                   </div>
-                                  <div className="text-[11px] text-muted-foreground shrink-0">
-                                    {hostname}
-                                  </div>
+                                  <div className="text-[11px] text-muted-foreground shrink-0">{hostname}</div>
                                 </a>
                               );
                             })}
@@ -2059,12 +2136,8 @@ const ExtremeSearchComponent = ({
                                       (e.currentTarget as HTMLImageElement).style.filter = 'grayscale(100%)';
                                     }}
                                   />
-                                  <div className="flex-1 min-w-0 text-foreground truncate">
-                                    {title}
-                                  </div>
-                                  <div className="text-[11px] text-muted-foreground shrink-0">
-                                    {hostname}
-                                  </div>
+                                  <div className="flex-1 min-w-0 text-foreground truncate">{title}</div>
+                                  <div className="text-[11px] text-muted-foreground shrink-0">{hostname}</div>
                                 </a>
                               );
                             })}
@@ -2179,9 +2252,7 @@ const ExtremeSearchComponent = ({
                         {hasThought ? (
                           <p className="text-[11px] text-muted-foreground leading-snug">{thinking.thought}</p>
                         ) : (
-                          <p className="text-[11px] text-muted-foreground py-0.5 mt-0.5">
-                            No thought captured.
-                          </p>
+                          <p className="text-[11px] text-muted-foreground py-0.5 mt-0.5">No thought captured.</p>
                         )}
                       </div>
                     </motion.div>
@@ -2272,7 +2343,13 @@ const ExtremeSearchComponent = ({
                   className="flex items-start gap-1.5 cursor-pointer py-1 px-1.5 hover:bg-accent/50 rounded-md transition-colors duration-150 relative"
                   onClick={() => toggleItemExpansion(group.id)}
                 >
-                  <svg className="w-3 h-3 text-muted-foreground shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg
+                    className="w-3 h-3 text-muted-foreground shrink-0 mt-0.5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                     <polyline points="14 2 14 8 20 8" />
                     <line x1="16" y1="13" x2="8" y2="13" />
@@ -2316,7 +2393,13 @@ const ExtremeSearchComponent = ({
                               key={`${query.id}-${index}`}
                               className="inline-flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-0.5 text-[10px] text-foreground"
                             >
-                              <svg className="h-2.5 w-2.5 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <svg
+                                className="h-2.5 w-2.5 text-muted-foreground"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                              >
                                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                               </svg>
                               <span className="truncate max-w-[180px]">{query.query}</span>
@@ -2343,13 +2426,21 @@ const ExtremeSearchComponent = ({
                                 key={index}
                                 className="flex items-start gap-2.5 px-2 py-1.5 text-[11px] rounded transition-colors"
                               >
-                                <svg className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <svg
+                                  className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                >
                                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                                   <polyline points="14 2 14 8 20 8" />
                                 </svg>
                                 <div className="flex-1 min-w-0">
                                   <div className="text-foreground font-medium truncate">{result.fileName}</div>
-                                  <div className="text-muted-foreground line-clamp-2 mt-0.5">{result.content.slice(0, 150)}...</div>
+                                  <div className="text-muted-foreground line-clamp-2 mt-0.5">
+                                    {result.content.slice(0, 150)}...
+                                  </div>
                                 </div>
                                 <div className="text-[10px] text-muted-foreground shrink-0">
                                   {Math.round(result.score * 100)}%
@@ -2366,9 +2457,7 @@ const ExtremeSearchComponent = ({
                         )}
 
                         {!isLoading && unifiedResults.length === 0 && (
-                          <p className="text-[11px] text-muted-foreground py-0.5 mt-0.5">
-                            No results found in files.
-                          </p>
+                          <p className="text-[11px] text-muted-foreground py-0.5 mt-0.5">No results found in files.</p>
                         )}
                       </div>
                     </motion.div>
@@ -2391,7 +2480,8 @@ const ExtremeSearchComponent = ({
             const prevItem = itemIndex > 0 ? combinedTimelineItems[itemIndex - 1] : null;
             const prevThinkingNextStep =
               prevItem?.kind === 'thinking' ? (prevItem.item as ThinkingExecution).nextStep : undefined;
-            const displayTitle = prevThinkingNextStep || `Browsing ${allUrls.length} page${allUrls.length !== 1 ? 's' : ''}`;
+            const displayTitle =
+              prevThinkingNextStep || `Browsing ${allUrls.length} page${allUrls.length !== 1 ? 's' : ''}`;
 
             const bulletColor = isLoading
               ? 'bg-primary/80 animate-[pulse_0.8s_ease-in-out_infinite]!'
@@ -2479,7 +2569,13 @@ const ExtremeSearchComponent = ({
                       <div className="pl-0.5 py-0.5 space-y-1">
                         <div className="flex flex-wrap gap-1">
                           {allUrls.map((url, index) => {
-                            const hostname = (() => { try { return new URL(url).hostname; } catch { return url; } })();
+                            const hostname = (() => {
+                              try {
+                                return new URL(url).hostname;
+                              } catch {
+                                return url;
+                              }
+                            })();
                             return (
                               <span
                                 key={`${url}-${index}`}
@@ -2489,7 +2585,9 @@ const ExtremeSearchComponent = ({
                                   src={`https://www.google.com/s2/favicons?domain=${hostname}&sz=16`}
                                   alt=""
                                   className="h-2.5 w-2.5 rounded-sm object-contain"
-                                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                  }}
                                 />
                                 <span className="truncate max-w-[160px]">{hostname}</span>
                               </span>
@@ -2505,18 +2603,30 @@ const ExtremeSearchComponent = ({
                             transition={{ duration: 0.15 }}
                           >
                             {allResults.map((result, index) => {
-                              const hostname = (() => { try { return new URL(result.url).hostname; } catch { return result.url; } })();
+                              const hostname = (() => {
+                                try {
+                                  return new URL(result.url).hostname;
+                                } catch {
+                                  return result.url;
+                                }
+                              })();
                               return (
                                 <div key={index} className="flex items-start gap-2 text-[11px]">
                                   <img
-                                    src={result.favicon || `https://www.google.com/s2/favicons?domain=${hostname}&sz=16`}
+                                    src={
+                                      result.favicon || `https://www.google.com/s2/favicons?domain=${hostname}&sz=16`
+                                    }
                                     alt=""
                                     className="h-3.5 w-3.5 rounded-sm object-contain shrink-0 mt-0.5"
-                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                    }}
                                   />
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-1 min-w-0">
-                                      <span className="font-medium text-foreground truncate">{result.title || hostname}</span>
+                                      <span className="font-medium text-foreground truncate">
+                                        {result.title || hostname}
+                                      </span>
                                       {result.error && (
                                         <span className="text-[9px] text-destructive shrink-0">(error)</span>
                                       )}
@@ -2545,9 +2655,7 @@ const ExtremeSearchComponent = ({
                         )}
 
                         {!isLoading && allResults.length === 0 && (
-                          <p className="text-[11px] text-muted-foreground py-0.5 mt-0.5">
-                            No content retrieved.
-                          </p>
+                          <p className="text-[11px] text-muted-foreground py-0.5 mt-0.5">No content retrieved.</p>
                         )}
                       </div>
                     </motion.div>
@@ -2746,12 +2854,16 @@ const ExtremeSearchComponent = ({
                   className="flex items-start gap-1.5 cursor-pointer py-1 px-1.5 hover:bg-accent/50 rounded-md transition-colors duration-150 relative"
                   onClick={() => toggleItemExpansion(done.id)}
                 >
-                  <svg className="w-3 h-3 text-muted-foreground shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg
+                    className="w-3 h-3 text-muted-foreground shrink-0 mt-0.5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
-                  <span className="text-foreground text-[11px] min-w-0 flex-1 wrap-break-word leading-snug">
-                    Done
-                  </span>
+                  <span className="text-foreground text-[11px] min-w-0 flex-1 wrap-break-word leading-snug">Done</span>
                   {expandedItems[done.id] ? (
                     <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0 mt-0.5" />
                   ) : (
@@ -2784,63 +2896,67 @@ const ExtremeSearchComponent = ({
       </AnimatePresence>
 
       {/* Waiting indicator - shows when last item is completed and waiting for next step */}
-      {!isCompleted && combinedTimelineItems.length > 0 && (() => {
-        const lastItem = combinedTimelineItems[combinedTimelineItems.length - 1];
+      {!isCompleted &&
+        combinedTimelineItems.length > 0 &&
+        (() => {
+          const lastItem = combinedTimelineItems[combinedTimelineItems.length - 1];
 
-        // Don't show while the last visible step is still a thinking placeholder
-        if (lastItem?.kind === 'done' || lastItem?.kind === 'thinking') return null;
+          // Don't show while the last visible step is still a thinking placeholder
+          if (lastItem?.kind === 'done' || lastItem?.kind === 'thinking') return null;
 
-        // Check if last item is still loading
-        let isLastItemLoading = false;
-        if (lastItem?.kind === 'query_group') {
-          isLastItemLoading = lastItem.item.queries.some((q) => q.status === 'started' || q.status === 'reading_content');
-        } else if (lastItem?.kind === 'x_search_group') {
-          isLastItemLoading = lastItem.item.searches.some((s) => s.status === 'started');
-        } else if (lastItem?.kind === 'file_query_group') {
-          isLastItemLoading = lastItem.item.queries.some((q) => q.status === 'started');
-        } else if (lastItem?.kind === 'browse_page_group') {
-          isLastItemLoading = lastItem.item.executions.some((bp) => bp.status === 'started' || bp.status === 'browsing');
-        } else if (lastItem?.kind === 'code') {
-          isLastItemLoading = lastItem.item.status === 'running';
-        }
+          // Check if last item is still loading
+          let isLastItemLoading = false;
+          if (lastItem?.kind === 'query_group') {
+            isLastItemLoading = lastItem.item.queries.some(
+              (q) => q.status === 'started' || q.status === 'reading_content',
+            );
+          } else if (lastItem?.kind === 'x_search_group') {
+            isLastItemLoading = lastItem.item.searches.some((s) => s.status === 'started');
+          } else if (lastItem?.kind === 'file_query_group') {
+            isLastItemLoading = lastItem.item.queries.some((q) => q.status === 'started');
+          } else if (lastItem?.kind === 'browse_page_group') {
+            isLastItemLoading = lastItem.item.executions.some(
+              (bp) => bp.status === 'started' || bp.status === 'browsing',
+            );
+          } else if (lastItem?.kind === 'code') {
+            isLastItemLoading = lastItem.item.status === 'running';
+          }
 
-        // Only show if last item is NOT loading (completed, waiting for next)
-        if (isLastItemLoading) return null;
+          // Only show if last item is NOT loading (completed, waiting for next)
+          if (isLastItemLoading) return null;
 
-        return (
-          <motion.div
-            key="waiting"
-            className="relative"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-          >
-            {/* Background circle */}
-            <div
-              className="absolute rounded-full bg-background z-5"
-              style={{ left: '-0.6rem', top: '4px', width: '10px', height: '10px', transform: 'translateX(-50%)' }}
-            />
-            {/* Pulsing dot - matches timeline color */}
-            <div
-              className="absolute rounded-full bg-primary/60 animate-pulse z-10"
-              style={{ left: '-0.6rem', top: '5px', width: '8px', height: '8px', transform: 'translateX(-50%)' }}
-            />
-            {/* Line connecting to previous item - extends up to fill gap */}
-            <div
-              className="absolute bg-secondary"
-              style={{ left: '-0.6rem', top: '-12px', width: '2px', height: '17px', transform: 'translateX(-50%)' }}
-            />
-            {/* Content aligned with other items */}
-            <div className="flex items-start gap-1.5 py-1 px-1.5">
-              <DashLoading size={14} color="currentColor" strokeWidth={1.5} />
-              <span className="text-[11px] text-muted-foreground/60 leading-snug">
-                Waiting for agent...
-              </span>
-            </div>
-          </motion.div>
-        );
-      })()}
+          return (
+            <motion.div
+              key="waiting"
+              className="relative"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+            >
+              {/* Background circle */}
+              <div
+                className="absolute rounded-full bg-background z-5"
+                style={{ left: '-0.6rem', top: '4px', width: '10px', height: '10px', transform: 'translateX(-50%)' }}
+              />
+              {/* Pulsing dot - matches timeline color */}
+              <div
+                className="absolute rounded-full bg-primary/60 animate-pulse z-10"
+                style={{ left: '-0.6rem', top: '5px', width: '8px', height: '8px', transform: 'translateX(-50%)' }}
+              />
+              {/* Line connecting to previous item - extends up to fill gap */}
+              <div
+                className="absolute bg-secondary"
+                style={{ left: '-0.6rem', top: '-12px', width: '2px', height: '17px', transform: 'translateX(-50%)' }}
+              />
+              {/* Content aligned with other items */}
+              <div className="flex items-start gap-1.5 py-1 px-1.5">
+                <DashLoading size={14} color="currentColor" strokeWidth={1.5} />
+                <span className="text-[11px] text-muted-foreground/60 leading-snug">Waiting for agent...</span>
+              </div>
+            </motion.div>
+          );
+        })()}
     </div>
   );
 
@@ -2907,56 +3023,66 @@ const ExtremeSearchComponent = ({
     );
   };
 
-
   // Final result view
   if (isCompleted) {
     const stepCount = combinedTimelineItems.filter((item) => item.kind !== 'done').length;
 
     // Pre-compute X Search data
     const completedXSearches = xSearchExecutions.filter((x) => x.status === 'completed' && x.result);
-    const xSearchData = completedXSearches.length > 0 ? (() => {
-      const handles = Array.from(
-        new Set(
-          completedXSearches
-            .flatMap((x) => x.handles || [])
-            .filter((handle): handle is string => typeof handle === 'string' && handle.length > 0),
-        ),
-      );
-      const combinedSearch = {
-        content: completedXSearches.map((x) => x.result!.content).join('\n\n'),
-        citations: completedXSearches.flatMap((x) => x.result!.citations || []),
-        sources: completedXSearches.flatMap((x) => x.result!.sources || []),
-        query: completedXSearches.map((x) => x.query).filter(Boolean).join(' | '),
-        dateRange: `${completedXSearches[0].startDate || ''} to ${completedXSearches[completedXSearches.length - 1].endDate || ''}`,
-        handles,
-      };
-      return {
-        result: { searches: [combinedSearch], dateRange: combinedSearch.dateRange, handles },
-        args: {
-          queries: completedXSearches.map((x) => x.query).filter((q): q is string => typeof q === 'string' && q.length > 0),
-          startDate: completedXSearches[0].startDate,
-          endDate: completedXSearches[completedXSearches.length - 1].endDate,
-          includeXHandles: handles,
-        },
-      };
-    })() : null;
+    const xSearchData =
+      completedXSearches.length > 0
+        ? (() => {
+            const handles = Array.from(
+              new Set(
+                completedXSearches
+                  .flatMap((x) => x.handles || [])
+                  .filter((handle): handle is string => typeof handle === 'string' && handle.length > 0),
+              ),
+            );
+            const combinedSearch = {
+              content: completedXSearches.map((x) => x.result!.content).join('\n\n'),
+              citations: completedXSearches.flatMap((x) => x.result!.citations || []),
+              sources: completedXSearches.flatMap((x) => x.result!.sources || []),
+              query: completedXSearches
+                .map((x) => x.query)
+                .filter(Boolean)
+                .join(' | '),
+              dateRange: `${completedXSearches[0].startDate || ''} to ${completedXSearches[completedXSearches.length - 1].endDate || ''}`,
+              handles,
+            };
+            return {
+              result: { searches: [combinedSearch], dateRange: combinedSearch.dateRange, handles },
+              args: {
+                queries: completedXSearches
+                  .map((x) => x.query)
+                  .filter((q): q is string => typeof q === 'string' && q.length > 0),
+                startDate: completedXSearches[0].startDate,
+                endDate: completedXSearches[completedXSearches.length - 1].endDate,
+                includeXHandles: handles,
+              },
+            };
+          })()
+        : null;
 
     // Pre-compute File Query data
     const completedFileQueries = fileQueryExecutions.filter(
-      (fq) => fq.status === 'completed' && fq.results && fq.results.length > 0
+      (fq) => fq.status === 'completed' && fq.results && fq.results.length > 0,
     );
-    const fileQueryData = completedFileQueries.length > 0 ? (() => {
-      const allFileResults = Array.from(
-        new Map(
-          completedFileQueries
-            .flatMap((fq) => fq.results || [])
-            .map((result) => [`${result.fileName}-${result.content.slice(0, 50)}`, result])
-        ).values()
-      );
-      if (allFileResults.length === 0) return null;
-      const queries = completedFileQueries.map((fq) => fq.query).filter(Boolean);
-      return { results: allFileResults, queries };
-    })() : null;
+    const fileQueryData =
+      completedFileQueries.length > 0
+        ? (() => {
+            const allFileResults = Array.from(
+              new Map(
+                completedFileQueries
+                  .flatMap((fq) => fq.results || [])
+                  .map((result) => [`${result.fileName}-${result.content.slice(0, 50)}`, result]),
+              ).values(),
+            );
+            if (allFileResults.length === 0) return null;
+            const queries = completedFileQueries.map((fq) => fq.query).filter(Boolean);
+            return { results: allFileResults, queries };
+          })()
+        : null;
 
     return (
       <>
@@ -2974,7 +3100,8 @@ const ExtremeSearchComponent = ({
                 {allSources.length > 0 && ` · ${allSources.length} sources`}
                 {allCharts.length > 0 && ` · ${allCharts.length} ${allCharts.length === 1 ? 'chart' : 'charts'}`}
                 {xSearchData && ` · ${xSearchData.result.searches[0]?.citations?.length || 0} posts`}
-                {fileQueryData && ` · ${fileQueryData.results.length} ${fileQueryData.results.length === 1 ? 'file' : 'files'}`}
+                {fileQueryData &&
+                  ` · ${fileQueryData.results.length} ${fileQueryData.results.length === 1 ? 'file' : 'files'}`}
               </span>
             </div>
             <ChevronDown
@@ -3006,52 +3133,92 @@ const ExtremeSearchComponent = ({
                         </span>
                       ),
                     },
-                    ...(allCharts.length > 0 ? [{
-                      value: 'visualizations',
-                      label: (
-                        <span className="inline-flex items-center gap-1.5 leading-none">
-                          <svg className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                          </svg>
-                          <span>Visualizations</span>
-                          <span className="text-[10px] opacity-60 translate-y-px tabular-nums">{allCharts.length}</span>
-                        </span>
-                      ),
-                    }] : []),
-                    ...(xSearchData ? [{
-                      value: 'xsearch',
-                      label: (
-                        <span className="inline-flex items-center gap-1.5 leading-none">
-                          <XLogoIcon className="h-3 w-3 shrink-0" />
-                          <span className="hidden sm:inline">X Search</span>
-                          <span className="sm:hidden">X</span>
-                          <span className="text-[10px] opacity-60 translate-y-px tabular-nums">{xSearchData.result.searches[0]?.citations?.length || 0}</span>
-                        </span>
-                      ),
-                    }] : []),
-                    ...(fileQueryData ? [{
-                      value: 'files',
-                      label: (
-                        <span className="inline-flex items-center gap-1.5 leading-none">
-                          <svg className="h-3 w-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                            <polyline points="14 2 14 8 20 8" />
-                          </svg>
-                          <span>Files</span>
-                          <span className="text-[10px] opacity-60 translate-y-px tabular-nums">{fileQueryData.results.length}</span>
-                        </span>
-                      ),
-                    }] : []),
-                    ...(allSources.length > 0 ? [{
-                      value: 'sources',
-                      label: (
-                        <span className="inline-flex items-center gap-1.5 leading-none">
-                          <Icons.Globe className="h-3 w-3 shrink-0" />
-                          <span>Sources</span>
-                          <span className="text-[10px] opacity-60 translate-y-px tabular-nums">{allSources.length}</span>
-                        </span>
-                      ),
-                    }] : []),
+                    ...(allCharts.length > 0
+                      ? [
+                          {
+                            value: 'visualizations',
+                            label: (
+                              <span className="inline-flex items-center gap-1.5 leading-none">
+                                <svg
+                                  className="h-3 w-3 shrink-0"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                  strokeWidth="1.5"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                                  />
+                                </svg>
+                                <span>Visualizations</span>
+                                <span className="text-[10px] opacity-60 translate-y-px tabular-nums">
+                                  {allCharts.length}
+                                </span>
+                              </span>
+                            ),
+                          },
+                        ]
+                      : []),
+                    ...(xSearchData
+                      ? [
+                          {
+                            value: 'xsearch',
+                            label: (
+                              <span className="inline-flex items-center gap-1.5 leading-none">
+                                <XLogoIcon className="h-3 w-3 shrink-0" />
+                                <span className="hidden sm:inline">X Search</span>
+                                <span className="sm:hidden">X</span>
+                                <span className="text-[10px] opacity-60 translate-y-px tabular-nums">
+                                  {xSearchData.result.searches[0]?.citations?.length || 0}
+                                </span>
+                              </span>
+                            ),
+                          },
+                        ]
+                      : []),
+                    ...(fileQueryData
+                      ? [
+                          {
+                            value: 'files',
+                            label: (
+                              <span className="inline-flex items-center gap-1.5 leading-none">
+                                <svg
+                                  className="h-3 w-3 shrink-0"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                >
+                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                  <polyline points="14 2 14 8 20 8" />
+                                </svg>
+                                <span>Files</span>
+                                <span className="text-[10px] opacity-60 translate-y-px tabular-nums">
+                                  {fileQueryData.results.length}
+                                </span>
+                              </span>
+                            ),
+                          },
+                        ]
+                      : []),
+                    ...(allSources.length > 0
+                      ? [
+                          {
+                            value: 'sources',
+                            label: (
+                              <span className="inline-flex items-center gap-1.5 leading-none">
+                                <Icons.Globe className="h-3 w-3 shrink-0" />
+                                <span>Sources</span>
+                                <span className="text-[10px] opacity-60 translate-y-px tabular-nums">
+                                  {allSources.length}
+                                </span>
+                              </span>
+                            ),
+                          },
+                        ]
+                      : []),
                   ]}
                 />
               </div>
@@ -3076,11 +3243,12 @@ const ExtremeSearchComponent = ({
                           <span>{xSearchData.result.dateRange}</span>
                         </>
                       )}
+                      {xSearchData.args.queries.length > 0 && <span className="text-border">·</span>}
                       {xSearchData.args.queries.length > 0 && (
-                        <span className="text-border">·</span>
-                      )}
-                      {xSearchData.args.queries.length > 0 && (
-                        <span>{xSearchData.args.queries.length} {xSearchData.args.queries.length === 1 ? 'query' : 'queries'}</span>
+                        <span>
+                          {xSearchData.args.queries.length}{' '}
+                          {xSearchData.args.queries.length === 1 ? 'query' : 'queries'}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -3095,10 +3263,7 @@ const ExtremeSearchComponent = ({
                       <div className="px-3 pt-3">
                         <div className="flex gap-2.5 overflow-x-auto no-scrollbar">
                           {tweetsWithIds.map((citation, index) => (
-                            <div
-                              key={citation.tweet_id || index}
-                              className="shrink-0 w-[260px] sm:w-[300px]"
-                            >
+                            <div key={citation.tweet_id || index} className="shrink-0 w-[260px] sm:w-[300px]">
                               <div className="tweet-wrapper">
                                 <Tweet id={citation.tweet_id!} />
                               </div>
@@ -3133,7 +3298,13 @@ const ExtremeSearchComponent = ({
                     {fileQueryData.results.map((result, index) => (
                       <div key={index} className="px-5 py-3 hover:bg-accent/30 transition-colors">
                         <div className="flex items-start gap-3">
-                          <svg className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <svg
+                            className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                             <polyline points="14 2 14 8 20 8" />
                           </svg>
@@ -3165,11 +3336,7 @@ const ExtremeSearchComponent = ({
               )}
 
               {/* Sources Tab */}
-              {activeTab === 'sources' && allSources.length > 0 && (
-                <div>
-                  {renderSourcesList(allSources)}
-                </div>
-              )}
+              {activeTab === 'sources' && allSources.length > 0 && <div>{renderSourcesList(allSources)}</div>}
             </div>
           )}
         </div>
@@ -3187,46 +3354,57 @@ const ExtremeSearchComponent = ({
 
   // In-progress X Search data
   const inProgressCompletedX = xSearchExecutions.filter((x) => x.status === 'completed' && x.result);
-  const inProgressXSearchData = inProgressCompletedX.length > 0 ? (() => {
-    const handles = Array.from(
-      new Set(
-        inProgressCompletedX
-          .flatMap((x) => x.handles || [])
-          .filter((handle): handle is string => typeof handle === 'string' && handle.length > 0),
-      ),
-    );
-    const combinedSearch = {
-      content: inProgressCompletedX.map((x) => x.result!.content).join('\n\n'),
-      citations: inProgressCompletedX.flatMap((x) => x.result!.citations || []),
-      sources: inProgressCompletedX.flatMap((x) => x.result!.sources || []),
-      query: inProgressCompletedX.map((x) => x.query).filter(Boolean).join(' | '),
-      dateRange: `${inProgressCompletedX[0].startDate || ''} to ${inProgressCompletedX[inProgressCompletedX.length - 1].endDate || ''}`,
-      handles,
-    };
-    return {
-      result: { searches: [combinedSearch], dateRange: combinedSearch.dateRange, handles },
-      args: {
-        queries: inProgressCompletedX.map((x) => x.query).filter((q): q is string => typeof q === 'string' && q.length > 0),
-      },
-    };
-  })() : null;
+  const inProgressXSearchData =
+    inProgressCompletedX.length > 0
+      ? (() => {
+          const handles = Array.from(
+            new Set(
+              inProgressCompletedX
+                .flatMap((x) => x.handles || [])
+                .filter((handle): handle is string => typeof handle === 'string' && handle.length > 0),
+            ),
+          );
+          const combinedSearch = {
+            content: inProgressCompletedX.map((x) => x.result!.content).join('\n\n'),
+            citations: inProgressCompletedX.flatMap((x) => x.result!.citations || []),
+            sources: inProgressCompletedX.flatMap((x) => x.result!.sources || []),
+            query: inProgressCompletedX
+              .map((x) => x.query)
+              .filter(Boolean)
+              .join(' | '),
+            dateRange: `${inProgressCompletedX[0].startDate || ''} to ${inProgressCompletedX[inProgressCompletedX.length - 1].endDate || ''}`,
+            handles,
+          };
+          return {
+            result: { searches: [combinedSearch], dateRange: combinedSearch.dateRange, handles },
+            args: {
+              queries: inProgressCompletedX
+                .map((x) => x.query)
+                .filter((q): q is string => typeof q === 'string' && q.length > 0),
+            },
+          };
+        })()
+      : null;
 
   // In-progress File Query data
   const inProgressFileQueries = fileQueryExecutions.filter(
-    (fq) => fq.status === 'completed' && fq.results && fq.results.length > 0
+    (fq) => fq.status === 'completed' && fq.results && fq.results.length > 0,
   );
-  const inProgressFileData = inProgressFileQueries.length > 0 ? (() => {
-    const results = Array.from(
-      new Map(
-        inProgressFileQueries
-          .flatMap((fq) => fq.results || [])
-          .map((result) => [`${result.fileName}-${result.content.slice(0, 50)}`, result])
-      ).values()
-    );
-    if (results.length === 0) return null;
-    const queries = inProgressFileQueries.map((fq) => fq.query).filter(Boolean);
-    return { results, queries };
-  })() : null;
+  const inProgressFileData =
+    inProgressFileQueries.length > 0
+      ? (() => {
+          const results = Array.from(
+            new Map(
+              inProgressFileQueries
+                .flatMap((fq) => fq.results || [])
+                .map((result) => [`${result.fileName}-${result.content.slice(0, 50)}`, result]),
+            ).values(),
+          );
+          if (results.length === 0) return null;
+          const queries = inProgressFileQueries.map((fq) => fq.query).filter(Boolean);
+          return { results, queries };
+        })()
+      : null;
 
   return (
     <div className="border border-border rounded-xl overflow-hidden shadow-none">
@@ -3252,224 +3430,262 @@ const ExtremeSearchComponent = ({
                   </span>
                 ),
               },
-              ...(allCharts.length > 0 ? [{
-                value: 'visualizations',
-                label: (
-                  <span className="inline-flex items-center gap-1.5 leading-none">
-                    <svg className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                    <span>Visualizations</span>
-                    <span className="text-[10px] opacity-60 translate-y-px tabular-nums">{allCharts.length}</span>
-                  </span>
-                ),
-              }] : []),
-              ...(inProgressXSearchData ? [{
-                value: 'xsearch',
-                label: (
-                  <span className="inline-flex items-center gap-1.5 leading-none">
-                    <XLogoIcon className="h-3 w-3 shrink-0" />
-                    <span className="hidden sm:inline">X Search</span>
-                    <span className="sm:hidden">X</span>
-                    <span className="text-[10px] opacity-60 translate-y-px tabular-nums">{inProgressXSearchData.result.searches[0]?.citations?.length || 0}</span>
-                  </span>
-                ),
-              }] : []),
-              ...(inProgressFileData ? [{
-                value: 'files',
-                label: (
-                  <span className="inline-flex items-center gap-1.5 leading-none">
-                    <svg className="h-3 w-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                      <polyline points="14 2 14 8 20 8" />
-                    </svg>
-                    <span>Files</span>
-                    <span className="text-[10px] opacity-60 translate-y-px tabular-nums">{inProgressFileData.results.length}</span>
-                  </span>
-                ),
-              }] : []),
-              ...(allSources.length > 0 ? [{
-                value: 'sources',
-                label: (
-                  <span className="inline-flex items-center gap-1.5 leading-none">
-                    <Icons.Globe className="h-3 w-3 shrink-0" />
-                    <span>Sources</span>
-                    <span className="text-[10px] opacity-60 translate-y-px tabular-nums">{allSources.length}</span>
-                  </span>
-                ),
-              }] : []),
+              ...(allCharts.length > 0
+                ? [
+                    {
+                      value: 'visualizations',
+                      label: (
+                        <span className="inline-flex items-center gap-1.5 leading-none">
+                          <svg
+                            className="h-3 w-3 shrink-0"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            strokeWidth="1.5"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                            />
+                          </svg>
+                          <span>Visualizations</span>
+                          <span className="text-[10px] opacity-60 translate-y-px tabular-nums">{allCharts.length}</span>
+                        </span>
+                      ),
+                    },
+                  ]
+                : []),
+              ...(inProgressXSearchData
+                ? [
+                    {
+                      value: 'xsearch',
+                      label: (
+                        <span className="inline-flex items-center gap-1.5 leading-none">
+                          <XLogoIcon className="h-3 w-3 shrink-0" />
+                          <span className="hidden sm:inline">X Search</span>
+                          <span className="sm:hidden">X</span>
+                          <span className="text-[10px] opacity-60 translate-y-px tabular-nums">
+                            {inProgressXSearchData.result.searches[0]?.citations?.length || 0}
+                          </span>
+                        </span>
+                      ),
+                    },
+                  ]
+                : []),
+              ...(inProgressFileData
+                ? [
+                    {
+                      value: 'files',
+                      label: (
+                        <span className="inline-flex items-center gap-1.5 leading-none">
+                          <svg
+                            className="h-3 w-3 shrink-0"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                          </svg>
+                          <span>Files</span>
+                          <span className="text-[10px] opacity-60 translate-y-px tabular-nums">
+                            {inProgressFileData.results.length}
+                          </span>
+                        </span>
+                      ),
+                    },
+                  ]
+                : []),
+              ...(allSources.length > 0
+                ? [
+                    {
+                      value: 'sources',
+                      label: (
+                        <span className="inline-flex items-center gap-1.5 leading-none">
+                          <Icons.Globe className="h-3 w-3 shrink-0" />
+                          <span>Sources</span>
+                          <span className="text-[10px] opacity-60 translate-y-px tabular-nums">
+                            {allSources.length}
+                          </span>
+                        </span>
+                      ),
+                    },
+                  ]
+                : []),
             ]}
           />
         </div>
 
         {/* Research Process Tab */}
         {activeTab === 'process' && (
-        <div>
-          {/* Status inside the process tab */}
-          <div className="py-2 px-4 border-b border-border bg-background">
-            <div className="text-sm font-medium text-foreground">
-              {state === 'input-streaming' || state === 'input-available' ? (
-                <TextShimmer duration={2}>{currentStatus}</TextShimmer>
-              ) : (
-                currentStatus
+          <div>
+            {/* Status inside the process tab */}
+            <div className="py-2 px-4 border-b border-border bg-background">
+              <div className="text-sm font-medium text-foreground">
+                {state === 'input-streaming' || state === 'input-available' ? (
+                  <TextShimmer duration={2}>{currentStatus}</TextShimmer>
+                ) : (
+                  currentStatus
+                )}
+              </div>
+            </div>
+            <div className="p-4">
+              {/* Show plan if available and no timeline items yet */}
+              {planData && !hasTimelineItems && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-2.5">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Target className="w-4 h-4 text-primary" />
+                    <h4 className="text-[13px] font-semibold text-foreground">Research Strategy</h4>
+                  </div>
+
+                  <div className="space-y-0.5 relative ml-3">
+                    {planData.map((item: any, index: number) => (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, y: 2 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="space-y-0 relative"
+                      >
+                        <div
+                          className="absolute rounded-full bg-card z-5"
+                          style={{
+                            left: '-0.6rem',
+                            top: '4px',
+                            width: '10px',
+                            height: '10px',
+                            transform: 'translateX(-50%)',
+                          }}
+                        />
+                        <div
+                          className="absolute rounded-full bg-primary transition-colors duration-300 z-10"
+                          style={{
+                            left: '-0.6rem',
+                            top: '5px',
+                            width: '8px',
+                            height: '8px',
+                            transform: 'translateX(-50%)',
+                          }}
+                        />
+                        {index > 0 && (
+                          <div
+                            className="absolute bg-secondary"
+                            style={{
+                              left: '-0.6rem',
+                              top: '0',
+                              width: '2px',
+                              height: '5px',
+                              transform: 'translateX(-50%)',
+                            }}
+                          />
+                        )}
+                        {index < planData.length - 1 && (
+                          <div
+                            className="absolute bg-secondary"
+                            style={{
+                              left: '-0.6rem',
+                              top: '13px',
+                              width: '2px',
+                              height: 'calc(100% - 9px)',
+                              transform: 'translateX(-50%)',
+                            }}
+                          />
+                        )}
+                        <div className="flex items-start gap-1.5 py-1 px-1.5 rounded-md relative">
+                          <span className="text-foreground text-[11px] min-w-0 flex-1 font-medium wrap-break-word leading-snug">
+                            {item.title}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground shrink-0 bg-muted px-1.5 py-0.5 rounded-full">
+                            {item.todos?.length || 0} tasks
+                          </span>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Show loading skeletons when no plan and no items */}
+              {!planData && !hasTimelineItems && (
+                <div className="mb-2.5">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Target className="w-4 h-4 text-primary/50" />
+                    <h4 className="text-[13px] font-semibold text-foreground">Preparing Research Strategy</h4>
+                  </div>
+
+                  <div className="space-y-0.5 relative ml-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="space-y-0 relative">
+                        <div
+                          className="absolute rounded-full bg-card z-5"
+                          style={{
+                            left: '-0.6rem',
+                            top: '4px',
+                            width: '10px',
+                            height: '10px',
+                            transform: 'translateX(-50%)',
+                          }}
+                        />
+                        <Skeleton
+                          className="absolute rounded-full z-10"
+                          style={{
+                            left: '-0.6rem',
+                            top: '5px',
+                            width: '8px',
+                            height: '8px',
+                            transform: 'translateX(-50%)',
+                          }}
+                        />
+                        {i > 1 && (
+                          <div
+                            className="absolute bg-secondary"
+                            style={{
+                              left: '-0.6rem',
+                              top: '0',
+                              width: '2px',
+                              height: '5px',
+                              transform: 'translateX(-50%)',
+                            }}
+                          />
+                        )}
+                        {i < 3 && (
+                          <div
+                            className="absolute bg-secondary"
+                            style={{
+                              left: '-0.6rem',
+                              top: '13px',
+                              width: '2px',
+                              height: 'calc(100% - 9px)',
+                              transform: 'translateX(-50%)',
+                            }}
+                          />
+                        )}
+                        <div className="flex items-start gap-1.5 py-1 px-1.5 rounded-md relative">
+                          <Skeleton className="w-3 h-3 rounded-full shrink-0 mt-0.5" />
+                          <Skeleton className="h-3 flex-1" />
+                          <Skeleton className="h-3 w-12 shrink-0 rounded-full" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Show timeline when items are available */}
+              {hasTimelineItems && (
+                <div
+                  ref={timelineRef}
+                  className="max-h-[500px] sm:max-h-[400px] overflow-y-auto pr-2"
+                  onScroll={handleTimelineScroll}
+                >
+                  {renderTimeline()}
+                  <div ref={timelineBottomRef} />
+                </div>
               )}
             </div>
           </div>
-          <div className="p-4">
-            {/* Show plan if available and no timeline items yet */}
-            {planData && !hasTimelineItems && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-2.5">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <Target className="w-4 h-4 text-primary" />
-                  <h4 className="text-[13px] font-semibold text-foreground">Research Strategy</h4>
-                </div>
-
-                <div className="space-y-0.5 relative ml-3">
-                  {planData.map((item: any, index: number) => (
-                    <motion.div
-                      key={index}
-                      initial={{ opacity: 0, y: 2 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      className="space-y-0 relative"
-                    >
-                      <div
-                        className="absolute rounded-full bg-card z-5"
-                        style={{
-                          left: '-0.6rem',
-                          top: '4px',
-                          width: '10px',
-                          height: '10px',
-                          transform: 'translateX(-50%)',
-                        }}
-                      />
-                      <div
-                        className="absolute rounded-full bg-primary transition-colors duration-300 z-10"
-                        style={{
-                          left: '-0.6rem',
-                          top: '5px',
-                          width: '8px',
-                          height: '8px',
-                          transform: 'translateX(-50%)',
-                        }}
-                      />
-                      {index > 0 && (
-                        <div
-                          className="absolute bg-secondary"
-                          style={{
-                            left: '-0.6rem',
-                            top: '0',
-                            width: '2px',
-                            height: '5px',
-                            transform: 'translateX(-50%)',
-                          }}
-                        />
-                      )}
-                      {index < planData.length - 1 && (
-                        <div
-                          className="absolute bg-secondary"
-                          style={{
-                            left: '-0.6rem',
-                            top: '13px',
-                            width: '2px',
-                            height: 'calc(100% - 9px)',
-                            transform: 'translateX(-50%)',
-                          }}
-                        />
-                      )}
-                      <div className="flex items-start gap-1.5 py-1 px-1.5 rounded-md relative">
-                        <span className="text-foreground text-[11px] min-w-0 flex-1 font-medium wrap-break-word leading-snug">
-                          {item.title}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground shrink-0 bg-muted px-1.5 py-0.5 rounded-full">
-                          {item.todos?.length || 0} tasks
-                        </span>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-
-            {/* Show loading skeletons when no plan and no items */}
-            {!planData && !hasTimelineItems && (
-              <div className="mb-2.5">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <Target className="w-4 h-4 text-primary/50" />
-                  <h4 className="text-[13px] font-semibold text-foreground">Preparing Research Strategy</h4>
-                </div>
-
-                <div className="space-y-0.5 relative ml-3">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="space-y-0 relative">
-                      <div
-                        className="absolute rounded-full bg-card z-5"
-                        style={{
-                          left: '-0.6rem',
-                          top: '4px',
-                          width: '10px',
-                          height: '10px',
-                          transform: 'translateX(-50%)',
-                        }}
-                      />
-                      <Skeleton
-                        className="absolute rounded-full z-10"
-                        style={{
-                          left: '-0.6rem',
-                          top: '5px',
-                          width: '8px',
-                          height: '8px',
-                          transform: 'translateX(-50%)',
-                        }}
-                      />
-                      {i > 1 && (
-                        <div
-                          className="absolute bg-secondary"
-                          style={{
-                            left: '-0.6rem',
-                            top: '0',
-                            width: '2px',
-                            height: '5px',
-                            transform: 'translateX(-50%)',
-                          }}
-                        />
-                      )}
-                      {i < 3 && (
-                        <div
-                          className="absolute bg-secondary"
-                          style={{
-                            left: '-0.6rem',
-                            top: '13px',
-                            width: '2px',
-                            height: 'calc(100% - 9px)',
-                            transform: 'translateX(-50%)',
-                          }}
-                        />
-                      )}
-                      <div className="flex items-start gap-1.5 py-1 px-1.5 rounded-md relative">
-                        <Skeleton className="w-3 h-3 rounded-full shrink-0 mt-0.5" />
-                        <Skeleton className="h-3 flex-1" />
-                        <Skeleton className="h-3 w-12 shrink-0 rounded-full" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Show timeline when items are available */}
-            {hasTimelineItems && (
-              <div
-                ref={timelineRef}
-                className="max-h-[500px] sm:max-h-[400px] overflow-y-auto pr-2"
-                onScroll={handleTimelineScroll}
-              >
-                {renderTimeline()}
-                <div ref={timelineBottomRef} />
-              </div>
-            )}
-          </div>
-        </div>
         )}
 
         {/* Visualizations Tab (in-progress) */}
@@ -3495,11 +3711,12 @@ const ExtremeSearchComponent = ({
                     <span>{inProgressXSearchData.result.dateRange}</span>
                   </>
                 )}
+                {inProgressXSearchData.args.queries.length > 0 && <span className="text-border">·</span>}
                 {inProgressXSearchData.args.queries.length > 0 && (
-                  <span className="text-border">·</span>
-                )}
-                {inProgressXSearchData.args.queries.length > 0 && (
-                  <span>{inProgressXSearchData.args.queries.length} {inProgressXSearchData.args.queries.length === 1 ? 'query' : 'queries'}</span>
+                  <span>
+                    {inProgressXSearchData.args.queries.length}{' '}
+                    {inProgressXSearchData.args.queries.length === 1 ? 'query' : 'queries'}
+                  </span>
                 )}
               </div>
             </div>
@@ -3546,7 +3763,13 @@ const ExtremeSearchComponent = ({
               {inProgressFileData.results.map((result, index) => (
                 <div key={index} className="px-5 py-3 hover:bg-accent/30 transition-colors">
                   <div className="flex items-start gap-3">
-                    <svg className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg
+                      className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                       <polyline points="14 2 14 8 20 8" />
                     </svg>
@@ -3567,11 +3790,7 @@ const ExtremeSearchComponent = ({
         )}
 
         {/* Sources Tab (in-progress) */}
-        {activeTab === 'sources' && allSources.length > 0 && (
-          <div>
-            {renderSourcesList(allSources)}
-          </div>
-        )}
+        {activeTab === 'sources' && allSources.length > 0 && <div>{renderSourcesList(allSources)}</div>}
       </div>
     </div>
   );

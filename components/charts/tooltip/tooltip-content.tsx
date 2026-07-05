@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { AnimatePresence, motion } from "motion/react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
-import useMeasure from "react-use-measure";
+import { AnimatePresence, motion } from 'motion/react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
+import useMeasure from 'react-use-measure';
 
 export interface TooltipRow {
   color: string;
@@ -25,13 +25,12 @@ export function TooltipContent({ title, rows, children }: TooltipContentProps) {
   const frameRef = useRef<number | null>(null);
 
   const hasChildren = !!children;
-  const markerKey = hasChildren ? "has-marker" : "no-marker";
+  const markerKey = hasChildren ? 'has-marker' : 'no-marker';
 
   // Check if we're waiting for a structural change to settle
   // This is true when children state differs from our last committed state
   const isWaitingForSettlement =
-    committedChildrenStateRef.current !== null &&
-    committedChildrenStateRef.current !== hasChildren;
+    committedChildrenStateRef.current !== null && committedChildrenStateRef.current !== hasChildren;
 
   // Commit height changes with a frame delay when structure changes
   useEffect(() => {
@@ -72,9 +71,7 @@ export function TooltipContent({ title, rows, children }: TooltipContentProps) {
   return (
     <motion.div
       // Only animate if we have a committed height, otherwise use auto
-      animate={
-        committedHeight !== null ? { height: committedHeight } : undefined
-      }
+      animate={committedHeight !== null ? { height: committedHeight } : undefined}
       className="overflow-hidden"
       // Skip initial animation
       initial={false}
@@ -82,7 +79,7 @@ export function TooltipContent({ title, rows, children }: TooltipContentProps) {
       transition={
         shouldAnimate
           ? {
-              type: "spring",
+              type: 'spring',
               stiffness: 500,
               damping: 35,
               mass: 0.8,
@@ -91,28 +88,16 @@ export function TooltipContent({ title, rows, children }: TooltipContentProps) {
       }
     >
       <div className="px-3 py-2.5" ref={measureRef}>
-        {title && (
-          <div className="mb-2 font-medium text-xs text-chart-tooltip-muted">{title}</div>
-        )}
+        {title && <div className="mb-2 font-medium text-xs text-chart-tooltip-muted">{title}</div>}
         <div className="space-y-1.5">
           {rows.map((row) => (
-            <div
-              className="flex items-center justify-between gap-4"
-              key={`${row.label}-${row.color}`}
-            >
+            <div className="flex items-center justify-between gap-4" key={`${row.label}-${row.color}`}>
               <div className="flex items-center gap-2">
-                <span
-                  className="h-2.5 w-2.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: row.color }}
-                />
-                <span className="text-sm text-chart-tooltip-muted">
-                  {row.label}
-                </span>
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: row.color }} />
+                <span className="text-sm text-chart-tooltip-muted">{row.label}</span>
               </div>
               <span className="font-medium text-sm text-chart-tooltip-foreground tabular-nums">
-                {typeof row.value === "number"
-                  ? row.value.toLocaleString()
-                  : row.value}
+                {typeof row.value === 'number' ? row.value.toLocaleString() : row.value}
               </span>
             </div>
           ))}
@@ -122,12 +107,12 @@ export function TooltipContent({ title, rows, children }: TooltipContentProps) {
         <AnimatePresence mode="wait">
           {children && (
             <motion.div
-              animate={{ opacity: 1, filter: "blur(0px)" }}
+              animate={{ opacity: 1, filter: 'blur(0px)' }}
               className="mt-2"
-              exit={{ opacity: 0, filter: "blur(4px)" }}
-              initial={{ opacity: 0, filter: "blur(4px)" }}
+              exit={{ opacity: 0, filter: 'blur(4px)' }}
+              initial={{ opacity: 0, filter: 'blur(4px)' }}
               key={markerKey}
-              transition={{ duration: 0.2, ease: "easeOut" }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
             >
               {children}
             </motion.div>
@@ -138,6 +123,6 @@ export function TooltipContent({ title, rows, children }: TooltipContentProps) {
   );
 }
 
-TooltipContent.displayName = "TooltipContent";
+TooltipContent.displayName = 'TooltipContent';
 
 export default TooltipContent;

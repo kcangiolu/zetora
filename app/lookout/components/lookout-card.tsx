@@ -113,7 +113,8 @@ export function LookoutCard({
       <CardContent className="pt-0 flex-1 flex flex-col">
         {/* Prompt preview */}
         <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
-          {lookout.prompt.slice(0, 100)}{lookout.prompt.length > 100 ? '...' : ''}
+          {lookout.prompt.slice(0, 100)}
+          {lookout.prompt.length > 100 ? '...' : ''}
         </p>
 
         {/* Status and run info footer */}
@@ -147,9 +148,7 @@ export function LookoutCard({
             )}
 
             {/* Completed state for once frequency */}
-            {!lookout.lastRunAt && lookout.frequency === 'once' && lookout.status === 'paused' && (
-              <p>Completed</p>
-            )}
+            {!lookout.lastRunAt && lookout.frequency === 'once' && lookout.status === 'paused' && <p>Completed</p>}
           </div>
         </div>
       </CardContent>

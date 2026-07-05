@@ -181,7 +181,7 @@ const SourcesSheet: React.FC<{
   const isMobile = useIsMobile();
   const totalResults = React.useMemo(
     () => searches.reduce((sum, search) => sum + search.results.length, 0),
-    [searches]
+    [searches],
   );
 
   const SheetWrapper = isMobile ? Drawer : Sheet;
@@ -215,13 +215,7 @@ const SourcesSheet: React.FC<{
 
                 <div className="divide-y divide-border/20">
                   {search.results.map((result, resultIndex) => (
-                    <a
-                      key={resultIndex}
-                      href={result.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block"
-                    >
+                    <a key={resultIndex} href={result.url} target="_blank" rel="noopener noreferrer" className="block">
                       <SourceCard result={result} />
                     </a>
                   ))}
@@ -371,9 +365,7 @@ const ImageGallery = React.memo(({ images }: { images: SearchImage[] }) => {
 
             {shouldShowOverlay(index) && (
               <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center">
-                <span className="text-white text-xs font-medium">
-                  +{validImages.length - displayImages.length}
-                </span>
+                <span className="text-white text-xs font-medium">+{validImages.length - displayImages.length}</span>
               </div>
             )}
           </button>
@@ -393,7 +385,9 @@ const ImageGallery = React.memo(({ images }: { images: SearchImage[] }) => {
                     {selectedImage + 1} / {validImages.length}
                   </span>
                   {currentImage?.description && !isMobile && (
-                    <span className="text-[10px] text-muted-foreground/40 max-w-md truncate">{currentImage.description}</span>
+                    <span className="text-[10px] text-muted-foreground/40 max-w-md truncate">
+                      {currentImage.description}
+                    </span>
                   )}
                 </div>
                 <Button
@@ -511,10 +505,7 @@ const LoadingState: React.FC<{
   args: MultiSearchArgs;
 }> = React.memo(({ queries, annotations, args }) => {
   const [isExpanded, setIsExpanded] = React.useState(false);
-  const totalResults = React.useMemo(
-    () => annotations.reduce((sum, a) => sum + a.data.resultsCount, 0),
-    [annotations]
-  );
+  const totalResults = React.useMemo(() => annotations.reduce((sum, a) => sum + a.data.resultsCount, 0), [annotations]);
   const loadingQueryTagsRef = React.useRef<HTMLDivElement>(null);
 
   // Add horizontal scroll support with mouse wheel
@@ -552,9 +543,7 @@ const LoadingState: React.FC<{
             <span className="font-pixel text-xs text-muted-foreground/80 uppercase tracking-wider">Sources</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-muted-foreground/60 tabular-nums">
-              {totalResults || '0'}
-            </span>
+            <span className="text-[10px] text-muted-foreground/60 tabular-nums">{totalResults || '0'}</span>
             <Icons.ChevronDown
               className={cn(
                 'h-3 w-3 text-muted-foreground/60 transition-transform duration-200',
@@ -577,12 +566,15 @@ const LoadingState: React.FC<{
                 const isCompleted = annotations.some((a) => a.data.query === query && a.data.status === 'completed');
                 const currentQuality = (args.quality ?? ['default'])[i] || 'default';
                 return (
-                  <span
-                    key={i}
-                    className="inline-flex items-center gap-1.5 text-[10px] shrink-0"
-                  >
-                    {isCompleted ? <Icons.Check className="w-2.5 h-2.5 text-muted-foreground" /> : <Spinner className="w-2.5 h-2.5" />}
-                    <span className={cn('font-medium', isCompleted ? 'text-foreground' : 'text-muted-foreground')}>{query}</span>
+                  <span key={i} className="inline-flex items-center gap-1.5 text-[10px] shrink-0">
+                    {isCompleted ? (
+                      <Icons.Check className="w-2.5 h-2.5 text-muted-foreground" />
+                    ) : (
+                      <Spinner className="w-2.5 h-2.5" />
+                    )}
+                    <span className={cn('font-medium', isCompleted ? 'text-foreground' : 'text-muted-foreground')}>
+                      {query}
+                    </span>
                     {currentQuality === 'best' && (
                       <Icons.Sparkle className="w-2.5 h-2.5 text-blue-600 dark:text-blue-400" />
                     )}
@@ -596,10 +588,19 @@ const LoadingState: React.FC<{
             <div className="divide-y divide-border/20">
               {[...Array(3)].map((_, i) => (
                 <div key={i} className="px-3.5 py-2 flex items-center gap-2.5">
-                  <div className="w-3.5 h-3.5 rounded-sm bg-muted/40 animate-pulse shrink-0" style={{ animationDelay: `${i * 100}ms` }} />
+                  <div
+                    className="w-3.5 h-3.5 rounded-sm bg-muted/40 animate-pulse shrink-0"
+                    style={{ animationDelay: `${i * 100}ms` }}
+                  />
                   <div className="flex-1 space-y-1">
-                    <div className="h-3 bg-muted/30 rounded animate-pulse w-3/4" style={{ animationDelay: `${i * 100 + 50}ms` }} />
-                    <div className="h-2 bg-muted/20 rounded animate-pulse w-1/2" style={{ animationDelay: `${i * 100 + 80}ms` }} />
+                    <div
+                      className="h-3 bg-muted/30 rounded animate-pulse w-3/4"
+                      style={{ animationDelay: `${i * 100 + 50}ms` }}
+                    />
+                    <div
+                      className="h-2 bg-muted/20 rounded animate-pulse w-1/2"
+                      style={{ animationDelay: `${i * 100 + 80}ms` }}
+                    />
                   </div>
                 </div>
               ))}
@@ -611,7 +612,11 @@ const LoadingState: React.FC<{
       {/* Images skeleton */}
       <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
         {[...Array(5)].map((_, i) => (
-          <div key={i} className="w-[240px] h-[120px] shrink-0 rounded-lg bg-muted/30 border border-border/30 animate-pulse" style={{ animationDelay: `${i * 60}ms` }} />
+          <div
+            key={i}
+            className="w-[240px] h-[120px] shrink-0 rounded-lg bg-muted/30 border border-border/30 animate-pulse"
+            style={{ animationDelay: `${i * 60}ms` }}
+          />
         ))}
       </div>
     </div>
