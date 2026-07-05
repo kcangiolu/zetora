@@ -1,0 +1,142 @@
+'use server';
+
+import { geolocation } from '@vercel/functions';
+import { UIMessage, generateText, Output } from 'ai';
+import type { ModelMessage } from 'ai';
+import { hasVisionSupport, zetora, resolveModel } from '@/ai/providers';
+import { getChatWithUserById } from '@/lib/db/queries';
+import { db, maindb } from '@/lib/db';
+import { chat, message, buildSession, dodosubscription, type User } from '@/lib/db/schema';
+import { eq, desc, ilike, and, asc, inArray, notExists } from 'drizzle-orm';
+import { GroqProviderOptions, groq } from '@ai-sdk/groq';
+import {
+  createBullMqSchedule,
+  scheduleBullMqOnce,
+  deleteBullMqSchedule,
+  pauseBullMqSchedule,
+  resumeBullMqSchedule,
+  getLockoutProvider,
+} from '@/lib/services/bullmq';
+import type { CharacterAlignmentResponseModel } from '@elevenlabs/elevenlabs-js/api/types/CharacterAlignmentResponseModel';
+import {
+  usageCountCache,
+  createMessageCountKey,
+  createExtremeCountKey,
+  createAnthropicCountKey,
+  createGoogleCountKey,
+  createAgentModeCountKey,
+} from '@/lib/performance-cache';
+import { getComprehensiveUserData, getLightweightUserAuth } from '@/lib/user-data-server';
+import {
+  createConnection,
+  listUserConnections,
+  deleteConnection,
+  manualSync,
+  getSyncStatus,
+  type ConnectorProvider,
+} from '@/lib/connectors';
+import { headers } from 'next/headers';
+import { lookoutCallbackHeaders, lookoutQstashHeaders } from '@/lib/lookout-auth';
+import { saveChat, saveMessages } from '@/lib/db/queries';
+import { all, allSettled } from 'better-all';
+
+// Server action to get the current user with Pro status - UNIFIED VERSION
+export async function getCurrentUser() {
+  'use server';
+
+  return await getComprehensiveUserData();
+}
+
+// Lightweight auth check for fast authentication validation
+export async function getLightweightUser() {
+  'use server';
+
+  return await getLightweightUserAuth();
+}
+
+// Fetch chat meta with user details (server action for client use via React Query)
+export async function getChatMeta(chatId: string, viewerUserId?: string) {
+  'use server';
+
+  if (!chatId) return null;
+
+  try {
+    const chat = await getChatWithUserById({ id: chatId });
+
+    if (!chat) return null;
+
+    const isOwner = viewerUserId ? chat.userId === viewerUserId : false;
+
+    return {
+      id: chat.id,
+      title: chat.title,
+      visibility: chat.visibility as 'public' | 'private',
+      createdAt: chat.createdAt,
+      updatedAt: chat.updatedAt,
+      user: {
+        id: chat.userId,
+        name: chat.userName,
+        email: chat.userEmail,
+        image: chat.userImage,
+      },
+      isOwner,
+    } as const;
+  } catch (error) {
+    console.error('Error in getChatMeta:', error);
+    return null;
+  }
+}
+
+// Get user's country code from geolocation
+export async function getUserCountryCode() {
+  'use server';
+
+  try {
+    const headersList = await headers();
+
+    const request = {
+      headers: headersList,
+    };
+
+    const locationData = geolocation(request);
+
+    return locationData.country || null;
+  } catch (error) {
+    console.error('Error getting geolocation:', error);
+    return null;
+  }
+}
+
+// Server action to get user's geolocation using Vercel
+export async function getUserLocation() {
+  try {
+    const headersList = await headers();
+
+    const request = {
+      headers: headersList,
+    };
+
+    const locationData = geolocation(request);
+
+    return {
+      country: locationData.country || '',
+      countryCode: locationData.country || '',
+      city: locationData.city || '',
+      region: locationData.region || '',
+      isIndia: locationData.country === 'IN',
+      loading: false,
+    };
+  } catch (error) {
+    console.error('Failed to get location from Vercel:', error);
+    return {
+      country: 'Unknown',
+      countryCode: '',
+      city: '',
+      region: '',
+      isIndia: false,
+      loading: false,
+    };
+  }
+}
+
+// Connector management actions
