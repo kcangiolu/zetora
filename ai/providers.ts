@@ -561,9 +561,40 @@ async function getOrCreateProvider(providerId: string) {
   return provider;
 }
 
+// Returns the anonymization context for this (model, user) pair, or null if
+// the layer shouldn't apply — master toggle gates everything; built-in
+// providers are covered automatically once it's on, custom providers
+// additionally need their own per-provider flag set (a custom provider can
+// be a trusted local endpoint or a cloud one, so it can't be inferred).
+// Shared by resolveModel and anything that needs to mask outgoing tool/egress
+// data for the same request (see lib/search/tool-loader.ts).
+export async function getAnonymizeContext(
+  modelId: string,
+  preferences?: Record<string, unknown> | null,
+  userId?: string,
+): Promise<import('@/lib/anonymizer/pseudonymize').AnonymizeContext | null> {
+  if (!userId) return null;
+  if (preferences?.['zetora-anonymization-enabled'] !== true) return null;
+
+  if (modelId.startsWith('custom-')) {
+    const models = await getCustomModels();
+    const model = models.find((m) => m.id === modelId);
+    if (!model) return null;
+    const providers = await getCustomProviders();
+    if (providers.find((p) => p.id === model.providerId)?.anonymize !== true) return null;
+  }
+
+  return {
+    userId,
+    denyTerms: (preferences?.['zetora-anonymization-custom-terms'] as string[] | undefined) ?? [],
+    failOpen: preferences?.['zetora-anonymization-fail-open'] === true,
+  };
+}
+
 export async function resolveModel(
   modelId: string,
   preferences?: Record<string, unknown> | null,
+  userId?: string,
 ): Promise<LanguageModel> {
   let resolved: LanguageModel;
 
@@ -585,9 +616,18 @@ export async function resolveModel(
   const isCustomModel = modelId.startsWith('custom-');
 
   if (xmlParsingEnabled && isCustomModel) {
-    return wrapLanguageModel({
+    resolved = wrapLanguageModel({
       model: resolved,
       middleware: dynamicXmlToolMiddleware,
+    });
+  }
+
+  const anonymizeContext = await getAnonymizeContext(modelId, preferences, userId);
+  if (anonymizeContext) {
+    const { createAnonymizationMiddleware } = await import('./anonymization-middleware');
+    resolved = wrapLanguageModel({
+      model: resolved,
+      middleware: createAnonymizationMiddleware(anonymizeContext),
     });
   }
 

@@ -147,6 +147,9 @@ export async function saveUserPreferences(
         model: string;
       }>;
     };
+    'zetora-anonymization-enabled'?: boolean;
+    'zetora-anonymization-custom-terms'?: string[];
+    'zetora-anonymization-fail-open'?: boolean;
     'zetora-tertiary-chat-title-model'?: string;
     'zetora-tertiary-chat-title-provider'?: string;
     'zetora-tertiary-followup-model'?: string;

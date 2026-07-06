@@ -28,6 +28,7 @@ import {
   getMaxOutputTokens,
   hasVisionSupport,
   getModelProvider,
+  getAnonymizeContext,
 } from '@/ai/providers';
 import {
   createStreamId,
@@ -841,6 +842,12 @@ export async function POST(req: Request) {
         model === 'zetora-qwen-coder-plus' || model === 'zetora-qwen-3-vl' || model === 'zetora-qwen-3-vl-thinking'
           ? [...configuredActiveTools].filter((tool) => tool !== 'code_interpreter')
           : [...configuredActiveTools];
+      const anonymizeContext = await getAnonymizeContext(
+        model,
+        userPreferencesResult?.preferences ?? {},
+        lightweightUser?.userId,
+      );
+
       const loadedTools = await loadConfiguredTools({
         activeToolNames: streamActiveTools,
         dataStream,
@@ -858,6 +865,7 @@ export async function POST(req: Request) {
         graphitiApiUrl:
           (userPreferencesResult?.preferences?.['zetora-graphiti-api-url'] as string | undefined) || undefined,
         userPreferences: (userPreferencesResult?.preferences ?? {}) as Record<string, unknown>,
+        anonymizeContext,
       });
 
       const streamTools = shouldUseXaiMultiAgent
@@ -960,7 +968,7 @@ export async function POST(req: Request) {
 
       const resolvedModel = shouldUseXaiMultiAgent
         ? xai.responses('grok-4.20-multi-agent')
-        : await resolveModel(model, userPreferencesResult?.preferences ?? {});
+        : await resolveModel(model, userPreferencesResult?.preferences ?? {}, lightweightUser?.userId);
       // Custom models parsed via the XML tool middleware need their tool
       // schemas present on every step: the middleware strips native tools into
       // a prompt and relies on the schemas to convert the model's XML back into
@@ -1516,7 +1524,7 @@ export async function POST(req: Request) {
           }
 
           const { output: repairedArgs } = await generateText({
-            model: await resolveTertiaryModel('tool-repair', cachePreferences),
+            model: await resolveTertiaryModel('tool-repair', cachePreferences, lightweightUser?.userId),
             output: Output.object({ schema: tool.inputSchema }),
             prompt: [
               `The model tried to call the tool "${toolCall.toolName}"` + ` with the following arguments:`,

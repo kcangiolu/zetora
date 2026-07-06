@@ -53,15 +53,26 @@ const PREF_KEYS: Record<TertiaryTask, { model: string; provider: string }> = {
   'extreme-agent': { model: 'zetora-tertiary-extreme-agent-model', provider: 'zetora-tertiary-extreme-agent-provider' },
 };
 
-export async function resolveTertiaryModel(task: TertiaryTask, preferences: Record<string, string> | null) {
+export async function resolveTertiaryModel(
+  task: TertiaryTask,
+  preferences: Record<string, string> | null,
+  userId?: string,
+) {
   const keys = PREF_KEYS[task];
   const customModel = preferences?.[keys.model];
+  const isCustomModel = customModel?.startsWith('custom-');
 
   let resolved: ReturnType<typeof zetora.languageModel> | undefined;
   if (customModel) {
     try {
-      // resolveModel handles both native zetora-* IDs and custom-{providerId}-{name} IDs
-      resolved = (await resolveModel(customModel)) as ReturnType<typeof zetora.languageModel>;
+      // resolveModel handles both native zetora-* IDs and custom-{providerId}-{name}
+      // IDs, and (given userId) applies the same anonymization/xml-parsing wrapping
+      // it would for the main chat model.
+      resolved = (await resolveModel(
+        customModel,
+        preferences as Record<string, unknown> | null,
+        userId,
+      )) as ReturnType<typeof zetora.languageModel>;
     } catch {
       console.warn(`[Tertiary] Failed to load model ${customModel}, using default`);
     }
@@ -69,17 +80,25 @@ export async function resolveTertiaryModel(task: TertiaryTask, preferences: Reco
 
   if (!resolved) {
     resolved = zetora.languageModel(TASK_DEFAULTS[task]);
-  }
 
-  const prefs = preferences as Record<string, unknown> | null;
-  const xmlParsingEnabled = prefs?.['zetora-xml-tool-parsing-enabled'] === true;
-  const isCustomModel = customModel?.startsWith('custom-');
+    const prefs = preferences as Record<string, unknown> | null;
+    const xmlParsingEnabled = prefs?.['zetora-xml-tool-parsing-enabled'] === true;
+    if (xmlParsingEnabled && isCustomModel) {
+      resolved = wrapLanguageModel({ model: resolved, middleware: dynamicXmlToolMiddleware });
+    }
 
-  if (xmlParsingEnabled && isCustomModel && resolved) {
-    return wrapLanguageModel({
-      model: resolved,
-      middleware: dynamicXmlToolMiddleware,
-    });
+    const anonymizationEnabled = prefs?.['zetora-anonymization-enabled'] === true;
+    if (userId && anonymizationEnabled) {
+      const { createAnonymizationMiddleware } = await import('./anonymization-middleware');
+      resolved = wrapLanguageModel({
+        model: resolved,
+        middleware: createAnonymizationMiddleware({
+          userId,
+          denyTerms: (prefs?.['zetora-anonymization-custom-terms'] as string[] | undefined) ?? [],
+          failOpen: prefs?.['zetora-anonymization-fail-open'] === true,
+        }),
+      });
+    }
   }
 
   return resolved;

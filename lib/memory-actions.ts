@@ -5,6 +5,7 @@ import { serverEnv } from '@/env/server';
 import { Supermemory } from 'supermemory';
 import { graphitiClient, createGraphitiClient } from '@/lib/graphiti/client';
 import { getUserPreferencesByUserId } from '@/lib/db/queries';
+import { deanonymizeText } from '@/lib/anonymizer/pseudonymize';
 
 const supermemoryClient = new Supermemory({
   apiKey: serverEnv.SUPERMEMORY_API_KEY,
@@ -55,6 +56,19 @@ async function getGraphitiClientForUser(userId: string) {
   } catch {
     return graphitiClient;
   }
+}
+
+// SuperMemory content can hold anonymization tokens (see lib/tools/supermemory.ts) —
+// de-anonymize before it ever reaches the user-facing memory management UI.
+// A no-op for content with no tokens, so it's safe to always run.
+async function deanonymizeMemoryItem(item: MemoryItem, userId: string): Promise<MemoryItem> {
+  const [content, summary, title, memory] = await Promise.all([
+    deanonymizeText(item.content, { userId }),
+    deanonymizeText(item.summary, { userId }),
+    deanonymizeText(item.title, { userId }),
+    item.memory ? deanonymizeText(item.memory, { userId }) : Promise.resolve(item.memory),
+  ]);
+  return { ...item, content, summary, title, memory };
 }
 
 function graphitiEpisodeToMemoryItem(episode: any, index: number): MemoryItem {
@@ -136,7 +150,7 @@ export async function getAllMemories(page = 1, pageSize = 20): Promise<MemoryRes
     }
   }
 
-  // SuperMemory — existing behavior unchanged
+  // SuperMemory
   try {
     const result = await supermemoryClient.documents.list({
       containerTags: [user.id],
@@ -144,8 +158,11 @@ export async function getAllMemories(page = 1, pageSize = 20): Promise<MemoryRes
       limit: pageSize,
       includeContent: true,
     });
+    const memories = await Promise.all(
+      (result.memories as MemoryItem[]).map((item) => deanonymizeMemoryItem(item, user.id)),
+    );
     return {
-      memories: result.memories as any,
+      memories,
       total: result.pagination.totalItems || 0,
     };
   } catch (error) {

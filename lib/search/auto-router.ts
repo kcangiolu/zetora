@@ -91,7 +91,7 @@ Based on your analysis, provide your response in the following JSON formats if y
 `;
 
     const { text } = await generateText({
-      model: await resolveTertiaryModel('auto-router', routerPrefsMap),
+      model: await resolveTertiaryModel('auto-router', routerPrefsMap, user.id),
       messages: [{ role: 'user', content: taskInstruction + formatPrompt }],
       maxOutputTokens: 200,
       temperature: 0,

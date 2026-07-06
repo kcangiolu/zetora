@@ -123,7 +123,12 @@ export async function upsertUserPreferences({
       name: string;
       baseURL: string;
       apiKey?: string;
+      disableAutoDetect?: boolean;
+      anonymize?: boolean;
     }>;
+    'zetora-anonymization-enabled'?: boolean;
+    'zetora-anonymization-custom-terms'?: string[];
+    'zetora-anonymization-fail-open'?: boolean;
     'zetora-default-model'?: string;
     'zetora-default-provider'?: string;
     'zetora-lockout-provider'?: 'qstash' | 'bullmq';

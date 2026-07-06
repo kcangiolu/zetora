@@ -87,6 +87,8 @@ import {
   CheckCircle2,
   XCircle,
   Mail,
+  Shield,
+  ShieldOff,
 } from 'lucide-react';
 import { getSearchGroups, type SearchGroupId } from '@/lib/utils';
 import { models, PROVIDERS, getModelProvider, type ModelProvider, type Model } from '@/ai/models';
@@ -345,6 +347,7 @@ type CustomProviderConfig = {
   apiKey?: string;
   hasApiKey?: boolean;
   disableAutoDetect?: boolean;
+  anonymize?: boolean;
 };
 
 type AutoRouterRoute = {
@@ -618,6 +621,22 @@ export function PreferencesSection({
     'zetora-location-metadata-enabled',
     false,
   );
+
+  const [anonymizationEnabled, setAnonymizationEnabled] = useSyncedPreferences<boolean>(
+    'zetora-anonymization-enabled',
+    false,
+  );
+  const [anonymizationCustomTerms, setAnonymizationCustomTerms] = useSyncedPreferences<string[]>(
+    'zetora-anonymization-custom-terms',
+    [],
+  );
+  const [anonymizationCustomTermsInput, setAnonymizationCustomTermsInput] = useState(
+    anonymizationCustomTerms.join(', '),
+  );
+  const [anonymizationFailOpen, setAnonymizationFailOpen] = useSyncedPreferences<boolean>(
+    'zetora-anonymization-fail-open',
+    false,
+  );
   const [scrollToLatestOnOpen, setScrollToLatestOnOpen] = useSyncedPreferences<boolean>(
     'zetora-scroll-to-latest-on-open',
     false,
@@ -772,6 +791,21 @@ export function PreferencesSection({
 
   const handleToggleAutoDetect = async (id: string) => {
     const updated = customProviders.map((p) => (p.id === id ? { ...p, disableAutoDetect: !p.disableAutoDetect } : p));
+    try {
+      await fetch('/api/custom-providers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ providers: updated }),
+      });
+      setCustomProviders(updated);
+      queryClient.invalidateQueries({ queryKey: ['customModels'] });
+    } catch {
+      sileo.error({ title: 'Failed to update provider' });
+    }
+  };
+
+  const handleToggleAnonymize = async (id: string) => {
+    const updated = customProviders.map((p) => (p.id === id ? { ...p, anonymize: !p.anonymize } : p));
     try {
       await fetch('/api/custom-providers', {
         method: 'POST',
@@ -1182,6 +1216,65 @@ export function PreferencesSection({
                   onCheckedChange={setLocationMetadataEnabled}
                 />
               </div>
+
+              {/* Anonymization layer */}
+              <div className="flex items-center justify-between py-3.5 gap-6">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium flex items-center gap-1.5">
+                    <Shield className="h-3.5 w-3.5" />
+                    Anonymization
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Mask names, companies, and other PII (regex + NER) before sending anything to cloud providers or
+                    search tools. Applies to all built-in providers; custom providers use their own toggle above.
+                  </p>
+                </div>
+                <Switch
+                  id="anonymization-enabled"
+                  checked={anonymizationEnabled}
+                  onCheckedChange={setAnonymizationEnabled}
+                />
+              </div>
+
+              {anonymizationEnabled && (
+                <>
+                  <div className="py-3.5 gap-2 flex flex-col">
+                    <p className="text-sm font-medium">Always mask these terms</p>
+                    <p className="text-xs text-muted-foreground -mt-1.5">
+                      Client or project names the detector might miss — comma-separated
+                    </p>
+                    <Input
+                      value={anonymizationCustomTermsInput}
+                      onChange={(e) => setAnonymizationCustomTermsInput(e.target.value)}
+                      onBlur={() =>
+                        setAnonymizationCustomTerms(
+                          anonymizationCustomTermsInput
+                            .split(',')
+                            .map((term) => term.trim())
+                            .filter(Boolean),
+                        )
+                      }
+                      placeholder="Acme Corp, Project Nightingale"
+                      className="h-8 text-xs"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between py-3.5 gap-6">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">Fail open on detector outage</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        If off (recommended), cloud requests are blocked when the PII detector is unreachable instead
+                        of risking cleartext leaking through
+                      </p>
+                    </div>
+                    <Switch
+                      id="anonymization-fail-open"
+                      checked={anonymizationFailOpen}
+                      onCheckedChange={setAnonymizationFailOpen}
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="flex items-center justify-between py-3.5 gap-6">
                 <div className="min-w-0">
@@ -2094,6 +2187,20 @@ export function PreferencesSection({
                         </div>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                          title={
+                            p.anonymize
+                              ? 'Anonymization on — PII is masked before requests reach this provider'
+                              : 'Anonymization off — click to enable if this provider is a cloud endpoint'
+                          }
+                          onClick={() => handleToggleAnonymize(p.id)}
+                        >
+                          {p.anonymize ? <Shield className="h-3 w-3" /> : <ShieldOff className="h-3 w-3" />}
+                        </Button>
                         <Button
                           type="button"
                           variant="ghost"

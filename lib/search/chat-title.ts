@@ -21,7 +21,7 @@ export async function generateTitleFromUserMessage({ message }: { message: UIMes
   const titlePrefsMap = (titlePrefs?.preferences ?? {}) as Record<string, string>;
 
   const { text: rawTitle } = await generateText({
-    model: await resolveTertiaryModel('chat-title', titlePrefsMap),
+    model: await resolveTertiaryModel('chat-title', titlePrefsMap, titleUser?.id),
     system: `You are an expert title generator. You are given a message and you need to generate a short title based on it.
 
     - you will generate a short 3-4 words title based on the first message a user begins a conversation with

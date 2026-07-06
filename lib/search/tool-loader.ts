@@ -1,6 +1,23 @@
 import 'server-only';
 
 import type { SearchProvider } from '@/lib/utils';
+import { anonymizeToolInput, type AnonymizeContext } from '@/lib/anonymizer/pseudonymize';
+
+// Defense in depth for the anonymization layer: when it's active the model
+// only ever sees pseudonyms, so its tool-call args are already tokenized —
+// this just catches anything that slips through (e.g. a hallucinated real
+// value) before it reaches a tool that calls out to a cloud service.
+function withEgressAnonymization<T extends { execute?: (...args: any[]) => any }>(
+  tool: T,
+  ctx: AnonymizeContext,
+): T {
+  if (typeof tool?.execute !== 'function') return tool;
+  const originalExecute = tool.execute.bind(tool);
+  return {
+    ...tool,
+    execute: async (input: unknown, options: unknown) => originalExecute(await anonymizeToolInput(input, ctx), options),
+  };
+}
 
 interface LoadConfiguredToolsParams {
   activeToolNames: string[];
@@ -16,6 +33,7 @@ interface LoadConfiguredToolsParams {
   memoryProvider?: 'supermemory' | 'graphiti';
   graphitiApiUrl?: string;
   userPreferences?: Record<string, unknown>;
+  anonymizeContext?: AnonymizeContext | null;
 }
 
 export async function loadConfiguredTools({
@@ -32,6 +50,7 @@ export async function loadConfiguredTools({
   memoryProvider,
   graphitiApiUrl,
   userPreferences,
+  anonymizeContext,
 }: LoadConfiguredToolsParams): Promise<Record<string, any>> {
   const tools: Record<string, any> = {};
   const uniqueToolNames = [...new Set(activeToolNames)];
@@ -62,18 +81,14 @@ export async function loadConfiguredTools({
         }
         case 'x_search': {
           const { xSearchTool } = await import('@/lib/tools/x-search');
-          tools.x_search = xSearchTool(dataStream);
+          const built = xSearchTool(dataStream);
+          tools.x_search = anonymizeContext ? withEgressAnonymization(built, anonymizeContext) : built;
           return;
         }
         case 'web_search': {
           const { webSearchTool } = await import('@/lib/tools/web-search');
-          tools.web_search = webSearchTool(
-            dataStream,
-            searchProvider,
-            searxngUrl,
-            userPreferences,
-            lightweightUser?.userId,
-          );
+          const built = webSearchTool(dataStream, searchProvider, searxngUrl, userPreferences, lightweightUser?.userId);
+          tools.web_search = anonymizeContext ? withEgressAnonymization(built, anonymizeContext) : built;
           return;
         }
         case 'academic_search': {
@@ -162,7 +177,8 @@ export async function loadConfiguredTools({
         }
         case 'extreme_search': {
           const { extremeSearchTool } = await import('@/lib/tools/extreme-search');
-          tools.extreme_search = extremeSearchTool(dataStream, contextFiles, includeMcpTools ? mcpDynamicTools : {});
+          const built = extremeSearchTool(dataStream, contextFiles, includeMcpTools ? mcpDynamicTools : {});
+          tools.extreme_search = anonymizeContext ? withEgressAnonymization(built, anonymizeContext) : built;
           return;
         }
         case 'greeting': {
@@ -191,7 +207,7 @@ export async function loadConfiguredTools({
               memoryTools = { searchMemories: gt.searchMemoryTool, addMemory: gt.addMemoryTool };
             } else {
               const { createMemoryTools } = await import('@/lib/tools/supermemory');
-              memoryTools = createMemoryTools(lightweightUser.userId);
+              memoryTools = createMemoryTools(lightweightUser.userId, anonymizeContext);
             }
           }
           if (uniqueToolNames.includes('search_memories'))
@@ -202,7 +218,8 @@ export async function loadConfiguredTools({
         case 'connectors_search': {
           if (!lightweightUser) return;
           const { createConnectorsSearchTool } = await import('@/lib/tools/connectors-search');
-          tools.connectors_search = createConnectorsSearchTool(lightweightUser.userId, selectedConnectors);
+          const built = createConnectorsSearchTool(lightweightUser.userId, selectedConnectors);
+          tools.connectors_search = anonymizeContext ? withEgressAnonymization(built, anonymizeContext) : built;
           return;
         }
         default:

@@ -12,6 +12,7 @@ import {
   index,
   uniqueIndex,
   jsonb,
+  primaryKey,
 } from 'drizzle-orm/pg-core';
 import { generateId } from 'ai';
 import { InferSelectModel } from 'drizzle-orm';
@@ -372,7 +373,12 @@ export const userPreferences = pgTable('user_preferences', {
         name: string;
         baseURL: string;
         apiKey?: string;
+        disableAutoDetect?: boolean;
+        anonymize?: boolean;
       }>;
+      'zetora-anonymization-enabled'?: boolean;
+      'zetora-anonymization-custom-terms'?: string[];
+      'zetora-anonymization-fail-open'?: boolean;
       'zetora-embedding-provider'?: string;
       'zetora-embedding-model'?: string;
       'zetora-qdrant-url'?: string;
@@ -554,6 +560,34 @@ export const lookout = pgTable(
   ],
 );
 
+// Reversible pseudonym vault for the anonymization layer: maps a
+// deterministic HMAC token (e.g. "⟦PERSON_ab12cd34ef⟧") back to the
+// encrypted original value so user-facing boundaries can re-hydrate text
+// that was tokenized before being sent to a cloud provider or tool.
+export const piiAlias = pgTable(
+  'pii_alias',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    token: text('token').notNull(),
+    entityType: text('entity_type').notNull(),
+    originalEnc: text('original_enc').notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.token] }),
+    index('piiAlias_userId_idx').on(table.userId),
+  ],
+);
+
+export const piiAliasRelations = relations(piiAlias, ({ one }) => ({
+  user: one(user, {
+    fields: [piiAlias.userId],
+    references: [user.id],
+  }),
+}));
+
 export const userMcpServer = pgTable(
   'user_mcp_server',
   {
@@ -611,6 +645,7 @@ export const userRelations = relations(user, ({ many }) => ({
   dodoSubscriptions: many(dodosubscription),
   lookouts: many(lookout),
   mcpServers: many(userMcpServer),
+  piiAliases: many(piiAlias),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -726,3 +761,4 @@ export type UserPreferences = InferSelectModel<typeof userPreferences>;
 export type Lookout = InferSelectModel<typeof lookout>;
 export type UserMcpServer = InferSelectModel<typeof userMcpServer>;
 export type BuildSession = InferSelectModel<typeof buildSession>;
+export type PiiAlias = InferSelectModel<typeof piiAlias>;

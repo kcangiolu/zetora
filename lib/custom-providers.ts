@@ -13,6 +13,10 @@ export interface CustomProviderConfig {
   baseURL: string;
   apiKey?: string;
   disableAutoDetect?: boolean;
+  // Per-provider anonymization toggle: a custom provider can be a trusted
+  // local endpoint (leave off) or a cloud service (turn on) — unlike
+  // built-in providers, this can't be inferred, so the user sets it here.
+  anonymize?: boolean;
 }
 
 export interface CustomModelInfo {

@@ -474,6 +474,28 @@ services:
           memory: 512M
     restart: unless-stopped
 
+  # ---------------------------------------------------------------------------
+  # Anonymizer (PII detection for the activatable anonymization layer)
+  # ---------------------------------------------------------------------------
+  presidio-api:
+    image: registry.example.com/kcangiolu/zetora-presidio-api:latest
+    build:
+      context: ./presidio-service
+      dockerfile: Dockerfile
+    container_name: zetora-presidio-api
+    ports:
+      - '127.0.0.1:8002:8000'
+    environment:
+      - PORT=8000
+    networks:
+      - zetora-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+    restart: unless-stopped
+
   graphiti-mcp:
     image: registry.example.com/kcangiolu/zetora-graphiti-mcp:latest
     build:

@@ -736,7 +736,11 @@ export async function POST(req: Request) {
 
         // Start streaming
         const result = streamText({
-          model: await resolveTertiaryModel('default', (userPrefs?.preferences ?? {}) as Record<string, string>),
+          model: await resolveTertiaryModel(
+            'default',
+            (userPrefs?.preferences ?? {}) as Record<string, string>,
+            userResult.id,
+          ),
           messages: await convertToModelMessages([userMessage]),
           stopWhen: stepCountIs(2),
           maxRetries: 10,

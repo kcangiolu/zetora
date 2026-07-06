@@ -17,6 +17,7 @@ const SaveSchema = z.object({
       baseURL: z.string(),
       apiKey: z.string().optional(),
       disableAutoDetect: z.boolean().optional(),
+      anonymize: z.boolean().optional(),
       hasApiKey: z.unknown().optional(),
     }),
   ),

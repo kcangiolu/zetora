@@ -87,7 +87,7 @@ export async function suggestQuestions(history: any[]) {
   const suggestPrefsMap = (suggestPrefs?.preferences ?? {}) as Record<string, string>;
 
   const { output } = await generateText({
-    model: await resolveTertiaryModel('followup', suggestPrefsMap),
+    model: await resolveTertiaryModel('followup', suggestPrefsMap, suggestUser?.id),
     providerOptions: {
       google: {
         structuredOutputs: true,
@@ -212,7 +212,7 @@ Output requirements:
     const enhancePrefsMap = (enhancePrefs?.preferences ?? {}) as Record<string, string>;
 
     const { text } = await generateText({
-      model: await resolveTertiaryModel('enhance', enhancePrefsMap),
+      model: await resolveTertiaryModel('enhance', enhancePrefsMap, auth.userId),
       temperature: 0.6,
       topP: 0.95,
       maxOutputTokens: 1024,
