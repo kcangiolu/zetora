@@ -67,7 +67,13 @@ export async function loadConfiguredTools({
         }
         case 'web_search': {
           const { webSearchTool } = await import('@/lib/tools/web-search');
-          tools.web_search = webSearchTool(dataStream, searchProvider, searxngUrl, userPreferences);
+          tools.web_search = webSearchTool(
+            dataStream,
+            searchProvider,
+            searxngUrl,
+            userPreferences,
+            lightweightUser?.userId,
+          );
           return;
         }
         case 'academic_search': {

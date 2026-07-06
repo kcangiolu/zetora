@@ -1,4 +1,5 @@
 import 'server-only';
+import type { QdrantFilter } from './qdrant-filters';
 
 const DEFAULT_QDRANT_URL = process.env.QDRANT_URL || 'http://localhost:6333';
 
@@ -66,6 +67,7 @@ export function getQdrantClient(baseUrl: string = DEFAULT_QDRANT_URL) {
       vector: number[],
       limit: number = 10,
       scoreThreshold?: number,
+      filter?: QdrantFilter,
     ): Promise<SearchResult[]> {
       const body: Record<string, any> = {
         vector,
@@ -75,6 +77,9 @@ export function getQdrantClient(baseUrl: string = DEFAULT_QDRANT_URL) {
 
       if (scoreThreshold !== undefined) {
         body.score_threshold = scoreThreshold;
+      }
+      if (filter !== undefined) {
+        body.filter = filter;
       }
 
       const res = await fetch(`${QDRANT_URL}/collections/${collectionName}/points/search`, {

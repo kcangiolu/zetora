@@ -264,6 +264,7 @@ function getToolsForSearchMode(
   searchProvider: SearchProvider | undefined,
   searxngUrl: string | undefined,
   userPreferences: Record<string, unknown> | undefined,
+  userId: string | undefined,
 ): Record<string, any> {
   const toolNames = SEARCH_MODE_TOOLS[searchMode] || SEARCH_MODE_TOOLS.extreme;
   const tools: Record<string, any> = {};
@@ -273,7 +274,7 @@ function getToolsForSearchMode(
     if (toolName === 'extreme_search') {
       tools[toolName] = extremeSearchTool(dataStream, []);
     } else if (toolName === 'web_search') {
-      tools[toolName] = webSearchTool(dataStream, searchProvider, searxngUrl, userPreferences);
+      tools[toolName] = webSearchTool(dataStream, searchProvider, searxngUrl, userPreferences, userId);
     } else if (toolName in DATASTREAM_TOOL_FACTORIES) {
       tools[toolName] = DATASTREAM_TOOL_FACTORIES[toolName](dataStream);
     } else if (toolName in STATIC_TOOLS) {
@@ -726,6 +727,7 @@ export async function POST(req: Request) {
           searchProvider,
           searxngUrl,
           userPrefs?.preferences as Record<string, unknown> | undefined,
+          userResult.id,
         );
         const activeToolNames = Object.keys(tools);
         const systemPrompt = getSystemPromptForSearchMode(searchMode);

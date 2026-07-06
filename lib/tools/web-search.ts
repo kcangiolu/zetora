@@ -623,6 +623,7 @@ const createSearchStrategy = (
   },
   searxngUrl?: string,
   preferences?: Record<string, unknown>,
+  userId?: string,
 ): SearchStrategy => {
   if (provider === 'searxng') {
     const url = searxngUrl || serverEnv.SEARXNG_URL;
@@ -630,7 +631,7 @@ const createSearchStrategy = (
       console.warn('SearXNG provider selected but SEARXNG_URL is not configured, falling back to Exa');
       return new ExaSearchStrategy(clients.exa, clients.firecrawl);
     }
-    return new SearXNGSearchStrategy(url, preferences);
+    return new SearXNGSearchStrategy(url, preferences, userId);
   }
 
   if (provider === 'fastcrw') {
@@ -656,6 +657,7 @@ export function webSearchTool(
   searchProvider: WebSearchProvider = 'exa',
   searxngUrl?: string,
   preferences?: Record<string, unknown>,
+  userId?: string,
 ) {
   return tool({
     description: `This is the default tool of the app to be used to search the web for information with multiple queries (2-4), max results (8 per query), topics, and quality.
@@ -743,7 +745,7 @@ export function webSearchTool(
 
       // Create and use the appropriate search strategy
       const normalizedProvider = normalizeWebSearchProvider(searchProvider);
-      const strategy = createSearchStrategy(normalizedProvider, clients, searxngUrl, preferences);
+      const strategy = createSearchStrategy(normalizedProvider, clients, searxngUrl, preferences, userId);
       if (!topics) {
         topics = new Array(queries.length).fill('general');
       }

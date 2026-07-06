@@ -28,6 +28,8 @@ export default defineConfig({
         'lib/search/prepare-step.ts',
         'lib/tools/web-search-limits.ts',
         'lib/timeouts.ts',
+        'lib/vector/qdrant-filters.ts',
+        'lib/vector/archive-merge.ts',
       ],
     },
   },

@@ -1,10 +1,24 @@
 import 'server-only';
 import { embed, generateText } from 'ai';
 import { getQdrantClient, resolveQdrantUrl } from './qdrant';
+import { SEARCH_INDEX_COLLECTION } from './constants';
+import { buildUserFilter } from './qdrant-filters';
 import { getEmbeddingModel } from '@/ai/embeddings';
 import { resolveTertiaryModel } from '@/ai/tertiary';
 
-const SEARCH_INDEX_COLLECTION = 'zetora_search_index';
+// Only 5 archive candidates per query — this is a hint of possibly-related
+// past context, not a second source of "live" results.
+const QDRANT_QUERY_LIMIT = 5;
+
+// Below this cosine score a Qdrant hit is treated as noise (e.g. an
+// unrelated topic from a past conversation) and dropped before it ever
+// reaches the model. Tunable because embedding models differ in how tightly
+// their scores cluster.
+function resolveHybridMinScore(): number {
+  const raw = process.env.ZETORA_HYBRID_MIN_SCORE;
+  const parsed = raw ? Number(raw) : NaN;
+  return Number.isFinite(parsed) && parsed >= 0 && parsed <= 1 ? parsed : 0.55;
+}
 
 interface HybridResult {
   url: string;
@@ -86,7 +100,7 @@ export async function hybridSearch(
   query: string,
   searxngResults: { url: string; title: string; content: string }[],
   preferences: Record<string, unknown>,
-  topK: number = 10,
+  userId?: string,
 ): Promise<HybridResult[]> {
   if (preferences['zetora-hybrid-search-enabled'] !== true) {
     return searxngOnlyResults(searxngResults);
@@ -106,9 +120,24 @@ export async function hybridSearch(
       value: query,
     });
 
-    // 2. Search Qdrant (across previously indexed content)
+    // 2. Search Qdrant (across previously indexed content), scoped to this
+    // user and filtered to a minimum similarity score so an unrelated topic
+    // from a past conversation can't surface as a "found" result here.
     const client = getQdrantClient(resolveQdrantUrl(preferences));
-    const qdrantResults = await client.search(SEARCH_INDEX_COLLECTION, embedding, topK);
+    const qdrantResults = await client.search(
+      SEARCH_INDEX_COLLECTION,
+      embedding,
+      QDRANT_QUERY_LIMIT,
+      resolveHybridMinScore(),
+      buildUserFilter(userId),
+    );
+
+    if (qdrantResults.length > 0) {
+      const scores = qdrantResults.map((r) => r.score);
+      console.log(
+        `[HYBRID-SEARCH] Qdrant candidates: ${qdrantResults.length}, score range [${Math.min(...scores).toFixed(3)}, ${Math.max(...scores).toFixed(3)}]`,
+      );
+    }
 
     // 3. Prepare ranks for RRF
     const searxngRanks = searxngResults.map((r, i) => ({
@@ -151,9 +180,11 @@ export async function hybridSearch(
       }
     }
 
-    // 6. Sort by descending RRF score, then optionally rerank
+    // 6. Sort by descending RRF score, then optionally rerank. Keep every
+    // fused candidate by default (topK = fused.length) — live SearXNG
+    // results are never dropped here, only reordered/annotated.
     const fused = Array.from(allResults.values()).sort((a, b) => b.score - a.score);
-    const reranked = await rerankResults(query, fused, topK, preferences);
+    const reranked = await rerankResults(query, fused, fused.length, preferences);
 
     console.log(`[HYBRID-SEARCH] RRF fusion applied, ${fused.length} candidates → ${reranked.length} after reranking`);
 

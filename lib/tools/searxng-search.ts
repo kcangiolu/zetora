@@ -2,6 +2,7 @@ import type { UIMessageStreamWriter } from 'ai';
 import type { ChatMessage } from '../types';
 import type { SearchStrategy } from './web-search';
 import { SEARXNG_TIMEOUT_MS } from '@/lib/timeouts';
+import { mergeArchiveResults } from '@/lib/vector/archive-merge';
 
 interface SearXNGResult {
   url: string;
@@ -31,10 +32,12 @@ function resolveTimeRange(topic: 'general' | 'news', startDate?: string | null):
 export class SearXNGSearchStrategy implements SearchStrategy {
   private baseUrl: string;
   private preferences?: Record<string, unknown>;
+  private userId?: string;
 
-  constructor(baseUrl: string, preferences?: Record<string, unknown>) {
+  constructor(baseUrl: string, preferences?: Record<string, unknown>, userId?: string) {
     this.baseUrl = baseUrl.replace(/\/$/, '');
     this.preferences = preferences;
+    this.userId = userId;
   }
 
   async search(
@@ -125,7 +128,12 @@ export class SearXNGSearchStrategy implements SearchStrategy {
       }),
     );
 
-    // Hybrid step: fuse with Qdrant results when enabled
+    // Hybrid step: surface previously indexed (Qdrant) content as a
+    // separate, clearly labeled "[archive]" entry. It never replaces or
+    // blends into the live SearXNG results for the query the model asked —
+    // otherwise the model treats stale/unrelated indexed pages as if its own
+    // search had found them (this is how a topic from a past conversation
+    // used to leak into an unrelated one).
     const allSearxngResults = searches.flatMap((s) => s.results);
     if (this.preferences?.['zetora-hybrid-search-enabled'] === true && allSearxngResults.length > 0) {
       try {
@@ -134,17 +142,12 @@ export class SearXNGSearchStrategy implements SearchStrategy {
           queries[0], // use the first query as the primary query
           allSearxngResults.map((r) => ({ url: r.url, title: r.title, content: r.content })),
           this.preferences,
-          allSearxngResults.length,
+          this.userId,
         );
-        // Replace the first search's results with the fused results
-        // Fused results are already deduplicated and reranked
-        searches[0].results = fusedResults.map((r) => ({
-          url: r.url,
-          title: r.title,
-          content: r.content,
-          published_date: undefined,
-          author: undefined,
-        }));
+        const archiveResults = mergeArchiveResults(fusedResults);
+        if (archiveResults.length > 0) {
+          searches.push({ query: `[archive] ${queries[0]}`, results: archiveResults, images: [] });
+        }
       } catch (error) {
         console.warn('Hybrid search fusion failed, using raw SearXNG results:', error);
       }
@@ -157,6 +160,7 @@ export class SearXNGSearchStrategy implements SearchStrategy {
         allSearxngResults.map((r) => ({ url: r.url, title: r.title, content: r.content })),
         queries[0],
         this.preferences,
+        this.userId,
       ).catch((err) => console.warn('Background content indexing failed:', err));
     }
 

@@ -1,9 +1,9 @@
 import 'server-only';
 import { embed } from 'ai';
 import { getQdrantClient, resolveQdrantUrl } from './qdrant';
+import { SEARCH_INDEX_COLLECTION } from './constants';
 import { getEmbeddingModel } from '@/ai/embeddings';
 
-const INDEX_COLLECTION = 'zetora_search_index';
 const FETCH_TIMEOUT_MS = 8000;
 const CHUNK_SIZE = 2000;
 const CHUNK_OVERLAP = 200;
@@ -73,6 +73,7 @@ export async function indexSearchResults(
   results: { url: string; title: string; content: string }[],
   query: string,
   preferences: Record<string, unknown>,
+  userId?: string,
 ): Promise<void> {
   try {
     const embeddingModel = await getEmbeddingModel(preferences);
@@ -106,6 +107,7 @@ export async function indexSearchResults(
               chunk_index: chunkIndex,
               source_query: query,
               indexed_at: Date.now(),
+              ...(userId ? { user_id: userId } : {}),
             },
           });
         } catch (error) {
@@ -117,10 +119,10 @@ export async function indexSearchResults(
     if (points.length === 0) return;
 
     const client = getQdrantClient(resolveQdrantUrl(preferences));
-    await client.createCollection(INDEX_COLLECTION, points[0].vector.length);
+    await client.createCollection(SEARCH_INDEX_COLLECTION, points[0].vector.length);
 
     for (let i = 0; i < points.length; i += UPSERT_BATCH_SIZE) {
-      await client.upsert(INDEX_COLLECTION, points.slice(i, i + UPSERT_BATCH_SIZE));
+      await client.upsert(SEARCH_INDEX_COLLECTION, points.slice(i, i + UPSERT_BATCH_SIZE));
     }
 
     console.log(
