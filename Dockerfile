@@ -7,8 +7,10 @@ FROM node:22-alpine AS base
 # This stage is responsible for installing all npm dependencies
 FROM base AS deps
 # Installing libc6-compat for Alpine Linux compatibility with certain Node.js packages
-# Required for some npm packages that have native dependencies
-RUN apk add --no-cache libc6-compat
+# Required for some npm packages that have native dependencies.
+# unpdf's optional `canvas` dependency has no musl prebuilt binary, so it
+# falls back to compiling via node-gyp — these are its build requirements.
+RUN apk add --no-cache libc6-compat python3 make g++ pkgconfig cairo-dev pango-dev jpeg-dev giflib-dev librsvg-dev
 
 WORKDIR /app
 
