@@ -10,6 +10,7 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { SearXNGSearchStrategy } from './searxng-search';
 import { FastCrwWebSearchStrategy } from './fastcrw-web-search';
+import { clampSearchInput, dedupeAndCapSearches } from './web-search-limits';
 
 // Singleton clients - initialized lazily and reused across requests
 let _searchClients: {
@@ -657,13 +658,13 @@ export function webSearchTool(
   preferences?: Record<string, unknown>,
 ) {
   return tool({
-    description: `This is the default tool of the app to be used to search the web for information with multiple queries(5-10), max results(15-20), topics, and quality.
+    description: `This is the default tool of the app to be used to search the web for information with multiple queries (2-4), max results (8 per query), topics, and quality.
     Very important Rules:
     ...${searchProvider === 'parallel' ? 'The First Query should be the objective and the rest of the queries should be related to the objective' : ''}...
     - The queries should always be in the same language as the user's message.
-    - And count of the queries should be 5-10 always!
-    - Assert to max number of results for each query to be 15-20.
-    - Your knowledge base is zero, so you must gather as much information as possible from the tools you have.
+    - Use 2-4 queries covering DISTINCT angles of the question — never near-duplicate queries.
+    - Keep max results at 8 per query (10 absolute maximum) — quality over quantity.
+    - Call this tool ONCE, then synthesize the answer from the results. Never re-search the same topic.
     - **Prohibition**: NEVER use the retrieve tool after running web_search tool
     - Do not use the best quality unless absolutly required since it is time expensive.
     - ⚠️ CRITICAL: ALWAYS include date/time context in search queries:
@@ -675,15 +676,12 @@ export function webSearchTool(
     `,
     inputSchema: z.object({
       queries: z
-        .array(z.string().describe('Array of 3-5 search queries to look up on the web. Default is 5. Minimum is 3.'))
-        .min(3),
+        .array(z.string().describe('Array of 2-4 search queries to look up on the web. Default is 3. Minimum is 1.'))
+        .min(1)
+        .max(5),
       maxResults: z
         .array(
-          z
-            .number()
-            .describe(
-              'Array of maximum number of results to return per query. Default is 10. Minimum is 10. Maximum is 15.',
-            ),
+          z.number().describe('Array of maximum number of results to return per query. Default is 8. Maximum is 10.'),
         )
         .optional(),
       topics: z
@@ -732,6 +730,10 @@ export function webSearchTool(
       // Use singleton clients (initialized at module level for reuse)
       const clients = getSearchClients();
 
+      // Hard clamp regardless of what the model asked for (local models
+      // routinely ignore the prompt-level 2-4 × 8 limits).
+      ({ queries, maxResults } = clampSearchInput({ queries, maxResults }));
+
       console.log('Queries:', queries);
       console.log('Max Results:', maxResults);
       console.log('Topics:', topics);
@@ -742,9 +744,6 @@ export function webSearchTool(
       // Create and use the appropriate search strategy
       const normalizedProvider = normalizeWebSearchProvider(searchProvider);
       const strategy = createSearchStrategy(normalizedProvider, clients, searxngUrl, preferences);
-      if (!maxResults) {
-        maxResults = new Array(queries.length).fill(10);
-      }
       if (!topics) {
         topics = new Array(queries.length).fill('general');
       }
@@ -766,7 +765,9 @@ export function webSearchTool(
         const fallbackStrategy = createSearchStrategy('firecrawl', clients);
         result = await fallbackStrategy.search(queries, searchOptions);
       }
-      return result;
+      // Bound what flows back into the model's context: dedupe across
+      // queries, cap per domain and globally, truncate snippets.
+      return { ...result, searches: dedupeAndCapSearches(result.searches) };
     },
   });
 }

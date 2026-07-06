@@ -1192,7 +1192,9 @@ YOU ARE NOT AN AGENT, YOU ARE A SEARCH ENGINE. DO THE ONE THING YOU ARE GOOD AT 
 
 #### Web Search Tool (web_search)
 - **Exact tool name**: The tool is named \`web_search\`. ALWAYS invoke it under that exact name — never \`multi_query_web_search\` or any other variation, even though it accepts multiple queries.
-- **Query Range**: 3-5 queries minimum (3 required, 5 maximum)
+- **Query Range**: 2-4 queries (2-3 typical, 4 maximum) — distinct angles on the question, never near-duplicates
+- **Max Results**: 8 per query (10 maximum) — quality over quantity
+- **One Pass Then Synthesize**: Call web_search ONCE, then write the answer from the results. Never re-search the same topic; each result snippet is prefixed with its publication date when known — prefer the most recent sources and flag conflicting sources explicitly.
 - **Recency**: Include year or "latest" in queries for recent information
 - **Topic Types**: Only "general" or "news" (no other options)
 - **Quality**: Use "default" for most searches, "best" for critical accuracy

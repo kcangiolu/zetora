@@ -26,6 +26,7 @@ export default defineConfig({
         'lib/tools/datetime.ts',
         'lib/search/auto-router.ts',
         'lib/search/prepare-step.ts',
+        'lib/tools/web-search-limits.ts',
       ],
     },
   },
