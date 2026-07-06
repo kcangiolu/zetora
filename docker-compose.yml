@@ -636,7 +636,8 @@ services:
     ports:
       - '127.0.0.1:9002:8000'
     environment:
-      - WHISPER__MODEL=tiny
+      - WHISPER__MODEL=medium
+      - WHISPER__COMPUTE_TYPE=int8
     volumes:
       - ${DATA_DIR}/whisper:/root/.cache/huggingface
     networks:
@@ -645,7 +646,7 @@ services:
       resources:
         limits:
           cpus: '2'
-          memory: 1G
+          memory: 3G
     restart: unless-stopped
 
 networks:
