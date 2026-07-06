@@ -237,7 +237,7 @@ Use this to deploy the full stack (app + Postgres, Redis, MinIO, Qdrant, SearXNG
    ```bash
    docker compose up -d --build
    ```
-   This builds the `zetora.app` image and starts every bundled service on the `zetora-network`.
+   This builds the `zetora.app` image and starts every bundled service on the `zetora-network`, except `qwen3-tts` (GPU text-to-speech), which is opt-in — it shares the GPU with local LLM inference, so it's off by default. Start it on demand with `docker compose --profile tts up -d qwen3-tts`, or set `COMPOSE_PROFILES=tts` in `.env` to keep it always resident.
 4. Apply database migrations against the dockerized Postgres (exposed on `127.0.0.1:5432`). From a machine with `pnpm install` already run (so `drizzle-kit` is available):
    ```bash
    DATABASE_URL=postgresql://postgres:<POSTGRES_PASSWORD>@localhost:5432/zetora pnpm drizzle-kit migrate

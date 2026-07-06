@@ -25,6 +25,10 @@
 #        # Optional: drop {voice}.wav + {voice}.lang into qwen3-tts/voices/
 #
 #   4. docker compose pull && docker compose up -d
+#      qwen3-tts is opt-in (profile "tts") — it shares the GPU with local LLM
+#      inference and is NOT started by the command above. Start it on demand:
+#        docker compose --profile tts up -d qwen3-tts
+#      Or set COMPOSE_PROFILES=tts in .env to keep it always resident.
 #
 # All services share the `zetora-network` network and resolve each other by
 # service name (e.g. the app reaches Postgres at `postgres:5432`).
@@ -563,6 +567,12 @@ services:
   # Qwen3 TTS (text-to-speech, NVIDIA GPU required)
   # ---------------------------------------------------------------------------
   qwen3-tts:
+    # Opt-in: not started by a plain `docker compose up -d`. It shares the
+    # GPU with llama.cpp, so keeping it resident starves the LLM of VRAM and
+    # tanks decode speed. Start on demand with:
+    #   docker compose --profile tts up -d qwen3-tts
+    # Or set COMPOSE_PROFILES=tts in .env to keep it resident like before.
+    profiles: ['tts']
     image: registry.example.com/kcangiolu/zetora-tts:latest
     build:
       context: ./tts-service

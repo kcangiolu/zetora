@@ -99,7 +99,7 @@ All services live on the `zetora-network` bridge; only `zetora.app` (port 3333) 
 | `graphiti-api` / `graphiti-mcp`   | built from `graphiti-service/`            | 8001 / 8002     | Knowledge graph API + MCP             |
 | `bullmq-redis`                    | redis:7-alpine (port 6381, AOF)           | 6381            | BullMQ backing store                  |
 | `bullboard`                       | nauverse/bull-board                       | 3001            | Queue dashboard                       |
-| `qwen3-tts`                       | built from `tts-service/` (GPU)           | 8585→8080       | Text-to-speech                        |
+| `qwen3-tts`                       | built from `tts-service/` (GPU, `profiles: [tts]`, opt-in) | 8585→8080 | Text-to-speech |
 | `whisper-stt`                     | fedirz/faster-whisper-server              | 9002→8000       | Speech-to-text                        |
 
 Build flow: `Dockerfile` has `deps` → `builder` (Next.js build with placeholder secrets) → `runner` (standalone output) and a `migrate` target (drizzle migrations + `create_indexes.sql`).
