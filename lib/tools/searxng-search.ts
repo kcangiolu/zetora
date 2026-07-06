@@ -1,6 +1,7 @@
 import type { UIMessageStreamWriter } from 'ai';
 import type { ChatMessage } from '../types';
 import type { SearchStrategy } from './web-search';
+import { SEARXNG_TIMEOUT_MS } from '@/lib/timeouts';
 
 interface SearXNGResult {
   url: string;
@@ -73,7 +74,9 @@ export class SearXNGSearchStrategy implements SearchStrategy {
             safesearch: '1',
           });
 
-          const response = await fetch(`${this.baseUrl}/search?${params.toString()}`);
+          const response = await fetch(`${this.baseUrl}/search?${params.toString()}`, {
+            signal: AbortSignal.timeout(SEARXNG_TIMEOUT_MS),
+          });
 
           if (!response.ok) {
             throw new Error(`SearXNG returned ${response.status}`);

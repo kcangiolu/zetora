@@ -69,6 +69,7 @@ import { unauthenticatedRateLimit, getClientIdentifier } from '@/lib/rate-limit'
 import { loadConfiguredTools } from '@/lib/search/tool-loader';
 import { ingestChatIntoGraphiti } from '@/lib/search/graphiti-ingest';
 import { resolvePrepareStepOverride } from '@/lib/search/prepare-step';
+import { SEARCH_REQUEST_TIMEOUT_MS } from '@/lib/timeouts';
 import { CohereChatModelOptions } from '@ai-sdk/cohere';
 import { xai } from '@ai-sdk/xai';
 
@@ -785,6 +786,10 @@ export async function POST(req: Request) {
   }
 
   const abortController = new AbortController();
+  // Belt-and-suspenders: abortController otherwise only trips on client
+  // disconnect, so a stuck local model could hold a stream open indefinitely.
+  const requestTimeoutTimer =
+    SEARCH_REQUEST_TIMEOUT_MS > 0 ? setTimeout(() => abortController.abort(), SEARCH_REQUEST_TIMEOUT_MS) : null;
   let finalUsageMetadata: {
     completionTime: number | null;
     inputTokens: number | null;
@@ -1650,6 +1655,7 @@ export async function POST(req: Request) {
       );
     },
     onError(error) {
+      if (requestTimeoutTimer) clearTimeout(requestTimeoutTimer);
       console.log('Error: ', error);
       if (error instanceof Error && error.message.includes('Rate Limit')) {
         return 'Oops, you have reached the rate limit! Please try again later.';
@@ -1660,6 +1666,7 @@ export async function POST(req: Request) {
     //   console.log('Step finish event: ', event);
     // },
     onFinish: async ({ messages: streamedMessages, isAborted }: { messages: ChatMessage[]; isAborted: boolean }) => {
+      if (requestTimeoutTimer) clearTimeout(requestTimeoutTimer);
       if (!lightweightUser || isTemporaryChat) {
         return;
       }

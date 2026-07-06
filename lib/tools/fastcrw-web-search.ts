@@ -1,6 +1,7 @@
 import type { UIMessageStreamWriter } from 'ai';
 import type { ChatMessage } from '../types';
 import type { SearchStrategy } from './web-search';
+import { FASTCRW_SEARCH_TIMEOUT_MS } from '@/lib/timeouts';
 
 interface FastCrwApiResult {
   url: string;
@@ -58,6 +59,7 @@ export class FastCrwWebSearchStrategy implements SearchStrategy {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
+            signal: AbortSignal.timeout(FASTCRW_SEARCH_TIMEOUT_MS),
           });
 
           if (!response.ok) {

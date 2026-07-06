@@ -27,6 +27,7 @@ export default defineConfig({
         'lib/search/auto-router.ts',
         'lib/search/prepare-step.ts',
         'lib/tools/web-search-limits.ts',
+        'lib/timeouts.ts',
       ],
     },
   },

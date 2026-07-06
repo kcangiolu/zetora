@@ -1,4 +1,5 @@
 import { serverEnv } from '@/env/server';
+import { NOTTE_TIMEOUT_MS } from '@/lib/timeouts';
 
 const NOTTE_SCRAPE_URL = 'https://api.notte.cc/scrape';
 
@@ -126,6 +127,7 @@ export function createNotteClient(providedApiKey?: string): NotteClient {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(buildScrapePayload(request)),
+        signal: AbortSignal.timeout(NOTTE_TIMEOUT_MS),
       });
 
       if (!response.ok) {

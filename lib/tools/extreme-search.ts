@@ -13,6 +13,7 @@ import type { UIMessageStreamWriter } from 'ai';
 import { z } from 'zod';
 import { serverEnv } from '@/env/server';
 import { resolveTertiaryModel } from '@/ai/tertiary';
+import { EXTREME_WALL_CLOCK_MS, isPastDeadline } from '@/lib/timeouts';
 import { ChatMessage } from '../types';
 import FirecrawlApp from '@mendable/firecrawl-js';
 import { getTweet } from 'react-tweet/api';
@@ -720,12 +721,20 @@ ${hasFilesForPlanning ? '- Include file search steps when the uploaded files are
     ? ['codeRunner', 'webSearch', 'browsePage', 'xSearch', 'thinking', 'fileQuery', 'done']
     : ['codeRunner', 'webSearch', 'browsePage', 'xSearch', 'thinking', 'done'];
 
+  // Local custom models are far slower per step (single-slot llama.cpp,
+  // full prompt re-processing every round) — tighter step and retry budgets,
+  // plus a wall-clock deadline so a run can never grow unbounded.
+  const isCustomAgentModel = Boolean(
+    (preferences as Record<string, unknown> | null)?.['zetora-tertiary-extreme-agent-model']?.toString()?.startsWith('custom-'),
+  );
+  const agentDeadline = EXTREME_WALL_CLOCK_MS > 0 ? Date.now() + EXTREME_WALL_CLOCK_MS : Number.POSITIVE_INFINITY;
+
   // Create the autonomous research agent with tools
   const { text: _ } = await generateText({
     model: await resolveTertiaryModel('extreme-agent', preferences),
-    stopWhen: [stepCountIs(75), hasToolCall('done')],
+    stopWhen: [stepCountIs(isCustomAgentModel ? 25 : 75), hasToolCall('done'), () => isPastDeadline(agentDeadline)],
     activeTools: baseActiveTools as any,
-    maxRetries: 10,
+    maxRetries: 2,
     system: `
 You are an autonomous deep research analyst. Your goal run a focused research plan thoroughly with the given tools.
 

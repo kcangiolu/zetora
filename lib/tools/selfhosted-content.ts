@@ -2,6 +2,7 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { serverEnv } from '@/env/server';
 import { scrapeWebpageWithNotte } from '@/lib/notte';
+import { FASTCRW_SCRAPE_TIMEOUT_MS, METADATA_TIMEOUT_MS } from '@/lib/timeouts';
 
 export interface ContentExtractionStrategy {
   getContents(links: string[]): Promise<SearchResult[]>;
@@ -68,6 +69,7 @@ async function scrapeWithFastCrw(url: string, fastcrwUrl: string): Promise<Searc
         formats: ['markdown'],
         onlyMainContent: true,
       }),
+      signal: AbortSignal.timeout(FASTCRW_SCRAPE_TIMEOUT_MS),
     });
 
     if (!response.ok) return null;
@@ -128,7 +130,10 @@ async function scrapeWithMetadata(url: string): Promise<SearchResult | null> {
   try {
     const endpoint = new URL('https://metadata.zetora.app/');
     endpoint.searchParams.set('url', url);
-    const response = await fetch(endpoint.toString(), { method: 'GET' });
+    const response = await fetch(endpoint.toString(), {
+      method: 'GET',
+      signal: AbortSignal.timeout(METADATA_TIMEOUT_MS),
+    });
     if (!response.ok) return null;
 
     const data = (await response.json()) as MetadataResponse;

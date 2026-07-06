@@ -1,4 +1,5 @@
 import { serverEnv } from '@/env/server';
+import { GRAPHITI_TIMEOUT_MS, GRAPHITI_INGEST_TIMEOUT_MS } from '@/lib/timeouts';
 
 export interface GraphitiEpisode {
   name: string;
@@ -27,7 +28,7 @@ class GraphitiClient {
 
   async health(): Promise<boolean> {
     try {
-      const res = await fetch(`${this.baseUrl}/health`);
+      const res = await fetch(`${this.baseUrl}/health`, { signal: AbortSignal.timeout(GRAPHITI_TIMEOUT_MS) });
       return res.ok;
     } catch {
       return false;
@@ -45,6 +46,7 @@ class GraphitiClient {
         source_description: input.sourceDescription || 'Zetora conversation',
         group_id: input.groupId,
       }),
+      signal: AbortSignal.timeout(GRAPHITI_INGEST_TIMEOUT_MS),
     });
 
     if (!res.ok) {
@@ -72,6 +74,7 @@ class GraphitiClient {
         group_id: groupId,
         num_results: numResults,
       }),
+      signal: AbortSignal.timeout(GRAPHITI_TIMEOUT_MS),
     });
 
     if (!res.ok) {
@@ -95,6 +98,7 @@ class GraphitiClient {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ group_id: groupId }),
+      signal: AbortSignal.timeout(GRAPHITI_TIMEOUT_MS),
     });
 
     if (!res.ok) {
@@ -114,7 +118,9 @@ class GraphitiClient {
       offset: String(offset),
     });
 
-    const res = await fetch(`${this.baseUrl}/episodes?${params}`);
+    const res = await fetch(`${this.baseUrl}/episodes?${params}`, {
+      signal: AbortSignal.timeout(GRAPHITI_TIMEOUT_MS),
+    });
 
     if (!res.ok) {
       const error = await res.text();
@@ -133,6 +139,7 @@ class GraphitiClient {
         llm_api_key: llmApiKey ?? null,
         llm_base_url: llmBaseUrl ?? null,
       }),
+      signal: AbortSignal.timeout(GRAPHITI_TIMEOUT_MS),
     });
 
     if (!res.ok) {
@@ -144,6 +151,7 @@ class GraphitiClient {
   async deleteEpisode(episodeUuid: string): Promise<void> {
     const res = await fetch(`${this.baseUrl}/episodes/${episodeUuid}`, {
       method: 'DELETE',
+      signal: AbortSignal.timeout(GRAPHITI_TIMEOUT_MS),
     });
 
     if (!res.ok) {
