@@ -30,6 +30,7 @@ export default defineConfig({
         'lib/timeouts.ts',
         'lib/vector/qdrant-filters.ts',
         'lib/vector/archive-merge.ts',
+        'lib/tools/graphiti-memory.ts',
       ],
     },
   },

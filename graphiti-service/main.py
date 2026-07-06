@@ -41,7 +41,7 @@ class EpisodeInput(BaseModel):
 class SearchInput(BaseModel):
     query: str
     group_id: str | None = None
-    num_results: int = 10
+    num_results: int = 5
 
 
 class DeleteInput(BaseModel):

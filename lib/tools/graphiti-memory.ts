@@ -2,6 +2,16 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { graphitiClient, createGraphitiClient } from '@/lib/graphiti/client';
 
+// graphiti-core doesn't return a similarity score from client.search(), so
+// results can't be filtered by threshold — keep the count small instead and
+// frame them explicitly as past, possibly-unrelated context. This is what
+// stops an old topic (e.g. a Tesla search) from steering an unrelated
+// conversation just because it once existed in the same user's memory graph.
+const MEMORY_SEARCH_RESULTS = 5;
+const MEMORY_RESULTS_FRAMING =
+  'These are stored memories from PAST conversations. They may be unrelated to the current question — ' +
+  'ignore any memory that is not directly relevant, and NEVER let them change the topic of your answer.';
+
 export function createGraphitiMemoryTools(userId: string, customApiUrl?: string) {
   const client = customApiUrl ? createGraphitiClient(customApiUrl) : graphitiClient;
 
@@ -30,15 +40,16 @@ export function createGraphitiMemoryTools(userId: string, customApiUrl?: string)
 
   const searchMemoryTool = tool({
     description:
-      'Search long-term memory for information about the user. Use this to recall preferences, past decisions, relationships, or any previously stored information.',
+      'Search long-term memory for information about the user. Only use this when the user refers to past context, personal facts, preferences, or explicitly asks to recall something — not for general questions unrelated to prior conversations.',
     inputSchema: z.object({
       informationToGet: z.string().describe('The information to search for in memory'),
     }),
     execute: async ({ informationToGet }: { informationToGet: string }) => {
       try {
-        const result = await client.search(informationToGet, userId, 10);
+        const result = await client.search(informationToGet, userId, MEMORY_SEARCH_RESULTS);
         return {
           success: true,
+          note: MEMORY_RESULTS_FRAMING,
           results: result.results,
           count: result.results?.length ?? 0,
         };

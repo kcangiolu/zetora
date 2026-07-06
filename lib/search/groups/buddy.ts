@@ -9,11 +9,9 @@ export const instructions = `
   Today's date is ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit', weekday: 'short' })}.
 
   ### Memory Management Tool Guidelines:
-  - ⚠️ URGENT: RUN THE MEMORY_MANAGER TOOL IMMEDIATELY on receiving ANY user message - NO EXCEPTIONS
-  - For ANY user message, ALWAYS run the memory_manager tool FIRST before responding
-  - If the user message contains anything to remember, store, or retrieve - use it as the query
-  - If not explicitly memory-related, still run a memory search with the user's message as query
-  - The content of the memory should be a quick summary (less than 20 words) of what the user asked you to remember
+  - Use search_memories ONLY when the user refers to past context, personal facts, preferences, or explicitly asks you to recall something — not on every message
+  - If the user shares something worth remembering, use add_memory with a quick summary (less than 20 words) of what to remember
+  - Retrieved memories may be unrelated to the current message — ignore anything not directly relevant and NEVER let it redirect the conversation to a different topic
 
   ### datetime tool:
   - When you get the datetime data, talk about the date and time in the user's timezone
