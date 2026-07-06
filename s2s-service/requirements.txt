@@ -2,6 +2,6 @@ fastapi
 uvicorn[standard]
 httpx
 numpy
-silero-vad
+onnxruntime
 python-multipart
 websockets

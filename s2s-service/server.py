@@ -35,7 +35,7 @@ from dataclasses import dataclass, field
 
 import httpx
 import numpy as np
-import torch
+import onnxruntime as ort
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 
@@ -49,6 +49,9 @@ CLIENT_SAMPLE_RATE = 48000  # fixed: matches the client's capture/playback Audio
 TTS_SAMPLE_RATE = int(os.getenv("TTS_SAMPLE_RATE", "24000"))  # matches contexts/speech-context.tsx
 VAD_SAMPLE_RATE = 16000  # Silero VAD's native rate
 VAD_FRAME_SAMPLES = 512  # 32ms @ 16kHz, Silero's expected chunk size
+VAD_CONTEXT_SAMPLES = 64  # Silero's fixed lookback window at 16kHz
+VAD_STATE_SHAPE = (2, 1, 128)
+VAD_MODEL_PATH = os.getenv("VAD_MODEL_PATH", "/app/silero_vad.onnx")
 
 VAD_THRESHOLD = float(os.getenv("VAD_THRESHOLD", "0.5"))
 VAD_MIN_SILENCE_MS = int(os.getenv("VAD_MIN_SILENCE_MS", "500"))
@@ -59,15 +62,36 @@ DEFAULT_INSTRUCTIONS = (
     "this is a spoken conversation, not a written document."
 )
 
-vad_model = None
+# Direct onnxruntime inference (no torch): the .onnx graph is stateful
+# (recurrent `state` + a fixed-size `context` lookback prepended to each
+# chunk), matching the upstream OnnxWrapper calling convention from
+# https://github.com/snakers4/silero-vad. The session/graph is shared and
+# reentrant across connections; the mutable state/context arrays live on
+# each VoiceSession instead, so concurrent calls don't corrupt each other.
+vad_session: "ort.InferenceSession | None" = None
 
 
 def _load_vad():
-    global vad_model
-    from silero_vad import load_silero_vad
+    global vad_session
+    opts = ort.SessionOptions()
+    opts.inter_op_num_threads = 1
+    opts.intra_op_num_threads = 1
+    vad_session = ort.InferenceSession(VAD_MODEL_PATH, sess_options=opts, providers=["CPUExecutionProvider"])
+    logger.info("Silero VAD (onnxruntime) loaded from %s", VAD_MODEL_PATH)
 
-    vad_model = load_silero_vad()
-    logger.info("Silero VAD loaded")
+
+def run_vad_frame(chunk: np.ndarray, session: "VoiceSession") -> float:
+    """chunk: exactly VAD_FRAME_SAMPLES float32 samples at 16kHz."""
+    x = np.concatenate([session.vad_context, chunk[np.newaxis, :].astype(np.float32)], axis=1)
+    ort_inputs = {
+        "input": x,
+        "state": session.vad_state,
+        "sr": np.array(VAD_SAMPLE_RATE, dtype=np.int64),
+    }
+    out, state = vad_session.run(None, ort_inputs)
+    session.vad_state = state
+    session.vad_context = x[:, -VAD_CONTEXT_SAMPLES:]
+    return float(out[0, 0])
 
 
 # ── Audio helpers ────────────────────────────────────────────────
@@ -120,6 +144,8 @@ class VoiceSession:
 
     is_speaking: bool = False
     vad_carry: np.ndarray = field(default_factory=lambda: np.zeros(0, dtype=np.float32))
+    vad_state: np.ndarray = field(default_factory=lambda: np.zeros(VAD_STATE_SHAPE, dtype=np.float32))
+    vad_context: np.ndarray = field(default_factory=lambda: np.zeros((1, VAD_CONTEXT_SAMPLES), dtype=np.float32))
     silence_frames: int = 0
     utterance_buf: bytearray = field(default_factory=bytearray)
 
@@ -264,8 +290,7 @@ async def feed_vad(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSessi
 
     for i in range(n_frames):
         frame = down[i * VAD_FRAME_SAMPLES : (i + 1) * VAD_FRAME_SAMPLES]
-        with torch.no_grad():
-            prob = vad_model(torch.from_numpy(frame), VAD_SAMPLE_RATE).item()
+        prob = run_vad_frame(frame, session)
 
         frame_ms = (VAD_FRAME_SAMPLES / VAD_SAMPLE_RATE) * 1000
 
