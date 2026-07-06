@@ -25,6 +25,7 @@ export default defineConfig({
         'lib/mcp/server-config.ts',
         'lib/tools/datetime.ts',
         'lib/search/auto-router.ts',
+        'lib/search/prepare-step.ts',
       ],
     },
   },

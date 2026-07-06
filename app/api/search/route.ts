@@ -68,6 +68,7 @@ import { GoogleGenerativeAIProviderOptions, GoogleLanguageModelOptions } from '@
 import { unauthenticatedRateLimit, getClientIdentifier } from '@/lib/rate-limit';
 import { loadConfiguredTools } from '@/lib/search/tool-loader';
 import { ingestChatIntoGraphiti } from '@/lib/search/graphiti-ingest';
+import { resolvePrepareStepOverride } from '@/lib/search/prepare-step';
 import { CohereChatModelOptions } from '@ai-sdk/cohere';
 import { xai } from '@ai-sdk/xai';
 
@@ -966,11 +967,27 @@ export async function POST(req: Request) {
         !shouldUseXaiMultiAgent &&
         model.startsWith('custom-') &&
         userPreferencesResult?.preferences?.['zetora-xml-tool-parsing-enabled'] === true;
+      // Factored out so prepareStep can recompose it with the synthesis nudge
+      // (prepareStep's `system` return REPLACES the system prompt, it does not append).
+      const baseSystem =
+        instructions +
+        (customInstructions && (isCustomInstructionsEnabled ?? true)
+          ? `\n\nThe user's custom instructions are as follows and YOU MUST FOLLOW THEM AT ALL COSTS: ${customInstructions?.content}`
+          : '\n') +
+        (latitude && longitude && userPreferencesResult?.preferences?.['zetora-location-metadata-enabled'] === true
+          ? `\n\nThe user's location is ${latitude}, ${longitude}.`
+          : '') +
+        (shouldUseXaiMultiAgent
+          ? '\n\nWhen multi-agent mode is enabled, you are operating in a high-agency research workflow. Use only the xAI server-side web search and X search tools available in this environment. Do not call any other research or search tools.\n\nYour job is to behave like a rigorous research analyst:\n- Break the request into sub-questions when useful.\n- Search broadly first, then narrow based on what you find.\n- Use multiple searches when the topic is ambiguous, fast-moving, comparative, or requires validation.\n- Cross-check important claims across multiple sources whenever possible.\n- Prefer recent and primary sources for news, releases, product changes, pricing, benchmarks, and policy updates.\n- Use X search when social signals, firsthand announcements, or fast-moving discourse are relevant.\n- Use web search when you need official documentation, articles, product pages, blogs, papers, or other published sources.\n- If both web and X are relevant, use both.\n\nOutput requirements:\n- Synthesize findings into a clear, direct answer instead of narrating every search step.\n- Be concise but complete.\n- Include uncertainty when evidence is mixed, incomplete, or time-sensitive.\n- Do not fabricate facts, sources, timelines, quotes, or consensus.\n- If you cannot verify a claim well enough, say so plainly.\n- Ground the final answer in the sources you found and make sure the answer actually reflects them.\n\nResponse structure guidelines:\n- Start with a direct answer or conclusion in 1-3 sentences.\n- Then present the most important findings as short sections or bullet points.\n- For comparative questions, explicitly compare the options point-by-point.\n- For fast-moving topics, clearly separate confirmed facts from tentative signals.\n- End with a brief takeaway, recommendation, or next step when useful.\n- Keep the response skimmable and avoid long, repetitive paragraphs.\n\nTool behavior requirements:\n- Do not mention internal tool limitations unless necessary.\n- Do not ask for permission to search.\n- Do not stop after a single weak search if the question clearly needs deeper verification.\n- Avoid redundant searches that do not add evidence.\n- Prefer quality of evidence over quantity of searches.'
+          : '');
       const result = streamText({
         model: resolvedModel,
         messages: processedMessages,
         ...getModelParameters(shouldUseXaiMultiAgent ? 'grok-4.20-multi-agent' : model),
-        stopWhen: stepCountIs(shouldUseXaiMultiAgent ? 5 : group === 'mcp' ? 50 : 5),
+        // XML-parsed local models keep their tools armed on every step (see
+        // prepareStep), so the step count is their only hard bound against
+        // search-after-search looping: 1 tool round + 1 slack + synthesis.
+        stopWhen: stepCountIs(shouldUseXaiMultiAgent ? 5 : group === 'mcp' ? 50 : isXmlParsedCustomModel ? 3 : 5),
         ...(shouldUseXaiMultiAgent
           ? {}
           : model === 'zetora-default' ||
@@ -982,21 +999,13 @@ export async function POST(req: Request) {
                 maxOutputTokens: getMaxOutputTokens(model),
               }
             : {}),
-        maxRetries: 10,
+        // Local llama.cpp serves one slot: 10 retries on 10-25k-token prompts
+        // stack minutes of dead time, so custom models get a tight budget.
+        maxRetries: isXmlParsedCustomModel ? 2 : 10,
         abortSignal: abortController.signal,
         activeTools: shouldUseXaiMultiAgent ? ['xai_web_search', 'xai_x_search'] : streamActiveTools,
         experimental_transform: markdownJoinerTransform(),
-        system:
-          instructions +
-          (customInstructions && (isCustomInstructionsEnabled ?? true)
-            ? `\n\nThe user's custom instructions are as follows and YOU MUST FOLLOW THEM AT ALL COSTS: ${customInstructions?.content}`
-            : '\n') +
-          (latitude && longitude && userPreferencesResult?.preferences?.['zetora-location-metadata-enabled'] === true
-            ? `\n\nThe user's location is ${latitude}, ${longitude}.`
-            : '') +
-          (shouldUseXaiMultiAgent
-            ? '\n\nWhen multi-agent mode is enabled, you are operating in a high-agency research workflow. Use only the xAI server-side web search and X search tools available in this environment. Do not call any other research or search tools.\n\nYour job is to behave like a rigorous research analyst:\n- Break the request into sub-questions when useful.\n- Search broadly first, then narrow based on what you find.\n- Use multiple searches when the topic is ambiguous, fast-moving, comparative, or requires validation.\n- Cross-check important claims across multiple sources whenever possible.\n- Prefer recent and primary sources for news, releases, product changes, pricing, benchmarks, and policy updates.\n- Use X search when social signals, firsthand announcements, or fast-moving discourse are relevant.\n- Use web search when you need official documentation, articles, product pages, blogs, papers, or other published sources.\n- If both web and X are relevant, use both.\n\nOutput requirements:\n- Synthesize findings into a clear, direct answer instead of narrating every search step.\n- Be concise but complete.\n- Include uncertainty when evidence is mixed, incomplete, or time-sensitive.\n- Do not fabricate facts, sources, timelines, quotes, or consensus.\n- If you cannot verify a claim well enough, say so plainly.\n- Ground the final answer in the sources you found and make sure the answer actually reflects them.\n\nResponse structure guidelines:\n- Start with a direct answer or conclusion in 1-3 sentences.\n- Then present the most important findings as short sections or bullet points.\n- For comparative questions, explicitly compare the options point-by-point.\n- For fast-moving topics, clearly separate confirmed facts from tentative signals.\n- End with a brief takeaway, recommendation, or next step when useful.\n- Keep the response skimmable and avoid long, repetitive paragraphs.\n\nTool behavior requirements:\n- Do not mention internal tool limitations unless necessary.\n- Do not ask for permission to search.\n- Do not stop after a single weak search if the question clearly needs deeper verification.\n- Avoid redundant searches that do not add evidence.\n- Prefer quality of evidence over quantity of searches.'
-            : ''),
+        system: baseSystem,
         toolChoice: 'auto',
         tools: streamTools,
         ...(model === 'zetora-anthropic' ||
@@ -1473,34 +1482,15 @@ export async function POST(req: Request) {
           const latestStepHasToolRoundTrip =
             Boolean(latestStep) && latestStep.toolCalls.length > 0 && latestStep.toolResults.length > 0;
 
-          // MCP mode and xAI multi-agent mode: keep tools available across steps.
-          if (group === 'mcp' || shouldUseXaiMultiAgent) {
-            return shouldUseXaiMultiAgent
-              ? {
-                  toolChoice: 'auto' as const,
-                  activeTools: ['xai_web_search', 'xai_x_search'],
-                }
-              : undefined;
-          }
-
-          // Other modes: disable tool calls after first completed tool round.
-          // Never disable for XML-parsed custom models: emptying the tools list
-          // leaves the middleware without schemas, so any further tool call the
-          // model emits leaks to the user as raw XML instead of being parsed.
-          const shouldDisableTools = steps.length > 0 && latestStepHasToolRoundTrip;
-
-          // Only return object if tools need to be disabled
-          if (shouldDisableTools && model !== 'zetora-sarvam-105b' && !isXmlParsedCustomModel) {
-            return {
-              toolChoice: 'auto' as const,
-              activeTools: [],
-            };
-          }
-
-          return {
-            toolChoice: 'auto' as const,
-            activeTools: streamActiveTools,
-          };
+          return resolvePrepareStepOverride({
+            group,
+            shouldUseXaiMultiAgent,
+            isXmlParsedCustomModel,
+            model,
+            latestStepHasToolRoundTrip,
+            streamActiveTools,
+            baseSystem,
+          });
         },
 
         experimental_repairToolCall: async ({ toolCall, tools, inputSchema, error }) => {
