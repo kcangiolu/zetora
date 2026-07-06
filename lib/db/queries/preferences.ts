@@ -152,6 +152,9 @@ export async function upsertUserPreferences({
     'zetora-fallback-search-firecrawl'?: boolean;
     'zetora-fallback-retrieve-parallel'?: boolean;
     'zetora-fallback-retrieve-firecrawl'?: boolean;
+    'zetora-voice-s2s-backend'?: 'cloud' | 'local';
+    'zetora-tertiary-voice-model'?: string;
+    'zetora-tertiary-voice-provider'?: string;
   }>;
 }) {
   try {

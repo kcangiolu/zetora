@@ -9,6 +9,8 @@ interface VoiceClientOptions {
   voice?: VoiceType;
   instructions?: string;
   initialMuted?: boolean;
+  /** 'cloud' (xAI Realtime, default) or 'local' (self-hosted s2s-service). */
+  backend?: 'cloud' | 'local';
 }
 
 export interface ConversationTurn {
@@ -131,6 +133,10 @@ Then: Continue the conversation naturally
 - If you're unsure which tool to use, default to web_search
 - Talk naturally and conversationally - don't sound like you're reading a manual`;
 
+// Local backend v1 has no tools wired up (see the voice s2s plan) — a
+// tool-focused prompt would just encourage calls that go nowhere.
+export const DEFAULT_LOCAL_VOICE_INSTRUCTIONS = `Your Name is Zetora, a helpful, witty, and friendly AI assistant. Act like a human, but remember that you aren't a human and that you can't do human things in the real world. Your tone should be warm and engaging, talk naturally and conversationally, and keep replies concise since this is a spoken conversation, not a written document. If the user speaks in a non-English language, match their language naturally.`;
+
 // External XAI voice backend (../xai-voice/xai/backend-nodejs)
 const VOICE_BACKEND_URL = process.env.NEXT_PUBLIC_VOICE_BACKEND_URL ?? 'http://localhost:8000';
 
@@ -142,6 +148,12 @@ interface SessionResponse {
   voice: string;
   instructions: string;
   error?: string;
+}
+
+interface LocalSessionResponse {
+  token: string;
+  url: string;
+  expiresIn: number;
 }
 
 function getMicrophoneAccessErrorMessage(err: unknown): string | null {
@@ -200,7 +212,7 @@ function base64PCM16ToFloat32(base64: string): Float32Array {
 }
 
 export function useVoiceClient(options: VoiceClientOptions = {}): UseVoiceClientReturn {
-  const { voice = 'Ara', instructions, initialMuted = false } = options;
+  const { voice = 'Ara', instructions, initialMuted = false, backend = 'cloud' } = options;
 
   const [agentState, setAgentState] = useState<AgentState>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -230,6 +242,7 @@ export function useVoiceClient(options: VoiceClientOptions = {}): UseVoiceClient
     voice: string;
     instructions: string;
     sampleRate: number;
+    backend: 'cloud' | 'local';
   } | null>(null);
 
   const inputVolumeRef = useRef(0);
@@ -552,40 +565,66 @@ export function useVoiceClient(options: VoiceClientOptions = {}): UseVoiceClient
         );
       });
 
-      const sessionResponse = await fetch(`${VOICE_BACKEND_URL}/session`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      let ws: WebSocket;
 
-      if (!sessionResponse.ok) {
-        throw new Error(`Failed to create session (${sessionResponse.status})`);
+      if (backend === 'local') {
+        const sessionResponse = await fetch('/api/voice/local-session', {
+          method: 'POST',
+          credentials: 'include',
+        });
+
+        if (!sessionResponse.ok) {
+          throw new Error(`Failed to create local session (${sessionResponse.status})`);
+        }
+
+        const data: LocalSessionResponse = await sessionResponse.json();
+
+        sessionConfigRef.current = {
+          voice: voiceRef.current,
+          instructions: instructions ?? DEFAULT_LOCAL_VOICE_INSTRUCTIONS,
+          sampleRate,
+          backend: 'local',
+        };
+        isSessionConfiguredRef.current = false;
+
+        ws = new WebSocket(`${data.url}?token=${encodeURIComponent(data.token)}`);
+      } else {
+        const sessionResponse = await fetch(`${VOICE_BACKEND_URL}/session`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!sessionResponse.ok) {
+          throw new Error(`Failed to create session (${sessionResponse.status})`);
+        }
+
+        const data: SessionResponse = await sessionResponse.json();
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        const ephemeralToken = data.client_secret.value;
+
+        const effectiveInstructions = instructions ?? DEFAULT_VOICE_INSTRUCTIONS;
+        // Prefer the latest selected client voice; fall back to backend default
+        const effectiveVoice = voiceRef.current || data.voice;
+
+        sessionConfigRef.current = {
+          voice: effectiveVoice,
+          instructions: effectiveInstructions,
+          sampleRate,
+          backend: 'cloud',
+        };
+        isSessionConfiguredRef.current = false;
+
+        ws = new WebSocket('wss://api.x.ai/v1/realtime', [
+          'realtime',
+          `xai-client-secret.${ephemeralToken}`,
+          'openai-beta.realtime-v1',
+        ]);
       }
-
-      const data: SessionResponse = await sessionResponse.json();
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      const ephemeralToken = data.client_secret.value;
-
-      const effectiveInstructions = instructions ?? DEFAULT_VOICE_INSTRUCTIONS;
-      // Prefer the latest selected client voice; fall back to backend default
-      const effectiveVoice = voiceRef.current || data.voice;
-
-      sessionConfigRef.current = {
-        voice: effectiveVoice,
-        instructions: effectiveInstructions,
-        sampleRate,
-      };
-      isSessionConfiguredRef.current = false;
-
-      const ws = new WebSocket('wss://api.x.ai/v1/realtime', [
-        'realtime',
-        `xai-client-secret.${ephemeralToken}`,
-        'openai-beta.realtime-v1',
-      ]);
 
       wsRef.current = ws;
 
@@ -668,39 +707,52 @@ export function useVoiceClient(options: VoiceClientOptions = {}): UseVoiceClient
         switch (type) {
           case 'conversation.created': {
             if (!isSessionConfiguredRef.current && sessionConfigRef.current) {
-              const { voice: backendVoice, instructions: backendInstructions } = sessionConfigRef.current;
+              const {
+                voice: backendVoice,
+                instructions: backendInstructions,
+                backend: sessionBackend,
+              } = sessionConfigRef.current;
 
-              const sessionUpdate = {
-                type: 'session.update',
-                session: {
-                  instructions: backendInstructions,
-                  voice: backendVoice,
-                  audio: {
-                    input: {
-                      format: {
-                        type: 'audio/pcm',
-                        rate: 48000,
-                      },
-                    },
-                    output: {
-                      format: {
-                        type: 'audio/pcm',
-                        rate: 48000,
-                      },
-                    },
-                  },
-                  turn_detection: {
-                    type: 'server_vad',
-                    threshold: 0.4,
-                    prefix_padding_ms: 200,
-                    silence_duration_ms: 100,
-                  },
-                  input_audio_transcription: {
-                    model: 'grok-2-audio',
-                  },
-                  tools: [{ type: 'web_search' }, { type: 'x_search' }],
+              const audioFormats = {
+                audio: {
+                  input: { format: { type: 'audio/pcm', rate: 48000 } },
+                  output: { format: { type: 'audio/pcm', rate: 48000 } },
                 },
               };
+
+              // The local s2s-service has no tools wired up (v1: simple
+              // conversation) and does its own STT via /api/transcribe
+              // rather than an in-band transcription model, so both are
+              // omitted. The LLM is resolved server-side from Settings >
+              // Tertiary Models > Voice, not passed by the client.
+              const sessionUpdate =
+                sessionBackend === 'local'
+                  ? {
+                      type: 'session.update',
+                      session: {
+                        instructions: backendInstructions,
+                        ...audioFormats,
+                        turn_detection: { type: 'server_vad' },
+                      },
+                    }
+                  : {
+                      type: 'session.update',
+                      session: {
+                        instructions: backendInstructions,
+                        voice: backendVoice,
+                        ...audioFormats,
+                        turn_detection: {
+                          type: 'server_vad',
+                          threshold: 0.4,
+                          prefix_padding_ms: 200,
+                          silence_duration_ms: 100,
+                        },
+                        input_audio_transcription: {
+                          model: 'grok-2-audio',
+                        },
+                        tools: [{ type: 'web_search' }, { type: 'x_search' }],
+                      },
+                    };
 
               ws.send(JSON.stringify(sessionUpdate));
             }

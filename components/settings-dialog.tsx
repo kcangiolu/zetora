@@ -124,6 +124,7 @@ import {
 import { CONNECTOR_CONFIGS, CONNECTOR_ICONS, type ConnectorProvider } from '@/lib/connectors';
 import { TTS_PROVIDERS, type TTSProvider, getTTSProviderConfig } from '@/lib/tts-providers';
 import { STT_PROVIDERS, type STTProvider, getSTTProviderConfig } from '@/lib/stt-providers';
+import { VOICE_S2S_BACKENDS, type VoiceS2SBackend, getVoiceS2SBackendConfig } from '@/lib/s2s-backends';
 // Custom visx-based chart components
 import { AreaChart as CustomAreaChart } from '@/components/charts/area-chart';
 import { Area as CustomArea } from '@/components/charts/area';
@@ -401,7 +402,8 @@ type TertiaryModelPrefKey =
   | 'zetora-tertiary-translate-vision-model'
   | 'zetora-tertiary-lang-detect-model'
   | 'zetora-tertiary-extreme-planner-model'
-  | 'zetora-tertiary-extreme-agent-model';
+  | 'zetora-tertiary-extreme-agent-model'
+  | 'zetora-tertiary-voice-model';
 
 type TertiaryProviderPrefKey =
   | 'zetora-default-provider'
@@ -414,7 +416,8 @@ type TertiaryProviderPrefKey =
   | 'zetora-tertiary-translate-vision-provider'
   | 'zetora-tertiary-lang-detect-provider'
   | 'zetora-tertiary-extreme-planner-provider'
-  | 'zetora-tertiary-extreme-agent-provider';
+  | 'zetora-tertiary-extreme-agent-provider'
+  | 'zetora-tertiary-voice-provider';
 
 function TertiaryModelRow({
   modelKey,
@@ -644,6 +647,10 @@ export function PreferencesSection({
   const [xqlEnabled, setXqlEnabled] = useSyncedPreferences<boolean>('zetora-xql-enabled', true);
   const [lookoutEnabled, setLookoutEnabled] = useSyncedPreferences<boolean>('zetora-lookout-enabled', true);
   const [voiceEnabled, setVoiceEnabled] = useSyncedPreferences<boolean>('zetora-voice-enabled', true);
+  const [voiceS2SBackend, setVoiceS2SBackend] = useSyncedPreferences<VoiceS2SBackend>(
+    'zetora-voice-s2s-backend',
+    'cloud',
+  );
   const [autoRouterEnabled, setAutoRouterEnabled] = useSyncedPreferences<boolean>('zetora-auto-router-enabled', false);
   const [autoRouterConfig, setAutoRouterConfig] = useSyncedPreferences<AutoRouterConfig>('zetora-auto-router-config', {
     routes: getDefaultAutoRouterRoutes(),
@@ -1716,6 +1723,50 @@ export function PreferencesSection({
                 </div>
               )}
 
+              {/* ── Voice Backend (cloud vs local speech-to-speech) ── */}
+              {voiceEnabled && (
+                <div className="flex items-center justify-between py-3.5 border-t border-border/40 gap-6">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">Voice Backend</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Speech-to-speech engine used by the Voice page
+                    </p>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-[220px] h-8 text-xs rounded-lg shrink-0 justify-between font-normal"
+                      >
+                        {getVoiceS2SBackendConfig(voiceS2SBackend)?.label ?? 'Cloud (xAI Realtime)'}
+                        <ChevronDown className="size-3.5 opacity-50" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-[300px]">
+                      <DropdownMenuRadioGroup
+                        value={voiceS2SBackend}
+                        onValueChange={(v) => setVoiceS2SBackend(v as VoiceS2SBackend)}
+                      >
+                        {VOICE_S2S_BACKENDS.map((b) => (
+                          <DropdownMenuRadioItem key={b.value} value={b.value} className="text-xs">
+                            <div className="flex flex-col">
+                              <span className="font-medium">{b.label}</span>
+                              <span className="text-[10px] text-muted-foreground">{b.description}</span>
+                            </div>
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              )}
+              {voiceEnabled && voiceS2SBackend === 'local' && (
+                <p className="text-[11px] text-muted-foreground/60 pb-3.5">
+                  Uses the model picked in the chat model selector, plus the STT/TTS providers configured above.
+                </p>
+              )}
+
               {/* Auto Router toggle (Pro only) */}
               <div className="flex items-center justify-between py-3.5 gap-6">
                 <div className="min-w-0">
@@ -2433,6 +2484,17 @@ export function PreferencesSection({
                   label="Extreme Search Agent"
                   description="Executes the autonomous research loop"
                   defaultModelLabel="Grok 4.1 Fast (Reasoning)"
+                  additionalModels={customModelsList}
+                  user={user}
+                  isProUser={hasPaidAccess}
+                  isMaxUser={isMaxUser}
+                />
+                <TertiaryModelRow
+                  modelKey="zetora-tertiary-voice-model"
+                  providerKey="zetora-tertiary-voice-provider"
+                  label="Voice (Local Backend)"
+                  description="LLM used by the local speech-to-speech backend"
+                  defaultModelLabel="Grok 4.1 Fast"
                   additionalModels={customModelsList}
                   user={user}
                   isProUser={hasPaidAccess}

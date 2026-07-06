@@ -1,11 +1,12 @@
 import { elevenlabs } from '@ai-sdk/elevenlabs';
 import { experimental_transcribe as transcribe } from 'ai';
 import { withError } from '@/lib/api/route-handlers';
-import { getUser } from '@/lib/auth-utils';
 import { getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
+import { resolveVoiceRequestUserId } from '@/lib/voice-session-token';
 
 // Auth is optional here: anonymous callers just get the default STT provider
-// instead of their saved preference.
+// instead of their saved preference. The s2s-service (local voice backend)
+// authenticates via a Bearer voice-session token instead of a cookie.
 export const POST = withError(async (request) => {
   const formData = await request.formData();
   const audio = formData.get('audio');
@@ -14,8 +15,8 @@ export const POST = withError(async (request) => {
     return Response.json({ error: 'No audio file found in form data.' }, { status: 400 });
   }
 
-  const user = await getUser().catch(() => null);
-  const prefs = user ? await getCachedUserPreferencesByUserId(user.id).catch(() => null) : null;
+  const userId = await resolveVoiceRequestUserId(request);
+  const prefs = userId ? await getCachedUserPreferencesByUserId(userId).catch(() => null) : null;
   const p = prefs?.preferences ?? {};
   const sttProvider = p['zetora-stt-provider'] || 'elevenlabs';
 

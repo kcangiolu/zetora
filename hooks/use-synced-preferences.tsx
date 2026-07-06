@@ -86,7 +86,10 @@ export type PreferenceKey =
   | 'zetora-tts-openai-language'
   | 'zetora-stt-provider'
   | 'zetora-stt-custom-provider-id'
-  | 'zetora-stt-openai-model';
+  | 'zetora-stt-openai-model'
+  | 'zetora-voice-s2s-backend'
+  | 'zetora-tertiary-voice-model'
+  | 'zetora-tertiary-voice-provider';
 
 type AutoRouterConfig = {
   routes: Array<{

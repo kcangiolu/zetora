@@ -14,7 +14,8 @@ export type TertiaryTask =
   | 'translate-vision'
   | 'lang-detect'
   | 'extreme-planner'
-  | 'extreme-agent';
+  | 'extreme-agent'
+  | 'voice';
 
 const TASK_DEFAULTS: Record<TertiaryTask, string> = {
   default: 'zetora-default',
@@ -28,6 +29,7 @@ const TASK_DEFAULTS: Record<TertiaryTask, string> = {
   'lang-detect': 'zetora-default',
   'extreme-planner': 'zetora-ext-1',
   'extreme-agent': 'zetora-ext-1',
+  voice: 'zetora-default',
 };
 
 const PREF_KEYS: Record<TertiaryTask, { model: string; provider: string }> = {
@@ -51,6 +53,7 @@ const PREF_KEYS: Record<TertiaryTask, { model: string; provider: string }> = {
     provider: 'zetora-tertiary-extreme-planner-provider',
   },
   'extreme-agent': { model: 'zetora-tertiary-extreme-agent-model', provider: 'zetora-tertiary-extreme-agent-provider' },
+  voice: { model: 'zetora-tertiary-voice-model', provider: 'zetora-tertiary-voice-provider' },
 };
 
 export async function resolveTertiaryModel(

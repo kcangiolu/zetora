@@ -129,6 +129,11 @@ services:
       - BULLMQ_REDIS_PASSWORD=${BULLMQ_REDIS_PASSWORD:-}
       - UPSTASH_REDIS_REST_URL=http://srh:80
       - UPSTASH_REDIS_REST_TOKEN=${UPSTASH_REDIS_REST_TOKEN}
+      # Public WS URL of s2s-service (local voice backend) the browser
+      # connects to directly — set to your host's reachable address, e.g.
+      # ws://<host>:8100/v1/realtime. Left unset, local voice stays unusable
+      # (falls back to a localhost default that only resolves on the host).
+      - VOICE_S2S_URL=${VOICE_S2S_URL:-}
     depends_on:
       db-migrate:
         condition: service_completed_successfully
@@ -669,6 +674,32 @@ services:
         limits:
           cpus: '2'
           memory: 3G
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Local speech-to-speech backend for the Voice page (alternative to the
+  # cloud/xAI Realtime backend). CPU-only: Silero VAD is the only model that
+  # runs here — STT/LLM/TTS are resolved by the app itself via callbacks to
+  # /api/transcribe, /api/v1/chat/completions and /api/tts/stream. See
+  # s2s-service/server.py and the voice s2s plan for the full design.
+  # ---------------------------------------------------------------------------
+  s2s-service:
+    image: registry.example.com/kcangiolu/zetora-s2s:latest
+    build:
+      context: ./s2s-service
+      dockerfile: Dockerfile
+    container_name: zetora-s2s
+    ports:
+      - '127.0.0.1:8100:8080'
+    environment:
+      - APP_URL=http://zetora-app:3333
+    networks:
+      - zetora-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
     restart: unless-stopped
 
 networks:

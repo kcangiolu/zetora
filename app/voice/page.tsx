@@ -19,6 +19,7 @@ import { VoicePicker } from '@/components/ui/voice-picker';
 import { ZetoraLogo } from '@/components/logos/zetora-logo';
 import { VoiceButton, type VoiceButtonState } from '@/components/ui/voice-button';
 import { useVoiceClient, type VoiceType, type ConversationTurn } from '@/hooks/use-voice-client';
+import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 import { useUser } from '@/contexts/user-context';
 import { cn, normalizeError } from '@/lib/utils';
 import { ProUpgradeScreen } from './components/pro-upgrade-screen';
@@ -128,6 +129,8 @@ export default function VoicePage() {
   const { user, isProUser, isLoading: isProStatusLoading } = useUser();
   const router = useRouter();
 
+  const [voiceBackend] = useSyncedPreferences<'cloud' | 'local'>('zetora-voice-s2s-backend', 'cloud');
+
   const {
     agentState,
     isConnected,
@@ -144,6 +147,7 @@ export default function VoicePage() {
     sendText,
   } = useVoiceClient({
     voice: selectedVoice,
+    backend: voiceBackend,
   });
 
   function formatMs(ms: number) {
@@ -512,9 +516,9 @@ export default function VoicePage() {
         <div className="flex w-full shrink-0 flex-col items-center gap-2.5 pb-2 sm:pb-0">
           <div className="w-full rounded-xl border border-border/60 bg-card/30 p-2.5">
             <div className="flex flex-col gap-2 items-center">
-              {/* Voice Picker (idle) / Text Input (connected) */}
+              {/* Voice Picker (idle, cloud backend only) / Text Input (connected) */}
               <AnimatePresence mode="wait">
-                {!isConnected ? (
+                {!isConnected && voiceBackend === 'cloud' ? (
                   <motion.div
                     key="voice-picker"
                     initial={{ opacity: 0 }}
@@ -534,6 +538,19 @@ export default function VoicePage() {
                       placeholder="Choose a voice..."
                       className="w-full"
                     />
+                  </motion.div>
+                ) : !isConnected ? (
+                  <motion.div
+                    key="local-backend-hint"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="w-full motion-reduce:transition-none"
+                  >
+                    <p className="text-center text-[11px] text-muted-foreground/50 py-2">
+                      Local backend — voice comes from your configured Custom TTS Server
+                    </p>
                   </motion.div>
                 ) : (
                   <motion.div

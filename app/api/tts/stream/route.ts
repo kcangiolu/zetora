@@ -1,17 +1,19 @@
 import { NextRequest } from 'next/server';
-import { getUser } from '@/lib/auth-utils';
 import { getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
+import { resolveVoiceRequestUserId } from '@/lib/voice-session-token';
 
+// The s2s-service (local voice backend) authenticates via a Bearer
+// voice-session token instead of a cookie.
 export async function POST(req: NextRequest) {
-  const user = await getUser().catch(() => null);
-  if (!user) return new Response('Unauthorized', { status: 401 });
+  const userId = await resolveVoiceRequestUserId(req);
+  if (!userId) return new Response('Unauthorized', { status: 401 });
 
   const { text } = await req.json();
   if (!text || typeof text !== 'string') {
     return new Response('Missing text', { status: 400 });
   }
 
-  const prefs = await getCachedUserPreferencesByUserId(user.id).catch(() => null);
+  const prefs = await getCachedUserPreferencesByUserId(userId).catch(() => null);
   const p = prefs?.preferences ?? {};
   const ttsProvider = p['zetora-tts-provider'] || 'elevenlabs';
 
