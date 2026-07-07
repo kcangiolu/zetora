@@ -13,6 +13,7 @@ process.env.NEXT_PUBLIC_PREMIUM_TIER ??= 'placeholder';
 process.env.NEXT_PUBLIC_PREMIUM_SLUG ??= 'placeholder';
 process.env.NEXT_PUBLIC_MAX_TIER ??= 'placeholder';
 process.env.NEXT_PUBLIC_MAX_SLUG ??= 'placeholder';
+process.env.POLAR_WEBHOOK_SECRET ??= 'test-polar-webhook-secret';
 
 // 'server-only' throws when imported outside a React Server Component bundle.
 // Stub it so server modules can be unit-tested in isolation.
