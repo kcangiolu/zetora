@@ -12,6 +12,22 @@ import { SearXNGSearchStrategy } from './searxng-search';
 import { FastCrwWebSearchStrategy } from './fastcrw-web-search';
 import { clampSearchInput, dedupeAndCapSearches, enrichBestQualityResults } from './web-search-limits';
 import { SelfHostedContentStrategy } from './selfhosted-content';
+import { EXA_SEARCH_TIMEOUT_MS } from '@/lib/timeouts';
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 // Singleton clients - initialized lazily and reused across requests
 let _searchClients: {
@@ -495,18 +511,22 @@ class ExaSearchStrategy implements SearchStrategy {
             data: async function () {
               const startPublishedDate = currentStartDate ? formatDateForExa(currentStartDate) : undefined;
               const endPublishedDate = currentStartDate ? formatDateForExa(new Date().toISOString()) : undefined;
-              return exa.search(query, {
-                type: currentQuality === 'best' ? 'deep' : 'instant',
-                numResults: currentMaxResults < 15 ? 15 : currentMaxResults,
-                category: currentTopic === 'news' ? 'news' : undefined,
-                ...(startPublishedDate && { startPublishedDate }),
-                ...(endPublishedDate && { endPublishedDate }),
-                contents: {
-                  highlights: {
-                    maxCharacters: 4000,
+              return withTimeout(
+                exa.search(query, {
+                  type: currentQuality === 'best' ? 'deep' : 'instant',
+                  numResults: currentMaxResults < 15 ? 15 : currentMaxResults,
+                  category: currentTopic === 'news' ? 'news' : undefined,
+                  ...(startPublishedDate && { startPublishedDate }),
+                  ...(endPublishedDate && { endPublishedDate }),
+                  contents: {
+                    highlights: {
+                      maxCharacters: 4000,
+                    },
                   },
-                },
-              });
+                }),
+                EXA_SEARCH_TIMEOUT_MS,
+                `Exa search timed out for query "${query}"`,
+              );
             },
             firecrawlImages: async function () {
               return firecrawl
