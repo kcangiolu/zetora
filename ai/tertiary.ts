@@ -1,7 +1,13 @@
 import 'server-only';
-import { wrapLanguageModel } from 'ai';
+import { wrapLanguageModel, extractReasoningMiddleware } from 'ai';
 import { dynamicXmlToolMiddleware } from '@/ai/xml-tool-middleware';
 import { zetora, resolveModel } from '@/ai/providers';
+
+// Custom (e.g. Ollama) reasoning models aren't wrapped with this at the
+// provider level the way built-in reasoning models are (main chat has a UI
+// for <think> content) — but a spoken response must never include it, so
+// voice strips it unconditionally regardless of which model answers.
+const voiceReasoningMiddleware = extractReasoningMiddleware({ tagName: 'think' });
 
 export type TertiaryTask =
   | 'default'
@@ -102,6 +108,10 @@ export async function resolveTertiaryModel(
         }),
       });
     }
+  }
+
+  if (task === 'voice') {
+    resolved = wrapLanguageModel({ model: resolved, middleware: voiceReasoningMiddleware });
   }
 
   return resolved;

@@ -59,6 +59,12 @@ export function extractSpeakableText(markdown: string): string {
   // 14. Remove raw URLs
   text = text.replace(/https?:\/\/\S+/g, '');
 
+  // 14b. Remove emoji — some TTS engines error or emit garbled audio when fed
+  // these codepoints, and they don't map to anything sensible spoken aloud.
+  text = text.replace(/\p{Extended_Pictographic}\uFE0F?/gu, '');
+  text = text.replace(/[\u{1F1E6}-\u{1F1FF}]/gu, ''); // regional-indicator flag letters
+  text = text.replace(/\u200D/g, ''); // leftover zero-width joiners from multi-part emoji
+
   // 15. Remove any residual HTML
   text = text.replace(/<[^>]*>/g, '');
 

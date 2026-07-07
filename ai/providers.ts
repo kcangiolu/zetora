@@ -543,8 +543,8 @@ import { getCustomProviders, getCustomModels } from '@/lib/custom-providers';
 
 const customProviderInstances = new Map<string, ReturnType<typeof createOpenAICompatible>>();
 
-async function getOrCreateProvider(providerId: string) {
-  const providers = await getCustomProviders();
+async function getOrCreateProvider(providerId: string, userId?: string) {
+  const providers = await getCustomProviders(userId);
   const config = providers.find((p) => p.id === providerId);
   if (!config) throw new Error(`Custom provider ${providerId} not found`);
 
@@ -577,10 +577,10 @@ export async function getAnonymizeContext(
   if (preferences?.['zetora-anonymization-enabled'] !== true) return null;
 
   if (modelId.startsWith('custom-')) {
-    const models = await getCustomModels();
+    const models = await getCustomModels(userId);
     const model = models.find((m) => m.id === modelId);
     if (!model) return null;
-    const providers = await getCustomProviders();
+    const providers = await getCustomProviders(userId);
     if (providers.find((p) => p.id === model.providerId)?.anonymize !== true) return null;
   }
 
@@ -601,13 +601,13 @@ export async function resolveModel(
   if (!modelId.startsWith('custom-')) {
     resolved = zetora.languageModel(modelId);
   } else {
-    const models = await getCustomModels();
+    const models = await getCustomModels(userId);
     const model = models.find((m) => m.id === modelId);
     if (!model) {
       console.warn(`Custom model ${modelId} not found, falling back to default`);
       resolved = zetora.languageModel('zetora-default');
     } else {
-      const provider = await getOrCreateProvider(model.providerId);
+      const provider = await getOrCreateProvider(model.providerId, userId);
       resolved = provider.chatModel(model.modelName);
     }
   }

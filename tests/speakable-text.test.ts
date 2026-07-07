@@ -58,4 +58,9 @@ describe('extractSpeakableText', () => {
   it('returns an empty string for empty input', () => {
     expect(extractSpeakableText('')).toBe('');
   });
+
+  it('strips emoji, including flags and multi-codepoint sequences', () => {
+    const out = extractSpeakableText('Great job! 🎉 Here is France 🇫🇷 and a family 👨‍👩‍👧‍👦.');
+    expect(out).toBe('Great job! Here is France and a family.');
+  });
 });

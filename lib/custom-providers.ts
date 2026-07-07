@@ -31,7 +31,11 @@ export interface CustomModelInfo {
 const modelsCache = new Map<string, { models: string[]; expiresAt: number }>();
 const MODELS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-export async function getCustomProviders(): Promise<CustomProviderConfig[]> {
+// `userId` lets server-to-server callers (e.g. the voice s2s LLM stage, which
+// authenticates via a Bearer token instead of a browser session cookie) pass
+// the already-resolved user in directly — otherwise getUser() reads the
+// request's cookies via next/headers and silently sees no one signed in.
+export async function getCustomProviders(userId?: string): Promise<CustomProviderConfig[]> {
   const providers: CustomProviderConfig[] = [];
 
   // Env var source (shared across all users)
@@ -47,9 +51,9 @@ export async function getCustomProviders(): Promise<CustomProviderConfig[]> {
   }
 
   // DB source (per-user)
-  const user = await getUser();
-  if (user) {
-    const prefs = await getCachedUserPreferencesByUserId(user.id);
+  const resolvedUserId = userId ?? (await getUser())?.id;
+  if (resolvedUserId) {
+    const prefs = await getCachedUserPreferencesByUserId(resolvedUserId);
     const dbProviders = prefs?.preferences?.['zetora-custom-providers'];
     if (Array.isArray(dbProviders)) {
       providers.push(...dbProviders);
@@ -119,8 +123,8 @@ export async function detectModels(baseURL: string, apiKey?: string): Promise<st
   return models;
 }
 
-export async function getCustomModels(): Promise<CustomModelInfo[]> {
-  const providers = await getCustomProviders();
+export async function getCustomModels(userId?: string): Promise<CustomModelInfo[]> {
+  const providers = await getCustomProviders(userId);
   const results: CustomModelInfo[] = [];
 
   await Promise.allSettled(

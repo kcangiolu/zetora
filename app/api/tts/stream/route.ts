@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { resolveVoiceRequestUserId } from '@/lib/voice-session-token';
+import { extractSpeakableText } from '@/lib/speakable-text';
 
 // The s2s-service (local voice backend) authenticates via a Bearer
 // voice-session token instead of a cookie.
@@ -8,9 +9,16 @@ export async function POST(req: NextRequest) {
   const userId = await resolveVoiceRequestUserId(req);
   if (!userId) return new Response('Unauthorized', { status: 401 });
 
-  const { text } = await req.json();
-  if (!text || typeof text !== 'string') {
+  const { text: rawText } = await req.json();
+  if (!rawText || typeof rawText !== 'string') {
     return new Response('Missing text', { status: 400 });
+  }
+  // Strips markdown/emoji the LLM may still emit (the s2s-service sends raw
+  // sentence buffers) — a no-op for the "read aloud" caller, which already
+  // pre-cleans its text with the same function client-side.
+  const text = extractSpeakableText(rawText);
+  if (!text) {
+    return new Response(null, { status: 204 });
   }
 
   const prefs = await getCachedUserPreferencesByUserId(userId).catch(() => null);
