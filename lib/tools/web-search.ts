@@ -10,7 +10,8 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { SearXNGSearchStrategy } from './searxng-search';
 import { FastCrwWebSearchStrategy } from './fastcrw-web-search';
-import { clampSearchInput, dedupeAndCapSearches } from './web-search-limits';
+import { clampSearchInput, dedupeAndCapSearches, enrichBestQualityResults } from './web-search-limits';
+import { SelfHostedContentStrategy } from './selfhosted-content';
 
 // Singleton clients - initialized lazily and reused across requests
 let _searchClients: {
@@ -99,6 +100,7 @@ export interface SearchStrategy {
       topics: ('general' | 'news')[];
       quality: ('default' | 'best')[];
       startDates?: (string | null)[];
+      language?: string;
       dataStream?: UIMessageStreamWriter<ChatMessage>;
     },
   ): Promise<{ searches: Array<{ query: string; results: any[]; images: any[] }> }>;
@@ -664,11 +666,11 @@ export function webSearchTool(
     Very important Rules:
     ...${searchProvider === 'parallel' ? 'The First Query should be the objective and the rest of the queries should be related to the objective' : ''}...
     - The queries should always be in the same language as the user's message.
+    - Set \`language\` to the ISO 639-1 code of the user's message language (e.g. "fr", "de") so the search engine doesn't silently search in English.
     - Use 2-4 queries covering DISTINCT angles of the question — never near-duplicate queries.
     - Keep max results at 8 per query (10 absolute maximum) — quality over quantity.
-    - Call this tool ONCE, then synthesize the answer from the results. Never re-search the same topic.
-    - **Prohibition**: NEVER use the retrieve tool after running web_search tool
-    - Do not use the best quality unless absolutly required since it is time expensive.
+    - Call this tool once for the initial pass; a single targeted follow-up call is allowed ONLY to verify a critical fact when sources conflict — never to re-run the same query.
+    - Use \`quality: 'best'\` whenever the answer depends on precise figures, prices, thresholds, regulations, or validity dates — the snippet alone is rarely enough to verify those.
     - ⚠️ CRITICAL: ALWAYS include date/time context in search queries:
       - For current events: "latest", "${new Date().getFullYear()}", "today", "current", "recent"
       - For historical info: specific years or date ranges
@@ -695,12 +697,18 @@ export function webSearchTool(
             ),
         )
         .optional(),
+      language: z
+        .string()
+        .optional()
+        .describe(
+          "ISO 639-1 code of the language to search in (e.g. 'fr', 'de', 'es'), matching the user's message. Omit only if the user's message is in English.",
+        ),
       quality: z
         .array(
           z
             .enum(['default', 'best'])
             .describe(
-              'Array of quality levels for the search. Default is default. Other option is best. DO NOT use best unless necessary.',
+              "Array of quality levels for the search. 'default' returns short snippets. 'best' fetches the full page content for the top results of that query — use it whenever the answer depends on precise figures, prices, thresholds, or regulations that a snippet can't verify.",
             ),
         )
         .optional(),
@@ -711,7 +719,7 @@ export function webSearchTool(
             .nullable()
             .optional()
             .describe(
-              'Array of start dates for filtering search results. Use ISO date format (YYYY-MM-DD). Results will be filtered to show only content published after this date. Default to 3 days ago if not specified. Use empty string for no date filter on a specific query.',
+              "Array of start dates for filtering search results. Use ISO date format (YYYY-MM-DD). Results will be filtered to show only content published after this date. Only set this for breaking/recent news queries. Leave unset (or empty string) for reference material such as regulations, pricing, thresholds, or anything where the authoritative page may be old — restricting by date there hides official sources and surfaces only recent blog churn.",
             ),
         )
         .optional(),
@@ -722,12 +730,14 @@ export function webSearchTool(
       topics,
       quality,
       startDates,
+      language,
     }: {
       queries: string[];
       maxResults?: (number | undefined)[];
       topics?: ('general' | 'news' | undefined)[];
       quality?: ('default' | 'best' | undefined)[];
       startDates?: (string | null | undefined)[];
+      language?: string;
     }) => {
       // Use singleton clients (initialized at module level for reuse)
       const clients = getSearchClients();
@@ -752,11 +762,13 @@ export function webSearchTool(
       if (!quality) {
         quality = new Array(queries.length).fill('default');
       }
+      const normalizedLanguage = language && /^[a-z]{2}(-[A-Z]{2})?$/.test(language) ? language : undefined;
       const searchOptions = {
         maxResults: maxResults as number[],
         topics: topics as ('general' | 'news')[],
         quality: quality as ('default' | 'best')[],
         startDates: startDates as (string | null)[] | undefined,
+        language: normalizedLanguage,
         dataStream,
       };
       let result = await strategy.search(queries, searchOptions);
@@ -769,7 +781,18 @@ export function webSearchTool(
       }
       // Bound what flows back into the model's context: dedupe across
       // queries, cap per domain and globally, truncate snippets.
-      return { ...result, searches: dedupeAndCapSearches(result.searches) };
+      const cappedSearches = dedupeAndCapSearches(result.searches);
+
+      // For queries flagged 'best', replace the truncated snippet with the
+      // full page content so the model can actually verify a figure instead
+      // of guessing from 400 characters.
+      const enrichedSearches = await enrichBestQualityResults(cappedSearches, quality as ('default' | 'best')[], async (urls) => {
+        const contentStrategy = new SelfHostedContentStrategy();
+        const contents = await contentStrategy.getContents(urls);
+        return contents.map((c) => ({ url: c.url, content: c.content }));
+      });
+
+      return { ...result, searches: enrichedSearches };
     },
   });
 }

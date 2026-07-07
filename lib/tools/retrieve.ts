@@ -7,6 +7,7 @@ import Parallel from 'parallel-web';
 import { Supadata } from '@supadata/js';
 import { allSettled } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
+import { scrapeWithFastCrwForBrowsePage } from './selfhosted-content';
 
 // Content type enum for different sources
 const ContentType = z.enum(['general', 'twitter', 'youtube', 'tiktok', 'instagram']);
@@ -409,6 +410,37 @@ async function retrieveSingleUrl(
         console.error('Supadata error:', supadataError);
         console.log('Falling back to general scraping methods');
         // Fall through to general scraping if Supadata fails
+      }
+    }
+
+    // Self-hosted stacks configure FASTCRW_URL instead of paying for Exa —
+    // try it first so retrieve doesn't silently depend on a paid API.
+    if (serverEnv.FASTCRW_URL) {
+      try {
+        const fastcrwResult = await scrapeWithFastCrwForBrowsePage(url);
+        if (fastcrwResult?.content?.trim()) {
+          console.log(`fastCRW successfully scraped ${url}`);
+          return {
+            url,
+            result: {
+              url,
+              content: fastcrwResult.content,
+              title: fastcrwResult.title || url.split('/').pop() || 'Retrieved Content',
+              description: `Content retrieved from ${url}`,
+              author: undefined,
+              publishedDate: undefined,
+              image: undefined,
+              favicon: fastcrwResult.favicon,
+              language: 'en',
+            },
+            source: 'fastcrw',
+            response_time: (Date.now() - start) / 1000,
+          };
+        }
+        console.log('fastCRW returned no content, falling back to Exa/Parallel/Firecrawl');
+      } catch (fastcrwError) {
+        console.error('fastCRW error:', fastcrwError);
+        console.log('Falling back to Exa/Parallel/Firecrawl');
       }
     }
 

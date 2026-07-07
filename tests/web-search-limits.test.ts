@@ -1,13 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import {
   clampSearchInput,
   dedupeAndCapSearches,
+  enrichBestQualityResults,
   formatSnippet,
   normalizeUrl,
   MAX_QUERIES,
   MAX_RESULTS_PER_QUERY,
   MIN_RESULTS_PER_QUERY,
   DEFAULT_RESULTS_PER_QUERY,
+  _envInt,
   type SearchEntry,
 } from '@/lib/tools/web-search-limits';
 
@@ -109,5 +111,78 @@ describe('dedupeAndCapSearches', () => {
     expect(capped).toHaveLength(2);
     expect(capped[0].query).toBe('q1');
     expect(capped[1].results).toEqual([]);
+  });
+});
+
+describe('envInt', () => {
+  const VAR = 'ZETORA_TEST_SEARCH_INT_VAR';
+
+  afterEach(() => {
+    delete process.env[VAR];
+  });
+
+  it('falls back when the env var is unset', () => {
+    expect(_envInt(VAR, 32)).toBe(32);
+  });
+
+  it('parses a valid positive integer override', () => {
+    process.env[VAR] = '64';
+    expect(_envInt(VAR, 32)).toBe(64);
+  });
+
+  it('falls back on a non-integer or non-positive value', () => {
+    process.env[VAR] = 'not-a-number';
+    expect(_envInt(VAR, 32)).toBe(32);
+    process.env[VAR] = '0';
+    expect(_envInt(VAR, 32)).toBe(32);
+    process.env[VAR] = '1.5';
+    expect(_envInt(VAR, 32)).toBe(32);
+  });
+});
+
+describe('enrichBestQualityResults', () => {
+  it('leaves searches untouched when no query is best quality', async () => {
+    const searches = [entry('q1', ['https://a.com/'])];
+    const scrapeUrls = async () => [{ url: 'https://a.com/', content: 'x'.repeat(5000) }];
+    const result = await enrichBestQualityResults(searches, ['default'], scrapeUrls);
+    expect(result).toBe(searches);
+  });
+
+  it('replaces the snippet with scraped content for best-quality queries', async () => {
+    const searches = [entry('q1', ['https://a.com/'], 'short snippet')];
+    const fullContent = 'full page content '.repeat(50);
+    const scrapeUrls = async (urls: string[]) => {
+      expect(urls).toEqual(['https://a.com/']);
+      return [{ url: 'https://a.com/', content: fullContent }];
+    };
+    const result = await enrichBestQualityResults(searches, ['best'], scrapeUrls);
+    expect(result[0].results[0].content).toBe(fullContent);
+  });
+
+  it('keeps the snippet when the scrape returns shorter content', async () => {
+    const longSnippet = 'y'.repeat(200);
+    const searches = [entry('q1', ['https://a.com/'], longSnippet)];
+    const scrapeUrls = async () => [{ url: 'https://a.com/', content: 'short' }];
+    const result = await enrichBestQualityResults(searches, ['best'], scrapeUrls);
+    expect(result[0].results[0].content).toBe(longSnippet);
+  });
+
+  it('keeps the snippet when the scrape fails', async () => {
+    const searches = [entry('q1', ['https://a.com/'], 'short snippet')];
+    const scrapeUrls = async () => {
+      throw new Error('scrape failed');
+    };
+    const result = await enrichBestQualityResults(searches, ['best'], scrapeUrls);
+    expect(result[0].results[0].content).toBe('short snippet');
+  });
+
+  it('only enriches the top N results of a best-quality query', async () => {
+    const searches = [entry('q1', ['https://a.com/', 'https://b.com/', 'https://c.com/', 'https://d.com/'])];
+    const scrapeUrls = async (urls: string[]) => {
+      expect(urls).toHaveLength(3);
+      return urls.map((url) => ({ url, content: 'x'.repeat(5000) }));
+    };
+    const result = await enrichBestQualityResults(searches, ['best'], scrapeUrls, 3);
+    expect(result[0].results[3].content).toHaveLength(50);
   });
 });

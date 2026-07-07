@@ -3,15 +3,26 @@
 // tool description asks the model for 2-4 queries × 8 results, but local
 // models routinely ignore prompt-level limits — these clamps are the actual
 // bound on how many tokens a single web_search round injects back into the
-// conversation.
+// conversation. GLOBAL_RESULT_CAP and SNIPPET_MAX_CHARS are env-overridable
+// for deployments that want a deeper/latency-tolerant search (self-hosted
+// stacks where thoroughness matters more than speed).
+
+function envInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
 
 export const MAX_QUERIES = 4;
 export const MIN_RESULTS_PER_QUERY = 3;
 export const MAX_RESULTS_PER_QUERY = 10;
 export const DEFAULT_RESULTS_PER_QUERY = 8;
-export const GLOBAL_RESULT_CAP = 24;
-export const PER_DOMAIN_CAP = 3;
-export const SNIPPET_MAX_CHARS = 400;
+export const GLOBAL_RESULT_CAP = envInt('ZETORA_SEARCH_GLOBAL_CAP', 32);
+export const PER_DOMAIN_CAP = envInt('ZETORA_SEARCH_PER_DOMAIN_CAP', 3);
+export const SNIPPET_MAX_CHARS = envInt('ZETORA_SEARCH_SNIPPET_MAX_CHARS', 600);
+
+export const _envInt = envInt;
 
 export interface SearchResultItem {
   url: string;
@@ -121,4 +132,55 @@ export function dedupeAndCapSearches<T extends SearchEntry>(
   }
 
   return searches.map((search, q) => ({ ...search, results: kept[q] }));
+}
+
+export interface ScrapedContent {
+  url: string;
+  content: string;
+}
+
+// Replaces the truncated snippet with full page content for queries the
+// model flagged as 'best' quality — a 400-char snippet can't verify a
+// number, but the full page usually can. Runs after dedupeAndCapSearches so
+// it only pays the scrape cost for results that survived deduping/capping,
+// and only overwrites a snippet when the scrape actually got more text.
+export async function enrichBestQualityResults<T extends SearchEntry>(
+  searches: T[],
+  quality: ('default' | 'best')[] | undefined,
+  scrapeUrls: (urls: string[]) => Promise<ScrapedContent[]>,
+  topN: number = 3,
+): Promise<T[]> {
+  if (!quality?.some((q) => q === 'best')) return searches;
+
+  const urlsToScrape = new Set<string>();
+  searches.forEach((search, i) => {
+    if (quality[i] !== 'best') return;
+    search.results.slice(0, topN).forEach((r) => urlsToScrape.add(r.url));
+  });
+  if (urlsToScrape.size === 0) return searches;
+
+  let scraped: ScrapedContent[];
+  try {
+    scraped = await scrapeUrls(Array.from(urlsToScrape));
+  } catch (error) {
+    console.error('enrichBestQualityResults: scrape failed, keeping snippets:', error);
+    return searches;
+  }
+
+  const contentByUrl = new Map(
+    scraped.filter((s) => s.content?.trim()).map((s) => [normalizeUrl(s.url), s.content]),
+  );
+  if (contentByUrl.size === 0) return searches;
+
+  return searches.map((search, i) => {
+    if (quality[i] !== 'best') return search;
+    return {
+      ...search,
+      results: search.results.map((r, idx) => {
+        if (idx >= topN) return r;
+        const full = contentByUrl.get(normalizeUrl(r.url));
+        return full && full.length > r.content.length ? { ...r, content: full } : r;
+      }),
+    };
+  });
 }

@@ -47,6 +47,7 @@ export class SearXNGSearchStrategy implements SearchStrategy {
       topics: ('general' | 'news')[];
       quality: ('default' | 'best')[];
       startDates?: (string | null)[];
+      language?: string;
       dataStream?: UIMessageStreamWriter<ChatMessage>;
     },
   ): Promise<{ searches: Array<{ query: string; results: any[]; images: any[] }> }> {
@@ -72,7 +73,9 @@ export class SearXNGSearchStrategy implements SearchStrategy {
             q: query,
             format: 'json',
             pageno: '1',
-            language: 'en',
+            // 'all' disables SearXNG's language filter — hard-coding 'en' here
+            // used to force English-language results for non-English queries.
+            language: options.language ?? 'all',
             time_range: resolveTimeRange(topic, options.startDates?.[i]),
             safesearch: '1',
           });
@@ -87,7 +90,11 @@ export class SearXNGSearchStrategy implements SearchStrategy {
 
           const data = await response.json();
 
-          const results = (data.results || []).slice(0, maxResults).map((r: SearXNGResult) => ({
+          const sortedResults = [...(data.results || [])].sort(
+            (a: SearXNGResult, b: SearXNGResult) => (b.score ?? 0) - (a.score ?? 0),
+          );
+
+          const results = sortedResults.slice(0, maxResults).map((r: SearXNGResult) => ({
             url: r.url,
             title: r.title,
             content: r.content || '',
