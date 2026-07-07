@@ -85,7 +85,7 @@ export const serverEnv = createEnv({
     GRAPHITI_EMBEDDING_MODEL: z.string().optional().default('text-embedding-3-small'),
     GRAPHITI_EMBEDDING_API_KEY: z.string().optional(),
     GRAPHITI_EMBEDDING_BASE_URL: z.string().url().optional(),
-    ANONYMIZER_API_URL: z.string().url().optional().default('http://localhost:8002'),
+    ANONYMIZER_API_URL: z.string().url().optional().default('http://localhost:8004'),
   },
   experimental__runtimeEnv: process.env,
 });
