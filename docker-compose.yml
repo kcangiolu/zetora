@@ -661,6 +661,12 @@ services:
     # GPU build: shares the GPU with llama.cpp/qwen3-tts, but a transcription
     # only holds it briefly per utterance (~1-2GB VRAM for medium), unlike TTS
     # which stays resident — same runtime/env pattern as qwen3-tts below.
+    # Verified working on an RTX 3090. On an RTX 5060 Ti (Blackwell), this
+    # image's bundled CTranslate2/cuDNN build silently falls back to a
+    # pathologically slow path instead of erroring (100s+ for a 3s clip,
+    # worse than CPU) — same class of issue as qwen3-tts's flash-attn
+    # arch mismatch. If you're on a 5060 Ti or newer card, drop the `runtime:
+    # nvidia` line and the two NVIDIA_* env vars below to stay on CPU.
     image: fedirz/faster-whisper-server:latest-cuda
     container_name: zetora-whisper-stt
     runtime: nvidia
@@ -680,7 +686,9 @@ services:
       resources:
         limits:
           cpus: '2'
-          memory: 3G
+          # A real transcription request pushed rss to ~3.1GB — 3G OOM-killed
+          # uvicorn mid-decode. 6G leaves real headroom.
+          memory: 6G
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
