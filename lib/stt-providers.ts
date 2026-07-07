@@ -9,7 +9,7 @@ export const STT_PROVIDERS = [
   {
     value: 'openai-compatible' as const,
     label: 'Custom (OpenAI-compatible)',
-    description: 'Whisper local, Faster-Whisper, ou tout serveur /v1/audio/transcriptions',
+    description: 'Parakeet, Whisper local, ou tout serveur /v1/audio/transcriptions',
     requiresApiKey: false,
     defaultModel: 'whisper-1',
   },
