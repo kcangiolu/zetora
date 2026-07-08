@@ -55,21 +55,29 @@ export async function anonymizeText(text: string, ctx: AnonymizeContext): Promis
 
   if (entities.length === 0) return text;
 
+  // Presidio computes start/end as Unicode code point offsets (Python string
+  // indexing), not UTF-16 code units. Slicing the raw JS string with those
+  // offsets directly can land inside a surrogate pair (emoji, astral chars)
+  // and leave a lone surrogate in the result, which corrupts the JSON body
+  // sent to the model provider. Split into code points first so offsets and
+  // slicing stay aligned.
+  const codePoints = Array.from(text);
+
   // Replace from the end so earlier spans' offsets stay valid.
   const sorted = [...entities].sort((a, b) => b.start - a.start);
   const toStore: Array<{ token: string; entityType: string; originalEnc: string }> = [];
-  let result = text;
+  let result = codePoints;
 
   for (const entity of sorted) {
-    const original = text.slice(entity.start, entity.end);
+    const original = codePoints.slice(entity.start, entity.end).join('');
     if (!original) continue;
     const token = tokenFor(ctx.userId, entity.type, original);
     toStore.push({ token, entityType: entity.type, originalEnc: encryptMcpCredentials(original) });
-    result = result.slice(0, entity.start) + token + result.slice(entity.end);
+    result = [...result.slice(0, entity.start), token, ...result.slice(entity.end)];
   }
 
   await upsertPiiAliases(ctx.userId, toStore);
-  return result;
+  return result.join('');
 }
 
 export async function deanonymizeText(text: string, ctx: Pick<AnonymizeContext, 'userId'>): Promise<string> {
