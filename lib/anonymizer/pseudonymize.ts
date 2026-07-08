@@ -87,11 +87,25 @@ export async function deanonymizeText(text: string, ctx: Pick<AnonymizeContext, 
   if (tokens.length === 0) return text;
 
   const aliases = await getPiiAliasesByTokens(ctx.userId, tokens);
-  if (aliases.length === 0) return text;
+  const resolved = new Map(aliases.map(({ token, originalEnc }) => [token, originalEnc]));
 
   let result = text;
-  for (const { token, originalEnc } of aliases) {
-    result = result.split(token).join(decryptMcpCredentials(originalEnc));
+  for (const token of tokens) {
+    const originalEnc = resolved.get(token);
+    if (originalEnc !== undefined) {
+      result = result.split(token).join(decryptMcpCredentials(originalEnc));
+      continue;
+    }
+    // No vault entry for this token (alias lookup miss, or the model
+    // hallucinated/repeated a token from garbled history). Never let the raw
+    // ⟦TYPE_hash⟧ marker reach the user or get persisted — once a broken
+    // token lands in a saved assistant message, the model echoes it back on
+    // every later turn in that chat, permanently propagating the leak even
+    // after this account's anonymization setting is turned off.
+    console.error(`[anonymizer] No vault entry for token ${token}, masking instead of leaking raw marker`, {
+      userId: ctx.userId,
+    });
+    result = result.split(token).join('[masked]');
   }
   return result;
 }

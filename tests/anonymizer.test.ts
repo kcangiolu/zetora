@@ -86,6 +86,26 @@ describe('anonymizeText / deanonymizeText', () => {
     expect(await deanonymizeText(text, ctx)).toBe(text);
   });
 
+  it('masks instead of leaking a raw token when the vault has no matching alias', async () => {
+    // Simulates a token that shows up in generated text but was never
+    // vaulted for this user (stale/corrupted history, or a lookup miss) —
+    // the raw ⟦TYPE_hash⟧ marker must never reach the caller.
+    const orphanToken = '⟦PERSON_0123456789⟧';
+    const restored = await deanonymizeText(`Before ${orphanToken} after`, ctx);
+    expect(restored).toBe('Before [masked] after');
+  });
+
+  it('masks only the unresolved token when a text mixes resolved and orphaned tokens', async () => {
+    detectEntities.mockResolvedValue([{ start: 0, end: 8, type: 'PERSON', score: 0.9, text: 'Jane Doe' }]);
+    const masked = await anonymizeText('Jane Doe called', ctx);
+    const knownToken = masked.match(/⟦PERSON_[a-f0-9]{10}⟧/)?.[0];
+    expect(knownToken).toBeDefined();
+
+    const orphanToken = '⟦ORGANIZATION_ffffffffff⟧';
+    const restored = await deanonymizeText(`${masked} from ${orphanToken}`, ctx);
+    expect(restored).toBe('Jane Doe called from [masked]');
+  });
+
   it('forwards language and nerEnabled from the context to detectEntities', async () => {
     detectEntities.mockResolvedValue([]);
     await anonymizeText('un texte en français', { ...ctx, language: 'fr', nerEnabled: false });
