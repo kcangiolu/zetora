@@ -19,6 +19,8 @@ export type PreferenceKey =
   | 'zetora-anonymization-enabled'
   | 'zetora-anonymization-custom-terms'
   | 'zetora-anonymization-fail-open'
+  | 'zetora-anonymization-language'
+  | 'zetora-anonymization-ner-enabled'
   | 'zetora-preferred-models'
   | 'zetora-visible-modes'
   | 'zetora-sandbox-provider'

@@ -46,6 +46,7 @@ class DetectInput(BaseModel):
     text: str
     language: str | None = None
     deny_terms: list[str] | None = None
+    enable_ner: bool = True
 
 
 class Entity(BaseModel):
@@ -76,6 +77,13 @@ async def detect(input: DetectInput):
     except Exception as e:
         logger.error("analyze failed", exc_info=True)
         raise HTTPException(500, str(e))
+
+    if not input.enable_ner:
+        # Keep pattern recognizers (email, phone, IBAN, IP, URL, CUSTOM_DENYLIST)
+        # but drop the statistical spaCy NER results — useful for languages
+        # where the NER model is unreliable or masks public entities that
+        # need to stay in clear text (e.g. for web search to work).
+        results = [r for r in results if r.recognition_metadata.get("recognizer_name") != "SpacyRecognizer"]
 
     entities = [
         Entity(start=r.start, end=r.end, type=r.entity_type, score=r.score, text=input.text[r.start : r.end])

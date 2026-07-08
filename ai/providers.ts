@@ -586,6 +586,8 @@ export async function getAnonymizeContext(
 
   return {
     userId,
+    language: (preferences?.['zetora-anonymization-language'] as string | undefined) ?? 'en',
+    nerEnabled: preferences?.['zetora-anonymization-ner-enabled'] !== false,
     denyTerms: (preferences?.['zetora-anonymization-custom-terms'] as string[] | undefined) ?? [],
     failOpen: preferences?.['zetora-anonymization-fail-open'] === true,
   };

@@ -148,9 +148,21 @@ class VoiceSession:
     vad_context: np.ndarray = field(default_factory=lambda: np.zeros((1, VAD_CONTEXT_SAMPLES), dtype=np.float32))
     silence_frames: int = 0
     utterance_buf: bytearray = field(default_factory=bytearray)
+    # Rolling ~VAD_SPEECH_PAD_MS of pre-speech audio, kept so the first
+    # syllables of an utterance (clipped by VAD's rising-edge latency)
+    # aren't lost — every new utterance_buf starts from this.
+    preroll: bytearray = field(default_factory=bytearray)
 
     processing: bool = False
     current_task: "asyncio.Task | None" = None
+    # True once the in-flight turn has finished STT and moved on to LLM/TTS —
+    # i.e. it's actually producing a response, so new speech is a real
+    # barge-in. While STT is still running, the previous utterance hasn't
+    # been transcribed yet, so cancelling it would silently drop it instead.
+    response_active: bool = False
+    # The audio last handed to run_turn — re-prepended to the next utterance
+    # if we have to cancel that turn before its STT call has returned.
+    pending_audio: bytes = b""
 
 
 def _auth_headers(session: VoiceSession) -> dict:
@@ -217,6 +229,11 @@ async def run_turn(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSessi
         await send_error(ws, f"Transcription failed: {exc}")
         return
 
+    # STT is done — from here on this task is actually producing a response,
+    # so if the user starts talking again it's a genuine barge-in rather than
+    # speech that overlapped with (and should be merged into) transcription.
+    session.response_active = True
+
     if not transcript:
         return
 
@@ -279,9 +296,19 @@ async def run_turn(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSessi
 # ── VAD-driven turn boundaries ────────────────────────────────────
 
 
+PREROLL_MAX_BYTES = int(CLIENT_SAMPLE_RATE * VAD_SPEECH_PAD_MS / 1000) * 2  # 16-bit mono PCM
+
+
 async def feed_vad(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSession, pcm48k: bytes) -> None:
     if session.is_speaking:
         session.utterance_buf.extend(pcm48k)
+    else:
+        # Keep a rolling ~VAD_SPEECH_PAD_MS tail of silence-period audio so
+        # the next utterance can be prefixed with it (Silero's rising edge
+        # itself lags the true speech onset by a frame or two).
+        session.preroll.extend(pcm48k)
+        if len(session.preroll) > PREROLL_MAX_BYTES:
+            del session.preroll[: len(session.preroll) - PREROLL_MAX_BYTES]
 
     down = np.concatenate([session.vad_carry, decimate_48k_to_16k(pcm48k)])
     n_frames = len(down) // VAD_FRAME_SAMPLES
@@ -298,13 +325,30 @@ async def feed_vad(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSessi
             session.silence_frames = 0
             if not session.is_speaking:
                 session.is_speaking = True
-                session.utterance_buf = bytearray()
+                preroll_bytes = bytes(session.preroll)
+                session.preroll = bytearray()
+
                 if session.current_task and not session.current_task.done():
-                    # Barge-in: user started talking while the assistant was
-                    # still responding — stop generating/streaming further
-                    # audio for the previous turn.
-                    session.current_task.cancel()
-                    await send_json(ws, {"type": "response.done"})
+                    if session.response_active:
+                        # True barge-in: the assistant is already generating/
+                        # streaming a response — stop it and start a fresh
+                        # utterance.
+                        session.current_task.cancel()
+                        await send_json(ws, {"type": "response.done"})
+                        session.utterance_buf = bytearray(preroll_bytes)
+                    else:
+                        # The previous utterance is still being transcribed.
+                        # Cancelling it outright would silently drop those
+                        # words, so cancel the in-flight STT call and merge
+                        # its audio back in — the whole thing is re-sent as
+                        # one utterance once the user pauses again.
+                        session.current_task.cancel()
+                        session.utterance_buf = bytearray(session.pending_audio)
+                        session.utterance_buf.extend(preroll_bytes)
+                else:
+                    session.utterance_buf = bytearray(preroll_bytes)
+
+                session.utterance_buf.extend(pcm48k)
                 await send_json(ws, {"type": "input_audio_buffer.speech_started"})
         elif session.is_speaking:
             session.silence_frames += 1
@@ -315,14 +359,25 @@ async def feed_vad(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSessi
 
                 utterance = bytes(session.utterance_buf)
                 session.utterance_buf = bytearray()
-                if not session.processing and len(utterance) > 0:
+                if len(utterance) == 0:
+                    pass
+                elif session.processing:
+                    # Should not happen: the previous task is still running
+                    # STT/LLM/TTS despite not being caught by the merge path
+                    # above (e.g. cancellation hadn't been scheduled yet).
+                    # Log rather than silently dropping the utterance.
+                    logger.warning("dropping utterance: previous turn still processing")
+                else:
                     session.processing = True
+                    session.response_active = False
+                    session.pending_audio = utterance
 
                     async def _run(u=utterance):
                         try:
                             await run_turn(client, ws, session, u)
                         finally:
                             session.processing = False
+                            session.response_active = False
 
                     session.current_task = asyncio.create_task(_run())
 

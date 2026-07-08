@@ -129,6 +129,8 @@ export async function upsertUserPreferences({
     'zetora-anonymization-enabled'?: boolean;
     'zetora-anonymization-custom-terms'?: string[];
     'zetora-anonymization-fail-open'?: boolean;
+    'zetora-anonymization-language'?: 'en' | 'fr';
+    'zetora-anonymization-ner-enabled'?: boolean;
     'zetora-default-model'?: string;
     'zetora-default-provider'?: string;
     'zetora-lockout-provider'?: 'qstash' | 'bullmq';

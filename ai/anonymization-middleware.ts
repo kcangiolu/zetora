@@ -10,7 +10,7 @@ type WrapGenerateArgs = Parameters<NonNullable<LanguageModelMiddleware['wrapGene
 // deltas. Buffer text per stream id and only de-anonymize/emit the portion
 // before the last unmatched "⟦", holding the rest back until it either
 // completes or the id's stream ends (text-end/reasoning-end/flush).
-class StreamTokenBuffer {
+export class StreamTokenBuffer {
   private buffer = '';
   constructor(private ctx: Pick<AnonymizeContext, 'userId'>) {}
 

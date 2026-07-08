@@ -85,6 +85,18 @@ describe('anonymizeText / deanonymizeText', () => {
     const text = 'plain text with no tokens';
     expect(await deanonymizeText(text, ctx)).toBe(text);
   });
+
+  it('forwards language and nerEnabled from the context to detectEntities', async () => {
+    detectEntities.mockResolvedValue([]);
+    await anonymizeText('un texte en français', { ...ctx, language: 'fr', nerEnabled: false });
+    expect(detectEntities).toHaveBeenCalledWith('un texte en français', 'fr', [], false);
+  });
+
+  it('defaults to English with NER on when the context omits them', async () => {
+    detectEntities.mockResolvedValue([]);
+    await anonymizeText('some text', ctx);
+    expect(detectEntities).toHaveBeenCalledWith('some text', 'en', [], true);
+  });
 });
 
 describe('anonymizeModelMessages', () => {

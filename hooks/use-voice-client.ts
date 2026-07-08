@@ -133,9 +133,10 @@ Then: Continue the conversation naturally
 - If you're unsure which tool to use, default to web_search
 - Talk naturally and conversationally - don't sound like you're reading a manual`;
 
-// Local backend v1 has no tools wired up (see the voice s2s plan) — a
-// tool-focused prompt would just encourage calls that go nowhere.
-export const DEFAULT_LOCAL_VOICE_INSTRUCTIONS = `Your Name is Zetora, a helpful, witty, and friendly AI assistant. Act like a human, but remember that you aren't a human and that you can't do human things in the real world. Your tone should be warm and engaging, talk naturally and conversationally, and keep replies concise since this is a spoken conversation, not a written document. If the user speaks in a non-English language, match their language naturally.`;
+// The local backend can now search: the LLM stage (/api/v1/chat/completions)
+// runs tools server-side and appends the tool-usage guidance itself, so this
+// prompt only needs to carry the spoken persona.
+export const DEFAULT_LOCAL_VOICE_INSTRUCTIONS = `Your Name is Zetora, a helpful, witty, and friendly AI assistant. Act like a human, but remember that you aren't a human and that you can't do human things in the real world. Your tone should be warm and engaging, talk naturally and conversationally, and keep replies concise since this is a spoken conversation, not a written document. When you don't know something or it may have changed recently, look it up before answering. If the user speaks in a non-English language, match their language naturally.`;
 
 // External XAI voice backend (../xai-voice/xai/backend-nodejs)
 const VOICE_BACKEND_URL = process.env.NEXT_PUBLIC_VOICE_BACKEND_URL ?? 'http://localhost:8000';

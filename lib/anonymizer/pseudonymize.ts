@@ -9,6 +9,7 @@ import { detectEntities } from './client';
 export interface AnonymizeContext {
   userId: string;
   language?: string;
+  nerEnabled?: boolean;
   denyTerms?: string[];
   failOpen?: boolean;
 }
@@ -18,7 +19,7 @@ export interface AnonymizeContext {
 // requested — the caller must abort rather than risk sending cleartext.
 export class AnonymizationUnavailableError extends Error {}
 
-const TOKEN_PATTERN = /⟦([A-Z_]+)_([a-f0-9]{10})⟧/g;
+export const TOKEN_PATTERN = /⟦([A-Z_]+)_([a-f0-9]{10})⟧/g;
 
 function getSecret(): string {
   const key = serverEnv.MCP_CREDENTIALS_ENCRYPTION_KEY;
@@ -43,7 +44,7 @@ export async function anonymizeText(text: string, ctx: AnonymizeContext): Promis
 
   let entities;
   try {
-    entities = await detectEntities(text, ctx.language ?? 'en', ctx.denyTerms ?? []);
+    entities = await detectEntities(text, ctx.language ?? 'en', ctx.denyTerms ?? [], ctx.nerEnabled ?? true);
   } catch (error) {
     if (ctx.failOpen) {
       console.error('[anonymizer] detection failed, failing open (cleartext will be sent):', error);

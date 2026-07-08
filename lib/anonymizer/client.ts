@@ -13,14 +13,19 @@ export interface DetectedEntity {
 // Detection only — the presidio-service does NER + regex recognition and
 // returns spans; tokenization/HMAC/vaulting happens on the Node side so the
 // secret and the vault never have to leave this process.
-export async function detectEntities(text: string, language: string, denyTerms: string[]): Promise<DetectedEntity[]> {
+export async function detectEntities(
+  text: string,
+  language: string,
+  denyTerms: string[],
+  enableNer = true,
+): Promise<DetectedEntity[]> {
   if (!text.trim()) return [];
 
   const url = `${serverEnv.ANONYMIZER_API_URL.replace(/\/$/, '')}/detect`;
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, language, deny_terms: denyTerms }),
+    body: JSON.stringify({ text, language, deny_terms: denyTerms, enable_ner: enableNer }),
     signal: AbortSignal.timeout(10_000),
   });
 

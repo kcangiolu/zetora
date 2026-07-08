@@ -640,6 +640,14 @@ export function PreferencesSection({
     'zetora-anonymization-fail-open',
     false,
   );
+  const [anonymizationNerEnabled, setAnonymizationNerEnabled] = useSyncedPreferences<boolean>(
+    'zetora-anonymization-ner-enabled',
+    true,
+  );
+  const [anonymizationLanguage, setAnonymizationLanguage] = useSyncedPreferences<'en' | 'fr'>(
+    'zetora-anonymization-language',
+    'en',
+  );
   const [scrollToLatestOnOpen, setScrollToLatestOnOpen] = useSyncedPreferences<boolean>(
     'zetora-scroll-to-latest-on-open',
     false,
@@ -1265,6 +1273,42 @@ export function PreferencesSection({
                       className="h-8 text-xs"
                     />
                   </div>
+
+                  <div className="flex items-center justify-between py-3.5 gap-6">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">Automatic detection (NER)</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Off masks only the always-mask list and structured patterns (email, phone, IBAN, IP, URL) —
+                        public entities (e.g. company names) stay in clear text, keeping web search usable.
+                      </p>
+                    </div>
+                    <Switch
+                      id="anonymization-ner-enabled"
+                      checked={anonymizationNerEnabled}
+                      onCheckedChange={setAnonymizationNerEnabled}
+                    />
+                  </div>
+
+                  {anonymizationNerEnabled && (
+                    <div className="flex items-center justify-between py-3.5 gap-6">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium">Detection language</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Language the NER model expects</p>
+                      </div>
+                      <Select
+                        value={anonymizationLanguage}
+                        onValueChange={(v) => setAnonymizationLanguage(v as 'en' | 'fr')}
+                      >
+                        <SelectTrigger className="w-[140px] h-8 text-xs rounded-lg shrink-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="en">English</SelectItem>
+                          <SelectItem value="fr">Français</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
                   <div className="flex items-center justify-between py-3.5 gap-6">
                     <div className="min-w-0">
