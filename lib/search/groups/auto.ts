@@ -1,6 +1,30 @@
 import 'server-only';
 import { linkFormatExamples } from './shared';
 
+// Auto bundles tools from several single-purpose groups into one list. If the
+// user has hidden one of those groups from the mode picker (zetora-visible-modes),
+// Auto should not reach for its tool either — otherwise "disabling Reddit search"
+// does nothing while in Auto mode. Only tools with a distinct, hideable group are
+// listed here; generic utilities (retrieve, weather, datetime, greeting, etc.)
+// have no standalone mode to hide and are always available.
+export const toolGroupMap: Record<string, string> = {
+  web_search: 'web',
+  academic_search: 'academic',
+  x_search: 'x',
+  reddit_search: 'reddit',
+  github_search: 'github',
+  youtube_search: 'youtube',
+  spotify_search: 'spotify',
+  code_interpreter: 'code',
+  code_context: 'code',
+  stock_chart: 'stocks',
+  currency_converter: 'stocks',
+  coin_data: 'crypto',
+  coin_ohlc: 'crypto',
+  coin_data_by_contract: 'crypto',
+  prediction_search: 'prediction',
+};
+
 export const tools = [
   'skill',
   'web_search',

@@ -58,6 +58,7 @@ import { ChatMessage } from '@/lib/types';
 import { OpenAIResponsesProviderOptions } from '@ai-sdk/openai';
 import { AnthropicProviderOptions } from '@ai-sdk/anthropic';
 import { getGroupConfig } from '@/lib/search/group-config';
+import { toolGroupMap } from '@/lib/search/groups/auto';
 import {
   getCurrentUser,
   getLightweightUser,
@@ -580,8 +581,24 @@ export async function POST(req: Request) {
       },
       getBetterAllOptions(),
     );
-  const { tools: activeTools, instructions } = config;
+  let activeTools: string[] = [...config.tools];
+  const { instructions } = config;
   recordTiming('await_parallel_setup', opStart);
+
+  // Auto bundles tools from several single-purpose groups (Reddit, GitHub,
+  // stocks, ...) — if the user hid one of those from the mode picker, Auto
+  // shouldn't reach for its tool either, or "disabling Reddit search" would
+  // silently do nothing while in Auto mode.
+  if (group === 'auto') {
+    const visibleModes = userPreferencesResult?.preferences?.['zetora-visible-modes'] as string[] | undefined;
+    if (visibleModes && visibleModes.length > 0) {
+      const visibleSet = new Set(visibleModes);
+      activeTools = activeTools.filter((toolName) => {
+        const owningGroup = toolGroupMap[toolName];
+        return !owningGroup || visibleSet.has(owningGroup);
+      });
+    }
+  }
 
   if (!criticalResult.canProceed) {
     throw criticalResult.error;
