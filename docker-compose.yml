@@ -17,6 +17,8 @@
 #          ${DATA_DIR}/falkordb \
 #          ${DATA_DIR}/graphiti \
 #          ${DATA_DIR}/whisper \
+#          ${DATA_DIR}/fastcrw \
+#          ${DATA_DIR}/fastcrw-app \
 #          ${DATA_DIR}/qwen3-tts/huggingface \
 #          ${DATA_DIR}/qwen3-tts/output \
 #          ${DATA_DIR}/qwen3-tts/voices \
@@ -378,6 +380,14 @@ services:
   # Single Rust binary, ~50 MB RAM, Firecrawl-compatible API
   # /v1/scrape — content extraction
   # /v1/search — web search via the internal SearXNG
+  #
+  # JS rendering: crw-server's baked-in config points its LightPanda renderer
+  # at loopback:9222 but never installs LightPanda itself — the `crw-server
+  # setup` step that downloads it has to run at least once, and needs
+  # somewhere writable to put it. `command` below runs setup (idempotent,
+  # tolerated if it fails) then execs the server; the rest of the image stays
+  # read-only. `chrome` is the vendor-recommended second-tier fallback for
+  # pages that crash LightPanda's JS engine (heavy SPA hydration).
   # ---------------------------------------------------------------------------
   fastcrw:
     image: ghcr.io/us/crw:latest
@@ -386,6 +396,38 @@ services:
     # the host port to 3000 and point FASTCRW_URL at :3000 (see zetora.app).
     ports:
       - '127.0.0.1:3003:3000'
+    # Chrome's DevTools handler rejects CDP requests whose Host header isn't
+    # "localhost" or a literal IP (DNS-rebinding protection) — the compose
+    # service name "chrome" gets a 403, so resolve it to its container IP at
+    # boot instead of hardcoding one (container IPs aren't stable across
+    # recreates on the default bridge network).
+    #
+    # `crw-server setup` only installs the LightPanda binary and writes a
+    # config.local.toml pinning renderer.mode to "lightpanda" alone (dropping
+    # chrome from the ladder) — override mode back to "auto" via env. It also
+    # doesn't start LightPanda itself ("Start the server with JS rendering:
+    # lightpanda serve ... & crw-server" is printed, not run), so spawn it as
+    # a background subprocess before exec'ing crw-server.
+    command: >
+      sh -c "
+      crw-server setup || true;
+      export CRW_RENDERER__MODE=auto;
+      export CRW_RENDERER__CHROME__WS_URL=\"ws://$$(getent hosts chrome | awk '{print $$1}'):9222/\";
+      /root/.local/bin/lightpanda serve --host 127.0.0.1 --port 9222 &
+      exec crw-server
+      "
+    volumes:
+      # `setup` installs the LightPanda binary under $HOME/.local/bin
+      # (HOME=/root) — mount the whole home dir rather than guessing at one
+      # subpath.
+      - ${DATA_DIR}/fastcrw:/root
+      # `setup` also writes config.local.toml into its CWD (/app), regardless
+      # of CRW_USER_CONFIG_DIR. /app is otherwise part of the read-only image
+      # layer, so this volume is pre-seeded (once, by hand) with copies of
+      # the image's own config.default.toml/config.docker.toml to avoid
+      # shadowing them — see the fastcrw section of the deployment plan for
+      # how it was populated.
+      - ${DATA_DIR}/fastcrw-app:/app
     environment:
       - CRW_NO_AUTH=true
     cap_drop:
@@ -395,13 +437,43 @@ services:
       - SETGID
       - SETUID
     read_only: true
+    depends_on:
+      chrome:
+        condition: service_started
     networks:
       - zetora-network
     deploy:
       resources:
         limits:
           cpus: '0.5'
-          memory: 256M
+          memory: 512M
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Headless Chrome (CDP fallback renderer for fastCRW — see above)
+  # Vanilla CDP on 9222, no wrapper API; internal-only, no host port.
+  # ---------------------------------------------------------------------------
+  chrome:
+    # Image's own entrypoint already runs headless-shell with --no-sandbox on
+    # a loopback-only debugging port, bridged to 0.0.0.0:9222 via socat — do
+    # not pass --remote-debugging-port ourselves, it overrides the internal
+    # port the entrypoint's own socat bridge forwards to and breaks it.
+    image: chromedp/headless-shell:latest
+    container_name: zetora-chrome
+    tmpfs:
+      - /tmp
+      - /root/.cache
+      - /root/.config
+    cap_drop:
+      - ALL
+    read_only: true
+    networks:
+      - zetora-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
