@@ -8,7 +8,7 @@
 import Exa from 'exa-js';
 import { getSandboxProvider } from '@/lib/sandbox';
 import type { SandboxProviderType } from '@/lib/sandbox';
-import { Output, generateText, hasToolCall, stepCountIs, tool } from 'ai';
+import { Output, generateText, hasToolCall, stepCountIs, tool, APICallError } from 'ai';
 import type { UIMessageStreamWriter } from 'ai';
 import { z } from 'zod';
 import { serverEnv } from '@/env/server';
@@ -628,21 +628,48 @@ async function extremeSearch(
 
   // plan out the research
 
+  const planSchema = z.object({
+    plan: z
+      .array(
+        z.object({
+          title: z.string().min(10).max(70).describe('A title for the research topic'),
+          todos: z.array(z.string()).min(3).max(5).describe('A list of what to research for the given title'),
+        }),
+      )
+      .min(1)
+      .max(5),
+  });
+
+  // Falls back to a single-topic plan derived straight from the prompt when
+  // the planner call fails — some providers (e.g. DeepSeek via OpenRouter)
+  // don't support structuredOutputs, so Output.object has to fall back to
+  // prompt-based JSON coaxing, which a weaker/faster model can fail to match
+  // against the schema. Without this fallback that throw propagated all the
+  // way out of the extreme_search tool call, killing the whole research run
+  // in a couple seconds — the outer model would see a tool error, retry the
+  // same failing call 2-3 times with a reworded prompt, then give up with no
+  // answer at all. The agent step below still runs its own ~75-step loop
+  // with regular tool calling (not structured output), so it isn't affected
+  // by this and can recover fine from a minimal plan.
+  const fallbackPlan = (): z.infer<typeof planSchema>['plan'] => {
+    const title = prompt.length >= 10 ? prompt.slice(0, 70) : `Research: ${prompt}`.slice(0, 70);
+    return [
+      {
+        title,
+        todos: [
+          `Search the web for: ${prompt}`,
+          `Look for recent/current information on: ${prompt}`,
+          `Cross-verify findings from multiple sources on: ${prompt}`,
+        ],
+      },
+    ];
+  };
+
+  let plan: z.infer<typeof planSchema>['plan'];
+  try {
   const { output: result } = await generateText({
     model: await resolveTertiaryModel('extreme-planner', preferences),
-    output: Output.object({
-      schema: z.object({
-        plan: z
-          .array(
-            z.object({
-              title: z.string().min(10).max(70).describe('A title for the research topic'),
-              todos: z.array(z.string()).min(3).max(5).describe('A list of what to research for the given title'),
-            }),
-          )
-          .min(1)
-          .max(5),
-      }),
-    }),
+    output: Output.object({ schema: planSchema }),
     prompt: `
 Plan out the research for the following topic: ${prompt}.
 
@@ -688,8 +715,11 @@ ${hasFilesForPlanning ? '- Include file search steps when the uploaded files are
   });
 
   console.log(result.plan);
-
-  const plan = result.plan;
+  plan = result.plan;
+  } catch (error) {
+    console.error('[ExtremeSearch] Planner failed, falling back to a single-topic plan:', error);
+    plan = fallbackPlan();
+  }
 
   // calculate the total number of todos
   const totalTodos = plan.reduce((acc, curr) => acc + curr.todos.length, 0);
@@ -729,7 +759,18 @@ ${hasFilesForPlanning ? '- Include file search steps when the uploaded files are
   );
   const agentDeadline = EXTREME_WALL_CLOCK_MS > 0 ? Date.now() + EXTREME_WALL_CLOCK_MS : Number.POSITIVE_INFINITY;
 
+  // Some providers reject a forced tool_choice outright (observed with
+  // DeepSeek v4-flash via OpenRouter: "Thinking mode does not support this
+  // tool_choice" — a 400 on the very first step, every time, for any model
+  // running in a reasoning/thinking mode). prepareStep below reads this flag
+  // dynamically, so the retry loop further down can flip it off and re-run
+  // the exact same call falling back to the model's default tool_choice
+  // instead of hard-failing the whole research run.
+  let forceRequiredToolChoice = true;
+
   // Create the autonomous research agent with tools
+  for (let agentAttempt = 0; agentAttempt < 2; agentAttempt++) {
+  try {
   const { text: _ } = await generateText({
     model: await resolveTertiaryModel('extreme-agent', preferences),
     stopWhen: [stepCountIs(isCustomAgentModel ? 25 : 75), hasToolCall('done'), () => isPastDeadline(agentDeadline)],
@@ -1893,11 +1934,41 @@ ${JSON.stringify(plan)}
       // Force the model to always call a tool — it cannot stop by returning plain text.
       // done is always available; the model decides when research is complete.
       // stopWhen: hasToolCall('done') handles loop termination.
-      return {
-        toolChoice: 'required' as const,
-      };
+      // Falls back to the model's default (no forced choice) after a provider
+      // rejects 'required' outright — see forceRequiredToolChoice above.
+      return forceRequiredToolChoice ? { toolChoice: 'required' as const } : {};
     },
   });
+  break;
+  } catch (error) {
+    const rejectsForcedToolChoice =
+      forceRequiredToolChoice &&
+      APICallError.isInstance(error) &&
+      error.statusCode === 400 &&
+      /tool_choice/i.test(error.responseBody ?? '');
+
+    if (rejectsForcedToolChoice && agentAttempt === 0) {
+      console.warn(
+        '[ExtremeSearch] Provider rejected forced tool_choice, retrying with the default tool_choice:',
+        error,
+      );
+      forceRequiredToolChoice = false;
+      continue;
+    }
+
+    // Same rationale as the planner fallback above: an uncaught throw here
+    // (seen in practice with providers rejecting `tool_choice: "required"`,
+    // or otherwise erroring on the very first step) previously killed the
+    // whole extreme_search tool call instantly — the outer model would then
+    // see a bare tool error and blindly retry with the identical prompt a
+    // few times, never producing an answer. Log the real error and fall
+    // through to the normal return below with whatever sources/results were
+    // gathered before the failure (likely none if it failed on step one),
+    // so the outer model gets a coherent — if thin — result to work with.
+    console.error('[ExtremeSearch] Research agent failed:', error);
+    break;
+  }
+  }
 
   if (dataStream) {
     dataStream.write({
