@@ -314,9 +314,18 @@ const AcademicPapersCard = ({ results, response, args, annotations = [] }: Acade
   return (
     <div className="w-full my-3">
       <div className="rounded-xl border border-border/60 overflow-hidden bg-card/30">
-        <button
+        <div
+          role="button"
+          tabIndex={0}
+          aria-expanded={isExpanded}
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full px-4 py-2.5 flex items-center justify-between hover:bg-muted/20 transition-colors"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setIsExpanded(!isExpanded);
+            }
+          }}
+          className="w-full px-4 py-2.5 flex items-center justify-between hover:bg-muted/20 transition-colors cursor-pointer"
         >
           <div className="flex items-center gap-2">
             <Book className="h-3.5 w-3.5 text-muted-foreground" />
@@ -343,7 +352,7 @@ const AcademicPapersCard = ({ results, response, args, annotations = [] }: Acade
               )}
             />
           </div>
-        </button>
+        </div>
 
         {isExpanded && (
           <div className="border-t border-border/40">

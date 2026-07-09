@@ -806,8 +806,10 @@ export function webSearchTool(
       // For queries flagged 'best', replace the truncated snippet with the
       // full page content so the model can actually verify a figure instead
       // of guessing from 400 characters.
+      const notteEnabled = preferences?.['zetora-fallback-notte'] !== false;
+      const metadataEnabled = preferences?.['zetora-fallback-metadata'] !== false;
       const enrichedSearches = await enrichBestQualityResults(cappedSearches, quality as ('default' | 'best')[], async (urls) => {
-        const contentStrategy = new SelfHostedContentStrategy();
+        const contentStrategy = new SelfHostedContentStrategy({ notteEnabled, metadataEnabled });
         const contents = await contentStrategy.getContents(urls);
         return contents.map((c) => ({ url: c.url, content: c.content }));
       });

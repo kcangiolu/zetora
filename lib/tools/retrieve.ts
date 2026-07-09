@@ -558,15 +558,29 @@ async function retrieveSingleUrl(
       }
     }
 
+    // Fell through without a successful result from any enabled method (e.g.
+    // Exa returned no content and the Parallel/Firecrawl fallbacks that would
+    // normally cover that are disabled or also failed) — don't assume Exa's
+    // (possibly empty) result is usable.
+    if (!result || !result.results || result.results.length === 0 || !result.results[0].text) {
+      return {
+        url,
+        result: null,
+        error: 'All scraping methods failed to retrieve content',
+        source: 'error',
+        response_time: (Date.now() - start) / 1000,
+      };
+    }
+
     // Return Exa results if successful
-    const typedItem = result!.results[0] as any;
+    const typedItem = result.results[0] as any;
     return {
       url,
       result: {
-        url: result!.results[0].url,
+        url: result.results[0].url,
         content: typedItem.text || typedItem.summary || '',
-        title: typedItem.title || result!.results[0].url.split('/').pop() || 'Retrieved Content',
-        description: typedItem.summary || `Content retrieved from ${result!.results[0].url}`,
+        title: typedItem.title || result.results[0].url.split('/').pop() || 'Retrieved Content',
+        description: typedItem.summary || `Content retrieved from ${result.results[0].url}`,
         author: typedItem.author || undefined,
         publishedDate: typedItem.publishedDate || undefined,
         image: typedItem.image || undefined,
