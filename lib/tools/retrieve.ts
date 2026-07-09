@@ -218,7 +218,12 @@ async function retrieveSingleUrl(
   content_type?: 'general' | 'twitter' | 'youtube' | 'tiktok' | 'instagram',
   include_summary: boolean = true,
   live_crawl: 'never' | 'auto' | 'preferred' = 'preferred',
-  fallbackOptions: { parallelEnabled?: boolean; firecrawlEnabled?: boolean } = {},
+  fallbackOptions: {
+    parallelEnabled?: boolean;
+    firecrawlEnabled?: boolean;
+    fastcrwEnabled?: boolean;
+    exaEnabled?: boolean;
+  } = {},
 ): Promise<{
   url: string;
   result: any;
@@ -413,9 +418,14 @@ async function retrieveSingleUrl(
       }
     }
 
+    const fastcrwEnabled = fallbackOptions.fastcrwEnabled !== false;
+    const exaEnabled = fallbackOptions.exaEnabled !== false;
+    const parallelEnabled = fallbackOptions.parallelEnabled !== false;
+    const firecrawlEnabled = fallbackOptions.firecrawlEnabled !== false;
+
     // Self-hosted stacks configure FASTCRW_URL instead of paying for Exa —
     // try it first so retrieve doesn't silently depend on a paid API.
-    if (serverEnv.FASTCRW_URL) {
+    if (fastcrwEnabled && serverEnv.FASTCRW_URL) {
       try {
         const fastcrwResult = await scrapeWithFastCrwForBrowsePage(url);
         if (fastcrwResult?.content?.trim()) {
@@ -437,21 +447,25 @@ async function retrieveSingleUrl(
             response_time: (Date.now() - start) / 1000,
           };
         }
-        console.log('fastCRW returned no content, falling back to Exa/Parallel/Firecrawl');
+        console.log(exaEnabled ? 'fastCRW returned no content, falling back to Exa/Parallel/Firecrawl' : 'fastCRW returned no content, Exa disabled by preference');
       } catch (fastcrwError) {
         console.error('fastCRW error:', fastcrwError);
-        console.log('Falling back to Exa/Parallel/Firecrawl');
+        console.log(exaEnabled ? 'Falling back to Exa/Parallel/Firecrawl' : 'Exa disabled by preference');
       }
     }
 
-    // General web scraping with Exa/Parallel/Firecrawl
-    console.log(`Retrieving content from ${url} with Exa AI, summary: ${include_summary}, livecrawl: ${live_crawl}`);
-    const parallelEnabled = fallbackOptions.parallelEnabled !== false;
-    const firecrawlEnabled = fallbackOptions.firecrawlEnabled !== false;
     let result;
     let usingParallel = false;
     let usingFirecrawl = false;
     let source = 'exa';
+
+    if (!exaEnabled) {
+      console.log('Exa disabled by preference, skipping to Parallel/Firecrawl');
+      usingParallel = parallelEnabled;
+      if (!parallelEnabled) usingFirecrawl = firecrawlEnabled;
+    } else {
+    // General web scraping with Exa/Parallel/Firecrawl
+    console.log(`Retrieving content from ${url} with Exa AI, summary: ${include_summary}, livecrawl: ${live_crawl}`);
 
     try {
       result = await exa.getContents([url], {
@@ -461,15 +475,24 @@ async function retrieveSingleUrl(
       });
 
       if (!result.results || result.results.length === 0 || !result.results[0].text) {
-        console.log('Exa AI returned no content, falling back to Parallel');
+        console.log(
+          parallelEnabled
+            ? 'Exa AI returned no content, falling back to Parallel'
+            : `Exa AI returned no content, Parallel fallback disabled — ${firecrawlEnabled ? 'falling back to Firecrawl' : 'no fallback enabled'}`,
+        );
         usingParallel = parallelEnabled;
         if (!parallelEnabled) usingFirecrawl = firecrawlEnabled;
       }
     } catch (exaError) {
       console.error('Exa AI error:', exaError);
-      console.log('Falling back to Parallel');
+      console.log(
+        parallelEnabled
+          ? 'Falling back to Parallel'
+          : `Parallel fallback disabled — ${firecrawlEnabled ? 'falling back to Firecrawl' : 'no fallback enabled'}`,
+      );
       usingParallel = parallelEnabled;
       if (!parallelEnabled) usingFirecrawl = firecrawlEnabled;
+    }
     }
 
     if (usingParallel) {
@@ -506,11 +529,13 @@ async function retrieveSingleUrl(
           }
         }
 
-        console.log('Parallel returned no content, falling back to Firecrawl');
+        console.log(
+          firecrawlEnabled ? 'Parallel returned no content, falling back to Firecrawl' : 'Parallel returned no content, Firecrawl fallback disabled',
+        );
         usingFirecrawl = firecrawlEnabled;
       } catch (parallelError) {
         console.error('Parallel error:', parallelError);
-        console.log('Falling back to Firecrawl');
+        console.log(firecrawlEnabled ? 'Falling back to Firecrawl' : 'Firecrawl fallback disabled');
         usingFirecrawl = firecrawlEnabled;
       }
     }
@@ -646,6 +671,8 @@ export const retrieveTool = tool({
     const fallbackOptions = {
       parallelEnabled: prefs['zetora-fallback-retrieve-parallel'] !== false,
       firecrawlEnabled: prefs['zetora-fallback-retrieve-firecrawl'] !== false,
+      fastcrwEnabled: prefs['zetora-fallback-retrieve-fastcrw'] !== false,
+      exaEnabled: prefs['zetora-fallback-retrieve-exa'] !== false,
     };
 
     try {

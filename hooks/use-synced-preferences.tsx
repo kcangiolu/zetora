@@ -82,6 +82,9 @@ export type PreferenceKey =
   | 'zetora-fallback-search-firecrawl'
   | 'zetora-fallback-retrieve-parallel'
   | 'zetora-fallback-retrieve-firecrawl'
+  | 'zetora-fallback-retrieve-fastcrw'
+  | 'zetora-fallback-retrieve-exa'
+  | 'zetora-search-fallback-provider'
   | 'zetora-tts-provider'
   | 'zetora-tts-custom-provider-id'
   | 'zetora-tts-openai-model'
@@ -230,6 +233,9 @@ function collectLocalStoragePreferences(): Partial<Record<PreferenceKey, Prefere
     'zetora-fallback-search-firecrawl',
     'zetora-fallback-retrieve-parallel',
     'zetora-fallback-retrieve-firecrawl',
+    'zetora-fallback-retrieve-fastcrw',
+    'zetora-fallback-retrieve-exa',
+    'zetora-search-fallback-provider',
   ];
 
   keys.forEach((key) => {

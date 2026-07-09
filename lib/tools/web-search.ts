@@ -793,10 +793,13 @@ export function webSearchTool(
       };
       let result = await strategy.search(queries, searchOptions);
       const hasNoResults = result.searches.every((s) => s.results.length === 0);
-      const searchFirecrawlFallback = preferences?.['zetora-fallback-search-firecrawl'] !== false;
-      if (hasNoResults && normalizedProvider !== 'firecrawl' && searchFirecrawlFallback) {
-        console.log(`${normalizedProvider} returned no results, falling back to Firecrawl`);
-        const fallbackStrategy = createSearchStrategy('firecrawl', clients);
+      const searchFallbackEnabled = preferences?.['zetora-fallback-search-firecrawl'] !== false;
+      const configuredFallbackProvider = (preferences?.['zetora-search-fallback-provider'] as string | undefined) || 'firecrawl';
+      const fallbackProvider =
+        configuredFallbackProvider === 'none' ? null : normalizeWebSearchProvider(configuredFallbackProvider);
+      if (hasNoResults && searchFallbackEnabled && fallbackProvider && fallbackProvider !== normalizedProvider) {
+        console.log(`${normalizedProvider} returned no results, falling back to ${fallbackProvider}`);
+        const fallbackStrategy = createSearchStrategy(fallbackProvider, clients, searxngUrl, preferences, userId);
         result = await fallbackStrategy.search(queries, searchOptions);
       }
       // Bound what flows back into the model's context: dedupe across

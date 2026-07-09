@@ -449,6 +449,9 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-fallback-search-firecrawl'?: boolean;
       'zetora-fallback-retrieve-parallel'?: boolean;
       'zetora-fallback-retrieve-firecrawl'?: boolean;
+      'zetora-fallback-retrieve-fastcrw'?: boolean;
+      'zetora-fallback-retrieve-exa'?: boolean;
+      'zetora-search-fallback-provider'?: 'firecrawl' | 'exa' | 'parallel' | 'searxng' | 'fastcrw' | 'none';
       'zetora-tts-provider'?: 'elevenlabs' | 'openai-compatible';
       'zetora-tts-custom-provider-id'?: string;
       'zetora-tts-openai-model'?: string;

@@ -579,6 +579,17 @@ export function PreferencesSection({
     'zetora-fallback-retrieve-firecrawl',
     true,
   );
+  const [fallbackRetrieveFastcrw, setFallbackRetrieveFastcrw] = useSyncedPreferences<boolean>(
+    'zetora-fallback-retrieve-fastcrw',
+    true,
+  );
+  const [fallbackRetrieveExa, setFallbackRetrieveExa] = useSyncedPreferences<boolean>(
+    'zetora-fallback-retrieve-exa',
+    true,
+  );
+  const [searchFallbackProvider, setSearchFallbackProvider] = useSyncedPreferences<
+    'firecrawl' | 'exa' | 'parallel' | 'searxng' | 'fastcrw' | 'none'
+  >('zetora-search-fallback-provider', 'firecrawl');
 
   const [sandboxProvider, setSandboxProvider] = useSyncedPreferences<'daytona' | 'docker'>(
     'zetora-sandbox-provider',
@@ -1422,16 +1433,44 @@ export function PreferencesSection({
                 </div>
               )}
 
-              {/* Search Firecrawl Fallback */}
+              {/* Search Fallback */}
               <div className="flex items-center justify-between py-3.5 gap-6">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium">Firecrawl Search Fallback</p>
+                  <p className="text-sm font-medium">Search Fallback</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Retry the search with Firecrawl when the primary provider returns no results
+                    Retry with another provider when the primary one returns no results
                   </p>
                 </div>
                 <Switch checked={fallbackSearchFirecrawl} onCheckedChange={setFallbackSearchFirecrawl} />
               </div>
+              {fallbackSearchFirecrawl && (
+                <div className="flex items-center justify-between py-3.5 gap-6">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">Fallback Provider</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Which provider to retry with (skipped automatically when it matches your primary provider)
+                    </p>
+                  </div>
+                  <Select
+                    value={searchFallbackProvider}
+                    onValueChange={(v) => setSearchFallbackProvider(v as typeof searchFallbackProvider)}
+                  >
+                    <SelectTrigger className="w-[140px] h-8 text-xs rounded-lg shrink-0">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {searchProviders.map((p) => (
+                        <SelectItem key={p.value} value={p.value}>
+                          <div className="flex items-center gap-2">
+                            <p.icon className="size-3.5 shrink-0" />
+                            <span>{p.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {/* Sandbox Provider */}
               <div className="flex items-center justify-between py-3.5 gap-6">
@@ -2257,20 +2296,40 @@ export function PreferencesSection({
               <div className="px-4 py-3 border-b border-border/40">
                 <p className="text-sm font-medium">Retrieve Fallbacks</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Providers tried in sequence when Exa cannot retrieve a URL
+                  Methods tried in sequence to extract content from a URL — fastCRW → Exa → Parallel AI → Firecrawl.
+                  Turning all of these off means retrieve fails outright instead of falling through to a method you
+                  did not ask for.
                 </p>
               </div>
               <div className="px-4 divide-y divide-border/40">
                 <div className="flex items-center justify-between py-3.5 gap-6">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium">Parallel AI Fallback</p>
+                    <p className="text-sm font-medium">fastCRW</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Try your self-hosted fastCRW instance first (only applies if one is configured)
+                    </p>
+                  </div>
+                  <Switch checked={fallbackRetrieveFastcrw} onCheckedChange={setFallbackRetrieveFastcrw} />
+                </div>
+                <div className="flex items-center justify-between py-3.5 gap-6">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">Exa</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Use Exa AI if fastCRW is disabled/unconfigured or returns no content
+                    </p>
+                  </div>
+                  <Switch checked={fallbackRetrieveExa} onCheckedChange={setFallbackRetrieveExa} />
+                </div>
+                <div className="flex items-center justify-between py-3.5 gap-6">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">Parallel AI</p>
                     <p className="text-xs text-muted-foreground mt-0.5">Use Parallel AI if Exa returns no content</p>
                   </div>
                   <Switch checked={fallbackRetrieveParallel} onCheckedChange={setFallbackRetrieveParallel} />
                 </div>
                 <div className="flex items-center justify-between py-3.5 gap-6">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium">Firecrawl Fallback</p>
+                    <p className="text-sm font-medium">Firecrawl</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       Use Firecrawl as a last resort if Parallel AI also fails
                     </p>

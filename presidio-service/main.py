@@ -79,11 +79,11 @@ async def detect(input: DetectInput):
         raise HTTPException(500, str(e))
 
     if not input.enable_ner:
-        # Keep pattern recognizers (email, phone, IBAN, IP, URL, CUSTOM_DENYLIST)
-        # but drop the statistical spaCy NER results — useful for languages
-        # where the NER model is unreliable or masks public entities that
-        # need to stay in clear text (e.g. for web search to work).
-        results = [r for r in results if r.recognition_metadata.get("recognizer_name") != "SpacyRecognizer"]
+        # NER off means "only mask what the user explicitly listed" — drop
+        # both the statistical spaCy NER results AND the built-in pattern
+        # recognizers (EMAIL, PHONE, IBAN, IP, URL), keeping only the ad-hoc
+        # CUSTOM_DENYLIST recognizer built from deny_terms above.
+        results = [r for r in results if r.entity_type == "CUSTOM_DENYLIST"]
 
     entities = [
         Entity(start=r.start, end=r.end, type=r.entity_type, score=r.score, text=input.text[r.start : r.end])
