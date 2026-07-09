@@ -4,6 +4,7 @@ import type { ComprehensiveUserData } from '@/lib/user-data-server';
 import { getComprehensiveUserData } from '@/lib/user-data-server';
 import type { SearchGroupId } from '@/lib/utils';
 
+import * as autoGroup from './groups/auto';
 import * as webGroup from './groups/web';
 import * as academicGroup from './groups/academic';
 import * as youtubeGroup from './groups/youtube';
@@ -29,6 +30,7 @@ type LegacyGroupId = SearchGroupId | 'buddy';
 // One module per group under lib/search/groups/, each exporting
 // { tools, instructions }; shared prompt fragments live in groups/shared.ts.
 const groups = {
+  auto: autoGroup,
   web: webGroup,
   academic: academicGroup,
   youtube: youtubeGroup,

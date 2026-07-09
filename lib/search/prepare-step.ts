@@ -49,6 +49,16 @@ export function resolvePrepareStepOverride({
       : undefined;
   }
 
+  // Auto mode: the model loads a skill via a tool call and then keeps
+  // researching with it — never drain activeTools mid-run like the
+  // single-tool-round-then-synthesize modes below.
+  if (group === 'auto') {
+    return {
+      toolChoice: 'auto' as const,
+      activeTools: streamActiveTools,
+    };
+  }
+
   // Other modes: after the first completed tool round, force synthesis.
   if (latestStepHasToolRoundTrip && model !== 'zetora-sarvam-105b') {
     if (isXmlParsedCustomModel) {

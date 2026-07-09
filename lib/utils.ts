@@ -18,6 +18,7 @@ import {
   SpotifyIcon,
   Chart03Icon,
   CanvasIcon,
+  SparklesIcon,
 } from '@hugeicons/core-free-icons';
 import { AgentNetworkIcon } from '@/components/icons/agent-network-icon';
 import { AppsIcon } from '@/components/icons/apps-icon';
@@ -39,6 +40,7 @@ export function normalizeError(err: unknown): string {
 }
 
 export type SearchGroupId =
+  | 'auto'
   | 'web'
   | 'x'
   | 'academic'
@@ -57,6 +59,18 @@ export type SearchGroupId =
   | 'multi-agent'
   | 'prediction'
   | 'canvas';
+
+// Research skills loadable via the 'skill' tool in Auto (and optionally Web) mode.
+export type SkillId =
+  | 'deep-research'
+  | 'extreme-search'
+  | 'academic-review'
+  | 'social-pulse'
+  | 'market-intel'
+  | 'media-scout'
+  | 'local-guide'
+  | 'web-extract'
+  | 'deslop';
 
 // Search provider information for dynamic descriptions
 export const searchProviderInfo = {
@@ -78,6 +92,13 @@ export function getWebSearchDescription(provider: SearchProvider = 'exa'): strin
 // Function to get search groups with dynamic descriptions
 export function getSearchGroups(searchProvider: SearchProvider = 'exa') {
   return [
+    {
+      id: 'auto' as const,
+      name: 'Auto',
+      description: 'Let Zetora decide the best research strategy for your question',
+      icon: SparklesIcon,
+      show: true,
+    },
     {
       id: 'web' as const,
       name: 'Web',

@@ -839,6 +839,7 @@ export function PreferencesSection({
   const [visibleModes, setVisibleModes] = useSyncedPreferences<string[]>('zetora-visible-modes', []);
   const [modeOrder, setModeOrder] = useSyncedPreferences<string[]>('zetora-group-order', []);
   const [preferredModels, setPreferredModels] = useSyncedPreferences<string[]>('zetora-preferred-models', []);
+  const [defaultGroup, setDefaultGroup] = useSyncedPreferences<SearchGroupId>('zetora-default-group', 'auto');
 
   // Sort groups by user-defined order (empty = default order), hide canvas unless flag is on
   const sortedGroups = useMemo(() => {
@@ -1360,6 +1361,35 @@ export function PreferencesSection({
                         </div>
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Default Search Mode */}
+              <div className="flex items-center justify-between py-3.5 gap-6">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Default Search Mode</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Mode selected when you start a new chat</p>
+                </div>
+                <Select value={defaultGroup} onValueChange={(v) => setDefaultGroup(v as SearchGroupId)}>
+                  <SelectTrigger className="w-[140px] h-8 text-xs rounded-lg shrink-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {dynamicGroups
+                      .filter((g) => g.show && g.id !== 'chat' && !('requireAuth' in g && g.requireAuth))
+                      .map((g) => (
+                        <SelectItem key={g.id} value={g.id}>
+                          <div className="flex items-center gap-2">
+                            {typeof g.icon === 'function' ? (
+                              <g.icon className="size-3.5 shrink-0" />
+                            ) : (
+                              <HugeiconsIcon icon={g.icon} size={14} className="shrink-0" />
+                            )}
+                            <span>{g.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>

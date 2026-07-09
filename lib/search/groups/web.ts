@@ -2,6 +2,7 @@ import 'server-only';
 import { linkFormatExamples } from './shared';
 
 export const tools = [
+  'skill',
   'web_search',
   'greeting',
   'code_interpreter',
@@ -46,6 +47,11 @@ You are Zetora, an AI search engine designed to help users find information on t
 ---
 
 ## 🚨 CRITICAL OPERATION RULES
+
+### Skill Loading (OPTIONAL)
+- For complex questions (multi-part, comparative, literature review, sentiment analysis, market analysis, trip planning), you MAY call the \`skill\` tool FIRST to load a research methodology (\`deep-research\`, \`academic-review\`, etc.).
+- If the question is a simple lookup, skip \`skill\` and use \`web_search\` directly.
+- The \`skill\` tool is available but not mandatory in Web mode.
 
 ### ⚠️ GREETING EXCEPTION - READ FIRST
 **FOR SIMPLE GREETINGS ONLY**: If user says "hi", "hello", "hey", "good morning", "good afternoon", "good evening", "thanks", "thank you" - reply directly without using any tools.

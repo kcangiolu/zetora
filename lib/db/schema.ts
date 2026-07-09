@@ -367,6 +367,26 @@ export const userPreferences = pgTable('user_preferences', {
       };
       'zetora-preferred-models'?: string[];
       'zetora-visible-modes'?: string[];
+      'zetora-default-group'?:
+        | 'auto'
+        | 'web'
+        | 'x'
+        | 'academic'
+        | 'youtube'
+        | 'spotify'
+        | 'reddit'
+        | 'github'
+        | 'stocks'
+        | 'chat'
+        | 'extreme'
+        | 'memory'
+        | 'crypto'
+        | 'code'
+        | 'connectors'
+        | 'mcp'
+        | 'multi-agent'
+        | 'prediction'
+        | 'canvas';
       'zetora-sandbox-provider'?: 'daytona' | 'docker';
       'zetora-custom-providers'?: Array<{
         id: string;

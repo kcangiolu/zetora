@@ -164,8 +164,9 @@ const ChatInterface = memo(
     }, [pathname, localChatTitle, headerMenuOpen, measureHeaderMenuAlignment]);
 
     const [selectedModel, setSelectedModel] = useLocalStorage('zetora-selected-model', 'zetora-default');
+    const [defaultGroupPreference] = useSyncedPreferences<SearchGroupId>('zetora-default-group', 'auto' as SearchGroupId);
     const initialGroupDefault = (
-      groupParam ? (groupParam as unknown as SearchGroupId) : ('web' as SearchGroupId)
+      groupParam ? (groupParam as unknown as SearchGroupId) : defaultGroupPreference
     ) as SearchGroupId;
     const [selectedGroup, setSelectedGroup] = useLocalStorage<SearchGroupId>(
       'zetora-selected-group',

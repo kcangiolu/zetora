@@ -1000,7 +1000,9 @@ export async function POST(req: Request) {
         // XML-parsed local models keep their tools armed on every step (see
         // prepareStep), so the step count is their only hard bound against
         // search-after-search looping: 1 tool round + 1 slack + synthesis.
-        stopWhen: stepCountIs(shouldUseXaiMultiAgent ? 5 : group === 'mcp' ? 50 : isXmlParsedCustomModel ? 3 : 5),
+        stopWhen: stepCountIs(
+          shouldUseXaiMultiAgent ? 5 : group === 'mcp' ? 50 : group === 'auto' ? 15 : isXmlParsedCustomModel ? 3 : 5,
+        ),
         ...(shouldUseXaiMultiAgent
           ? {}
           : model === 'zetora-default' ||

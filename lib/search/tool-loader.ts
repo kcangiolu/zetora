@@ -186,6 +186,11 @@ export async function loadConfiguredTools({
           tools.greeting = greetingTool(timezone);
           return;
         }
+        case 'skill': {
+          const { skillTool } = await import('@/lib/tools/skill');
+          tools.skill = skillTool;
+          return;
+        }
         case 'code_context': {
           const { codeContextTool } = await import('@/lib/tools/code-context');
           tools.code_context = codeContextTool;
