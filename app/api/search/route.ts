@@ -1525,28 +1525,41 @@ export async function POST(req: Request) {
             return null;
           }
 
-          const { output: repairedArgs } = await generateText({
-            model: await resolveTertiaryModel('tool-repair', cachePreferences, lightweightUser?.userId),
-            output: Output.object({ schema: tool.inputSchema }),
-            prompt: [
-              `The model tried to call the tool "${toolCall.toolName}"` + ` with the following arguments:`,
-              JSON.stringify(toolCall.input),
-              `The tool accepts the following schema:`,
-              JSON.stringify(inputSchema(toolCall)),
-              'Please fix the arguments.',
-              'For the code interpreter tool do not use print statements.',
-              `For the web search make multiple queries to get the best results but avoid using the same query multiple times.`,
-              `Today's date is ${new Date().toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}`,
-            ].join('\n'),
-          });
+          // The 'tool-repair' tertiary task is user-configurable to any
+          // custom/local provider (see resolveTertiaryModel), which may not
+          // support structured output — Output.object then throws
+          // AI_NoOutputGeneratedError. Since this callback previously had no
+          // try/catch, that exception propagated out of streamText and killed
+          // the whole response mid-stream instead of just leaving the
+          // original tool-call error in place. Returning null tells the SDK
+          // the repair failed, which is exactly what happens for NoSuchToolError above.
+          try {
+            const { output: repairedArgs } = await generateText({
+              model: await resolveTertiaryModel('tool-repair', cachePreferences, lightweightUser?.userId),
+              output: Output.object({ schema: tool.inputSchema }),
+              prompt: [
+                `The model tried to call the tool "${toolCall.toolName}"` + ` with the following arguments:`,
+                JSON.stringify(toolCall.input),
+                `The tool accepts the following schema:`,
+                JSON.stringify(inputSchema(toolCall)),
+                'Please fix the arguments.',
+                'For the code interpreter tool do not use print statements.',
+                `For the web search make multiple queries to get the best results but avoid using the same query multiple times.`,
+                `Today's date is ${new Date().toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                })}`,
+              ].join('\n'),
+            });
 
-          console.log('repairedArgs', repairedArgs);
+            console.log('repairedArgs', repairedArgs);
 
-          return { ...toolCall, args: JSON.stringify(repairedArgs) };
+            return { ...toolCall, args: JSON.stringify(repairedArgs) };
+          } catch (repairError) {
+            console.error('[experimental_repairToolCall] Failed to repair tool call:', repairError);
+            return null;
+          }
         },
         onChunk(event) {
           if (event.chunk.type === 'tool-call') {
