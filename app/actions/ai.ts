@@ -1,9 +1,10 @@
 'use server';
 
 import { serverEnv } from '@/env/server';
-import { generateText, Output } from 'ai';
+import { generateText } from 'ai';
 import type { ModelMessage } from 'ai';
 import { z } from 'zod';
+import { jsonrepair } from 'jsonrepair';
 import { getUser } from '@/lib/auth-utils';
 import { hasVisionSupport, zetora, resolveModel } from '@/ai/providers';
 import {
@@ -74,7 +75,6 @@ import { lookoutCallbackHeaders, lookoutQstashHeaders } from '@/lib/lookout-auth
 import { saveChat, saveMessages } from '@/lib/db/queries';
 import { all, allSettled } from 'better-all';
 import { getGroupConfig as getSearchGroupConfig } from '@/lib/search/group-config';
-import { GoogleGenerativeAIProviderOptions } from '@ai-sdk/google';
 import { resolveTertiaryModel } from '@/ai/tertiary';
 
 export async function suggestQuestions(history: any[]) {
@@ -86,14 +86,15 @@ export async function suggestQuestions(history: any[]) {
   const suggestPrefs = suggestUser ? await getCachedUserPreferencesByUserId(suggestUser.id).catch(() => null) : null;
   const suggestPrefsMap = (suggestPrefs?.preferences ?? {}) as Record<string, string>;
 
-  const { output } = await generateText({
-    model: await resolveTertiaryModel('followup', suggestPrefsMap, suggestUser?.id),
-    providerOptions: {
-      google: {
-        structuredOutputs: true,
-      } satisfies GoogleGenerativeAIProviderOptions,
-    },
-    system: `You are a search engine follow up query/questions generator. You MUST create between 3 and 5 questions for the search engine based on the conversation history.
+  // Plain-text generation + JSON extraction (not the AI SDK's Output.object/
+  // structured-outputs path): the 'followup' tertiary task can resolve to a
+  // custom/local provider (e.g. Ollama) that doesn't support response-format
+  // schemas, which made structured output throw AI_NoOutputGeneratedError
+  // and take the whole page down with it. Same pattern as auto-router.ts.
+  try {
+    const { text } = await generateText({
+      model: await resolveTertiaryModel('followup', suggestPrefsMap, suggestUser?.id),
+      system: `You are a search engine follow up query/questions generator. You MUST create between 3 and 5 questions for the search engine based on the conversation history.
 
 ### Question Generation Guidelines:
 - Create 3-5 questions that are open-ended and encourage further discussion
@@ -129,7 +130,7 @@ export async function suggestQuestions(history: any[]) {
 - Questions must be diverse and not redundant
 - Do not include instructions or meta-commentary in the questions
 
-JSON Output Schema:
+Respond with ONLY the JSON object below, no markdown code fences or extra commentary:
 {
   "questions": [
     "question1 (string)",
@@ -138,21 +139,26 @@ JSON Output Schema:
   ]
 }
 `,
-    messages: history,
-    output: Output.object({
-      schema: z.object({
-        questions: z
-          .array(z.string().max(150))
-          .describe('The generated questions based on the message history.')
-          .min(3)
-          .max(5),
-      }),
-    }),
-  });
+      messages: history,
+      maxOutputTokens: 500,
+    });
 
-  return {
-    questions: output.questions,
-  };
+    const rawMatch = text.match(/\{[\s\S]*\}/);
+    const parsed = rawMatch ? JSON.parse(jsonrepair(rawMatch[0])) : null;
+    const validated = z
+      .object({ questions: z.array(z.string().max(150)).min(1).max(5) })
+      .safeParse(parsed);
+
+    if (!validated.success) {
+      console.error('[suggestQuestions] Could not parse questions from model output:', text);
+      return { questions: [] };
+    }
+
+    return { questions: validated.data.questions };
+  } catch (error) {
+    console.error('[suggestQuestions] Failed to generate follow-up questions:', error);
+    return { questions: [] };
+  }
 }
 
 export async function checkImageModeration(images: string[]) {
