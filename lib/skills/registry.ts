@@ -246,6 +246,239 @@ Use this when the user asks to edit or modify an existing image.
 
 **Phase 4 — Confirm**: Describe what was changed so the user can verify the result.`,
   },
+
+  docx: {
+    id: 'docx',
+    name: 'Word Document',
+    description:
+      'Create professional Word documents (.docx). ONLY when the user explicitly asks to create, generate, or make a Word document, report, or .docx file.',
+    category: 'CONTENT',
+    section: 'other',
+    suggestedTools: ['code_interpreter', 'download_file'],
+    instructions: `
+### Word Document Generation Methodology
+
+**Phase 1 — Plan**: Identify the title, sections, and content. Research first if needed via web_search.
+
+**Phase 2 — Generate via code_interpreter**: Use python-docx. ALWAYS pip install first.
+
+\`\`\`python
+!pip install python-docx -q
+import io, base64
+from docx import Document
+from docx.shared import Inches, Pt, Cm, RGBColor
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+doc = Document()
+style = doc.styles['Normal']
+style.font.name = 'Calibri'
+style.font.size = Pt(11)
+
+title = doc.add_heading('TITLE', level=0)
+title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+doc.add_heading('Section', level=1)
+doc.add_paragraph('Content...')
+
+# For tables:
+table = doc.add_table(rows=N, cols=M, style='Light Grid Accent 1')
+# ... fill cells via table.cell(row, col).text = '...'
+
+buf = io.BytesIO()
+doc.save(buf)
+buf.seek(0)
+print(base64.b64encode(buf.read()).decode())
+\`\`\`
+
+**Phase 3 — Download**: Call download_file with base64 output and filename ending in .docx.
+
+**Phase 4 — Confirm**: Brief description of what was created.`,
+  },
+
+  pptx: {
+    id: 'pptx',
+    name: 'PowerPoint',
+    description:
+      'Create presentations (.pptx). ONLY when the user explicitly asks to create a PowerPoint, presentation, or slides.',
+    category: 'CONTENT',
+    section: 'other',
+    suggestedTools: ['code_interpreter', 'download_file'],
+    instructions: `
+### PowerPoint Generation Methodology
+
+**Phase 1 — Plan the deck**: Number of slides (6-12), content per slide. Research first if needed.
+
+**Phase 2 — Generate via code_interpreter**: Use python-pptx.
+
+\`\`\`python
+!pip install python-pptx -q
+import io, base64
+from pptx import Presentation
+from pptx.util import Inches, Pt, Emu
+from pptx.dml.color import RGBColor
+from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+
+prs = Presentation()
+prs.slide_width = Inches(13.333)
+prs.slide_height = Inches(7.5)
+
+# Title slide
+slide = prs.slides.add_slide(prs.slide_layouts[6])
+left, top, width, height = Inches(1), Inches(2), Inches(11), Inches(2)
+txBox = slide.shapes.add_textbox(left, top, width, height)
+tf = txBox.text_frame
+tf.word_wrap = True
+p = tf.paragraphs[0]
+p.text = 'TITLE'
+p.font.size = Pt(44)
+p.font.bold = True
+p.alignment = PP_ALIGN.CENTER
+
+# Content slides
+slide = prs.slides.add_slide(prs.slide_layouts[6])
+# Add title, bullet points, etc.
+
+buf = io.BytesIO()
+prs.save(buf)
+buf.seek(0)
+print(base64.b64encode(buf.read()).decode())
+\`\`\`
+
+**Phase 3 — Download**: download_file with .pptx filename.
+
+**Phase 4 — Confirm**: Number of slides and key topics.`,
+  },
+
+  pdf: {
+    id: 'pdf',
+    name: 'PDF Document',
+    description:
+      'Create PDF documents. ONLY when the user explicitly asks to create a PDF document or report.',
+    category: 'CONTENT',
+    section: 'other',
+    suggestedTools: ['code_interpreter', 'download_file'],
+    instructions: `
+### PDF Generation Methodology
+
+**Phase 1 — Plan**: Title, structure, content. Research first if needed.
+
+**Phase 2 — Generate via code_interpreter**: Use reportlab.
+
+\`\`\`python
+!pip install reportlab -q
+import io, base64
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch, cm
+from reportlab.lib.colors import HexColor
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
+
+buf = io.BytesIO()
+doc = SimpleDocTemplate(buf, pagesize=A4, topMargin=2*cm, bottomMargin=2*cm, leftMargin=2.5*cm, rightMargin=2.5*cm)
+styles = getSampleStyleSheet()
+story = []
+
+story.append(Paragraph('TITLE', styles['Title']))
+story.append(Spacer(1, 0.3*inch))
+story.append(Paragraph('Content...', styles['BodyText']))
+
+# For tables:
+data = [['Header1', 'Header2'], ['val1', 'val2']]
+t = Table(data)
+t.setStyle(TableStyle([
+  ('BACKGROUND', (0, 0), (-1, 0), HexColor('#2F5496')),
+  ('TEXTCOLOR', (0, 0), (-1, 0), HexColor('#FFFFFF')),
+  ('GRID', (0, 0), (-1, -1), 0.5, HexColor('#CCCCCC')),
+]))
+story.append(t)
+
+doc.build(story)
+buf.seek(0)
+print(base64.b64encode(buf.read()).decode())
+\`\`\`
+
+**Phase 3 — Download**: download_file with .pdf filename.
+
+**Phase 4 — Confirm**: Brief description of the PDF contents.`,
+  },
+
+  xlsx: {
+    id: 'xlsx',
+    name: 'Excel Spreadsheet',
+    description:
+      'Create Excel spreadsheets (.xlsx). ONLY when the user explicitly asks to create an Excel file, spreadsheet, or financial model.',
+    category: 'CONTENT',
+    section: 'other',
+    suggestedTools: ['code_interpreter', 'download_file'],
+    instructions: `
+### Excel Spreadsheet Methodology
+
+**Phase 1 — Plan**: Sheets, columns, formulas, charts. Research data first if needed.
+
+**Phase 2 — Generate via code_interpreter**: Use openpyxl. ALWAYS use Excel formulas (not hardcoded values).
+
+\`\`\`python
+!pip install openpyxl -q
+import io, base64
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side, NamedStyle
+from openpyxl.utils import get_column_letter
+from openpyxl.chart import BarChart, Reference
+
+wb = Workbook()
+ws = wb.active
+ws.title = "Sheet1"
+
+# Headers
+headers = ['Name', 'Value', 'Percentage']
+header_font = Font(name='Calibri', bold=True, size=11, color='FFFFFF')
+header_fill = PatternFill(start_color='2F5496', end_color='2F5496', fill_type='solid')
+for col, header in enumerate(headers, 1):
+    cell = ws.cell(row=1, column=col, value=header)
+    cell.font = header_font
+    cell.fill = header_fill
+    cell.alignment = Alignment(horizontal='center')
+
+# Data with formulas
+data = [['Item A', 100], ['Item B', 200], ['Item C', 150]]
+for i, (name, value) in enumerate(data, 2):
+    ws.cell(row=i, column=1, value=name)
+    ws.cell(row=i, column=2, value=value)
+    ws.cell(row=i, column=3, value=None).value = f'=B{i}/SUM(B2:B{len(data)+1})'
+    ws.cell(row=i, column=3).number_format = '0.0%'
+
+# Total row
+total_row = len(data) + 2
+ws.cell(row=total_row, column=1, value='TOTAL').font = Font(bold=True)
+ws.cell(row=total_row, column=2, value=None).value = f'=SUM(B2:B{len(data)+1})'
+ws.cell(row=total_row, column=2).font = Font(bold=True)
+
+# Auto-width
+for col in range(1, len(headers) + 1):
+    ws.column_dimensions[get_column_letter(col)].width = 18
+
+# Chart
+chart = BarChart()
+chart.title = "Chart Title"
+chart.y_axis.title = 'Values'
+chart.x_axis.title = 'Items'
+data_ref = Reference(ws, min_col=2, min_row=1, max_row=len(data)+1, max_col=2)
+cats_ref = Reference(ws, min_col=1, min_row=2, max_row=len(data)+1)
+chart.add_data(data_ref, titles_from_data=True)
+chart.set_categories(cats_ref)
+ws.add_chart(chart, f'E2')
+
+buf = io.BytesIO()
+wb.save(buf)
+buf.seek(0)
+print(base64.b64encode(buf.read()).decode())
+\`\`\`
+
+**Phase 3 — Download**: download_file with .xlsx filename.
+
+**Phase 4 — Confirm**: Sheets created, key data points, formulas used.`,
+  },
 };
 
 export function getSkill(skillId: SkillId): SkillDefinition {

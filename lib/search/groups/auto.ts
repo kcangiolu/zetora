@@ -56,6 +56,7 @@ export const tools = [
   'greeting',
   'generate_image',
   'edit_image',
+  'download_file',
 ] as const;
 
 export const instructions = `

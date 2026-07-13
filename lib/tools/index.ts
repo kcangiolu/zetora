@@ -30,3 +30,4 @@ export { createBuildTools } from './build-tools';
 export { skillTool, createSkillTool } from './skill';
 export { generateImageTool } from './generate-image';
 export { editImageTool } from './edit-image';
+export { downloadFileTool } from './download-file';

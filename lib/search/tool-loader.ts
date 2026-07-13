@@ -208,6 +208,11 @@ export async function loadConfiguredTools({
           tools.edit_image = editImageTool;
           return;
         }
+        case 'download_file': {
+          const { downloadFileTool } = await import('@/lib/tools/download-file');
+          tools.download_file = downloadFileTool;
+          return;
+        }
         case 'file_query_search': {
           if (contextFiles.length === 0) return;
           const { createFileQuerySearchTool } = await import('@/lib/tools/file-query-search');

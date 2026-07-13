@@ -100,4 +100,32 @@ export const SKILL_CATALOG: SkillCatalogEntry[] = [
     category: 'MEDIA',
     section: 'other',
   },
+  {
+    id: 'docx',
+    name: 'Word Document',
+    description: 'Create professional Word documents (.docx) with formatting, tables, and styling.',
+    category: 'CONTENT',
+    section: 'other',
+  },
+  {
+    id: 'pptx',
+    name: 'PowerPoint',
+    description: 'Create slide presentations (.pptx) with text, images, charts, and layouts.',
+    category: 'CONTENT',
+    section: 'other',
+  },
+  {
+    id: 'pdf',
+    name: 'PDF Document',
+    description: 'Create PDF documents with text, tables, charts, and professional formatting.',
+    category: 'CONTENT',
+    section: 'other',
+  },
+  {
+    id: 'xlsx',
+    name: 'Excel Spreadsheet',
+    description: 'Create Excel spreadsheets (.xlsx) with formulas, charts, formatting, and multiple sheets.',
+    category: 'CONTENT',
+    section: 'other',
+  },
 ];

@@ -73,7 +73,11 @@ export type SkillId =
   | 'web-extract'
   | 'deslop'
   | 'image-generation'
-  | 'image-editing';
+  | 'image-editing'
+  | 'docx'
+  | 'pptx'
+  | 'pdf'
+  | 'xlsx';
 
 // Modes that still require an explicit, exclusive per-message selection —
 // they fully replace the base Sources+Skills tool set for that turn instead
