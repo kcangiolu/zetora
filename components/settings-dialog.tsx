@@ -742,6 +742,25 @@ export function PreferencesSection({
   );
   const [sttOpenAIModel, setSttOpenAIModel] = useSyncedPreferences<string>('zetora-stt-openai-model', 'whisper-1');
 
+  const [imageGenCustomProviderId, setImageGenCustomProviderId] = useSyncedPreferences<string>(
+    'zetora-image-gen-custom-provider-id',
+    '',
+  );
+  const [imageGenModel, setImageGenModel] = useSyncedPreferences<string>('zetora-image-gen-model', '');
+  const [imageGenRequestBody, setImageGenRequestBody] = useSyncedPreferences<string>(
+    'zetora-image-gen-request-body',
+    '',
+  );
+  const [imageEditCustomProviderId, setImageEditCustomProviderId] = useSyncedPreferences<string>(
+    'zetora-image-edit-custom-provider-id',
+    '',
+  );
+  const [imageEditModel, setImageEditModel] = useSyncedPreferences<string>('zetora-image-edit-model', '');
+  const [imageEditRequestBody, setImageEditRequestBody] = useSyncedPreferences<string>(
+    'zetora-image-edit-request-body',
+    '',
+  );
+
   const [content, setContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -1819,6 +1838,110 @@ export function PreferencesSection({
                   )}
                 </div>
               )}
+
+              {/* ── Image Generation Provider ── */}
+              <div className="flex flex-col gap-1.5 py-3.5 border-t border-border/40">
+                <p className="text-sm font-medium">Image Generation</p>
+                <p className="text-xs text-muted-foreground">
+                  Custom OpenAI-compatible server for <code className="text-[11px]">/v1/images/generations</code> —
+                  Max subscribers only
+                </p>
+              </div>
+              <div className="py-3.5 space-y-2.5">
+                {customProviders.length === 0 ? (
+                  <p className="text-[11px] text-muted-foreground/60">
+                    Add a provider in the <span className="font-medium">Custom AI Providers</span> section first.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1 col-span-2">
+                      <Label className="text-[10px] text-muted-foreground">Provider</Label>
+                      <Select value={imageGenCustomProviderId} onValueChange={setImageGenCustomProviderId}>
+                        <SelectTrigger className="h-7 text-xs rounded-md">
+                          <SelectValue placeholder="Select a provider…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {customProviders.map((cp) => (
+                            <SelectItem key={cp.id} value={cp.id} className="text-xs">
+                              {cp.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1 col-span-2">
+                      <Label className="text-[10px] text-muted-foreground">Model name</Label>
+                      <Input
+                        value={imageGenModel}
+                        onChange={(e) => setImageGenModel(e.target.value)}
+                        placeholder="dall-e-3"
+                        className="h-7 text-xs rounded-md"
+                      />
+                    </div>
+                    <div className="space-y-1 col-span-2">
+                      <Label className="text-[10px] text-muted-foreground">Extra request body (JSON)</Label>
+                      <Input
+                        value={imageGenRequestBody}
+                        onChange={(e) => setImageGenRequestBody(e.target.value)}
+                        placeholder='{"quality": "hd"}'
+                        className="h-7 text-xs rounded-md font-mono"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Image Editing Provider ── */}
+              <div className="flex flex-col gap-1.5 py-3.5 border-t border-border/40">
+                <p className="text-sm font-medium">Image Editing</p>
+                <p className="text-xs text-muted-foreground">
+                  Custom OpenAI-compatible server for <code className="text-[11px]">/v1/images/edits</code> — Max
+                  subscribers only
+                </p>
+              </div>
+              <div className="py-3.5 space-y-2.5">
+                {customProviders.length === 0 ? (
+                  <p className="text-[11px] text-muted-foreground/60">
+                    Add a provider in the <span className="font-medium">Custom AI Providers</span> section first.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1 col-span-2">
+                      <Label className="text-[10px] text-muted-foreground">Provider</Label>
+                      <Select value={imageEditCustomProviderId} onValueChange={setImageEditCustomProviderId}>
+                        <SelectTrigger className="h-7 text-xs rounded-md">
+                          <SelectValue placeholder="Select a provider…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {customProviders.map((cp) => (
+                            <SelectItem key={cp.id} value={cp.id} className="text-xs">
+                              {cp.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1 col-span-2">
+                      <Label className="text-[10px] text-muted-foreground">Model name</Label>
+                      <Input
+                        value={imageEditModel}
+                        onChange={(e) => setImageEditModel(e.target.value)}
+                        placeholder="dall-e-2"
+                        className="h-7 text-xs rounded-md"
+                      />
+                    </div>
+                    <div className="space-y-1 col-span-2">
+                      <Label className="text-[10px] text-muted-foreground">Extra request body (JSON)</Label>
+                      <Input
+                        value={imageEditRequestBody}
+                        onChange={(e) => setImageEditRequestBody(e.target.value)}
+                        placeholder='{"size": "1024x1024"}'
+                        className="h-7 text-xs rounded-md font-mono"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* ── Voice Backend (cloud vs local speech-to-speech) ── */}
               {voiceEnabled && (

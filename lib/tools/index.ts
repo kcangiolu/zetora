@@ -28,3 +28,5 @@ export { spotifySearchTool } from './spotify-search';
 export { predictionSearchTool } from './prediction-search';
 export { createBuildTools } from './build-tools';
 export { skillTool, createSkillTool } from './skill';
+export { generateImageTool } from './generate-image';
+export { editImageTool } from './edit-image';

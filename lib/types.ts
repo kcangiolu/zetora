@@ -35,6 +35,8 @@ import type {
   predictionSearchTool,
   createBuildTools,
   skillTool,
+  generateImageTool,
+  editImageTool,
 } from '@/lib/tools';
 
 import type { InferUITool, UIMessage } from 'ai';
@@ -190,6 +192,8 @@ type fileQuerySearchTool = InferUITool<ReturnType<typeof createFileQuerySearchTo
 type spotifySearchTool = InferUITool<typeof spotifySearchTool>;
 type predictionSearchTool = InferUITool<ReturnType<typeof predictionSearchTool>>;
 type skillTool = InferUITool<typeof skillTool>;
+type generateImageTool = InferUITool<typeof generateImageTool>;
+type editImageTool = InferUITool<typeof editImageTool>;
 
 type BuildTools = ReturnType<typeof createBuildTools> extends { tools: infer T } ? T : never;
 type boxInitTool = InferUITool<BuildTools[keyof BuildTools]>;
@@ -250,6 +254,8 @@ export type ChatTools = {
   code_context: codeContextTool;
   file_query_search: fileQuerySearchTool;
   skill: skillTool;
+  generate_image: generateImageTool;
+  edit_image: editImageTool;
 
   // Build Mode Tools
   box_init: boxInitTool;

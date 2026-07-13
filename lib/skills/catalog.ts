@@ -84,4 +84,20 @@ export const SKILL_CATALOG: SkillCatalogEntry[] = [
     category: 'LOCAL',
     section: 'other',
   },
+  {
+    id: 'image-generation',
+    name: 'Image Generation',
+    description:
+      'Generate images from text descriptions. ONLY when the user explicitly asks to create, generate, draw, or make an image/picture/illustration. NOT for describing images, analyzing images, or general conversation.',
+    category: 'MEDIA',
+    section: 'other',
+  },
+  {
+    id: 'image-editing',
+    name: 'Image Editing',
+    description:
+      'Edit existing images — change colors, add/remove objects, inpaint, modify specific elements. ONLY when the user explicitly asks to edit, modify, change, or alter an existing image. NOT for generating new images from scratch.',
+    category: 'MEDIA',
+    section: 'other',
+  },
 ];

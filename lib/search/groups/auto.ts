@@ -54,6 +54,8 @@ export const tools = [
   'prediction_search',
   'file_query_search',
   'greeting',
+  'generate_image',
+  'edit_image',
 ] as const;
 
 export const instructions = `

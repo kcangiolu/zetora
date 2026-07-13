@@ -198,6 +198,16 @@ export async function loadConfiguredTools({
           tools.code_context = codeContextTool;
           return;
         }
+        case 'generate_image': {
+          const { generateImageTool } = await import('@/lib/tools/generate-image');
+          tools.generate_image = generateImageTool;
+          return;
+        }
+        case 'edit_image': {
+          const { editImageTool } = await import('@/lib/tools/edit-image');
+          tools.edit_image = editImageTool;
+          return;
+        }
         case 'file_query_search': {
           if (contextFiles.length === 0) return;
           const { createFileQuerySearchTool } = await import('@/lib/tools/file-query-search');

@@ -96,6 +96,12 @@ export type PreferenceKey =
   | 'zetora-stt-provider'
   | 'zetora-stt-custom-provider-id'
   | 'zetora-stt-openai-model'
+  | 'zetora-image-gen-custom-provider-id'
+  | 'zetora-image-gen-model'
+  | 'zetora-image-gen-request-body'
+  | 'zetora-image-edit-custom-provider-id'
+  | 'zetora-image-edit-model'
+  | 'zetora-image-edit-request-body'
   | 'zetora-voice-s2s-backend'
   | 'zetora-tertiary-voice-model'
   | 'zetora-tertiary-voice-provider';

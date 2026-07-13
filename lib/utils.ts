@@ -71,7 +71,9 @@ export type SkillId =
   | 'media-scout'
   | 'local-guide'
   | 'web-extract'
-  | 'deslop';
+  | 'deslop'
+  | 'image-generation'
+  | 'image-editing';
 
 // Modes that still require an explicit, exclusive per-message selection —
 // they fully replace the base Sources+Skills tool set for that turn instead

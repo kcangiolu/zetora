@@ -596,6 +596,12 @@ export async function POST(req: Request) {
   const { instructions } = config;
   recordTiming('await_parallel_setup', opStart);
 
+  // Image generation/editing are Max-only — strip them for everyone else,
+  // regardless of which mode/group surfaced them.
+  if (!lightweightUser?.isMaxUser) {
+    activeTools = activeTools.filter((toolName) => toolName !== 'generate_image' && toolName !== 'edit_image');
+  }
+
   // Base Sources+Skills path (no exclusive special mode): narrow the bundled
   // tool set to what the user actually enabled, and never offer extreme_search
   // to signed-out users (it used to require the 'extreme' group's requireAuth
