@@ -60,7 +60,8 @@ export type SearchGroupId =
   | 'prediction'
   | 'canvas';
 
-// Research skills loadable via the 'skill' tool in Auto (and optionally Web) mode.
+// Research skills loadable via the 'skill' tool, available on every message
+// (subject to the zetora-disabled-skills preference).
 export type SkillId =
   | 'deep-research'
   | 'extreme-search'
@@ -71,6 +72,13 @@ export type SkillId =
   | 'local-guide'
   | 'web-extract'
   | 'deslop';
+
+// Modes that still require an explicit, exclusive per-message selection —
+// they fully replace the base Sources+Skills tool set for that turn instead
+// of layering on top of it. Every other former "mode" (web, code, academic,
+// extreme, ...) is now an always-on Source/Skill filtered by user
+// preference rather than something picked before sending a message.
+export type SpecialModeId = 'memory' | 'connectors' | 'mcp' | 'multi-agent' | 'canvas';
 
 // Search provider information for dynamic descriptions
 export const searchProviderInfo = {

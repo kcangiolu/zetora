@@ -27,4 +27,4 @@ export { fileQuerySearchTool, createFileQuerySearchTool } from './file-query-sea
 export { spotifySearchTool } from './spotify-search';
 export { predictionSearchTool } from './prediction-search';
 export { createBuildTools } from './build-tools';
-export { skillTool } from './skill';
+export { skillTool, createSkillTool } from './skill';

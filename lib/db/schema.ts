@@ -366,7 +366,12 @@ export const userPreferences = pgTable('user_preferences', {
         }>;
       };
       'zetora-preferred-models'?: string[];
+      /** @deprecated superseded by zetora-enabled-sources; read as a one-time migration fallback. */
       'zetora-visible-modes'?: string[];
+      /** Source ids the model may use; empty/absent = all enabled. */
+      'zetora-enabled-sources'?: string[];
+      /** Skill ids explicitly turned off; empty/absent = all enabled. */
+      'zetora-disabled-skills'?: string[];
       'zetora-default-group'?:
         | 'auto'
         | 'web'

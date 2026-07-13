@@ -356,7 +356,8 @@ EnhancedSourceCard.displayName = 'EnhancedSourceCard';
 
 // Multi URL Result Component
 export const RetrieveMultiResults: React.FC<{ result: RetrieveResponse }> = ({ result }) => {
-  const [isExpanded, setIsExpanded] = React.useState(true);
+  // Collapsed by default, consistent with MultiSearch's "Sources" section.
+  const [isExpanded, setIsExpanded] = React.useState(false);
 
   if (result.results.length === 0) {
     return (

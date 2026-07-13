@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { SearchProvider } from '@/lib/utils';
+import type { SearchProvider, SkillId } from '@/lib/utils';
 import { anonymizeToolInput, type AnonymizeContext } from '@/lib/anonymizer/pseudonymize';
 
 // Defense in depth for the anonymization layer: when it's active the model
@@ -34,6 +34,7 @@ interface LoadConfiguredToolsParams {
   graphitiApiUrl?: string;
   userPreferences?: Record<string, unknown>;
   anonymizeContext?: AnonymizeContext | null;
+  enabledSkillIds?: SkillId[];
 }
 
 export async function loadConfiguredTools({
@@ -51,6 +52,7 @@ export async function loadConfiguredTools({
   graphitiApiUrl,
   userPreferences,
   anonymizeContext,
+  enabledSkillIds,
 }: LoadConfiguredToolsParams): Promise<Record<string, any>> {
   const tools: Record<string, any> = {};
   const uniqueToolNames = [...new Set(activeToolNames)];
@@ -187,8 +189,8 @@ export async function loadConfiguredTools({
           return;
         }
         case 'skill': {
-          const { skillTool } = await import('@/lib/tools/skill');
-          tools.skill = skillTool;
+          const { createSkillTool } = await import('@/lib/tools/skill');
+          tools.skill = createSkillTool(enabledSkillIds ?? []);
           return;
         }
         case 'code_context': {

@@ -115,6 +115,7 @@ import {
   AlertCircle,
   Volume2,
   Square,
+  Sparkles,
 } from 'lucide-react';
 import {
   ClockIcon as PhosphorClockIcon,
@@ -3397,6 +3398,14 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
       };
 
       const sectionKey = `${messageIndex}-${partIndex}`;
+      // 1-indexed position of this block among all reasoning blocks in the turn
+      // (consecutive raw reasoning parts merge into one block, see above).
+      const reasoningIndex = parts
+        .slice(0, partIndex + 1)
+        .filter(
+          (p: ChatMessage['parts'][number], i: number, arr: ChatMessage['parts']) =>
+            p.type === 'reasoning' && arr[i - 1]?.type !== 'reasoning',
+        ).length;
       const hasParallelToolInvocation = parts.some((p: ChatMessage['parts'][number]) => isToolPartType(p.type));
       const hasFollowingOutput = parts.some(
         (p: ChatMessage['parts'][number], i: number) => i > partIndex && (p.type === 'text' || isToolPartType(p.type)),
@@ -3430,6 +3439,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
           key={sectionKey}
           part={mergedPart}
           sectionKey={sectionKey}
+          reasoningIndex={reasoningIndex}
           parallelTool={parallelTool}
           isComplete={isCompleteForView}
           expandedOverride={expandedOverride}
@@ -5206,6 +5216,36 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                 key={`${messageIndex}-${partIndex}-tool`}
                 icon={Globe}
                 text={part.state === 'output-available' ? 'Browsed pages' : 'Browsing pages...'}
+                color="blue"
+              />
+            );
+          }
+
+          case 'tool-skill': {
+            if (part.state === 'output-available') {
+              const loadedSkills = (part.output as { loadedSkills?: Array<{ id: string; name: string }> } | undefined)
+                ?.loadedSkills;
+              const label =
+                !loadedSkills || loadedSkills.length === 0
+                  ? 'Learned skill'
+                  : loadedSkills.length === 1
+                    ? `Learned ${loadedSkills[0].name}`
+                    : `Learned ${loadedSkills.map((s) => s.name).join(', ')}`;
+              return (
+                <div
+                  key={`${messageIndex}-${partIndex}-tool`}
+                  className="my-2 inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-muted/30 px-2.5 py-1.5 text-xs text-muted-foreground"
+                >
+                  <Sparkles className="size-3 shrink-0" strokeWidth={2} />
+                  <span>{label}</span>
+                </div>
+              );
+            }
+            return (
+              <SearchLoadingState
+                key={`${messageIndex}-${partIndex}-tool`}
+                icon={Sparkles}
+                text="Loading skill..."
                 color="blue"
               />
             );

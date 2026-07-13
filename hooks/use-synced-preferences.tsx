@@ -23,6 +23,8 @@ export type PreferenceKey =
   | 'zetora-anonymization-ner-enabled'
   | 'zetora-preferred-models'
   | 'zetora-visible-modes'
+  | 'zetora-enabled-sources'
+  | 'zetora-disabled-skills'
   | 'zetora-default-group'
   | 'zetora-sandbox-provider'
   | 'zetora-searxng-url'
@@ -193,6 +195,8 @@ function collectLocalStoragePreferences(): Partial<Record<PreferenceKey, Prefere
     'zetora-auto-router-config',
     'zetora-preferred-models',
     'zetora-visible-modes',
+    'zetora-enabled-sources',
+    'zetora-disabled-skills',
     'zetora-default-group',
     'zetora-sandbox-provider',
     'zetora-searxng-url',

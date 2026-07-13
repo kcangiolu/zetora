@@ -1,43 +1,41 @@
 import { tool } from 'ai';
 import { z } from 'zod';
-import { getSkill } from '@/lib/skills/registry';
+import { getAllSkills, getSkill } from '@/lib/skills/registry';
 import type { SkillId } from '@/lib/utils';
 
-const SKILL_IDS = [
-  'deep-research',
-  'extreme-search',
-  'academic-review',
-  'social-pulse',
-  'market-intel',
-  'media-scout',
-  'local-guide',
-  'web-extract',
-  'deslop',
-] as const;
+// Built from the caller's server-computed (auth/Pro-checked) enabled set, not
+// a static constant — this is the enforcement point that keeps a disabled or
+// gated skill from ever being offered to the model in the first place.
+export function createSkillTool(enabledSkillIds: SkillId[]) {
+  const ids = enabledSkillIds.length > 0 ? enabledSkillIds : (getAllSkills().map((s) => s.id) as SkillId[]);
+  const idSet = new Set(ids);
+  const enumIds = ids as [SkillId, ...SkillId[]];
+  const summary = getAllSkills()
+    .filter((s) => idSet.has(s.id as SkillId))
+    .map((s) => `${s.id} (${s.description})`)
+    .join(', ');
 
-export const skillTool = tool({
-  description: `Load a research skill's instructions to learn how to use it.
-    Use this as your VERY FIRST action on every non-greeting message.
-    Available skills: deep-research (multi-part questions, comparative analysis),
-    extreme-search (single topic, exhaustive coverage),
-    academic-review (literature review, scientific consensus),
-    social-pulse (sentiment analysis, trending discourse),
-    market-intel (stocks, crypto, market analysis),
-    media-scout (videos, music, movies),
-    local-guide (places, trip planning, weather),
-    web-extract (extract from specific URLs),
-    deslop (humanize AI-generated text).`,
-  inputSchema: z.object({
-    skillNames: z.array(z.enum(SKILL_IDS)).min(1).max(3).describe('Array of skill names to load'),
-  }),
-  execute: async ({ skillNames }: { skillNames: (typeof SKILL_IDS)[number][] }) => {
-    const skills = skillNames.map((name) => getSkill(name as SkillId));
-    const combinedInstructions = skills.map((s) => `## Skill: ${s.name}\n\n${s.instructions}`).join('\n\n---\n\n');
+  return tool({
+    description: `Load a research skill's instructions to learn how to use it.
+      Use this as your VERY FIRST action on every non-greeting message.
+      Available skills: ${summary}.`,
+    inputSchema: z.object({
+      skillNames: z.array(z.enum(enumIds)).min(1).max(3).describe('Array of skill names to load'),
+    }),
+    execute: async ({ skillNames }: { skillNames: SkillId[] }) => {
+      const skills = skillNames.filter((name) => idSet.has(name)).map((name) => getSkill(name));
+      const combinedInstructions = skills.map((s) => `## Skill: ${s.name}\n\n${s.instructions}`).join('\n\n---\n\n');
 
-    return {
-      loadedSkills: skills.map((s) => ({ id: s.id, name: s.name })),
-      combinedInstructions,
-      suggestedTools: [...new Set(skills.flatMap((s) => s.suggestedTools))],
-    };
-  },
-});
+      return {
+        loadedSkills: skills.map((s) => ({ id: s.id, name: s.name })),
+        combinedInstructions,
+        suggestedTools: [...new Set(skills.flatMap((s) => s.suggestedTools))],
+      };
+    },
+  });
+}
+
+// Static shape used only for AI SDK UI-part type inference (InferUITool) —
+// the runtime tool passed to streamText is always built via createSkillTool
+// with the caller's server-computed enabled set.
+export const skillTool = createSkillTool([]);

@@ -98,6 +98,7 @@ import { useIsProUser } from '@/contexts/user-context';
 import { ZetoraLogo } from './logos/zetora-logo';
 import { ThemeSwitcher } from './theme-switcher';
 import Image from 'next/image';
+import { SKILL_CATALOG } from '@/lib/skills/catalog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   DropdownMenu,
@@ -120,6 +121,7 @@ import {
   InformationCircleIcon,
   Rocket01Icon,
   Attachment01Icon,
+  SparklesIcon,
 } from '@hugeicons/core-free-icons';
 import { CONNECTOR_CONFIGS, CONNECTOR_ICONS, type ConnectorProvider } from '@/lib/connectors';
 import { TTS_PROVIDERS, type TTSProvider, getTTSProviderConfig } from '@/lib/tts-providers';
@@ -540,6 +542,23 @@ function EmailTestButton() {
   );
 }
 
+// The 11 single-purpose search tools — always-on, filtered by the
+// zetora-enabled-sources preference, rather than an exclusive mode you pick
+// (see the matching SOURCE_CATALOG_IDS in components/ui/form-component.tsx).
+const SOURCE_CATALOG_IDS = [
+  'web',
+  'x',
+  'stocks',
+  'code',
+  'academic',
+  'reddit',
+  'github',
+  'crypto',
+  'prediction',
+  'youtube',
+  'spotify',
+];
+
 // Component for Combined Preferences (Search + Custom Instructions)
 export function PreferencesSection({
   user,
@@ -845,29 +864,22 @@ export function PreferencesSection({
     }
   };
 
-  // Customize state: visible modes, mode order, and preferred models
+  // Customize state: enabled sources and preferred models
   const dynamicGroups = useMemo(() => getSearchGroups(searchProvider), [searchProvider]);
-  const [visibleModes, setVisibleModes] = useSyncedPreferences<string[]>('zetora-visible-modes', []);
-  const [modeOrder, setModeOrder] = useSyncedPreferences<string[]>('zetora-group-order', []);
+  const [visibleModesLegacy] = useSyncedPreferences<string[]>('zetora-visible-modes', []);
+  const [enabledSourcesPref, setEnabledSources] = useSyncedPreferences<string[]>('zetora-enabled-sources', []);
+  // Fall back to the pre-migration key so existing curation isn't silently reset to "all enabled".
+  const enabledSources =
+    enabledSourcesPref.length > 0
+      ? enabledSourcesPref
+      : visibleModesLegacy.filter((id) => SOURCE_CATALOG_IDS.includes(id));
   const [preferredModels, setPreferredModels] = useSyncedPreferences<string[]>('zetora-preferred-models', []);
-  const [defaultGroup, setDefaultGroup] = useSyncedPreferences<SearchGroupId>('zetora-default-group', 'auto');
 
-  // Sort groups by user-defined order (empty = default order), hide canvas unless flag is on
-  const sortedGroups = useMemo(() => {
-    const canvasEnabled = process.env.NEXT_PUBLIC_CANVAS_ENABLED === 'true';
-    const filtered = dynamicGroups.filter((g) => g.show && g.id !== 'chat' && (g.id !== 'canvas' || canvasEnabled));
-    if (!modeOrder || modeOrder.length === 0) return filtered;
-    const orderMap = new Map(modeOrder.map((id, i) => [id, i]));
-    return [...filtered].sort((a, b) => {
-      const ai = orderMap.get(a.id) ?? Infinity;
-      const bi = orderMap.get(b.id) ?? Infinity;
-      return ai - bi;
-    });
-  }, [dynamicGroups, modeOrder]);
+  const sourceCatalog = useMemo(
+    () => SOURCE_CATALOG_IDS.map((id) => dynamicGroups.find((g) => g.id === id)).filter((g) => Boolean(g)),
+    [dynamicGroups],
+  );
 
-  // Drag-and-drop state for mode reordering
-  const dragIndexRef = useRef<number | null>(null);
-  const dragOverIndexRef = useRef<number | null>(null);
   const [modelSearch, setModelSearch] = useState('');
 
   // Group models by provider for the customize UI
@@ -1372,35 +1384,6 @@ export function PreferencesSection({
                         </div>
                       </SelectItem>
                     ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Default Search Mode */}
-              <div className="flex items-center justify-between py-3.5 gap-6">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">Default Search Mode</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Mode selected when you start a new chat</p>
-                </div>
-                <Select value={defaultGroup} onValueChange={(v) => setDefaultGroup(v as SearchGroupId)}>
-                  <SelectTrigger className="w-[140px] h-8 text-xs rounded-lg shrink-0">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {dynamicGroups
-                      .filter((g) => g.show && g.id !== 'chat' && !('requireAuth' in g && g.requireAuth))
-                      .map((g) => (
-                        <SelectItem key={g.id} value={g.id}>
-                          <div className="flex items-center gap-2">
-                            {typeof g.icon === 'function' ? (
-                              <g.icon className="size-3.5 shrink-0" />
-                            ) : (
-                              <HugeiconsIcon icon={g.icon} size={14} className="shrink-0" />
-                            )}
-                            <span>{g.name}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -2641,43 +2624,31 @@ export function PreferencesSection({
         {/* ── Customize tab ── */}
         {preferencesTab === 'customize' && (
           <div className="mt-4 space-y-5">
-            {/* Search Modes - toggle visibility & reorder */}
+            {/* Sources - toggle which tools the model can use */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-muted-foreground font-medium">Search Modes</p>
+                  <p className="text-xs text-muted-foreground font-medium">Sources</p>
                   <p className="text-[11px] text-muted-foreground/50">
-                    Drag to reorder, toggle visibility. Chat is always available. All shown when none selected.
+                    Tools the AI can use on every message. All enabled when none selected.
                   </p>
                 </div>
-                <div className="flex items-center gap-1">
-                  {modeOrder.length > 0 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 text-[11px] px-2 rounded-md"
-                      onClick={() => setModeOrder([])}
-                    >
-                      Reset order
-                    </Button>
-                  )}
-                  {visibleModes.length > 0 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 text-[11px] px-2 rounded-md"
-                      onClick={() => setVisibleModes([])}
-                    >
-                      Clear
-                    </Button>
-                  )}
-                </div>
+                {enabledSources.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-[11px] px-2 rounded-md"
+                    onClick={() => setEnabledSources([])}
+                  >
+                    Clear
+                  </Button>
+                )}
               </div>
               <div className="rounded-xl border border-border/60 divide-y divide-border/40 max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-muted-foreground/20">
-                {sortedGroups.map((group, index) => {
-                  const isVisible = visibleModes.length === 0 || visibleModes.includes(group.id);
+                {sourceCatalog.map((group) => {
+                  if (!group) return null;
+                  const isEnabled = enabledSources.length === 0 || enabledSources.includes(group.id);
                   const GroupIcon = group.icon as unknown as ComponentType<{
                     width?: number;
                     height?: number;
@@ -2685,36 +2656,8 @@ export function PreferencesSection({
                   }>;
                   const isComponentIcon = typeof group.icon === 'function';
                   return (
-                    <div
-                      key={group.id}
-                      draggable
-                      onDragStart={() => {
-                        dragIndexRef.current = index;
-                      }}
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        dragOverIndexRef.current = index;
-                      }}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        const fromIndex = dragIndexRef.current;
-                        const toIndex = dragOverIndexRef.current;
-                        if (fromIndex === null || toIndex === null || fromIndex === toIndex) return;
-                        const reordered = [...sortedGroups.map((g) => g.id)];
-                        const [moved] = reordered.splice(fromIndex, 1);
-                        reordered.splice(toIndex, 0, moved);
-                        setModeOrder(reordered);
-                        dragIndexRef.current = null;
-                        dragOverIndexRef.current = null;
-                      }}
-                      onDragEnd={() => {
-                        dragIndexRef.current = null;
-                        dragOverIndexRef.current = null;
-                      }}
-                      className="flex items-center justify-between py-2.5 px-3 gap-3 cursor-grab active:cursor-grabbing"
-                    >
+                    <div key={group.id} className="flex items-center justify-between py-2.5 px-3 gap-3">
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <GripVertical size={14} className="shrink-0 text-muted-foreground/40" />
                         {isComponentIcon ? (
                           <GroupIcon width={14} height={14} className="shrink-0 text-muted-foreground" />
                         ) : (
@@ -2726,28 +2669,16 @@ export function PreferencesSection({
                           />
                         )}
                         <span className="text-xs font-medium truncate">{group.name}</span>
-                        {'requirePro' in group && group.requirePro && (
-                          <span className="font-pixel text-[11px] text-muted-foreground/50 uppercase tracking-wider shrink-0">
-                            Pro
-                          </span>
-                        )}
                       </div>
                       <Switch
-                        checked={isVisible}
+                        checked={isEnabled}
                         onCheckedChange={(checked) => {
+                          const base = enabledSources.length === 0 ? sourceCatalog.map((g) => g!.id) : enabledSources;
                           if (checked) {
-                            if (visibleModes.length === 0) {
-                              setVisibleModes(dynamicGroups.map((g) => g.id));
-                            } else {
-                              setVisibleModes([...visibleModes, group.id]);
-                            }
+                            setEnabledSources([...base, group.id]);
                           } else {
-                            if (visibleModes.length === 0) {
-                              setVisibleModes(dynamicGroups.filter((g) => g.id !== group.id).map((g) => g.id));
-                            } else {
-                              const next = visibleModes.filter((id) => id !== group.id);
-                              setVisibleModes(next.length === 0 ? [] : next);
-                            }
+                            const next = base.filter((id) => id !== group.id);
+                            setEnabledSources(next);
                           }
                         }}
                       />
@@ -5608,6 +5539,109 @@ export function McpSection({ user, isProUser }: { user: any; isProUser?: boolean
   );
 }
 
+export function SkillsSection() {
+  const isMobile = useMediaQuery('(max-width: 768px)');
+  const [disabledSkills, setDisabledSkills] = useSyncedPreferences<string[]>('zetora-disabled-skills', []);
+  const allSkills = SKILL_CATALOG;
+  const enabledCount = allSkills.length - disabledSkills.filter((id) => allSkills.some((s) => s.id === id)).length;
+
+  const toggleSkill = (skillId: string, enabled: boolean) => {
+    if (enabled) {
+      setDisabledSkills(disabledSkills.filter((id) => id !== skillId));
+    } else {
+      setDisabledSkills([...disabledSkills, skillId]);
+    }
+  };
+
+  const sections: Array<{ key: 'core' | 'other'; label: string }> = [
+    { key: 'core', label: 'Core' },
+    { key: 'other', label: 'Other' },
+  ];
+
+  return (
+    <div className={cn(isMobile ? 'space-y-4' : 'space-y-5')}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="font-pixel-grid text-xs text-muted-foreground/50">01</span>
+          <h3 className={cn('font-semibold', isMobile ? 'text-sm' : 'text-base')}>Skills</h3>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-[11px] text-muted-foreground/60">
+            {enabledCount}/{allSkills.length} enabled
+          </span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-6 text-[11px] px-2 rounded-md"
+            onClick={() => setDisabledSkills([])}
+          >
+            All
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-6 text-[11px] px-2 rounded-md"
+            onClick={() => setDisabledSkills(allSkills.map((s) => s.id))}
+          >
+            None
+          </Button>
+        </div>
+      </div>
+
+      <div>
+        <h4 className={cn('font-medium', isMobile ? 'text-[13px]' : 'text-sm')}>Skill Directory</h4>
+        <p className={cn('text-muted-foreground mt-1', isMobile ? 'text-[11px] leading-relaxed' : 'text-xs')}>
+          Skills are playbooks that guide the AI through complex tasks. Enable the ones you want active in your
+          chats.
+        </p>
+      </div>
+
+      {sections.map(({ key, label }) => {
+        const skillsInSection = allSkills.filter((s) => s.section === key);
+        if (skillsInSection.length === 0) return null;
+        return (
+          <div key={key} className="space-y-2">
+            <p className="text-[11px] font-medium text-muted-foreground/50 uppercase tracking-wider">{label}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {skillsInSection.map((skill) => {
+                const isEnabled = !disabledSkills.includes(skill.id);
+                return (
+                  <div key={skill.id} className="border border-border/60 rounded-xl p-4 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h5 className={cn('font-medium truncate', isMobile ? 'text-[13px]' : 'text-sm')}>
+                          {skill.name}
+                        </h5>
+                        <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">
+                          {skill.category}
+                        </span>
+                      </div>
+                      <Switch
+                        checked={isEnabled}
+                        onCheckedChange={(checked) => toggleSkill(skill.id, checked)}
+                        className="shrink-0"
+                      />
+                    </div>
+                    <p className={cn('text-muted-foreground leading-relaxed', isMobile ? 'text-[11px]' : 'text-xs')}>
+                      {skill.description}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+
+      <p className="text-[11px] text-muted-foreground/50 text-center pt-1">
+        Changes sync automatically and take effect on your next message.
+      </p>
+    </div>
+  );
+}
+
 export function SettingsDialog({
   open,
   onOpenChange,
@@ -5683,6 +5717,11 @@ export function SettingsDialog({
       icon: ({ className }: { className?: string }) => <HugeiconsIcon icon={Settings02Icon} className={className} />,
     },
     {
+      value: 'skills',
+      label: 'Skills',
+      icon: ({ className }: { className?: string }) => <HugeiconsIcon icon={SparklesIcon} className={className} />,
+    },
+    {
       value: 'connectors',
       label: 'Connectors',
       icon: ({ className }: { className?: string }) => <HugeiconsIcon icon={ConnectIcon} className={className} />,
@@ -5732,6 +5771,8 @@ export function SettingsDialog({
           setIsCustomInstructionsEnabledAction={setIsCustomInstructionsEnabledAction}
         />
       )}
+
+      {currentTab === 'skills' && <SkillsSection />}
 
       {currentTab === 'connectors' && <ConnectorsSection user={user} />}
 

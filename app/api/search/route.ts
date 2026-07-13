@@ -59,6 +59,8 @@ import { OpenAIResponsesProviderOptions } from '@ai-sdk/openai';
 import { AnthropicProviderOptions } from '@ai-sdk/anthropic';
 import { getGroupConfig } from '@/lib/search/group-config';
 import { toolGroupMap } from '@/lib/search/groups/auto';
+import { getAllSkillIds } from '@/lib/skills/registry';
+import type { SkillId, SpecialModeId } from '@/lib/utils';
 import {
   getCurrentUser,
   getLightweightUser,
@@ -413,6 +415,14 @@ export async function POST(req: Request) {
   } = await req.json();
   recordTiming('parse_request_body', opStart);
 
+  // Sources (web, code, academic, ...) are always-on tools filtered by user
+  // preference now, not exclusive modes — only these still fully replace the
+  // base tool set for a turn. Any other/legacy `group` value (old single-
+  // purpose modes, 'auto', or absent) falls through to the base Sources+
+  // Skills path.
+  const SPECIAL_MODE_IDS = new Set(['memory', 'connectors', 'mcp', 'multi-agent', 'buddy', 'canvas']);
+  const specialMode = typeof group === 'string' && SPECIAL_MODE_IDS.has(group) ? (group as SpecialModeId | 'buddy') : undefined;
+
   if (!Array.isArray(requestMessages) || requestMessages.length === 0) {
     return new ChatSDKError('bad_request:api', 'Messages array is required and cannot be empty').toResponse();
   }
@@ -446,6 +456,7 @@ export async function POST(req: Request) {
     model,
     requestedModel,
     group,
+    specialMode,
     latitude,
     longitude,
     isAutoRouted,
@@ -475,7 +486,7 @@ export async function POST(req: Request) {
   // Start full user fetch immediately (doesn't block early exits)
   const isProUser = lightweightUser?.isProUser ?? false;
   const isMaxUser = lightweightUser?.isMaxUser ?? false;
-  const shouldUseXaiMultiAgent = group === 'multi-agent' && isProUser;
+  const shouldUseXaiMultiAgent = specialMode === 'multi-agent' && isProUser;
   opStart = Date.now();
   const fullUserPromise = lightweightUser ? getCurrentUser() : Promise.resolve(null);
   recordTiming('create_full_user_promise', opStart);
@@ -504,12 +515,12 @@ export async function POST(req: Request) {
     if (requiresAuthentication(model)) {
       return new ChatSDKError('unauthorized:model', `${model} requires authentication`).toResponse();
     }
-    if (group === 'extreme') {
-      return new ChatSDKError('unauthorized:auth', 'Authentication required to use Extreme Search mode').toResponse();
-    }
-    if (group === 'mcp') {
+    if (specialMode === 'mcp') {
       return new ChatSDKError('unauthorized:auth', 'Authentication required to use MCP mode').toResponse();
     }
+    // Extreme Search is no longer a mode you must be authenticated to select
+    // — extreme_search is a base tool, gated below via activeTools filtering
+    // (signed-out users simply never get it offered).
   } else {
     // Fast auth checks using lightweight user (no additional DB calls)
     if (requiresMaxSubscription(model) && !lightweightUser.isMaxUser) {
@@ -518,7 +529,7 @@ export async function POST(req: Request) {
     if (requiresProSubscription(model) && !lightweightUser.isProUser && !lightweightUser.isMaxUser) {
       return new ChatSDKError('upgrade_required:model', `${model} requires a Pro subscription`).toResponse();
     }
-    if (group === 'mcp' && !lightweightUser.isProUser && !lightweightUser.isMaxUser) {
+    if (specialMode === 'mcp' && !lightweightUser.isProUser && !lightweightUser.isMaxUser) {
       return new ChatSDKError('upgrade_required:auth', 'MCP mode requires a Pro subscription').toResponse();
     }
   }
@@ -526,7 +537,7 @@ export async function POST(req: Request) {
   // Start config and custom instructions in parallel
   // Use lightweightUser.userId directly instead of waiting for fullUserPromise
   opStart = Date.now();
-  const configPromise = getGroupConfig(group, lightweightUser, fullUserPromise);
+  const configPromise = getGroupConfig(specialMode, lightweightUser, fullUserPromise);
   const customInstructionsPromise =
     lightweightUser && (isCustomInstructionsEnabled ?? true)
       ? getCachedCustomInstructionsByUserId(lightweightUser.userId)
@@ -585,20 +596,31 @@ export async function POST(req: Request) {
   const { instructions } = config;
   recordTiming('await_parallel_setup', opStart);
 
-  // Auto bundles tools from several single-purpose groups (Reddit, GitHub,
-  // stocks, ...) — if the user hid one of those from the mode picker, Auto
-  // shouldn't reach for its tool either, or "disabling Reddit search" would
-  // silently do nothing while in Auto mode.
-  if (group === 'auto') {
-    const visibleModes = userPreferencesResult?.preferences?.['zetora-visible-modes'] as string[] | undefined;
-    if (visibleModes && visibleModes.length > 0) {
-      const visibleSet = new Set(visibleModes);
+  // Base Sources+Skills path (no exclusive special mode): narrow the bundled
+  // tool set to what the user actually enabled, and never offer extreme_search
+  // to signed-out users (it used to require the 'extreme' group's requireAuth
+  // gate; that gate now lives here since extreme_search is an always-on tool).
+  // zetora-visible-modes is the pre-migration key name, read as a fallback in
+  // case a client hasn't run the one-time copy to zetora-enabled-sources yet.
+  if (!specialMode) {
+    const enabledSources = (userPreferencesResult?.preferences?.['zetora-enabled-sources'] ??
+      userPreferencesResult?.preferences?.['zetora-visible-modes']) as string[] | undefined;
+    if (enabledSources && enabledSources.length > 0) {
+      const enabledSet = new Set(enabledSources);
       activeTools = activeTools.filter((toolName) => {
         const owningGroup = toolGroupMap[toolName];
-        return !owningGroup || visibleSet.has(owningGroup);
+        return !owningGroup || enabledSet.has(owningGroup);
       });
     }
+    if (!lightweightUser) {
+      activeTools = activeTools.filter((toolName) => toolName !== 'extreme_search');
+    }
   }
+
+  const disabledSkillIds = new Set(
+    (userPreferencesResult?.preferences?.['zetora-disabled-skills'] as string[] | undefined) ?? [],
+  );
+  const enabledSkillIds = getAllSkillIds().filter((skillId) => !disabledSkillIds.has(skillId)) as SkillId[];
 
   if (!criticalResult.canProceed) {
     throw criticalResult.error;
@@ -834,7 +856,7 @@ export async function POST(req: Request) {
         });
       };
 
-      const shouldLoadMcpTools = Boolean(lightweightUser?.isProUser && (group === 'mcp' || group === 'extreme'));
+      const shouldLoadMcpTools = Boolean(lightweightUser?.isProUser && specialMode === 'mcp');
 
       if (shouldLoadMcpTools && lightweightUser) {
         const { resolveUserMcpTools } = await import('@/lib/tools/mcp-client');
@@ -851,10 +873,7 @@ export async function POST(req: Request) {
       }
 
       const dynamicMcpToolNames = Object.keys(mcpDynamicTools);
-      const configuredActiveTools = [
-        ...activeTools,
-        ...(group === 'mcp' || group === 'extreme' ? dynamicMcpToolNames : []),
-      ];
+      const configuredActiveTools = [...activeTools, ...(specialMode === 'mcp' ? dynamicMcpToolNames : [])];
       const streamActiveTools =
         model === 'zetora-qwen-coder-plus' || model === 'zetora-qwen-3-vl' || model === 'zetora-qwen-3-vl-thinking'
           ? [...configuredActiveTools].filter((tool) => tool !== 'code_interpreter')
@@ -871,7 +890,7 @@ export async function POST(req: Request) {
         searchProvider,
         timezone,
         contextFiles,
-        includeMcpTools: group === 'extreme' || group === 'mcp',
+        includeMcpTools: specialMode === 'mcp',
         mcpDynamicTools,
         lightweightUser,
         selectedConnectors,
@@ -883,6 +902,7 @@ export async function POST(req: Request) {
           (userPreferencesResult?.preferences?.['zetora-graphiti-api-url'] as string | undefined) || undefined,
         userPreferences: (userPreferencesResult?.preferences ?? {}) as Record<string, unknown>,
         anonymizeContext,
+        enabledSkillIds,
       });
 
       const streamTools = shouldUseXaiMultiAgent
@@ -1018,7 +1038,7 @@ export async function POST(req: Request) {
         // prepareStep), so the step count is their only hard bound against
         // search-after-search looping: 1 tool round + 1 slack + synthesis.
         stopWhen: stepCountIs(
-          shouldUseXaiMultiAgent ? 5 : group === 'mcp' ? 50 : group === 'auto' ? 15 : isXmlParsedCustomModel ? 3 : 5,
+          shouldUseXaiMultiAgent ? 5 : specialMode === 'mcp' ? 50 : !specialMode ? 15 : isXmlParsedCustomModel ? 3 : 5,
         ),
         ...(shouldUseXaiMultiAgent
           ? {}
@@ -1515,7 +1535,11 @@ export async function POST(req: Request) {
             Boolean(latestStep) && latestStep.toolCalls.length > 0 && latestStep.toolResults.length > 0;
 
           return resolvePrepareStepOverride({
-            group,
+            // No exclusive special mode means the base Sources+Skills path,
+            // which behaves like the old Auto mode (keeps tools armed across
+            // steps for the skill-load-then-research loop) — synthesize the
+            // 'auto' sentinel resolvePrepareStepOverride already expects.
+            group: specialMode ?? 'auto',
             shouldUseXaiMultiAgent,
             isXmlParsedCustomModel,
             model,
@@ -1603,11 +1627,9 @@ export async function POST(req: Request) {
               // Track usage synchronously - this is critical for billing and rate limiting
               try {
                 const shouldTrackMessageUsage = !shouldBypassRateLimits(model, lightweightUser);
-                const shouldTrackExtremeSearchUsage =
-                  group === 'extreme' &&
-                  event.steps?.some((step) =>
-                    step.toolCalls?.some((toolCall) => toolCall && toolCall.toolName === 'extreme_search'),
-                  );
+                const shouldTrackExtremeSearchUsage = event.steps?.some((step) =>
+                  step.toolCalls?.some((toolCall) => toolCall && toolCall.toolName === 'extreme_search'),
+                );
                 const shouldTrackAnthropicUsage = getModelProvider(model) === 'anthropic' && lightweightUser.isMaxUser;
                 const shouldTrackGoogleUsage = getModelProvider(model) === 'google' && lightweightUser.isMaxUser;
 
@@ -1689,7 +1711,7 @@ export async function POST(req: Request) {
       });
 
       dataStream.merge(
-        (group === 'canvas' ? pipeJsonRender(uiMessageStream) : uiMessageStream) as AsyncIterableStream<
+        (specialMode === 'canvas' ? pipeJsonRender(uiMessageStream) : uiMessageStream) as AsyncIterableStream<
           InferUIMessageChunk<ChatMessage>
         >,
       );

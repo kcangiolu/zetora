@@ -9,6 +9,7 @@ import remend from 'remend';
 interface ReasoningPartViewProps {
   part: ReasoningUIPart;
   sectionKey: string;
+  reasoningIndex: number;
   parallelTool: string | null;
   isComplete: boolean;
   expandedOverride?: boolean;
@@ -180,10 +181,22 @@ const isEmptyContent = (content: string): boolean => {
 };
 
 export const ReasoningPartView: React.FC<ReasoningPartViewProps> = React.memo(
-  ({ part, sectionKey, parallelTool, isComplete, expandedOverride, isFullscreen, setIsFullscreen, setIsExpanded }) => {
+  ({
+    part,
+    sectionKey,
+    reasoningIndex,
+    parallelTool,
+    isComplete,
+    expandedOverride,
+    isFullscreen,
+    setIsFullscreen,
+    setIsExpanded,
+  }) => {
     const scrollRef = useRef<HTMLDivElement>(null);
-    const [autoExpanded, setAutoExpanded] = React.useState(true);
-    const collapseTimerRef = useRef<number | null>(null);
+    // Stays expanded by default (even after the model finishes reasoning) — the
+    // user collapses it manually via the header. Height is capped with an
+    // internal scrollbar (below) so a long block doesn't dominate the page.
+    const autoExpanded = true;
 
     // isThinking drives the header spinner and label. For token-by-token models
     // (e.g. Minimax) isComplete flickers true/false between every token because
@@ -239,35 +252,6 @@ export const ReasoningPartView: React.FC<ReasoningPartViewProps> = React.memo(
     const hasNonEmptyReasoning = part.text && !isEmptyContent(part.text);
     const isExpanded = expandedOverride ?? autoExpanded;
 
-    // Avoid "close then open" flicker when providers emit back-to-back reasoning parts.
-    // We only auto-collapse after reasoning stays complete for a moment.
-    useEffect(() => {
-      if (collapseTimerRef.current != null) {
-        window.clearTimeout(collapseTimerRef.current);
-        collapseTimerRef.current = null;
-      }
-
-      // Manual toggle always wins
-      if (expandedOverride !== undefined) return;
-
-      if (isThinking) {
-        setAutoExpanded(true);
-        return;
-      }
-
-      collapseTimerRef.current = window.setTimeout(() => {
-        setAutoExpanded(false);
-        collapseTimerRef.current = null;
-      }, 900);
-
-      return () => {
-        if (collapseTimerRef.current != null) {
-          window.clearTimeout(collapseTimerRef.current);
-          collapseTimerRef.current = null;
-        }
-      };
-    }, [expandedOverride, isThinking, part.text]);
-
     // Hide empty reasoning only once we're done thinking; during streaming we still want the "Thinking" UI.
     if (!hasNonEmptyReasoning && !isThinking) {
       return null;
@@ -308,7 +292,7 @@ export const ReasoningPartView: React.FC<ReasoningPartViewProps> = React.memo(
               ) : (
                 <div className="flex items-center gap-1.5">
                   <Sparkles className="size-3 text-muted-foreground" strokeWidth={2} />
-                  <div className="text-xs font-normal text-muted-foreground">Reasoning</div>
+                  <div className="text-xs font-normal text-muted-foreground">Reasoning · {reasoningIndex}</div>
                 </div>
               )}
             </div>

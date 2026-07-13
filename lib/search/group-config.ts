@@ -2,97 +2,82 @@ import 'server-only';
 
 import type { ComprehensiveUserData } from '@/lib/user-data-server';
 import { getComprehensiveUserData } from '@/lib/user-data-server';
-import type { SearchGroupId } from '@/lib/utils';
+import type { SpecialModeId } from '@/lib/utils';
 
 import * as autoGroup from './groups/auto';
-import * as webGroup from './groups/web';
-import * as academicGroup from './groups/academic';
-import * as youtubeGroup from './groups/youtube';
-import * as spotifyGroup from './groups/spotify';
-import * as codeGroup from './groups/code';
-import * as redditGroup from './groups/reddit';
-import * as githubGroup from './groups/github';
-import * as stocksGroup from './groups/stocks';
-import * as cryptoGroup from './groups/crypto';
-import * as chatGroup from './groups/chat';
-import * as extremeGroup from './groups/extreme';
-import * as xGroup from './groups/x';
 import * as memoryGroup from './groups/memory';
 import * as connectorsGroup from './groups/connectors';
 import * as mcpGroup from './groups/mcp';
 import * as multi_agentGroup from './groups/multi-agent';
 import * as buddyGroup from './groups/buddy';
-import * as predictionGroup from './groups/prediction';
 import * as canvasGroup from './groups/canvas';
 
-type LegacyGroupId = SearchGroupId | 'buddy';
+type LegacySpecialModeId = SpecialModeId | 'buddy';
 
-// One module per group under lib/search/groups/, each exporting
-// { tools, instructions }; shared prompt fragments live in groups/shared.ts.
-const groups = {
-  auto: autoGroup,
-  web: webGroup,
-  academic: academicGroup,
-  youtube: youtubeGroup,
-  spotify: spotifyGroup,
-  code: codeGroup,
-  reddit: redditGroup,
-  github: githubGroup,
-  stocks: stocksGroup,
-  crypto: cryptoGroup,
-  chat: chatGroup,
-  extreme: extremeGroup,
-  x: xGroup,
+// Sources (web, code, academic, reddit, ...) are no longer individual
+// "groups" the model is exclusively restricted to — they're always-on tools
+// filtered by the zetora-enabled-sources preference (see getBaseConfig
+// below and app/api/search/route.ts). Only these five modes still fully
+// replace the base tool set for a turn: they read from raw external
+// systems (memory store, connectors, user MCP apps, xAI's own search) or
+// change the whole response pipeline (canvas), so "run this one thing
+// exclusively" remains the right model.
+const specialGroups = {
   memory: memoryGroup,
   connectors: connectorsGroup,
   mcp: mcpGroup,
   'multi-agent': multi_agentGroup,
   buddy: buddyGroup,
-  prediction: predictionGroup,
   canvas: canvasGroup,
 };
 
-const groupTools = Object.fromEntries(Object.entries(groups).map(([id, group]) => [id, group.tools])) as {
-  [K in keyof typeof groups]: (typeof groups)[K]['tools'];
+const specialGroupTools = Object.fromEntries(
+  Object.entries(specialGroups).map(([id, group]) => [id, group.tools]),
+) as {
+  [K in keyof typeof specialGroups]: (typeof specialGroups)[K]['tools'];
 };
 
-const localGroupInstructions = Object.fromEntries(
-  Object.entries(groups).map(([id, group]) => [id, group.instructions]),
-) as Record<keyof typeof groups, string>;
+const specialGroupInstructions = Object.fromEntries(
+  Object.entries(specialGroups).map(([id, group]) => [id, group.instructions]),
+) as Record<keyof typeof specialGroups, string>;
+
+// The always-on default: Auto's bundled tool set, further narrowed by
+// zetora-enabled-sources (app/api/search/route.ts) and zetora-disabled-skills
+// (via the skill tool factory) — no group-exclusive tool restriction anymore.
+export function getBaseConfig() {
+  return { tools: autoGroup.tools, instructions: autoGroup.instructions };
+}
 
 export async function getGroupConfig(
-  groupId: LegacyGroupId = 'web',
+  specialMode: LegacySpecialModeId | undefined,
   lightweightUser?: { userId: string; email: string; isProUser: boolean } | null,
   fullUserPromise?: Promise<ComprehensiveUserData | null>,
 ) {
-  if (
-    groupId === 'memory' ||
-    groupId === 'buddy' ||
-    groupId === 'connectors' ||
-    groupId === 'mcp' ||
-    groupId === 'canvas' ||
-    groupId === 'multi-agent'
-  ) {
-    if (!lightweightUser) {
-      const user = fullUserPromise ? await fullUserPromise : await getComprehensiveUserData();
-      if (!user) {
-        groupId = 'web';
-      } else if (
-        (groupId === 'connectors' || groupId === 'mcp' || groupId === 'canvas' || groupId === 'multi-agent') &&
-        !user.isProUser
-      ) {
-        groupId = 'web';
-      }
-    } else if (
-      (groupId === 'connectors' || groupId === 'mcp' || groupId === 'canvas' || groupId === 'multi-agent') &&
-      !lightweightUser.isProUser
-    ) {
-      groupId = 'web';
+  if (!specialMode) {
+    return getBaseConfig();
+  }
+
+  let resolvedMode: LegacySpecialModeId | null = specialMode;
+
+  const requiresPro = specialMode === 'connectors' || specialMode === 'mcp' || specialMode === 'multi-agent' || specialMode === 'canvas';
+
+  if (!lightweightUser) {
+    const user = fullUserPromise ? await fullUserPromise : await getComprehensiveUserData();
+    if (!user) {
+      resolvedMode = null;
+    } else if (requiresPro && !user.isProUser) {
+      resolvedMode = null;
     }
+  } else if (requiresPro && !lightweightUser.isProUser) {
+    resolvedMode = null;
+  }
+
+  if (!resolvedMode) {
+    return getBaseConfig();
   }
 
   return {
-    tools: groupTools[groupId as keyof typeof groupTools],
-    instructions: localGroupInstructions[groupId as keyof typeof localGroupInstructions],
+    tools: specialGroupTools[resolvedMode],
+    instructions: specialGroupInstructions[resolvedMode],
   };
 }

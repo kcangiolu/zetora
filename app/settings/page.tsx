@@ -9,6 +9,7 @@ import {
   ConnectorsSection,
   MemoriesSection,
   UploadsSection,
+  SkillsSection,
 } from '@/components/settings-dialog';
 import { cn } from '@/lib/utils';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
@@ -19,6 +20,7 @@ import {
   ConnectIcon,
   Brain02Icon,
   Attachment01Icon,
+  SparklesIcon,
 } from '@hugeicons/core-free-icons';
 import { useSearchParams } from 'next/navigation';
 import { Card } from '@/components/ui/card';
@@ -56,6 +58,7 @@ function SettingsContent() {
     { value: 'subscription', label: 'Subscription', icon: Crown02Icon },
     { value: 'preferences', label: 'Preferences', icon: Settings02Icon },
     { value: 'connectors', label: 'Connectors', icon: ConnectIcon },
+    { value: 'skills', label: 'Skills', icon: SparklesIcon },
     { value: 'memories', label: 'Memories', icon: Brain02Icon },
     { value: 'uploads', label: 'Uploads', icon: Attachment01Icon },
   ].map((item, index) => ({ ...item, number: String(index + 1).padStart(2, '0') }));
@@ -314,6 +317,19 @@ function SettingsContent() {
                     <p className="text-sm text-muted-foreground">Connect your external services and data sources</p>
                   </div>
                   <ConnectorsSection user={user} />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="skills" className="m-0">
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-pixel-grid text-xs text-muted-foreground/30">05</span>
+                      <h2 className="text-lg font-semibold">Skills</h2>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Enable the playbooks the AI can use in your chats</p>
+                  </div>
+                  <SkillsSection />
                 </div>
               </TabsContent>
 

@@ -2292,17 +2292,6 @@ interface FormComponentProps {
   onBeforeSubmit?: () => void;
 }
 
-interface GroupSelectorProps {
-  selectedGroup: SearchGroupId;
-  onGroupSelect: (group: SearchGroup) => void;
-  status: UseChatHelpers<ChatMessage>['status'];
-  onOpenSettings?: (tab?: string) => void;
-  isProUser?: boolean;
-  isAuthenticated?: boolean;
-  usageData?: { messageCount: number; extremeSearchCount: number; error: string | null } | null;
-  onShowUpgrade?: () => void;
-}
-
 interface ConnectorSelectorProps {
   selectedConnectors: ConnectorProvider[];
   onConnectorToggle: (provider: ConnectorProvider) => void;
@@ -2840,624 +2829,26 @@ const WEB_SEARCH_PROVIDERS: Array<{
   },
 ];
 
-const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
-  ({ selectedGroup, onGroupSelect, onOpenSettings, isProUser, isAuthenticated, usageData, onShowUpgrade }) => {
-    const [open, setOpen] = useState(false);
-    const isMobile = useIsMobile();
-    const isExtreme = selectedGroup === 'extreme';
+// The 11 single-purpose search tools that are now always-on, filtered by the
+// zetora-enabled-sources preference, instead of an exclusive mode you had to
+// pick. Memory/Connectors/Apps/Multi-agent/Canvas stay exclusive per-message
+// toggles (see VALID_SPECIAL_MODES) since they replace the whole tool set
+// (or, for Canvas, the whole response pipeline) rather than just adding one.
+const SOURCE_CATALOG_IDS = [
+  'web',
+  'x',
+  'stocks',
+  'code',
+  'academic',
+  'reddit',
+  'github',
+  'crypto',
+  'prediction',
+  'youtube',
+  'spotify',
+] as const;
 
-    // Check usage limits
-    const messageCountExceeded = Boolean(
-      !isProUser && usageData && usageData.messageCount >= SEARCH_LIMITS.DAILY_SEARCH_LIMIT,
-    );
-    const extremeSearchCountExceeded = Boolean(
-      !isProUser && usageData && usageData.extremeSearchCount >= SEARCH_LIMITS.EXTREME_SEARCH_LIMIT,
-    );
-
-    // Get search provider from localStorage with reactive updates
-    const [searchProvider, setSearchProvider] = useLocalStorage<SearchProvider>('zetora-search-provider', 'exa');
-    const [providerMenuOpen, setProviderMenuOpen] = useState(false);
-    const currentProviderOption = useMemo(
-      () => WEB_SEARCH_PROVIDERS.find((option) => option.value === searchProvider) ?? WEB_SEARCH_PROVIDERS[0],
-      [searchProvider],
-    );
-
-    // Get dynamic search groups based on the selected search provider
-    const dynamicSearchGroups = useMemo(() => getSearchGroups(searchProvider), [searchProvider]);
-
-    // Memoize visible groups calculation
-    const visibleGroups = useMemo(
-      () =>
-        dynamicSearchGroups.filter((group) => {
-          if (!group.show) return false;
-          if ('requireAuth' in group && group.requireAuth && !isAuthenticated) return false;
-          // Don't filter out Pro-only groups, show them with Pro indicator
-          if (group.id === 'extreme' || group.id === 'canvas') return false; // Exclude extreme/canvas from dropdown (accessed via / trigger)
-          return true;
-        }),
-      [dynamicSearchGroups, isAuthenticated],
-    );
-
-    // Visible modes: only show selected modes (empty = show all)
-    const [visibleModes] = useSyncedPreferences<string[]>('zetora-visible-modes', []);
-    const [modeOrderInner] = useSyncedPreferences<string[]>('zetora-group-order', []);
-    const isExtremeVisible = !visibleModes || visibleModes.length === 0 || visibleModes.includes('extreme');
-
-    const orderedVisibleGroups = useMemo(() => {
-      let groups =
-        visibleModes && visibleModes.length > 0
-          ? visibleGroups.filter((g) => new Set(visibleModes).has(g.id))
-          : visibleGroups;
-      if (modeOrderInner && modeOrderInner.length > 0) {
-        const orderMap = new Map(modeOrderInner.map((id, i) => [id, i]));
-        groups = [...groups].sort((a, b) => {
-          const ai = orderMap.get(a.id) ?? Infinity;
-          const bi = orderMap.get(b.id) ?? Infinity;
-          return ai - bi;
-        });
-      }
-      return groups;
-    }, [visibleGroups, visibleModes, modeOrderInner]);
-
-    const selectedGroupData = useMemo(
-      () => orderedVisibleGroups.find((group) => group.id === selectedGroup),
-      [orderedVisibleGroups, selectedGroup],
-    );
-
-    const groupTooltipContent = useMemo(() => {
-      if (isExtreme) {
-        return (
-          <div className="grid gap-2 text-left">
-            <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
-                <HugeiconsIcon icon={GlobalSearchIcon} size={16} color="currentColor" />
-              </div>
-              <p className="text-xs font-semibold text-foreground">Switch back to search modes</p>
-            </div>
-            <p className="text-xs leading-snug text-muted-foreground">
-              Choose a different search experience from the list.
-            </p>
-            {!isProUser && messageCountExceeded && (
-              <div className="grid gap-1.5 border-t border-border pt-2">
-                <p className="text-[11px] text-destructive/90">
-                  Daily limit reached ({SEARCH_LIMITS.DAILY_SEARCH_LIMIT} searches)
-                </p>
-                <a
-                  href="/pricing"
-                  className="group inline-flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80"
-                >
-                  Upgrade for unlimited
-                  <ArrowUpRight className="size-3 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                </a>
-              </div>
-            )}
-          </div>
-        );
-      }
-
-      if (!selectedGroupData) {
-        return <p className="text-xs text-muted-foreground">Choose a search mode to get started.</p>;
-      }
-
-      return (
-        <div className="grid gap-2 text-left">
-          <div className="flex items-center gap-2">
-            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
-              <FlexibleIcon icon={selectedGroupData.icon} size={16} color="currentColor" strokeWidth={2} />
-            </div>
-            <div className="flex items-center gap-2">
-              <p className="text-xs font-semibold text-foreground">{selectedGroupData.name} Active</p>
-              {'requirePro' in selectedGroupData && selectedGroupData.requirePro && !isProUser && (
-                <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-primary/10 text-primary border border-primary/20">
-                  PRO
-                </span>
-              )}
-            </div>
-          </div>
-          <p className="text-xs leading-snug text-muted-foreground">{selectedGroupData.description}</p>
-          {!isProUser && usageData && (
-            <p className="text-[11px] text-muted-foreground/80">
-              {usageData.messageCount} / {SEARCH_LIMITS.DAILY_SEARCH_LIMIT} searches used today
-            </p>
-          )}
-          <p className="text-[11px] text-muted-foreground/80 italic">Click to switch search mode.</p>
-          {!isProUser && (
-            <div className="grid gap-1.5 border-t border-border pt-2">
-              <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
-                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
-                  <HugeiconsIcon icon={Crown02Icon} size={16} color="currentColor" strokeWidth={2} />
-                </div>
-                <span>
-                  {'requirePro' in selectedGroupData && selectedGroupData.requirePro
-                    ? 'Unlock with Pro'
-                    : 'Unlimited with Pro'}
-                </span>
-              </div>
-              <a
-                href="/pricing"
-                className="group inline-flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80"
-              >
-                {'requirePro' in selectedGroupData && selectedGroupData.requirePro
-                  ? 'Explore pricing'
-                  : 'Upgrade to Pro'}
-                <ArrowUpRight className="size-3 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-              </a>
-            </div>
-          )}
-        </div>
-      );
-    }, [isExtreme, selectedGroupData, isProUser, messageCountExceeded, usageData]);
-
-    const extremeTooltipContent = useMemo(() => {
-      // Check if extreme search limit is exceeded
-      if (!isProUser && extremeSearchCountExceeded && !isExtreme) {
-        return (
-          <div className="grid gap-2 text-left">
-            <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-destructive/10 text-destructive">
-                <HugeiconsIcon icon={AtomicPowerIcon} size={16} color="currentColor" strokeWidth={2} />
-              </div>
-              <p className="text-xs font-semibold text-foreground">Monthly Limit Reached</p>
-            </div>
-            <p className="text-xs leading-snug text-muted-foreground">
-              You&apos;ve used {SEARCH_LIMITS.EXTREME_SEARCH_LIMIT} extreme searches this month.
-            </p>
-            <div className="grid gap-1.5 border-t border-border pt-2">
-              <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
-                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
-                  <HugeiconsIcon icon={Crown02Icon} size={16} color="currentColor" strokeWidth={2} />
-                </div>
-                <span>Unlimited with Pro</span>
-              </div>
-              <a
-                href="/pricing"
-                className="group inline-flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80"
-              >
-                Upgrade to Pro
-                <ArrowUpRight className="size-3 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-              </a>
-            </div>
-          </div>
-        );
-      }
-
-      const title = isExtreme ? 'Extreme Search Active' : isAuthenticated ? 'Extreme Search' : 'Sign in Required';
-
-      return (
-        <div className="grid gap-2 text-left">
-          <div className="flex items-center gap-2">
-            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
-              <HugeiconsIcon icon={AtomicPowerIcon} size={16} color="currentColor" strokeWidth={2} />
-            </div>
-            <p className="text-xs font-semibold text-foreground">{title}</p>
-          </div>
-          <p className="text-xs leading-snug text-muted-foreground">
-            Extreme research with multiple sources and in-depth analysis with 3x sources.
-          </p>
-          {!isProUser && usageData && (
-            <p className="text-[11px] text-muted-foreground/80">
-              {usageData.extremeSearchCount} / {SEARCH_LIMITS.EXTREME_SEARCH_LIMIT} used this month
-            </p>
-          )}
-          {!isProUser && (
-            <div className="grid gap-1.5 border-t border-border pt-2">
-              <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
-                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
-                  <HugeiconsIcon icon={Crown02Icon} size={16} color="currentColor" strokeWidth={2} />
-                </div>
-                <span>Unlimited with Pro</span>
-              </div>
-              <a
-                href="/pricing"
-                className="group inline-flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80"
-              >
-                Explore pricing
-                <ArrowUpRight className="size-3 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-              </a>
-            </div>
-          )}
-        </div>
-      );
-    }, [isExtreme, isProUser, isAuthenticated, extremeSearchCountExceeded, usageData]);
-
-    const handleToggleExtreme = useCallback(() => {
-      if (isExtreme) {
-        // Switch back to web mode
-        const webGroup = dynamicSearchGroups.find((group) => group.id === 'web');
-        if (webGroup) {
-          onGroupSelect(webGroup);
-        }
-      } else {
-        // Check if user is authenticated before allowing extreme mode
-        if (!isAuthenticated) {
-          // Redirect to sign in page
-          window.location.href = '/sign-in';
-          return;
-        }
-
-        // Check if extreme search limit is exceeded (for non-Pro users)
-        if (!isProUser && extremeSearchCountExceeded) {
-          onShowUpgrade?.();
-          return;
-        }
-
-        // Switch to extreme mode
-        const extremeGroup = dynamicSearchGroups.find((group) => group.id === 'extreme');
-        if (extremeGroup) {
-          onGroupSelect(extremeGroup);
-        }
-      }
-    }, [
-      isExtreme,
-      onGroupSelect,
-      dynamicSearchGroups,
-      isAuthenticated,
-      isProUser,
-      extremeSearchCountExceeded,
-      onShowUpgrade,
-    ]);
-
-    const handleWebProviderChange = useCallback(
-      (provider: SearchProvider) => {
-        setSearchProvider(provider);
-        const label = WEB_SEARCH_PROVIDERS.find((option) => option.value === provider)?.label ?? provider;
-        sileo.success({
-          title: `Web search provider switched to ${label}`,
-          description: 'This will be used for all future searches',
-          icon: <Search className="h-4 w-4" />,
-        });
-      },
-      [setSearchProvider],
-    );
-
-    // Shared handler for group selection
-    const handleGroupSelect = useCallback(
-      async (currentValue: string) => {
-        const selectedGroup = visibleGroups.find((g) => g.id === currentValue);
-
-        if (selectedGroup) {
-          // Check if this is a Pro-only group and user is not Pro
-          if ('requirePro' in selectedGroup && selectedGroup.requirePro && !isProUser) {
-            setOpen(false);
-            onShowUpgrade?.();
-            return;
-          }
-
-          // Check if connectors group is selected but no connectors are connected
-          if (selectedGroup.id === 'connectors' && isAuthenticated && onOpenSettings && isProUser) {
-            try {
-              const { listUserConnectorsAction } = await import('@/app/actions');
-              const result = await listUserConnectorsAction();
-              if (result.success && result.connections.length === 0) {
-                // No connectors connected, open settings dialog to connectors tab
-                onOpenSettings('connectors');
-                setOpen(false);
-                return;
-              }
-            } catch (error) {
-              console.error('Error checking connectors:', error);
-              // If there's an error, still allow group selection
-            }
-          }
-
-          onGroupSelect(selectedGroup);
-          setOpen(false);
-        }
-      },
-      [visibleGroups, isProUser, onOpenSettings, isAuthenticated, onGroupSelect, onShowUpgrade],
-    );
-
-    // Handle opening the dropdown/drawer
-    const handleOpenChange = useCallback(
-      (newOpen: boolean) => {
-        if (newOpen && isExtreme) {
-          // If trying to open in extreme mode, switch back to web mode instead
-          const webGroup = dynamicSearchGroups.find((group) => group.id === 'web');
-          if (webGroup) {
-            onGroupSelect(webGroup);
-          }
-          return;
-        }
-        setOpen(newOpen);
-      },
-      [isExtreme, onGroupSelect, dynamicSearchGroups],
-    );
-
-    // Handle group selector button click (mobile only)
-    const handleGroupSelectorClick = useCallback(() => {
-      if (isExtreme) {
-        // Switch back to web mode when clicking groups in extreme mode
-        const webGroup = dynamicSearchGroups.find((group) => group.id === 'web');
-        if (webGroup) {
-          onGroupSelect(webGroup);
-        }
-      } else {
-        setOpen(true);
-      }
-    }, [isExtreme, onGroupSelect, dynamicSearchGroups]);
-
-    // Shared content component
-    const GroupSelectionContent = () => (
-      <div className="p-2">
-        {/* Group grid */}
-        <div className="grid grid-cols-5 gap-1.5">
-          {orderedVisibleGroups.map((group) => {
-            const isGroupDisabled = !isProUser && messageCountExceeded && !('requirePro' in group && group.requirePro);
-            const isSelected = selectedGroup === group.id;
-
-            return (
-              <Tooltip key={group.id}>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => {
-                      if (!isGroupDisabled) {
-                        handleGroupSelect(group.id);
-                      }
-                    }}
-                    disabled={isGroupDisabled}
-                    className={cn(
-                      'flex flex-col items-center justify-center gap-1 p-2 rounded-lg',
-                      'transition-all duration-150 aspect-square',
-                      isGroupDisabled ? 'opacity-40 cursor-not-allowed' : 'hover:bg-accent/80 cursor-pointer',
-                      isSelected && !isGroupDisabled && 'bg-accent ring-1 ring-primary/30',
-                    )}
-                  >
-                    {/* Icon */}
-                    <div
-                      className={cn(
-                        'flex items-center justify-center size-8 rounded-lg',
-                        isSelected ? 'bg-primary/15 text-primary' : 'text-muted-foreground',
-                      )}
-                    >
-                      <FlexibleIcon icon={group.icon} size={20} color="currentColor" strokeWidth={1.8} />
-                    </div>
-
-                    {/* Name */}
-                    <span
-                      className={cn(
-                        'text-[9px] font-medium text-center leading-tight line-clamp-1',
-                        isSelected ? 'text-foreground' : 'text-muted-foreground',
-                      )}
-                    >
-                      {group.name}
-                    </span>
-
-                    {/* Badges */}
-                    {'requirePro' in group && group.requirePro && !isProUser && (
-                      <span className="inline-flex items-center px-1 rounded text-[7px] font-semibold bg-primary/10 text-primary">
-                        PRO
-                      </span>
-                    )}
-                    {isGroupDisabled && (
-                      <span className="inline-flex items-center px-1 rounded text-[7px] font-semibold bg-destructive/10 text-destructive">
-                        LIMIT
-                      </span>
-                    )}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs max-w-[160px]">
-                  <p className="font-medium">{group.name}</p>
-                  <p className="text-primary-foreground/80 text-[10px] leading-snug">{group.description}</p>
-                </TooltipContent>
-              </Tooltip>
-            );
-          })}
-        </div>
-      </div>
-    );
-
-    return (
-      <div className="flex items-center">
-        {/* Toggle Switch Container */}
-        <div className="flex items-center bg-background border border-accent/50 rounded-lg gap-1! py-1! px-0.75! h-8!">
-          {/* Group Selector Side - Conditional Rendering for Mobile/Desktop */}
-          {isMobile ? (
-            <Drawer open={open} onOpenChange={handleOpenChange}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DrawerTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      role="combobox"
-                      aria-expanded={open}
-                      size="sm"
-                      onClick={handleGroupSelectorClick}
-                      disabled={!isProUser && !isExtreme && messageCountExceeded}
-                      className={cn(
-                        'flex items-center gap-1.5 m-0! px-1.5! h-6! rounded-md! transition-all',
-                        !isExtreme
-                          ? !isProUser && messageCountExceeded
-                            ? 'bg-accent/50 text-muted-foreground cursor-not-allowed opacity-50'
-                            : 'bg-accent text-foreground hover:bg-accent/80 cursor-pointer'
-                          : 'text-muted-foreground hover:bg-accent cursor-pointer',
-                      )}
-                    >
-                      {selectedGroupData && !isExtreme && (
-                        <>
-                          <FlexibleIcon icon={selectedGroupData.icon} size={30} color="currentColor" />
-                          <CaretDownIcon
-                            size={18}
-                            color="currentColor"
-                            strokeWidth={1.5}
-                            className={cn(open ? 'rotate-180' : 'rotate-0', 'transition-transform duration-200')}
-                          />
-                        </>
-                      )}
-                      {isExtreme && (
-                        <>
-                          <HugeiconsIcon icon={GlobalSearchIcon} size={30} color="currentColor" />
-                        </>
-                      )}
-                    </Button>
-                  </DrawerTrigger>
-                </TooltipTrigger>
-                <TooltipContent
-                  side="bottom"
-                  className="max-w-[200px] rounded-lg border border-border bg-popover p-2 text-left [&_svg.bg-primary]:bg-popover! [&_svg.fill-primary]:fill-popover!"
-                >
-                  {groupTooltipContent}
-                </TooltipContent>
-              </Tooltip>
-              <DrawerContent className="max-h-[80vh]">
-                <DrawerHeader className="text-left pb-4">
-                  <DrawerTitle>Choose Search Mode</DrawerTitle>
-                </DrawerHeader>
-                <div className="px-4 pb-6 max-h-[calc(80vh-100px)] overflow-y-auto">
-                  <div className="space-y-2">
-                    {orderedVisibleGroups.map((group) => {
-                      const isGroupDisabled =
-                        !isProUser && messageCountExceeded && !('requirePro' in group && group.requirePro);
-                      return (
-                        <div key={group.id} className="space-y-2">
-                          <button
-                            onClick={() => {
-                              if (!isGroupDisabled) {
-                                handleGroupSelect(group.id);
-                              }
-                            }}
-                            disabled={isGroupDisabled}
-                            className={cn(
-                              'w-full flex items-center justify-between p-4 rounded-lg text-left transition-all',
-                              'border border-border',
-                              isGroupDisabled ? 'opacity-50 cursor-not-allowed bg-background' : 'hover:bg-accent',
-                              selectedGroup === group.id ? 'bg-accent border-primary/20' : 'bg-background',
-                            )}
-                          >
-                            <div className="flex items-center gap-3 min-w-0 flex-1">
-                              <FlexibleIcon icon={group.icon} size={24} color="currentColor" />
-                              <div className="flex flex-col min-w-0 flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium text-sm text-foreground">{group.name}</span>
-                                  {'requirePro' in group && group.requirePro && !isProUser && (
-                                    <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-primary/10 text-primary border border-primary/20">
-                                      PRO
-                                    </span>
-                                  )}
-                                  {isGroupDisabled && (
-                                    <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-destructive/10 text-destructive border border-destructive/20">
-                                      LIMIT
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-xs text-muted-foreground mt-0.5">{group.description}</div>
-                              </div>
-                            </div>
-                            <div className="ml-3 flex items-center gap-1.5">
-                              <Check
-                                className={cn(
-                                  'h-5 w-5 shrink-0',
-                                  selectedGroup === group.id ? 'opacity-100' : 'opacity-0',
-                                )}
-                              />
-                            </div>
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </DrawerContent>
-            </Drawer>
-          ) : (
-            <Popover open={open} onOpenChange={handleOpenChange}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      role="combobox"
-                      aria-expanded={open}
-                      size="sm"
-                      disabled={!isProUser && !isExtreme && messageCountExceeded}
-                      className={cn(
-                        'flex items-center m-0! px-2! h-6! rounded-md! transition-all',
-                        !isExtreme
-                          ? !isProUser && messageCountExceeded
-                            ? 'bg-accent/50 text-muted-foreground cursor-not-allowed opacity-50'
-                            : 'bg-accent text-foreground hover:bg-accent/80 cursor-pointer'
-                          : 'text-muted-foreground hover:bg-accent cursor-pointer',
-                      )}
-                    >
-                      {selectedGroupData && !isExtreme && (
-                        <>
-                          <FlexibleIcon
-                            icon={selectedGroupData.icon}
-                            size={30}
-                            color="currentColor"
-                            strokeWidth={1.5}
-                          />
-                          <CaretDownIcon
-                            size={18}
-                            color="currentColor"
-                            strokeWidth={1.5}
-                            className={cn(open ? 'rotate-180' : 'rotate-0', 'transition-transform duration-200')}
-                          />
-                        </>
-                      )}
-                      {isExtreme && (
-                        <HugeiconsIcon icon={GlobalSearchIcon} size={30} color="currentColor" strokeWidth={1.5} />
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                </TooltipTrigger>
-                <TooltipContent
-                  side="bottom"
-                  className="max-w-[200px] rounded-lg border border-border bg-popover p-2 text-left [&_svg.bg-primary]:bg-popover! [&_svg.fill-primary]:fill-popover!"
-                >
-                  {groupTooltipContent}
-                </TooltipContent>
-              </Tooltip>
-              <PopoverContent
-                className="w-[90vw] sm:w-auto p-0 font-sans rounded-lg bg-popover z-50 border shadow-none"
-                align="start"
-                side="bottom"
-                sideOffset={4}
-                avoidCollisions={true}
-                collisionPadding={8}
-              >
-                <GroupSelectionContent />
-              </PopoverContent>
-            </Popover>
-          )}
-
-          {/* Extreme Mode Side */}
-          {isExtremeVisible && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleToggleExtreme}
-                  disabled={!isProUser && extremeSearchCountExceeded && !isExtreme}
-                  className={cn(
-                    'flex items-center gap-1.5 px-3 h-6 rounded-md transition-all',
-                    isExtreme
-                      ? 'bg-accent text-foreground hover:bg-accent/80'
-                      : !isAuthenticated
-                        ? 'text-muted-foreground/50 cursor-pointer'
-                        : !isProUser && extremeSearchCountExceeded
-                          ? 'text-muted-foreground/30 cursor-not-allowed'
-                          : 'text-muted-foreground hover:bg-accent',
-                  )}
-                >
-                  <HugeiconsIcon icon={AtomicPowerIcon} size={30} color="currentColor" strokeWidth={1.5} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent
-                side="bottom"
-                className="max-w-[200px] rounded-lg border border-border bg-popover p-2 text-left [&_svg.bg-primary]:bg-popover! [&_svg.fill-primary]:fill-popover!"
-              >
-                {extremeTooltipContent}
-              </TooltipContent>
-            </Tooltip>
-          )}
-        </div>
-      </div>
-    );
-  },
-);
-
-GroupModeToggle.displayName = 'GroupModeToggle';
+const VALID_SPECIAL_MODES = new Set<string>(['auto', 'memory', 'connectors', 'mcp', 'multi-agent', 'canvas']);
 
 const FormComponent: React.FC<FormComponentProps> = ({
   chatId,
@@ -3589,14 +2980,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const dynamicSearchGroups = useMemo(() => getSearchGroups(searchProvider), [searchProvider]);
   const [visibleModesOuter] = useSyncedPreferences<string[]>('zetora-visible-modes', []);
   const [modeOrderOuter] = useSyncedPreferences<string[]>('zetora-group-order', []);
-  const isMultiAgentVisible =
-    !visibleModesOuter || visibleModesOuter.length === 0 || visibleModesOuter.includes('multi-agent');
-  const isExtremeVisible =
-    !visibleModesOuter || visibleModesOuter.length === 0 || visibleModesOuter.includes('extreme');
-  const isExtreme = selectedGroup === 'extreme';
-  const extremeSearchCountExceeded = Boolean(
-    !isProUser && usageData && usageData.extremeSearchCount >= SEARCH_LIMITS.EXTREME_SEARCH_LIMIT,
-  );
 
   // Shared helper: sort groups by user-defined order (empty = default order)
   const applyModeOrder = useCallback(
@@ -3612,19 +2995,28 @@ const FormComponent: React.FC<FormComponentProps> = ({
     [modeOrderOuter],
   );
 
-  const plusMenuGroups = useMemo(() => {
-    let filtered = dynamicSearchGroups.filter((group) => {
-      if (!group.show) return false;
-      if ('requireAuth' in group && group.requireAuth && !user) return false;
-      if (group.id === 'extreme' || group.id === 'canvas' || group.id === 'mcp') return false;
-      return true;
-    });
-    if (visibleModesOuter && visibleModesOuter.length > 0) {
-      const modeSet = new Set(visibleModesOuter);
-      filtered = filtered.filter((g) => modeSet.has(g.id));
-    }
-    return applyModeOrder(filtered);
-  }, [dynamicSearchGroups, visibleModesOuter, user, applyModeOrder]);
+  // Sources: always-on tools filtered by user preference, not a mode to pick.
+  // Falls back to the pre-migration key so existing curation isn't silently
+  // reset to "all enabled" for users who hid sources before this preference existed.
+  const [enabledSourcesPref, setEnabledSources] = useSyncedPreferences<string[]>('zetora-enabled-sources', []);
+  const enabledSources =
+    enabledSourcesPref.length > 0
+      ? enabledSourcesPref
+      : (visibleModesOuter ?? []).filter((id) => (SOURCE_CATALOG_IDS as readonly string[]).includes(id));
+  const isSourceEnabled = useCallback(
+    (id: string) => enabledSources.length === 0 || enabledSources.includes(id),
+    [enabledSources],
+  );
+  const toggleSource = useCallback(
+    (id: string) => {
+      const base = enabledSources.length === 0 ? [...SOURCE_CATALOG_IDS] : enabledSources;
+      const next = base.includes(id) ? base.filter((s) => s !== id) : [...base, id];
+      setEnabledSources(next);
+    },
+    [enabledSources, setEnabledSources],
+  );
+  const enabledSourcesCount = enabledSources.length === 0 ? SOURCE_CATALOG_IDS.length : enabledSources.length;
+  const [sourcesExpanded, setSourcesExpanded] = useState(false);
 
   // Base groups for @ trigger (all visible groups)
   const sourceGroups = useMemo(() => {
@@ -3644,20 +3036,19 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
   // Base groups for / trigger (extreme, apps, multi-agent, canvas)
   const modeGroups = useMemo(() => {
-    const modeIds = new Set(['extreme', 'multi-agent']);
+    // Extreme is retired as a selectable mode (folded into the always-on
+    // extreme_search tool + the "Extreme Search" skill) — no longer offered here.
+    const modeIds = new Set(['multi-agent', 'memory', 'connectors']);
     if (canvasEnabled) modeIds.add('canvas');
     if (mcpEnabled) modeIds.add('mcp');
-    let filtered = dynamicSearchGroups.filter((group) => {
+    const filtered = dynamicSearchGroups.filter((group) => {
       if (!group.show) return false;
+      if ('requireAuth' in group && group.requireAuth && !user) return false;
       return modeIds.has(group.id);
     });
-    if (visibleModesOuter && visibleModesOuter.length > 0) {
-      const modeSet = new Set(visibleModesOuter);
-      filtered = filtered.filter((g) => modeSet.has(g.id));
-    }
-    const order = ['extreme', 'mcp', 'multi-agent', 'canvas'];
+    const order = ['memory', 'connectors', 'mcp', 'multi-agent', 'canvas'];
     return filtered.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
-  }, [dynamicSearchGroups, canvasEnabled, mcpEnabled, visibleModesOuter]);
+  }, [dynamicSearchGroups, canvasEnabled, mcpEnabled, user]);
 
   useEffect(() => {
     if (!setIsMultiAgentModeEnabled) return;
@@ -3670,13 +3061,15 @@ const FormComponent: React.FC<FormComponentProps> = ({
     setIsMultiAgentModeEnabled(false);
   }, [selectedGroup, isEnhancing, isTypewriting, setIsMultiAgentModeEnabled]);
 
-  // Reset to Chat if the active mode has been disabled via preferences
+  // One-time cleanup for stale localStorage values from before Sources/Skills
+  // replaced single-purpose modes (e.g. a returning user whose selectedGroup
+  // is still 'web' or 'reddit' from before this migration) — anything that
+  // isn't one of the five remaining exclusive special modes falls back to
+  // the base Sources+Skills path ('auto').
   useEffect(() => {
-    if (!visibleModesOuter || visibleModesOuter.length === 0) return;
-    if (selectedGroup === 'chat') return;
-    if (visibleModesOuter.includes(selectedGroup)) return;
-    setSelectedGroup('chat');
-  }, [visibleModesOuter, selectedGroup, setSelectedGroup]);
+    if (VALID_SPECIAL_MODES.has(selectedGroup)) return;
+    setSelectedGroup('auto');
+  }, [selectedGroup, setSelectedGroup]);
 
   // Active group list based on which trigger is open
   const triggerBaseGroups = triggerPopup === '/' ? modeGroups : sourceGroups;
@@ -3699,13 +3092,12 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const showMultiAgentInTrigger = useMemo(() => {
     if (triggerPopup !== '/') return false;
     if (!user || !setIsMultiAgentModeEnabled) return false;
-    if (!isMultiAgentVisible) return false;
     const isAlreadyInModeGroups = filteredTriggerGroups.some((group) => group.id === 'multi-agent');
     if (isAlreadyInModeGroups) return false;
     if (!triggerFilter) return true;
     const lower = triggerFilter.toLowerCase();
     return 'multi-agent'.includes(lower) || 'multi agent'.includes(lower) || 'research'.includes(lower);
-  }, [triggerPopup, user, setIsMultiAgentModeEnabled, triggerFilter, filteredTriggerGroups, isMultiAgentVisible]);
+  }, [triggerPopup, user, setIsMultiAgentModeEnabled, triggerFilter, filteredTriggerGroups]);
 
   const triggerTotalItems =
     filteredTriggerGroups.length + (showMultiAgentInTrigger ? 1 : 0) + (showTempInTrigger ? 1 : 0);
@@ -4441,7 +3833,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
     }
 
     const isTurningOff = selectedGroup === 'multi-agent' || isMultiAgentModeEnabled;
-    setSelectedGroup(isTurningOff ? 'web' : 'multi-agent');
+    setSelectedGroup(isTurningOff ? 'auto' : 'multi-agent');
     setIsMultiAgentModeEnabled(!isTurningOff);
 
     const trigger = triggerPopup;
@@ -4533,32 +3925,54 @@ const FormComponent: React.FC<FormComponentProps> = ({
     [isProUser, user, onOpenSettings, handleGroupSelect, haptics],
   );
 
-  // Deep research (extreme) toggle from plus menu
-  const handlePlusMenuExtreme = useCallback(() => {
-    if (isExtreme) {
-      haptics.trigger('selection');
-      // Switch back to web mode
-      const webGroup = dynamicSearchGroups.find((g) => g.id === 'web');
-      if (webGroup) handleGroupSelect(webGroup);
-    } else {
-      if (!user) {
+  // Toggle one of the exclusive special modes (Memory/Connectors/Canvas) from
+  // the plus menu — click again to turn off and fall back to the base
+  // Sources+Skills path, mirroring the existing Multi-agent/Apps toggle rows.
+  const handleSpecialModeToggle = useCallback(
+    async (modeId: 'memory' | 'connectors' | 'canvas') => {
+      const group = dynamicSearchGroups.find((g) => g.id === modeId);
+      if (!group) return;
+
+      if ('requireAuth' in group && group.requireAuth && !user) {
         haptics.trigger('warning');
         window.location.href = '/sign-in';
         setPlusMenuOpen(false);
         return;
       }
-      if (!isProUser && extremeSearchCountExceeded) {
+
+      if ('requirePro' in group && group.requirePro && !isProUser) {
         haptics.trigger('warning');
         setPlusMenuOpen(false);
         setShowUpgradeDialog(true);
         return;
       }
+
+      if (selectedGroup === modeId) {
+        haptics.trigger('selection');
+        setSelectedGroup('auto');
+        setPlusMenuOpen(false);
+        return;
+      }
+
+      if (modeId === 'connectors' && user && onOpenSettings && isProUser) {
+        try {
+          const result = await listUserConnectorsAction();
+          if (result.success && result.connections.length === 0) {
+            onOpenSettings('connectors');
+            setPlusMenuOpen(false);
+            return;
+          }
+        } catch (error) {
+          console.error('Error checking connectors:', error);
+        }
+      }
+
       haptics.trigger('selection');
-      const extremeGroup = dynamicSearchGroups.find((g) => g.id === 'extreme');
-      if (extremeGroup) handleGroupSelect(extremeGroup);
-    }
-    setPlusMenuOpen(false);
-  }, [isExtreme, dynamicSearchGroups, handleGroupSelect, user, isProUser, extremeSearchCountExceeded, haptics]);
+      handleGroupSelect(group);
+      setPlusMenuOpen(false);
+    },
+    [dynamicSearchGroups, user, isProUser, selectedGroup, setSelectedGroup, onOpenSettings, handleGroupSelect, haptics],
+  );
 
   const uploadFile = useCallback(async (file: File): Promise<Attachment> => {
     try {
@@ -5868,7 +5282,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                             <span className="flex-1 text-[13px]">Upload files or images</span>
                           </button>
 
-                          {user && setIsMultiAgentModeEnabled && isMultiAgentVisible && (
+                          {user && setIsMultiAgentModeEnabled && (
                             <button
                               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors"
                               onClick={() => {
@@ -5878,7 +5292,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                                   return;
                                 }
                                 const isTurningOff = selectedGroup === 'multi-agent' || isMultiAgentModeEnabled;
-                                setSelectedGroup(isTurningOff ? 'web' : 'multi-agent');
+                                setSelectedGroup(isTurningOff ? 'auto' : 'multi-agent');
                                 setIsMultiAgentModeEnabled(!isTurningOff);
                               }}
                             >
@@ -5920,20 +5334,81 @@ const FormComponent: React.FC<FormComponentProps> = ({
                               )}
                             </button>
                           )}
-                          {isExtremeVisible && (
+                          {user && (
                             <button
                               className={cn(
                                 'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors',
-                                isExtreme && 'bg-accent',
+                                selectedGroup === 'memory' && 'bg-accent',
                               )}
-                              onClick={handlePlusMenuExtreme}
+                              onClick={() => handleSpecialModeToggle('memory')}
                             >
-                              <HugeiconsIcon icon={AtomicPowerIcon} size={16} color="currentColor" strokeWidth={1.5} />
-                              <span className="flex-1 text-[13px]">Extreme agent</span>
-                              {isExtreme && (
+                              <FlexibleIcon
+                                icon={dynamicSearchGroups.find((g) => g.id === 'memory')!.icon}
+                                size={16}
+                                color="currentColor"
+                                strokeWidth={1.5}
+                              />
+                              <span className="flex-1 text-[13px]">Memory</span>
+                              {selectedGroup === 'memory' && (
                                 <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
                                   Active
                                 </span>
+                              )}
+                            </button>
+                          )}
+                          {user && (
+                            <button
+                              className={cn(
+                                'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors',
+                                selectedGroup === 'connectors' && 'bg-accent',
+                              )}
+                              onClick={() => handleSpecialModeToggle('connectors')}
+                            >
+                              <FlexibleIcon
+                                icon={dynamicSearchGroups.find((g) => g.id === 'connectors')!.icon}
+                                size={16}
+                                color="currentColor"
+                                strokeWidth={1.5}
+                              />
+                              <span className="flex-1 text-[13px]">Connectors</span>
+                              {selectedGroup === 'connectors' ? (
+                                <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                  Active
+                                </span>
+                              ) : (
+                                !isProUser && (
+                                  <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                    Pro
+                                  </span>
+                                )
+                              )}
+                            </button>
+                          )}
+                          {user && canvasEnabled && (
+                            <button
+                              className={cn(
+                                'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors',
+                                selectedGroup === 'canvas' && 'bg-accent',
+                              )}
+                              onClick={() => handleSpecialModeToggle('canvas')}
+                            >
+                              <FlexibleIcon
+                                icon={dynamicSearchGroups.find((g) => g.id === 'canvas')!.icon}
+                                size={16}
+                                color="currentColor"
+                                strokeWidth={1.5}
+                              />
+                              <span className="flex-1 text-[13px]">Canvas</span>
+                              {selectedGroup === 'canvas' ? (
+                                <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                  Active
+                                </span>
+                              ) : (
+                                !isProUser && (
+                                  <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                    Pro
+                                  </span>
+                                )
                               )}
                             </button>
                           )}
@@ -5972,33 +5447,43 @@ const FormComponent: React.FC<FormComponentProps> = ({
                             </button>
                           )}
                           <div className="my-1 mx-2 border-t border-border/40" />
-                          <div className="px-3 pt-1.5 pb-0.5">
-                            <span className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest">
-                              Search Modes
+                          <button
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors"
+                            onClick={() => setSourcesExpanded((v) => !v)}
+                          >
+                            <HugeiconsIcon icon={GlobalSearchIcon} size={16} color="currentColor" strokeWidth={1.5} />
+                            <span className="flex-1 text-[13px]">Sources</span>
+                            <span className="text-[9px] px-1 py-0.5 rounded bg-muted text-muted-foreground font-medium">
+                              {enabledSourcesCount}
                             </span>
-                          </div>
-                          {plusMenuGroups.map((group, i) => {
-                            const sel = selectedGroup === group.id && !isExtreme;
-                            return (
-                              <button
-                                key={group.id}
-                                className={cn(
-                                  'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors',
-                                  sel && 'bg-accent',
-                                )}
-                                onClick={() => handlePlusMenuGroupSelect(group)}
-                              >
-                                <FlexibleIcon icon={group.icon} size={16} color="currentColor" strokeWidth={1.5} />
-                                <span className="flex-1 text-[13px]">{group.name}</span>
-                                {'requirePro' in group && group.requirePro && !isProUser && (
-                                  <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                    Pro
-                                  </span>
-                                )}
-                                {sel && <Check className="size-3.5 text-primary" />}
-                              </button>
-                            );
-                          })}
+                            <ChevronDown
+                              className={cn(
+                                'size-3.5 text-muted-foreground transition-transform',
+                                sourcesExpanded && 'rotate-180',
+                              )}
+                            />
+                          </button>
+                          {sourcesExpanded && (
+                            <div className="pl-3 pr-1 py-1 space-y-0.5 max-h-56 overflow-y-auto">
+                              {SOURCE_CATALOG_IDS.map((id) => {
+                                const group = dynamicSearchGroups.find((g) => g.id === id);
+                                if (!group) return null;
+                                return (
+                                  <label
+                                    key={id}
+                                    className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-accent transition-colors cursor-pointer"
+                                  >
+                                    <FlexibleIcon icon={group.icon} size={14} color="currentColor" strokeWidth={1.5} />
+                                    <span className="flex-1 text-[12px]">{group.name}</span>
+                                    <Checkbox
+                                      checked={isSourceEnabled(id)}
+                                      onCheckedChange={() => toggleSource(id)}
+                                    />
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       </DrawerContent>
                     </Drawer>
@@ -6067,7 +5552,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                           </TooltipContent>
                         </Tooltip>
 
-                        {user && setIsMultiAgentModeEnabled && isMultiAgentVisible && (
+                        {user && setIsMultiAgentModeEnabled && (
                           <Tooltip delayDuration={200}>
                             <TooltipTrigger asChild>
                               <button
@@ -6082,7 +5567,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                                     return;
                                   }
                                   const isTurningOff = selectedGroup === 'multi-agent' || isMultiAgentModeEnabled;
-                                  setSelectedGroup(isTurningOff ? 'web' : 'multi-agent');
+                                  setSelectedGroup(isTurningOff ? 'auto' : 'multi-agent');
                                   setIsMultiAgentModeEnabled(!isTurningOff);
                                 }}
                               >
@@ -6138,24 +5623,24 @@ const FormComponent: React.FC<FormComponentProps> = ({
                             </TooltipContent>
                           </Tooltip>
                         )}
-                        {isExtremeVisible && (
+                        {user && (
                           <Tooltip delayDuration={200}>
                             <TooltipTrigger asChild>
                               <button
                                 className={cn(
                                   'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors',
-                                  isExtreme && 'bg-accent',
+                                  selectedGroup === 'memory' && 'bg-accent',
                                 )}
-                                onClick={handlePlusMenuExtreme}
+                                onClick={() => handleSpecialModeToggle('memory')}
                               >
-                                <HugeiconsIcon
-                                  icon={AtomicPowerIcon}
+                                <FlexibleIcon
+                                  icon={dynamicSearchGroups.find((g) => g.id === 'memory')!.icon}
                                   size={16}
                                   color="currentColor"
                                   strokeWidth={1.5}
                                 />
-                                <span className="flex-1 text-[13px]">Extreme agent</span>
-                                {isExtreme && (
+                                <span className="flex-1 text-[13px]">Memory</span>
+                                {selectedGroup === 'memory' && (
                                   <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
                                     Active
                                   </span>
@@ -6163,8 +5648,80 @@ const FormComponent: React.FC<FormComponentProps> = ({
                               </button>
                             </TooltipTrigger>
                             <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
+                              <span className="text-[10px] leading-snug">Recall and save personal context</span>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                        {user && (
+                          <Tooltip delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <button
+                                className={cn(
+                                  'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors',
+                                  selectedGroup === 'connectors' && 'bg-accent',
+                                )}
+                                onClick={() => handleSpecialModeToggle('connectors')}
+                              >
+                                <FlexibleIcon
+                                  icon={dynamicSearchGroups.find((g) => g.id === 'connectors')!.icon}
+                                  size={16}
+                                  color="currentColor"
+                                  strokeWidth={1.5}
+                                />
+                                <span className="flex-1 text-[13px]">Connectors</span>
+                                {selectedGroup === 'connectors' ? (
+                                  <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                    Active
+                                  </span>
+                                ) : (
+                                  !isProUser && (
+                                    <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                      Pro
+                                    </span>
+                                  )
+                                )}
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
                               <span className="text-[10px] leading-snug">
-                                Searches multiple sources for in-depth analysis
+                                Search Google Drive, Notion and OneDrive
+                              </span>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                        {user && canvasEnabled && (
+                          <Tooltip delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <button
+                                className={cn(
+                                  'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors',
+                                  selectedGroup === 'canvas' && 'bg-accent',
+                                )}
+                                onClick={() => handleSpecialModeToggle('canvas')}
+                              >
+                                <FlexibleIcon
+                                  icon={dynamicSearchGroups.find((g) => g.id === 'canvas')!.icon}
+                                  size={16}
+                                  color="currentColor"
+                                  strokeWidth={1.5}
+                                />
+                                <span className="flex-1 text-[13px]">Canvas</span>
+                                {selectedGroup === 'canvas' ? (
+                                  <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                    Active
+                                  </span>
+                                ) : (
+                                  !isProUser && (
+                                    <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                      Pro
+                                    </span>
+                                  )
+                                )}
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
+                              <span className="text-[10px] leading-snug">
+                                Research and generate interactive dashboards
                               </span>
                             </TooltipContent>
                           </Tooltip>
@@ -6215,57 +5772,54 @@ const FormComponent: React.FC<FormComponentProps> = ({
                           </Tooltip>
                         )}
                         <div className="my-0.5 mx-2 border-t border-border/40" />
-                        <div className="px-2.5 pt-1.5 pb-0.5">
-                          <span className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest">
-                            Search Modes
+                        <button
+                          className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors"
+                          onClick={() => setSourcesExpanded((v) => !v)}
+                        >
+                          <HugeiconsIcon icon={GlobalSearchIcon} size={16} color="currentColor" strokeWidth={1.5} />
+                          <span className="flex-1 text-[13px]">Sources</span>
+                          <span className="text-[9px] px-1 py-0.5 rounded bg-muted text-muted-foreground font-medium">
+                            {enabledSourcesCount}
                           </span>
-                        </div>
-                        <div className="relative">
-                          <div
-                            ref={plusMenuScrollRef}
-                            onScroll={handlePlusMenuScroll}
-                            className="max-h-32 overflow-y-auto"
-                          >
-                            {plusMenuGroups.map((group) => {
-                              const sel = selectedGroup === group.id && !isExtreme;
-                              return (
-                                <Tooltip key={group.id} delayDuration={200}>
-                                  <TooltipTrigger asChild>
-                                    <button
-                                      className={cn(
-                                        'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors',
-                                        sel && 'bg-accent',
-                                      )}
-                                      onClick={() => handlePlusMenuGroupSelect(group)}
-                                    >
-                                      <FlexibleIcon
-                                        icon={group.icon}
-                                        size={16}
-                                        color="currentColor"
-                                        strokeWidth={1.5}
-                                      />
-                                      <span className="flex-1 text-[13px]">{group.name}</span>
-                                      {'requirePro' in group && group.requirePro && !isProUser && (
-                                        <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                          Pro
-                                        </span>
-                                      )}
-                                      {sel && <Check className="size-3.5 text-primary" />}
-                                    </button>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
-                                    <span className="text-[10px] leading-snug">{group.description}</span>
-                                  </TooltipContent>
-                                </Tooltip>
-                              );
-                            })}
-                          </div>
-                          {plusMenuCanScroll && (
-                            <div className="pointer-events-none absolute bottom-0 inset-x-0 flex justify-center pb-0.5 pt-4 bg-linear-to-t from-popover via-popover/80 to-transparent rounded-b-lg">
-                              <ChevronDown className="size-3.5 text-muted-foreground animate-bounce" />
+                          <ChevronDown
+                            className={cn(
+                              'size-3.5 text-muted-foreground transition-transform',
+                              sourcesExpanded && 'rotate-180',
+                            )}
+                          />
+                        </button>
+                        {sourcesExpanded && (
+                          <div className="relative">
+                            <div
+                              ref={plusMenuScrollRef}
+                              onScroll={handlePlusMenuScroll}
+                              className="max-h-32 overflow-y-auto pl-2"
+                            >
+                              {SOURCE_CATALOG_IDS.map((id) => {
+                                const group = dynamicSearchGroups.find((g) => g.id === id);
+                                if (!group) return null;
+                                return (
+                                  <label
+                                    key={id}
+                                    className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-accent transition-colors cursor-pointer"
+                                  >
+                                    <FlexibleIcon icon={group.icon} size={14} color="currentColor" strokeWidth={1.5} />
+                                    <span className="flex-1 text-[13px]">{group.name}</span>
+                                    <Checkbox
+                                      checked={isSourceEnabled(id)}
+                                      onCheckedChange={() => toggleSource(id)}
+                                    />
+                                  </label>
+                                );
+                              })}
                             </div>
-                          )}
-                        </div>
+                            {plusMenuCanScroll && (
+                              <div className="pointer-events-none absolute bottom-0 inset-x-0 flex justify-center pb-0.5 pt-4 bg-linear-to-t from-popover via-popover/80 to-transparent rounded-b-lg">
+                                <ChevronDown className="size-3.5 text-muted-foreground animate-bounce" />
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </PopoverContent>
                     </Popover>
                   )}
@@ -6275,7 +5829,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                     const activeGroup = dynamicSearchGroups.find((g) => g.id === selectedGroup);
                     if (
                       !activeGroup ||
-                      selectedGroup === 'web' ||
+                      selectedGroup === 'auto' ||
                       selectedGroup === 'connectors' ||
                       selectedGroup === 'mcp' ||
                       selectedGroup === 'multi-agent'
@@ -6302,7 +5856,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     haptics.trigger('selection');
-                                    setSelectedGroup('web');
+                                    setSelectedGroup('auto');
                                     setIsMultiAgentModeEnabled?.(false);
                                   }}
                                   aria-label="Clear multi-agent mode"
@@ -6349,8 +5903,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   haptics.trigger('selection');
-                                  const webGroup = dynamicSearchGroups.find((g) => g.id === 'web');
-                                  if (webGroup) handleGroupSelect(webGroup);
+                                  setSelectedGroup('auto');
                                 }}
                                 aria-label="Clear mode"
                               >

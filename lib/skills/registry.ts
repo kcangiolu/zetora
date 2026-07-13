@@ -7,6 +7,8 @@ const skills: Record<SkillId, SkillDefinition> = {
     id: 'deep-research',
     name: 'Deep Research',
     description: 'Multi-part questions, comparative analysis, "explain why" — decomposes into sub-questions and cross-validates.',
+    category: 'RESEARCH',
+    section: 'core',
     suggestedTools: ['web_search', 'academic_search', 'x_search', 'reddit_search', 'retrieve'],
     instructions: `
 ### Deep Research Methodology
@@ -37,6 +39,8 @@ Use this when the question is multi-part, comparative, or asks "why"/"how" in a 
     id: 'extreme-search',
     name: 'Extreme Search',
     description: 'Single topic, contested/niche, "find everything about" — maximal fan-out on one thematic axis.',
+    category: 'RESEARCH',
+    section: 'core',
     suggestedTools: ['web_search', 'x_search', 'reddit_search', 'academic_search'],
     instructions: `
 ### Extreme Search Methodology
@@ -58,6 +62,8 @@ Use this when the question targets ONE specific topic but demands exhaustive cov
     id: 'academic-review',
     name: 'Academic Review',
     description: 'Literature review, scientific consensus, "what does research say".',
+    category: 'RESEARCH',
+    section: 'other',
     suggestedTools: ['academic_search', 'web_search', 'retrieve'],
     instructions: `
 ### Academic Review Methodology
@@ -77,6 +83,8 @@ Use this for questions about scientific consensus, research findings, or literat
     id: 'social-pulse',
     name: 'Social Pulse',
     description: 'Sentiment analysis, trending discourse, "what are people saying".',
+    category: 'SOCIAL',
+    section: 'other',
     suggestedTools: ['x_search', 'reddit_search', 'web_search'],
     instructions: `
 ### Social Pulse Methodology
@@ -95,6 +103,8 @@ Use this for sentiment analysis, trending discourse, or "what are people saying 
     id: 'market-intel',
     name: 'Market Intel',
     description: 'Stocks, crypto, market outlook, financial analysis.',
+    category: 'FINANCE',
+    section: 'other',
     suggestedTools: ['stock_chart', 'web_search', 'prediction_search', 'currency_converter'],
     instructions: `
 ### Market Intel Methodology
@@ -113,6 +123,8 @@ Use this for stock, crypto, currency, or broader market-outlook questions.
     id: 'media-scout',
     name: 'Media Scout',
     description: 'Videos, music, movies, "recommend me".',
+    category: 'MEDIA',
+    section: 'other',
     suggestedTools: ['youtube_search', 'spotify_search', 'movie_or_tv_search', 'web_search'],
     instructions: `
 ### Media Scout Methodology
@@ -129,6 +141,8 @@ Use this for content discovery: videos, music, movies, TV shows, or recommendati
     id: 'local-guide',
     name: 'Local Guide',
     description: 'Places, trip planning, weather, flights.',
+    category: 'LOCAL',
+    section: 'other',
     suggestedTools: ['web_search', 'nearby_places_search', 'find_place_on_map', 'get_weather_data'],
     instructions: `
 ### Local Guide Methodology
@@ -146,6 +160,8 @@ Use this for place recommendations, trip planning, weather, or flight-related qu
     id: 'web-extract',
     name: 'Web Extract',
     description: 'Extract from specific URLs.',
+    category: 'DATA',
+    section: 'core',
     suggestedTools: ['retrieve', 'web_search'],
     instructions: `
 ### Web Extract Methodology
@@ -162,6 +178,8 @@ Use this when the user provides one or more specific URLs to summarize, extract 
     id: 'deslop',
     name: 'Deslop',
     description: 'Humanize/paraphrase AI-generated text.',
+    category: 'CONTENT',
+    section: 'core',
     suggestedTools: [],
     instructions: `
 ### Deslop Methodology
@@ -183,4 +201,8 @@ export function getSkill(skillId: SkillId): SkillDefinition {
 
 export function getAllSkills(): SkillDefinition[] {
   return Object.values(skills);
+}
+
+export function getAllSkillIds(): SkillId[] {
+  return Object.keys(skills) as SkillId[];
 }

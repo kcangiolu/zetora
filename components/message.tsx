@@ -28,6 +28,7 @@ import {
   LogIn,
   CornerDownRight,
   Upload,
+  CheckCircle2,
 } from 'lucide-react';
 import { UIMessagePart } from 'ai';
 import { deleteTrailingMessages } from '@/app/actions';
@@ -849,6 +850,9 @@ export const Message: React.FC<MessageProps> = ({
   const [isExpanded, setIsExpanded] = useState(false);
   // State to track if the message exceeds max height
   const [exceedsMaxHeight, setExceedsMaxHeight] = useState(false);
+  // Collapses the whole assistant turn (reasoning + tool calls) under a single
+  // "Zetora task complete" header once it's done streaming.
+  const [isTaskExpanded, setIsTaskExpanded] = useState(true);
   // Ref to check content height
   const messageContentRef = React.useRef<HTMLDivElement>(null);
   // Mode state for editing
@@ -1026,17 +1030,34 @@ export const Message: React.FC<MessageProps> = ({
   }
 
   if (message.role === 'assistant') {
+    const isTurnStreaming = isLastMessage && (status === 'streaming' || status === 'submitted');
+    const hasParts = Boolean(message.parts && message.parts.length > 0);
+
+    const partsList = message.parts?.map((part: ChatMessage['parts'][number], partIndex: number) => {
+      console.log(`🔧 Rendering part ${partIndex}:`, { type: part.type, hasText: part.type === 'text' });
+      const key = `${message.id || index}-part-${partIndex}-${part.type}`;
+      return (
+        <div key={key}>
+          {renderPart(part, index, partIndex, message.parts as ChatMessage['parts'][number][], message)}
+        </div>
+      );
+    });
+
     return (
       <div className={cn(shouldReduceHeight ? '' : 'min-h-[calc(100vh-18rem)]', '')}>
-        {message.parts?.map((part: ChatMessage['parts'][number], partIndex: number) => {
-          console.log(`🔧 Rendering part ${partIndex}:`, { type: part.type, hasText: part.type === 'text' });
-          const key = `${message.id || index}-part-${partIndex}-${part.type}`;
-          return (
-            <div key={key}>
-              {renderPart(part, index, partIndex, message.parts as ChatMessage['parts'][number][], message)}
-            </div>
-          );
-        })}
+        {/* Collapses the whole turn (reasoning + tool calls) once streaming is
+            done — lets the user hide everything but the final answer at a glance. */}
+        {!isTurnStreaming && hasParts && (
+          <button
+            onClick={() => setIsTaskExpanded((v) => !v)}
+            className="flex items-center gap-1.5 mb-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <CheckCircle2 className="h-3 w-3 text-primary/70" />
+            <span>Zetora task complete</span>
+            {isTaskExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          </button>
+        )}
+        {(isTurnStreaming || isTaskExpanded || !hasParts) && partsList}
 
         {/* Missing assistant response UI moved inside assistant message */}
         {isMissingAssistantResponse && (
