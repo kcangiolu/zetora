@@ -74,6 +74,7 @@ export type PreferenceKey =
   | 'zetora-xql-enabled'
   | 'zetora-lookout-enabled'
   | 'zetora-voice-enabled'
+  | 'zetora-apps-enabled'
   | 'zetora-graphiti-chunk-size'
   | 'zetora-graphiti-max-retries'
   | 'zetora-graphiti-chunk-delay-ms'

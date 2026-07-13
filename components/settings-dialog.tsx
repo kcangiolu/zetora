@@ -685,6 +685,7 @@ export function PreferencesSection({
   const [xqlEnabled, setXqlEnabled] = useSyncedPreferences<boolean>('zetora-xql-enabled', true);
   const [lookoutEnabled, setLookoutEnabled] = useSyncedPreferences<boolean>('zetora-lookout-enabled', true);
   const [voiceEnabled, setVoiceEnabled] = useSyncedPreferences<boolean>('zetora-voice-enabled', true);
+  const [appsEnabled, setAppsEnabled] = useSyncedPreferences<boolean>('zetora-apps-enabled', true);
   const [voiceS2SBackend, setVoiceS2SBackend] = useSyncedPreferences<VoiceS2SBackend>(
     'zetora-voice-s2s-backend',
     'cloud',
@@ -1994,6 +1995,14 @@ export function PreferencesSection({
                   <p className="text-xs text-muted-foreground mt-0.5">Show the Voice shortcut in the sidebar</p>
                 </div>
                 <Switch id="voice-enabled" checked={voiceEnabled} onCheckedChange={setVoiceEnabled} />
+              </div>
+
+              <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Apps</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Show the Apps shortcut in the sidebar</p>
+                </div>
+                <Switch id="apps-enabled" checked={appsEnabled} onCheckedChange={setAppsEnabled} />
               </div>
             </div>
 

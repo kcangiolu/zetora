@@ -480,6 +480,7 @@ export const AppSidebar = memo(({ user, onHistoryClick, isProUser }: AppSidebarP
   const [xqlEnabled] = useSyncedPreferences<boolean>('zetora-xql-enabled', true);
   const [lookoutEnabled] = useSyncedPreferences<boolean>('zetora-lookout-enabled', true);
   const [voiceEnabled] = useSyncedPreferences<boolean>('zetora-voice-enabled', true);
+  const [appsEnabled] = useSyncedPreferences<boolean>('zetora-apps-enabled', true);
   const [isRecentCollapsed, setIsRecentCollapsed] = React.useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     try {
@@ -848,7 +849,7 @@ export const AppSidebar = memo(({ user, onHistoryClick, isProUser }: AppSidebarP
           )}
 
           {/* Tools Section Label */}
-          {user && (lookoutEnabled || xqlEnabled || voiceEnabled) && (
+          {user && (lookoutEnabled || xqlEnabled || voiceEnabled || appsEnabled) && (
             <div className="px-2 py-1.5 group-data-[collapsible=icon]:hidden">
               <span className="font-pixel text-[11px] text-muted-foreground/60 uppercase tracking-[0.12em]">Tools</span>
             </div>
@@ -880,7 +881,7 @@ export const AppSidebar = memo(({ user, onHistoryClick, isProUser }: AppSidebarP
           )}
 
           {/* Apps */}
-          {user && process.env.NEXT_PUBLIC_MCP_ENABLED === 'true' && (
+          {user && process.env.NEXT_PUBLIC_MCP_ENABLED === 'true' && appsEnabled && (
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
