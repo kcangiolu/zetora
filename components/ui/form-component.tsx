@@ -2950,20 +2950,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
     [haptics],
   );
 
-  // Reset scroll indicator when menu opens
-  useEffect(() => {
-    if (plusMenuOpen) {
-      setPlusMenuCanScroll(true);
-      // Check after render if content is actually scrollable
-      requestAnimationFrame(() => {
-        const el = plusMenuScrollRef.current;
-        if (el) {
-          setPlusMenuCanScroll(el.scrollHeight > el.clientHeight);
-        }
-      });
-    }
-  }, [plusMenuOpen]);
-
   // Combined state for animations to avoid restart issues
   const isEnhancementActive = isEnhancing || isTypewriting;
   const audioLinesRef = useRef<any>(null);
@@ -3017,6 +3003,39 @@ const FormComponent: React.FC<FormComponentProps> = ({
   );
   const enabledSourcesCount = enabledSources.length === 0 ? SOURCE_CATALOG_IDS.length : enabledSources.length;
   const [sourcesExpanded, setSourcesExpanded] = useState(false);
+  // Snapshot of which sources to list, taken when the submenu opens. Sources
+  // hidden entirely in Preferences > Customize never make it into this
+  // snapshot, but toggling a checkbox *within* this open submenu must not
+  // remove its own row out from under the user's cursor — only reopening the
+  // submenu (or Customize) changes which rows are offered.
+  const [visibleSourceIds, setVisibleSourceIds] = useState<string[]>([]);
+  const handleToggleSourcesExpanded = useCallback(() => {
+    setSourcesExpanded((prev) => {
+      const next = !prev;
+      if (next) {
+        setVisibleSourceIds(SOURCE_CATALOG_IDS.filter((id) => isSourceEnabled(id)));
+      }
+      return next;
+    });
+  }, [isSourceEnabled]);
+
+  // Reset scroll indicator when the menu opens, and re-measure whenever the
+  // Sources submenu expands/collapses — its content is what plusMenuScrollRef
+  // actually measures, so this must re-run on top of the plusMenuOpen check
+  // below or the indicator keeps showing/hiding based on stale dimensions
+  // from before the submenu changed size.
+  useEffect(() => {
+    if (plusMenuOpen) {
+      setPlusMenuCanScroll(true);
+      // Check after render if content is actually scrollable
+      requestAnimationFrame(() => {
+        const el = plusMenuScrollRef.current;
+        if (el) {
+          setPlusMenuCanScroll(el.scrollHeight > el.clientHeight);
+        }
+      });
+    }
+  }, [plusMenuOpen, sourcesExpanded]);
 
   // Base groups for @ trigger (all visible groups)
   const sourceGroups = useMemo(() => {
@@ -5449,7 +5468,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                           <div className="my-1 mx-2 border-t border-border/40" />
                           <button
                             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors"
-                            onClick={() => setSourcesExpanded((v) => !v)}
+                            onClick={handleToggleSourcesExpanded}
                           >
                             <HugeiconsIcon icon={GlobalSearchIcon} size={16} color="currentColor" strokeWidth={1.5} />
                             <span className="flex-1 text-[13px]">Sources</span>
@@ -5465,7 +5484,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                           </button>
                           {sourcesExpanded && (
                             <div className="pl-3 pr-1 py-1 space-y-0.5 max-h-56 overflow-y-auto">
-                              {SOURCE_CATALOG_IDS.filter((id) => isSourceEnabled(id)).map((id) => {
+                              {visibleSourceIds.map((id) => {
                                 const group = dynamicSearchGroups.find((g) => g.id === id);
                                 if (!group) return null;
                                 return (
@@ -5774,7 +5793,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                         <div className="my-0.5 mx-2 border-t border-border/40" />
                         <button
                           className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors"
-                          onClick={() => setSourcesExpanded((v) => !v)}
+                          onClick={handleToggleSourcesExpanded}
                         >
                           <HugeiconsIcon icon={GlobalSearchIcon} size={16} color="currentColor" strokeWidth={1.5} />
                           <span className="flex-1 text-[13px]">Sources</span>
@@ -5795,7 +5814,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                               onScroll={handlePlusMenuScroll}
                               className="max-h-32 overflow-y-auto pl-2"
                             >
-                              {SOURCE_CATALOG_IDS.filter((id) => isSourceEnabled(id)).map((id) => {
+                              {visibleSourceIds.map((id) => {
                                 const group = dynamicSearchGroups.find((g) => g.id === id);
                                 if (!group) return null;
                                 return (
