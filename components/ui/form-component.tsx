@@ -5465,7 +5465,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                           </button>
                           {sourcesExpanded && (
                             <div className="pl-3 pr-1 py-1 space-y-0.5 max-h-56 overflow-y-auto">
-                              {SOURCE_CATALOG_IDS.map((id) => {
+                              {SOURCE_CATALOG_IDS.filter((id) => isSourceEnabled(id)).map((id) => {
                                 const group = dynamicSearchGroups.find((g) => g.id === id);
                                 if (!group) return null;
                                 return (
@@ -5795,7 +5795,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                               onScroll={handlePlusMenuScroll}
                               className="max-h-32 overflow-y-auto pl-2"
                             >
-                              {SOURCE_CATALOG_IDS.map((id) => {
+                              {SOURCE_CATALOG_IDS.filter((id) => isSourceEnabled(id)).map((id) => {
                                 const group = dynamicSearchGroups.find((g) => g.id === id);
                                 if (!group) return null;
                                 return (
