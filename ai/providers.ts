@@ -127,6 +127,7 @@ export const zetora = customProvider({
           'zetora-grok-3-mini': _xai('grok-3-mini'),
           'zetora-grok-3': _xai('grok-3'),
           'zetora-grok-4': _xai('grok-4'),
+          'zetora-grok-4.5': _xai('grok-4.5'),
           'zetora-grok-4.20-experimental-beta-0304': _xai('grok-4.20-non-reasoning-latest'),
           'zetora-grok-4.20-experimental-beta-0304-thinking': _xai('grok-4.20-reasoning-latest'),
           'zetora-grok-4-fast': _xai('grok-4-fast-non-reasoning'),
@@ -247,6 +248,30 @@ export const zetora = customProvider({
             model: openai('gpt-5-codex'),
             retries: [openai_2('gpt-5-codex')],
           }),
+          'zetora-gpt-5.5': createRetryable({
+            model: openai('gpt-5.5'),
+            retries: [openai_2('gpt-5.5')],
+          }),
+          'zetora-gpt-5.5-thinking': createRetryable({
+            model: openai('gpt-5.5'),
+            retries: [openai_2('gpt-5.5')],
+          }),
+          'zetora-gpt-5.6': createRetryable({
+            model: openai('gpt-5.6'),
+            retries: [openai_2('gpt-5.6')],
+          }),
+          'zetora-gpt-5.6-thinking': createRetryable({
+            model: openai('gpt-5.6'),
+            retries: [openai_2('gpt-5.6')],
+          }),
+          'zetora-gpt-5.6-terra': createRetryable({
+            model: openai('gpt-5.6-terra'),
+            retries: [openai_2('gpt-5.6-terra')],
+          }),
+          'zetora-gpt-5.6-luna': createRetryable({
+            model: openai('gpt-5.6-luna'),
+            retries: [openai_2('gpt-5.6-luna')],
+          }),
         }
       : {}),
 
@@ -306,6 +331,14 @@ export const zetora = customProvider({
           'zetora-gemini-3.1-pro': createRetryable({
             model: _google('gemini-3.1-pro-preview'),
             retries: [gateway('google/gemini-3.1-pro-preview')],
+          }),
+          'zetora-gemini-3.5-flash': createRetryable({
+            model: _google('gemini-3.5-flash'),
+            retries: [gateway('google/gemini-3.5-flash')],
+          }),
+          'zetora-gemini-3.5-flash-think': createRetryable({
+            model: _google('gemini-3.5-flash'),
+            retries: [gateway('google/gemini-3.5-flash')],
           }),
         }
       : {}),
@@ -424,6 +457,7 @@ export const zetora = customProvider({
       ? {
           'zetora-cmd-a': _cohere('command-a-03-2025'),
           'zetora-cmd-a-think': _cohere('command-a-reasoning-08-2025'),
+          'zetora-cmd-a-plus': _cohere('command-a-plus-05-2026'),
         }
       : {}),
 
@@ -455,6 +489,12 @@ export const zetora = customProvider({
           'zetora-anthropic-opus-think': _anthropic('claude-opus-4-5'),
           'zetora-anthropic-opus-4.6': _anthropic('claude-opus-4-6'),
           'zetora-anthropic-opus-4.6-think': _anthropic('claude-opus-4-6'),
+          'zetora-anthropic-sonnet-5': _anthropic('claude-sonnet-5'),
+          'zetora-anthropic-sonnet-5-think': _anthropic('claude-sonnet-5'),
+          'zetora-anthropic-opus-4.7': _anthropic('claude-opus-4-7'),
+          'zetora-anthropic-opus-4.7-think': _anthropic('claude-opus-4-7'),
+          'zetora-anthropic-opus-4.8': _anthropic('claude-opus-4-8'),
+          'zetora-anthropic-opus-4.8-think': _anthropic('claude-opus-4-8'),
         }
       : {}),
 
@@ -464,6 +504,7 @@ export const zetora = customProvider({
           'zetora-glm': wrapLanguageModel({ model: gateway('zai/glm-4.5'), middleware }),
           'zetora-glm-5': wrapLanguageModel({ model: zai('glm-5-turbo'), middleware }),
           'zetora-glm-5-thinking': wrapLanguageModel({ model: zai('glm-5-turbo'), middleware }),
+          'zetora-glm-5.2': wrapLanguageModel({ model: zai('glm-5.2'), middleware }),
         }
       : {}),
 
@@ -471,6 +512,10 @@ export const zetora = customProvider({
       ? {
           'zetora-minimax-m2.7': wrapLanguageModel({
             model: minimax.chatModel('MiniMax-M2.7-highspeed'),
+            middleware,
+          }),
+          'zetora-minimax-m3': wrapLanguageModel({
+            model: minimax.chatModel('MiniMax-M3'),
             middleware,
           }),
         }
@@ -508,6 +553,16 @@ export const zetora = customProvider({
     'zetora-deepseek-chat': gateway('deepseek/deepseek-v3.2'),
     'zetora-deepseek-chat-think': gateway('deepseek/deepseek-v3.2-thinking'),
     'zetora-deepseek-chat-exp': gateway('deepseek/deepseek-v3.2-exp'),
+    'zetora-deepseek-v4-flash': gateway('deepseek/deepseek-v4-flash'),
+    'zetora-deepseek-v4-flash-think': wrapLanguageModel({
+      model: gateway('deepseek/deepseek-v4-flash-thinking'),
+      middleware,
+    }),
+    'zetora-deepseek-v4-pro': gateway('deepseek/deepseek-v4-pro'),
+    'zetora-deepseek-v4-pro-think': wrapLanguageModel({
+      model: gateway('deepseek/deepseek-v4-pro-thinking'),
+      middleware,
+    }),
     'zetora-v0-10': gateway('vercel/v0-1.0-md'),
     'zetora-v0-15': gateway('vercel/v0-1.5-md'),
     'zetora-qwen-coder-small': gateway('alibaba/qwen3-coder-30b-a3b'),
@@ -518,6 +573,8 @@ export const zetora = customProvider({
     'zetora-qwen-235': gateway('alibaba/qwen-3-235b'),
     'zetora-qwen-3.5-plus': gateway('alibaba/qwen3.5-plus'),
     'zetora-qwen-3.5-flash': gateway('alibaba/qwen3.5-flash'),
+    'zetora-qwen-3.7-max': gateway('alibaba/qwen3.7-max'),
+    'zetora-qwen-3.7-plus': gateway('alibaba/qwen3.7-plus'),
     'zetora-qwen-3-vl': gateway('alibaba/qwen3-vl-instruct'),
     'zetora-qwen-3-vl-thinking': wrapLanguageModel({ model: gateway('alibaba/qwen3-vl-thinking'), middleware }),
     'zetora-kimi-k2-v2-thinking': wrapLanguageModel({
@@ -525,10 +582,13 @@ export const zetora = customProvider({
       middleware,
     }),
     'zetora-kimi-k2.5-thinking': gateway('moonshotai/kimi-k2.5'),
+    'zetora-kimi-k2.6': gateway('moonshotai/kimi-k2.6'),
+    'zetora-kimi-k2.7-code': gateway('moonshotai/kimi-k2.7-code'),
     'zetora-mimo-v2-flash': wrapLanguageModel({ model: gateway('xiaomi/mimo-v2-flash'), middleware }),
     'zetora-mimo-v2-pro': wrapLanguageModel({ model: gateway('xiaomi/mimo-v2-pro'), middleware }),
     'zetora-nova-2-lite': gateway('amazon/nova-2-lite'),
     'zetora-mercury-2': gateway('inception/mercury-2'),
+    'zetora-nemotron-3-ultra': gateway('nvidia/nemotron-3-ultra-550b-a55b'),
     'zetora-minimax-m2': wrapLanguageModel({ model: gateway('minimax/minimax-m2'), middleware }),
     'zetora-minimax-m2.1': wrapLanguageModel({ model: gateway('minimax/minimax-m2.1'), middleware }),
     'zetora-minimax-m2.1-lightning': wrapLanguageModel({
