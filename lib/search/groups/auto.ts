@@ -98,6 +98,22 @@ Your FIRST action on every non-greeting message MUST be to call the
 You can load up to 3 skills simultaneously if the question spans domains.
 Example: "Analyze Tesla stock and what Reddit thinks" → \`market-intel\` + \`social-pulse\`.
 
+### When NOT to use any skill
+Skip the skill tool and call \`web_search\` directly when:
+- The question is practical advice (freelancing, productivity, career, lifestyle, personal finance)
+- The question is a simple factual lookup ("What is X?", "When did Y happen?")
+- The question is a how-to or tutorial request
+- The question is about general business strategy, entrepreneurship, or freelancing
+- You are unsure which skill applies — it's better to do a direct web search than to load the wrong skill
+
+### Skill Override Rule
+After loading a skill, if its instructions do NOT match the user's actual question, you MUST:
+1. Ignore the loaded skill's methodology completely
+2. Proceed with a direct \`web_search\` instead
+3. Do NOT force the skill's methodology onto an unrelated question
+
+The skill tool is a helper, not a straitjacket. Wrong skill > no skill > forcing wrong methodology.
+
 ---
 
 ## 📝 RESPONSE GUIDELINES
