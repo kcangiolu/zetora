@@ -1,4 +1,5 @@
-import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
+import React, { memo, useMemo, useState, useRef, useEffect, useCallback } from 'react';
+import { Virtuoso } from 'react-virtuoso';
 import { Message } from '@/components/message';
 import { DataUIPart, isToolUIPart } from 'ai';
 import { EnhancedErrorDisplay } from '@/components/message';
@@ -41,7 +42,7 @@ interface MessagesProps {
   skipCacheRef?: React.MutableRefObject<boolean>;
 }
 
-const Messages: React.FC<MessagesProps> = ({
+const MessagesImpl: React.FC<MessagesProps> = ({
   messages,
   lastUserMessageIndex,
   setMessages,
@@ -73,55 +74,21 @@ const Messages: React.FC<MessagesProps> = ({
 
   // Filter messages to only show the ones we want to display
   const memoizedMessages = useMemo(() => {
-    console.log('=== FILTERING MESSAGES START ===');
-    console.log('Raw messages array:', messages);
-    console.log('Raw messages length:', messages.length);
-
-    const filtered = messages.filter((message) => {
-      console.log('Processing message:', {
-        role: message.role,
-        id: message.id,
-        parts: message.parts?.map((p) => ({
-          type: p.type,
-          hasContent: !!(p as any).text || !!(p as any).input || !!(p as any).output,
-        })),
-        partsLength: message.parts?.length,
-      });
-
-      // Keep all user messages
-      if (message.role === 'user') {
-        console.log('✅ Keeping user message:', message.id);
-        return true;
-      }
-
-      // For assistant messages, keep all of them for now (debugging)
-      if (message.role === 'assistant') {
-        console.log('✅ Keeping assistant message:', message.id);
-        return true;
-      }
-
-      console.log('❌ Filtering out message:', message.role, message.id);
-      return false;
-    });
-
-    console.log('Filtered messages length:', filtered.length);
-    console.log('Filtered messages:', filtered);
-    console.log('=== FILTERING MESSAGES END ===');
-    return filtered;
+    return messages.filter((message) => message.role === 'user' || message.role === 'assistant');
   }, [messages]);
+
+  // Compute the initial scroll target once, at mount, so incoming messages
+  // don't keep resetting where Virtuoso thinks the "initial" bottom is.
+  const initialTopMostItemIndexRef = useRef(Math.max(memoizedMessages.length - 1, 0));
 
   // Check if there are any active tool invocations in the current messages
   const hasActiveToolInvocations = useMemo(() => {
     const lastMessage = memoizedMessages[memoizedMessages.length - 1];
-    console.log('hasActiveToolInvocations - lastMessage:', lastMessage);
 
     // Only consider tools as "active" if we're currently streaming AND the last message is assistant with tools
     if (status === 'streaming' && lastMessage?.role === 'assistant') {
-      const hasTools = lastMessage.parts?.some((part: ChatMessage['parts'][number]) => isToolUIPart(part));
-      console.log('hasActiveToolInvocations - hasTools:', hasTools);
-      return hasTools;
+      return lastMessage.parts?.some((part: ChatMessage['parts'][number]) => isToolUIPart(part));
     }
-    console.log('hasActiveToolInvocations - not streaming or no assistant message, returning false');
     return false;
   }, [memoizedMessages, status]);
 
@@ -320,8 +287,6 @@ const Messages: React.FC<MessagesProps> = ({
     return false;
   }, [isTransitioning, memoizedMessages, status, isActiveAssistantSkeleton]);
 
-  // No useEffect here - let the parent handle scrolling when it receives streaming data
-
   // Add effect for auto-scrolling reasoning content
   useEffect(() => {
     // Find active reasoning parts that are not complete
@@ -344,138 +309,162 @@ const Messages: React.FC<MessagesProps> = ({
     }
   }, [messages]);
 
-  console.log('=== RENDER CHECK ===');
-  console.log('memoizedMessages.length:', memoizedMessages.length);
-  console.log(
-    'memoizedMessages roles:',
-    memoizedMessages.map((m) => m.role),
+  const renderMessageItem = useCallback(
+    (index: number, message: ChatMessage) => {
+      const isNextMessageAssistant =
+        index < memoizedMessages.length - 1 && memoizedMessages[index + 1].role === 'assistant';
+      const isCurrentMessageUser = message.role === 'user';
+      const isCurrentMessageAssistant = message.role === 'assistant';
+      const isLastMessage = index === memoizedMessages.length - 1;
+
+      // Determine proper spacing between messages
+      let messageClasses = '';
+
+      if (isCurrentMessageUser && isNextMessageAssistant) {
+        // Reduce space between user message and its response
+        messageClasses = 'mb-0';
+      } else if (isCurrentMessageAssistant && index < memoizedMessages.length - 1) {
+        // Add border and spacing only if this is not the last assistant message
+        messageClasses = 'mb-8 pb-6 border-b border-border dark:border-border';
+      } else if (isCurrentMessageAssistant && index === memoizedMessages.length - 1) {
+        // Last assistant message should have no bottom margin (min-height is now handled in Message component)
+        messageClasses = 'mb-0';
+      } else {
+        messageClasses = 'mb-0';
+      }
+
+      return (
+        <div className={messageClasses}>
+          <Message
+            message={message}
+            index={index}
+            lastUserMessageIndex={lastUserMessageIndex}
+            renderPart={renderPart}
+            status={status}
+            messages={messages}
+            setMessages={setMessages}
+            sendMessage={sendMessage}
+            regenerate={regenerate}
+            setSuggestedQuestions={setSuggestedQuestions}
+            suggestedQuestions={index === memoizedMessages.length - 1 ? suggestedQuestions : []}
+            user={user ?? undefined}
+            selectedVisibilityType={selectedVisibilityType}
+            isLastMessage={isLastMessage}
+            error={error}
+            isMissingAssistantResponse={index === missingAssistantResponseIndex}
+            handleRetry={handleRetry}
+            isOwner={isOwner}
+            onHighlight={onHighlight}
+            attachmentsRenderer={attachmentsRenderer}
+            onBeforeSubmit={onBeforeSubmit}
+            shouldReduceHeight={
+              message.role === 'assistant'
+                ? isTransitioning ||
+                  status === 'submitted' ||
+                  memoizedMessages[memoizedMessages.length - 1]?.role === 'user'
+                  ? true
+                  : status === 'streaming'
+                    ? activeAssistantIndex !== -1
+                      ? index === activeAssistantIndex
+                        ? isActiveAssistantSkeleton
+                        : true
+                      : true
+                    : index !== lastAssistantIndex
+                : false
+            }
+          />
+        </div>
+      );
+    },
+    [
+      memoizedMessages,
+      lastUserMessageIndex,
+      renderPart,
+      status,
+      messages,
+      setMessages,
+      sendMessage,
+      regenerate,
+      setSuggestedQuestions,
+      suggestedQuestions,
+      user,
+      selectedVisibilityType,
+      error,
+      missingAssistantResponseIndex,
+      handleRetry,
+      isOwner,
+      onHighlight,
+      attachmentsRenderer,
+      onBeforeSubmit,
+      isTransitioning,
+      activeAssistantIndex,
+      isActiveAssistantSkeleton,
+      lastAssistantIndex,
+    ],
   );
 
+  const Footer = useCallback(() => {
+    return (
+      <>
+        {/* Loading animation when status is submitted or streaming with minimal assistant content */}
+        {shouldShowLoading && (
+          <div
+            className={`flex items-start ${shouldReserveLoaderMinHeight ? 'min-h-[calc(100vh-18rem)]' : ''} m-0! p-0!`}
+          >
+            <div className="w-full m-0! p-0!">
+              <div className="flex space-x-2 mt-5 ml-2">
+                <div
+                  className="size-3 rounded-full bg-muted-foreground dark:bg-muted-foreground animate-bounce"
+                  style={{ animationDelay: '0ms' }}
+                ></div>
+                <div
+                  className="size-3 rounded-full bg-muted-foreground dark:bg-muted-foreground animate-bounce"
+                  style={{ animationDelay: '150ms' }}
+                ></div>
+                <div
+                  className="size-3 rounded-full bg-muted-foreground dark:bg-muted-foreground animate-bounce"
+                  style={{ animationDelay: '300ms' }}
+                ></div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Show global error when there is no assistant message to display it */}
+        {error && memoizedMessages[memoizedMessages.length - 1]?.role !== 'assistant' && (
+          <EnhancedErrorDisplay
+            error={error}
+            user={user ?? undefined}
+            selectedVisibilityType={selectedVisibilityType}
+            handleRetry={handleRetry}
+          />
+        )}
+
+        <div ref={messagesEndRef} />
+      </>
+    );
+  }, [shouldShowLoading, shouldReserveLoaderMinHeight, error, memoizedMessages, user, selectedVisibilityType, handleRetry]);
+
   if (memoizedMessages.length === 0) {
-    console.log('❌ No messages to render, returning null');
     return null;
   }
 
-  console.log('✅ Proceeding to render', memoizedMessages.length, 'messages');
-
   return (
-    <div className="space-y-0 mb-38! sm:mb-42! flex flex-col" style={{ overflowAnchor: 'none' }}>
-      <div className="grow">
-        {memoizedMessages.map((message, index) => {
-          console.log(`=== RENDERING MESSAGE ${index} ===`);
-          console.log('Message role:', message.role);
-          console.log('Message id:', message.id);
-          console.log('Message parts count:', message.parts?.length);
-
-          const isNextMessageAssistant =
-            index < memoizedMessages.length - 1 && memoizedMessages[index + 1].role === 'assistant';
-          const isCurrentMessageUser = message.role === 'user';
-          const isCurrentMessageAssistant = message.role === 'assistant';
-          const isLastMessage = index === memoizedMessages.length - 1;
-
-          // Determine proper spacing between messages
-          let messageClasses = '';
-
-          if (isCurrentMessageUser && isNextMessageAssistant) {
-            // Reduce space between user message and its response
-            messageClasses = 'mb-0';
-          } else if (isCurrentMessageAssistant && index < memoizedMessages.length - 1) {
-            // Add border and spacing only if this is not the last assistant message
-            messageClasses = 'mb-8 pb-6 border-b border-border dark:border-border';
-          } else if (isCurrentMessageAssistant && index === memoizedMessages.length - 1) {
-            // Last assistant message should have no bottom margin (min-height is now handled in Message component)
-            messageClasses = 'mb-0';
-          } else {
-            messageClasses = 'mb-0';
-          }
-
-          console.log(`📤 About to render Message component for ${message.role} message ${index}`);
-          return (
-            <div key={message.id || index} className={messageClasses}>
-              <Message
-                message={message}
-                index={index}
-                lastUserMessageIndex={lastUserMessageIndex}
-                renderPart={renderPart}
-                status={status}
-                messages={messages}
-                setMessages={setMessages}
-                sendMessage={sendMessage}
-                regenerate={regenerate}
-                setSuggestedQuestions={setSuggestedQuestions}
-                suggestedQuestions={index === memoizedMessages.length - 1 ? suggestedQuestions : []}
-                user={user ?? undefined}
-                selectedVisibilityType={selectedVisibilityType}
-                isLastMessage={isLastMessage}
-                error={error}
-                isMissingAssistantResponse={index === missingAssistantResponseIndex}
-                handleRetry={handleRetry}
-                isOwner={isOwner}
-                onHighlight={onHighlight}
-                attachmentsRenderer={attachmentsRenderer}
-                onBeforeSubmit={onBeforeSubmit}
-                shouldReduceHeight={
-                  message.role === 'assistant'
-                    ? isTransitioning ||
-                      status === 'submitted' ||
-                      memoizedMessages[memoizedMessages.length - 1]?.role === 'user'
-                      ? true
-                      : status === 'streaming'
-                        ? activeAssistantIndex !== -1
-                          ? index === activeAssistantIndex
-                            ? isActiveAssistantSkeleton
-                            : true
-                          : true
-                        : index !== lastAssistantIndex
-                    : false
-                }
-              />
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Loading animation when status is submitted or streaming with minimal assistant content */}
-      {shouldShowLoading && (
-        <div
-          className={`flex items-start ${shouldReserveLoaderMinHeight ? 'min-h-[calc(100vh-18rem)]' : ''} m-0! p-0!`}
-        >
-          <div className="w-full m-0! p-0!">
-            {/* <ZetoraLogoHeader /> */}
-            <div className="flex space-x-2 mt-5 ml-2">
-              <div
-                className="size-3 rounded-full bg-muted-foreground dark:bg-muted-foreground animate-bounce"
-                style={{ animationDelay: '0ms' }}
-              ></div>
-              <div
-                className="size-3 rounded-full bg-muted-foreground dark:bg-muted-foreground animate-bounce"
-                style={{ animationDelay: '150ms' }}
-              ></div>
-              <div
-                className="size-3 rounded-full bg-muted-foreground dark:bg-muted-foreground animate-bounce"
-                style={{ animationDelay: '300ms' }}
-              ></div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Show global error when there is no assistant message to display it */}
-      {error && memoizedMessages[memoizedMessages.length - 1]?.role !== 'assistant' && (
-        <EnhancedErrorDisplay
-          error={error}
-          user={user ?? undefined}
-          selectedVisibilityType={selectedVisibilityType}
-          handleRetry={handleRetry}
-        />
-      )}
-
-      <div ref={messagesEndRef} />
+    <div className="mb-38! sm:mb-42! flex-1 min-h-0 flex flex-col" style={{ overflowAnchor: 'none' }}>
+      <Virtuoso
+        style={{ height: '100%' }}
+        data={memoizedMessages}
+        computeItemKey={(index, message) => message.id ?? index}
+        followOutput={(isAtBottom) => (isAtBottom ? 'smooth' : false)}
+        itemContent={renderMessageItem}
+        components={{ Footer }}
+      />
     </div>
   );
 };
 
 // Add a display name for better debugging
+const Messages = memo(MessagesImpl);
 Messages.displayName = 'Messages';
 
 export default Messages;
