@@ -268,7 +268,10 @@ const Messages: React.FC<MessagesProps> = ({
     // Fire immediately via the onBeforeSubmit callback — before SDK status updates
     if (isTransitioning) return true;
     const lastMessage = memoizedMessages[memoizedMessages.length - 1];
-    if (lastMessage?.role === 'user') return true;
+    // Only treat a trailing user message as "awaiting a response" while a
+    // request is actually in flight — otherwise a user message left dangling
+    // (e.g. after deleting the assistant's reply) shows the loader forever.
+    if (lastMessage?.role === 'user' && status !== 'ready') return true;
     if (status === 'submitted') return true;
     if (status === 'streaming') {
       if (lastMessage?.role === 'assistant') {
@@ -311,7 +314,7 @@ const Messages: React.FC<MessagesProps> = ({
   const shouldReserveLoaderMinHeight = useMemo(() => {
     if (isTransitioning) return true;
     const lastMessage = memoizedMessages[memoizedMessages.length - 1];
-    if (lastMessage?.role === 'user') return true;
+    if (lastMessage?.role === 'user' && status !== 'ready') return true;
     if (status === 'submitted') return true;
     if (status === 'streaming' && isActiveAssistantSkeleton) return true;
     return false;

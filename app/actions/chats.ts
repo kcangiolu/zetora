@@ -13,6 +13,7 @@ import {
   deleteChatById,
   updateChatVisibilityById,
   getChatById,
+  getChatByIdForValidation,
   getMessageById,
   deleteMessagesByChatIdAfterTimestamp,
   updateChatTitleById,
@@ -244,12 +245,21 @@ export async function getChatInfo(chatId: string) {
 export async function deleteTrailingMessages({ id }: { id: string }) {
   'use server';
   try {
+    const user = await getUser();
+    if (!user) {
+      throw new Error('Unauthorized');
+    }
+
     const [message] = await getMessageById({ id });
-    console.log('Message: ', message);
 
     if (!message) {
       console.error(`No message found with id: ${id}`);
       return;
+    }
+
+    const owningChat = await getChatByIdForValidation({ id: message.chatId });
+    if (!owningChat || owningChat.userId !== user.id) {
+      throw new Error('Unauthorized');
     }
 
     await deleteMessagesByChatIdAfterTimestamp({

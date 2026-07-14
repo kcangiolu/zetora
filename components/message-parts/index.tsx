@@ -118,6 +118,7 @@ import {
   Sparkles,
   Wand2,
   Pencil,
+  Trash2,
 } from 'lucide-react';
 import {
   ClockIcon as PhosphorClockIcon,
@@ -2438,6 +2439,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
     const { dataStream } = useDataStream();
     const [isRegenerating, setIsRegenerating] = useState(false);
     const [isBranchingOut, setIsBranchingOut] = useState(false);
+    const [isDeletingMessage, setIsDeletingMessage] = useState(false);
     const { speak, stop: stopSpeech, isSpeaking, isLoading } = useSpeech();
     const [inlineElicitationVersion, setInlineElicitationVersion] = useState(0);
     const ignoredInlineElicitationIdsRef = useRef<Set<string>>(new Set());
@@ -2787,6 +2789,65 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                       </TooltipTrigger>
                       <TooltipContent side="bottom" sideOffset={4}>
                         Try Again
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+
+                {/* Delete button - removes this response along with the user message that prompted it.
+                    Only for owners or unauthenticated users on private chats, and only on last assistant message */}
+                {((user && isOwner) || (!user && selectedVisibilityType === 'private')) && isLastAssistantMessage && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          disabled={isDeletingMessage}
+                          onClick={async () => {
+                            if (isDeletingMessage) return;
+
+                            try {
+                              setIsDeletingMessage(true);
+
+                              const lastUserMessage = messages.findLast((m) => m.role === 'user');
+                              if (!lastUserMessage) return;
+
+                              // Step 1: Stop any in-flight stream first to prevent the old response's
+                              // onFinish from saving stale messages to DB after we delete them
+                              await stop();
+
+                              // Step 2: Small delay to allow the abort to propagate and any in-flight
+                              // server-side onFinish to complete before we delete
+                              await new Promise((resolve) => setTimeout(resolve, 100));
+
+                              // Step 3: Delete the user message and everything after it (this response) from the DB
+                              if (user && lastUserMessage.id) {
+                                await deleteTrailingMessages({ id: lastUserMessage.id });
+                              }
+
+                              // Step 4: Update local state to remove the user message and this response
+                              const lastUserMessageIndex = messages.findIndex((m) => m.id === lastUserMessage.id);
+                              setMessages(messages.slice(0, lastUserMessageIndex));
+                              setSuggestedQuestions([]);
+                            } catch (error) {
+                              console.error('Error deleting message:', error);
+                              sileo.error({ title: 'Failed to delete message' });
+                            } finally {
+                              setIsDeletingMessage(false);
+                            }
+                          }}
+                          className={actionIconButtonClassName}
+                        >
+                          {isDeletingMessage ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" sideOffset={4}>
+                        Delete question & response
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
