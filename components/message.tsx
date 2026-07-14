@@ -822,6 +822,18 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
 // Max height for collapsed user messages (in pixels)
 const USER_MESSAGE_MAX_HEIGHT = 125;
 
+// Tool outputs that ARE the deliverable, not a research/reasoning step — kept
+// visible when "Zetora task complete" is collapsed, same as the final text
+// answer, regardless of whether the model also references them in its text.
+const DELIVERABLE_TOOL_PART_TYPES = new Set(['tool-generate_image', 'tool-edit_image', 'tool-download_file']);
+
+function isDeliverablePart(part: ChatMessage['parts'][number]): boolean {
+  if (part.type === 'text') return true;
+  if (!DELIVERABLE_TOOL_PART_TYPES.has(part.type)) return false;
+  const anyPart = part as unknown as { state?: string; output?: { success?: boolean } };
+  return anyPart.state === 'output-available' && anyPart.output?.success !== false;
+}
+
 export const Message: React.FC<MessageProps> = ({
   message,
   index,
@@ -846,13 +858,27 @@ export const Message: React.FC<MessageProps> = ({
   attachmentsRenderer,
   onBeforeSubmit,
 }) => {
+  // Only meaningful for assistant messages, but computed unconditionally
+  // since hooks below depend on it and hooks can't be called conditionally.
+  const isTurnStreaming = isLastMessage && (status === 'streaming' || status === 'submitted');
+
   // State for expanding/collapsing long user messages
   const [isExpanded, setIsExpanded] = useState(false);
   // State to track if the message exceeds max height
   const [exceedsMaxHeight, setExceedsMaxHeight] = useState(false);
-  // Collapses the whole assistant turn (reasoning + tool calls) under a single
-  // "Zetora task complete" header once it's done streaming.
-  const [isTaskExpanded, setIsTaskExpanded] = useState(true);
+  // Collapses the reasoning/tool-call steps of an assistant turn under a
+  // single "Zetora task complete" header — the final text answer stays
+  // visible regardless. Starts expanded while streaming (so the user can
+  // watch it work) and auto-collapses once the turn finishes; click to
+  // reopen and inspect the steps.
+  const [isTaskExpanded, setIsTaskExpanded] = useState(isTurnStreaming);
+  const wasTurnStreamingRef = React.useRef(isTurnStreaming);
+  React.useEffect(() => {
+    if (wasTurnStreamingRef.current && !isTurnStreaming) {
+      setIsTaskExpanded(false);
+    }
+    wasTurnStreamingRef.current = isTurnStreaming;
+  }, [isTurnStreaming]);
   // Ref to check content height
   const messageContentRef = React.useRef<HTMLDivElement>(null);
   // Mode state for editing
@@ -1030,11 +1056,14 @@ export const Message: React.FC<MessageProps> = ({
   }
 
   if (message.role === 'assistant') {
-    const isTurnStreaming = isLastMessage && (status === 'streaming' || status === 'submitted');
     const hasParts = Boolean(message.parts && message.parts.length > 0);
+    // Only the final answer and deliverables (generated images/files) stay
+    // visible when collapsed — reasoning, tool calls, and other step parts
+    // are what "Zetora task complete" hides.
+    const showAllSteps = isTurnStreaming || isTaskExpanded || !hasParts;
 
     const partsList = message.parts?.map((part: ChatMessage['parts'][number], partIndex: number) => {
-      console.log(`🔧 Rendering part ${partIndex}:`, { type: part.type, hasText: part.type === 'text' });
+      if (!showAllSteps && !isDeliverablePart(part)) return null;
       const key = `${message.id || index}-part-${partIndex}-${part.type}`;
       return (
         <div key={key}>
@@ -1045,8 +1074,8 @@ export const Message: React.FC<MessageProps> = ({
 
     return (
       <div className={cn(shouldReduceHeight ? '' : 'min-h-[calc(100vh-18rem)]', '')}>
-        {/* Collapses the whole turn (reasoning + tool calls) once streaming is
-            done — lets the user hide everything but the final answer at a glance. */}
+        {/* Collapses the reasoning/tool-call steps once streaming is done —
+            lets the user hide everything but the final answer at a glance. */}
         {!isTurnStreaming && hasParts && (
           <button
             onClick={() => setIsTaskExpanded((v) => !v)}
@@ -1057,7 +1086,7 @@ export const Message: React.FC<MessageProps> = ({
             {isTaskExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
           </button>
         )}
-        {(isTurnStreaming || isTaskExpanded || !hasParts) && partsList}
+        {partsList}
 
         {/* Missing assistant response UI moved inside assistant message */}
         {isMissingAssistantResponse && (
