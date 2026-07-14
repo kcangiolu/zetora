@@ -5,11 +5,14 @@ import { nanoid } from 'nanoid';
 import { getSandboxProvider } from '@/lib/sandbox';
 import type { SandboxProviderType } from '@/lib/sandbox';
 import { storageClient, STORAGE_BUCKET_NAME, STORAGE_PUBLIC_URL } from '@/lib/storage';
+import { persistGeneratedFile } from '@/lib/generated-file-storage';
 
 interface CodeInterpreterContext {
   userPreferences?: {
     'zetora-sandbox-provider'?: SandboxProviderType;
   };
+  userId?: string;
+  chatId?: string;
 }
 
 export const codeInterpreterTool = tool({
@@ -43,16 +46,29 @@ export const codeInterpreterTool = tool({
     if (result.charts?.[0]?.png) {
       try {
         const buffer = Buffer.from(result.charts[0].png, 'base64');
-        const key = `zetora/charts/${nanoid()}.png`;
-        await storageClient.send(
-          new PutObjectCommand({
-            Bucket: STORAGE_BUCKET_NAME,
-            Key: key,
-            Body: buffer,
-            ContentType: 'image/png',
-          }),
-        );
-        chartPngUrl = `${STORAGE_PUBLIC_URL}/${key}`;
+        if (context?.userId) {
+          const { url } = await persistGeneratedFile({
+            userId: context.userId,
+            chatId: context.chatId,
+            buffer,
+            filename: `${nanoid()}.png`,
+            mediaType: 'image/png',
+            kind: 'image',
+            toolName: 'code_interpreter',
+          });
+          chartPngUrl = url;
+        } else {
+          const key = `zetora/charts/${nanoid()}.png`;
+          await storageClient.send(
+            new PutObjectCommand({
+              Bucket: STORAGE_BUCKET_NAME,
+              Key: key,
+              Body: buffer,
+              ContentType: 'image/png',
+            }),
+          );
+          chartPngUrl = `${STORAGE_PUBLIC_URL}/${key}`;
+        }
         console.log('Chart uploaded:', chartPngUrl);
       } catch (uploadError) {
         console.error('Chart upload failed:', uploadError);

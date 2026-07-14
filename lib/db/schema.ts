@@ -679,6 +679,7 @@ export const userRelations = relations(user, ({ many }) => ({
   lookouts: many(lookout),
   mcpServers: many(userMcpServer),
   piiAliases: many(piiAlias),
+  generatedFiles: many(generatedFile),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -729,6 +730,48 @@ export const userMcpServerRelations = relations(userMcpServer, ({ one }) => ({
   user: one(user, {
     fields: [userMcpServer.userId],
     references: [user.id],
+  }),
+}));
+
+// Files produced by AI tools (generated images, generated documents/charts),
+// re-hosted on our own storage so they don't depend on an external
+// provider's URL lifetime (e.g. a ComfyUI wrapper's short-lived signed
+// URLs). Distinct from user-uploaded files, which are derived on read from
+// message.parts + an R2 prefix listing instead of a dedicated table — see
+// app/api/upload/route.ts.
+export const generatedFile = pgTable(
+  'generated_file',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => generateId()),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    chatId: text('chat_id').references(() => chat.id, { onDelete: 'set null' }),
+    key: text('key').notNull(),
+    url: text('url').notNull(),
+    filename: text('filename').notNull(),
+    mediaType: text('media_type'),
+    kind: varchar('kind', { enum: ['image', 'document'] }).notNull(),
+    toolName: text('tool_name'),
+    sizeBytes: integer('size_bytes'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('generatedFile_userId_idx').on(table.userId),
+    index('generatedFile_userId_createdAt_idx').on(table.userId, table.createdAt),
+  ],
+);
+
+export const generatedFileRelations = relations(generatedFile, ({ one }) => ({
+  user: one(user, {
+    fields: [generatedFile.userId],
+    references: [user.id],
+  }),
+  chat: one(chat, {
+    fields: [generatedFile.chatId],
+    references: [chat.id],
   }),
 }));
 
@@ -795,3 +838,4 @@ export type Lookout = InferSelectModel<typeof lookout>;
 export type UserMcpServer = InferSelectModel<typeof userMcpServer>;
 export type BuildSession = InferSelectModel<typeof buildSession>;
 export type PiiAlias = InferSelectModel<typeof piiAlias>;
+export type GeneratedFile = InferSelectModel<typeof generatedFile>;

@@ -102,6 +102,10 @@ export type PreferenceKey =
   | 'zetora-image-edit-custom-provider-id'
   | 'zetora-image-edit-model'
   | 'zetora-image-edit-request-body'
+  | 'zetora-image-gen-system-prompt'
+  | 'zetora-image-gen-prompt-presets'
+  | 'zetora-image-edit-system-prompt'
+  | 'zetora-image-edit-prompt-presets'
   | 'zetora-voice-s2s-backend'
   | 'zetora-tertiary-voice-model'
   | 'zetora-tertiary-voice-provider';
@@ -116,7 +120,17 @@ type AutoRouterConfig = {
 
 export type GraphitiProvider = { id: string; name: string; baseURL: string; apiKey?: string };
 
-type PreferenceValue = string | string[] | boolean | number | AutoRouterConfig | GraphitiProvider[] | undefined;
+export type ImageGenPromptPreset = { id: string; name: string; prompt: string };
+
+type PreferenceValue =
+  | string
+  | string[]
+  | boolean
+  | number
+  | AutoRouterConfig
+  | GraphitiProvider[]
+  | ImageGenPromptPreset[]
+  | undefined;
 
 const DEBOUNCE_MS = 300; // Debounce DB writes by 300ms
 const MIGRATION_KEY_PREFIX = 'zetora-prefs-migrated-';

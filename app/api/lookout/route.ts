@@ -749,7 +749,10 @@ export async function POST(req: Request) {
           system: systemPrompt,
           toolChoice: 'auto',
           tools,
-          experimental_context: { userPreferences: (userPrefs?.preferences ?? {}) as Record<string, string> },
+          experimental_context: {
+            userPreferences: (userPrefs?.preferences ?? {}) as Record<string, string>,
+            userId: userResult.id,
+          },
           providerOptions: {
             xai: {
               parallel_function_calling: false,

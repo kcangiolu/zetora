@@ -1491,7 +1491,13 @@ export async function POST(req: Request) {
               contentType: (att as any).mediaType,
               name: (att as any).name,
             }));
-          return { images, files, userPreferences: userPreferencesResult?.preferences ?? {} };
+          return {
+            images,
+            files,
+            userPreferences: userPreferencesResult?.preferences ?? {},
+            userId: lightweightUser?.userId,
+            chatId: id,
+          };
         })(),
         experimental_download: async (requestedDownloads) => {
           type DownloadResult = { data: Uint8Array; mediaType: string | undefined } | null;

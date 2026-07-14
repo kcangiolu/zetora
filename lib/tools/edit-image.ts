@@ -1,5 +1,6 @@
 import { tool } from 'ai';
 import { z } from 'zod';
+import { rehostGeneratedImage } from '@/lib/generated-file-storage';
 
 interface CustomProviderConfig {
   id: string;
@@ -10,6 +11,8 @@ interface CustomProviderConfig {
 
 interface ToolContext {
   userPreferences?: Record<string, unknown>;
+  userId?: string;
+  chatId?: string;
 }
 
 export const editImageTool = tool({
@@ -18,9 +21,20 @@ export const editImageTool = tool({
   inputSchema: z.object({
     image_url: z.string().describe('URL of the image to edit'),
     prompt: z.string().describe('Description of the edit to apply to the image'),
+    seed: z
+      .number()
+      .int()
+      .optional()
+      .describe(
+        'Random seed. Omit for a different result every time (default) — only set this if the user explicitly asks to reuse or repeat a previous seed.',
+      ),
   }),
-  execute: async ({ image_url, prompt }, { experimental_context }: { experimental_context?: unknown } = {}) => {
-    const prefs = (experimental_context as ToolContext | undefined)?.userPreferences ?? {};
+  execute: async (
+    { image_url, prompt, seed },
+    { experimental_context }: { experimental_context?: unknown } = {},
+  ) => {
+    const context = experimental_context as ToolContext | undefined;
+    const prefs = context?.userPreferences ?? {};
 
     const providerId = prefs['zetora-image-edit-custom-provider-id'] as string | undefined;
     const model = (prefs['zetora-image-edit-model'] as string | undefined) || '';
@@ -34,7 +48,7 @@ export const editImageTool = tool({
       };
     }
 
-    let extraBody: Record<string, string> = {};
+    let extraBody: Record<string, unknown> = {};
     try {
       extraBody = JSON.parse((prefs['zetora-image-edit-request-body'] as string | undefined) || '{}');
     } catch {
@@ -51,18 +65,27 @@ export const editImageTool = tool({
       return { success: false as const, error: `Could not download source image: ${sourceImage.status}` };
     }
 
+    const finalSeed = seed ?? Math.floor(Math.random() * 2 ** 32);
+
     const formData = new FormData();
     formData.append('image', await sourceImage.blob(), 'image.png');
     formData.append('prompt', prompt);
     formData.append('model', model);
     formData.append('n', '1');
+    formData.append('seed', String(finalSeed));
     for (const [key, value] of Object.entries(extraBody)) {
-      formData.append(key, value);
+      formData.append(key, typeof value === 'string' ? value : JSON.stringify(value));
     }
 
     const base = provider.baseURL.endsWith('/v1') ? provider.baseURL : `${provider.baseURL}/v1`;
     const headers: Record<string, string> = {};
     if (provider.apiKey) headers['Authorization'] = `Bearer ${provider.apiKey}`;
+
+    console.log(
+      `[edit_image] POST ${base}/images/edits`,
+      JSON.stringify({ prompt, model, n: '1', seed: finalSeed, ...extraBody }, null, 2),
+      '+ image blob',
+    );
 
     let response: Response;
     try {
@@ -78,10 +101,12 @@ export const editImageTool = tool({
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error(`[edit_image] ${response.status} response:`, errorText.slice(0, 2000));
       return { success: false as const, error: `Image editing failed (${response.status}): ${errorText.slice(0, 500)}` };
     }
 
     const data = await response.json();
+    console.log('[edit_image] response:', JSON.stringify(data, null, 2).slice(0, 2000));
     const item = data?.data?.[0];
     const imageUrl: string | null = item?.url ?? (item?.b64_json ? `data:image/png;base64,${item.b64_json}` : null);
 
@@ -89,6 +114,14 @@ export const editImageTool = tool({
       return { success: false as const, error: 'No image returned from the editing API.' };
     }
 
-    return { success: true as const, imageUrl, originalUrl: image_url, prompt };
+    const hostedImageUrl = await rehostGeneratedImage({
+      userId: context?.userId,
+      chatId: context?.chatId,
+      sourceImageUrl: imageUrl,
+      filenameHint: `edit-${finalSeed}`,
+      toolName: 'edit_image',
+    });
+
+    return { success: true as const, imageUrl: hostedImageUrl, originalUrl: image_url, prompt, seed: finalSeed };
   },
 });

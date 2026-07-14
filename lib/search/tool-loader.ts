@@ -190,7 +190,7 @@ export async function loadConfiguredTools({
         }
         case 'skill': {
           const { createSkillTool } = await import('@/lib/tools/skill');
-          tools.skill = createSkillTool(enabledSkillIds ?? []);
+          tools.skill = createSkillTool(enabledSkillIds ?? [], userPreferences);
           return;
         }
         case 'code_context': {

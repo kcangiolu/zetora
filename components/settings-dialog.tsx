@@ -22,7 +22,15 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/u
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useMediaQuery } from '@/hooks/use-media-query';
-import { useSyncedPreferences, type PreferenceKey } from '@/hooks/use-synced-preferences';
+import {
+  useSyncedPreferences,
+  type PreferenceKey,
+  type ImageGenPromptPreset,
+} from '@/hooks/use-synced-preferences';
+import {
+  IMAGE_GENERATION_DEFAULT_INSTRUCTIONS,
+  IMAGE_EDITING_DEFAULT_INSTRUCTIONS,
+} from '@/lib/skills/image-prompt-defaults';
 import {
   getUserMessageCount,
   getSubDetails,
@@ -559,6 +567,144 @@ const SOURCE_CATALOG_IDS = [
   'spotify',
 ];
 
+// Shared editor for the per-skill "custom instructions" textarea + named
+// presets, used identically by the Image Generation and Image Editing
+// sections below. The default (built-in) instructions are always applied
+// server-side — this only edits the text appended on top of them — so we
+// surface them read-only here, auto-expanded while no custom prompt is set.
+function ImagePromptPresetEditor({
+  skillLabel,
+  defaultInstructions,
+  systemPrompt,
+  setSystemPrompt,
+  presets,
+  setPresets,
+  selectedPresetId,
+  setSelectedPresetId,
+  newPresetName,
+  setNewPresetName,
+}: {
+  skillLabel: string;
+  defaultInstructions: string;
+  systemPrompt: string;
+  setSystemPrompt: (value: string) => void;
+  presets: ImageGenPromptPreset[];
+  setPresets: (value: ImageGenPromptPreset[]) => void;
+  selectedPresetId: string;
+  setSelectedPresetId: (value: string) => void;
+  newPresetName: string;
+  setNewPresetName: (value: string) => void;
+}) {
+  return (
+    <div className="space-y-1.5 col-span-2 pt-1">
+      <div className="flex items-center justify-between gap-2">
+        <Label className="text-[10px] text-muted-foreground">Custom instructions for the model (optional)</Label>
+        {systemPrompt && (
+          <button
+            type="button"
+            onClick={() => setSystemPrompt('')}
+            className="text-[10px] text-muted-foreground/60 hover:text-foreground transition-colors shrink-0"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+      <p className="text-[10px] text-muted-foreground/60 -mt-0.5">
+        Appended to the {skillLabel} skill guidance — e.g. style/quality tags, negative prompts, or notes about
+        which checkpoint is configured (SDXL, Pony, etc.)
+      </p>
+      <Textarea
+        value={systemPrompt}
+        onChange={(e) => setSystemPrompt(e.target.value)}
+        placeholder={
+          'e.g. "This model is SDXL-based. Prefer natural-language prompts over booru tags. Always append: masterpiece, high detail. Avoid text or watermarks."'
+        }
+        rows={5}
+        className="text-xs rounded-md resize-y min-h-20"
+      />
+      <details key={systemPrompt ? 'has-custom' : 'no-custom'} open={!systemPrompt}>
+        <summary className="cursor-pointer text-[10px] text-muted-foreground/60 hover:text-foreground select-none">
+          Default instructions (always applied first)
+        </summary>
+        <pre className="mt-1.5 whitespace-pre-wrap text-[10px] text-muted-foreground/70 bg-muted/30 rounded-md p-2.5 border border-border/40 max-h-56 overflow-y-auto font-mono">
+          {defaultInstructions}
+        </pre>
+      </details>
+      <div className="flex items-center gap-1.5 pt-0.5">
+        <Select
+          value={selectedPresetId}
+          onValueChange={(id) => {
+            setSelectedPresetId(id);
+            const preset = presets.find((p) => p.id === id);
+            if (preset) setSystemPrompt(preset.prompt);
+          }}
+        >
+          <SelectTrigger className="h-7 text-xs rounded-md flex-1">
+            <SelectValue placeholder="Load a preset…" />
+          </SelectTrigger>
+          <SelectContent>
+            {presets.length === 0 ? (
+              <p className="px-2 py-1.5 text-[11px] text-muted-foreground/60">No presets saved yet</p>
+            ) : (
+              presets.map((preset) => (
+                <SelectItem key={preset.id} value={preset.id} className="text-xs">
+                  {preset.name}
+                </SelectItem>
+              ))
+            )}
+          </SelectContent>
+        </Select>
+        {selectedPresetId && (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="size-7 shrink-0"
+            onClick={() => {
+              setPresets(presets.filter((p) => p.id !== selectedPresetId));
+              setSelectedPresetId('');
+            }}
+          >
+            <Trash2 className="size-3.5" />
+          </Button>
+        )}
+      </div>
+      <div className="flex items-center gap-1.5">
+        <Input
+          value={newPresetName}
+          onChange={(e) => setNewPresetName(e.target.value)}
+          placeholder="Preset name…"
+          className="h-7 text-xs rounded-md flex-1"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 text-xs shrink-0"
+          disabled={!newPresetName.trim() || !systemPrompt.trim()}
+          onClick={() => {
+            const name = newPresetName.trim();
+            if (!name) return;
+            const existing = presets.find((p) => p.name === name);
+            if (existing) {
+              setPresets(presets.map((p) => (p.id === existing.id ? { ...p, prompt: systemPrompt } : p)));
+              setSelectedPresetId(existing.id);
+            } else {
+              const id = crypto.randomUUID();
+              setPresets([...presets, { id, name, prompt: systemPrompt }]);
+              setSelectedPresetId(id);
+            }
+            setNewPresetName('');
+          }}
+        >
+          <Save className="size-3 mr-1" />
+          Save as preset
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 // Component for Combined Preferences (Search + Custom Instructions)
 export function PreferencesSection({
   user,
@@ -760,6 +906,47 @@ export function PreferencesSection({
     'zetora-image-edit-request-body',
     '',
   );
+
+  const [imageGenSystemPrompt, setImageGenSystemPrompt] = useSyncedPreferences<string>(
+    'zetora-image-gen-system-prompt',
+    '',
+  );
+  const [imageGenPromptPresets, setImageGenPromptPresets] = useSyncedPreferences<ImageGenPromptPreset[]>(
+    'zetora-image-gen-prompt-presets',
+    [],
+  );
+  const [selectedImageGenPresetId, setSelectedImageGenPresetId] = useState('');
+  const [newImageGenPresetName, setNewImageGenPresetName] = useState('');
+
+  const [imageEditSystemPrompt, setImageEditSystemPrompt] = useSyncedPreferences<string>(
+    'zetora-image-edit-system-prompt',
+    '',
+  );
+  const [imageEditPromptPresets, setImageEditPromptPresets] = useSyncedPreferences<ImageGenPromptPreset[]>(
+    'zetora-image-edit-prompt-presets',
+    [],
+  );
+  const [selectedImageEditPresetId, setSelectedImageEditPresetId] = useState('');
+  const [newImageEditPresetName, setNewImageEditPresetName] = useState('');
+
+  const imageGenRequestBodyError = useMemo(() => {
+    if (!imageGenRequestBody.trim()) return null;
+    try {
+      JSON.parse(imageGenRequestBody);
+      return null;
+    } catch (err) {
+      return (err as Error).message;
+    }
+  }, [imageGenRequestBody]);
+  const imageEditRequestBodyError = useMemo(() => {
+    if (!imageEditRequestBody.trim()) return null;
+    try {
+      JSON.parse(imageEditRequestBody);
+      return null;
+    } catch (err) {
+      return (err as Error).message;
+    }
+  }, [imageEditRequestBody]);
 
   const [content, setContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -1880,13 +2067,32 @@ export function PreferencesSection({
                     </div>
                     <div className="space-y-1 col-span-2">
                       <Label className="text-[10px] text-muted-foreground">Extra request body (JSON)</Label>
-                      <Input
+                      <Textarea
                         value={imageGenRequestBody}
                         onChange={(e) => setImageGenRequestBody(e.target.value)}
                         placeholder='{"quality": "hd"}'
-                        className="h-7 text-xs rounded-md font-mono"
+                        rows={6}
+                        className="text-xs rounded-md font-mono resize-y min-h-24"
                       />
+                      {imageGenRequestBodyError && (
+                        <p className="text-[10px] text-red-500 flex items-center gap-1">
+                          <AlertCircle className="size-3 shrink-0" />
+                          Invalid JSON — this field is ignored until fixed: {imageGenRequestBodyError}
+                        </p>
+                      )}
                     </div>
+                    <ImagePromptPresetEditor
+                      skillLabel="image-generation"
+                      defaultInstructions={IMAGE_GENERATION_DEFAULT_INSTRUCTIONS}
+                      systemPrompt={imageGenSystemPrompt}
+                      setSystemPrompt={setImageGenSystemPrompt}
+                      presets={imageGenPromptPresets}
+                      setPresets={setImageGenPromptPresets}
+                      selectedPresetId={selectedImageGenPresetId}
+                      setSelectedPresetId={setSelectedImageGenPresetId}
+                      newPresetName={newImageGenPresetName}
+                      setNewPresetName={setNewImageGenPresetName}
+                    />
                   </div>
                 )}
               </div>
@@ -1932,13 +2138,32 @@ export function PreferencesSection({
                     </div>
                     <div className="space-y-1 col-span-2">
                       <Label className="text-[10px] text-muted-foreground">Extra request body (JSON)</Label>
-                      <Input
+                      <Textarea
                         value={imageEditRequestBody}
                         onChange={(e) => setImageEditRequestBody(e.target.value)}
                         placeholder='{"size": "1024x1024"}'
-                        className="h-7 text-xs rounded-md font-mono"
+                        rows={6}
+                        className="text-xs rounded-md font-mono resize-y min-h-24"
                       />
+                      {imageEditRequestBodyError && (
+                        <p className="text-[10px] text-red-500 flex items-center gap-1">
+                          <AlertCircle className="size-3 shrink-0" />
+                          Invalid JSON — this field is ignored until fixed: {imageEditRequestBodyError}
+                        </p>
+                      )}
                     </div>
+                    <ImagePromptPresetEditor
+                      skillLabel="image-editing"
+                      defaultInstructions={IMAGE_EDITING_DEFAULT_INSTRUCTIONS}
+                      systemPrompt={imageEditSystemPrompt}
+                      setSystemPrompt={setImageEditSystemPrompt}
+                      presets={imageEditPromptPresets}
+                      setPresets={setImageEditPromptPresets}
+                      selectedPresetId={selectedImageEditPresetId}
+                      setSelectedPresetId={setSelectedImageEditPresetId}
+                      newPresetName={newImageEditPresetName}
+                      setNewPresetName={setNewImageEditPresetName}
+                    />
                   </div>
                 )}
               </div>
@@ -3929,6 +4154,10 @@ const FILE_TYPES = {
     mimes: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'],
     exts: ['.xlsx', '.xls'],
   },
+  pptx: {
+    mimes: ['application/vnd.openxmlformats-officedocument.presentationml.presentation'],
+    exts: ['.pptx'],
+  },
 } as const;
 
 type DetectedType = keyof typeof FILE_TYPES;
@@ -3970,6 +4199,7 @@ function FileTypeIcon({
     csv: ['bg-green-500/10 text-green-600', 'CSV'],
     docx: ['bg-blue-500/10 text-blue-500', 'DOC'],
     xlsx: ['bg-emerald-500/10 text-emerald-600', 'XLS'],
+    pptx: ['bg-orange-500/10 text-orange-500', 'PPT'],
     unknown: ['bg-muted text-muted-foreground', 'FILE'],
   };
 
@@ -4374,6 +4604,481 @@ export function UploadsSection() {
                     </div>
 
                     {/* Actions */}
+                    <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {file.chatId && (
+                        <a
+                          href={`/search/${file.chatId}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="h-7 px-2 flex items-center gap-1 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                          title="Go to chat"
+                        >
+                          <MagnifyingGlassIcon className="h-3.5 w-3.5" />
+                          <span>Go to search</span>
+                        </a>
+                      )}
+                      <a
+                        href={file.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                        title="Open file"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          await handleDelete(file);
+                        }}
+                        disabled={deleteMutation.isPending}
+                        className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-40"
+                        title="Delete"
+                      >
+                        {deleteMutation.isPending ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <TrashIcon className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {hasNextPage && (
+              <button
+                onClick={() => fetchNextPage()}
+                disabled={isFetchingNextPage}
+                className="w-full py-3 text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-1.5"
+              >
+                {isFetchingNextPage ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Loading…
+                  </>
+                ) : (
+                  'Load more'
+                )}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ─── Downloads (AI-generated files) ────────────────────────────────────────
+
+interface GeneratedFileEntry {
+  id: string;
+  key: string;
+  url: string;
+  filename: string;
+  mediaType: string | null;
+  kind: 'image' | 'document';
+  toolName: string | null;
+  sizeBytes: number | null;
+  chatId: string | null;
+  createdAt: string;
+}
+
+interface DownloadsResponse {
+  files: GeneratedFileEntry[];
+  nextCursor: string | null;
+}
+
+export function DownloadsSection() {
+  const queryClient = useQueryClient();
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<FileFilter>('all');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmInput, setConfirmInput] = useState('');
+
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    error: fetchError,
+  } = useInfiniteQuery<DownloadsResponse>({
+    queryKey: ['downloads'],
+    queryFn: async ({ pageParam }) => {
+      const cursor = pageParam as string | undefined;
+      const url = cursor ? `/api/downloads?cursor=${encodeURIComponent(cursor)}&limit=50` : '/api/downloads?limit=50';
+      const res = await fetch(url);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error ?? `HTTP ${res.status}`);
+      }
+      return res.json();
+    },
+    initialPageParam: undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    staleTime: 1000 * 60,
+  });
+
+  const allFiles = useMemo(() => data?.pages.flatMap((p) => p.files) ?? [], [data?.pages]);
+
+  const counts = useMemo(
+    () => ({
+      all: allFiles.length,
+      images: allFiles.filter((f) => f.kind === 'image').length,
+      documents: allFiles.filter((f) => f.kind === 'document').length,
+    }),
+    [allFiles],
+  );
+
+  const displayFiles = useMemo(() => {
+    let list = allFiles;
+    if (activeFilter === 'images') list = list.filter((f) => f.kind === 'image');
+    if (activeFilter === 'documents') list = list.filter((f) => f.kind === 'document');
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter((f) => f.filename.toLowerCase().includes(q));
+    }
+    return list;
+  }, [allFiles, activeFilter, searchQuery]);
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch('/api/downloads', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) throw new Error('Delete failed');
+    },
+  });
+
+  const handleDelete = async (file: GeneratedFileEntry) => {
+    await deleteMutation.mutateAsync(file.id).catch(() => null);
+    queryClient.invalidateQueries({ queryKey: ['downloads'] });
+    sileo.success({ title: 'File deleted', icon: <Trash2 className="h-4 w-4" /> });
+  };
+
+  const handleBulkDelete = () => {
+    if (selected.size === 0) return;
+    setConfirmInput('');
+    setConfirmOpen(true);
+  };
+
+  const executeBulkDelete = async () => {
+    setBulkDeleting(true);
+    setConfirmOpen(false);
+    const toDelete = allFiles.filter((f) => selected.has(f.id));
+    const results = await betterAllSettled(
+      Object.fromEntries(
+        toDelete.map((f, i) => [
+          `delete:${i}`,
+          async () =>
+            fetch('/api/downloads', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: f.id }),
+            }),
+        ]),
+      ),
+      getBetterAllOptions(),
+    );
+    const failed = Object.values(results).filter((r) => r.status === 'rejected').length;
+    setBulkDeleting(false);
+    setSelected(new Set());
+    setConfirmInput('');
+    queryClient.invalidateQueries({ queryKey: ['downloads'] });
+    if (failed === 0)
+      sileo.success({
+        title: `${toDelete.length} file${toDelete.length > 1 ? 's' : ''} deleted`,
+        icon: <Trash2 className="h-4 w-4" />,
+      });
+    else
+      sileo.error({
+        title: `${failed} file${failed > 1 ? 's' : ''} failed to delete`,
+        icon: <X className="h-4 w-4" />,
+      });
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const s = new Set(prev);
+      s.has(id) ? s.delete(id) : s.add(id);
+      return s;
+    });
+  };
+
+  const allDisplaySelected = displayFiles.length > 0 && displayFiles.every((f) => selected.has(f.id));
+  const someSelected = selected.size > 0;
+
+  const toggleSelectAll = () => {
+    if (allDisplaySelected) {
+      setSelected((prev) => {
+        const s = new Set(prev);
+        displayFiles.forEach((f) => s.delete(f.id));
+        return s;
+      });
+    } else {
+      setSelected((prev) => {
+        const s = new Set(prev);
+        displayFiles.forEach((f) => s.add(f.id));
+        return s;
+      });
+    }
+  };
+
+  const filters: { value: FileFilter; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'images', label: 'Images' },
+    { value: 'documents', label: 'Docs' },
+  ];
+
+  const confirmWord = 'delete';
+  const confirmValid = confirmInput.trim().toLowerCase() === confirmWord;
+
+  return (
+    <>
+      {/* Bulk-delete confirmation dialog */}
+      <Dialog
+        open={confirmOpen}
+        onOpenChange={(o) => {
+          setConfirmOpen(o);
+          if (!o) setConfirmInput('');
+        }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              Delete {selected.size} file{selected.size > 1 ? 's' : ''}?
+            </DialogTitle>
+            <DialogDescription>
+              This is permanent and cannot be undone. Type{' '}
+              <span className="font-semibold text-foreground">{confirmWord}</span> to confirm.
+            </DialogDescription>
+          </DialogHeader>
+
+          <Input
+            autoFocus
+            placeholder={confirmWord}
+            value={confirmInput}
+            onChange={(e) => setConfirmInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && confirmValid) executeBulkDelete();
+            }}
+            className={cn(
+              'mt-1 transition-colors',
+              confirmInput && !confirmValid && 'border-destructive focus-visible:ring-destructive/30',
+            )}
+          />
+
+          <DialogFooter className="mt-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setConfirmOpen(false);
+                setConfirmInput('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" disabled={!confirmValid || bulkDeleting} onClick={executeBulkDelete}>
+              {bulkDeleting ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                  Deleting…
+                </>
+              ) : (
+                `Delete ${selected.size}`
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <div className="space-y-4">
+        <p className="text-xs text-muted-foreground/70 -mt-1">
+          Images and documents generated by the AI tools (image generation/editing, code interpreter charts,
+          document export) — stored on your own bucket.
+        </p>
+
+        {fetchError && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            Failed to load downloads. Please try again.
+          </div>
+        )}
+
+        <div className="rounded-xl border border-border/60 divide-y divide-border/40 px-4">
+          <div className="flex items-center gap-3 py-2.5">
+            <Search className="size-3.5 text-muted-foreground/50 shrink-0" />
+            <input
+              type="text"
+              placeholder="Search files…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/40"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between py-2.5">
+            <div className="flex items-center gap-1">
+              {filters.map((f) => (
+                <button
+                  key={f.value}
+                  onClick={() => setActiveFilter(f.value)}
+                  className={cn(
+                    'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all duration-150',
+                    activeFilter === f.value
+                      ? 'bg-foreground text-background font-medium'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
+                  )}
+                >
+                  {f.label}
+                  <span
+                    className={cn(
+                      'text-[10px] tabular-nums leading-none',
+                      activeFilter === f.value ? 'opacity-70' : 'text-muted-foreground/50',
+                    )}
+                  >
+                    {counts[f.value]}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <span className="text-[11px] tabular-nums text-muted-foreground/50">
+              {counts.all > 0 ? formatBytes(allFiles.reduce((s, f) => s + (f.sizeBytes ?? 0), 0)) : ''}
+            </span>
+          </div>
+        </div>
+
+        {someSelected && (
+          <div className="flex items-center justify-between px-4 py-2.5 rounded-xl border border-primary/25 bg-primary/5">
+            <div className="flex items-center gap-2.5">
+              <button
+                onClick={toggleSelectAll}
+                className={cn(
+                  'w-4 h-4 rounded-sm border-2 shrink-0 flex items-center justify-center transition-all',
+                  allDisplaySelected ? 'bg-primary border-primary' : 'border-primary/60 bg-background',
+                )}
+              >
+                {allDisplaySelected && <Check className="w-2.5 h-2.5 text-primary-foreground" strokeWidth={3.5} />}
+              </button>
+              <span className="text-sm font-medium text-primary">{selected.size} selected</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setSelected(new Set())}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Clear
+              </button>
+              <Button
+                size="sm"
+                variant="destructive"
+                className="h-7 px-3 text-xs gap-1.5"
+                onClick={handleBulkDelete}
+                disabled={bulkDeleting}
+              >
+                {bulkDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <TrashIcon className="h-3 w-3" />}
+                Delete {selected.size}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {isLoading && !allFiles.length ? (
+          <div className="flex justify-center items-center h-32">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          </div>
+        ) : displayFiles.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-32 rounded-xl border border-dashed border-border/60">
+            <Sparkles className="h-5 w-5 text-muted-foreground/40 mb-2" />
+            <p className="text-sm text-muted-foreground">
+              {allFiles.length === 0 ? 'Nothing generated yet' : 'No files match'}
+            </p>
+            <p className="text-xs text-muted-foreground/50 mt-0.5">
+              {allFiles.length === 0
+                ? 'Images and documents Zetora generates for you will appear here'
+                : 'Try a different search or filter'}
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-border/60 divide-y divide-border/40 overflow-hidden">
+            <div
+              className="flex items-center gap-3 px-4 py-2.5 bg-muted/20 cursor-pointer hover:bg-muted/30 transition-colors"
+              onClick={toggleSelectAll}
+            >
+              <div
+                className={cn(
+                  'w-4 h-4 rounded-sm border-2 shrink-0 flex items-center justify-center transition-all',
+                  allDisplaySelected ? 'bg-primary border-primary' : 'border-border/60 bg-background',
+                )}
+              >
+                {allDisplaySelected && <Check className="w-2.5 h-2.5 text-primary-foreground" strokeWidth={3.5} />}
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {displayFiles.length} {displayFiles.length === 1 ? 'file' : 'files'}
+              </span>
+            </div>
+
+            <div className="overflow-y-auto max-h-[55vh] divide-y divide-border/40 scrollbar-w-1 scrollbar-track-transparent scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/30">
+              {displayFiles.map((file) => {
+                const isSelected = selected.has(file.id);
+                return (
+                  <div
+                    key={file.id}
+                    onClick={() => toggleSelect(file.id)}
+                    className={cn(
+                      'group flex items-center gap-3 px-4 py-3.5 cursor-pointer select-none transition-colors',
+                      isSelected ? 'bg-primary/5' : 'hover:bg-accent/30',
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        'w-4 h-4 rounded-sm border-2 shrink-0 flex items-center justify-center transition-all',
+                        isSelected
+                          ? 'bg-primary border-primary'
+                          : 'border-border/60 bg-background group-hover:border-primary/40',
+                      )}
+                    >
+                      {isSelected && <Check className="w-2.5 h-2.5 text-primary-foreground" strokeWidth={3.5} />}
+                    </div>
+
+                    <FileTypeIcon mediaType={file.mediaType} filename={file.filename} />
+
+                    <div className="flex-1 min-w-0">
+                      <p className={cn('text-sm font-medium truncate', isSelected && 'text-primary')}>
+                        {file.filename}
+                      </p>
+                      <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
+                        <span className="tabular-nums">{formatBytes(file.sizeBytes ?? 0)}</span>
+                        <span className="opacity-30">·</span>
+                        <span>
+                          {new Date(file.createdAt).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
+                        </span>
+                        {file.toolName && (
+                          <>
+                            <span className="opacity-30">·</span>
+                            <span className="truncate">{file.toolName}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
                     <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                       {file.chatId && (
                         <a
@@ -5877,6 +6582,11 @@ export function SettingsDialog({
       label: 'Uploads',
       icon: ({ className }: { className?: string }) => <HugeiconsIcon icon={Attachment01Icon} className={className} />,
     },
+    {
+      value: 'downloads',
+      label: 'Downloads',
+      icon: ({ className }: { className?: string }) => <HugeiconsIcon icon={Attachment01Icon} className={className} />,
+    },
   ].map((item, index) => ({ ...item, number: String(index + 1).padStart(2, '0') }));
 
   const contentSections = (
@@ -5913,6 +6623,8 @@ export function SettingsDialog({
       {currentTab === 'memories' && <MemoriesSection />}
 
       {currentTab === 'uploads' && <UploadsSection />}
+
+      {currentTab === 'downloads' && <DownloadsSection />}
     </>
   );
 

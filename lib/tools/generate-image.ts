@@ -1,5 +1,6 @@
 import { tool } from 'ai';
 import { z } from 'zod';
+import { rehostGeneratedImage } from '@/lib/generated-file-storage';
 
 interface CustomProviderConfig {
   id: string;
@@ -10,6 +11,8 @@ interface CustomProviderConfig {
 
 interface ToolContext {
   userPreferences?: Record<string, unknown>;
+  userId?: string;
+  chatId?: string;
 }
 
 export const generateImageTool = tool({
@@ -18,9 +21,17 @@ export const generateImageTool = tool({
   inputSchema: z.object({
     prompt: z.string().describe('Detailed image generation prompt describing what to create'),
     size: z.string().optional().describe('Image size, e.g. "1024x1024", "1792x1024", "1216x832"'),
+    seed: z
+      .number()
+      .int()
+      .optional()
+      .describe(
+        'Random seed. Omit for a different result every time (default) — only set this if the user explicitly asks to reuse or repeat a previous seed.',
+      ),
   }),
-  execute: async ({ prompt, size }, { experimental_context }: { experimental_context?: unknown } = {}) => {
-    const prefs = (experimental_context as ToolContext | undefined)?.userPreferences ?? {};
+  execute: async ({ prompt, size, seed }, { experimental_context }: { experimental_context?: unknown } = {}) => {
+    const context = experimental_context as ToolContext | undefined;
+    const prefs = context?.userPreferences ?? {};
 
     const providerId = prefs['zetora-image-gen-custom-provider-id'] as string | undefined;
     const model = (prefs['zetora-image-gen-model'] as string | undefined) || '';
@@ -45,7 +56,11 @@ export const generateImageTool = tool({
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (provider.apiKey) headers['Authorization'] = `Bearer ${provider.apiKey}`;
 
-    const body = { model, prompt, n: 1, ...(size ? { size } : {}), ...extraBody };
+    const finalSeed = seed ?? Math.floor(Math.random() * 2 ** 32);
+
+    const body = { model, prompt, n: 1, seed: finalSeed, ...(size ? { size } : {}), ...extraBody };
+
+    console.log(`[generate_image] POST ${base}/images/generations`, JSON.stringify(body, null, 2));
 
     let response: Response;
     try {
@@ -61,10 +76,12 @@ export const generateImageTool = tool({
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error(`[generate_image] ${response.status} response:`, errorText.slice(0, 2000));
       return { success: false as const, error: `Image generation failed (${response.status}): ${errorText.slice(0, 500)}` };
     }
 
     const data = await response.json();
+    console.log('[generate_image] response:', JSON.stringify(data, null, 2).slice(0, 2000));
     const item = data?.data?.[0];
     const imageUrl: string | null = item?.url ?? (item?.b64_json ? `data:image/png;base64,${item.b64_json}` : null);
 
@@ -72,6 +89,14 @@ export const generateImageTool = tool({
       return { success: false as const, error: 'No image returned from the generation API.' };
     }
 
-    return { success: true as const, imageUrl, prompt };
+    const hostedImageUrl = await rehostGeneratedImage({
+      userId: context?.userId,
+      chatId: context?.chatId,
+      sourceImageUrl: imageUrl,
+      filenameHint: `generate-${finalSeed}`,
+      toolName: 'generate_image',
+    });
+
+    return { success: true as const, imageUrl: hostedImageUrl, prompt, seed: finalSeed };
   },
 });

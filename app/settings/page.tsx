@@ -9,6 +9,7 @@ import {
   ConnectorsSection,
   MemoriesSection,
   UploadsSection,
+  DownloadsSection,
   SkillsSection,
 } from '@/components/settings-dialog';
 import { cn } from '@/lib/utils';
@@ -61,6 +62,7 @@ function SettingsContent() {
     { value: 'skills', label: 'Skills', icon: SparklesIcon },
     { value: 'memories', label: 'Memories', icon: Brain02Icon },
     { value: 'uploads', label: 'Uploads', icon: Attachment01Icon },
+    { value: 'downloads', label: 'Downloads', icon: Attachment01Icon },
   ].map((item, index) => ({ ...item, number: String(index + 1).padStart(2, '0') }));
 
   const handleSignOut = async () => {
@@ -358,6 +360,21 @@ function SettingsContent() {
                   <UploadsSection />
                 </div>
               </TabsContent>
+
+              <TabsContent value="downloads" className="m-0">
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-pixel-grid text-xs text-muted-foreground/30">08</span>
+                      <h2 className="text-lg font-semibold">Downloads</h2>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Images and documents generated for you by the AI tools
+                    </p>
+                  </div>
+                  <DownloadsSection />
+                </div>
+              </TabsContent>
             </Card>
           </div>
         </Tabs>
@@ -393,7 +410,7 @@ export default function SettingsPage() {
                     </div>
                   </div>
                   <div className="rounded-xl border border-border/60 p-2 space-y-1">
-                    {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
                       <div key={i} className="h-10 bg-muted/30 rounded-lg" />
                     ))}
                   </div>
