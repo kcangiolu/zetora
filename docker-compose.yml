@@ -825,7 +825,14 @@ services:
     image: registry.example.com/kcangiolu/zetora-s2s:latest
     container_name: zetora-s2s
     ports:
-      - '127.0.0.1:8100:8080'
+      # NOT loopback-restricted: the browser connects to this over
+      # VOICE_S2S_URL through your reverse proxy (see docker-compose.yml's
+      # own comment on that var), so the proxy has to be able to reach it.
+      # If your proxy runs in its own container/host (e.g. SWAG on a LAN
+      # IP), a loopback-only bind here 502s every /s2s/ request even though
+      # curl from the Docker host itself works fine. Same class of bug as
+      # MinIO's API port — see its comment below.
+      - '8100:8080'
     environment:
       - APP_URL=http://zetora-app:3333
     networks:
