@@ -146,17 +146,23 @@ services:
       bullmq-redis:
         condition: service_healthy
       minio:
-        condition: service_started
+        condition: service_healthy
       qdrant:
-        condition: service_started
+        condition: service_healthy
       searxng:
         condition: service_healthy
       fastcrw:
-        condition: service_started
+        condition: service_healthy
       sandbox:
-        condition: service_started
+        condition: service_healthy
       graphiti-api:
-        condition: service_started
+        condition: service_healthy
+      presidio-api:
+        condition: service_healthy
+      srh:
+        condition: service_healthy
+      minio-create-bucket:
+        condition: service_completed_successfully
     healthcheck:
       test:
         [
@@ -244,6 +250,11 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:80/']
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - zetora-network
     deploy:
@@ -260,7 +271,10 @@ services:
     image: minio/minio:latest
     container_name: zetora-minio
     ports:
-      - '127.0.0.1:9000:9000'
+      # Host port 9000 is taken by another stack on this box (mealie) —
+      # only the host side moves, the container still listens on 9000 and
+      # every internal S3_ENDPOINT=http://minio:9000 reference is unaffected.
+      - '127.0.0.1:9010:9000'
       - '127.0.0.1:9001:9001'
     volumes:
       - ${DATA_DIR}/minio:/data:rw
@@ -269,6 +283,12 @@ services:
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
       - MINIO_BROWSER_REDIRECT_URL=${MINIO_BROWSER_REDIRECT_URL:-http://localhost:9001}
     command: server /data --console-address ":9001"
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - zetora-network
     deploy:
@@ -312,6 +332,14 @@ services:
       - ${DATA_DIR}/qdrant:/qdrant/storage
     environment:
       - QDRANT__SERVICE__GRPC_PORT=6334
+    healthcheck:
+      # No curl/wget in this image — a bare TCP connect confirms Qdrant is
+      # accepting connections, which is all `depends_on` needs.
+      test: ['CMD', 'bash', '-c', 'cat < /dev/null > /dev/tcp/127.0.0.1/6333']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - zetora-network
     deploy:
@@ -328,7 +356,9 @@ services:
     image: searxng/searxng:latest
     container_name: zetora-searxng
     ports:
-      - '127.0.0.1:8080:8080'
+      # Host port 8080 is taken by another stack on this box (immich) — the
+      # container still listens on 8080, only the host side moves.
+      - '127.0.0.1:8090:8080'
     volumes:
       - ${DATA_DIR}/searxng:/etc/searxng:rw
     environment:
@@ -395,7 +425,9 @@ services:
     # The image serves its HTTP API on port 3000 and ignores CRW_PORT, so map
     # the host port to 3000 and point FASTCRW_URL at :3000 (see zetora.app).
     ports:
-      - '127.0.0.1:3003:3000'
+      # Host port 3003 is taken by another stack on this box (Gitea) — the
+      # container still listens on 3000, only the host side moves.
+      - '127.0.0.1:3004:3000'
     # Chrome's DevTools handler rejects CDP requests whose Host header isn't
     # "localhost" or a literal IP (DNS-rebinding protection) — the compose
     # service name "chrome" gets a 403, so resolve it to its container IP at
@@ -437,9 +469,16 @@ services:
       - SETGID
       - SETUID
     read_only: true
+    healthcheck:
+      # No curl/wget in this image either — TCP connect on the API port.
+      test: ['CMD', 'bash', '-c', 'cat < /dev/null > /dev/tcp/127.0.0.1/3000']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     depends_on:
       chrome:
-        condition: service_started
+        condition: service_healthy
     networks:
       - zetora-network
     deploy:
@@ -467,6 +506,12 @@ services:
     cap_drop:
       - ALL
     read_only: true
+    healthcheck:
+      test: ['CMD', 'bash', '-c', 'cat < /dev/null > /dev/tcp/127.0.0.1/9222']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - zetora-network
     deploy:
@@ -492,6 +537,12 @@ services:
       - MAX_EXEC_TIMEOUT_MS=30000
       - CPU_TIME_LIMIT_SEC=10
       - MEMORY_LIMIT_MB=256
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8000/health']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - zetora-network
     deploy:
@@ -512,6 +563,11 @@ services:
       - '127.0.0.1:3002:3002'
     volumes:
       - ${DATA_DIR}/falkordb:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-p', '6379', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - zetora-network
     deploy:
@@ -541,7 +597,8 @@ services:
       - EMBEDDING_API_KEY=${GRAPHITI_EMBEDDING_API_KEY}
       - EMBEDDING_BASE_URL=${GRAPHITI_EMBEDDING_BASE_URL:-https://api.openai.com/v1}
     depends_on:
-      - falkordb
+      falkordb:
+        condition: service_healthy
     networks:
       - zetora-network
     deploy:
@@ -549,28 +606,6 @@ services:
         limits:
           cpus: '1'
           memory: 512M
-    restart: unless-stopped
-
-  # ---------------------------------------------------------------------------
-  # Anonymizer (PII detection for the activatable anonymization layer)
-  # ---------------------------------------------------------------------------
-  presidio-api:
-    image: registry.example.com/kcangiolu/zetora-presidio-api:latest
-    build:
-      context: ./presidio-service
-      dockerfile: Dockerfile
-    container_name: zetora-presidio-api
-    ports:
-      - '127.0.0.1:8004:8000'
-    environment:
-      - PORT=8000
-    networks:
-      - zetora-network
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 1G
     restart: unless-stopped
 
   graphiti-mcp:
@@ -593,7 +628,8 @@ services:
       - EMBEDDING_API_KEY=${GRAPHITI_EMBEDDING_API_KEY}
       - EMBEDDING_BASE_URL=${GRAPHITI_EMBEDDING_BASE_URL:-https://api.openai.com/v1}
     depends_on:
-      - falkordb
+      falkordb:
+        condition: service_healthy
     networks:
       - zetora-network
     deploy:
@@ -601,6 +637,28 @@ services:
         limits:
           cpus: '0.5'
           memory: 256M
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Anonymizer (PII detection for the activatable anonymization layer)
+  # ---------------------------------------------------------------------------
+  presidio-api:
+    image: registry.example.com/kcangiolu/zetora-presidio-api:latest
+    build:
+      context: ./presidio-service
+      dockerfile: Dockerfile
+    container_name: zetora-presidio-api
+    ports:
+      - '127.0.0.1:8004:8000'
+    environment:
+      - PORT=8000
+    networks:
+      - zetora-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
