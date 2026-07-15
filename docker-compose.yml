@@ -1,6 +1,15 @@
 # =============================================================================
 # Zetora — Production docker-compose
 #
+# Pull-only, on purpose: no service here has a `build:` section. Custom
+# images (zetora-app, zetora-migrate, graphiti-*, presidio-api, zetora-tts,
+# stt-service, s2s-service) are built and published by
+# .gitea/workflows/docker.yml, not by this file. A prod host that only has
+# this compose file deployed (e.g. Unraid's Compose Manager) doesn't have
+# the source subdirectories (./s2s-service, ./graphiti-service, ...) that a
+# `build:` context would need — always `docker compose pull` before
+# `up -d` so Compose never falls back to trying to build one locally.
+#
 # Usage:
 #   1. Copy .env.example to .env and fill in the required values.
 #   2. Set DATA_DIR in .env (e.g. DATA_DIR=/mnt/user/appdata/zetora).
@@ -54,10 +63,6 @@ services:
   # ---------------------------------------------------------------------------
   db-migrate:
     image: registry.example.com/kcangiolu/zetora-migrate:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: migrate
     container_name: zetora-db-migrate
     env_file:
       - .env
@@ -76,30 +81,11 @@ services:
     restart: 'no'
 
   zetora.app:
+    # Pulled from the registry only — this file has no `build:` sections on
+    # purpose (see the header comment). Images are built by
+    # .gitea/workflows/docker.yml; the NEXT_PUBLIC_* build-args that used to
+    # live here now live in that workflow's build-args instead.
     image: registry.example.com/kcangiolu/zetora-app:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: runner
-      args:
-        # DATABASE_URL/BETTER_AUTH_SECRET are intentionally NOT passed here —
-        # the Dockerfile's build-only placeholders satisfy env/server.ts
-        # validation without baking real secrets into image layers.
-        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
-        NEXT_PUBLIC_MCP_ENABLED: ${NEXT_PUBLIC_MCP_ENABLED:-false}
-        NEXT_PUBLIC_CANVAS_ENABLED: ${NEXT_PUBLIC_CANVAS_ENABLED:-false}
-        NEXT_PUBLIC_MCP_SANDBOX_ORIGIN: ${NEXT_PUBLIC_MCP_SANDBOX_ORIGIN:-}
-        NEXT_PUBLIC_VOICE_BACKEND_URL: ${NEXT_PUBLIC_VOICE_BACKEND_URL:-}
-        # STARTER/PREMIUM/MAX tier+slug feed Polar/Dodo checkout plugins that
-        # throw at module-load if empty — default to "placeholder" so the
-        # build succeeds even when payments aren't configured. Set the real
-        # product IDs/slugs in .env to enable Polar/Dodo checkout.
-        NEXT_PUBLIC_STARTER_TIER: ${NEXT_PUBLIC_STARTER_TIER:-placeholder}
-        NEXT_PUBLIC_STARTER_SLUG: ${NEXT_PUBLIC_STARTER_SLUG:-placeholder}
-        NEXT_PUBLIC_PREMIUM_TIER: ${NEXT_PUBLIC_PREMIUM_TIER:-placeholder}
-        NEXT_PUBLIC_PREMIUM_SLUG: ${NEXT_PUBLIC_PREMIUM_SLUG:-placeholder}
-        NEXT_PUBLIC_MAX_TIER: ${NEXT_PUBLIC_MAX_TIER:-placeholder}
-        NEXT_PUBLIC_MAX_SLUG: ${NEXT_PUBLIC_MAX_SLUG:-placeholder}
     container_name: zetora-app
     ports:
       - '3333:3333'
@@ -585,9 +571,6 @@ services:
 
   graphiti-api:
     image: registry.example.com/kcangiolu/zetora-graphiti-api:latest
-    build:
-      context: ./graphiti-service
-      dockerfile: Dockerfile
     container_name: zetora-graphiti-api
     ports:
       - '127.0.0.1:8001:8001'
@@ -616,9 +599,6 @@ services:
 
   graphiti-mcp:
     image: registry.example.com/kcangiolu/zetora-graphiti-mcp:latest
-    build:
-      context: ./graphiti-service
-      dockerfile: Dockerfile.mcp
     container_name: zetora-graphiti-mcp
     ports:
       - '127.0.0.1:8002:8002'
@@ -650,9 +630,6 @@ services:
   # ---------------------------------------------------------------------------
   presidio-api:
     image: registry.example.com/kcangiolu/zetora-presidio-api:latest
-    build:
-      context: ./presidio-service
-      dockerfile: Dockerfile
     container_name: zetora-presidio-api
     ports:
       - '127.0.0.1:8004:8000'
@@ -737,17 +714,6 @@ services:
     # Or set COMPOSE_PROFILES=tts in .env to keep it resident like before.
     profiles: ['tts']
     image: registry.example.com/kcangiolu/zetora-tts:latest
-    build:
-      context: ./tts-service
-      dockerfile: Dockerfile
-      args:
-        CUDA_IMAGE: ${TTS_CUDA_IMAGE:-nvidia/cuda:13.1.2-runtime-ubuntu24.04}
-        TORCH_CUDA_BUILD: ${TTS_TORCH_CUDA_BUILD:-cu130}
-        TORCH_VERSION: ${TTS_TORCH_VERSION:-2.9.1}
-        # flash-attn: prebuilt (default, covers RTX 3090 + 5060 Ti) | compile | none.
-        # 'compile' also needs TTS_CUDA_IMAGE set to a -devel image (for nvcc).
-        FLASH_ATTN_MODE: ${TTS_FLASH_ATTN_MODE:-prebuilt}
-        FLASH_ATTN_ARCH_LIST: ${TTS_FLASH_ATTN_ARCH_LIST:-8.0;8.6;8.9;9.0;10.0;12.0}
     container_name: zetora-qwen3-tts
     runtime: nvidia
     ports:
@@ -800,9 +766,6 @@ services:
   # ---------------------------------------------------------------------------
   stt-service:
     image: registry.example.com/kcangiolu/zetora-stt:latest
-    build:
-      context: ./stt-service
-      dockerfile: Dockerfile
     container_name: zetora-stt
     runtime: nvidia
     ports:
@@ -832,9 +795,6 @@ services:
   # ---------------------------------------------------------------------------
   s2s-service:
     image: registry.example.com/kcangiolu/zetora-s2s:latest
-    build:
-      context: ./s2s-service
-      dockerfile: Dockerfile
     container_name: zetora-s2s
     ports:
       - '127.0.0.1:8100:8080'
