@@ -640,8 +640,13 @@ services:
     deploy:
       resources:
         limits:
+          # 1G OOM-killed this on every start: it loads both en_core_web_lg
+          # and fr_core_news_lg (spaCy's large models, ~550MB each on disk)
+          # into memory at once during startup, well before it ever answers
+          # a health check — the container never got a chance to be "slow",
+          # it was killed outright.
           cpus: '1'
-          memory: 1G
+          memory: 3G
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
