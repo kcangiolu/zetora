@@ -155,9 +155,10 @@ export const SERVICE_CHECKS: ServiceCheckDefinition[] = [
     label: 'Voice (s2s-service)',
     // Not VOICE_S2S_URL: that's deliberately the public browser-facing WS
     // address (docker-compose.yml sets it from .env for the client to
-    // connect to directly) — useless, and often unreachable, from inside
-    // this container. The Docker service name is always correct here.
+    // connect to directly) — unreachable, or wrong, from inside this
+    // process. S2S_SERVICE_URL defaults to the local-dev host port and is
+    // overridden to the Docker service name in docker-compose.yml for prod.
     configured: () => true,
-    run: () => fetchOk('http://s2s-service:8080/health'),
+    run: () => fetchOk(`${serverEnv.S2S_SERVICE_URL}/health`),
   },
 ];

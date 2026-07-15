@@ -113,6 +113,7 @@ services:
       - DOCKER_SANDBOX_URL=http://sandbox:8000
       - GRAPHITI_API_URL=http://graphiti-api:8001
       - ANONYMIZER_API_URL=http://presidio-api:8000
+      - S2S_SERVICE_URL=http://s2s-service:8080
       - BULLMQ_ENABLED=true
       - BULLMQ_REDIS_URL=redis://bullmq-redis:6381
       - BULLMQ_REDIS_PASSWORD=${BULLMQ_REDIS_PASSWORD:-}

@@ -86,6 +86,11 @@ export const serverEnv = createEnv({
     GRAPHITI_EMBEDDING_API_KEY: z.string().optional(),
     GRAPHITI_EMBEDDING_BASE_URL: z.string().url().optional(),
     ANONYMIZER_API_URL: z.string().url().optional().default('http://localhost:8004'),
+    // Internal reachability check only (Diagnostics panel) — distinct from
+    // VOICE_S2S_URL, which is the public browser-facing WS address. Default
+    // matches s2s-service's published port for local dev (`next dev`);
+    // docker-compose.yml overrides it to the Docker service name for prod.
+    S2S_SERVICE_URL: z.string().url().optional().default('http://localhost:8100'),
   },
   experimental__runtimeEnv: process.env,
 });
