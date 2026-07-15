@@ -6,7 +6,7 @@ import { nanoid } from 'nanoid';
 import { and, eq, sql } from 'drizzle-orm';
 
 import { auth } from '@/lib/auth';
-import { storageClient, STORAGE_BUCKET_NAME, STORAGE_PUBLIC_URL } from '@/lib/storage';
+import { storageClient, storagePresignClient, STORAGE_BUCKET_NAME, STORAGE_PUBLIC_URL } from '@/lib/storage';
 import { db } from '@/lib/db';
 import { chat, message } from '@/lib/db/schema';
 import { unauthenticatedRateLimit, getClientIdentifier } from '@/lib/rate-limit';
@@ -353,7 +353,7 @@ export async function POST(request: NextRequest) {
       Metadata: isAuthenticated ? { 'user-id': session!.user.id } : undefined,
     });
 
-    const presignedUrl = await getSignedUrl(storageClient, command, {
+    const presignedUrl = await getSignedUrl(storagePresignClient, command, {
       expiresIn: 3600, // 1 hour
     });
 
