@@ -153,10 +153,11 @@ export const SERVICE_CHECKS: ServiceCheckDefinition[] = [
   {
     id: 's2s',
     label: 'Voice (s2s-service)',
-    configured: () => Boolean(process.env.VOICE_S2S_URL),
-    run: () => {
-      const httpUrl = process.env.VOICE_S2S_URL!.replace(/^ws/, 'http').replace(/\/v1\/realtime\/?$/, '');
-      return fetchOk(`${httpUrl}/health`);
-    },
+    // Not VOICE_S2S_URL: that's deliberately the public browser-facing WS
+    // address (docker-compose.yml sets it from .env for the client to
+    // connect to directly) — useless, and often unreachable, from inside
+    // this container. The Docker service name is always correct here.
+    configured: () => true,
+    run: () => fetchOk('http://s2s-service:8080/health'),
   },
 ];
