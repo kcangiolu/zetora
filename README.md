@@ -242,7 +242,7 @@ Use this to deploy the full stack (app + Postgres, Redis, MinIO, Qdrant, SearXNG
    ```bash
    DATABASE_URL=postgresql://postgres:<POSTGRES_PASSWORD>@localhost:5432/zetora pnpm drizzle-kit migrate
    ```
-5. Put a reverse proxy with TLS in front of `zetora.app` (port 3333) for your domain. All other services (Postgres, Redis, SRH, MinIO, Qdrant, SearXNG, sandbox, FalkorDB, Graphiti, BullMQ) are bound to `127.0.0.1` only — use an SSH tunnel if you need direct access to an admin UI (MinIO console on `:9001`, Bull Board on `:3001`, Qdrant dashboard on `:6333`, SearXNG on `:8090`, FalkorDB browser on `:3002`).
+5. Put a reverse proxy with TLS in front of `zetora.app` (port 3333) for your domain. Also put one in front of MinIO's API port (`:9010`) and point `S3_PUBLIC_URL` at it — generated images/files are served straight from that URL to the browser, no app-side proxy. Every other service (Postgres, Redis, SRH, MinIO's console, Qdrant, SearXNG, sandbox, FalkorDB, Graphiti, BullMQ) is bound to `127.0.0.1` only — use an SSH tunnel if you need direct access to an admin UI (MinIO console on `:9001`, Bull Board on `:3001`, Qdrant dashboard on `:6333`, SearXNG on `:8090`, FalkorDB browser on `:3002`).
 6. Visit your domain — Zetora should be up and running.
 
 To drop an optional service (MinIO, Qdrant, SearXNG, sandbox, Graphiti, BullMQ), remove its block from `docker-compose.yml` along with the matching environment variables on `zetora.app`; the app falls back to its cloud defaults as described in [All-Cloud Configuration](#all-cloud-configuration).

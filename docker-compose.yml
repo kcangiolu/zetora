@@ -265,10 +265,13 @@ services:
     image: minio/minio:latest
     container_name: zetora-minio
     ports:
-      # Host port 9000 is taken by another stack on this box (mealie) —
-      # only the host side moves, the container still listens on 9000 and
-      # every internal S3_ENDPOINT=http://minio:9000 reference is unaffected.
-      - '127.0.0.1:9010:9000'
+      # API port is NOT loopback-restricted like the other internal
+      # services: generated files are served straight from S3_PUBLIC_URL to
+      # the browser (no app-side proxy, see lib/generated-file-storage.ts),
+      # so it has to be reachable from wherever your reverse proxy runs.
+      # Front it with TLS there — this container has no TLS of its own.
+      # Console (9001, full admin credentials) stays loopback-only.
+      - '9010:9000'
       - '127.0.0.1:9001:9001'
     volumes:
       - ${DATA_DIR}/minio:/data:rw
