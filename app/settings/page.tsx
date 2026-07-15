@@ -11,6 +11,7 @@ import {
   UploadsSection,
   DownloadsSection,
   SkillsSection,
+  DiagnosticsSection,
 } from '@/components/settings-dialog';
 import { cn } from '@/lib/utils';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
@@ -63,6 +64,7 @@ function SettingsContent() {
     { value: 'memories', label: 'Memories', icon: Brain02Icon },
     { value: 'uploads', label: 'Uploads', icon: Attachment01Icon },
     { value: 'downloads', label: 'Downloads', icon: Attachment01Icon },
+    { value: 'diagnostics', label: 'Diagnostics', icon: ConnectIcon },
   ].map((item, index) => ({ ...item, number: String(index + 1).padStart(2, '0') }));
 
   const handleSignOut = async () => {
@@ -373,6 +375,21 @@ function SettingsContent() {
                     </p>
                   </div>
                   <DownloadsSection />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="diagnostics" className="m-0">
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-pixel-grid text-xs text-muted-foreground/30">09</span>
+                      <h2 className="text-lg font-semibold">Diagnostics</h2>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Check connectivity to the local services this deployment talks to
+                    </p>
+                  </div>
+                  <DiagnosticsSection />
                 </div>
               </TabsContent>
             </Card>
