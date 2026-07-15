@@ -89,7 +89,7 @@ All services live on the `zetora-network` bridge; only `zetora.app` (port 3333) 
 | `db-migrate`                      | same image, target `migrate`              | —               | Runs Drizzle migrations, exits        |
 | `postgres`                        | postgres:17-alpine                        | 5432            | Primary DB                            |
 | `redis`                           | redis:7-alpine                            | 6379            | Cache / sessions / rate limits        |
-| `srh`                             | hiett/serverless-redis-http               | —               | Upstash REST shim over `redis`        |
+| `srh`                             | hiett/serverless-redis-http               | 8079→80         | Upstash REST shim over `redis`        |
 | `minio` (+ `minio-create-bucket`) | minio                                     | 9010→9000/9001  | S3 storage + console                  |
 | `qdrant`                          | qdrant                                    | 6333/6334       | Vector cache                          |
 | `searxng` (+ `searxng-redis`)     | searxng                                   | 8090→8080       | Metasearch                            |

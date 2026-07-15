@@ -243,6 +243,12 @@ services:
   srh:
     image: hiett/serverless-redis-http:latest
     container_name: zetora-srh
+    # Every other internal service publishes to 127.0.0.1 so `next dev`
+    # (which runs on the host, outside zetora-network) can reach it — this
+    # one was missing that, so UPSTASH_REDIS_REST_URL had nothing to point
+    # at in local dev (see .env.local / .env.example).
+    ports:
+      - '127.0.0.1:8079:80'
     environment:
       - SRH_MODE=env
       - SRH_TOKEN=${UPSTASH_REDIS_REST_TOKEN}
