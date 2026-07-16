@@ -43,7 +43,6 @@ import {
   FileText,
   Lock,
   Puzzle,
-  Image as ImageIcon,
 } from 'lucide-react';
 import { MarqueeText } from '@/components/ui/marquee-text';
 import { MagicWandIcon } from '@/components/ui/magic-wand-icon';
@@ -2901,8 +2900,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const latestInputRef = useRef(input);
   const typewriterSpeedRef = useRef(5);
   const postSubmitFileInputRef = useRef<HTMLInputElement>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const postSubmitImageInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
   const [isRecording, setIsRecording] = useState(false);
@@ -4598,9 +4595,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-      if (imageInputRef.current) {
-        imageInputRef.current.value = '';
-      }
 
       resetSuggestedQuestions();
 
@@ -4662,22 +4656,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
       fileInputRef.current?.click();
     }
   }, [attachments.length, status, fileInputRef]);
-
-  // Separate input with accept="image/*" so iOS offers its Photos/Camera
-  // picker instead of opening the Files app with everything greyed out
-  // (which is what happens with a mixed accept like "image/*,.pdf,...").
-  const triggerImageInput = useCallback(() => {
-    if (attachments.length >= MAX_FILES) {
-      sileo.error({ title: `You can only attach up to ${MAX_FILES} images.` });
-      return;
-    }
-
-    if (status === 'ready') {
-      postSubmitImageInputRef.current?.click();
-    } else {
-      imageInputRef.current?.click();
-    }
-  }, [attachments.length, status]);
 
   // ⌘U shortcut to upload files
   useEffect(() => {
@@ -4944,24 +4922,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
               user?.isProUser ||
                 (subscriptionData?.hasSubscription && subscriptionData?.subscription?.status === 'active'),
             )}
-            tabIndex={-1}
-          />
-          <input
-            type="file"
-            className="hidden"
-            ref={imageInputRef}
-            multiple
-            onChange={handleFileChange}
-            accept="image/*"
-            tabIndex={-1}
-          />
-          <input
-            type="file"
-            className="hidden"
-            ref={postSubmitImageInputRef}
-            multiple
-            onChange={handleFileChange}
-            accept="image/*"
             tabIndex={-1}
           />
 
@@ -5297,18 +5257,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
                             onClick={() => {
                               haptics.trigger('selection');
                               setPlusMenuOpen(false);
-                              triggerImageInput();
-                            }}
-                          >
-                            <ImageIcon size={16} strokeWidth={1.5} />
-                            <span className="flex-1 text-[13px]">Photos</span>
-                          </button>
-
-                          <button
-                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors"
-                            onClick={() => {
-                              haptics.trigger('selection');
-                              setPlusMenuOpen(false);
                               triggerFileInput();
                             }}
                           >
@@ -5318,7 +5266,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                               color="currentColor"
                               strokeWidth={1.5}
                             />
-                            <span className="flex-1 text-[13px]">Files</span>
+                            <span className="flex-1 text-[13px]">Upload files or images</span>
                           </button>
 
                           {user && setIsMultiAgentModeEnabled && (
@@ -5560,18 +5508,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
                         side="bottom"
                         sideOffset={4}
                       >
-                        <button
-                          className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors"
-                          onClick={() => {
-                            haptics.trigger('selection');
-                            setPlusMenuOpen(false);
-                            triggerImageInput();
-                          }}
-                        >
-                          <ImageIcon size={16} strokeWidth={1.5} />
-                          <span className="flex-1 text-[13px]">Photos</span>
-                        </button>
-
                         <Tooltip delayDuration={200}>
                           <TooltipTrigger asChild>
                             <button
@@ -5588,7 +5524,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                                 color="currentColor"
                                 strokeWidth={1.5}
                               />
-                              <span className="flex-1 text-[13px]">Files</span>
+                              <span className="flex-1 text-[13px]">Upload files or images</span>
                               <Kbd className="text-[9px] h-4 min-w-4 px-1">⌘U</Kbd>
                             </button>
                           </TooltipTrigger>
