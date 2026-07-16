@@ -690,7 +690,10 @@ export const AppSidebar = memo(({ user, onHistoryClick, isProUser }: AppSidebarP
     try {
       await updateChatVisibility(shareTarget.id, visibility);
       setShareVisibility(visibility);
-      const shareUrl = visibility === 'public' ? `https://zetora.ai/share/${shareTarget.id}` : '';
+      const appOrigin =
+        (process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ??
+          (typeof window !== 'undefined' ? window.location.origin : '')) || 'https://zetora.ai';
+      const shareUrl = visibility === 'public' ? `${appOrigin}/share/${shareTarget.id}` : '';
       sileo.success({
         title: visibility === 'public' ? 'Chat shared' : 'Chat is now private',
         description: visibility === 'public' ? 'Your chat is now publicly accessible' : 'Your chat is now private',

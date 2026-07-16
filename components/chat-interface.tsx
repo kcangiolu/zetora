@@ -1151,7 +1151,10 @@ const ChatInterface = memo(
             dispatch({ type: 'SET_VISIBILITY_TYPE', payload: visibility });
             console.log('🔄 Dispatched SET_VISIBILITY_TYPE with:', visibility);
 
-            const shareUrl = visibility === 'public' ? `https://zetora.ai/share/${chatId}` : '';
+            const appOrigin =
+              (process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ??
+                (typeof window !== 'undefined' ? window.location.origin : '')) || 'https://zetora.ai';
+            const shareUrl = visibility === 'public' ? `${appOrigin}/share/${chatId}` : '';
             sileo.success({
               title: `Chat is now ${visibility}`,
               description:

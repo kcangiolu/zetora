@@ -44,7 +44,10 @@ export function ShareDialog({
   const [choice, setChoice] = useState<'public' | 'private'>(selectedVisibilityType);
   const [isShared, setIsShared] = useState<boolean>(selectedVisibilityType === 'public');
 
-  const shareUrl = chatId ? `https://zetora.ai/share/${chatId}` : '';
+  const appOrigin =
+    (process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ??
+      (typeof window !== 'undefined' ? window.location.origin : '')) || 'https://zetora.ai';
+  const shareUrl = chatId ? `${appOrigin}/share/${chatId}` : '';
 
   useEffect(() => {
     if (!isOpen) {
