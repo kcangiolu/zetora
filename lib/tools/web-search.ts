@@ -643,12 +643,11 @@ const createSearchStrategy = (
     parallel: Parallel;
     firecrawl: FirecrawlApp;
   },
-  searxngUrl?: string,
   preferences?: Record<string, unknown>,
   userId?: string,
 ): SearchStrategy => {
   if (provider === 'searxng') {
-    const url = searxngUrl || serverEnv.SEARXNG_URL;
+    const url = serverEnv.SEARXNG_URL;
     if (!url) {
       console.warn('SearXNG provider selected but SEARXNG_URL is not configured, falling back to Exa');
       return new ExaSearchStrategy(clients.exa, clients.firecrawl);
@@ -657,7 +656,7 @@ const createSearchStrategy = (
   }
 
   if (provider === 'fastcrw') {
-    const url = (preferences?.['zetora-fastcrw-url'] as string | undefined) || serverEnv.FASTCRW_URL;
+    const url = serverEnv.FASTCRW_URL;
     if (!url) {
       console.warn('fastCRW provider selected but FASTCRW_URL is not configured, falling back to Exa');
       return new ExaSearchStrategy(clients.exa, clients.firecrawl);
@@ -677,7 +676,6 @@ const createSearchStrategy = (
 export function webSearchTool(
   dataStream?: UIMessageStreamWriter<ChatMessage> | undefined,
   searchProvider: WebSearchProvider = 'exa',
-  searxngUrl?: string,
   preferences?: Record<string, unknown>,
   userId?: string,
 ) {
@@ -775,7 +773,7 @@ export function webSearchTool(
 
       // Create and use the appropriate search strategy
       const normalizedProvider = normalizeWebSearchProvider(searchProvider);
-      const strategy = createSearchStrategy(normalizedProvider, clients, searxngUrl, preferences, userId);
+      const strategy = createSearchStrategy(normalizedProvider, clients, preferences, userId);
       if (!topics) {
         topics = new Array(queries.length).fill('general');
       }
@@ -799,7 +797,7 @@ export function webSearchTool(
         configuredFallbackProvider === 'none' ? null : normalizeWebSearchProvider(configuredFallbackProvider);
       if (hasNoResults && searchFallbackEnabled && fallbackProvider && fallbackProvider !== normalizedProvider) {
         console.log(`${normalizedProvider} returned no results, falling back to ${fallbackProvider}`);
-        const fallbackStrategy = createSearchStrategy(fallbackProvider, clients, searxngUrl, preferences, userId);
+        const fallbackStrategy = createSearchStrategy(fallbackProvider, clients, preferences, userId);
         result = await fallbackStrategy.search(queries, searchOptions);
       }
       // Bound what flows back into the model's context: dedupe across

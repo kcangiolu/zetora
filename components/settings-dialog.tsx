@@ -719,8 +719,6 @@ export function PreferencesSection({
     'exa' | 'parallel' | 'firecrawl' | 'searxng' | 'fastcrw'
   >('zetora-search-provider', 'exa');
 
-  const [searxngUrl, setSearxngUrl] = useSyncedPreferences<string>('zetora-searxng-url', '');
-  const [fastcrwUrl, setFastcrwUrl] = useSyncedPreferences<string>('zetora-fastcrw-url', '');
   const [extremeContentProvider, setExtremeContentProvider] = useSyncedPreferences<
     'exa-firecrawl' | 'searxng-fastcrw' | 'notte-only'
   >('zetora-extreme-content-provider', 'exa-firecrawl');
@@ -781,7 +779,6 @@ export function PreferencesSection({
     'zetora-graphiti-active-provider',
     '',
   );
-  const [graphitiApiUrl, setGraphitiApiUrl] = useSyncedPreferences<string>('zetora-graphiti-api-url', '');
   const [graphitiLlmModel, setGraphitiLlmModel] = useSyncedPreferences<string>('zetora-graphiti-llm-model', '');
   const [, setGraphitiLlmBaseUrl] = useSyncedPreferences<string>('zetora-graphiti-llm-base-url', '');
   const [graphitiEmbeddingProvider, setGraphitiEmbeddingProvider] = useSyncedPreferences<string>(
@@ -852,7 +849,6 @@ export function PreferencesSection({
   );
 
   const [qdrantEnabled, setQdrantEnabled] = useSyncedPreferences<boolean>('zetora-qdrant-enabled', false);
-  const [qdrantUrl, setQdrantUrl] = useSyncedPreferences<string>('zetora-qdrant-url', '');
 
   const [hybridSearchEnabled, setHybridSearchEnabled] = useSyncedPreferences<boolean>(
     'zetora-hybrid-search-enabled',
@@ -1197,9 +1193,7 @@ export function PreferencesSection({
       if (parsed) {
         setGraphitiLlmModel(parsed.modelName);
         setGraphitiLlmBaseUrl(parsed.provider.baseURL);
-        if (graphitiApiUrl) {
-          await linkGraphitiProvider(parsed.provider.id, 'llm', parsed.modelName);
-        }
+        await linkGraphitiProvider(parsed.provider.id, 'llm', parsed.modelName);
       }
     } else {
       setGraphitiLlmModel('');
@@ -1213,9 +1207,7 @@ export function PreferencesSection({
       const parsed = parseCustomModel(modelId);
       if (parsed) {
         setGraphitiEmbeddingModel(parsed.modelName);
-        if (graphitiApiUrl) {
-          await linkGraphitiProvider(parsed.provider.id, 'embedding', parsed.modelName);
-        }
+        await linkGraphitiProvider(parsed.provider.id, 'embedding', parsed.modelName);
       }
     } else {
       setGraphitiEmbeddingModel('');
@@ -1316,7 +1308,9 @@ export function PreferencesSection({
     }
   };
 
-  const [preferencesTab, setPreferencesTab] = useState<'general' | 'customize'>('general');
+  const [preferencesTab, setPreferencesTab] = useState<
+    'general' | 'search' | 'ai-models' | 'voice' | 'integrations' | 'customize'
+  >('general');
   const isMaxUser = Boolean(user?.isMaxUser);
   const hasPaidAccess = Boolean(user?.isProUser || user?.isMaxUser);
 
@@ -1355,11 +1349,17 @@ export function PreferencesSection({
         <KumoTabs
           variant="segmented"
           value={preferencesTab}
-          onValueChange={(v) => setPreferencesTab(v as 'general' | 'customize')}
+          onValueChange={(v) =>
+            setPreferencesTab(v as 'general' | 'search' | 'ai-models' | 'voice' | 'integrations' | 'customize')
+          }
           className="w-full [--color-kumo-tint:var(--accent)] [--color-kumo-base:var(--background)] [--color-kumo-recessed:var(--muted)] [--color-kumo-surface:var(--card)] [--text-color-kumo-default:var(--foreground)] [--text-color-kumo-strong:var(--muted-foreground)] [--text-color-kumo-subtle:var(--muted-foreground)] [--color-kumo-ring:var(--border)]"
           listClassName="w-full [&>button]:flex-1 [&>button]:justify-center"
           tabs={[
             { value: 'general', label: 'General' },
+            { value: 'search', label: 'Search' },
+            { value: 'ai-models', label: 'AI Models' },
+            { value: 'voice', label: 'Voice & Media' },
+            { value: 'integrations', label: 'Integrations' },
             { value: 'customize', label: 'Customize' },
           ]}
         />
@@ -1571,7 +1571,14 @@ export function PreferencesSection({
                   onCheckedChange={setScrollToLatestOnOpen}
                 />
               </div>
+            </div>
+          </div>
+        )}
 
+        {/* ── Search & Retrieval tab ── */}
+        {preferencesTab === 'search' && (
+          <div className="mt-4">
+            <div className="rounded-xl border border-border/60 divide-y divide-border/40 px-4">
               {/* Search Provider */}
               <div className="flex items-center justify-between py-3.5 gap-6">
                 <div className="min-w-0">
@@ -1594,34 +1601,6 @@ export function PreferencesSection({
                   </SelectContent>
                 </Select>
               </div>
-
-              {/* SearXNG URL */}
-              {searchProvider === 'searxng' && (
-                <div className="flex flex-col gap-1.5 py-3.5">
-                  <p className="text-sm font-medium">SearXNG URL</p>
-                  <p className="text-xs text-muted-foreground">Base URL of your SearXNG instance</p>
-                  <Input
-                    placeholder="http://localhost:8080"
-                    value={searxngUrl}
-                    onChange={(e) => setSearxngUrl(e.target.value)}
-                    className="h-8 text-xs rounded-lg"
-                  />
-                </div>
-              )}
-
-              {/* fastCRW URL */}
-              {searchProvider === 'fastcrw' && (
-                <div className="flex flex-col gap-1.5 py-3.5">
-                  <p className="text-sm font-medium">fastCRW URL</p>
-                  <p className="text-xs text-muted-foreground">Base URL of your fastCRW instance</p>
-                  <Input
-                    placeholder="http://localhost:3000"
-                    value={fastcrwUrl}
-                    onChange={(e) => setFastcrwUrl(e.target.value)}
-                    className="h-8 text-xs rounded-lg"
-                  />
-                </div>
-              )}
 
               {/* Search Fallback */}
               <div className="flex items-center justify-between py-3.5 gap-6">
@@ -1661,7 +1640,14 @@ export function PreferencesSection({
                   </Select>
                 </div>
               )}
+            </div>
+          </div>
+        )}
 
+        {/* ── Integrations tab ── */}
+        {preferencesTab === 'integrations' && (
+          <div className="mt-4">
+            <div className="rounded-xl border border-border/60 divide-y divide-border/40 px-4">
               {/* Sandbox Provider */}
               <div className="flex items-center justify-between py-3.5 gap-6">
                 <div className="min-w-0">
@@ -1700,7 +1686,13 @@ export function PreferencesSection({
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+          </div>
+        )}
 
+        {preferencesTab === 'search' && (
+          <div className="mt-4">
+            <div className="rounded-xl border border-border/60 divide-y divide-border/40 px-4">
               {/* Extreme Content Provider */}
               <div className="flex items-center justify-between py-3.5 gap-6">
                 <div className="min-w-0">
@@ -1781,7 +1773,13 @@ export function PreferencesSection({
                 </div>
                 <Switch checked={fallbackExaBrowse} onCheckedChange={setFallbackExaBrowse} />
               </div>
+            </div>
+          </div>
+        )}
 
+        {preferencesTab === 'integrations' && (
+          <div className="mt-4">
+            <div className="rounded-xl border border-border/60 divide-y divide-border/40 px-4">
               {/* Lookout Scheduling Provider */}
               <div className="flex items-center justify-between py-3.5 gap-6">
                 <div className="min-w-0">
@@ -1851,21 +1849,14 @@ export function PreferencesSection({
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+          </div>
+        )}
 
-              {/* Graphiti URL */}
-              {memoryProvider === 'graphiti' && (
-                <div className="flex flex-col gap-1.5 py-3.5">
-                  <p className="text-sm font-medium">Graphiti URL</p>
-                  <p className="text-xs text-muted-foreground">Base URL of your Graphiti API instance</p>
-                  <Input
-                    placeholder="http://localhost:8000"
-                    value={graphitiApiUrl}
-                    onChange={(e) => setGraphitiApiUrl(e.target.value)}
-                    className="h-8 text-xs rounded-lg"
-                  />
-                </div>
-              )}
-
+        {/* ── Voice & Media tab ── */}
+        {preferencesTab === 'voice' && (
+          <div className="mt-4">
+            <div className="rounded-xl border border-border/60 divide-y divide-border/40 px-4">
               {/* ── TTS Provider ── */}
               <div className="flex items-center justify-between py-3.5 gap-6">
                 <div className="min-w-0">
@@ -2211,7 +2202,14 @@ export function PreferencesSection({
                   Uses the model picked in the chat model selector, plus the STT/TTS providers configured above.
                 </p>
               )}
+            </div>
+          </div>
+        )}
 
+        {/* ── AI Models tab ── */}
+        {preferencesTab === 'ai-models' && (
+          <div className="mt-4">
+            <div className="rounded-xl border border-border/60 divide-y divide-border/40 px-4">
               {/* Auto Router toggle (Pro only) */}
               <div className="flex items-center justify-between py-3.5 gap-6">
                 <div className="min-w-0">
@@ -2311,7 +2309,11 @@ export function PreferencesSection({
                 </div>
               )}
             </div>
+          </div>
+        )}
 
+        {preferencesTab === 'integrations' && (
+          <div className="mt-4">
             {/* Tools */}
             <div className="rounded-xl border border-border/60 mt-4 overflow-hidden">
               <div className="px-4 py-3 border-b border-border/40">
@@ -2505,7 +2507,11 @@ export function PreferencesSection({
                 />
               </div>
             </div>
+          </div>
+        )}
 
+        {preferencesTab === 'search' && (
+          <div className="mt-4">
             {/* Vector Database */}
             <div className="rounded-xl border border-border/60 mt-4 overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
@@ -2515,19 +2521,6 @@ export function PreferencesSection({
                 </div>
                 <Switch id="qdrant-enabled" checked={qdrantEnabled ?? false} onCheckedChange={setQdrantEnabled} />
               </div>
-
-              {qdrantEnabled && (
-                <div className="flex flex-col gap-1.5 px-4 py-3 border-t border-border/40">
-                  <p className="text-sm font-medium">Qdrant URL</p>
-                  <p className="text-xs text-muted-foreground">Base URL of your Qdrant instance</p>
-                  <Input
-                    placeholder="http://localhost:6333"
-                    value={qdrantUrl ?? ''}
-                    onChange={(e) => setQdrantUrl(e.target.value)}
-                    className="h-8 text-xs rounded-lg"
-                  />
-                </div>
-              )}
             </div>
 
             {/* Hybrid Search */}
@@ -2678,7 +2671,11 @@ export function PreferencesSection({
                 </div>
               </div>
             </div>
+          </div>
+        )}
 
+        {preferencesTab === 'ai-models' && (
+          <div className="mt-4">
             {/* Custom AI Providers */}
             <div className="rounded-xl border border-border/60 mt-4 overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">

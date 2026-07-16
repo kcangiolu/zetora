@@ -1037,12 +1037,9 @@ export async function POST(req: Request) {
         mcpDynamicTools,
         lightweightUser,
         selectedConnectors,
-        searxngUrl: (userPreferencesResult?.preferences?.['zetora-searxng-url'] as string | undefined) || undefined,
         memoryProvider:
           (userPreferencesResult?.preferences?.['zetora-memory-provider'] as 'supermemory' | 'graphiti' | undefined) ||
           'supermemory',
-        graphitiApiUrl:
-          (userPreferencesResult?.preferences?.['zetora-graphiti-api-url'] as string | undefined) || undefined,
         userPreferences: (userPreferencesResult?.preferences ?? {}) as Record<string, unknown>,
         anonymizeContext,
         enabledSkillIds,

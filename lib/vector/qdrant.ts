@@ -9,18 +9,6 @@ interface SearchResult {
   payload: Record<string, any>;
 }
 
-/**
- * Resolves the Qdrant base URL to use for a given user.
- * Falls back to QDRANT_URL (or localhost) unless the user enabled
- * the Vector Database integration and configured a custom instance.
- */
-export function resolveQdrantUrl(preferences: Record<string, unknown>): string {
-  const enabled = preferences['zetora-qdrant-enabled'] === true;
-  const customUrl = (preferences['zetora-qdrant-url'] as string | undefined)?.trim();
-
-  return enabled && customUrl ? customUrl.replace(/\/$/, '') : DEFAULT_QDRANT_URL;
-}
-
 export function getQdrantClient(baseUrl: string = DEFAULT_QDRANT_URL) {
   const QDRANT_URL = baseUrl.replace(/\/$/, '');
 

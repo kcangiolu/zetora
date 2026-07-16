@@ -346,8 +346,6 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-search-provider'?: 'exa' | 'parallel' | 'firecrawl' | 'searxng' | 'fastcrw';
       'zetora-storage-provider'?: 'cloudflare-r2' | 'minio';
       'zetora-email-provider'?: 'resend' | 'smtp';
-      'zetora-searxng-url'?: string;
-      'zetora-fastcrw-url'?: string;
       'zetora-extreme-content-provider'?: 'exa-firecrawl' | 'searxng-fastcrw' | 'notte-only';
       'zetora-tertiary-extreme-agent-model'?: string;
       'zetora-tertiary-extreme-agent-provider'?: string;
@@ -408,7 +406,6 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-anonymization-ner-enabled'?: boolean;
       'zetora-embedding-provider'?: string;
       'zetora-embedding-model'?: string;
-      'zetora-qdrant-url'?: string;
       'zetora-qdrant-enabled'?: boolean;
       'zetora-hybrid-search-enabled'?: boolean;
       'zetora-content-indexing-enabled'?: boolean;
@@ -435,7 +432,6 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-default-provider'?: string;
       'zetora-lockout-provider'?: 'qstash' | 'bullmq';
       'zetora-memory-provider'?: 'supermemory' | 'graphiti';
-      'zetora-graphiti-api-url'?: string;
       'zetora-graphiti-llm-model'?: string;
       'zetora-graphiti-llm-base-url'?: string;
       'zetora-graphiti-llm-api-key'?: string;

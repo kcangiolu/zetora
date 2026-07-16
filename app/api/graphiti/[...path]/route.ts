@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUser } from '@/lib/auth-utils';
-import { resolveGraphitiBaseUrl as resolveBaseUrl } from '@/lib/graphiti/config';
+import { GRAPHITI_BASE_URL } from '@/lib/graphiti/config';
 
 async function parseResponse(res: Response): Promise<{ data: unknown; status: number }> {
   const text = await res.text();
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
   if (!user) return response;
 
   const { path } = await params;
-  const baseUrl = await resolveBaseUrl(user.id);
+  const baseUrl = GRAPHITI_BASE_URL;
   const body = await req.json();
 
   const res = await fetch(`${baseUrl}/${path.join('/')}`, {
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ path
   if (!user) return response;
 
   const { path } = await params;
-  const baseUrl = await resolveBaseUrl(user.id);
+  const baseUrl = GRAPHITI_BASE_URL;
   const url = new URL(req.url);
   const targetUrl = `${baseUrl}/${path.join('/')}${url.search}`;
   const res = await fetch(targetUrl);
@@ -58,7 +58,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ p
   if (!user) return response;
 
   const { path } = await params;
-  const baseUrl = await resolveBaseUrl(user.id);
+  const baseUrl = GRAPHITI_BASE_URL;
   const contentType = req.headers.get('content-type') || '';
   const hasBody = contentType.includes('application/json');
   const body = hasBody ? await req.json() : undefined;

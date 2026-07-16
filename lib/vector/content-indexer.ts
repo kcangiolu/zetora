@@ -1,6 +1,6 @@
 import 'server-only';
 import { embed } from 'ai';
-import { getQdrantClient, resolveQdrantUrl } from './qdrant';
+import { getQdrantClient } from './qdrant';
 import { SEARCH_INDEX_COLLECTION } from './constants';
 import { getEmbeddingModel } from '@/ai/embeddings';
 
@@ -118,7 +118,7 @@ export async function indexSearchResults(
 
     if (points.length === 0) return;
 
-    const client = getQdrantClient(resolveQdrantUrl(preferences));
+    const client = getQdrantClient();
     await client.createCollection(SEARCH_INDEX_COLLECTION, points[0].vector.length);
 
     for (let i = 0; i < points.length; i += UPSERT_BATCH_SIZE) {

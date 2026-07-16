@@ -162,7 +162,3 @@ class GraphitiClient {
 }
 
 export const graphitiClient = new GraphitiClient();
-
-export function createGraphitiClient(baseUrl: string): GraphitiClient {
-  return new GraphitiClient(baseUrl);
-}

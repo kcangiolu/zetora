@@ -3,7 +3,7 @@
 import { getUser } from '@/lib/auth-utils';
 import { serverEnv } from '@/env/server';
 import { Supermemory } from 'supermemory';
-import { graphitiClient, createGraphitiClient } from '@/lib/graphiti/client';
+import { graphitiClient } from '@/lib/graphiti/client';
 import { getUserPreferencesByUserId } from '@/lib/db/queries';
 import { deanonymizeText } from '@/lib/anonymizer/pseudonymize';
 
@@ -48,15 +48,6 @@ async function getMemoryProvider(userId: string): Promise<'supermemory' | 'graph
   }
 }
 
-async function getGraphitiClientForUser(userId: string) {
-  try {
-    const prefs = await getUserPreferencesByUserId({ userId });
-    const apiUrl = prefs?.preferences?.['zetora-graphiti-api-url'];
-    return typeof apiUrl === 'string' && apiUrl ? createGraphitiClient(apiUrl) : graphitiClient;
-  } catch {
-    return graphitiClient;
-  }
-}
 
 // SuperMemory content can hold anonymization tokens (see lib/tools/supermemory.ts) —
 // de-anonymize before it ever reaches the user-facing memory management UI.
@@ -106,7 +97,7 @@ export async function searchMemories(query: string, page = 1, pageSize = 20): Pr
 
   if (provider === 'graphiti') {
     try {
-      const client = await getGraphitiClientForUser(user.id);
+      const client = graphitiClient;
       const result = await client.search(query, user.id, pageSize);
       const episodes = result.results || [];
       const memories = episodes.map((ep: any, i: number) => graphitiEpisodeToMemoryItem(ep, i));
@@ -139,7 +130,7 @@ export async function getAllMemories(page = 1, pageSize = 20): Promise<MemoryRes
 
   if (provider === 'graphiti') {
     try {
-      const client = await getGraphitiClientForUser(user.id);
+      const client = graphitiClient;
       const result = await client.listEpisodes(user.id, pageSize, (page - 1) * pageSize);
       const episodes = result.episodes || [];
       const memories = episodes.map((ep: any, i: number) => graphitiEpisodeToMemoryItem(ep, i));
@@ -179,7 +170,7 @@ export async function deleteMemory(memoryId: string) {
 
   if (provider === 'graphiti') {
     try {
-      const client = await getGraphitiClientForUser(user.id);
+      const client = graphitiClient;
       await client.deleteEpisode(memoryId);
       return { success: true };
     } catch (error) {

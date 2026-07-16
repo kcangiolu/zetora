@@ -27,13 +27,10 @@ export type PreferenceKey =
   | 'zetora-disabled-skills'
   | 'zetora-default-group'
   | 'zetora-sandbox-provider'
-  | 'zetora-searxng-url'
-  | 'zetora-fastcrw-url'
   | 'zetora-extreme-content-provider'
   | 'zetora-search-stack'
   | 'zetora-embedding-provider'
   | 'zetora-embedding-model'
-  | 'zetora-qdrant-url'
   | 'zetora-qdrant-enabled'
   | 'zetora-tertiary-chat-title-model'
   | 'zetora-tertiary-chat-title-provider'
@@ -59,7 +56,6 @@ export type PreferenceKey =
   | 'zetora-default-provider'
   | 'zetora-lockout-provider'
   | 'zetora-memory-provider'
-  | 'zetora-graphiti-api-url'
   | 'zetora-graphiti-llm-model'
   | 'zetora-graphiti-llm-base-url'
   | 'zetora-graphiti-llm-api-key'
@@ -220,13 +216,10 @@ function collectLocalStoragePreferences(): Partial<Record<PreferenceKey, Prefere
     'zetora-disabled-skills',
     'zetora-default-group',
     'zetora-sandbox-provider',
-    'zetora-searxng-url',
-    'zetora-fastcrw-url',
     'zetora-extreme-content-provider',
     'zetora-search-stack',
     'zetora-embedding-provider',
     'zetora-embedding-model',
-    'zetora-qdrant-url',
     'zetora-qdrant-enabled',
     'zetora-tertiary-chat-title-model',
     'zetora-tertiary-chat-title-provider',

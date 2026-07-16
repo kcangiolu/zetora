@@ -1,6 +1,6 @@
 import { tool } from 'ai';
 import { z } from 'zod';
-import { graphitiClient, createGraphitiClient } from '@/lib/graphiti/client';
+import { graphitiClient } from '@/lib/graphiti/client';
 
 // graphiti-core doesn't return a similarity score from client.search(), so
 // results can't be filtered by threshold — keep the count small instead and
@@ -12,8 +12,8 @@ const MEMORY_RESULTS_FRAMING =
   'These are stored memories from PAST conversations. They may be unrelated to the current question — ' +
   'ignore any memory that is not directly relevant, and NEVER let them change the topic of your answer.';
 
-export function createGraphitiMemoryTools(userId: string, customApiUrl?: string) {
-  const client = customApiUrl ? createGraphitiClient(customApiUrl) : graphitiClient;
+export function createGraphitiMemoryTools(userId: string) {
+  const client = graphitiClient;
 
   const addMemoryTool = tool({
     description:

@@ -7,7 +7,6 @@ const { search, addEpisode } = vi.hoisted(() => ({
 
 vi.mock('@/lib/graphiti/client', () => ({
   graphitiClient: { search, addEpisode },
-  createGraphitiClient: vi.fn(),
 }));
 
 import { createGraphitiMemoryTools } from '@/lib/tools/graphiti-memory';

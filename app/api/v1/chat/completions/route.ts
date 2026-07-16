@@ -88,7 +88,6 @@ export async function POST(req: NextRequest) {
     mcpDynamicTools: {},
     lightweightUser: { userId, email: '', isProUser: false },
     selectedConnectors: undefined,
-    searxngUrl: (prefs?.['zetora-searxng-url'] as string | undefined) || undefined,
     userPreferences: (prefs ?? {}) as Record<string, unknown>,
     anonymizeContext,
   });

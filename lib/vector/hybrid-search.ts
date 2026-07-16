@@ -1,6 +1,6 @@
 import 'server-only';
 import { embed, generateText } from 'ai';
-import { getQdrantClient, resolveQdrantUrl } from './qdrant';
+import { getQdrantClient } from './qdrant';
 import { SEARCH_INDEX_COLLECTION } from './constants';
 import { buildUserFilter } from './qdrant-filters';
 import { getEmbeddingModel } from '@/ai/embeddings';
@@ -123,7 +123,7 @@ export async function hybridSearch(
     // 2. Search Qdrant (across previously indexed content), scoped to this
     // user and filtered to a minimum similarity score so an unrelated topic
     // from a past conversation can't surface as a "found" result here.
-    const client = getQdrantClient(resolveQdrantUrl(preferences));
+    const client = getQdrantClient();
     const qdrantResults = await client.search(
       SEARCH_INDEX_COLLECTION,
       embedding,

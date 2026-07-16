@@ -100,8 +100,6 @@ export async function upsertUserPreferences({
   preferences: Partial<{
     'zetora-search-provider'?: 'exa' | 'parallel' | 'firecrawl' | 'searxng' | 'fastcrw';
     'zetora-storage-provider'?: 'cloudflare-r2' | 'minio';
-    'zetora-searxng-url'?: string;
-    'zetora-fastcrw-url'?: string;
     'zetora-extreme-content-provider'?: 'exa-firecrawl' | 'searxng-fastcrw' | 'notte-only';
     'zetora-email-provider'?: 'resend' | 'smtp';
     'zetora-group-order'?: string[];
@@ -135,7 +133,6 @@ export async function upsertUserPreferences({
     'zetora-default-provider'?: string;
     'zetora-lockout-provider'?: 'qstash' | 'bullmq';
     'zetora-memory-provider'?: 'supermemory' | 'graphiti';
-    'zetora-graphiti-api-url'?: string;
     'zetora-graphiti-llm-model'?: string;
     'zetora-graphiti-llm-base-url'?: string;
     'zetora-graphiti-llm-api-key'?: string;

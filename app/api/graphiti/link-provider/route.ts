@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { parseBody, withAuth } from '@/lib/api/route-handlers';
 import { getCustomProviders } from '@/lib/custom-providers';
-import { resolveGraphitiBaseUrl } from '@/lib/graphiti/config';
+import { GRAPHITI_BASE_URL } from '@/lib/graphiti/config';
 
 const LinkSchema = z.object({
   providerId: z.string(),
@@ -22,7 +22,7 @@ export const POST = withAuth(async (req, { user }) => {
     return Response.json({ error: 'Provider not found' }, { status: 404 });
   }
 
-  const baseUrl = await resolveGraphitiBaseUrl(user.id);
+  const baseUrl = GRAPHITI_BASE_URL;
   const payload =
     target === 'llm'
       ? { llm_model: modelName ?? null, llm_api_key: provider.apiKey || null, llm_base_url: provider.baseURL || null }

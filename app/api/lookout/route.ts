@@ -262,7 +262,6 @@ function getToolsForSearchMode(
   searchMode: string,
   dataStream: UIMessageStreamWriter<ChatMessage>,
   searchProvider: SearchProvider | undefined,
-  searxngUrl: string | undefined,
   userPreferences: Record<string, unknown> | undefined,
   userId: string | undefined,
 ): Record<string, any> {
@@ -274,7 +273,7 @@ function getToolsForSearchMode(
     if (toolName === 'extreme_search') {
       tools[toolName] = extremeSearchTool(dataStream, []);
     } else if (toolName === 'web_search') {
-      tools[toolName] = webSearchTool(dataStream, searchProvider, searxngUrl, userPreferences, userId);
+      tools[toolName] = webSearchTool(dataStream, searchProvider, userPreferences, userId);
     } else if (toolName in DATASTREAM_TOOL_FACTORIES) {
       tools[toolName] = DATASTREAM_TOOL_FACTORIES[toolName](dataStream);
     } else if (toolName in STATIC_TOOLS) {
@@ -720,12 +719,10 @@ export async function POST(req: Request) {
 
         // Get tools and system prompt for the search mode
         const searchProvider = userPrefs?.preferences?.['zetora-search-provider'] as SearchProvider | undefined;
-        const searxngUrl = userPrefs?.preferences?.['zetora-searxng-url'] as string | undefined;
         const tools = getToolsForSearchMode(
           searchMode,
           dataStream,
           searchProvider,
-          searxngUrl,
           userPrefs?.preferences as Record<string, unknown> | undefined,
           userResult.id,
         );

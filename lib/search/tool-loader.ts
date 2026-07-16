@@ -29,9 +29,7 @@ interface LoadConfiguredToolsParams {
   mcpDynamicTools: Record<string, any>;
   lightweightUser: { userId: string; email: string; isProUser: boolean } | null;
   selectedConnectors: any;
-  searxngUrl?: string;
   memoryProvider?: 'supermemory' | 'graphiti';
-  graphitiApiUrl?: string;
   userPreferences?: Record<string, unknown>;
   anonymizeContext?: AnonymizeContext | null;
   enabledSkillIds?: SkillId[];
@@ -47,9 +45,7 @@ export async function loadConfiguredTools({
   mcpDynamicTools,
   lightweightUser,
   selectedConnectors,
-  searxngUrl,
   memoryProvider,
-  graphitiApiUrl,
   userPreferences,
   anonymizeContext,
   enabledSkillIds,
@@ -89,7 +85,7 @@ export async function loadConfiguredTools({
         }
         case 'web_search': {
           const { webSearchTool } = await import('@/lib/tools/web-search');
-          const built = webSearchTool(dataStream, searchProvider, searxngUrl, userPreferences, lightweightUser?.userId);
+          const built = webSearchTool(dataStream, searchProvider, userPreferences, lightweightUser?.userId);
           tools.web_search = anonymizeContext ? withEgressAnonymization(built, anonymizeContext) : built;
           return;
         }
@@ -225,7 +221,7 @@ export async function loadConfiguredTools({
           if (!memoryTools) {
             if (memoryProvider === 'graphiti') {
               const { createGraphitiMemoryTools } = await import('@/lib/tools/graphiti-memory');
-              const gt = createGraphitiMemoryTools(lightweightUser.userId, graphitiApiUrl);
+              const gt = createGraphitiMemoryTools(lightweightUser.userId);
               memoryTools = { searchMemories: gt.searchMemoryTool, addMemory: gt.addMemoryTool };
             } else {
               const { createMemoryTools } = await import('@/lib/tools/supermemory');

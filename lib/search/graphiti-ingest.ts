@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { graphitiClient, createGraphitiClient } from '@/lib/graphiti/client';
+import { graphitiClient } from '@/lib/graphiti/client';
 import type { ChatMessage } from '@/lib/types';
 
 // In-memory dedup so a resumed/replayed stream doesn't re-ingest the same
@@ -53,7 +53,7 @@ function splitIntoChunks(text: string, maxChars: number): string[] {
 }
 
 async function ingestWithRetry(
-  client: ReturnType<typeof createGraphitiClient>,
+  client: typeof graphitiClient,
   episode: { name: string; episodeBody: string; referenceTime: string; sourceDescription: string; groupId: string },
   maxRetries: number,
   chunkIndex: number,
@@ -101,8 +101,7 @@ export function ingestChatIntoGraphiti({
   const memoryProvider = preferences?.['zetora-memory-provider'] || 'supermemory';
   if (memoryProvider !== 'graphiti') return;
 
-  const graphitiApiUrl = preferences?.['zetora-graphiti-api-url'] as string | undefined;
-  const client = graphitiApiUrl ? createGraphitiClient(graphitiApiUrl) : graphitiClient;
+  const client = graphitiClient;
 
   const chunkSizePref = preferences?.['zetora-graphiti-chunk-size'];
   const chunkSize = typeof chunkSizePref === 'number' && chunkSizePref > 0 ? chunkSizePref : 8000;
