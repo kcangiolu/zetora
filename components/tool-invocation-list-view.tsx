@@ -3,6 +3,7 @@
 import React, { memo, useEffect, useState, lazy } from 'react';
 import { cn } from '@/lib/utils';
 import { LucideIcon } from 'lucide-react';
+import { useReducedMotion } from 'motion/react';
 
 // UI Components
 import { BorderTrail } from '@/components/core/border-trail';
@@ -65,15 +66,22 @@ export const SearchLoadingState = ({
   };
 
   const variant = colorVariants[color];
+  const prefersReducedMotion = useReducedMotion();
+  const barWidths = [40, 28, 52];
 
   return (
-    <Card className="relative w-full h-[100px] my-4 overflow-hidden shadow-none">
-      <BorderTrail className={cn('bg-linear-to-l', variant.border)} size={80} />
+    <Card className="relative w-full my-4 py-4 overflow-hidden shadow-none">
+      {!prefersReducedMotion && (
+        <BorderTrail
+          className={cn('bg-linear-to-l', variant.border)}
+          size={60}
+          transition={{ repeat: Infinity, duration: 6, ease: 'linear' }}
+        />
+      )}
       <CardContent className="px-6!">
         <div className="relative flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className={cn('relative h-10 w-10 rounded-full flex items-center justify-center', variant.background)}>
-              <BorderTrail className={cn('bg-linear-to-l', variant.border)} size={40} />
+            <div className={cn('relative h-10 w-10 rounded-xl flex items-center justify-center', variant.background)}>
               <Icon className={cn('h-5 w-5', variant.icon)} />
             </div>
             <div className="space-y-2">
@@ -81,12 +89,15 @@ export const SearchLoadingState = ({
                 {text}
               </TextShimmer>
               <div className="flex gap-2">
-                {[...Array(3)].map((_, i) => (
+                {barWidths.map((width, i) => (
                   <div
-                    key={i}
-                    className="h-1.5 rounded-full bg-neutral-200 dark:bg-neutral-700 animate-pulse"
+                    key={width}
+                    className={cn(
+                      'h-1.5 rounded-full bg-neutral-200 dark:bg-neutral-700',
+                      prefersReducedMotion ? 'animate-pulse' : 'skeleton-shimmer',
+                    )}
                     style={{
-                      width: `${Math.random() * 40 + 20}px`,
+                      width: `${width}px`,
                       animationDelay: `${i * 0.2}s`,
                     }}
                   />

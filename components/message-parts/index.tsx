@@ -94,6 +94,8 @@ import {
 
 // Tool-specific components (eagerly loaded for better UX)
 import { SearchLoadingState } from '@/components/tool-invocation-list-view';
+import { GeneratedImageCard } from '@/components/generated-image-card';
+import { StreamingIndicator } from '@/components/streaming-indicator';
 import {
   MapPin,
   Film,
@@ -116,8 +118,6 @@ import {
   Volume2,
   Square,
   Sparkles,
-  Wand2,
-  Pencil,
   Trash2,
 } from 'lucide-react';
 import {
@@ -777,6 +777,13 @@ function extractMcpAppRenderData(output: unknown): McpAppRenderData | null {
     }
   }
   return null;
+}
+
+function toImageCardState(
+  state: string,
+): 'input-streaming' | 'input-available' | 'output-available' | 'output-error' {
+  if (state === 'input-streaming' || state === 'output-available' || state === 'output-error') return state;
+  return 'input-available';
 }
 
 function normalizeMcpAppToolResult(
@@ -2630,20 +2637,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
             key={`${messageIndex}-${partIndex}-loading`}
             className="flex flex-col min-h-[calc(100vh-18rem)] m-0! p-0! mt-4!"
           >
-            <div className="flex space-x-2 ml-8 mt-2">
-              <div
-                className="w-2 h-2 rounded-full bg-muted-foreground dark:bg-muted-foreground animate-bounce"
-                style={{ animationDelay: '0ms' }}
-              ></div>
-              <div
-                className="w-2 h-2 rounded-full bg-muted-foreground dark:bg-muted-foreground animate-bounce"
-                style={{ animationDelay: '150ms' }}
-              ></div>
-              <div
-                className="w-2 h-2 rounded-full bg-muted-foreground dark:bg-muted-foreground animate-bounce"
-                style={{ animationDelay: '300ms' }}
-              ></div>
-            </div>
+            <StreamingIndicator />
           </div>
         );
       }
@@ -5172,7 +5166,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                 key={`${messageIndex}-${partIndex}-tool`}
                 input={part.input}
                 result={part.output}
-                state={part.state}
+                state={toImageCardState(part.state)}
                 annotation={latestAnn}
               />
             );
@@ -5188,7 +5182,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                 key={`${messageIndex}-${partIndex}-tool`}
                 input={part.input}
                 result={part.output}
-                state={part.state}
+                state={toImageCardState(part.state)}
                 annotation={latestAnn}
               />
             );
@@ -5204,7 +5198,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                 key={`${messageIndex}-${partIndex}-tool`}
                 input={part.input}
                 result={part.output}
-                state={part.state}
+                state={toImageCardState(part.state)}
                 annotation={latestAnn}
               />
             );
@@ -5220,7 +5214,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                 key={`${messageIndex}-${partIndex}-tool`}
                 input={part.input}
                 result={part.output}
-                state={part.state}
+                state={toImageCardState(part.state)}
                 annotation={latestAnn}
               />
             );
@@ -5236,7 +5230,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                 key={`${messageIndex}-${partIndex}-tool`}
                 input={part.input}
                 result={part.output}
-                state={part.state}
+                state={toImageCardState(part.state)}
                 annotation={latestAnn}
               />
             );
@@ -5251,7 +5245,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                 key={`${messageIndex}-${partIndex}-tool`}
                 input={part.input}
                 result={part.output}
-                state={part.state}
+                state={toImageCardState(part.state)}
                 annotations={agentAnns}
               />
             );
@@ -5267,7 +5261,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                 key={`${messageIndex}-${partIndex}-tool`}
                 input={part.input}
                 result={part.output}
-                state={part.state}
+                state={toImageCardState(part.state)}
                 annotation={latestAnn}
               />
             );
@@ -5315,106 +5309,42 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
           }
 
           case 'tool-generate_image':
-            switch (part.state) {
-              case 'input-streaming':
-              case 'input-available':
-                return (
-                  <SearchLoadingState
-                    key={`${messageIndex}-${partIndex}-tool`}
-                    icon={Wand2}
-                    text="Generating image..."
-                    color="violet"
-                  />
-                );
-              case 'output-available':
-                if (!part.output.success) {
-                  return (
-                    <div
-                      key={`${messageIndex}-${partIndex}-tool`}
-                      className="w-full my-4 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950"
-                    >
-                      <div className="p-4">
-                        <div className="flex items-start gap-3">
-                          <div className="shrink-0 w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900 flex items-center justify-center">
-                            <Wand2 className="h-4 w-4 text-red-600 dark:text-red-400" />
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="text-sm font-medium text-red-900 dark:text-red-100">
-                              Image generation failed
-                            </h3>
-                            <p className="text-xs text-red-700 dark:text-red-300 mt-1">{part.output.error}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
+            return (
+              <GeneratedImageCard
+                key={`${messageIndex}-${partIndex}-tool`}
+                mode="generate"
+                state={toImageCardState(part.state)}
+                prompt={part.input?.prompt}
+                size={part.input?.size}
+                imageUrl={part.state === 'output-available' && part.output.success ? part.output.imageUrl : undefined}
+                error={
+                  part.state === 'output-available' && !part.output.success
+                    ? part.output.error
+                    : part.state === 'output-error'
+                      ? part.errorText
+                      : undefined
                 }
-                return (
-                  <div
-                    key={`${messageIndex}-${partIndex}-tool`}
-                    className="w-full my-4 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] overflow-hidden shadow-sm"
-                  >
-                    <img src={part.output.imageUrl} alt={part.output.prompt} className="w-full h-auto block" />
-                    <div className="px-4 py-2.5 border-t border-[hsl(var(--border))] bg-[hsl(var(--muted))]">
-                      <p className="text-xs text-[hsl(var(--muted-foreground))] line-clamp-2">{part.output.prompt}</p>
-                    </div>
-                  </div>
-                );
-              case 'output-error':
-                return null;
-            }
-            break;
+              />
+            );
 
           case 'tool-edit_image':
-            switch (part.state) {
-              case 'input-streaming':
-              case 'input-available':
-                return (
-                  <SearchLoadingState
-                    key={`${messageIndex}-${partIndex}-tool`}
-                    icon={Pencil}
-                    text="Editing image..."
-                    color="blue"
-                  />
-                );
-              case 'output-available':
-                if (!part.output.success) {
-                  return (
-                    <div
-                      key={`${messageIndex}-${partIndex}-tool`}
-                      className="w-full my-4 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950"
-                    >
-                      <div className="p-4">
-                        <div className="flex items-start gap-3">
-                          <div className="shrink-0 w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900 flex items-center justify-center">
-                            <Pencil className="h-4 w-4 text-red-600 dark:text-red-400" />
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="text-sm font-medium text-red-900 dark:text-red-100">
-                              Image editing failed
-                            </h3>
-                            <p className="text-xs text-red-700 dark:text-red-300 mt-1">{part.output.error}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
+            return (
+              <GeneratedImageCard
+                key={`${messageIndex}-${partIndex}-tool`}
+                mode="edit"
+                state={toImageCardState(part.state)}
+                prompt={part.input?.prompt}
+                sourceImageUrl={part.input?.image_url}
+                imageUrl={part.state === 'output-available' && part.output.success ? part.output.imageUrl : undefined}
+                error={
+                  part.state === 'output-available' && !part.output.success
+                    ? part.output.error
+                    : part.state === 'output-error'
+                      ? part.errorText
+                      : undefined
                 }
-                return (
-                  <div
-                    key={`${messageIndex}-${partIndex}-tool`}
-                    className="w-full my-4 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] overflow-hidden shadow-sm"
-                  >
-                    <img src={part.output.imageUrl} alt={part.output.prompt} className="w-full h-auto block" />
-                    <div className="px-4 py-2.5 border-t border-[hsl(var(--border))] bg-[hsl(var(--muted))]">
-                      <p className="text-xs text-[hsl(var(--muted-foreground))] line-clamp-2">{part.output.prompt}</p>
-                    </div>
-                  </div>
-                );
-              case 'output-error':
-                return null;
-            }
-            break;
+              />
+            );
 
           default:
             return <DynamicToolInvocationCard part={part} compact={true} />;
