@@ -99,6 +99,12 @@ export async function POST(req: NextRequest) {
     tools,
     activeTools: VOICE_TOOL_NAMES,
     toolChoice: 'auto',
+    // Spoken replies are meant to be one or two sentences (see
+    // VOICE_TOOL_INSTRUCTIONS above) — without a cap, a local model with no
+    // natural stop point can run to its full context length, which both
+    // reads absurdly long aloud and can blow past s2s-service's read timeout
+    // on /api/v1/chat/completions.
+    maxOutputTokens: 300,
     stopWhen: stepCountIs(isXmlParsedCustomModel ? 3 : 5),
     maxRetries: isXmlParsedCustomModel ? 2 : 3,
     prepareStep: async ({ steps }) => {

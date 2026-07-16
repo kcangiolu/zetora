@@ -804,6 +804,12 @@ services:
       - '8100:8080'
     environment:
       - APP_URL=http://zetora-app:3333
+      # Read timeout (seconds) on the callbacks into the app, notably
+      # /api/v1/chat/completions. The default (30s) is tuned for fast/cloud
+      # models; a local LLM sharing your GPU (llama.cpp, etc.) can need more
+      # headroom, especially on a tool-calling turn. Raise further if you
+      # still see "Response generation failed:" with an empty message.
+      - REQUEST_TIMEOUT_S=90
     networks:
       - zetora-network
     deploy:
