@@ -13,13 +13,19 @@ interface ToolContext {
   userPreferences?: Record<string, unknown>;
   userId?: string;
   chatId?: string;
+  images?: { url: string; contentType: string; name?: string }[];
 }
 
 export const editImageTool = tool({
   description:
     'Edit an existing image — change colors, add/remove objects, inpaint, or modify specific elements (Max subscribers only). Use the URL of an image already shown in the conversation (generated or uploaded).',
   inputSchema: z.object({
-    image_url: z.string().describe('URL of the image to edit'),
+    image_url: z
+      .string()
+      .optional()
+      .describe(
+        'URL of the image to edit. Omit to default to the most recently uploaded image in the conversation.',
+      ),
     prompt: z.string().describe('Description of the edit to apply to the image'),
     seed: z
       .number()
@@ -35,6 +41,11 @@ export const editImageTool = tool({
   ) => {
     const context = experimental_context as ToolContext | undefined;
     const prefs = context?.userPreferences ?? {};
+
+    const resolvedImageUrl = image_url || context?.images?.at(-1)?.url;
+    if (!resolvedImageUrl) {
+      return { success: false as const, error: 'No image to edit — attach an image first.' };
+    }
 
     const providerId = prefs['zetora-image-edit-custom-provider-id'] as string | undefined;
     const model = (prefs['zetora-image-edit-model'] as string | undefined) || '';
@@ -57,7 +68,7 @@ export const editImageTool = tool({
 
     let sourceImage: Response;
     try {
-      sourceImage = await fetch(image_url, { signal: AbortSignal.timeout(30_000) });
+      sourceImage = await fetch(resolvedImageUrl, { signal: AbortSignal.timeout(30_000) });
     } catch (err) {
       return { success: false as const, error: `Could not download source image: ${(err as Error).message}` };
     }
@@ -122,6 +133,6 @@ export const editImageTool = tool({
       toolName: 'edit_image',
     });
 
-    return { success: true as const, imageUrl: hostedImageUrl, originalUrl: image_url, prompt, seed: finalSeed };
+    return { success: true as const, imageUrl: hostedImageUrl, originalUrl: resolvedImageUrl, prompt, seed: finalSeed };
   },
 });

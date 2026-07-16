@@ -363,7 +363,10 @@ interface MessageEditorProps {
 const MAX_EDITOR_FILES = 4;
 const MAX_EDITOR_IMAGE_SIZE = 5 * 1024 * 1024;
 const MAX_EDITOR_DOCUMENT_SIZE = 50 * 1024 * 1024;
-const EDITOR_ACCEPTED_FILE_TYPES = 'image/*,.pdf,.csv,.xlsx,.xls,.docx';
+// No restriction beyond the browser's own file picker — any other extension
+// is still accepted server-side (see isTextLikeType in app/api/upload) and
+// routed to inline/RAG based on whether it decodes as text.
+const EDITOR_ACCEPTED_FILE_TYPES = undefined;
 const EDITOR_DOCUMENT_MIME_TYPES = [
   'text/csv',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -510,7 +513,7 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
       const imageFiles: File[] = [];
       const pdfFiles: File[] = [];
       const documentFiles: File[] = [];
-      const unsupportedFiles: File[] = [];
+      const textFiles: File[] = []; // any other extension — inlined or RAG'd server-side if it decodes as text
       const oversizedFiles: File[] = [];
       const blockedPdfFiles: File[] = [];
 
@@ -531,13 +534,9 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
         } else if (EDITOR_DOCUMENT_MIME_TYPES.includes(file.type)) {
           documentFiles.push(file);
         } else {
-          unsupportedFiles.push(file);
+          textFiles.push(file);
         }
       });
-
-      if (unsupportedFiles.length > 0) {
-        sileo.error({ title: `Some files are not supported: ${unsupportedFiles.map((f) => f.name).join(', ')}` });
-      }
 
       if (oversizedFiles.length > 0) {
         sileo.error({ title: `Some files exceed the size limit: ${oversizedFiles.map((f) => f.name).join(', ')}` });
@@ -547,7 +546,7 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
         sileo.error({ title: `PDF uploads require Pro subscription. Upgrade to access PDF analysis.` });
       }
 
-      const validFiles: File[] = [...imageFiles, ...documentFiles, ...pdfFiles];
+      const validFiles: File[] = [...imageFiles, ...documentFiles, ...pdfFiles, ...textFiles];
       if (validFiles.length === 0) {
         onFinish();
         return;
@@ -1208,20 +1207,10 @@ export const EditableAttachmentsBadge = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const editableDocumentMimeTypes = [
-    'text/csv',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'application/vnd.ms-excel',
-  ];
-  const fileAttachments = attachments.filter((att) => {
-    const contentType = att.contentType || att.mediaType || '';
-    return (
-      contentType.startsWith('image/') ||
-      contentType === 'application/pdf' ||
-      editableDocumentMimeTypes.includes(contentType)
-    );
-  });
+  // Every entry here already came from a `type === 'file'` message part
+  // (see callers), including generic text files with an arbitrary
+  // extension — no content-type filtering needed.
+  const fileAttachments = attachments;
 
   if (fileAttachments.length === 0) return null;
 
@@ -1575,13 +1564,6 @@ export const EditableAttachmentsBadge = ({
 };
 
 // Document type helper
-const documentMimeTypes = [
-  'text/csv',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-  'application/vnd.ms-excel', // .xls
-];
-
 const getDocumentType = (attachment: Attachment): 'csv' | 'docx' | 'xlsx' | 'pdf' | 'image' | null => {
   const contentType = attachment.contentType || attachment.mediaType || '';
   if (contentType === 'application/pdf') return 'pdf';
@@ -1600,12 +1582,10 @@ const getDocumentType = (attachment: Attachment): 'csv' | 'docx' | 'xlsx' | 'pdf
 export const AttachmentsBadge = ({ attachments }: { attachments: Attachment[] }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const fileAttachments = attachments.filter((att) => {
-    const contentType = att.contentType || att.mediaType || '';
-    return (
-      contentType.startsWith('image/') || contentType === 'application/pdf' || documentMimeTypes.includes(contentType)
-    );
-  });
+  // Every entry here already came from a `type === 'file'` message part
+  // (see callers), including generic text files with an arbitrary
+  // extension — no content-type filtering needed.
+  const fileAttachments = attachments;
 
   React.useEffect(() => {
     console.log('fileAttachments', fileAttachments);

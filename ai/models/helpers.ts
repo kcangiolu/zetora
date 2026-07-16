@@ -101,16 +101,14 @@ export function getAcceptedFileTypes(modelValue: string, isProUser: boolean): st
   // Document file types for file_query_search tool - available for ALL models
   const documentTypes = '.csv,.xlsx,.xls,.docx';
 
-  // Vision models get images + documents, PDF models also get PDFs
-  if (model?.vision) {
-    if (model?.pdf) {
-      return `image/*,.pdf,${documentTypes}`;
-    }
-    return `image/*,${documentTypes}`;
+  // Images are always attachable — the in-chat Vision toggle governs whether
+  // they're injected into the model's context or just hosted + handed to it
+  // as a URL (see app/api/search/route.ts). A non-vision model can still act
+  // on an image via tools like edit_image without ever "seeing" it.
+  if (model?.pdf) {
+    return `image/*,.pdf,${documentTypes}`;
   }
-
-  // Non-vision models only get document types for file_query_search
-  return documentTypes;
+  return `image/*,${documentTypes}`;
 }
 
 // Check if a model supports extreme mode

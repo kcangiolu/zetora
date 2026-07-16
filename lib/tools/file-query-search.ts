@@ -4,6 +4,7 @@ import { VectorStoreIndex, BaseRetriever } from '@vectorstores/core';
 import { PDFReader } from '@vectorstores/readers/pdf';
 import { CSVReader } from '@vectorstores/readers/csv';
 import { DocxReader } from '@vectorstores/readers/docx';
+import { TextFileReader } from '@vectorstores/readers/text';
 import { ExcelReader } from '@vectorstores/excel';
 import { vercelEmbedding } from '@vectorstores/vercel';
 import { cohere } from '@ai-sdk/cohere';
@@ -33,8 +34,25 @@ const FILE_READERS = {
 
 type SupportedMimeType = keyof typeof FILE_READERS;
 
-function isSupportedMimeType(mimeType: string): mimeType is SupportedMimeType {
+function isKnownStructuredMimeType(mimeType: string): mimeType is SupportedMimeType {
   return mimeType in FILE_READERS;
+}
+
+// Generic text files (any extension, uploaded without a recognized document
+// type) — covered by app/api/upload's isTextLikeType. Any of these decode
+// with the plain TextFileReader rather than a format-specific one.
+function isTextLikeMimeType(mimeType: string): boolean {
+  return (
+    mimeType.startsWith('text/') ||
+    mimeType === 'application/json' ||
+    mimeType === 'application/xml' ||
+    mimeType === 'application/octet-stream' ||
+    mimeType === ''
+  );
+}
+
+function isSupportedMimeType(mimeType: string): boolean {
+  return isKnownStructuredMimeType(mimeType) || isTextLikeMimeType(mimeType);
 }
 
 interface FileContext {
@@ -66,7 +84,7 @@ async function createRetriever(file: FileContext): Promise<BaseRetriever> {
   if (!response.ok) throw new Error(`Failed to fetch file: ${response.statusText}`);
 
   const content = new Uint8Array(await response.arrayBuffer());
-  const reader = FILE_READERS[mimeType]();
+  const reader = isKnownStructuredMimeType(mimeType) ? FILE_READERS[mimeType]() : new TextFileReader();
   const documents = await reader.loadDataAsContent(content);
 
   // Create vector store index

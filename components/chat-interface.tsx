@@ -73,7 +73,7 @@ import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 import { SEARCH_LIMITS } from '@/lib/constants';
 import { ChatSDKError } from '@/lib/errors';
 import { cn, SearchGroupId } from '@/lib/utils';
-import { requiresProSubscription } from '@/ai/models';
+import { requiresProSubscription, hasVisionSupport } from '@/ai/models';
 import { ConnectorProvider } from '@/lib/connectors';
 
 // State management imports
@@ -164,6 +164,16 @@ const ChatInterface = memo(
     }, [pathname, localChatTitle, headerMenuOpen, measureHeaderMenuAlignment]);
 
     const [selectedModel, setSelectedModel] = useLocalStorage('zetora-selected-model', 'zetora-default');
+    // Whether images are injected into the model's context (vs. hosted +
+    // handed to it as a URL only). Defaults from the model's catalog `vision`
+    // flag; custom providers aren't in the catalog so hasVisionSupport
+    // already returns false for them. The user can override per-message —
+    // switching models recomputes the default (see effect below) but doesn't
+    // otherwise touch this state.
+    const [visionEnabled, setVisionEnabled] = useState(() => hasVisionSupport(selectedModel));
+    useEffect(() => {
+      setVisionEnabled(hasVisionSupport(selectedModel));
+    }, [selectedModel]);
     const [defaultGroupPreference] = useSyncedPreferences<SearchGroupId>('zetora-default-group', 'auto' as SearchGroupId);
     const initialGroupDefault = (
       groupParam ? (groupParam as unknown as SearchGroupId) : defaultGroupPreference
@@ -558,6 +568,7 @@ const ChatInterface = memo(
 
     // Create refs to store current values to avoid closure issues
     const selectedModelRef = useRef(effectiveSelectedModel);
+    const visionEnabledRef = useRef(visionEnabled);
     const selectedGroupRef = useRef(effectiveSelectedGroup);
     const isCustomInstructionsEnabledRef = useRef(isCustomInstructionsEnabled);
     const searchProviderRef = useRef(searchProvider);
@@ -569,6 +580,7 @@ const ChatInterface = memo(
 
     // Update refs whenever state changes - this ensures we always have current values
     selectedModelRef.current = effectiveSelectedModel;
+    visionEnabledRef.current = visionEnabled;
     selectedGroupRef.current = effectiveSelectedGroup;
     isCustomInstructionsEnabledRef.current = isCustomInstructionsEnabled;
     searchProviderRef.current = searchProvider;
@@ -615,6 +627,7 @@ const ChatInterface = memo(
               id: chatId,
               messages: shouldTrimRequestHistory && latestUserMessage ? [latestUserMessage] : messages,
               model: selectedModelRef.current,
+              visionEnabled: visionEnabledRef.current,
               group:
                 isUserPro && isMultiAgentModeEnabledRef.current
                   ? ('multi-agent' as SearchGroupId)
@@ -1656,6 +1669,8 @@ const ChatInterface = memo(
                       sendMessage={sendMessageWithAutoRouting}
                       selectedModel={selectedModel}
                       setSelectedModel={handleModelChange}
+                      visionEnabled={visionEnabled}
+                      setVisionEnabled={setVisionEnabled}
                       resetSuggestedQuestions={resetSuggestedQuestions}
                       lastSubmittedQueryRef={lastSubmittedQueryRef}
                       selectedGroup={effectiveSelectedGroup}

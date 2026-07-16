@@ -14,8 +14,8 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { del as blobDel, head as blobHead } from '@vercel/blob';
 
-// Image types (5MB limit)
-const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif'];
+// Image types (5MB limit) — webp/heic/heif cover iOS Photos picker output
+const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif'];
 
 // Document types (50MB limit)
 const DOCUMENT_TYPES = [
@@ -36,6 +36,25 @@ function isImageType(contentType: string): boolean {
   return IMAGE_TYPES.includes(contentType);
 }
 
+// Generic text-readable files: any extension is accepted, since browsers
+// report an empty/octet-stream contentType for extensions they don't
+// recognize (.log, .py, .yml, ...). Whether the bytes actually decode as
+// text is checked server-side when the file is read (see app/api/search's
+// text-file inlining/file_query_search routing), not here.
+function isTextLikeType(contentType: string): boolean {
+  return (
+    contentType.startsWith('text/') ||
+    contentType === 'application/json' ||
+    contentType === 'application/xml' ||
+    contentType === 'application/octet-stream' ||
+    contentType === ''
+  );
+}
+
+function isValidUploadType(contentType: string): boolean {
+  return VALID_TYPES.includes(contentType) || isTextLikeType(contentType);
+}
+
 function getMaxSizeForType(contentType: string): number {
   return isImageType(contentType) ? MAX_IMAGE_SIZE : MAX_DOCUMENT_SIZE;
 }
@@ -44,8 +63,8 @@ function getMaxSizeForType(contentType: string): number {
 const UploadRequestSchema = z
   .object({
     filename: z.string().min(1),
-    contentType: z.string().refine((type) => VALID_TYPES.includes(type), {
-      message: 'File type should be JPEG, PNG, GIF, PDF, CSV, DOCX, or XLSX',
+    contentType: z.string().refine((type) => isValidUploadType(type), {
+      message: 'Unsupported file type',
     }),
     size: z.number(),
   })
@@ -348,6 +367,10 @@ export async function POST(request: NextRequest) {
     const command = new PutObjectCommand({
       Bucket: STORAGE_BUCKET_NAME,
       Key: key,
+      // Must exactly match the Content-Type header the browser's direct PUT
+      // sends (see uploadFile in form-component.tsx, which mirrors
+      // file.type verbatim) — any mismatch invalidates the presigned SigV4
+      // signature and the PUT 403s.
       ContentType: contentType,
       // Store owner so individual files can be attributed even if the key format changes
       Metadata: isAuthenticated ? { 'user-id': session!.user.id } : undefined,
