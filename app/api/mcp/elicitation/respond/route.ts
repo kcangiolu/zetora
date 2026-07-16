@@ -3,9 +3,8 @@ import { getComprehensiveUserData } from '@/lib/user-data-server';
 import { ChatSDKError } from '@/lib/errors';
 import { pendingElicitations } from '@/lib/tools/mcp-client';
 import { z } from 'zod';
-import { Redis } from '@upstash/redis';
+import { kvSet, kvExists } from '@/lib/redis';
 
-const redis = Redis.fromEnv();
 const ELICITATION_RESPONSE_KEY_PREFIX = 'mcp:elicitation:response:';
 const ELICITATION_PENDING_KEY_PREFIX = 'mcp:elicitation:pending:';
 
@@ -36,14 +35,14 @@ export const POST = withError(
     };
 
     // Always persist response so waiting callback can pick it up cross-instance.
-    await redis.set(getElicitationResponseKey(input.elicitationId), responsePayload, { ex: 10 * 60 });
+    await kvSet(getElicitationResponseKey(input.elicitationId), responsePayload, { ex: 10 * 60 });
 
     if (resolver) {
       resolver(responsePayload);
       return Response.json({ ok: true });
     }
 
-    const stillPending = await redis.exists(getElicitationPendingKey(input.elicitationId));
+    const stillPending = await kvExists(getElicitationPendingKey(input.elicitationId));
     if (stillPending) return Response.json({ ok: true, accepted: true });
     return Response.json({ ok: false, error: 'Elicitation not found or already resolved' }, { status: 404 });
   },

@@ -117,8 +117,6 @@ services:
       - BULLMQ_ENABLED=true
       - BULLMQ_REDIS_URL=redis://bullmq-redis:6381
       - BULLMQ_REDIS_PASSWORD=${BULLMQ_REDIS_PASSWORD:-}
-      - UPSTASH_REDIS_REST_URL=http://srh:80
-      - UPSTASH_REDIS_REST_TOKEN=${UPSTASH_REDIS_REST_TOKEN}
       # Public WS URL of s2s-service (local voice backend) the browser
       # connects to directly — set to your host's reachable address, e.g.
       # ws://<host>:8100/v1/realtime. Left unset, local voice stays unusable
@@ -146,8 +144,6 @@ services:
       graphiti-api:
         condition: service_healthy
       presidio-api:
-        condition: service_healthy
-      srh:
         condition: service_healthy
       minio-create-bucket:
         condition: service_completed_successfully
@@ -222,40 +218,6 @@ services:
         limits:
           cpus: '0.5'
           memory: 256M
-    restart: unless-stopped
-
-  # ---------------------------------------------------------------------------
-  # Serverless Redis HTTP (self-hosted Upstash REST API, backed by `redis`)
-  # — used by @upstash/redis for rate limiting, x-wrapped cache, MCP elicitation
-  # ---------------------------------------------------------------------------
-  srh:
-    image: hiett/serverless-redis-http:latest
-    container_name: zetora-srh
-    # Every other internal service publishes to 127.0.0.1 so `next dev`
-    # (which runs on the host, outside zetora-network) can reach it — this
-    # one was missing that, so UPSTASH_REDIS_REST_URL had nothing to point
-    # at in local dev (see .env.local / .env.example).
-    ports:
-      - '127.0.0.1:8079:80'
-    environment:
-      - SRH_MODE=env
-      - SRH_TOKEN=${UPSTASH_REDIS_REST_TOKEN}
-      - SRH_CONNECTION_STRING=redis://redis:6379
-    depends_on:
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:80/']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - zetora-network
-    deploy:
-      resources:
-        limits:
-          cpus: '0.25'
-          memory: 128M
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------

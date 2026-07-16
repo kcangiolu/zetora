@@ -89,8 +89,6 @@
     "@types/three": "^0.183.1",
     "@upstash/box": "^0.1.26",
     "@upstash/qstash": "^2.10.1",
-    "@upstash/ratelimit": "^2.0.8",
-    "@upstash/redis": "^1.37.0",
     "@vectorstores/core": "^0.1.8",
     "@vectorstores/excel": "^0.1.8",
     "@vectorstores/readers": "^0.1.8",

@@ -86,15 +86,6 @@ export const SERVICE_CHECKS: ServiceCheckDefinition[] = [
     run: () => redisPing(serverEnv.REDIS_URL),
   },
   {
-    id: 'srh',
-    label: 'Serverless Redis HTTP',
-    configured: () => serverEnv.UPSTASH_REDIS_REST_URL !== 'placeholder',
-    run: () =>
-      fetchOk(serverEnv.UPSTASH_REDIS_REST_URL, {
-        headers: { Authorization: `Bearer ${serverEnv.UPSTASH_REDIS_REST_TOKEN}` },
-      }),
-  },
-  {
     id: 'storage',
     label: 'Object storage (MinIO)',
     configured: () => serverEnv.STORAGE_PROVIDER === 'minio',

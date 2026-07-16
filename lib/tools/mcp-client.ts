@@ -9,7 +9,7 @@ import type { ChatMessage } from '@/lib/types';
 import { randomUUID } from 'node:crypto';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
-import { Redis } from '@upstash/redis';
+import { kvGet, kvSet, kvDel } from '@/lib/redis';
 
 const DEFAULT_MCP_SERVER_LIMIT = Number.MAX_SAFE_INTEGER;
 const MCP_TOOL_LOAD_TIMEOUT_MS = 20000;
@@ -20,7 +20,6 @@ const ELICITATION_TIMEOUT_MS = 5 * 60 * 1000;
 // per-request (same process) serverless invocations.
 type ElicitResult = { action: 'accept' | 'decline' | 'cancel'; content?: Record<string, unknown> };
 export const pendingElicitations = new Map<string, (result: ElicitResult) => void>();
-const redis = Redis.fromEnv();
 const ELICITATION_RESPONSE_KEY_PREFIX = 'mcp:elicitation:response:';
 const ELICITATION_PENDING_KEY_PREFIX = 'mcp:elicitation:pending:';
 
@@ -114,13 +113,13 @@ function waitForElicitation(elicitationId: string): Promise<ElicitResult> {
     });
 
     // Mark as pending so responders can validate/diagnose lifecycle.
-    void redis.set(pendingKey, '1', { ex: Math.ceil(ELICITATION_TIMEOUT_MS / 1000) + 60 });
+    void kvSet(pendingKey, '1', { ex: Math.ceil(ELICITATION_TIMEOUT_MS / 1000) + 60 });
 
     const pollRedis = async () => {
       try {
-        const persisted = await redis.get<ElicitResult>(responseKey);
+        const persisted = await kvGet<ElicitResult>(responseKey);
         if (!persisted || typeof persisted !== 'object') return;
-        await redis.del(responseKey);
+        await kvDel(responseKey);
         settle(persisted);
       } catch {
         // Ignore transient Redis issues; in-process resolver may still complete.
@@ -215,7 +214,7 @@ export async function resolveUserMcpTools({
             pendingElicitations.delete(elicitationId);
             const responseKey = getElicitationResponseKey(elicitationId);
             const pendingKey = getElicitationPendingKey(elicitationId);
-            void redis.del(responseKey, pendingKey);
+            void kvDel(responseKey, pendingKey);
             dataStream.write({
               type: 'data-mcp_elicitation_done',
               data: { elicitationId },

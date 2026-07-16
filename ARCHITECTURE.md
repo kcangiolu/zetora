@@ -12,7 +12,7 @@ Zetora is a self-hosted, AI-powered agentic search engine (fork of [Scira](https
 | UI                      | Tailwind CSS v4, Shadcn/Radix UI, Framer Motion, ECharts/visx/Recharts                                                                  |
 | Auth                    | Better Auth (GitHub / Google / Twitter OAuth), Polar & DodoPayments plugins for billing                                                 |
 | ORM / DB                | Drizzle ORM + PostgreSQL 17 (migrations in `drizzle/migrations`)                                                                        |
-| Caching / rate limiting | Redis (`ioredis` / `redis`), Upstash-compatible REST via SRH (`hiett/serverless-redis-http`), `@upstash/ratelimit`                      |
+| Caching / rate limiting | Redis (`ioredis` / `redis`), sliding-window rate limiting via Redis sorted sets                                                         |
 | Object storage          | MinIO (S3-compatible) or Cloudflare R2 (`STORAGE_PROVIDER`)                                                                             |
 | Vector store            | Qdrant (search-result cache, hybrid search)                                                                                             |
 | Web search              | SearXNG (self-hosted metasearch), fastCRW (Firecrawl-compatible scraper), plus SaaS fallbacks (Tavily, Exa, Firecrawl, Valyu, Parallel) |
@@ -89,7 +89,6 @@ All services live on the `zetora-network` bridge; only `zetora.app` (port 3333) 
 | `db-migrate`                      | same image, target `migrate`              | —               | Runs Drizzle migrations, exits        |
 | `postgres`                        | postgres:17-alpine                        | 5432            | Primary DB                            |
 | `redis`                           | redis:7-alpine                            | 6379            | Cache / sessions / rate limits        |
-| `srh`                             | hiett/serverless-redis-http               | 8079→80         | Upstash REST shim over `redis`        |
 | `minio` (+ `minio-create-bucket`) | minio                                     | 9010→9000/9001  | S3 storage + console — API port (9010) is public-reachable, not loopback-only: put TLS in front and point `S3_PUBLIC_URL` at it |
 | `qdrant`                          | qdrant                                    | 6333/6334       | Vector cache                          |
 | `searxng` (+ `searxng-redis`)     | searxng                                   | 8090→8080       | Metasearch                            |
@@ -116,7 +115,7 @@ Build flow: `Dockerfile` has `deps` → `builder` (Next.js build with placeholde
 
 - **Server-side proxies** (`/api/graphiti`, `/api/proxy-image`) never accept the upstream URL from a client header. Graphiti resolves the target from the authenticated user's saved preference; the image proxy allows only http(s), blocks private/reserved IP ranges (re-checked on every redirect hop), and restricts responses to `image/*` capped at 10 MB with a 10 s timeout.
 - **Scheduled search callbacks** (`/api/lookout`) require the `CRON_SECRET` shared secret (sent as `x-lookout-secret`, or `Upstash-Forward-x-lookout-secret` through QStash). The endpoint returns 503 when the secret is unset so a forgotten env var fails closed. `/api/clean_images` follows the same rule.
-- **Rate limiting** (`lib/rate-limit.ts`) is built lazily and fails closed: if Upstash/SRH isn't configured, unauthenticated requests are denied rather than crashing the route.
+- **Rate limiting** (`lib/rate-limit.ts`) is built lazily and fails closed: if `REDIS_URL` isn't configured, unauthenticated requests are denied rather than crashing the route.
 - **SQL**: all Drizzle `sql` template interpolations are parameterized (no `sql.raw`), so raw string concatenation is not a SQL-injection vector.
 - **Headers** (`next.config.ts`): `X-Frame-Options: DENY` (except public legal pages), `nosniff`, `Referrer-Policy`, HSTS and a `Permissions-Policy`. Optimized SVGs are served inert (CSP sandbox + `Content-Disposition: attachment`). A global page CSP is intentionally **not** set: the app loads many third-party scripts/styles (analytics, maps, charts, embeds) and a strict policy would need per-source auditing — tracked as future work.
 - **Auth origins**: Better Auth `trustedOrigins`/`allowedOrigins` derive from `NEXT_PUBLIC_APP_URL`, `BETTER_AUTH_BASE_URL` and the optional `ALLOWED_ORIGINS` list, so a self-hosted fork works without code edits.
