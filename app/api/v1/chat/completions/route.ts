@@ -103,8 +103,11 @@ export async function POST(req: NextRequest) {
     // VOICE_TOOL_INSTRUCTIONS above) — without a cap, a local model with no
     // natural stop point can run to its full context length, which both
     // reads absurdly long aloud and can blow past s2s-service's read timeout
-    // on /api/v1/chat/completions.
-    maxOutputTokens: 300,
+    // on /api/v1/chat/completions. 300 cut off legitimate search-summary
+    // replies (and, worse, could truncate a local XML-parsed model mid-tag
+    // with nothing flushed at all — see dynamicXmlToolMiddleware) — 1000
+    // gives that room while still guarding against a runaway response.
+    maxOutputTokens: 1000,
     stopWhen: stepCountIs(isXmlParsedCustomModel ? 3 : 5),
     maxRetries: isXmlParsedCustomModel ? 2 : 3,
     prepareStep: async ({ steps }) => {
