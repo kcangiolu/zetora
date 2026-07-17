@@ -74,7 +74,7 @@ function inferLanguage(path: string): string {
   return langMap[ext] || 'text';
 }
 
-export function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status }: { status: string }) {
   if (status === 'completed') {
     return (
       <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
@@ -96,7 +96,7 @@ export function StatusBadge({ status }: { status: string }) {
   );
 }
 
-export function CollapsibleCard({
+function CollapsibleCard({
   icon,
   title,
   badge,
@@ -382,6 +382,7 @@ function RuntimeLogo({ runtime }: { runtime: string }) {
   }
 }
 
+/** @public renderer for the active `box_init` tool (lib/tools/build-tools.ts) — not yet wired into message-parts/index.tsx's dispatch */
 export const BoxInitResult = memo(function BoxInitResult({
   input,
   result,
@@ -629,6 +630,7 @@ export const BoxDownloadResult = memo(function BoxDownloadResult({
   );
 });
 
+/** @public renders the 'preview' DataBuildSearchPart annotation kind (lib/types.ts) — no current tool emits it and no dispatch renders this component yet */
 export const BoxPreviewResult = memo(function BoxPreviewResult({
   input,
   result,
@@ -1036,6 +1038,7 @@ function BoxAgentResultInner({
 
 export const BoxAgentResult = memo(BoxAgentResultInner);
 
+/** @public renderer for the active `build_web_search` tool (lib/tools/build-tools.ts) — not yet wired into message-parts/index.tsx's dispatch */
 export const BuildWebSearchResult = memo(function BuildWebSearchResult({
   input,
   result,
@@ -1183,6 +1186,7 @@ export const BuildWebSearchResult = memo(function BuildWebSearchResult({
   );
 });
 
+/** @public renderer for the active `box_browse_page` tool (lib/tools/build-tools.ts) — not yet wired into message-parts/index.tsx's dispatch */
 export const BoxBrowsePageResult = memo(function BoxBrowsePageResult({
   input,
   result,

@@ -27,7 +27,7 @@ interface PostMessageUpgradeDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export const PostMessageUpgradeDialog = React.memo(({ open, onOpenChange }: PostMessageUpgradeDialogProps) => {
+const PostMessageUpgradeDialog = React.memo(({ open, onOpenChange }: PostMessageUpgradeDialogProps) => {
   const [discountConfig, setDiscountConfig] = useState<DiscountConfig | null>(null);
 
   useEffect(() => {
@@ -212,7 +212,7 @@ interface LookoutAnnouncementDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export const LookoutAnnouncementDialog = React.memo(({ open, onOpenChange }: LookoutAnnouncementDialogProps) => {
+const LookoutAnnouncementDialog = React.memo(({ open, onOpenChange }: LookoutAnnouncementDialogProps) => {
   const router = useRouter();
   const [isMac, setIsMac] = React.useState(false);
 

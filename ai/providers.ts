@@ -696,34 +696,13 @@ export async function resolveModel(
   return resolved;
 }
 
-export type { ModelProvider, ProviderInfo, Model } from './models';
 export {
-  PROVIDERS,
-  models,
-  getModelConfig,
   requiresAuthentication,
   requiresProSubscription,
   requiresMaxSubscription,
-  isFreeUnlimited,
   hasVisionSupport,
-  hasPdfSupport,
-  hasReasoningSupport,
-  isExperimentalModel,
   getMaxOutputTokens,
   getModelParameters,
-  canUseModel,
   shouldBypassRateLimits,
-  getAcceptedFileTypes,
-  supportsExtremeMode,
-  getExtremeModels,
-  supportsCanvasMode,
-  isModelRestrictedInRegion,
-  getFilteredModels,
-  authRequiredModels,
-  proRequiredModels,
-  freeUnlimitedModels,
   getModelProvider,
-  getModelProviderInfo,
-  getActiveProviders,
-  getModelsByProvider,
 } from './models';

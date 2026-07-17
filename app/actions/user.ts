@@ -26,7 +26,7 @@ import {
   createGoogleCountKey,
   createAgentModeCountKey,
 } from '@/lib/performance-cache';
-import { getComprehensiveUserData, getLightweightUserAuth } from '@/lib/user-data-server';
+import { getComprehensiveUserData } from '@/lib/user-data-server';
 import {
   createConnection,
   listUserConnections,
@@ -45,13 +45,6 @@ export async function getCurrentUser() {
   'use server';
 
   return await getComprehensiveUserData();
-}
-
-// Lightweight auth check for fast authentication validation
-export async function getLightweightUser() {
-  'use server';
-
-  return await getLightweightUserAuth();
 }
 
 // Fetch chat meta with user details (server action for client use via React Query)

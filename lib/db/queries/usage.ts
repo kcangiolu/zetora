@@ -22,7 +22,7 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
 
-export async function getExtremeSearchUsageByUserId({ userId }: { userId: string }) {
+async function getExtremeSearchUsageByUserId({ userId }: { userId: string }) {
   try {
     const now = new Date();
     // Start of current month
@@ -99,7 +99,7 @@ export async function getExtremeSearchCount({ userId }: { userId: string }): Pro
   }
 }
 
-export async function getAnthropicUsageByUserId({ userId }: { userId: string }) {
+async function getAnthropicUsageByUserId({ userId }: { userId: string }) {
   try {
     const now = new Date();
     const startOfWeek = new Date(now);
@@ -181,7 +181,7 @@ export async function getAnthropicUsageCount({ userId }: { userId: string }): Pr
   }
 }
 
-export async function getGoogleUsageByUserId({ userId }: { userId: string }) {
+async function getGoogleUsageByUserId({ userId }: { userId: string }) {
   try {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -258,7 +258,7 @@ export async function getGoogleUsageCount({ userId }: { userId: string }): Promi
   }
 }
 
-export async function getMessageUsageByUserId({ userId }: { userId: string }) {
+async function getMessageUsageByUserId({ userId }: { userId: string }) {
   try {
     const now = new Date();
     // Start of current day
@@ -441,6 +441,7 @@ export async function getAgentModeRequestCountForCurrentMonth({ userId }: { user
   }
 }
 
+/** @public writes to agentModeUsageEvents — no call site invokes this yet; agent-mode usage isn't currently metered */
 export async function trackAgentModeUsageEventForMessage({
   userId,
   messageId,

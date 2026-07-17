@@ -88,40 +88,6 @@ function graphitiEpisodeToMemoryItem(episode: any, index: number): MemoryItem {
   };
 }
 
-export async function searchMemories(query: string, page = 1, pageSize = 20): Promise<MemoryResponse> {
-  const user = await getUser();
-  if (!user) throw new Error('Authentication required');
-  if (!query.trim()) return { memories: [], total: 0 };
-
-  const provider = await getMemoryProvider(user.id);
-
-  if (provider === 'graphiti') {
-    try {
-      const client = graphitiClient;
-      const result = await client.search(query, user.id, pageSize);
-      const episodes = result.results || [];
-      const memories = episodes.map((ep: any, i: number) => graphitiEpisodeToMemoryItem(ep, i));
-      return { memories, total: memories.length };
-    } catch (error) {
-      console.error('Error searching Graphiti memories:', error);
-      return { memories: [], total: 0 };
-    }
-  }
-
-  // SuperMemory — existing behavior unchanged
-  try {
-    const result = await supermemoryClient.search.memories({
-      q: query,
-      containerTag: user.id,
-      limit: pageSize,
-    });
-    return { memories: [], total: result.total || 0 };
-  } catch (error) {
-    console.error('Error searching memories:', error);
-    throw error;
-  }
-}
-
 export async function getAllMemories(page = 1, pageSize = 20): Promise<MemoryResponse> {
   const user = await getUser();
   if (!user) throw new Error('Authentication required');

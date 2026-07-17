@@ -279,6 +279,7 @@ interface McpElicitationModalProps {
   onClose: () => void;
 }
 
+/** @public standalone elicitation modal — superseded in chat by message-parts/index.tsx's inline McpInlineElicitationCard but kept for any future non-inline use */
 export function McpElicitationModal({ elicitation, onClose }: McpElicitationModalProps) {
   const schema = useMemo(() => parseSchema(elicitation?.requestedSchema), [elicitation?.requestedSchema]);
   const properties = useMemo<Record<string, SchemaProperty>>(() => schema.properties ?? {}, [schema]);

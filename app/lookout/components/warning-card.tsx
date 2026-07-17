@@ -28,7 +28,7 @@ const warningConfig = {
   },
 };
 
-export function WarningCard({ type, icon, message, className = '' }: WarningCardProps) {
+function WarningCard({ type, icon, message, className = '' }: WarningCardProps) {
   const config = warningConfig[type];
   const IconComponent = icon || config.icon;
   const displayMessage = message || config.message;

@@ -298,7 +298,7 @@ const getFilingDate = (metadata: any): string | null => {
   return metadata?.filing_date || metadata?.date || null;
 };
 
-export const InteractiveStockChart = React.memo(
+const InteractiveStockChart = React.memo(
   ({
     title,
     data,

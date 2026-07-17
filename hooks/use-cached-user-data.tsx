@@ -114,32 +114,3 @@ export function useCachedUserData() {
     clearCache: () => setCachedUser(null),
   };
 }
-
-// Lightweight hook for components that only need to know if user is pro
-export function useCachedIsProUser() {
-  const { isProUser, isLoading } = useCachedUserData();
-  return { isProUser, isLoading };
-}
-
-// Hook for components that need subscription status but not all user data
-export function useCachedSubscriptionStatus() {
-  const {
-    subscriptionStatus,
-    proSource,
-    hasActiveSubscription,
-    isSubscriptionCanceled,
-    isSubscriptionExpired,
-    hasNoSubscription,
-    isLoading,
-  } = useCachedUserData();
-
-  return {
-    subscriptionStatus,
-    proSource,
-    hasActiveSubscription,
-    isSubscriptionCanceled,
-    isSubscriptionExpired,
-    hasNoSubscription,
-    isLoading,
-  };
-}

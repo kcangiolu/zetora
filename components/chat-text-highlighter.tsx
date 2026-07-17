@@ -170,4 +170,3 @@ export const ChatTextHighlighter: React.FC<ChatTextHighlighterProps> = ({ childr
   );
 };
 
-export default ChatTextHighlighter;

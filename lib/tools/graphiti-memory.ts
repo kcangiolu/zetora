@@ -64,5 +64,3 @@ export function createGraphitiMemoryTools(userId: string) {
 
   return { addMemoryTool, searchMemoryTool };
 }
-
-export type { AddMemoryTool, SearchMemoryTool } from './supermemory';

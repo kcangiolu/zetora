@@ -1,5 +1,5 @@
 /** Map of MCP server URL → custom icon path (served from /public). */
-export const MCP_CATALOG_ICONS: Record<string, string> = {
+const MCP_CATALOG_ICONS: Record<string, string> = {
   'https://penny.apps.trychannel3.com/mcp': '/penny.png',
   'https://mcp.exa.ai/mcp': '/exa-color.svg',
 };

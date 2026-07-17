@@ -21,8 +21,6 @@ export const LOOKOUT_SEARCH_MODES = [
   { value: 'x', label: 'X', icon: NewTwitterIcon, description: 'Search X posts' },
 ] as const;
 
-export type LookoutSearchMode = (typeof LOOKOUT_SEARCH_MODES)[number]['value'];
-
 export const frequencyOptions = [
   { value: 'once', label: 'Once' },
   { value: 'daily', label: 'Daily' },
@@ -361,9 +359,6 @@ export function getRandomExamples(count: number = 3) {
 
   return shuffled.slice(0, count);
 }
-
-// For backward compatibility, export a default set of examples
-export const exampleLookouts = getRandomExamples(3);
 
 export const LOOKOUT_LIMITS = {
   TOTAL_LOOKOUTS: 30,

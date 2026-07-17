@@ -446,7 +446,7 @@ async function registerDynamicOAuthClient({
   };
 }
 
-export async function resolveOAuthEndpoints(
+async function resolveOAuthEndpoints(
   server: Pick<UserMcpServer, 'url' | 'oauthIssuerUrl' | 'oauthAuthorizationUrl' | 'oauthTokenUrl'>,
 ): Promise<OAuthEndpointConfig> {
   const resource = await canonicalizeResourceUri(server.url);

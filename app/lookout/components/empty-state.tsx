@@ -13,7 +13,7 @@ interface EmptyStateProps {
   variant?: 'default' | 'dashed';
 }
 
-export function EmptyState({
+function EmptyState({
   icon = BinocularsIcon,
   title,
   description,

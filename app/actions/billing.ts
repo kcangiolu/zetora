@@ -7,7 +7,6 @@ import { UIMessage, generateText, Output } from 'ai';
 import type { ModelMessage } from 'ai';
 import { getUser } from '@/lib/auth-utils';
 import { hasVisionSupport, zetora, resolveModel } from '@/ai/providers';
-import { getDodoSubscriptionsByUserId } from '@/lib/db/queries';
 import { maindb } from '@/lib/db';
 import { dodosubscription } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
@@ -383,60 +382,6 @@ export async function getDiscountConfigAction(params?: DiscountConfigParams) {
       enabled: false,
     };
   }
-}
-
-// Fast pro user status check - UNIFIED VERSION
-export async function getProUserStatusOnly(): Promise<boolean> {
-  'use server';
-
-  // Import here to avoid issues with SSR
-  const { isUserPro } = await import('@/lib/user-data-server');
-  return await isUserPro();
-}
-
-export async function getDodoSubscriptionHistory() {
-  try {
-    const user = await getUser();
-    if (!user) return null;
-
-    const subscriptions = await getDodoSubscriptionsByUserId({ userId: user.id });
-    return subscriptions;
-  } catch (error) {
-    console.error('Error getting subscription history:', error);
-    return null;
-  }
-}
-
-export async function getDodoSubscriptionProStatus() {
-  'use server';
-
-  // Import here to avoid issues with SSR
-  const { getComprehensiveUserData } = await import('@/lib/user-data-server');
-  const userData = await getComprehensiveUserData();
-
-  if (!userData) return { isProUser: false, hasSubscriptions: false };
-
-  const isDodoProUser = userData.proSource === 'dodo' && userData.isProUser;
-
-  return {
-    isProUser: isDodoProUser,
-    hasSubscriptions: Boolean(userData.dodoSubscription?.hasSubscriptions),
-    expiresAt: userData.dodoSubscription?.expiresAt,
-    source: userData.proSource,
-    daysUntilExpiration: userData.dodoSubscription?.daysUntilExpiration,
-    isExpired: userData.dodoSubscription?.isExpired,
-    isExpiringSoon: userData.dodoSubscription?.isExpiringSoon,
-  };
-}
-
-export async function getDodoSubscriptionExpirationDate() {
-  'use server';
-
-  // Import here to avoid issues with SSR
-  const { getComprehensiveUserData } = await import('@/lib/user-data-server');
-  const userData = await getComprehensiveUserData();
-
-  return userData?.dodoSubscription?.expiresAt || null;
 }
 
 // Initialize QStash client

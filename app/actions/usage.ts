@@ -6,9 +6,6 @@ import { getUser } from '@/lib/auth-utils';
 import { hasVisionSupport, zetora, resolveModel } from '@/ai/providers';
 import {
   getExtremeSearchCount,
-  incrementMessageUsage,
-  incrementAnthropicUsage,
-  incrementGoogleUsage,
   getMessageCount,
   getAnthropicUsageCount,
   getGoogleUsageCount,
@@ -122,30 +119,6 @@ export async function getUserExtremeSearchCount(providedUser?: User | null) {
   }
 }
 
-export async function incrementUserMessageCount() {
-  'use server';
-
-  try {
-    const user = await getUser();
-    if (!user) {
-      return { success: false, error: 'User not found' };
-    }
-
-    await incrementMessageUsage({
-      userId: user.id,
-    });
-
-    // Invalidate cache
-    const cacheKey = createMessageCountKey(user.id);
-    usageCountCache.delete(cacheKey);
-
-    return { success: true, error: null };
-  } catch (error) {
-    console.error('Error incrementing user message count:', error);
-    return { success: false, error: 'Failed to increment message count' };
-  }
-}
-
 export async function getExtremeSearchUsageCount(providedUser?: User | null) {
   'use server';
 
@@ -178,48 +151,6 @@ export async function getExtremeSearchUsageCount(providedUser?: User | null) {
     console.error('Error getting extreme search usage count:', error);
     return { count: 0, error: 'Failed to get extreme search count' };
   }
-}
-
-/**
- * Get message count by userId directly - avoids getUser() overhead.
- * Uses the same cache as getUserMessageCount for consistency.
- */
-export async function getMessageCountByUserId(userId: string) {
-  const cacheKey = createMessageCountKey(userId);
-  const cached = usageCountCache.get(cacheKey);
-  if (cached !== null) return { count: cached, error: null };
-
-  const count = await getMessageCount({ userId });
-  usageCountCache.set(cacheKey, count);
-  return { count, error: null };
-}
-
-/**
- * Get extreme search count by userId directly - avoids getUser() overhead.
- * Uses the same cache as getExtremeSearchUsageCount for consistency.
- */
-export async function getExtremeSearchCountByUserId(userId: string) {
-  const cacheKey = createExtremeCountKey(userId);
-  const cached = usageCountCache.get(cacheKey);
-  if (cached !== null) return { count: cached, error: null };
-
-  const count = await getExtremeSearchCount({ userId });
-  usageCountCache.set(cacheKey, count);
-  return { count, error: null };
-}
-
-/**
- * Get anthropic usage count by userId directly - avoids getUser() overhead.
- * Uses the same cache strategy as other usage counters for consistency.
- */
-export async function getAnthropicUsageCountByUserId(userId: string) {
-  const cacheKey = createAnthropicCountKey(userId);
-  const cached = usageCountCache.get(cacheKey);
-  if (cached !== null) return { count: cached, error: null };
-
-  const count = await getAnthropicUsageCount({ userId });
-  usageCountCache.set(cacheKey, count);
-  return { count, error: null };
 }
 
 export async function getAnthropicUsageCountAction(providedUser?: User | null) {
@@ -286,40 +217,6 @@ export async function getAgentModeUsageCountAction(providedUser?: User | null) {
   }
 }
 
-export async function incrementAnthropicUsageAction(model?: string | null) {
-  'use server';
-
-  try {
-    const user = await getUser();
-    if (!user) {
-      return { success: false, error: 'User not found' };
-    }
-
-    await incrementAnthropicUsage({
-      userId: user.id,
-      model,
-    });
-
-    const cacheKey = createAnthropicCountKey(user.id);
-    usageCountCache.delete(cacheKey);
-
-    return { success: true, error: null };
-  } catch (error) {
-    console.error('Error incrementing anthropic usage count:', error);
-    return { success: false, error: 'Failed to increment anthropic usage count' };
-  }
-}
-
-export async function getGoogleUsageCountByUserId(userId: string) {
-  const cacheKey = createGoogleCountKey(userId);
-  const cached = usageCountCache.get(cacheKey);
-  if (cached !== null) return { count: cached, error: null };
-
-  const count = await getGoogleUsageCount({ userId });
-  usageCountCache.set(cacheKey, count);
-  return { count, error: null };
-}
-
 export async function getGoogleUsageCountAction(providedUser?: User | null) {
   'use server';
 
@@ -346,27 +243,6 @@ export async function getGoogleUsageCountAction(providedUser?: User | null) {
   } catch (error) {
     console.error('Error getting google usage count:', error);
     return { count: 0, error: 'Failed to get google usage count' };
-  }
-}
-
-export async function incrementGoogleUsageAction(model?: string | null) {
-  'use server';
-
-  try {
-    const user = await getUser();
-    if (!user) {
-      return { success: false, error: 'User not found' };
-    }
-
-    await incrementGoogleUsage({ userId: user.id, model });
-
-    const cacheKey = createGoogleCountKey(user.id);
-    usageCountCache.delete(cacheKey);
-
-    return { success: true, error: null };
-  } catch (error) {
-    console.error('Error incrementing google usage count:', error);
-    return { success: false, error: 'Failed to increment google usage count' };
   }
 }
 

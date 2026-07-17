@@ -114,7 +114,7 @@ type AutoRouterConfig = {
   }>;
 };
 
-export type GraphitiProvider = { id: string; name: string; baseURL: string; apiKey?: string };
+type GraphitiProvider = { id: string; name: string; baseURL: string; apiKey?: string };
 
 export type ImageGenPromptPreset = { id: string; name: string; prompt: string };
 

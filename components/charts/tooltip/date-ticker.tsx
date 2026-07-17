@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef } from 'react';
 
 const TICKER_ITEM_HEIGHT = 24;
 
-export interface DateTickerProps {
+interface DateTickerProps {
   currentIndex: number;
   labels: string[];
   visible: boolean;
@@ -113,5 +113,3 @@ export function DateTicker({ currentIndex, labels, visible }: DateTickerProps) {
 }
 
 DateTicker.displayName = 'DateTicker';
-
-export default DateTicker;

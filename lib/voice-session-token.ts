@@ -22,7 +22,7 @@ export function createVoiceSessionToken(userId: string): string {
   return `${encodedPayload}.${sign(encodedPayload)}`;
 }
 
-export function verifyVoiceSessionToken(token: string): string | null {
+function verifyVoiceSessionToken(token: string): string | null {
   const [encodedPayload, signature] = token.split('.');
   if (!encodedPayload || !signature) return null;
 

@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 // Spring config for smooth tooltip movement
 const springConfig = { stiffness: 100, damping: 20 };
 
-export interface TooltipBoxProps {
+interface TooltipBoxProps {
   /** X position in pixels (relative to container) */
   x: number;
   /** Y position in pixels (relative to container) */
@@ -148,5 +148,3 @@ export function TooltipBox({
 }
 
 TooltipBox.displayName = 'TooltipBox';
-
-export default TooltipBox;

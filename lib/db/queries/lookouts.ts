@@ -208,27 +208,6 @@ export async function updateLookoutLastRun({
 }
 
 // New function to get run statistics
-export async function getLookoutRunStats({ id }: { id: string }) {
-  try {
-    const lookout = await getLookoutById({ id });
-    if (!lookout) return null;
-
-    const runHistory = (lookout.runHistory as any[]) || [];
-
-    return {
-      totalRuns: runHistory.length,
-      successfulRuns: runHistory.filter((run) => run.status === 'success').length,
-      failedRuns: runHistory.filter((run) => run.status === 'error').length,
-      averageDuration: runHistory.reduce((sum, run) => sum + (run.duration || 0), 0) / runHistory.length || 0,
-      lastWeekRuns: runHistory.filter((run) => new Date(run.runAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
-        .length,
-    };
-  } catch (error) {
-    console.error('Error getting lookout run stats:', error);
-    return null;
-  }
-}
-
 export async function deleteLookout({ id }: { id: string }) {
   try {
     const [deletedLookout] = await db.delete(lookout).where(eq(lookout.id, id)).returning();

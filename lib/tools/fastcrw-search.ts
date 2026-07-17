@@ -1,3 +1,4 @@
+/** @public part of the fastCRW provider port — not yet selected by the search-provider resolution in ai/providers.ts */
 export interface FastCrwSearchResult {
   title: string;
   url: string;
@@ -35,6 +36,7 @@ export interface SearchProviderStrategy {
   ): Promise<FastCrwSearchResult[]>;
 }
 
+/** @public part of the fastCRW provider port — not yet selected by the search-provider resolution in ai/providers.ts */
 export class FastCrwSearchStrategy implements SearchProviderStrategy {
   constructor(private baseUrl: string) {}
 

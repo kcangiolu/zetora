@@ -9,7 +9,7 @@ interface LoadingSkeletonProps {
   showActions?: boolean;
 }
 
-export function LookoutSkeleton({ showActions = true }: { showActions?: boolean }) {
+function LookoutSkeleton({ showActions = true }: { showActions?: boolean }) {
   return (
     <Card className="shadow-none h-full flex flex-col">
       <CardHeader className="pb-2">

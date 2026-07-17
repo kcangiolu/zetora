@@ -12,7 +12,7 @@ import { TooltipIndicator } from './tooltip-indicator';
 // Spring config for crosshair
 const crosshairSpringConfig = { stiffness: 300, damping: 30 };
 
-export interface ChartTooltipProps {
+interface ChartTooltipProps {
   /** Whether to show the date pill at bottom. Default: true */
   showDatePill?: boolean;
   /** Whether to show the vertical crosshair line. Default: true */
@@ -204,5 +204,3 @@ export function ChartTooltip({
 }
 
 ChartTooltip.displayName = 'ChartTooltip';
-
-export default ChartTooltip;

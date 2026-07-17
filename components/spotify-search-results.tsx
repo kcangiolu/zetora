@@ -1048,4 +1048,3 @@ export const SpotifySearchResults: React.FC<SpotifySearchResultsProps> = ({ resu
   );
 };
 
-export default SpotifySearchResults;

@@ -475,13 +475,4 @@ function useTranscriptViewer({
 }
 
 export { useTranscriptViewer };
-export type {
-  UseTranscriptViewerProps,
-  UseTranscriptViewerResult,
-  ComposeSegmentsOptions,
-  ComposeSegmentsResult,
-  SegmentComposer,
-  TranscriptSegment,
-  TranscriptWord,
-  CharacterAlignmentResponseModel,
-};
+export type { UseTranscriptViewerResult, SegmentComposer, TranscriptSegment, TranscriptWord };

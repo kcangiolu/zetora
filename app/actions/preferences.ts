@@ -9,7 +9,6 @@ import {
   createCustomInstructions,
   updateCustomInstructions,
   deleteCustomInstructions,
-  upsertUserPreferences,
 } from '@/lib/db/queries';
 import { db, maindb } from '@/lib/db';
 import { type User } from '@/lib/db/schema';
@@ -33,7 +32,7 @@ import {
   createGoogleCountKey,
   createAgentModeCountKey,
 } from '@/lib/performance-cache';
-import { getCachedUserPreferencesByUserId, clearUserPreferencesCache } from '@/lib/user-data-server';
+import { getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import {
   createConnection,
   listUserConnections,
@@ -111,98 +110,6 @@ export async function deleteCustomInstructionsAction() {
   }
 }
 
-// User Preferences Actions
-export async function getUserPreferences(providedUser?: User | null) {
-  'use server';
-
-  try {
-    const user = providedUser || (await getUser());
-    if (!user) {
-      return null;
-    }
-
-    const preferences = await getCachedUserPreferencesByUserId(user.id);
-    return preferences;
-  } catch (error) {
-    console.error('Error getting user preferences:', error);
-    return null;
-  }
-}
-
-export async function saveUserPreferences(
-  preferences: Partial<{
-    'zetora-search-provider'?: 'exa' | 'parallel' | 'firecrawl';
-    'zetora-email-provider'?: 'resend' | 'smtp';
-    'zetora-group-order'?: string[];
-    'zetora-model-order-global'?: string[];
-    'zetora-blur-personal-info'?: boolean;
-    'zetora-custom-instructions-enabled'?: boolean;
-    'zetora-scroll-to-latest-on-open'?: boolean;
-    'zetora-location-metadata-enabled'?: boolean;
-    'zetora-auto-router-enabled'?: boolean;
-    'zetora-auto-router-config'?: {
-      routes: Array<{
-        name: string;
-        description: string;
-        model: string;
-      }>;
-    };
-    'zetora-anonymization-enabled'?: boolean;
-    'zetora-anonymization-custom-terms'?: string[];
-    'zetora-anonymization-fail-open'?: boolean;
-    'zetora-anonymization-language'?: 'en' | 'fr';
-    'zetora-anonymization-ner-enabled'?: boolean;
-    'zetora-tertiary-chat-title-model'?: string;
-    'zetora-tertiary-chat-title-provider'?: string;
-    'zetora-tertiary-followup-model'?: string;
-    'zetora-tertiary-followup-provider'?: string;
-    'zetora-tertiary-enhance-model'?: string;
-    'zetora-tertiary-enhance-provider'?: string;
-    'zetora-tertiary-tool-repair-model'?: string;
-    'zetora-tertiary-tool-repair-provider'?: string;
-    'zetora-tertiary-auto-router-model'?: string;
-    'zetora-tertiary-auto-router-provider'?: string;
-    'zetora-tertiary-translate-text-model'?: string;
-    'zetora-tertiary-translate-text-provider'?: string;
-    'zetora-tertiary-translate-vision-model'?: string;
-    'zetora-tertiary-translate-vision-provider'?: string;
-    'zetora-tertiary-lang-detect-model'?: string;
-    'zetora-tertiary-lang-detect-provider'?: string;
-    'zetora-tertiary-extreme-planner-model'?: string;
-    'zetora-tertiary-extreme-planner-provider'?: string;
-    'zetora-tts-provider'?: 'elevenlabs' | 'openai-compatible';
-    'zetora-tts-custom-provider-id'?: string;
-    'zetora-tts-openai-model'?: string;
-    'zetora-tts-openai-voice'?: string;
-    'zetora-tts-openai-language'?: string;
-    'zetora-stt-provider'?: 'elevenlabs' | 'openai-compatible';
-    'zetora-stt-custom-provider-id'?: string;
-    'zetora-stt-openai-model'?: string;
-    'zetora-voice-s2s-backend'?: 'cloud' | 'local';
-    'zetora-tertiary-voice-model'?: string;
-    'zetora-tertiary-voice-provider'?: string;
-  }>,
-) {
-  'use server';
-
-  try {
-    const user = await getUser();
-    if (!user) {
-      return { success: false, error: 'User not found' };
-    }
-
-    const result = await upsertUserPreferences({ userId: user.id, preferences });
-
-    // Clear cache after update
-    clearUserPreferencesCache(user.id);
-
-    return { success: true, data: result };
-  } catch (error) {
-    console.error('Error saving user preferences:', error);
-    return { success: false, error: 'Failed to save user preferences' };
-  }
-}
-
 export async function testEmailDelivery() {
   'use server';
 
@@ -241,23 +148,3 @@ export async function testEmailDelivery() {
     };
   }
 }
-
-export async function syncUserPreferences() {
-  'use server';
-
-  try {
-    const user = await getUser();
-    if (!user) {
-      return { success: false, error: 'User not found' };
-    }
-
-    // This will be called from the client to migrate localStorage data
-    // The actual migration logic will be in the hook
-    return { success: true };
-  } catch (error) {
-    console.error('Error syncing user preferences:', error);
-    return { success: false, error: 'Failed to sync user preferences' };
-  }
-}
-
-// Fast pro user status check - UNIFIED VERSION

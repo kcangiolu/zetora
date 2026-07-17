@@ -89,34 +89,5 @@ export function useUserData() {
   };
 }
 
-// Lightweight hook for components that only need to know if user is pro
-export function useIsProUser() {
-  const { isProUser, isLoading } = useUserData();
-  return { isProUser, isLoading };
-}
-
-// Hook for components that need subscription status but not all user data
-export function useSubscriptionStatus() {
-  const {
-    subscriptionStatus,
-    proSource,
-    hasActiveSubscription,
-    isSubscriptionCanceled,
-    isSubscriptionExpired,
-    hasNoSubscription,
-    isLoading,
-  } = useUserData();
-
-  return {
-    subscriptionStatus,
-    proSource,
-    hasActiveSubscription,
-    isSubscriptionCanceled,
-    isSubscriptionExpired,
-    hasNoSubscription,
-    isLoading,
-  };
-}
-
 // Export the comprehensive type for components that need it
 export type { ComprehensiveUserData };

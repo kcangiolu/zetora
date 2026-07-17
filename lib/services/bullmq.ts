@@ -166,7 +166,7 @@ export function startLookoutWorker(): Worker<LookoutJobData> {
   return worker;
 }
 
-export function isBullMqEnabled(): boolean {
+function isBullMqEnabled(): boolean {
   return process.env.BULLMQ_ENABLED === 'true';
 }
 

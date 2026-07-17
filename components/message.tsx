@@ -1198,7 +1198,7 @@ export const Message: React.FC<MessageProps> = ({
 Message.displayName = 'Message';
 
 // Editable attachments badge component for edit mode
-export const EditableAttachmentsBadge = ({
+const EditableAttachmentsBadge = ({
   attachments,
   onRemoveAttachment,
 }: {
@@ -1579,7 +1579,7 @@ const getDocumentType = (attachment: Attachment): 'csv' | 'docx' | 'xlsx' | 'pdf
 };
 
 // Export the attachments badge component for reuse
-export const AttachmentsBadge = ({ attachments }: { attachments: Attachment[] }) => {
+const AttachmentsBadge = ({ attachments }: { attachments: Attachment[] }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   // Every entry here already came from a `type === 'file'` message part

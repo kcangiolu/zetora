@@ -12,6 +12,5 @@ export * from './preferences';
 export * from './mcp';
 export * from './dodo';
 export * from './lookouts';
-export * from './build-sessions';
 export * from './pii-alias';
 export * from './generated-files';

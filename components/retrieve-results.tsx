@@ -137,7 +137,7 @@ const SourceCard: React.FC<{ result: RetrieveResult; onClick?: () => void }> = R
 SourceCard.displayName = 'SourceCard';
 
 // Single URL Result Component
-export const RetrieveSingleResult: React.FC<{ result: RetrieveResponse }> = ({ result }) => {
+const RetrieveSingleResult: React.FC<{ result: RetrieveResponse }> = ({ result }) => {
   const singleResult = result.results[0];
 
   if (!singleResult) {
@@ -355,7 +355,7 @@ const EnhancedSourceCard: React.FC<{ result: RetrieveResult; index: number }> = 
 EnhancedSourceCard.displayName = 'EnhancedSourceCard';
 
 // Multi URL Result Component
-export const RetrieveMultiResults: React.FC<{ result: RetrieveResponse }> = ({ result }) => {
+const RetrieveMultiResults: React.FC<{ result: RetrieveResponse }> = ({ result }) => {
   // Collapsed by default, consistent with MultiSearch's "Sources" section.
   const [isExpanded, setIsExpanded] = React.useState(false);
 

@@ -3,12 +3,12 @@ import { NOTTE_TIMEOUT_MS } from '@/lib/timeouts';
 
 const NOTTE_SCRAPE_URL = 'https://api.notte.cc/scrape';
 
-export interface NotteSessionProfile {
+interface NotteSessionProfile {
   id: string;
   persist?: boolean;
 }
 
-export interface NotteProxyConfig {
+interface NotteProxyConfig {
   type: 'notte' | 'external';
   [key: string]: unknown;
 }
@@ -41,19 +41,19 @@ export interface NotteScrapeRequest {
   useLinkPlaceholders?: boolean;
 }
 
-export interface NotteImageData {
+interface NotteImageData {
   url?: string | null;
   category?: string | null;
   description?: string | null;
 }
 
-export interface NotteStructuredData<T = unknown> {
+interface NotteStructuredData<T = unknown> {
   success?: boolean;
   error?: string | null;
   data?: T | Record<string, unknown> | Array<Record<string, unknown>> | null;
 }
 
-export interface NotteScrapeResponse<T = unknown> {
+interface NotteScrapeResponse<T = unknown> {
   markdown: string;
   images?: NotteImageData[] | null;
   structured?: NotteStructuredData<T> | null;
@@ -63,7 +63,7 @@ export interface NotteClient {
   scrapeWebpage<T = unknown>(request: NotteScrapeRequest): Promise<NotteScrapeResponse<T>>;
 }
 
-export class NotteApiError extends Error {
+class NotteApiError extends Error {
   status: number;
   body: string;
 
@@ -115,7 +115,7 @@ function buildScrapePayload(request: NotteScrapeRequest) {
   });
 }
 
-export function createNotteClient(providedApiKey?: string): NotteClient {
+function createNotteClient(providedApiKey?: string): NotteClient {
   const apiKey = getNotteApiKey(providedApiKey);
 
   return {

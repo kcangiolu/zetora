@@ -3130,32 +3130,6 @@ const VirtualMarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
 
 VirtualMarkdownRenderer.displayName = 'VirtualMarkdownRenderer';
 
-export const CopyButton = React.memo(({ text }: { text: string }) => {
-  const [isCopied, setIsCopied] = useState(false);
-
-  const handleCopy = React.useCallback(async () => {
-    if (!navigator.clipboard) {
-      return;
-    }
-    await navigator.clipboard.writeText(text);
-    setIsCopied(true);
-    setTimeout(() => setIsCopied(false), 2000);
-    sileo.success({
-      title: 'Copied to clipboard',
-      description: 'You can now paste it anywhere',
-      icon: <Copy className="h-4 w-4" />,
-    });
-  }, [text]);
-
-  return (
-    <Button variant="ghost" size="sm" onClick={handleCopy} className="h-8 px-2 text-xs rounded-full">
-      {isCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-    </Button>
-  );
-});
-
-CopyButton.displayName = 'CopyButton';
-
 // Performance monitoring hook
 const usePerformanceMonitor = (content: string) => {
   const renderStartTime = useRef<number>(0);
@@ -3191,4 +3165,6 @@ const OptimizedMarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
 
 OptimizedMarkdownRenderer.displayName = 'OptimizedMarkdownRenderer';
 
-export { MarkdownRenderer, VirtualMarkdownRenderer, OptimizedMarkdownRenderer as default };
+export { MarkdownRenderer };
+/** @public size-based Markdown/Virtual switcher — not yet wired into any call site, kept for future adoption */
+export { VirtualMarkdownRenderer, OptimizedMarkdownRenderer as default };

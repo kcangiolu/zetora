@@ -17,7 +17,7 @@ function createLightweightAuthSessionKey(token: string): string {
   return `lightweight-auth:${token}`;
 }
 
-export function invalidateSessionCacheForUser(userId: string): void {
+function invalidateSessionCacheForUser(userId: string): void {
   const tokens = userSessionTokens.get(userId);
   if (tokens) {
     for (const token of tokens) {
@@ -42,18 +42,9 @@ import { all, flow } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
 // Status type literals
-export type DodoSubscriptionStatus = 'active' | 'on_hold' | 'cancelled' | 'expired' | 'failed';
-export type PolarSubscriptionStatus =
-  | 'active'
-  | 'canceled'
-  | 'incomplete'
-  | 'incomplete_expired'
-  | 'past_due'
-  | 'trialing'
-  | 'unpaid';
-export type ProSource = 'polar' | 'dodo' | 'none';
-export type PlanTier = 'free' | 'pro' | 'max';
-export type SubscriptionStatus = 'active' | 'canceled' | 'expired' | 'none';
+type ProSource = 'polar' | 'dodo' | 'none';
+type PlanTier = 'free' | 'pro' | 'max';
+type SubscriptionStatus = 'active' | 'canceled' | 'expired' | 'none';
 
 // Type for dodo subscription data selected from the database
 export interface DodoSubscriptionData {
@@ -73,7 +64,7 @@ export interface DodoSubscriptionData {
 }
 
 // Type for polar subscription data
-export interface PolarSubscriptionData {
+interface PolarSubscriptionData {
   id: string;
   productId: string;
   status: string; // Using string as DB may have other statuses
@@ -132,7 +123,7 @@ function getDodoExpirationInfoFromSubscriptions(
 }
 
 // Type for dodo subscription details in comprehensive data
-export interface DodoSubscriptionDetails {
+interface DodoSubscriptionDetails {
   hasSubscriptions: boolean;
   expiresAt: Date | null;
   mostRecentSubscription?: Date;
@@ -265,13 +256,6 @@ export function clearUserDataCache(userId: string): void {
   invalidateSessionCacheForUser(userId);
 }
 
-export function clearAllUserDataCache(): void {
-  userDataCache.clear();
-  lightweightAuthCache.clear();
-  customInstructionsCache.clear();
-  userPreferencesCache.clear();
-}
-
 function getCachedLightweightAuth(userId: string): LightweightUserAuth | null {
   return lightweightAuthCache.get(userId) ?? null;
 }
@@ -297,14 +281,6 @@ export async function getCachedCustomInstructionsByUserId(
   const instructions = await getCustomInstructionsByUserId({ userId });
   customInstructionsCache.set(userId, instructions ?? null, ttlMs);
   return instructions ?? null;
-}
-
-export function clearCustomInstructionsCache(userId?: string): void {
-  if (userId) {
-    customInstructionsCache.delete(userId);
-  } else {
-    customInstructionsCache.clear();
-  }
 }
 
 /**
@@ -707,8 +683,3 @@ export const getComprehensiveUserData = cache(async (): Promise<ComprehensiveUse
   }
 });
 
-// Helper functions for backward compatibility and specific use cases
-export async function isUserPro(): Promise<boolean> {
-  const userData = await getComprehensiveUserData();
-  return userData?.isProUser || false;
-}

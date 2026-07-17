@@ -60,7 +60,7 @@ import { cn } from '../utils';
 // Registry — styled to match Zetora's design language
 // =============================================================================
 
-export const { registry, handlers } = defineRegistry(canvasCatalog, {
+export const { registry } = defineRegistry(canvasCatalog, {
   components: {
     // =========================================================================
     // Layout

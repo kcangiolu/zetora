@@ -124,5 +124,3 @@ export function useChart(): ChartContextValue {
   }
   return context;
 }
-
-export default ChartContext;

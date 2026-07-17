@@ -7,7 +7,7 @@ import { db } from '@/lib/db';
 import { storageClient, STORAGE_BUCKET_NAME } from '@/lib/storage';
 import { serverEnv } from '@/env/server';
 
-export interface ServiceCheckResult {
+interface ServiceCheckResult {
   ok: boolean;
   detail?: string;
 }

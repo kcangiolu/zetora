@@ -110,15 +110,6 @@ export type GitHubResult = {
   json?: unknown;
 };
 
-export type GitHubSearchQueryResult = {
-  query: string;
-  results: GitHubResult[];
-};
-
-export type GitHubSearchResponse = {
-  searches: GitHubSearchQueryResult[];
-};
-
 export function githubSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>) {
   return tool({
     description: 'Search GitHub using Firecrawl with multiple queries.',

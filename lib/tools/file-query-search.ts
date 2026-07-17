@@ -308,5 +308,3 @@ export function createFileQuerySearchTool(files: FileContext[], dataStream?: UIM
     },
   });
 }
-
-export const fileQuerySearchTool = createFileQuerySearchTool;

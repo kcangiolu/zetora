@@ -1,6 +1,6 @@
 import { S3Client } from '@aws-sdk/client-s3';
 
-export type StorageProvider = 'cloudflare-r2' | 'minio';
+type StorageProvider = 'cloudflare-r2' | 'minio';
 
 function getStorageConfig() {
   const provider = (process.env.STORAGE_PROVIDER || 'cloudflare-r2') as StorageProvider;

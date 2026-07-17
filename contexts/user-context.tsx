@@ -79,24 +79,3 @@ export function useIsProUser() {
   return { isProUser, isLoading };
 }
 
-export function useSubscriptionStatus() {
-  const {
-    subscriptionStatus,
-    proSource,
-    hasActiveSubscription,
-    isSubscriptionCanceled,
-    isSubscriptionExpired,
-    hasNoSubscription,
-    isLoading,
-  } = useUser();
-
-  return {
-    subscriptionStatus,
-    proSource,
-    hasActiveSubscription,
-    isSubscriptionCanceled,
-    isSubscriptionExpired,
-    hasNoSubscription,
-    isLoading,
-  };
-}

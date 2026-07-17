@@ -228,20 +228,6 @@ export async function updateChatPinned(chatId: string, isPinned: boolean) {
   }
 }
 
-// Add function to get chat info
-export async function getChatInfo(chatId: string) {
-  'use server';
-
-  if (!chatId) return null;
-
-  try {
-    return await getChatById({ id: chatId });
-  } catch (error) {
-    console.error('Error getting chat info:', error);
-    return null;
-  }
-}
-
 export async function deleteTrailingMessages({ id }: { id: string }) {
   'use server';
   try {

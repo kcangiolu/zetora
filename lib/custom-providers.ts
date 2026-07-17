@@ -1,7 +1,6 @@
 import 'server-only';
 
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-import type { LanguageModel } from 'ai';
 import { serverEnv } from '@/env/server';
 import { getUser } from '@/lib/auth-utils';
 import { getCachedUserPreferencesByUserId, clearUserPreferencesCache } from '@/lib/user-data-server';
@@ -178,10 +177,3 @@ export function parseCustomModelId(
   return null;
 }
 
-export async function resolveCustomModel(modelId: string): Promise<LanguageModel | null> {
-  const providers = await getCustomProviders();
-  const parsed = parseCustomModelId(modelId, providers);
-  if (!parsed) return null;
-
-  return createCustomProvider(parsed.provider)(parsed.modelName) as LanguageModel;
-}

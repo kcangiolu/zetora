@@ -25,7 +25,7 @@ export type { ColumnDef } from '@tanstack/react-table';
 
 const sortingAtom = atom<SortingState>([]);
 
-export const TableContext = createContext<{
+const TableContext = createContext<{
   data: unknown[];
   columns: ColumnDef<unknown, unknown>[];
   table: Table<unknown> | null;

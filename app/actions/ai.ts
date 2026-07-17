@@ -74,7 +74,6 @@ import {
 import { lookoutCallbackHeaders, lookoutQstashHeaders } from '@/lib/lookout-auth';
 import { saveChat, saveMessages } from '@/lib/db/queries';
 import { all, allSettled } from 'better-all';
-import { getGroupConfig as getSearchGroupConfig } from '@/lib/search/group-config';
 import { resolveTertiaryModel } from '@/ai/tertiary';
 
 export async function suggestQuestions(history: any[]) {
@@ -178,9 +177,6 @@ export async function checkImageModeration(images: string[]) {
   });
   return text;
 }
-
-import { generateTitleFromUserMessage } from '@/lib/search/chat-title';
-export { generateTitleFromUserMessage };
 
 export async function enhancePrompt(raw: string) {
   try {
@@ -304,11 +300,6 @@ export async function generateSpeech(text: string): Promise<GenerateSpeechResult
     alignment: result.alignment ?? null,
     normalizedAlignment: result.normalizedAlignment ?? null,
   };
-}
-
-export async function getGroupConfig(...args: Parameters<typeof getSearchGroupConfig>) {
-  'use server';
-  return getSearchGroupConfig(...args);
 }
 
 // Lightweight function for sidebar recent chats - minimal payload, no cursor pagination

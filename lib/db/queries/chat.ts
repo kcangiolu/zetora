@@ -1,7 +1,5 @@
 import 'server-only';
 
-import { getMessageCount } from './usage';
-
 import { cache } from 'react';
 import { and, asc, desc, eq, gt, gte, isNull, lt, or, sql, type SQL } from 'drizzle-orm';
 import { user, chat, message, type Message, stream, buildSession } from '../schema';
@@ -457,19 +455,6 @@ export async function deleteMessagesByChatIdAfterTimestamp({ chatId, timestamp }
   }
 }
 
-export async function deleteTrailingMessages({ id }: { id: string }) {
-  const [message] = await getMessageById({ id });
-
-  if (!message) {
-    throw new ChatSDKError('not_found:database', `Message with id ${id} not found`);
-  }
-
-  await deleteMessagesByChatIdAfterTimestamp({
-    chatId: message.chatId,
-    timestamp: message.createdAt,
-  });
-}
-
 export async function updateChatVisibilityById({
   chatId,
   visibility,
@@ -521,13 +506,5 @@ export async function updateChatPinnedById({ chatId, isPinned }: { chatId: strin
     return updatedChat;
   } catch (error) {
     throw new ChatSDKError('bad_request:database', 'Failed to update chat pinned state by id');
-  }
-}
-
-export async function getMessageCountByUserId({ id }: { id: string }) {
-  try {
-    return await getMessageCount({ userId: id });
-  } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to get message count by user id');
   }
 }

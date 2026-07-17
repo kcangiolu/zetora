@@ -54,7 +54,7 @@ function getLastRunError(lookout: Lookout): string | null {
 }
 
 // Query key factory
-export const lookoutKeys = {
+const lookoutKeys = {
   all: ['lookouts'] as const,
   lists: () => [...lookoutKeys.all, 'list'] as const,
   list: (filters: string) => [...lookoutKeys.lists(), { filters }] as const,
@@ -473,19 +473,3 @@ export function useLookouts() {
   };
 }
 
-// Helper hook for filtered lookouts
-export function useFilteredLookouts(filter: 'active' | 'archived' | 'all' = 'all') {
-  const { lookouts, ...rest } = useLookouts();
-
-  const filteredLookouts = lookouts.filter((lookout) => {
-    if (filter === 'active')
-      return lookout.status === 'active' || lookout.status === 'paused' || lookout.status === 'running';
-    if (filter === 'archived') return lookout.status === 'archived';
-    return true;
-  });
-
-  return {
-    lookouts: filteredLookouts,
-    ...rest,
-  };
-}

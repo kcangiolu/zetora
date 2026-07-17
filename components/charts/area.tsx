@@ -262,5 +262,3 @@ export function Area({
 }
 
 Area.displayName = 'Area';
-
-export default Area;

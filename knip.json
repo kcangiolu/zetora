@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "ignore": ["public/pcm-processor-worklet.js", "scripts/migrate.js"],
+  "ignore": ["public/pcm-processor-worklet.js", "scripts/migrate.js", "components/ui/**"],
   "ignoreBinaries": ["vc"],
   "ignoreDependencies": ["postcss-load-config"]
 }

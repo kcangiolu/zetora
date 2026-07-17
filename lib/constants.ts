@@ -12,9 +12,4 @@ export const PRICING = {
   PRO_MONTHLY_INR: 1390, // INR for Indian users
 } as const;
 
-export const CURRENCIES = {
-  USD: 'USD',
-  INR: 'INR',
-} as const;
-
 export const SNAPSHOT_NAME = 'zetora-analysis:1771010549';

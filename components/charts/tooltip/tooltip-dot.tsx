@@ -7,7 +7,7 @@ import { chartCssVars } from '../chart-context';
 // Faster spring to stay in sync with indicator
 const crosshairSpringConfig = { stiffness: 300, damping: 30 };
 
-export interface TooltipDotProps {
+interface TooltipDotProps {
   x: number;
   y: number;
   visible: boolean;
@@ -44,5 +44,3 @@ export function TooltipDot({
 }
 
 TooltipDot.displayName = 'TooltipDot';
-
-export default TooltipDot;

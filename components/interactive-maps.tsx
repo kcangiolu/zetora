@@ -461,4 +461,3 @@ InteractiveMapComponent.displayName = 'InteractiveMap';
 
 // Export both as default and named export for compatibility
 export default InteractiveMapComponent;
-export { InteractiveMapComponent as InteractiveMap };

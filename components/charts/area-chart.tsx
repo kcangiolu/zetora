@@ -369,7 +369,3 @@ export function AreaChart({
   );
 }
 
-// Re-export Area for convenience
-export { Area, type AreaProps } from './area';
-
-export default AreaChart;

@@ -1,7 +1,9 @@
 import 'server-only';
 
+/** @public consumed via the `specialGroups` namespace map in group-config.ts, not a direct import — knip can't trace that indirection */
 export const tools = ['xai_web_search', 'xai_x_search'] as const;
 
+/** @public consumed via the `specialGroups` namespace map in group-config.ts, not a direct import — knip can't trace that indirection */
 export const instructions = `
 You are operating in Zetora's multi-agent research mode.
 

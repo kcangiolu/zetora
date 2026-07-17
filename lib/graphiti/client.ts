@@ -1,7 +1,7 @@
 import { serverEnv } from '@/env/server';
 import { GRAPHITI_TIMEOUT_MS, GRAPHITI_INGEST_TIMEOUT_MS } from '@/lib/timeouts';
 
-export interface GraphitiEpisode {
+interface GraphitiEpisode {
   name: string;
   episodeBody: string;
   referenceTime?: string;
@@ -9,12 +9,12 @@ export interface GraphitiEpisode {
   groupId?: string;
 }
 
-export interface GraphitiSearchResult {
+interface GraphitiSearchResult {
   success: boolean;
   results: any[];
 }
 
-export interface GraphitiEpisodeResult {
+interface GraphitiEpisodeResult {
   success: boolean;
   result: any;
 }

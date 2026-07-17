@@ -139,41 +139,6 @@ export async function createConnection(provider: ConnectorProvider, userId: stri
   return connection.authLink;
 }
 
-// Legacy function for backward compatibility
-export async function createGoogleDriveConnection(userId: string) {
-  return createConnection('google-drive', userId);
-}
-
-// Get connection details for a specific provider
-export async function getConnection(provider: ConnectorProvider, userId: string) {
-  console.log(`🔍 Getting connection for ${provider}, userId: ${userId}`);
-  try {
-    const client = getClient();
-    const config = CONNECTOR_CONFIGS[provider];
-    console.log(`🏷️ Searching with container tags: [${userId}, ${config.syncTag}]`);
-
-    const connection = await client.connections.getByTag(provider, {
-      containerTags: [userId, config.syncTag],
-    });
-
-    if (!connection) {
-      console.log(`❌ No connection found for ${provider}`);
-      return null;
-    }
-
-    console.log(`✅ Found connection for ${provider}:`, {
-      id: connection.id,
-      email: connection.email,
-      createdAt: connection.createdAt,
-      expiresAt: connection.expiresAt,
-    });
-    return connection;
-  } catch (error) {
-    console.error(`❌ Error getting ${CONNECTOR_CONFIGS[provider].name} connection:`, error);
-    return null;
-  }
-}
-
 // List all connections for a user
 export async function listUserConnections(userId: string) {
   try {
@@ -330,20 +295,3 @@ export async function getSyncStatus(provider: ConnectorProvider, userId: string)
   }
 }
 
-// Legacy functions for backward compatibility
-export async function getGoogleDriveConnection(userId: string) {
-  return getConnection('google-drive', userId);
-}
-
-export async function listGoogleDriveConnections(userId: string) {
-  const connections = await listUserConnections(userId);
-  return connections.filter((conn) => conn.provider === 'google-drive');
-}
-
-export async function deleteGoogleDriveConnection(connectionId: string) {
-  return deleteConnection(connectionId);
-}
-
-export async function manualSyncGoogleDrive(userId: string) {
-  return manualSync('google-drive', userId);
-}

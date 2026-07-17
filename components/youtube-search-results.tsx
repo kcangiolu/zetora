@@ -675,11 +675,4 @@ export const YouTubeSearchResults: React.FC<YouTubeSearchResultsProps> = ({ resu
 };
 
 // Export types for external use
-export type {
-  VideoDetails,
-  VideoResult,
-  VideoStats,
-  YouTubeSearchResponse,
-  YouTubeSearchResultsProps,
-  TranscriptChunk,
-};
+export type { YouTubeSearchResultsProps };

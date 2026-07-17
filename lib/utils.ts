@@ -87,7 +87,7 @@ export type SkillId =
 export type SpecialModeId = 'memory' | 'connectors' | 'mcp' | 'multi-agent' | 'canvas';
 
 // Search provider information for dynamic descriptions
-export const searchProviderInfo = {
+const searchProviderInfo = {
   parallel: 'Parallel AI',
   exa: 'Exa, one of the best web search APIs for AI',
   firecrawl: 'Firecrawl',
@@ -253,6 +253,6 @@ export function getSearchGroups(searchProvider: SearchProvider = 'exa') {
 }
 
 // Keep the static searchGroups for backward compatibility
-export const searchGroups = getSearchGroups();
+const searchGroups = getSearchGroups();
 
 export type SearchGroup = (typeof searchGroups)[number];

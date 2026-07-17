@@ -5,17 +5,6 @@ import { sileo } from 'sileo';
 import { DEFAULT_FORM_VALUES } from '../constants';
 import { isTimeInPast } from '../utils/time-utils';
 
-export interface LookoutFormData {
-  title: string;
-  prompt: string;
-  frequency: 'once' | 'daily' | 'weekly' | 'monthly';
-  time: string;
-  timezone: string;
-  date?: string;
-  dayOfWeek?: string;
-  searchMode?: string;
-}
-
 export interface LookoutFormHookReturn {
   // Form state
   selectedFrequency: string;

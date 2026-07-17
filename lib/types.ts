@@ -42,7 +42,6 @@ import type {
 import type { InferUITool, UIMessage } from 'ai';
 import type { SpecDataPart } from '@json-render/core';
 
-export type DataPart = { type: 'append-message'; message: string };
 export type DataQueryCompletionPart = {
   type: 'data-query_completion';
   data: {
@@ -148,7 +147,7 @@ export type DataExtremeSearchPart = {
       };
 };
 
-export const messageMetadataSchema = z.object({
+const messageMetadataSchema = z.object({
   createdAt: z.string(),
   model: z.string(),
   multiAgentMode: z.boolean().optional(),
@@ -158,7 +157,7 @@ export const messageMetadataSchema = z.object({
   totalTokens: z.number().nullable(),
 });
 
-export type MessageMetadata = z.infer<typeof messageMetadataSchema>;
+type MessageMetadata = z.infer<typeof messageMetadataSchema>;
 
 type weatherTool = InferUITool<typeof weatherTool>;
 type academicSearchTool = InferUITool<ReturnType<typeof academicSearchTool>>;
@@ -368,7 +367,7 @@ export type DataBuildSearchPart = {
       };
 };
 
-export type DataPredictionResultsPart = {
+type DataPredictionResultsPart = {
   type: 'data-prediction_results';
   data: {
     query: string;

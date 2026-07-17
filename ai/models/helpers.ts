@@ -1,6 +1,6 @@
 // Accessors over the model catalog — client-safe.
 import { models } from './data';
-import { PROVIDERS, type Model, type ModelParameters, type ModelProvider, type ProviderInfo } from './types';
+import type { Model, ModelParameters, ModelProvider } from './types';
 
 // Helper functions for model access checks
 export function getModelConfig(modelValue: string) {
@@ -22,11 +22,6 @@ export function requiresMaxSubscription(modelValue: string): boolean {
   return model?.max || false;
 }
 
-export function isFreeUnlimited(modelValue: string): boolean {
-  const model = getModelConfig(modelValue);
-  return model?.freeUnlimited || false;
-}
-
 export function hasVisionSupport(modelValue: string): boolean {
   const model = getModelConfig(modelValue);
   return model?.vision || false;
@@ -38,16 +33,6 @@ export function hasPdfSupport(modelValue: string): boolean {
   return model?.pdf || false;
 }
 
-export function hasReasoningSupport(modelValue: string): boolean {
-  const model = getModelConfig(modelValue);
-  return model?.reasoning || false;
-}
-
-export function isExperimentalModel(modelValue: string): boolean {
-  const model = getModelConfig(modelValue);
-  return model?.experimental || false;
-}
-
 export function getMaxOutputTokens(modelValue: string): number {
   const model = getModelConfig(modelValue);
   return model?.maxOutputTokens || 8000;
@@ -56,37 +41,6 @@ export function getMaxOutputTokens(modelValue: string): number {
 export function getModelParameters(modelValue: string): ModelParameters {
   const model = getModelConfig(modelValue);
   return model?.parameters || {};
-}
-
-// Access control helper
-export function canUseModel(
-  modelValue: string,
-  user: any,
-  isProUser: boolean,
-  isMaxUser: boolean = false,
-): { canUse: boolean; reason?: string } {
-  const model = getModelConfig(modelValue);
-
-  if (!model) {
-    return { canUse: false, reason: 'Model not found' };
-  }
-
-  // Check if model requires authentication
-  if (model.requiresAuth && !user) {
-    return { canUse: false, reason: 'authentication_required' };
-  }
-
-  // Check if model requires Max subscription
-  if (model.max && !isMaxUser) {
-    return { canUse: false, reason: 'max_subscription_required' };
-  }
-
-  // Check if model requires Pro subscription (Max is a superset of Pro)
-  if (model.pro && !isProUser && !isMaxUser) {
-    return { canUse: false, reason: 'pro_subscription_required' };
-  }
-
-  return { canUse: true };
 }
 
 // Helper to check if user should bypass rate limits
@@ -115,12 +69,6 @@ export function getAcceptedFileTypes(modelValue: string, isProUser: boolean): st
 export function supportsExtremeMode(modelValue: string): boolean {
   // Extreme mode restrictions removed: allow all models in extreme mode
   return true;
-}
-
-// Get models that support extreme mode
-export function getExtremeModels(): Model[] {
-  // With restrictions removed, all models are considered extreme-capable
-  return models;
 }
 
 // Models that support canvas mode (spec generation)
@@ -222,11 +170,6 @@ export function getFilteredModels(countryCode?: string): Model[] {
 
   return models.filter((model) => !isModelRestrictedInRegion(model.value, countryCode));
 }
-
-// Legacy arrays for backward compatibility (deprecated - use helper functions instead)
-export const authRequiredModels = models.filter((m) => m.requiresAuth).map((m) => m.value);
-export const proRequiredModels = models.filter((m) => m.pro).map((m) => m.value);
-export const freeUnlimitedModels = models.filter((m) => m.freeUnlimited).map((m) => m.value);
 
 // Helper function to derive provider from model value/label patterns
 export function getModelProvider(modelValue: string, label?: string): ModelProvider {
@@ -350,23 +293,6 @@ export function getModelProvider(modelValue: string, label?: string): ModelProvi
 
   // Default fallback
   return 'openai';
-}
-
-// Get provider info for a model
-export function getModelProviderInfo(modelValue: string): ProviderInfo {
-  const model = getModelConfig(modelValue);
-  const provider = model?.provider || getModelProvider(modelValue, model?.label);
-  return PROVIDERS[provider];
-}
-
-// Get all unique providers that have models
-export function getActiveProviders(): ProviderInfo[] {
-  const providerSet = new Set<ModelProvider>();
-  for (const model of models) {
-    const provider = model.provider || getModelProvider(model.value, model.label);
-    providerSet.add(provider);
-  }
-  return Array.from(providerSet).map((p) => PROVIDERS[p]);
 }
 
 // Get models by provider

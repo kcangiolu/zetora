@@ -10,7 +10,7 @@ export interface TooltipRow {
   value: string | number;
 }
 
-export interface TooltipContentProps {
+interface TooltipContentProps {
   title?: string;
   rows: TooltipRow[];
   /** Optional additional content (e.g., markers) */
@@ -124,5 +124,3 @@ export function TooltipContent({ title, rows, children }: TooltipContentProps) {
 }
 
 TooltipContent.displayName = 'TooltipContent';
-
-export default TooltipContent;

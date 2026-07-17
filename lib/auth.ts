@@ -66,7 +66,7 @@ function parseBooleanFlag(value: unknown): boolean {
   return Boolean(value);
 }
 
-export const polarClient = new Polar({
+const polarClient = new Polar({
   accessToken: process.env.POLAR_ACCESS_TOKEN,
   ...(process.env.NODE_ENV === 'production' ? {} : { server: 'sandbox' }),
 });

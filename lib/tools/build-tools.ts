@@ -20,7 +20,6 @@ import { getBetterAllOptions } from '@/lib/better-all';
 
 const LOG_PREFIX = '🔨 [Build]';
 
-export const SUPPORTED_RUNTIMES: Runtime[] = ['node', 'python', 'golang', 'ruby', 'rust'];
 
 class BoxManager {
   private box: Box | null = null;

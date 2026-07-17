@@ -7,14 +7,14 @@ import { chartCssVars } from '../chart-context';
 // Faster spring for crosshair - responsive to mouse movement
 const crosshairSpringConfig = { stiffness: 300, damping: 30 };
 
-export type IndicatorWidth =
+type IndicatorWidth =
   | number // Pixel width
   | 'line' // 1px line (default)
   | 'thin' // 2px
   | 'medium' // 4px
   | 'thick'; // 8px
 
-export interface TooltipIndicatorProps {
+interface TooltipIndicatorProps {
   /** X position in pixels (center of the indicator) */
   x: number;
   /** Height of the indicator */
@@ -104,5 +104,3 @@ export function TooltipIndicator({
 }
 
 TooltipIndicator.displayName = 'TooltipIndicator';
-
-export default TooltipIndicator;

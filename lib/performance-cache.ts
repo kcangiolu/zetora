@@ -184,43 +184,25 @@ class PerformanceCache<T> {
 
 // Create cache instances with appropriate limits
 export const sessionCache = new PerformanceCache<any>('sessions', 500, 15 * 60 * 1000); // 15 min, 500 sessions
-export const subscriptionCache = new PerformanceCache<any>('subscriptions', 1000, 1 * 60 * 1000); // 1 min, 1000 users
 export const usageCountCache = new PerformanceCache<number>('usage-counts', 2000, 5 * 60 * 1000); // 5 min, 2000 users
-export const proUserStatusCache = new PerformanceCache<boolean>('pro-user-status', 1000, 30 * 60 * 1000); // 30 min, 1000 users
+const proUserStatusCache = new PerformanceCache<boolean>('pro-user-status', 1000, 30 * 60 * 1000); // 30 min, 1000 users
 
 // Dodo Subscriptions-specific caches
-export const dodoSubscriptionCache = new PerformanceCache<any>('dodo-subscriptions', 1000, 5 * 60 * 1000); // 5 min, 1000 users
-export const dodoSubscriptionExpirationCache = new PerformanceCache<any>(
-  'dodo-subscription-expiration',
-  1000,
-  30 * 60 * 1000,
-); // 30 min, 1000 users
-export const dodoProStatusCache = new PerformanceCache<any>('dodo-pro-status', 1000, 30 * 60 * 1000); // 30 min, 1000 users
+const dodoSubscriptionCache = new PerformanceCache<any>('dodo-subscriptions', 1000, 5 * 60 * 1000); // 5 min, 1000 users
+const dodoProStatusCache = new PerformanceCache<any>('dodo-pro-status', 1000, 30 * 60 * 1000); // 30 min, 1000 users
 
 // Cache key generators
 export const createSessionKey = (token: string) => `session:${token}`;
-export const createUserKey = (token: string) => `user:${token}`;
-export const createSubscriptionKey = (userId: string) => `subscription:${userId}`;
 export const createMessageCountKey = (userId: string) => `msg-count:${userId}`;
 export const createExtremeCountKey = (userId: string) => `extreme-count:${userId}`;
 export const createAnthropicCountKey = (userId: string) => `anthropic-count:${userId}`;
 export const createGoogleCountKey = (userId: string) => `google-count:${userId}`;
 export const createAgentModeCountKey = (userId: string) => `agent-mode-count:${userId}`;
-export const createProUserKey = (userId: string) => `pro-user:${userId}`;
+const createProUserKey = (userId: string) => `pro-user:${userId}`;
 
 // Dodo Subscriptions cache key generators
-export const createDodoSubscriptionKey = (userId: string) => `dodo-subscriptions:${userId}`;
-export const createDodoSubscriptionExpirationKey = (userId: string) => `dodo-subscription-expiration:${userId}`;
-export const createDodoProStatusKey = (userId: string) => `dodo-pro-status:${userId}`;
-
-// Extract session token from headers
-export function extractSessionToken(headers: Headers): string | null {
-  const cookies = headers.get('cookie');
-  if (!cookies) return null;
-
-  const match = cookies.match(/better-auth\.session_token=([^;]+)/);
-  return match ? match[1] : null;
-}
+const createDodoSubscriptionKey = (userId: string) => `dodo-subscriptions:${userId}`;
+const createDodoProStatusKey = (userId: string) => `dodo-pro-status:${userId}`;
 
 // Pro user status helpers with caching
 export function getProUserStatus(userId: string): boolean | null {
@@ -233,13 +215,6 @@ export function setProUserStatus(userId: string, isProUser: boolean): void {
   proUserStatusCache.set(cacheKey, isProUser);
 }
 
-export function computeAndCacheProUserStatus(userId: string, subscriptionData: any): boolean {
-  const isProUser = Boolean(subscriptionData?.hasSubscription && subscriptionData?.subscription?.status === 'active');
-
-  setProUserStatus(userId, isProUser);
-  return isProUser;
-}
-
 // Dodo Subscriptions cache helpers
 export function getDodoSubscriptions(userId: string) {
   const cacheKey = createDodoSubscriptionKey(userId);
@@ -249,16 +224,6 @@ export function getDodoSubscriptions(userId: string) {
 export function setDodoSubscriptions(userId: string, subscriptions: any) {
   const cacheKey = createDodoSubscriptionKey(userId);
   dodoSubscriptionCache.set(cacheKey, subscriptions);
-}
-
-export function getDodoSubscriptionExpiration(userId: string) {
-  const cacheKey = createDodoSubscriptionExpirationKey(userId);
-  return dodoSubscriptionExpirationCache.get(cacheKey);
-}
-
-export function setDodoSubscriptionExpiration(userId: string, expirationData: any) {
-  const cacheKey = createDodoSubscriptionExpirationKey(userId);
-  dodoSubscriptionExpirationCache.set(cacheKey, expirationData);
 }
 
 export function getDodoProStatus(userId: string) {
@@ -273,14 +238,12 @@ export function setDodoProStatus(userId: string, statusData: any) {
 
 // Cache invalidation helpers
 export function invalidateUserCaches(userId: string) {
-  subscriptionCache.delete(createSubscriptionKey(userId));
   usageCountCache.delete(createMessageCountKey(userId));
   usageCountCache.delete(createExtremeCountKey(userId));
   usageCountCache.delete(createAgentModeCountKey(userId));
   proUserStatusCache.delete(createProUserKey(userId));
   // Invalidate Dodo Subscription caches
   dodoSubscriptionCache.delete(createDodoSubscriptionKey(userId));
-  dodoSubscriptionExpirationCache.delete(createDodoSubscriptionExpirationKey(userId));
   dodoProStatusCache.delete(createDodoProStatusKey(userId));
 
   // Invalidate the db cache on ALL database instances (main + read replicas)
@@ -293,13 +256,3 @@ export function invalidateUserCaches(userId: string) {
   }
 }
 
-export function invalidateAllCaches() {
-  sessionCache.clear();
-  subscriptionCache.clear();
-  usageCountCache.clear();
-  proUserStatusCache.clear();
-  // Clear Dodo Subscription caches
-  dodoSubscriptionCache.clear();
-  dodoSubscriptionExpirationCache.clear();
-  dodoProStatusCache.clear();
-}
