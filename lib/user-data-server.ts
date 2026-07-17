@@ -146,6 +146,7 @@ export interface ComprehensiveUserData {
   id: string;
   email: string;
   emailVerified: boolean;
+  twoFactorEnabled: boolean;
   name: string;
   image: string | null;
   createdAt: Date;
@@ -510,6 +511,7 @@ export const getComprehensiveUserData = cache(async (): Promise<ComprehensiveUse
               userId: user.id,
               email: user.email,
               emailVerified: user.emailVerified,
+              twoFactorEnabled: user.twoFactorEnabled,
               name: user.name,
               image: user.image,
               userCreatedAt: user.createdAt,
@@ -654,6 +656,7 @@ export const getComprehensiveUserData = cache(async (): Promise<ComprehensiveUse
       id: userData.userId,
       email: userData.email,
       emailVerified: userData.emailVerified,
+      twoFactorEnabled: userData.twoFactorEnabled,
       name: userData.name || userData.email.split('@')[0], // Fallback to email prefix if name is null
       image: userData.image,
       createdAt: userData.userCreatedAt,

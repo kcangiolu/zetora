@@ -143,6 +143,7 @@ import { ChartTooltip as CustomChartTooltip } from '@/components/charts/tooltip'
 import type { TooltipRow } from '@/components/charts/tooltip/tooltip-content';
 import { Input } from '@/components/ui/input';
 import { ModelSelectorDialog } from '@/components/ui/model-selector';
+import { TwoFactorSettings } from '@/components/two-factor-settings';
 
 interface SettingsDialogProps {
   open: boolean;
@@ -238,6 +239,15 @@ export function ProfileSection({ user, subscriptionData, isProUser, isProStatusL
             Profile information is managed through your authentication provider. Contact support to update your details.
           </p>
         </div>
+      </div>
+
+      {/* Two-Factor Authentication */}
+      <div className={isMobile ? 'space-y-2.5' : 'space-y-3'}>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="font-pixel-grid text-xs text-muted-foreground/50">02</span>
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Security</h4>
+        </div>
+        <TwoFactorSettings enabled={Boolean(user?.twoFactorEnabled)} isMobile={isMobile} />
       </div>
     </div>
   );

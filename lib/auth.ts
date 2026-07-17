@@ -1,6 +1,6 @@
 import { betterAuth } from 'better-auth/minimal';
 import { nextCookies } from 'better-auth/next-js';
-import { lastLoginMethod } from 'better-auth/plugins';
+import { lastLoginMethod, twoFactor } from 'better-auth/plugins';
 import {
   user,
   session,
@@ -17,6 +17,7 @@ import {
   stream,
   lookout,
   userMcpServer,
+  twoFactor as twoFactorTable,
 } from '@/lib/db/schema';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { dash } from '@better-auth/infra';
@@ -34,7 +35,13 @@ import {
 import DodoPayments from 'dodopayments';
 import { eq, and } from 'drizzle-orm';
 import { invalidateUserCaches } from './performance-cache';
-import { clearUserDataCache, invalidateSessionCacheForToken } from './user-data-server';
+import {
+  clearUserDataCache,
+  invalidateSessionCacheForToken,
+  getCachedUserPreferencesByUserId,
+} from './user-data-server';
+import { sendVerificationEmail, sendTwoFactorOTPEmail } from './email';
+import { APIError } from 'better-auth/api';
 
 config({
   path: '.env.local',
@@ -225,7 +232,20 @@ export const auth = betterAuth({
   baseURL: process.env.NODE_ENV === 'production' ? process.env.BETTER_AUTH_BASE_URL : 'http://localhost:3000',
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: false,
+    requireEmailVerification: true,
+  },
+  emailVerification: {
+    sendOnSignUp: true,
+    autoSignInAfterVerification: true,
+    expiresIn: 3600,
+    sendVerificationEmail: async ({ user, url }) => {
+      const prefs = await getCachedUserPreferencesByUserId(user.id).catch(() => null);
+      const emailProvider = (prefs?.preferences as Record<string, string>)?.['zetora-email-provider'] as
+        | 'resend'
+        | 'smtp'
+        | undefined;
+      await sendVerificationEmail({ to: user.email, url, emailProvider });
+    },
   },
   rateLimit: {
     max: 100,
@@ -244,6 +264,22 @@ export const auth = betterAuth({
           // Immediately evict the token from the session cache on logout/revocation
           // so the 15-min TTL window can't be exploited with a stolen cookie
           invalidateSessionCacheForToken(session.token);
+        },
+      },
+    },
+    user: {
+      create: {
+        before: async () => {
+          // Single choke point for every account-creation path (email/password
+          // sign-up and every social provider's first-time OAuth sign-in all
+          // route through here) — lets ALLOW_SIGNUPS=false close the instance
+          // without touching each auth method separately.
+          if (!serverEnv.ALLOW_SIGNUPS) {
+            throw new APIError('FORBIDDEN', {
+              message: 'You are not authorized to create an account',
+              code: 'SIGNUPS_DISABLED',
+            });
+          }
         },
       },
     },
@@ -266,6 +302,7 @@ export const auth = betterAuth({
       stream,
       lookout,
       userMcpServer,
+      twoFactor: twoFactorTable,
     },
   }),
   socialProviders: {
@@ -291,6 +328,19 @@ export const auth = betterAuth({
   plugins: [
     dash(),
     lastLoginMethod(),
+    twoFactor({
+      issuer: 'Zetora',
+      otpOptions: {
+        async sendOTP({ user, otp }) {
+          const prefs = await getCachedUserPreferencesByUserId(user.id).catch(() => null);
+          const emailProvider = (prefs?.preferences as Record<string, string>)?.['zetora-email-provider'] as
+            | 'resend'
+            | 'smtp'
+            | undefined;
+          await sendTwoFactorOTPEmail({ to: user.email, otp, emailProvider });
+        },
+      },
+    }),
     polar({
       client: polarClient,
       createCustomerOnSignUp: false,

@@ -23,7 +23,9 @@ import {
   Brain02Icon,
   Attachment01Icon,
   SparklesIcon,
+  ShieldKeyIcon,
 } from '@hugeicons/core-free-icons';
+import { TwoFactorSettings } from '@/components/two-factor-settings';
 import { useSearchParams } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -59,6 +61,7 @@ function SettingsContent() {
     { value: 'usage', label: 'Usage', icon: Analytics01Icon },
     { value: 'subscription', label: 'Subscription', icon: Crown02Icon },
     { value: 'preferences', label: 'Preferences', icon: Settings02Icon },
+    { value: 'security', label: 'Security', icon: ShieldKeyIcon },
     { value: 'connectors', label: 'Connectors', icon: ConnectIcon },
     { value: 'skills', label: 'Skills', icon: SparklesIcon },
     { value: 'memories', label: 'Memories', icon: Brain02Icon },
@@ -311,11 +314,28 @@ function SettingsContent() {
                 </div>
               </TabsContent>
 
+              <TabsContent value="security" className="m-0">
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-pixel-grid text-xs text-muted-foreground/30">
+                        {tabs.find((t) => t.value === 'security')?.number}
+                      </span>
+                      <h2 className="text-lg font-semibold">Security</h2>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Protect your account with two-factor authentication</p>
+                  </div>
+                  <TwoFactorSettings enabled={Boolean(user?.twoFactorEnabled)} />
+                </div>
+              </TabsContent>
+
               <TabsContent value="connectors" className="m-0">
                 <div className="space-y-4">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-pixel-grid text-xs text-muted-foreground/30">04</span>
+                      <span className="font-pixel-grid text-xs text-muted-foreground/30">
+                        {tabs.find((t) => t.value === 'connectors')?.number}
+                      </span>
                       <h2 className="text-lg font-semibold">Connectors</h2>
                     </div>
                     <p className="text-sm text-muted-foreground">Connect your external services and data sources</p>
@@ -328,7 +348,9 @@ function SettingsContent() {
                 <div className="space-y-4">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-pixel-grid text-xs text-muted-foreground/30">05</span>
+                      <span className="font-pixel-grid text-xs text-muted-foreground/30">
+                        {tabs.find((t) => t.value === 'skills')?.number}
+                      </span>
                       <h2 className="text-lg font-semibold">Skills</h2>
                     </div>
                     <p className="text-sm text-muted-foreground">Enable the playbooks the AI can use in your chats</p>
@@ -341,7 +363,9 @@ function SettingsContent() {
                 <div className="space-y-4">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-pixel-grid text-xs text-muted-foreground/30">06</span>
+                      <span className="font-pixel-grid text-xs text-muted-foreground/30">
+                        {tabs.find((t) => t.value === 'memories')?.number}
+                      </span>
                       <h2 className="text-lg font-semibold">Memories</h2>
                     </div>
                     <p className="text-sm text-muted-foreground">Manage your stored memories and context</p>
@@ -354,7 +378,9 @@ function SettingsContent() {
                 <div className="space-y-4">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-pixel-grid text-xs text-muted-foreground/30">07</span>
+                      <span className="font-pixel-grid text-xs text-muted-foreground/30">
+                        {tabs.find((t) => t.value === 'uploads')?.number}
+                      </span>
                       <h2 className="text-lg font-semibold">Uploads</h2>
                     </div>
                     <p className="text-sm text-muted-foreground">View and manage files you&apos;ve uploaded in chats</p>
@@ -367,7 +393,9 @@ function SettingsContent() {
                 <div className="space-y-4">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-pixel-grid text-xs text-muted-foreground/30">08</span>
+                      <span className="font-pixel-grid text-xs text-muted-foreground/30">
+                        {tabs.find((t) => t.value === 'downloads')?.number}
+                      </span>
                       <h2 className="text-lg font-semibold">Downloads</h2>
                     </div>
                     <p className="text-sm text-muted-foreground">
@@ -382,7 +410,9 @@ function SettingsContent() {
                 <div className="space-y-4">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-pixel-grid text-xs text-muted-foreground/30">09</span>
+                      <span className="font-pixel-grid text-xs text-muted-foreground/30">
+                        {tabs.find((t) => t.value === 'diagnostics')?.number}
+                      </span>
                       <h2 className="text-lg font-semibold">Diagnostics</h2>
                     </div>
                     <p className="text-sm text-muted-foreground">

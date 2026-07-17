@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { parseAsString, useQueryState } from 'nuqs';
 import { authClient, signIn, signUp } from '@/lib/auth-client';
-import { Loader2, Sparkles, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Sparkles, Eye, EyeOff, MailCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
@@ -94,7 +94,7 @@ const SocialButton = ({ title, provider, loading, setLoading, callbackURL, icon,
       disabled={loading}
       onClick={async () => {
         await signIn.social(
-          { provider, callbackURL },
+          { provider, callbackURL, errorCallbackURL: '/sign-in' },
           {
             onRequest: () => {
               setLoading(true);
@@ -120,6 +120,8 @@ const SocialButton = ({ title, provider, loading, setLoading, callbackURL, icon,
 
 export default function AuthCard({ title, description, mode = 'sign-in' }: AuthCardProps) {
   const [redirect] = useQueryState('redirect', parseAsString.withDefault('/'));
+  const [oauthError] = useQueryState('error', parseAsString.withDefault(''));
+  const [oauthErrorDescription] = useQueryState('error_description', parseAsString.withDefault(''));
   const router = useRouter();
 
   const [name, setName] = useState('');
@@ -128,6 +130,9 @@ export default function AuthCard({ title, description, mode = 'sign-in' }: AuthC
   const [showPassword, setShowPassword] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
   const [error, setError] = useState('');
+  const [verificationSentTo, setVerificationSentTo] = useState('');
+  const [unverifiedEmail, setUnverifiedEmail] = useState('');
+  const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
 
   const [githubLoading, setGithubLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -138,6 +143,7 @@ export default function AuthCard({ title, description, mode = 'sign-in' }: AuthC
   const callbackURL = redirect;
 
   const anySocialLoading = githubLoading || googleLoading || twitterLoading || microsoftLoading;
+  const displayError = error || oauthErrorDescription || (oauthError ? 'Something went wrong. Please try again.' : '');
 
   async function handleEmailSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -145,15 +151,36 @@ export default function AuthCard({ title, description, mode = 'sign-in' }: AuthC
     setEmailLoading(true);
     try {
       if (mode === 'sign-up') {
-        const result = await signUp.email({ email, password, name: name || email.split('@')[0] });
+        const result = await signUp.email({
+          email,
+          password,
+          name: name || email.split('@')[0],
+          callbackURL,
+        });
         if (result.error) {
           setError(result.error.message ?? 'Sign up failed');
           return;
         }
+        if (!result.data?.token) {
+          // No session was created: the account requires email verification first.
+          setVerificationSentTo(email);
+          return;
+        }
       } else {
+        setUnverifiedEmail('');
+        setResendStatus('idle');
         const result = await signIn.email({ email, password, callbackURL });
         if (result.error) {
           setError(result.error.message ?? 'Invalid email or password');
+          if (result.error.code === 'EMAIL_NOT_VERIFIED') {
+            setUnverifiedEmail(email);
+          }
+          return;
+        }
+        if (result.data && 'twoFactorRedirect' in result.data && result.data.twoFactorRedirect) {
+          const methods = (result.data as { twoFactorMethods?: string[] }).twoFactorMethods ?? [];
+          const params = new URLSearchParams({ redirect: callbackURL, methods: methods.join(',') });
+          router.push(`/two-factor?${params.toString()}`);
           return;
         }
       }
@@ -164,6 +191,41 @@ export default function AuthCard({ title, description, mode = 'sign-in' }: AuthC
     } finally {
       setEmailLoading(false);
     }
+  }
+
+  async function handleResendVerification() {
+    if (!unverifiedEmail || resendStatus === 'sending') return;
+    setResendStatus('sending');
+    try {
+      await authClient.sendVerificationEmail({ email: unverifiedEmail, callbackURL });
+      setResendStatus('sent');
+    } catch {
+      setResendStatus('idle');
+      setError('Could not resend the email. Please try again.');
+    }
+  }
+
+  if (verificationSentTo) {
+    return (
+      <div className="w-full max-w-sm mx-auto text-center">
+        <div className="w-12 h-12 rounded-full bg-muted/40 flex items-center justify-center mx-auto mb-6">
+          <MailCheck className="w-5 h-5 text-foreground/80" />
+        </div>
+        <h1 className="text-2xl font-light tracking-tight text-foreground font-be-vietnam-pro mb-3">
+          Check your email
+        </h1>
+        <p className="text-sm text-muted-foreground leading-relaxed max-w-xs mx-auto">
+          We sent a verification link to <span className="text-foreground font-medium">{verificationSentTo}</span>.
+          Click it to activate your account.
+        </p>
+        <Link
+          href="/sign-in"
+          className="inline-block mt-8 text-sm font-medium text-foreground hover:underline underline-offset-4 transition-colors"
+        >
+          Back to sign in
+        </Link>
+      </div>
+    );
   }
 
   return (
@@ -244,7 +306,29 @@ export default function AuthCard({ title, description, mode = 'sign-in' }: AuthC
           </div>
         </div>
 
-        {error && <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</p>}
+        {displayError && (
+          <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">{displayError}</p>
+        )}
+
+        {unverifiedEmail && (
+          <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2">
+            {resendStatus === 'sent' ? (
+              'Verification email sent. Check your inbox.'
+            ) : (
+              <>
+                Your email isn&apos;t verified yet.{' '}
+                <button
+                  type="button"
+                  onClick={handleResendVerification}
+                  disabled={resendStatus === 'sending'}
+                  className="font-medium text-foreground hover:underline underline-offset-4 disabled:opacity-50"
+                >
+                  {resendStatus === 'sending' ? 'Sending…' : 'Resend verification email'}
+                </button>
+              </>
+            )}
+          </p>
+        )}
 
         <button
           type="submit"
