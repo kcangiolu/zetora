@@ -142,56 +142,57 @@ export function ShareViewer({ chatId, chatTitle, shareUrl, messages, isSignedIn,
             chatId={chatId}
             initialMessages={messages}
             isOwner={false}
+            bottomSpacerClassName="mb-4"
             attachmentsRenderer={(attachments: Attachment[]) => <ShareAttachmentsBadge attachments={attachments} />}
           />
         </div>
+      </div>
 
-        {/* Floating bar */}
-        <div className={floatingBarClassName}>
-          <div className="w-full max-w-2xl mx-auto px-4 pb-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-border/50 bg-background/90 backdrop-blur-xl px-4 py-3 shadow-lg shadow-black/5">
-              {/* Top row on mobile / left side on desktop */}
-              <div className="flex items-center gap-3 min-w-0">
-                <ZetoraLogo className="size-5 shrink-0 text-foreground/70" />
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground leading-tight">You&apos;re viewing a shared chat</p>
-                  <p className="text-xs text-muted-foreground leading-tight mt-0.5 hidden sm:block">
-                    {isSignedIn
-                      ? 'Copy it to your account to keep the conversation going'
-                      : 'Sign in to continue this conversation'}
-                  </p>
-                </div>
+      {/* Floating bar */}
+      <div className={floatingBarClassName}>
+        <div className="w-full max-w-2xl mx-auto px-4 pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-border/50 bg-background/90 backdrop-blur-xl px-4 py-3 shadow-lg shadow-black/5">
+            {/* Top row on mobile / left side on desktop */}
+            <div className="flex items-center gap-3 min-w-0">
+              <ZetoraLogo className="size-5 shrink-0 text-foreground/70" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground leading-tight">You&apos;re viewing a shared chat</p>
+                <p className="text-xs text-muted-foreground leading-tight mt-0.5 hidden sm:block">
+                  {isSignedIn
+                    ? 'Copy it to your account to keep the conversation going'
+                    : 'Sign in to continue this conversation'}
+                </p>
               </div>
-              {/* Bottom row on mobile / right side on desktop */}
-              <div className="flex items-center gap-1.5 shrink-0">
+            </div>
+            {/* Bottom row on mobile / right side on desktop */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCopyLink}
+                className="h-8 text-xs rounded-lg gap-1.5 px-2.5 text-muted-foreground hover:text-foreground"
+              >
+                <Copy className="h-3 w-3" />
+                Copy link
+              </Button>
+              {isSignedIn ? (
                 <Button
-                  variant="ghost"
                   size="sm"
-                  onClick={handleCopyLink}
-                  className="h-8 text-xs rounded-lg gap-1.5 px-2.5 text-muted-foreground hover:text-foreground"
+                  onClick={handleFork}
+                  disabled={isForking}
+                  className="h-8 text-xs rounded-lg gap-1.5 px-3 flex-1 sm:flex-none"
                 >
-                  <Copy className="h-3 w-3" />
-                  Copy link
+                  {isForking ? 'Copying…' : 'Continue in my account'}
+                  {!isForking && <ArrowRight className="h-3 w-3" />}
                 </Button>
-                {isSignedIn ? (
-                  <Button
-                    size="sm"
-                    onClick={handleFork}
-                    disabled={isForking}
-                    className="h-8 text-xs rounded-lg gap-1.5 px-3 flex-1 sm:flex-none"
-                  >
-                    {isForking ? 'Copying…' : 'Continue in my account'}
-                    {!isForking && <ArrowRight className="h-3 w-3" />}
-                  </Button>
-                ) : (
-                  <Button size="sm" asChild className="h-8 text-xs rounded-lg gap-1.5 px-3 flex-1 sm:flex-none">
-                    <Link href={`/sign-in?next=${encodeURIComponent(`/share/${chatId}`)}`}>
-                      Sign in to continue
-                      <ArrowRight className="h-3 w-3" />
-                    </Link>
-                  </Button>
-                )}
-              </div>
+              ) : (
+                <Button size="sm" asChild className="h-8 text-xs rounded-lg gap-1.5 px-3 flex-1 sm:flex-none">
+                  <Link href={`/sign-in?next=${encodeURIComponent(`/share/${chatId}`)}`}>
+                    Sign in to continue
+                    <ArrowRight className="h-3 w-3" />
+                  </Link>
+                </Button>
+              )}
             </div>
           </div>
         </div>

@@ -9,6 +9,7 @@ import { deleteTrailingMessages } from '@/app/actions';
 import { Attachment, ChatMessage, CustomUIDataTypes } from '@/lib/types';
 import { UseChatHelpers } from '@ai-sdk/react';
 import { ComprehensiveUserData } from '@/lib/user-data-server';
+import { cn } from '@/lib/utils';
 // Define interface for part, messageIndex and partIndex objects
 interface PartInfo {
   part: any;
@@ -41,6 +42,10 @@ interface MessagesProps {
   isTransitioning?: boolean;
   onBeforeSubmit?: () => void;
   skipCacheRef?: React.MutableRefObject<boolean>;
+  // Reserved space below the message list to clear whatever bottom bar sits over it.
+  // Defaults to the height of the main chat composer; callers with a shorter bottom
+  // bar (e.g. the read-only share page) should override it.
+  bottomSpacerClassName?: string;
 }
 
 const MessagesImpl: React.FC<MessagesProps> = ({
@@ -66,6 +71,7 @@ const MessagesImpl: React.FC<MessagesProps> = ({
   isTransitioning,
   onBeforeSubmit,
   skipCacheRef,
+  bottomSpacerClassName = 'mb-38! sm:mb-42!',
 }) => {
   // Track visibility state for each reasoning section using messageIndex-partIndex as key
   const [reasoningVisibilityMap, setReasoningVisibilityMap] = useState<Record<string, boolean>>({});
@@ -438,7 +444,7 @@ const MessagesImpl: React.FC<MessagesProps> = ({
   }
 
   return (
-    <div className="mb-38! sm:mb-42! flex-1 min-h-0 flex flex-col" style={{ overflowAnchor: 'none' }}>
+    <div className={cn(bottomSpacerClassName, 'flex-1 min-h-0 flex flex-col')} style={{ overflowAnchor: 'none' }}>
       <Virtuoso
         style={{ height: '100%' }}
         data={memoizedMessages}

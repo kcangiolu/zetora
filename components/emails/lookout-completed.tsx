@@ -16,6 +16,7 @@ import {
   pixelBasedPreset,
   type TailwindConfig,
 } from '@react-email/components';
+import { getAppUrl } from './app-url';
 
 interface LookoutCompletedEmailProps {
   chatTitle: string;
@@ -128,6 +129,7 @@ const markdownStyles = {
 
 function LookoutCompletedEmail({ chatTitle, assistantResponse, chatId }: LookoutCompletedEmailProps) {
   const previewText = `Your Daily Lookout is ready: ${chatTitle}`;
+  const appUrl = getAppUrl();
 
   return (
     <Html lang="en" dir="ltr">
@@ -152,7 +154,7 @@ function LookoutCompletedEmail({ chatTitle, assistantResponse, chatId }: Lookout
               {/* Logo and title */}
               <Section className="text-center" style={{ padding: '32px 24px 20px' }}>
                 <Img
-                  src="https://zetora.ai/icon.png"
+                  src={`${appUrl}/icon.png`}
                   alt="Zetora AI"
                   width={44}
                   height={44}
@@ -195,7 +197,7 @@ function LookoutCompletedEmail({ chatTitle, assistantResponse, chatId }: Lookout
               {/* CTA */}
               <Section className="text-center" style={{ padding: '0 24px 32px' }}>
                 <Button
-                  href={`https://zetora.ai/search/${chatId}`}
+                  href={`${appUrl}/search/${chatId}`}
                   className="bg-brand-primary text-brand-primary-foreground font-medium no-underline"
                   style={{
                     display: 'inline-block',
@@ -211,7 +213,7 @@ function LookoutCompletedEmail({ chatTitle, assistantResponse, chatId }: Lookout
               {/* Footer */}
               <Section className="bg-brand-muted text-center" style={{ padding: '24px' }}>
                 <Img
-                  src="https://zetora.ai/icon.png"
+                  src={`${appUrl}/icon.png`}
                   alt="Zetora AI"
                   width={24}
                   height={24}
@@ -222,8 +224,8 @@ function LookoutCompletedEmail({ chatTitle, assistantResponse, chatId }: Lookout
                   This is an automated notification from your Daily Lookout.
                 </Text>
                 <Text className="text-brand-muted-foreground m-0" style={{ fontSize: '12px' }}>
-                  <Link href="https://zetora.ai" className="text-brand-primary no-underline">
-                    zetora.ai
+                  <Link href={appUrl} className="text-brand-primary no-underline">
+                    {appUrl.replace(/^https?:\/\//, '')}
                   </Link>
                 </Text>
               </Section>

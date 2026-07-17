@@ -13,6 +13,7 @@ import {
   pixelBasedPreset,
   type TailwindConfig,
 } from '@react-email/components';
+import { getAppUrl } from './app-url';
 
 interface TwoFactorOtpEmailProps {
   otp: string;
@@ -50,6 +51,7 @@ const tailwindConfig = {
 
 function TwoFactorOtpEmail({ otp }: TwoFactorOtpEmailProps) {
   const previewText = `Your Zetora sign-in code: ${otp}`;
+  const appUrl = getAppUrl();
 
   return (
     <Html lang="en" dir="ltr">
@@ -66,7 +68,7 @@ function TwoFactorOtpEmail({ otp }: TwoFactorOtpEmailProps) {
 
               <Section className="text-center" style={{ padding: '32px 24px 20px' }}>
                 <Img
-                  src="https://zetora.ai/icon.png"
+                  src={`${appUrl}/icon.png`}
                   alt="Zetora AI"
                   width={44}
                   height={44}

@@ -15,6 +15,7 @@ import {
   pixelBasedPreset,
   type TailwindConfig,
 } from '@react-email/components';
+import { getAppUrl } from './app-url';
 
 interface VerifyEmailProps {
   url: string;
@@ -58,6 +59,7 @@ const tailwindConfig = {
 
 function VerifyEmail({ url }: VerifyEmailProps) {
   const previewText = 'Confirm your email to activate your Zetora account';
+  const appUrl = getAppUrl();
 
   return (
     <Html lang="en" dir="ltr">
@@ -74,7 +76,7 @@ function VerifyEmail({ url }: VerifyEmailProps) {
 
               <Section className="text-center" style={{ padding: '32px 24px 20px' }}>
                 <Img
-                  src="https://zetora.ai/icon.png"
+                  src={`${appUrl}/icon.png`}
                   alt="Zetora AI"
                   width={44}
                   height={44}
@@ -120,8 +122,8 @@ function VerifyEmail({ url }: VerifyEmailProps) {
                   If you didn&apos;t create an account with Zetora, you can safely ignore this email.
                 </Text>
                 <Text className="text-brand-muted-foreground m-0" style={{ fontSize: '12px', marginTop: '8px' }}>
-                  <Link href="https://zetora.ai" className="text-brand-primary no-underline">
-                    zetora.ai
+                  <Link href={appUrl} className="text-brand-primary no-underline">
+                    {appUrl.replace(/^https?:\/\//, '')}
                   </Link>
                 </Text>
               </Section>

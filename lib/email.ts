@@ -44,6 +44,13 @@ function getSmtpTransporter(): Transporter | null {
   return smtpTransporter;
 }
 
+// Real Resend API keys always start with "re_". Env files across this repo use
+// inconsistent dummy values ('placeholder', 'placeholder_resend_key', 'your_resend_api_key_here'),
+// so matching against one exact literal let a dummy value slip through as "configured".
+function isRealResendKey(key: string | undefined): key is string {
+  return !!key && key.startsWith('re_');
+}
+
 function resolveEmailProvider(userPreference?: 'resend' | 'smtp'): EmailProvider {
   // 1. Explicit user preference takes priority
   if (userPreference === 'smtp') {
@@ -53,7 +60,7 @@ function resolveEmailProvider(userPreference?: 'resend' | 'smtp'): EmailProvider
     console.warn('SMTP configured as preference but SMTP env vars are missing, falling back');
   }
   if (userPreference === 'resend') {
-    if (serverEnv.RESEND_API_KEY && serverEnv.RESEND_API_KEY !== 'placeholder') {
+    if (isRealResendKey(serverEnv.RESEND_API_KEY)) {
       return 'resend';
     }
     console.warn('Resend configured as preference but RESEND_API_KEY is missing, falling back');
@@ -61,11 +68,11 @@ function resolveEmailProvider(userPreference?: 'resend' | 'smtp'): EmailProvider
 
   // 2. Otherwise, auto-detect
   if (serverEnv.SMTP_HOST && serverEnv.SMTP_USER && serverEnv.SMTP_PASS) {
-    if (!serverEnv.RESEND_API_KEY || serverEnv.RESEND_API_KEY === 'placeholder') {
+    if (!isRealResendKey(serverEnv.RESEND_API_KEY)) {
       return 'smtp';
     }
   }
-  if (serverEnv.RESEND_API_KEY && serverEnv.RESEND_API_KEY !== 'placeholder') {
+  if (isRealResendKey(serverEnv.RESEND_API_KEY)) {
     return 'resend';
   }
   if (serverEnv.SMTP_HOST) {
