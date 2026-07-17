@@ -11,6 +11,11 @@ export interface SandboxResult {
     /** base64-encoded PNG without the data: URI prefix */
     png?: string;
   }>;
+  /** Files saved via zetora_save_file() in the executed code, base64-encoded */
+  files?: Array<{
+    filename: string;
+    content: string;
+  }>;
 }
 
 export interface SandboxProvider {

@@ -6,6 +6,7 @@ import { getSandboxProvider } from '@/lib/sandbox';
 import type { SandboxProviderType } from '@/lib/sandbox';
 import { storageClient, STORAGE_BUCKET_NAME, STORAGE_PUBLIC_URL } from '@/lib/storage';
 import { persistGeneratedFile } from '@/lib/generated-file-storage';
+import { validateFileBuffer } from '@/lib/file-integrity';
 
 interface CodeInterpreterContext {
   userPreferences?: {
@@ -15,8 +16,55 @@ interface CodeInterpreterContext {
   chatId?: string;
 }
 
+const CONTENT_TYPE_MAP: Record<string, string> = {
+  '.pdf': 'application/pdf',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  '.csv': 'text/csv',
+  '.zip': 'application/zip',
+};
+
+function getContentType(filename: string): string {
+  const ext = filename.slice(filename.lastIndexOf('.')).toLowerCase();
+  return CONTENT_TYPE_MAP[ext] ?? 'application/octet-stream';
+}
+
+async function uploadBuffer(
+  buffer: Buffer,
+  filename: string,
+  mediaType: string,
+  context: CodeInterpreterContext | undefined,
+  toolName: string,
+): Promise<string> {
+  if (context?.userId) {
+    const { url } = await persistGeneratedFile({
+      userId: context.userId,
+      chatId: context.chatId,
+      buffer,
+      filename,
+      mediaType,
+      kind: mediaType === 'image/png' ? 'image' : 'document',
+      toolName,
+    });
+    return url;
+  }
+
+  const key = `zetora/${mediaType === 'image/png' ? 'charts' : 'downloads'}/${nanoid()}-${filename}`;
+  await storageClient.send(
+    new PutObjectCommand({
+      Bucket: STORAGE_BUCKET_NAME,
+      Key: key,
+      Body: buffer,
+      ContentType: mediaType,
+    }),
+  );
+  return `${STORAGE_PUBLIC_URL}/${key}`;
+}
+
 export const codeInterpreterTool = tool({
-  description: 'Write and execute Python code.',
+  description:
+    'Write and execute Python code. To produce a downloadable file (docx, pptx, pdf, xlsx, csv, zip), save it to disk and call zetora_save_file(path, filename) — it is predefined in the sandbox. The file is uploaded automatically and a download link is returned; do not try to print or return its raw bytes/base64 yourself.',
   inputSchema: z.object({
     title: z.string().describe('The title of the code snippet.'),
     code: z
@@ -45,30 +93,13 @@ export const codeInterpreterTool = tool({
     let chartPngUrl: string | undefined;
     if (result.charts?.[0]?.png) {
       try {
-        const buffer = Buffer.from(result.charts[0].png, 'base64');
-        if (context?.userId) {
-          const { url } = await persistGeneratedFile({
-            userId: context.userId,
-            chatId: context.chatId,
-            buffer,
-            filename: `${nanoid()}.png`,
-            mediaType: 'image/png',
-            kind: 'image',
-            toolName: 'code_interpreter',
-          });
-          chartPngUrl = url;
-        } else {
-          const key = `zetora/charts/${nanoid()}.png`;
-          await storageClient.send(
-            new PutObjectCommand({
-              Bucket: STORAGE_BUCKET_NAME,
-              Key: key,
-              Body: buffer,
-              ContentType: 'image/png',
-            }),
-          );
-          chartPngUrl = `${STORAGE_PUBLIC_URL}/${key}`;
-        }
+        chartPngUrl = await uploadBuffer(
+          Buffer.from(result.charts[0].png, 'base64'),
+          `${nanoid()}.png`,
+          'image/png',
+          context,
+          'code_interpreter',
+        );
         console.log('Chart uploaded:', chartPngUrl);
       } catch (uploadError) {
         console.error('Chart upload failed:', uploadError);
@@ -84,9 +115,29 @@ export const codeInterpreterTool = tool({
         }
       : undefined;
 
+    const files: Array<{ filename: string; url: string; size: number }> = [];
+    const fileErrors: string[] = [];
+    for (const file of result.files ?? []) {
+      const buffer = Buffer.from(file.content, 'base64');
+      const integrityError = validateFileBuffer(buffer, file.filename);
+      if (integrityError) {
+        fileErrors.push(integrityError);
+        continue;
+      }
+      try {
+        const url = await uploadBuffer(buffer, file.filename, getContentType(file.filename), context, 'code_interpreter');
+        files.push({ filename: file.filename, url, size: buffer.length });
+      } catch (uploadError) {
+        fileErrors.push(
+          `Failed to upload ${file.filename}: ${uploadError instanceof Error ? uploadError.message : String(uploadError)}`,
+        );
+      }
+    }
+
     return {
-      message: message.trim(),
+      message: [message.trim(), ...fileErrors].filter(Boolean).join('\n'),
       chart,
+      files: files.length > 0 ? files : undefined,
     };
   },
 });

@@ -4,6 +4,7 @@ import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { nanoid } from 'nanoid';
 import { storageClient, STORAGE_BUCKET_NAME, STORAGE_PUBLIC_URL } from '@/lib/storage';
 import { persistGeneratedFile } from '@/lib/generated-file-storage';
+import { validateFileBuffer } from '@/lib/file-integrity';
 
 interface ToolContext {
   userId?: string;
@@ -42,6 +43,10 @@ export const downloadFileTool = tool({
     const context = experimental_context as ToolContext | undefined;
     try {
       const buffer = Buffer.from(content, 'base64');
+      const integrityError = validateFileBuffer(buffer, filename);
+      if (integrityError) {
+        return { success: false, error: integrityError };
+      }
       const contentType = getContentType(filename);
 
       let url: string;

@@ -1,6 +1,7 @@
 import { Daytona } from '@daytonaio/sdk';
 import { SNAPSHOT_NAME } from '@/lib/constants';
 import type { SandboxProvider, SandboxResult } from './types';
+import { wrapCodeForFileCapture, parseFileMarker } from './file-capture';
 
 export class DaytonaSandboxProvider implements SandboxProvider {
   constructor(private apiKey: string) {}
@@ -15,7 +16,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
         await sandbox.process.executeCommand(`pip install ${installLibs.join(' ')}`, undefined, undefined, 60);
       }
 
-      const execution = await sandbox.process.codeRun(code);
+      const execution = await sandbox.process.codeRun(wrapCodeForFileCapture(code));
 
       let message = '';
 
@@ -28,6 +29,9 @@ export class DaytonaSandboxProvider implements SandboxProvider {
       } else {
         message += execution.result;
       }
+
+      const { stdout: cleanMessage, files } = parseFileMarker(message);
+      message = cleanMessage;
 
       const rawCharts = execution.artifacts?.charts ?? [];
       const charts =
@@ -46,6 +50,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
         timedOut: false,
         durationMs: 0,
         charts,
+        files,
       };
     } finally {
       await sandbox.delete();

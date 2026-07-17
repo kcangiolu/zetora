@@ -119,6 +119,7 @@ import {
   Square,
   Sparkles,
   Trash2,
+  Download,
 } from 'lucide-react';
 import {
   ClockIcon as PhosphorClockIcon,
@@ -4952,6 +4953,23 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                         ) : (
                           <InteractiveChart chart={part.output.chart} />
                         )}
+                      </div>
+                    )}
+
+                    {part.output?.files && part.output.files.length > 0 && (
+                      <div className="pt-1 flex flex-wrap gap-2">
+                        {part.output.files.map((file, fileIndex) => (
+                          <a
+                            key={`${file.url}-${fileIndex}`}
+                            href={file.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
+                          >
+                            <Download className="size-3.5" />
+                            {file.filename}
+                          </a>
+                        ))}
                       </div>
                     )}
                   </div>

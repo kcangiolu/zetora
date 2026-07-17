@@ -1,4 +1,5 @@
 import type { SandboxProvider, SandboxResult } from './types';
+import { wrapCodeForFileCapture, parseFileMarker } from './file-capture';
 
 const CHART_MARKER = '__CHART__:';
 
@@ -6,7 +7,7 @@ export class DockerSandboxProvider implements SandboxProvider {
   constructor(private baseUrl: string) {}
 
   async execute(code: string, timeoutMs = 30000): Promise<SandboxResult> {
-    const wrappedCode = this.wrapCodeForCharts(code);
+    const wrappedCode = wrapCodeForFileCapture(this.wrapCodeForCharts(code));
 
     const res = await fetch(`${this.baseUrl}/v1/execute`, {
       method: 'POST',
@@ -30,7 +31,9 @@ export class DockerSandboxProvider implements SandboxProvider {
     }
 
     const data = await res.json();
-    const { stdout, charts } = this.parseCharts(data.stdout || '');
+    // Files marker is appended last (outermost wrap), so strip it first.
+    const { stdout: withoutFiles, files } = parseFileMarker(data.stdout || '');
+    const { stdout, charts } = this.parseCharts(withoutFiles);
 
     return {
       stdout,
@@ -39,6 +42,7 @@ export class DockerSandboxProvider implements SandboxProvider {
       timedOut: data.timed_out ?? false,
       durationMs: data.duration_ms ?? 0,
       charts: charts && charts.length > 0 ? charts : undefined,
+      files,
     };
   }
 

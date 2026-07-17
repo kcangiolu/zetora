@@ -233,7 +233,7 @@ Use this when the user asks to humanize, de-AI-ify, or rewrite text that reads a
       'Create professional Word documents (.docx). ONLY when the user explicitly asks to create, generate, or make a Word document, report, or .docx file.',
     category: 'CONTENT',
     section: 'other',
-    suggestedTools: ['code_interpreter', 'download_file'],
+    suggestedTools: ['code_interpreter'],
     instructions: `
 ### Word Document Generation Methodology
 
@@ -243,7 +243,6 @@ Use this when the user asks to humanize, de-AI-ify, or rewrite text that reads a
 
 \`\`\`python
 !pip install python-docx -q
-import io, base64
 from docx import Document
 from docx.shared import Inches, Pt, Cm, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -263,13 +262,11 @@ doc.add_paragraph('Content...')
 table = doc.add_table(rows=N, cols=M, style='Light Grid Accent 1')
 # ... fill cells via table.cell(row, col).text = '...'
 
-buf = io.BytesIO()
-doc.save(buf)
-buf.seek(0)
-print(base64.b64encode(buf.read()).decode())
+doc.save('/tmp/output.docx')
+zetora_save_file('/tmp/output.docx', 'report.docx')
 \`\`\`
 
-**Phase 3 — Download**: Call download_file with base64 output and filename ending in .docx.
+**Phase 3 — Download**: zetora_save_file() uploads the file automatically and attaches a download link — do not call any other tool for this, do not print/return base64.
 
 **Phase 4 — Confirm**: Brief description of what was created.`,
   },
@@ -281,7 +278,7 @@ print(base64.b64encode(buf.read()).decode())
       'Create presentations (.pptx). ONLY when the user explicitly asks to create a PowerPoint, presentation, or slides.',
     category: 'CONTENT',
     section: 'other',
-    suggestedTools: ['code_interpreter', 'download_file'],
+    suggestedTools: ['code_interpreter'],
     instructions: `
 ### PowerPoint Generation Methodology
 
@@ -291,7 +288,6 @@ print(base64.b64encode(buf.read()).decode())
 
 \`\`\`python
 !pip install python-pptx -q
-import io, base64
 from pptx import Presentation
 from pptx.util import Inches, Pt, Emu
 from pptx.dml.color import RGBColor
@@ -317,13 +313,11 @@ p.alignment = PP_ALIGN.CENTER
 slide = prs.slides.add_slide(prs.slide_layouts[6])
 # Add title, bullet points, etc.
 
-buf = io.BytesIO()
-prs.save(buf)
-buf.seek(0)
-print(base64.b64encode(buf.read()).decode())
+prs.save('/tmp/output.pptx')
+zetora_save_file('/tmp/output.pptx', 'presentation.pptx')
 \`\`\`
 
-**Phase 3 — Download**: download_file with .pptx filename.
+**Phase 3 — Download**: zetora_save_file() uploads the file automatically and attaches a download link — do not call any other tool for this, do not print/return base64.
 
 **Phase 4 — Confirm**: Number of slides and key topics.`,
   },
@@ -335,7 +329,7 @@ print(base64.b64encode(buf.read()).decode())
       'Create PDF documents. ONLY when the user explicitly asks to create a PDF document or report.',
     category: 'CONTENT',
     section: 'other',
-    suggestedTools: ['code_interpreter', 'download_file'],
+    suggestedTools: ['code_interpreter'],
     instructions: `
 ### PDF Generation Methodology
 
@@ -345,7 +339,6 @@ print(base64.b64encode(buf.read()).decode())
 
 \`\`\`python
 !pip install reportlab -q
-import io, base64
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch, cm
@@ -353,8 +346,7 @@ from reportlab.lib.colors import HexColor
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 
-buf = io.BytesIO()
-doc = SimpleDocTemplate(buf, pagesize=A4, topMargin=2*cm, bottomMargin=2*cm, leftMargin=2.5*cm, rightMargin=2.5*cm)
+doc = SimpleDocTemplate('/tmp/output.pdf', pagesize=A4, topMargin=2*cm, bottomMargin=2*cm, leftMargin=2.5*cm, rightMargin=2.5*cm)
 styles = getSampleStyleSheet()
 story = []
 
@@ -373,11 +365,10 @@ t.setStyle(TableStyle([
 story.append(t)
 
 doc.build(story)
-buf.seek(0)
-print(base64.b64encode(buf.read()).decode())
+zetora_save_file('/tmp/output.pdf', 'report.pdf')
 \`\`\`
 
-**Phase 3 — Download**: download_file with .pdf filename.
+**Phase 3 — Download**: zetora_save_file() uploads the file automatically and attaches a download link — do not call any other tool for this, do not print/return base64.
 
 **Phase 4 — Confirm**: Brief description of the PDF contents.`,
   },
@@ -389,7 +380,7 @@ print(base64.b64encode(buf.read()).decode())
       'Create Excel spreadsheets (.xlsx). ONLY when the user explicitly asks to create an Excel file, spreadsheet, or financial model.',
     category: 'CONTENT',
     section: 'other',
-    suggestedTools: ['code_interpreter', 'download_file'],
+    suggestedTools: ['code_interpreter'],
     instructions: `
 ### Excel Spreadsheet Methodology
 
@@ -399,7 +390,6 @@ print(base64.b64encode(buf.read()).decode())
 
 \`\`\`python
 !pip install openpyxl -q
-import io, base64
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side, NamedStyle
 from openpyxl.utils import get_column_letter
@@ -448,13 +438,11 @@ chart.add_data(data_ref, titles_from_data=True)
 chart.set_categories(cats_ref)
 ws.add_chart(chart, f'E2')
 
-buf = io.BytesIO()
-wb.save(buf)
-buf.seek(0)
-print(base64.b64encode(buf.read()).decode())
+wb.save('/tmp/output.xlsx')
+zetora_save_file('/tmp/output.xlsx', 'data.xlsx')
 \`\`\`
 
-**Phase 3 — Download**: download_file with .xlsx filename.
+**Phase 3 — Download**: zetora_save_file() uploads the file automatically and attaches a download link — do not call any other tool for this, do not print/return base64.
 
 **Phase 4 — Confirm**: Sheets created, key data points, formulas used.`,
   },
