@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unauthenticatedRateLimit, getClientIdentifier } from '@/lib/rate-limit';
 import { Lexer } from 'marked';
 import {
   Document,
@@ -525,6 +526,14 @@ function flattenInlineTokens(tokens: any[] | undefined, bold = false, italic = f
 
 export async function POST(req: NextRequest) {
   try {
+    // No session requirement (shared-chat exports can come from anonymous
+    // visitors); rate-limit by IP the same way /api/upload and
+    // /api/x-wrapped do so this can't be used as a free CPU-burning DoS lever.
+    const rateLimitResult = await unauthenticatedRateLimit.limit(getClientIdentifier(req));
+    if (!rateLimitResult.success) {
+      return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
+    }
+
     const body = parseDocxExportBody(await req.json());
     if (!body) {
       return NextResponse.json({ error: 'Invalid content' }, { status: 400 });

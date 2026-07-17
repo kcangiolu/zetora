@@ -43,7 +43,7 @@ export const POST = withError(
     const server = await getUserMcpServerById({ id: input.serverId, userId: user.id });
     if (!server) return new ChatSDKError('not_found:api', 'MCP server not found').toResponse();
 
-    validateMcpServerUrl(server.url);
+    await validateMcpServerUrl(server.url);
 
     const client = await createMCPClient({
       transport: {

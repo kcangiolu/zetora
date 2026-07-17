@@ -87,8 +87,8 @@ export const GET = withProAuth(async (_request, { user }) => {
 export const POST = withProAuth(
   async (request, { user }) => {
     const input = createMcpServerSchema.parse(await request.json());
-    validateMcpServerUrl(input.url);
-    validateMcpOAuthConfig(input);
+    await validateMcpServerUrl(input.url);
+    await validateMcpOAuthConfig(input);
 
     const created = await createUserMcpServer({
       userId: user.id,

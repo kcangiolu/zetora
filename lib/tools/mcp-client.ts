@@ -159,7 +159,7 @@ export async function resolveUserMcpTools({
 
   for (const server of selectedServers) {
     try {
-      validateMcpServerUrl(server.url);
+      await validateMcpServerUrl(server.url);
 
       const client = await createMCPClient({
         transport: {

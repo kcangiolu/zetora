@@ -1,5 +1,19 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 
+// validateMcpServerUrl does a real DNS lookup to block SSRF to private/internal
+// hosts (mirrors app/api/proxy-image/route.ts). Mock it so tests are
+// deterministic and don't depend on network access — 'internal.example'
+// simulates a hostname that resolves to a private address, everything else
+// resolves publicly.
+vi.mock('node:dns/promises', () => ({
+  lookup: vi.fn(async (hostname: string) => {
+    if (hostname === 'internal.example') {
+      return [{ address: '10.0.0.5', family: 4 }];
+    }
+    return [{ address: '93.184.216.34', family: 4 }];
+  }),
+}));
+
 // server-config pulls in lib/mcp/crypto, whose serverEnv snapshot must see a
 // real key before import (same re-import pattern as tests/mcp-crypto.test.ts).
 let mod: typeof import('@/lib/mcp/server-config');
@@ -17,22 +31,33 @@ afterAll(() => {
 });
 
 describe('validateMcpServerUrl', () => {
-  it('accepts https URLs', () => {
-    expect(() => mod.validateMcpServerUrl('https://mcp.example.com/sse')).not.toThrow();
+  it('accepts https URLs that resolve publicly', async () => {
+    await expect(mod.validateMcpServerUrl('https://mcp.example.com/sse')).resolves.toBeUndefined();
   });
 
-  it('rejects garbage', () => {
-    expect(() => mod.validateMcpServerUrl('not a url')).toThrow('Invalid URL');
+  it('rejects garbage', async () => {
+    await expect(mod.validateMcpServerUrl('not a url')).rejects.toThrow('Invalid URL');
   });
 
-  it('allows http on localhost outside production', () => {
+  it('allows http on localhost outside production', async () => {
     // vitest runs with NODE_ENV !== 'production'
-    expect(() => mod.validateMcpServerUrl('http://localhost:3000/mcp')).not.toThrow();
-    expect(() => mod.validateMcpServerUrl('http://127.0.0.1:8080/mcp')).not.toThrow();
+    await expect(mod.validateMcpServerUrl('http://localhost:3000/mcp')).resolves.toBeUndefined();
+    await expect(mod.validateMcpServerUrl('http://127.0.0.1:8080/mcp')).resolves.toBeUndefined();
   });
 
-  it('rejects plain http to remote hosts even in development', () => {
-    expect(() => mod.validateMcpServerUrl('http://mcp.example.com')).toThrow(/https/);
+  it('rejects plain http to remote hosts even in development', async () => {
+    await expect(mod.validateMcpServerUrl('http://mcp.example.com')).rejects.toThrow(/https/);
+  });
+
+  it('rejects literal private/reserved IPs', async () => {
+    await expect(mod.validateMcpServerUrl('https://10.0.0.5/mcp')).rejects.toThrow('private address');
+    await expect(mod.validateMcpServerUrl('https://169.254.169.254/latest/meta-data')).rejects.toThrow(
+      'private address',
+    );
+  });
+
+  it('rejects hostnames that resolve to a private address', async () => {
+    await expect(mod.validateMcpServerUrl('https://internal.example/mcp')).rejects.toThrow('private address');
   });
 });
 
@@ -48,37 +73,39 @@ describe('normalizeMcpScopes', () => {
 });
 
 describe('validateMcpOAuthConfig', () => {
-  it('ignores non-oauth auth types', () => {
-    expect(() => mod.validateMcpOAuthConfig({ authType: 'bearer' })).not.toThrow();
+  it('ignores non-oauth auth types', async () => {
+    await expect(mod.validateMcpOAuthConfig({ authType: 'bearer' })).resolves.toBeUndefined();
   });
 
-  it('requires both manual endpoints when no issuer is set', () => {
-    expect(() =>
+  it('requires both manual endpoints when no issuer is set', async () => {
+    await expect(
       mod.validateMcpOAuthConfig({ authType: 'oauth', oauthAuthorizationUrl: 'https://a.example/authorize' }),
-    ).toThrow(/both authorization and token URLs/);
+    ).rejects.toThrow(/both authorization and token URLs/);
   });
 
-  it('accepts a full manual endpoint pair', () => {
-    expect(() =>
+  it('accepts a full manual endpoint pair', async () => {
+    await expect(
       mod.validateMcpOAuthConfig({
         authType: 'oauth',
         oauthAuthorizationUrl: 'https://a.example/authorize',
         oauthTokenUrl: 'https://a.example/token',
       }),
-    ).not.toThrow();
+    ).resolves.toBeUndefined();
   });
 
-  it('validates each provided URL', () => {
-    expect(() => mod.validateMcpOAuthConfig({ authType: 'oauth', oauthIssuerUrl: 'http://evil.example' })).toThrow(
-      /https/,
-    );
+  it('validates each provided URL', async () => {
+    await expect(
+      mod.validateMcpOAuthConfig({ authType: 'oauth', oauthIssuerUrl: 'http://evil.example' }),
+    ).rejects.toThrow(/https/);
   });
 
-  it('validates URL-shaped client ids', () => {
-    expect(() => mod.validateMcpOAuthConfig({ authType: 'oauth', oauthClientId: 'http://evil.example' })).toThrow(
-      /https/,
-    );
-    expect(() => mod.validateMcpOAuthConfig({ authType: 'oauth', oauthClientId: 'plain-client-id' })).not.toThrow();
+  it('validates URL-shaped client ids', async () => {
+    await expect(
+      mod.validateMcpOAuthConfig({ authType: 'oauth', oauthClientId: 'http://evil.example' }),
+    ).rejects.toThrow(/https/);
+    await expect(
+      mod.validateMcpOAuthConfig({ authType: 'oauth', oauthClientId: 'plain-client-id' }),
+    ).resolves.toBeUndefined();
   });
 });
 

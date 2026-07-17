@@ -16,7 +16,7 @@ export const GET = withError(
     const server = await getUserMcpServerById({ id, userId: user.id });
     if (!server) throw new ChatSDKError('not_found:api', 'MCP server not found');
 
-    validateMcpServerUrl(server.url);
+    await validateMcpServerUrl(server.url);
 
     const client = await createMCPClient({
       transport: {

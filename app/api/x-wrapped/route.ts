@@ -6,6 +6,7 @@ import { getTweet } from 'react-tweet/api';
 import { kvGet, kvSet } from '@/lib/redis';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
+import { unauthenticatedRateLimit, getClientIdentifier } from '@/lib/rate-limit';
 
 interface CitationSource {
   sourceType?: string;
@@ -80,6 +81,16 @@ export async function POST(req: NextRequest) {
     const cached = await kvGet<XWrappedData>(cacheKey);
     if (cached) {
       return NextResponse.json(cached);
+    }
+
+    // Cache misses run a 16-step grok search plan plus a second generation
+    // call — expensive enough that an attacker cycling through usernames
+    // could rack up a large xAI bill. Only uncached generations count
+    // against the quota so cache hits stay fast for everyone.
+    const identifier = getClientIdentifier(req);
+    const rateLimitResult = await unauthenticatedRateLimit.limit(identifier);
+    if (!rateLimitResult.success) {
+      return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
     }
 
     const startDate = `${year}-01-01`;

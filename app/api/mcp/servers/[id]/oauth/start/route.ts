@@ -14,7 +14,7 @@ export const POST = withProAuth(
 
     const server = injectManagedOAuthCredentials(rawServer);
 
-    validateMcpOAuthConfig({
+    await validateMcpOAuthConfig({
       authType: 'oauth',
       oauthIssuerUrl: server.oauthIssuerUrl ?? undefined,
       oauthAuthorizationUrl: server.oauthAuthorizationUrl ?? undefined,

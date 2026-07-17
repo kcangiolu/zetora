@@ -70,7 +70,22 @@ const RaycastRequestSchema = z.object({
   group: z.enum(['web', 'x']).default('web'),
 });
 
+// This route is exempted from session-cookie middleware (proxy.ts) so the
+// Raycast extension can call it without a browser session — it must instead
+// be gated by its own shared secret, or it's a free LLM + web-search proxy
+// for anyone who finds the URL.
+function verifyRaycastSecret(req: Request): boolean {
+  const secret = process.env.RAYCAST_API_SECRET;
+  if (!secret || secret === 'placeholder') return false;
+  const auth = req.headers.get('authorization');
+  return auth === `Bearer ${secret}`;
+}
+
 export async function POST(req: Request) {
+  if (!verifyRaycastSecret(req)) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+
   let body: unknown;
   try {
     body = await req.json();

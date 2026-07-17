@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { lookup } from 'node:dns/promises';
+import { isIP } from 'node:net';
 import type { UserMcpServer } from '@/lib/db/schema';
 import { decryptMcpCredentials, encryptMcpCredentials } from '@/lib/mcp/crypto';
 
@@ -35,7 +37,35 @@ export interface McpServerInput {
   isEnabled?: boolean;
 }
 
-export function validateMcpServerUrl(url: string) {
+// Mirrors the private-IP check in app/api/proxy-image/route.ts: MCP server
+// URLs are user-supplied (Pro users register/test them), so without this an
+// attacker could point a server at an internal service or the cloud
+// metadata endpoint and read the response through the MCP bridge/tools APIs.
+function isPrivateIp(ip: string): boolean {
+  if (ip.includes(':')) {
+    const lower = ip.toLowerCase();
+    if (lower === '::' || lower === '::1') return true;
+    if (lower.startsWith('fe80:') || lower.startsWith('fc') || lower.startsWith('fd')) return true;
+    const mapped = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+    if (mapped) return isPrivateIp(mapped[1]);
+    return false;
+  }
+  const parts = ip.split('.').map(Number);
+  if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) return true;
+  const [a, b] = parts;
+  return (
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    (a === 100 && b >= 64 && b <= 127) || // CGNAT
+    (a === 169 && b === 254) || // link-local / cloud metadata
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    a >= 224 // multicast + reserved
+  );
+}
+
+export async function validateMcpServerUrl(url: string) {
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -50,6 +80,20 @@ export function validateMcpServerUrl(url: string) {
 
   if (!isHttps && !isAllowedLocalHttp) {
     throw new Error('Only https URLs are allowed in production (http localhost allowed in development)');
+  }
+
+  // Dev-mode localhost is explicitly allowed above; everything else must
+  // resolve to a public address, even in dev, so behavior stays consistent.
+  if (isAllowedLocalHttp) return;
+
+  const host = parsed.hostname;
+  if (isIP(host)) {
+    if (isPrivateIp(host)) throw new Error('Target resolves to a private address');
+    return;
+  }
+  const addresses = await lookup(host, { all: true, verbatim: true }).catch(() => []);
+  if (addresses.length === 0 || addresses.some((a) => isPrivateIp(a.address))) {
+    throw new Error('Target resolves to a private address');
   }
 }
 
@@ -121,7 +165,7 @@ export function normalizeMcpScopes(scopes: string | undefined) {
   return cleaned || null;
 }
 
-export function validateMcpOAuthConfig(
+export async function validateMcpOAuthConfig(
   input: Pick<
     McpServerInput,
     'authType' | 'oauthIssuerUrl' | 'oauthAuthorizationUrl' | 'oauthTokenUrl' | 'oauthClientId'
@@ -138,8 +182,8 @@ export function validateMcpOAuthConfig(
     throw new Error('Provide both authorization and token URLs when using manual OAuth endpoints');
   }
 
-  if (issuerUrl) validateMcpServerUrl(issuerUrl);
-  if (authUrl) validateMcpServerUrl(authUrl);
-  if (tokenUrl) validateMcpServerUrl(tokenUrl);
-  if (clientId && /^https?:\/\//i.test(clientId)) validateMcpServerUrl(clientId);
+  if (issuerUrl) await validateMcpServerUrl(issuerUrl);
+  if (authUrl) await validateMcpServerUrl(authUrl);
+  if (tokenUrl) await validateMcpServerUrl(tokenUrl);
+  if (clientId && /^https?:\/\//i.test(clientId)) await validateMcpServerUrl(clientId);
 }

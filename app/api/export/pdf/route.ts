@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unauthenticatedRateLimit, getClientIdentifier } from '@/lib/rate-limit';
 import { PDFDocument, StandardFonts, rgb, PDFName, PDFString } from 'pdf-lib';
 import { Lexer } from 'marked';
 import { readFileSync } from 'node:fs';
@@ -186,6 +187,14 @@ function parsePdfExportBody(value: unknown): PdfExportBody | null {
 
 export async function POST(req: NextRequest) {
   try {
+    // MathJax/sharp rendering is CPU-heavy and this route has no session
+    // requirement (shared-chat exports can come from anonymous visitors), so
+    // rate-limit by IP the same way /api/upload and /api/x-wrapped do.
+    const rateLimitResult = await unauthenticatedRateLimit.limit(getClientIdentifier(req));
+    if (!rateLimitResult.success) {
+      return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
+    }
+
     const body = parsePdfExportBody(await req.json());
     if (!body) {
       return NextResponse.json({ error: 'Invalid content' }, { status: 400 });

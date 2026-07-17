@@ -92,10 +92,10 @@ export const PATCH = withProAuth(
     if (!existing) return new ChatSDKError('not_found:api', 'MCP server not found').toResponse();
 
     const input = updateMcpServerSchema.parse(await request.json());
-    if (input.url) validateMcpServerUrl(input.url);
+    if (input.url) await validateMcpServerUrl(input.url);
 
     const nextAuthType = input.authType ?? existing.authType;
-    validateMcpOAuthConfig({
+    await validateMcpOAuthConfig({
       authType: nextAuthType,
       oauthIssuerUrl: input.oauthIssuerUrl ?? existing.oauthIssuerUrl ?? undefined,
       oauthAuthorizationUrl: input.oauthAuthorizationUrl ?? existing.oauthAuthorizationUrl ?? undefined,

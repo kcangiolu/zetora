@@ -193,9 +193,9 @@ function normalizeOrigin(value: string) {
   return value.replace(/\/+$/, '');
 }
 
-function canonicalizeResourceUri(rawUrl: string) {
+async function canonicalizeResourceUri(rawUrl: string) {
   const parsed = new URL(rawUrl);
-  validateMcpServerUrl(parsed.toString());
+  await validateMcpServerUrl(parsed.toString());
   parsed.hash = '';
   parsed.protocol = parsed.protocol.toLowerCase();
   parsed.hostname = parsed.hostname.toLowerCase();
@@ -286,7 +286,7 @@ async function discoverProtectedResourceMetadata(serverUrl: string) {
     let metadataUrl: string;
     try {
       metadataUrl = new URL(candidate).toString();
-      validateMcpServerUrl(metadataUrl);
+      await validateMcpServerUrl(metadataUrl);
     } catch {
       continue;
     }
@@ -294,7 +294,7 @@ async function discoverProtectedResourceMetadata(serverUrl: string) {
     if (!metadata) continue;
     const discoveredIssuer = metadata.authorization_servers?.[0]?.trim() || null;
     if (discoveredIssuer) {
-      validateMcpServerUrl(discoveredIssuer);
+      await validateMcpServerUrl(discoveredIssuer);
       const scopeFromChallenge = stripOidcScopes(bearerChallenge.scope?.trim() || null);
       const scopeFromMetadata = stripOidcScopes(metadata.scopes_supported?.join(' ').trim() || null);
       return {
@@ -311,20 +311,20 @@ async function discoverProtectedResourceMetadata(serverUrl: string) {
 }
 
 async function discoverAuthorizationServerMetadata(issuerUrl: string) {
-  validateMcpServerUrl(issuerUrl);
+  await validateMcpServerUrl(issuerUrl);
   const candidates = getAuthorizationServerMetadataUrls(issuerUrl);
   for (const url of candidates) {
     const metadata = await fetchJson<OAuthServerMetadata>(url);
     if (!metadata) continue;
     if (!metadata.authorization_endpoint || !metadata.token_endpoint) continue;
-    validateMcpServerUrl(metadata.authorization_endpoint);
-    validateMcpServerUrl(metadata.token_endpoint);
+    await validateMcpServerUrl(metadata.authorization_endpoint);
+    await validateMcpServerUrl(metadata.token_endpoint);
     const methods = metadata.code_challenge_methods_supported;
     if (!Array.isArray(methods) || !methods.includes('S256')) {
       throw new Error('OAuth authorization server must support PKCE S256');
     }
     const registrationUrl = metadata.registration_endpoint ?? null;
-    if (registrationUrl) validateMcpServerUrl(registrationUrl);
+    if (registrationUrl) await validateMcpServerUrl(registrationUrl);
 
     return {
       authorizationUrl: metadata.authorization_endpoint,
@@ -406,7 +406,7 @@ async function registerDynamicOAuthClient({
   serverId: string;
   requestOrigin: string;
 }) {
-  validateMcpServerUrl(registrationUrl);
+  await validateMcpServerUrl(registrationUrl);
   const origin = getTrustedAppOrigin(requestOrigin);
   const redirectUri = getOAuthCallbackUri(origin);
   const response = await fetch(registrationUrl, {
@@ -449,7 +449,7 @@ async function registerDynamicOAuthClient({
 export async function resolveOAuthEndpoints(
   server: Pick<UserMcpServer, 'url' | 'oauthIssuerUrl' | 'oauthAuthorizationUrl' | 'oauthTokenUrl'>,
 ): Promise<OAuthEndpointConfig> {
-  const resource = canonicalizeResourceUri(server.url);
+  const resource = await canonicalizeResourceUri(server.url);
   const isSlackMcpResource = (() => {
     try {
       return new URL(resource).hostname.toLowerCase() === SLACK_MCP_RESOURCE_HOST;
@@ -460,7 +460,7 @@ export async function resolveOAuthEndpoints(
   const protectedMetadata = await discoverProtectedResourceMetadata(resource);
   const discoveredIssuer = protectedMetadata.issuerUrl;
   const configuredIssuer = server.oauthIssuerUrl?.trim() || null;
-  if (configuredIssuer) validateMcpServerUrl(configuredIssuer);
+  if (configuredIssuer) await validateMcpServerUrl(configuredIssuer);
 
   const issuerForDiscovery = configuredIssuer || discoveredIssuer;
   if (issuerForDiscovery) {
@@ -505,8 +505,8 @@ export async function resolveOAuthEndpoints(
   }
 
   if (server.oauthAuthorizationUrl && server.oauthTokenUrl) {
-    validateMcpServerUrl(server.oauthAuthorizationUrl);
-    validateMcpServerUrl(server.oauthTokenUrl);
+    await validateMcpServerUrl(server.oauthAuthorizationUrl);
+    await validateMcpServerUrl(server.oauthTokenUrl);
     const authorizationUrl = isSlackMcpResource ? SLACK_AUTHORIZATION_ENDPOINT : server.oauthAuthorizationUrl;
     const tokenUrl = isSlackMcpResource ? SLACK_TOKEN_ENDPOINT : server.oauthTokenUrl;
     return {

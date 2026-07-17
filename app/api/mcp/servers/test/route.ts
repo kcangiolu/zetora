@@ -66,8 +66,8 @@ export const POST = withProAuth(async (request, { user }) => {
             authType: stored.authType,
           };
         })()
-      : (() => {
-          validateMcpServerUrl(input.url!);
+      : await (async () => {
+          await validateMcpServerUrl(input.url!);
           const headers: Record<string, string> = {};
 
           if (input.authType === 'bearer' && input.bearerToken) {
@@ -86,7 +86,7 @@ export const POST = withProAuth(async (request, { user }) => {
           };
         })();
 
-    validateMcpServerUrl(serverConfig.url);
+    await validateMcpServerUrl(serverConfig.url);
     errorContext = {
       transportType: serverConfig.transportType,
       url: serverConfig.url,
