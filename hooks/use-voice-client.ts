@@ -1016,7 +1016,7 @@ export function useVoiceClient(options: VoiceClientOptions = {}): UseVoiceClient
       setAgentState(null);
       cleanup();
     }
-  }, [cleanup, instructions, startCapture, playAudio, stopPlayback, cancelAssistantResponse, getAudioContext]);
+  }, [cleanup, instructions, startCapture, playAudio, stopPlayback, cancelAssistantResponse, getAudioContext, backend]);
 
   const disconnect = useCallback(() => {
     intentionalDisconnectRef.current = true;

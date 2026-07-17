@@ -869,6 +869,12 @@ function McpAppOutputBlock({
   const [isLoading, setIsLoading] = useState(app.kind === 'ui-resource');
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  // isFullscreen ref — read at call time in the bridge's onsizechange handler
+  // so toggling fullscreen doesn't re-trigger (and reconnect) the bridge effect
+  const isFullscreenRef = useRef(false);
+  useEffect(() => {
+    isFullscreenRef.current = isFullscreen;
+  }, [isFullscreen]);
   const [isClosingFullscreen, setIsClosingFullscreen] = useState(false);
   const buildHostContextRef = useRef<() => McpUiHostContext>(() => ({
     displayMode: 'inline',
@@ -1087,13 +1093,13 @@ function McpAppOutputBlock({
       logMcpAppDebug('bridge-size-change', {
         toolName: app.toolName,
         height,
-        isFullscreen,
+        isFullscreen: isFullscreenRef.current,
       });
       if (cancelled || !Number.isFinite(height) || !height) return;
       // Ignore size updates while fullscreen — the app reports viewport height
       // which would corrupt the inline height on close
       setIframeHeight((prev) => {
-        if (isFullscreen) return prev;
+        if (isFullscreenRef.current) return prev;
         return Math.max(450, Number(height));
       });
     };
@@ -1271,7 +1277,7 @@ function McpAppOutputBlock({
         void (currentBridge as any).close?.();
       }
     };
-  }, [app.kind, app.serverId, resolvedHtml, useSandbox, proxyBridgeRequest]);
+  }, [app.kind, app.serverId, app.toolName, app.resourceUri, resolvedHtml, useSandbox, sandboxUrl, proxyBridgeRequest]);
 
   // Keep the app in sync when the host theme or display mode changes
   useEffect(() => {
@@ -2454,8 +2460,12 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
     const router = useRouter();
     const queryClient = useQueryClient();
     const isMobile = useIsMobile();
+    // inlineElicitationVersion isn't read in the body — it's a manual
+    // invalidation counter that forces recomputation when
+    // ignoredInlineElicitationIdsRef.current (a ref) changes.
     const inlineElicitations = useMemo(
       () => getPendingInlineElicitations(dataStream ?? [], ignoredInlineElicitationIdsRef.current),
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       [dataStream, inlineElicitationVersion],
     );
     const meta = message?.metadata;
