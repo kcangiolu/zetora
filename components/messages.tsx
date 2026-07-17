@@ -446,7 +446,7 @@ const MessagesImpl: React.FC<MessagesProps> = ({
   return (
     <div className={cn(bottomSpacerClassName, 'flex-1 min-h-0 flex flex-col')} style={{ overflowAnchor: 'none' }}>
       <Virtuoso
-        style={{ height: '100%' }}
+        style={{ height: '100%', overflowX: 'hidden' }}
         data={memoizedMessages}
         computeItemKey={(index, message) => message.id ?? index}
         followOutput={(isAtBottom) => (isAtBottom ? 'smooth' : false)}
