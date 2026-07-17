@@ -123,7 +123,7 @@ export function ShareViewer({ chatId, chatTitle, shareUrl, messages, isSignedIn,
       </div>
 
       {/* Messages */}
-      <div className="mx-auto flex h-screen w-full max-w-2xl flex-col gap-6 px-4 pb-28 pt-14">
+      <div className="mx-auto flex h-dvh w-full max-w-2xl flex-col gap-6 px-4 pb-28 pt-14">
         <div className="w-full flex-1 flex flex-col min-h-0">
           <Messages
             messages={shareMessages}
