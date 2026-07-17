@@ -40,6 +40,8 @@ import {
   X,
   MoreVertical,
   ExternalLink,
+  Eye,
+  Code2,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -427,6 +429,27 @@ interface CodeBlockInnerProps extends CodeBlockProps {
   allowPlainTextFallback?: boolean;
 }
 
+// Renders raw SVG markup from an ```svg code fence as an actual image.
+// Uses a fully sandboxed iframe (no allow-scripts/allow-same-origin) so
+// embedded <script> tags or event handlers in untrusted SVG content never
+// execute, regardless of what the model produced.
+const SvgPreview: React.FC<{ svg: string }> = ({ svg }) => {
+  const srcDoc = useMemo(
+    () =>
+      `<!doctype html><html><head><meta charset="utf-8"><style>` +
+      `html,body{margin:0;height:100%;display:flex;align-items:center;justify-content:center;background:transparent;}` +
+      `svg{max-width:100%;max-height:380px;width:auto;height:auto;}` +
+      `</style></head><body>${svg}</body></html>`,
+    [svg],
+  );
+
+  return (
+    <div className="flex items-center justify-center bg-background/40 p-4">
+      <iframe srcDoc={srcDoc} sandbox="" title="SVG preview" className="w-full border-0" style={{ height: 400 }} />
+    </div>
+  );
+};
+
 const CodeBlockInner: React.FC<CodeBlockInnerProps> = ({
   children,
   language,
@@ -438,6 +461,10 @@ const CodeBlockInner: React.FC<CodeBlockInnerProps> = ({
   const [mounted, setMounted] = useState(false);
   const { resolvedTheme } = useTheme();
   const lineCount = useMemo(() => children.split('\n').length, [children]);
+
+  // SVG code fences render as an image by default, with a toggle back to source
+  const isSvg = language?.trim().toLowerCase() === 'svg';
+  const [showSource, setShowSource] = useState(false);
 
   // Use global state store for collapse state - persists across remounts
   // Key is stable (based on content prefix, not length)
@@ -624,6 +651,15 @@ const CodeBlockInner: React.FC<CodeBlockInnerProps> = ({
         </div>
 
         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+          {isSvg && (
+            <button
+              onClick={() => setShowSource((prev) => !prev)}
+              className="p-1 rounded border border-border/40 bg-background/50 text-muted-foreground/50 hover:text-foreground active:text-foreground transition-colors touch-manipulation"
+              title={showSource ? 'Show preview' : 'Show source'}
+            >
+              {showSource ? <Eye size={11} /> : <Code2 size={11} />}
+            </button>
+          )}
           {!isCollapsed && (
             <button
               onClick={toggleWrap}
@@ -649,7 +685,9 @@ const CodeBlockInner: React.FC<CodeBlockInnerProps> = ({
         </div>
       </div>
 
-      {isCollapsed ? (
+      {isSvg && !showSource ? (
+        <SvgPreview svg={children} />
+      ) : isCollapsed ? (
         <div className="relative cursor-pointer" onClick={toggleCollapse}>
           <div
             className="relative [&_pre]:m-0! [&_pre]:p-2! [&_code]:text-sm! [&_code]:leading-relaxed! [&_pre]:overflow-hidden! max-h-24 overflow-hidden"
