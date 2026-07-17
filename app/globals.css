@@ -135,6 +135,48 @@
   }
 }
 
+/* Zetora logo — orbit drift + pupil gaze (see components/logos/zetora-logo.tsx) */
+@keyframes zetora-orbit-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes zetora-gaze {
+  0%,
+  13% {
+    transform: translate(0, 0);
+  }
+  19%,
+  30% {
+    transform: translate(6px, 1px);
+  }
+  36%,
+  50% {
+    transform: translate(-5.2px, -1.3px);
+  }
+  56%,
+  68% {
+    transform: translate(2.3px, 1.6px);
+  }
+  74%,
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+.zetora-orbit {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: zetora-orbit-spin 60s linear infinite;
+}
+
+.zetora-pupil {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: zetora-gaze 8.5s cubic-bezier(0.6, 0, 0.2, 1) infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-reveal-line {
     animation: none !important;
