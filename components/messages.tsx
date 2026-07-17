@@ -4,6 +4,7 @@ import { Message } from '@/components/message';
 import { DataUIPart, isToolUIPart } from 'ai';
 import { EnhancedErrorDisplay } from '@/components/message';
 import { MessagePartRenderer } from '@/components/message-parts';
+import { StreamingIndicator } from '@/components/streaming-indicator';
 import { deleteTrailingMessages } from '@/app/actions';
 import { Attachment, ChatMessage, CustomUIDataTypes } from '@/lib/types';
 import { UseChatHelpers } from '@ai-sdk/react';
@@ -412,20 +413,7 @@ const MessagesImpl: React.FC<MessagesProps> = ({
             className={`flex items-start ${shouldReserveLoaderMinHeight ? 'min-h-[calc(100vh-18rem)]' : ''} m-0! p-0!`}
           >
             <div className="w-full m-0! p-0!">
-              <div className="flex space-x-2 mt-5 ml-2">
-                <div
-                  className="size-3 rounded-full bg-muted-foreground dark:bg-muted-foreground animate-bounce"
-                  style={{ animationDelay: '0ms' }}
-                ></div>
-                <div
-                  className="size-3 rounded-full bg-muted-foreground dark:bg-muted-foreground animate-bounce"
-                  style={{ animationDelay: '150ms' }}
-                ></div>
-                <div
-                  className="size-3 rounded-full bg-muted-foreground dark:bg-muted-foreground animate-bounce"
-                  style={{ animationDelay: '300ms' }}
-                ></div>
-              </div>
+              <StreamingIndicator />
             </div>
           </div>
         )}
