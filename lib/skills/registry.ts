@@ -335,38 +335,75 @@ zetora_save_file('/tmp/output.pptx', 'presentation.pptx')
 
 **Phase 1 — Plan**: Title, structure, content. Research first if needed.
 
-**Phase 2 — Generate via code_interpreter**: Use reportlab.
+**Phase 2 — Generate via code_interpreter**: Never use \`!pip install\` — the \`!\` shell-escape only works in Jupyter, not in a script run via \`exec()\`, and it will raise \`SyntaxError\`. Also assume \`pip\` itself may be unavailable in the sandbox (\`ensurepip\` can fail with permission denied). Detect what's importable and prefer \`fpdf2\`, which is reliably preinstalled; only use \`reportlab\` if it happens to already be importable.
 
 \`\`\`python
-!pip install reportlab -q
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch, cm
-from reportlab.lib.colors import HexColor
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
+try:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.units import inch, cm
+    from reportlab.lib.colors import HexColor
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    HAS_REPORTLAB = True
+except ImportError:
+    HAS_REPORTLAB = False
 
-doc = SimpleDocTemplate('/tmp/output.pdf', pagesize=A4, topMargin=2*cm, bottomMargin=2*cm, leftMargin=2.5*cm, rightMargin=2.5*cm)
-styles = getSampleStyleSheet()
-story = []
+if HAS_REPORTLAB:
+    doc = SimpleDocTemplate('/tmp/output.pdf', pagesize=A4, topMargin=2*cm, bottomMargin=2*cm, leftMargin=2.5*cm, rightMargin=2.5*cm)
+    styles = getSampleStyleSheet()
+    story = [Paragraph('TITLE', styles['Title']), Spacer(1, 0.3*inch), Paragraph('Content...', styles['BodyText'])]
 
-story.append(Paragraph('TITLE', styles['Title']))
-story.append(Spacer(1, 0.3*inch))
-story.append(Paragraph('Content...', styles['BodyText']))
+    data = [['Header1', 'Header2'], ['val1', 'val2']]
+    t = Table(data)
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), HexColor('#2F5496')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), HexColor('#FFFFFF')),
+        ('GRID', (0, 0), (-1, -1), 0.5, HexColor('#CCCCCC')),
+    ]))
+    story.append(t)
+    doc.build(story)
+else:
+    from fpdf import FPDF
 
-# For tables:
-data = [['Header1', 'Header2'], ['val1', 'val2']]
-t = Table(data)
-t.setStyle(TableStyle([
-  ('BACKGROUND', (0, 0), (-1, 0), HexColor('#2F5496')),
-  ('TEXTCOLOR', (0, 0), (-1, 0), HexColor('#FFFFFF')),
-  ('GRID', (0, 0), (-1, -1), 0.5, HexColor('#CCCCCC')),
-]))
-story.append(t)
+    class PDF(FPDF):
+        def footer(self):
+            self.set_y(-15)
+            self.set_font('Helvetica', 'I', 8)
+            self.cell(0, 10, f'Page {self.page_no()}/{{nb}}', align='C')
 
-doc.build(story)
+    pdf = PDF()
+    pdf.alias_nb_pages()
+    pdf.add_page()
+
+    pdf.set_font('Helvetica', 'B', 16)
+    pdf.cell(0, 10, 'TITLE', align='C')
+    pdf.ln(15)
+
+    pdf.set_font('Helvetica', '', 11)
+    pdf.multi_cell(0, 7, 'Content...')
+
+    # Table with styled header + alternating rows
+    data = [['Header1', 'Header2'], ['val1', 'val2']]
+    pdf.set_fill_color(47, 84, 150)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font('Helvetica', 'B', 10)
+    for cell in data[0]:
+        pdf.cell(40, 8, cell, border=1, fill=True)
+    pdf.ln()
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_font('Helvetica', '', 10)
+    for i, row in enumerate(data[1:]):
+        pdf.set_fill_color(240, 240, 240) if i % 2 else pdf.set_fill_color(255, 255, 255)
+        for cell in row:
+            pdf.cell(40, 8, cell, border=1, fill=True)
+        pdf.ln()
+
+    pdf.output('/tmp/output.pdf')
+
 zetora_save_file('/tmp/output.pdf', 'report.pdf')
 \`\`\`
+
+**Unicode caveat**: fpdf2's built-in fonts (Helvetica, Times, Courier) are Latin-1 only — em/en dashes, curly quotes, and emoji raise \`UnicodeEncodeError\`. Before writing text, replace them with ASCII equivalents (\`—\`/\`–\` → \`-\`, curly quotes → \`'\`/\`"\`), unless a TTF Unicode font (e.g. DejaVuSans) is confirmed present and registered via \`pdf.add_font()\` — don't assume one is installed.
 
 **Phase 3 — Download**: zetora_save_file() uploads the file automatically and attaches a download link — do not call any other tool for this, do not print/return base64.
 
