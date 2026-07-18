@@ -56,6 +56,7 @@ import { UseChatHelpers } from '@ai-sdk/react';
 import { ChatMessage } from '@/lib/types';
 import { useLocation } from '@/hooks/use-location';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
+import { useSessionPreference } from '@/hooks/use-session-preference';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { type ConnectorProvider } from '@/lib/connectors';
 import { useQueryClient } from '@tanstack/react-query';
@@ -305,40 +306,60 @@ const FormComponent: React.FC<FormComponentProps> = ({
   // Sources: always-on tools filtered by user preference, not a mode to pick.
   // Falls back to the pre-migration key so existing curation isn't silently
   // reset to "all enabled" for users who hid sources before this preference existed.
-  const [enabledSourcesPref, setEnabledSources] = useSyncedPreferences<string[]>('zetora-enabled-sources', []);
-  const enabledSources =
+  // This is the permanent, account-wide list owned by Preferences > Customize —
+  // the chat picker below only ever reads it, it never writes to it.
+  const [enabledSourcesPref] = useSyncedPreferences<string[]>('zetora-enabled-sources', []);
+  const globalEnabledSources =
     enabledSourcesPref.length > 0
       ? enabledSourcesPref
       : (visibleModesOuter ?? []).filter((id) => (SOURCE_CATALOG_IDS as readonly string[]).includes(id));
+  const isGloballyEnabled = useCallback(
+    (id: string) => globalEnabledSources.length === 0 || globalEnabledSources.includes(id),
+    [globalEnabledSources],
+  );
+  // Session-only override: toggling a source off in the chat picker hides it
+  // for this browser session (all chats, this browser) without touching the
+  // account-wide preference above, so it never shows as disabled in Customize
+  // and never disappears for other sessions/devices.
+  const [sessionEnabledSources, setSessionEnabledSources] = useSessionPreference<string[]>(
+    'zetora-session-enabled-sources',
+    [],
+  );
   const isSourceEnabled = useCallback(
-    (id: string) => enabledSources.length === 0 || enabledSources.includes(id),
-    [enabledSources],
+    (id: string) =>
+      isGloballyEnabled(id) && (sessionEnabledSources.length === 0 || sessionEnabledSources.includes(id)),
+    [isGloballyEnabled, sessionEnabledSources],
   );
   const toggleSource = useCallback(
     (id: string) => {
-      const base = enabledSources.length === 0 ? [...SOURCE_CATALOG_IDS] : enabledSources;
+      const base =
+        sessionEnabledSources.length === 0
+          ? SOURCE_CATALOG_IDS.filter((sourceId) => isGloballyEnabled(sourceId))
+          : sessionEnabledSources;
       const next = base.includes(id) ? base.filter((s) => s !== id) : [...base, id];
-      setEnabledSources(next);
+      setSessionEnabledSources(next);
     },
-    [enabledSources, setEnabledSources],
+    [sessionEnabledSources, isGloballyEnabled, setSessionEnabledSources],
   );
-  const enabledSourcesCount = enabledSources.length === 0 ? SOURCE_CATALOG_IDS.length : enabledSources.length;
+  const enabledSourcesCount = SOURCE_CATALOG_IDS.filter((id) => isSourceEnabled(id)).length;
   const [sourcesExpanded, setSourcesExpanded] = useState(false);
-  // Snapshot of which sources to list, taken when the submenu opens. Sources
-  // hidden entirely in Preferences > Customize never make it into this
-  // snapshot, but toggling a checkbox *within* this open submenu must not
-  // remove its own row out from under the user's cursor — only reopening the
-  // submenu (or Customize) changes which rows are offered.
+  // Snapshot of which sources to list, taken when the submenu opens. Rows are
+  // driven only by the account-wide Customize preference — sources hidden
+  // there never make it into this snapshot — while the checkbox state (via
+  // isSourceEnabled) also folds in the session-only override, so toggling a
+  // checkbox *within* this open submenu never removes its own row out from
+  // under the user's cursor. Only reopening the submenu (or Customize)
+  // changes which rows are offered.
   const [visibleSourceIds, setVisibleSourceIds] = useState<string[]>([]);
   const handleToggleSourcesExpanded = useCallback(() => {
     setSourcesExpanded((prev) => {
       const next = !prev;
       if (next) {
-        setVisibleSourceIds(SOURCE_CATALOG_IDS.filter((id) => isSourceEnabled(id)));
+        setVisibleSourceIds(SOURCE_CATALOG_IDS.filter((id) => isGloballyEnabled(id)));
       }
       return next;
     });
-  }, [isSourceEnabled]);
+  }, [isGloballyEnabled]);
 
   // Reset scroll indicator when the menu opens, and re-measure whenever the
   // Sources submenu expands/collapses — its content is what plusMenuScrollRef

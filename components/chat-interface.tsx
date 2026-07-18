@@ -68,6 +68,7 @@ import { useUsageData } from '@/hooks/use-usage-data';
 import { useUser } from '@/contexts/user-context';
 import { useOptimizedScroll } from '@/hooks/use-optimized-scroll';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
+import { useSessionPreference } from '@/hooks/use-session-preference';
 
 // Utility and type imports
 import { SEARCH_LIMITS } from '@/lib/constants';
@@ -245,6 +246,10 @@ const ChatInterface = memo(
     const [isAutoRouterEnabled] = useSyncedPreferences<boolean>('zetora-auto-router-enabled', false);
     const [autoRouterConfig] = useSyncedPreferences<AutoRouterConfig>('zetora-auto-router-config', { routes: [] });
     const [scrollToLatestOnOpen] = useSyncedPreferences<boolean>('zetora-scroll-to-latest-on-open', false);
+    // Browser-session-only source overrides set from the chat picker (see
+    // components/ui/form-component) — never persisted to the account-wide
+    // zetora-enabled-sources preference, only sent along with this session's requests.
+    const [sessionEnabledSources] = useSessionPreference<string[]>('zetora-session-enabled-sources', []);
 
     // State for tracking the auto-routed model
     const [autoRoutedModel, setAutoRoutedModel] = useState<{ model: string; route: string } | null>(null);
@@ -574,6 +579,7 @@ const ChatInterface = memo(
     const searchProviderRef = useRef(searchProvider);
     const extremeSearchProviderRef = useRef<'exa'>('exa');
     const selectedConnectorsRef = useRef(selectedConnectors);
+    const sessionEnabledSourcesRef = useRef(sessionEnabledSources);
     const isMultiAgentModeEnabledRef = useRef(isMultiAgentModeEnabled);
     const isTemporaryChatRef = useRef(isTemporaryChat);
     const skipCacheRef = useRef(false);
@@ -586,6 +592,7 @@ const ChatInterface = memo(
     searchProviderRef.current = searchProvider;
     extremeSearchProviderRef.current = 'exa';
     selectedConnectorsRef.current = selectedConnectors;
+    sessionEnabledSourcesRef.current = sessionEnabledSources;
     isMultiAgentModeEnabledRef.current = isMultiAgentModeEnabled;
     isTemporaryChatRef.current = isTemporaryChat;
 
@@ -637,6 +644,7 @@ const ChatInterface = memo(
               searchProvider: searchProviderRef.current,
               extremeSearchProvider: extremeSearchProviderRef.current,
               selectedConnectors: selectedConnectorsRef.current,
+              sessionEnabledSources: sessionEnabledSourcesRef.current,
               isTemporaryChat: isTemporaryChatRef.current,
               ...(initialChatId ? { chat_id: initialChatId } : {}),
               ...body,
