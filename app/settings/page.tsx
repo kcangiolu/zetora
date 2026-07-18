@@ -173,7 +173,7 @@ function SettingsContent() {
                   )}
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent position="popper">
                 {tabs.map((tab) => (
                   <SelectItem key={tab.value} value={tab.value}>
                     <div className="flex items-center gap-2">
