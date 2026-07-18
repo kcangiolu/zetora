@@ -12,6 +12,10 @@ import { SVG } from '@mathjax/src/mjs/output/svg.js';
 import { MathJaxNewcmFont } from '@mathjax/mathjax-newcm-font/mjs/svg.js';
 import { liteAdaptor } from '@mathjax/src/mjs/adaptors/liteAdaptor.js';
 import { RegisterHTMLHandler } from '@mathjax/src/mjs/handlers/html.js';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('export-pdf');
+
 import '@mathjax/src/mjs/util/asyncLoad/esm.js';
 import '@mathjax/src/mjs/input/tex/base/BaseConfiguration.js';
 import '@mathjax/src/mjs/input/tex/ams/AmsConfiguration.js';
@@ -329,7 +333,7 @@ export async function POST(req: NextRequest) {
         if (!isSupportedByFont(char, mainFont)) {
           // Log unsupported character for debugging
           const charCode = char.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0');
-          console.warn(`Unsupported character: '${char}' (U+${charCode}) in Geist font`);
+          log.warn(`Unsupported character: '${char}' (U+${charCode}) in Geist font`);
           continue;
         }
 
@@ -344,7 +348,7 @@ export async function POST(req: NextRequest) {
           currentX += fontToUse.widthOfTextAtSize(char, size);
         } catch (err) {
           // Log error but continue rendering
-          console.warn(`Failed to draw character '${char}':`, err);
+          log.warn(`Failed to draw character '${char}':`, err);
         }
       }
     };
@@ -1161,7 +1165,7 @@ export async function POST(req: NextRequest) {
           y = pageHeight - margin;
         }
       } catch (e) {
-        console.warn('MathJax display render failed:', e instanceof Error ? e.message : String(e));
+        log.warn('MathJax display render failed:', e instanceof Error ? e.message : String(e));
       }
     };
 
@@ -1202,7 +1206,7 @@ export async function POST(req: NextRequest) {
             seg._drawH = finalH;
             seg._drawW = finalW;
           } catch (e) {
-            console.warn('MathJax inline render failed:', e instanceof Error ? e.message : String(e));
+            log.warn('MathJax inline render failed:', e instanceof Error ? e.message : String(e));
             const fb = simplifyLatex(seg.latex || '');
             seg.text = fb;
             delete seg.latex;
@@ -2066,7 +2070,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (e: any) {
-    console.error('PDF export error:', e);
+    log.error('PDF export error:', e);
     return NextResponse.json({ error: e?.message || 'Failed to generate PDF' }, { status: 500 });
   }
 }

@@ -7,6 +7,10 @@ import Parallel from 'parallel-web';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('reddit-search');
+
 interface ParallelSearchResult {
   url?: string;
   title?: string;
@@ -82,9 +86,9 @@ export function redditSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>
       maxResults?: number[];
       timeRange?: TimeRange[];
     }) => {
-      console.log('Reddit search queries:', queries);
-      console.log('Max results:', maxResults);
-      console.log('Time ranges:', timeRange);
+      log.debug('Reddit search queries:', queries);
+      log.debug('Max results:', maxResults);
+      log.debug('Time ranges:', timeRange);
 
       const parallel = new Parallel({ apiKey: serverEnv.PARALLEL_API_KEY });
       const searchPromises = queries.map(async (query, index) => {
@@ -166,7 +170,7 @@ export function redditSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>
             results: processedResults,
           };
         } catch (error) {
-          console.error(`Reddit search error for query "${query}":`, error);
+          log.error(`Reddit search error for query "${query}":`, error);
 
           // Send error notification
           dataStream?.write({

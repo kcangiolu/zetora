@@ -8,6 +8,10 @@ import { storageClient, STORAGE_BUCKET_NAME, STORAGE_PUBLIC_URL } from '@/lib/st
 import { persistGeneratedFile } from '@/lib/generated-file-storage';
 import { validateFileBuffer } from '@/lib/file-integrity';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('code-interpreter');
+
 interface CodeInterpreterContext {
   userPreferences?: {
     'zetora-sandbox-provider'?: SandboxProviderType;
@@ -75,9 +79,9 @@ export const codeInterpreterTool = tool({
     icon: z.enum(['stock', 'date', 'calculation', 'default']).describe('The icon to display for the code snippet.'),
   }),
   execute: async ({ code, title, icon }: { code: string; title: string; icon: string }, { experimental_context }) => {
-    console.log('Code:', code);
-    console.log('Title:', title);
-    console.log('Icon:', icon);
+    log.debug('Code:', code);
+    log.debug('Title:', title);
+    log.debug('Icon:', icon);
 
     const context = experimental_context as CodeInterpreterContext | undefined;
     const preferredProvider = context?.userPreferences?.['zetora-sandbox-provider'];
@@ -85,8 +89,8 @@ export const codeInterpreterTool = tool({
 
     const result = await provider.execute(code, 30000);
 
-    console.log('Execution result:', result.stdout);
-    console.log('Execution stderr:', result.stderr);
+    log.debug('Execution result:', result.stdout);
+    log.debug('Execution stderr:', result.stderr);
 
     const message = result.stdout || result.stderr || 'Code executed with no output.';
 
@@ -100,9 +104,9 @@ export const codeInterpreterTool = tool({
           context,
           'code_interpreter',
         );
-        console.log('Chart uploaded:', chartPngUrl);
+        log.debug('Chart uploaded:', chartPngUrl);
       } catch (uploadError) {
-        console.error('Chart upload failed:', uploadError);
+        log.error('Chart upload failed:', uploadError);
       }
     }
 
@@ -125,7 +129,13 @@ export const codeInterpreterTool = tool({
         continue;
       }
       try {
-        const url = await uploadBuffer(buffer, file.filename, getContentType(file.filename), context, 'code_interpreter');
+        const url = await uploadBuffer(
+          buffer,
+          file.filename,
+          getContentType(file.filename),
+          context,
+          'code_interpreter',
+        );
         files.push({ filename: file.filename, url, size: buffer.length });
       } catch (uploadError) {
         fileErrors.push(

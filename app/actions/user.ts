@@ -40,6 +40,10 @@ import { lookoutCallbackHeaders, lookoutQstashHeaders } from '@/lib/lookout-auth
 import { saveChat, saveMessages } from '@/lib/db/queries';
 import { all, allSettled } from 'better-all';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('user');
+
 // Server action to get the current user with Pro status - UNIFIED VERSION
 export async function getCurrentUser() {
   'use server';
@@ -75,7 +79,7 @@ export async function getChatMeta(chatId: string, viewerUserId?: string) {
       isOwner,
     } as const;
   } catch (error) {
-    console.error('Error in getChatMeta:', error);
+    log.error('Error in getChatMeta:', error);
     return null;
   }
 }
@@ -95,7 +99,7 @@ export async function getUserCountryCode() {
 
     return locationData.country || null;
   } catch (error) {
-    console.error('Error getting geolocation:', error);
+    log.error('Error getting geolocation:', error);
     return null;
   }
 }
@@ -120,7 +124,7 @@ export async function getUserLocation() {
       loading: false,
     };
   } catch (error) {
-    console.error('Failed to get location from Vercel:', error);
+    log.error('Failed to get location from Vercel:', error);
     return {
       country: 'Unknown',
       countryCode: '',

@@ -4,6 +4,10 @@ import fs from 'fs';
 import path from 'path';
 import { ZetoraLogo } from '@/components/logos/zetora-logo';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('og-chat');
+
 interface TextPart {
   type: 'text';
   text: string;
@@ -250,7 +254,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
       { width: 1200, height: 630, fonts },
     );
   } catch (error) {
-    console.error('Error generating OG image:', error);
+    log.error('Error generating OG image:', error);
     return new Response('Error generating OG image', { status: 500 });
   }
 }

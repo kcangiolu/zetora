@@ -8,6 +8,10 @@ import { serverEnv } from '@/env/server';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('github-search');
+
 const firecrawl = new Firecrawl({ apiKey: serverEnv.FIRECRAWL_API_KEY });
 
 const githubRepoJsonSchema: Record<string, unknown> = {
@@ -143,9 +147,9 @@ export function githubSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>
       startDate?: string;
       endDate?: string;
     }) => {
-      console.log('GitHub search queries:', queries);
-      console.log('Max results:', maxResults);
-      console.log('Date range:', startDate, '-', endDate);
+      log.debug('GitHub search queries:', queries);
+      log.debug('Max results:', maxResults);
+      log.debug('Date range:', startDate, '-', endDate);
 
       const searchPromises = queries.map(async (query, index) => {
         const currentMaxResults = maxResults?.[index] || maxResults?.[0] || 10;
@@ -286,7 +290,7 @@ export function githubSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>
             results: processedResults,
           };
         } catch (error) {
-          console.error(`GitHub search error for query "${query}":`, error);
+          log.error(`GitHub search error for query "${query}":`, error);
 
           // Send error notification
           dataStream?.write({

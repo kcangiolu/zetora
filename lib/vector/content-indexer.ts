@@ -4,6 +4,10 @@ import { getQdrantClient } from './qdrant';
 import { SEARCH_INDEX_COLLECTION } from './constants';
 import { getEmbeddingModel } from '@/ai/embeddings';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('content-indexer');
+
 const FETCH_TIMEOUT_MS = 8000;
 const CHUNK_SIZE = 2000;
 const CHUNK_OVERLAP = 200;
@@ -111,7 +115,7 @@ export async function indexSearchResults(
             },
           });
         } catch (error) {
-          console.warn('[CONTENT-INDEX] Failed to embed chunk:', error);
+          log.warn('[CONTENT-INDEX] Failed to embed chunk:', error);
         }
       }
     }
@@ -125,10 +129,10 @@ export async function indexSearchResults(
       await client.upsert(SEARCH_INDEX_COLLECTION, points.slice(i, i + UPSERT_BATCH_SIZE));
     }
 
-    console.log(
+    log.debug(
       `[CONTENT-INDEX] Background content indexing: ${points.length} chunks indexed (from ${resultsToIndex.length} result(s))`,
     );
   } catch (error) {
-    console.warn('[CONTENT-INDEX] Indexing failed:', error);
+    log.warn('[CONTENT-INDEX] Indexing failed:', error);
   }
 }

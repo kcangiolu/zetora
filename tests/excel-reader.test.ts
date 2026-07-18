@@ -18,7 +18,12 @@ describe('ExcelReader', () => {
       ['Bob', 25],
     ]);
 
-    const reader = new ExcelReader({ sheetSpecifier: 0, concatRows: true, fieldSeparator: ',', keyValueSeparator: ':' });
+    const reader = new ExcelReader({
+      sheetSpecifier: 0,
+      concatRows: true,
+      fieldSeparator: ',',
+      keyValueSeparator: ':',
+    });
     const docs = await reader.loadDataAsContent(bytes);
 
     expect(docs).toHaveLength(1);
@@ -32,7 +37,12 @@ describe('ExcelReader', () => {
       ['Alice', undefined as unknown as string],
     ]);
 
-    const reader = new ExcelReader({ sheetSpecifier: 0, concatRows: true, fieldSeparator: ',', keyValueSeparator: ':' });
+    const reader = new ExcelReader({
+      sheetSpecifier: 0,
+      concatRows: true,
+      fieldSeparator: ',',
+      keyValueSeparator: ':',
+    });
     const docs = await reader.loadDataAsContent(bytes);
 
     expect(docs[0].text).toBe('Name:Alice,Age:N/A');
@@ -45,7 +55,12 @@ describe('ExcelReader', () => {
       ['Bob', 25],
     ]);
 
-    const reader = new ExcelReader({ sheetSpecifier: 0, concatRows: false, fieldSeparator: ',', keyValueSeparator: ':' });
+    const reader = new ExcelReader({
+      sheetSpecifier: 0,
+      concatRows: false,
+      fieldSeparator: ',',
+      keyValueSeparator: ':',
+    });
     const docs = await reader.loadDataAsContent(bytes);
 
     expect(docs).toHaveLength(2);
@@ -61,7 +76,12 @@ describe('ExcelReader', () => {
     workbook.getWorksheet('Second')!.addRow(['2']);
     const bytes = new Uint8Array(await workbook.xlsx.writeBuffer());
 
-    const reader = new ExcelReader({ sheetSpecifier: 1, concatRows: true, fieldSeparator: ',', keyValueSeparator: ':' });
+    const reader = new ExcelReader({
+      sheetSpecifier: 1,
+      concatRows: true,
+      fieldSeparator: ',',
+      keyValueSeparator: ':',
+    });
     const docs = await reader.loadDataAsContent(bytes);
 
     expect(docs).toHaveLength(1);

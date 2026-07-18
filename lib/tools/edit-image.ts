@@ -2,6 +2,10 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { rehostGeneratedImage } from '@/lib/generated-file-storage';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('edit-image');
+
 interface CustomProviderConfig {
   id: string;
   name: string;
@@ -23,9 +27,7 @@ export const editImageTool = tool({
     image_url: z
       .string()
       .optional()
-      .describe(
-        'URL of the image to edit. Omit to default to the most recently uploaded image in the conversation.',
-      ),
+      .describe('URL of the image to edit. Omit to default to the most recently uploaded image in the conversation.'),
     prompt: z.string().describe('Description of the edit to apply to the image'),
     seed: z
       .number()
@@ -35,10 +37,7 @@ export const editImageTool = tool({
         'Random seed. Omit for a different result every time (default) — only set this if the user explicitly asks to reuse or repeat a previous seed.',
       ),
   }),
-  execute: async (
-    { image_url, prompt, seed },
-    { experimental_context }: { experimental_context?: unknown } = {},
-  ) => {
+  execute: async ({ image_url, prompt, seed }, { experimental_context }: { experimental_context?: unknown } = {}) => {
     const context = experimental_context as ToolContext | undefined;
     const prefs = context?.userPreferences ?? {};
 
@@ -92,7 +91,7 @@ export const editImageTool = tool({
     const headers: Record<string, string> = {};
     if (provider.apiKey) headers['Authorization'] = `Bearer ${provider.apiKey}`;
 
-    console.log(
+    log.debug(
       `[edit_image] POST ${base}/images/edits`,
       JSON.stringify({ prompt, model, n: '1', seed: finalSeed, ...extraBody }, null, 2),
       '+ image blob',
@@ -112,12 +111,15 @@ export const editImageTool = tool({
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[edit_image] ${response.status} response:`, errorText.slice(0, 2000));
-      return { success: false as const, error: `Image editing failed (${response.status}): ${errorText.slice(0, 500)}` };
+      log.error(`[edit_image] ${response.status} response:`, errorText.slice(0, 2000));
+      return {
+        success: false as const,
+        error: `Image editing failed (${response.status}): ${errorText.slice(0, 500)}`,
+      };
     }
 
     const data = await response.json();
-    console.log('[edit_image] response:', JSON.stringify(data, null, 2).slice(0, 2000));
+    log.debug('[edit_image] response:', JSON.stringify(data, null, 2).slice(0, 2000));
     const item = data?.data?.[0];
     const imageUrl: string | null = item?.url ?? (item?.b64_json ? `data:image/png;base64,${item.b64_json}` : null);
 

@@ -452,7 +452,8 @@ export async function POST(req: Request) {
   // purpose modes, 'auto', or absent) falls through to the base Sources+
   // Skills path.
   const SPECIAL_MODE_IDS = new Set(['memory', 'connectors', 'mcp', 'multi-agent', 'buddy', 'canvas']);
-  const specialMode = typeof group === 'string' && SPECIAL_MODE_IDS.has(group) ? (group as SpecialModeId | 'buddy') : undefined;
+  const specialMode =
+    typeof group === 'string' && SPECIAL_MODE_IDS.has(group) ? (group as SpecialModeId | 'buddy') : undefined;
 
   if (!Array.isArray(requestMessages) || requestMessages.length === 0) {
     return new ChatSDKError('bad_request:api', 'Messages array is required and cannot be empty').toResponse();
@@ -719,9 +720,7 @@ export async function POST(req: Request) {
 
   const prunedMessages = shouldPrune
     ? await (async () => {
-        log.info(
-          `🔧 Pruning messages: ${userMessageCount} user messages (${hydratedMessages.length} total messages)`,
-        );
+        log.info(`🔧 Pruning messages: ${userMessageCount} user messages (${hydratedMessages.length} total messages)`);
         const pruned = pruneMessages({
           reasoning: 'all',
           messages: await convertToModelMessages(hydratedMessages, {
@@ -853,7 +852,12 @@ export async function POST(req: Request) {
         const filePart = part as any;
         const mediaType = filePart.mediaType || '';
         const url = filePart.url || '';
-        if (url && !seenOtherUrls.has(url) && !mediaType.startsWith('image/') && !documentMimeTypes.includes(mediaType)) {
+        if (
+          url &&
+          !seenOtherUrls.has(url) &&
+          !mediaType.startsWith('image/') &&
+          !documentMimeTypes.includes(mediaType)
+        ) {
           seenOtherUrls.add(url);
           otherFileParts.push({ url, contentType: mediaType, name: filePart.name });
         }
@@ -1762,7 +1766,6 @@ export async function POST(req: Request) {
           closeMcpToolsSafe().catch(() => null);
         },
         onFinish: async (event) => {
-          // console.log('Finish event: ', event);
           const processingTime = (Date.now() - streamStartTime) / 1000;
           setUsageMetadataFromUsage(event.totalUsage, processingTime);
           log.info(`✅ Request completed: ${processingTime.toFixed(2)}s (${event.finishReason})`);
@@ -1869,9 +1872,6 @@ export async function POST(req: Request) {
       }
       return 'Oops, an error occurred!';
     },
-    // onStepFinish(event) {
-    //   console.log('Step finish event: ', event);
-    // },
     onFinish: async ({ messages: streamedMessages, isAborted }: { messages: ChatMessage[]; isAborted: boolean }) => {
       if (requestTimeoutTimer) clearTimeout(requestTimeoutTimer);
       if (!lightweightUser || isTemporaryChat) {

@@ -2,6 +2,10 @@ import { ImageResponse } from 'next/og';
 import fs from 'fs';
 import path from 'path';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('og-x-wrapped');
+
 export async function GET() {
   try {
     // Read the background image
@@ -109,7 +113,7 @@ export async function GET() {
       },
     );
   } catch (error) {
-    console.error('Error generating OG image:', error);
+    log.error('Error generating OG image:', error);
     return new Response('Error generating OG image', { status: 500 });
   }
 }

@@ -78,6 +78,10 @@ import { lookoutCallbackHeaders, lookoutQstashHeaders } from '@/lib/lookout-auth
 import { saveChat, saveMessages } from '@/lib/db/queries';
 import { all, allSettled } from 'better-all';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('actions-connectors');
+
 // Connector management actions
 export async function createConnectorAction(provider: ConnectorProvider) {
   'use server';
@@ -91,7 +95,7 @@ export async function createConnectorAction(provider: ConnectorProvider) {
     const authLink = await createConnection(provider, user.id);
     return { success: true, authLink };
   } catch (error) {
-    console.error('Error creating connector:', error);
+    log.error('Error creating connector:', error);
     return { success: false, error: 'Failed to create connector' };
   }
 }
@@ -108,7 +112,7 @@ export async function listUserConnectorsAction() {
     const connections = await listUserConnections(user.id);
     return { success: true, connections };
   } catch (error) {
-    console.error('Error listing connectors:', error);
+    log.error('Error listing connectors:', error);
     return { success: false, error: 'Failed to list connectors', connections: [] };
   }
 }
@@ -129,7 +133,7 @@ export async function deleteConnectorAction(connectionId: string) {
       return { success: false, error: 'Failed to delete connector' };
     }
   } catch (error) {
-    console.error('Error deleting connector:', error);
+    log.error('Error deleting connector:', error);
     return { success: false, error: 'Failed to delete connector' };
   }
 }
@@ -150,7 +154,7 @@ export async function manualSyncConnectorAction(provider: ConnectorProvider) {
       return { success: false, error: 'Failed to start sync' };
     }
   } catch (error) {
-    console.error('Error syncing connector:', error);
+    log.error('Error syncing connector:', error);
     return { success: false, error: 'Failed to start sync' };
   }
 }
@@ -167,7 +171,7 @@ export async function getConnectorSyncStatusAction(provider: ConnectorProvider) 
     const status = await getSyncStatus(provider, user.id);
     return { success: true, status };
   } catch (error) {
-    console.error('Error getting sync status:', error);
+    log.error('Error getting sync status:', error);
     return { success: false, error: 'Failed to get sync status', status: null };
   }
 }
@@ -202,7 +206,7 @@ export async function getStudentDomainsAction() {
       fallback: true,
     };
   } catch (error) {
-    console.error('Failed to fetch student domains from Edge Config:', error);
+    log.error('Failed to fetch student domains from Edge Config:', error);
 
     // Return fallback domains on error
     const fallbackDomains = ['.edu', '.ac.in'].sort();

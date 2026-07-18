@@ -4,6 +4,10 @@ import { serverEnv } from '@/env/server';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('crypto-tools');
+
 export const coinDataTool = tool({
   description: 'Get comprehensive coin data including metadata and market data by coin ID.',
   inputSchema: z.object({
@@ -29,7 +33,7 @@ export const coinDataTool = tool({
     communityData?: boolean | null;
     developerData?: boolean | null;
   }) => {
-    console.log('Fetching coin data for:', coinId);
+    log.debug('Fetching coin data for:', coinId);
 
     try {
       const params = new URLSearchParams({
@@ -64,7 +68,7 @@ export const coinDataTool = tool({
         url: `https://www.coingecko.com/en/coins/${coinId}`,
       };
     } catch (error) {
-      console.error('Coin data error:', error);
+      log.error('Coin data error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -102,7 +106,7 @@ export const coinDataByContractTool = tool({
     communityData?: boolean | null;
     developerData?: boolean | null;
   }) => {
-    console.log('Fetching coin data for contract:', contractAddress, 'on', platformId);
+    log.debug('Fetching coin data for contract:', contractAddress, 'on', platformId);
 
     try {
       const params = new URLSearchParams({
@@ -138,7 +142,7 @@ export const coinDataByContractTool = tool({
         url: data.links?.homepage?.[0] || `https://www.coingecko.com`,
       };
     } catch (error) {
-      console.error('Contract coin data error:', error);
+      log.error('Contract coin data error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -165,9 +169,9 @@ export const coinOhlcTool = tool({
     vsCurrency?: string | null;
     days?: number | null;
   }) => {
-    console.log('Coin OHLC with Data - Coin ID:', coinId);
-    console.log('VS Currency:', vsCurrency);
-    console.log('Days:', days);
+    log.debug('Coin OHLC with Data - Coin ID:', coinId);
+    log.debug('VS Currency:', vsCurrency);
+    log.debug('Days:', days);
 
     try {
       const { ohlcResponse, coinDataResponse } = await all(
@@ -247,7 +251,7 @@ export const coinOhlcTool = tool({
         url: `https://www.coingecko.com/en/coins/${coinId}`,
       };
     } catch (error) {
-      console.error('Coin OHLC with Data error:', error);
+      log.error('Coin OHLC with Data error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error occurred',

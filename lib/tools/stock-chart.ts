@@ -8,6 +8,10 @@ import { isUserProCached } from '@/lib/subscription';
 import { allSettled } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('stock-chart');
+
 const CURRENCY_SYMBOLS = {
   USD: '$',
   EUR: '€',
@@ -596,15 +600,15 @@ export const stockChartTool = tool({
     include_market_movers?: boolean;
     financial_period?: string;
   }) => {
-    console.log('Title:', title);
-    console.log('Icon:', icon);
-    console.log('Companies:', companies);
-    console.log('Currency symbols:', currency_symbols);
-    console.log('Time period:', time_period);
-    console.log('Filing types:', filing_types);
-    console.log('Sections:', sections);
-    console.log('News queries:', news_queries);
-    console.log('Financial options:', {
+    log.debug('Title:', title);
+    log.debug('Icon:', icon);
+    log.debug('Companies:', companies);
+    log.debug('Currency symbols:', currency_symbols);
+    log.debug('Time period:', time_period);
+    log.debug('Filing types:', filing_types);
+    log.debug('Sections:', sections);
+    log.debug('News queries:', news_queries);
+    log.debug('Financial options:', {
       include_statistics,
       include_balance_sheet,
       include_income_statement,
@@ -617,7 +621,7 @@ export const stockChartTool = tool({
 
     // Check if user is pro for premium features
     const isProUser = await isUserProCached();
-    console.log('Pro user:', isProUser);
+    log.debug('Pro user:', isProUser);
 
     // Override pro-only features if user is not pro
     const actualIncludeEarnings = isProUser; // Earnings always require pro
@@ -909,7 +913,7 @@ export const stockChartTool = tool({
     }
 
     // Execute all promises in parallel
-    console.log(`Executing ${allPromises.length} API calls in parallel...`);
+    log.debug(`Executing ${allPromises.length} API calls in parallel...`);
     const indexToKey = new Map<number, string>(Array.from(promiseMap.entries()).map(([key, index]) => [index, key]));
     const buildTaskMap = (promises: Promise<any>[]) =>
       Object.fromEntries(promises.map((promise, index) => [`task:${index}`, async () => promise]));
@@ -919,7 +923,7 @@ export const stockChartTool = tool({
     const allResults = allPromises.map((_, index) => {
       const result = settledResults[`task:${index}`];
       if (result?.status === 'fulfilled') return result.value;
-      console.error('Stock chart request failed:', getTaskLabel(index), result?.reason);
+      log.error('Stock chart request failed:', getTaskLabel(index), result?.reason);
       return { results: [] };
     });
 
@@ -1000,7 +1004,7 @@ export const stockChartTool = tool({
 
     const stockResponse = allResults[promiseMap.get('valyu-stocks')!];
 
-    console.log('Valyu stock response:', stockResponse);
+    log.debug('Valyu stock response:', stockResponse);
 
     function isValyuOHLCArray(value: unknown): value is ValyuOHLC[] {
       return (
@@ -1067,15 +1071,15 @@ export const stockChartTool = tool({
     // Process stock data
     if (stockResponse && Array.isArray(stockResponse.results)) {
       valyuResults = (stockResponse.results as unknown[]).filter(isValyuResult) as ValyuResult[];
-      console.log('Parsed Valyu stock results count:', valyuResults.length);
+      log.debug('Parsed Valyu stock results count:', valyuResults.length);
       if (valyuResults.length > 0) {
         try {
           const tickersPreview = valyuResults
             .slice(0, 5)
             .map((r) => getTickerFromResult(r) || r.metadata?.ticker || r.title);
-          console.log('Sample stock result identifiers:', tickersPreview);
+          log.debug('Sample stock result identifiers:', tickersPreview);
         } catch (e) {
-          console.log('Could not preview tickers from Valyu results');
+          log.debug('Could not preview tickers from Valyu results');
         }
       }
     }
@@ -1103,10 +1107,10 @@ export const stockChartTool = tool({
       };
     });
 
-    console.log('Chart elements built:', elements.length);
+    log.debug('Chart elements built:', elements.length);
     if (elements.length > 0) {
       const first = elements[0];
-      console.log('First element summary:', {
+      log.debug('First element summary:', {
         label: first.label,
         ticker: first.ticker,
         numPoints: first.points.length,
@@ -1125,14 +1129,14 @@ export const stockChartTool = tool({
       png: undefined,
     };
 
-    console.log('Chart data prepared:', {
+    log.debug('Chart data prepared:', {
       type: chartData.type,
       title: chartData.title,
       elements: chartData.elements.length,
     });
 
     const outputCurrencyCodes = currency_symbols || elements.map(() => 'USD');
-    console.log('Output currency codes:', outputCurrencyCodes);
+    log.debug('Output currency codes:', outputCurrencyCodes);
 
     // Process earnings data
     const earningsData = valyuEarningsResults.map((earningsResult) => {
@@ -1147,10 +1151,10 @@ export const stockChartTool = tool({
       };
     });
 
-    console.log('Earnings datasets built:', earningsData.length);
+    log.debug('Earnings datasets built:', earningsData.length);
     if (earningsData.length > 0) {
       const first = earningsData[0];
-      console.log('First earnings summary:', {
+      log.debug('First earnings summary:', {
         ticker: first.ticker,
         companyName: first.companyName,
         numRecords: first.earnings.length,
@@ -1161,8 +1165,8 @@ export const stockChartTool = tool({
     // Fetch SEC filings from Valyu
     const secFilings = buildSecFilings({ allResults, secPromises, isLargeDataRequest });
     if (secFilings.length > 0) {
-      console.log('SEC filings fetched:', secFilings.length);
-      console.log('Using response length:', secResponseLength, '| Large data request:', isLargeDataRequest);
+      log.debug('SEC filings fetched:', secFilings.length);
+      log.debug('Using response length:', secResponseLength, '| Large data request:', isLargeDataRequest);
     }
 
     const {

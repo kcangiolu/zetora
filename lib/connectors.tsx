@@ -3,6 +3,10 @@ import Supermemory from 'supermemory';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('connectors');
+
 function getClient() {
   return new Supermemory({
     apiKey: process.env.SUPERMEMORY_API_KEY!,
@@ -108,7 +112,7 @@ function getBaseUrl() {
 }
 
 export async function createConnection(provider: ConnectorProvider, userId: string) {
-  console.log(`🔗 Creating connection for ${provider}, userId: ${userId}`);
+  log.debug(`🔗 Creating connection for ${provider}, userId: ${userId}`);
 
   // OneDrive is coming soon, prevent connections
   if (provider === 'onedrive') {
@@ -119,8 +123,8 @@ export async function createConnection(provider: ConnectorProvider, userId: stri
   const config = CONNECTOR_CONFIGS[provider];
   const baseUrl = getBaseUrl();
 
-  console.log(`📡 Using base URL: ${baseUrl}`);
-  console.log(`🏷️ Container tags: [${userId}, ${config.syncTag}]`);
+  log.debug(`📡 Using base URL: ${baseUrl}`);
+  log.debug(`🏷️ Container tags: [${userId}, ${config.syncTag}]`);
 
   const connection = await client.connections.create(provider, {
     redirectUrl: `${baseUrl}/connectors/${provider}/callback`,
@@ -132,9 +136,9 @@ export async function createConnection(provider: ConnectorProvider, userId: stri
     },
   });
 
-  console.log(`✅ ${config.name} connection created successfully`);
-  console.log(`⏰ Auth expires in:`, connection.expiresIn);
-  console.log(`🔗 Auth link:`, connection.authLink);
+  log.debug(`✅ ${config.name} connection created successfully`);
+  log.debug(`⏰ Auth expires in:`, connection.expiresIn);
+  log.debug(`🔗 Auth link:`, connection.authLink);
 
   return connection.authLink;
 }
@@ -142,7 +146,7 @@ export async function createConnection(provider: ConnectorProvider, userId: stri
 // List all connections for a user
 export async function listUserConnections(userId: string) {
   try {
-    console.log('listing user connections', userId);
+    log.debug('listing user connections', userId);
     const client = getClient();
 
     // Get all providers and their sync tags
@@ -157,7 +161,7 @@ export async function listUserConnections(userId: string) {
         });
         return connections || [];
       } catch (error) {
-        console.error(`Error fetching connections for ${provider}:`, error);
+        log.error(`Error fetching connections for ${provider}:`, error);
         return [];
       }
     });
@@ -169,7 +173,7 @@ export async function listUserConnections(userId: string) {
     const allConnections = providers.map((_, index) => connectionMap[`p:${index}`]);
     const flatConnections = allConnections.flat();
 
-    console.log('connections list', flatConnections);
+    log.debug('connections list', flatConnections);
     if (!flatConnections || flatConnections.length === 0) {
       return [];
     }
@@ -185,53 +189,53 @@ export async function listUserConnections(userId: string) {
       },
     }));
   } catch (error) {
-    console.error('Error listing user connections:', error);
+    log.error('Error listing user connections:', error);
     return [];
   }
 }
 
 // Delete connection by ID
 export async function deleteConnection(connectionId: string) {
-  console.log(`🗑️ Deleting connection with ID: ${connectionId}`);
+  log.debug(`🗑️ Deleting connection with ID: ${connectionId}`);
   try {
     const client = getClient();
     const result = await client.connections.deleteByID(connectionId);
-    console.log(`✅ Successfully deleted connection:`, result.id);
+    log.debug(`✅ Successfully deleted connection:`, result.id);
     return result;
   } catch (error) {
-    console.error(`❌ Error deleting connection ${connectionId}:`, error);
+    log.error(`❌ Error deleting connection ${connectionId}:`, error);
     return null;
   }
 }
 
 // Trigger manual sync for a specific provider
 export async function manualSync(provider: ConnectorProvider, userId: string) {
-  console.log(`🔄 Starting manual sync for ${provider}, userId: ${userId}`);
+  log.debug(`🔄 Starting manual sync for ${provider}, userId: ${userId}`);
   try {
     const client = getClient();
     const config = CONNECTOR_CONFIGS[provider];
-    console.log(`🏷️ Syncing with container tags: [${userId}, ${config.syncTag}]`);
+    log.debug(`🏷️ Syncing with container tags: [${userId}, ${config.syncTag}]`);
 
     const result = await client.connections.import(provider, {
       containerTags: [userId],
     });
 
-    console.log(`✅ Manual sync initiated successfully for ${config.name}`);
-    console.log(`📊 Sync result:`, result);
+    log.debug(`✅ Manual sync initiated successfully for ${config.name}`);
+    log.debug(`📊 Sync result:`, result);
     return result;
   } catch (error) {
-    console.error(`❌ Error triggering manual sync for ${CONNECTOR_CONFIGS[provider].name}:`, error);
+    log.error(`❌ Error triggering manual sync for ${CONNECTOR_CONFIGS[provider].name}:`, error);
     return null;
   }
 }
 
 // Get sync status for a provider
 export async function getSyncStatus(provider: ConnectorProvider, userId: string) {
-  console.log(`📊 Getting sync status for ${provider}, userId: ${userId}`);
+  log.debug(`📊 Getting sync status for ${provider}, userId: ${userId}`);
   try {
     const client = getClient();
     const config = CONNECTOR_CONFIGS[provider];
-    console.log(`🏷️ Status check with container tags: [${userId}, ${config.syncTag}]`);
+    log.debug(`🏷️ Status check with container tags: [${userId}, ${config.syncTag}]`);
 
     // Get connection details using the direct API call
     const connection = await client.connections.getByTag(provider, {
@@ -239,13 +243,13 @@ export async function getSyncStatus(provider: ConnectorProvider, userId: string)
     });
 
     if (!connection) {
-      console.log(`❌ No connection found for ${provider} status check`);
+      log.debug(`❌ No connection found for ${provider} status check`);
       return null;
     }
 
-    console.log('connection', connection);
+    log.debug('connection', connection);
 
-    console.log(`✅ Connection found for ${provider}, extracting document count from metadata...`);
+    log.debug(`✅ Connection found for ${provider}, extracting document count from metadata...`);
 
     let actualDocumentCount = 0;
 
@@ -254,7 +258,7 @@ export async function getSyncStatus(provider: ConnectorProvider, userId: string)
       // Google Drive uses pageToken in metadata to indicate synced documents
       const pageToken = connection.metadata?.pageToken;
       actualDocumentCount = typeof pageToken === 'number' ? pageToken : 0;
-      console.log('Google Drive pageToken count:', actualDocumentCount);
+      log.debug('Google Drive pageToken count:', actualDocumentCount);
     } else {
       // Other providers (Notion, OneDrive) use listDocuments API
       try {
@@ -262,7 +266,7 @@ export async function getSyncStatus(provider: ConnectorProvider, userId: string)
           containerTags: [userId, config.syncTag],
         });
 
-        console.log('documentCount for', provider, ':', documentCount);
+        log.debug('documentCount for', provider, ':', documentCount);
 
         // Handle different response formats from listDocuments
         if (Array.isArray(documentCount)) {
@@ -274,7 +278,7 @@ export async function getSyncStatus(provider: ConnectorProvider, userId: string)
           actualDocumentCount = documentCount;
         }
       } catch (error) {
-        console.error(`Error getting document count for ${provider}:`, error);
+        log.error(`Error getting document count for ${provider}:`, error);
         actualDocumentCount = 0;
       }
     }
@@ -287,11 +291,10 @@ export async function getSyncStatus(provider: ConnectorProvider, userId: string)
       status: 'active',
     };
 
-    console.log(`📈 Sync status for ${provider}:`, status);
+    log.debug(`📈 Sync status for ${provider}:`, status);
     return status;
   } catch (error) {
-    console.error(`❌ Error getting sync status for ${CONNECTOR_CONFIGS[provider].name}:`, error);
+    log.error(`❌ Error getting sync status for ${CONNECTOR_CONFIGS[provider].name}:`, error);
     return null;
   }
 }
-

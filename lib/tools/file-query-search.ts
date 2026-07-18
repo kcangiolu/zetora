@@ -12,6 +12,10 @@ import { all, allSettled } from 'better-all';
 import { ChatMessage } from '@/lib/types';
 import { getBetterAllOptions } from '@/lib/better-all';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('file-query-search');
+
 const FILE_READERS = {
   'application/pdf': () => new PDFReader(),
   'text/csv': () => new CSVReader(),
@@ -118,7 +122,7 @@ async function buildRetrieversByUrl(files: FileContext[]) {
       retrieversByUrl.set(url, retriever);
       continue;
     }
-    console.error(`Error indexing file ${fileKey}:`, result.reason);
+    log.error(`Error indexing file ${fileKey}:`, result.reason);
   }
 
   return retrieversByUrl;
@@ -158,7 +162,7 @@ async function searchFiles(
   const settledResultsByFile = await allSettled(fileTasks, getBetterAllOptions());
   const allResults = Object.entries(settledResultsByFile).flatMap(([fileKey, settled]) => {
     if (settled.status === 'fulfilled') return settled.value;
-    console.error(`Error searching file ${fileKey}:`, settled.reason);
+    log.error(`Error searching file ${fileKey}:`, settled.reason);
     return [];
   });
 
@@ -225,7 +229,7 @@ export function createFileQuerySearchTool(files: FileContext[], dataStream?: UIM
     }),
     execute: async ({ queries, maxResults = 10, rerank: shouldRerank = false }) => {
       try {
-        console.log('🔍 [FileQuerySearch] Reranking:', shouldRerank);
+        log.debug('🔍 [FileQuerySearch] Reranking:', shouldRerank);
         // Index first (independent step), then search and return results.
         const retrieversByUrl = await buildRetrieversByUrl(supportedFiles);
 
@@ -261,7 +265,7 @@ export function createFileQuerySearchTool(files: FileContext[], dataStream?: UIM
 
             return { query, results } satisfies QuerySearchResult;
           } catch (error) {
-            console.error(`File query search error for query "${query}":`, error);
+            log.error(`File query search error for query "${query}":`, error);
 
             // Send error notification
             dataStream?.write({
@@ -297,7 +301,7 @@ export function createFileQuerySearchTool(files: FileContext[], dataStream?: UIM
           reranked: shouldRerank,
         };
       } catch (error) {
-        console.error('File query search error:', error);
+        log.error('File query search error:', error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error occurred',

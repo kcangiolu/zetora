@@ -13,6 +13,10 @@ import {
 } from '../../performance-cache';
 import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('streams');
+
 export async function createStreamId({ streamId, chatId }: { streamId: string; chatId: string }) {
   try {
     // clock_timestamp() (DB server clock) instead of app-host new Date(): a single
@@ -60,7 +64,7 @@ export async function saveNewChatWithStream({
       SELECT ${streamId}, id, clock_timestamp() FROM new_chat`,
     );
   } catch (error) {
-    console.error('[saveNewChatWithStream] DB error:', error);
+    log.error('[saveNewChatWithStream] DB error:', error);
     // Fallback: two sequential inserts
     await maindb.insert(chat).values({
       id: chatId,

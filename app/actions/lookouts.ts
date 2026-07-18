@@ -50,6 +50,10 @@ import { lookoutCallbackHeaders, lookoutQstashHeaders } from '@/lib/lookout-auth
 import { saveChat, saveMessages } from '@/lib/db/queries';
 import { all, allSettled } from 'better-all';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('actions-lookouts');
+
 // Initialize QStash client
 const qstash = new Client({ token: serverEnv.QSTASH_TOKEN });
 
@@ -114,7 +118,7 @@ function calculateNextRun(cronSchedule: string, timezone: string): Date {
     const interval = CronExpressionParser.parse(actualCronExpression, options);
     return interval.next().toDate();
   } catch (error) {
-    console.error('Error parsing cron expression:', cronSchedule, error);
+    log.error('Error parsing cron expression:', cronSchedule, error);
     // Fallback to simple calculation
     const now = new Date();
     const nextRun = new Date(now);
@@ -230,7 +234,7 @@ export async function createScheduledLookout({
     // Determine scheduling provider from user preferences
     const userPrefs = await getCachedUserPreferencesByUserId(user.id).catch(() => null);
     const schedulingProvider = getLockoutProvider(userPrefs?.preferences ?? undefined);
-    console.log(`📝 Created lookout in database: ${lookout.id} — scheduling with ${schedulingProvider}`);
+    log.debug(`📝 Created lookout in database: ${lookout.id} — scheduling with ${schedulingProvider}`);
 
     // Small delay to ensure database transaction is committed
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -251,29 +255,29 @@ export async function createScheduledLookout({
           }
 
           if (schedulingProvider === 'bullmq') {
-            console.log('⏰ [BullMQ] Creating one-time job for lookout:', lookout.id);
+            log.debug('⏰ [BullMQ] Creating one-time job for lookout:', lookout.id);
             await scheduleBullMqOnce({
               destination: lookoutEndpoint,
               body: lookoutBody,
               headers: { 'Content-Type': 'application/json', ...lookoutCallbackHeaders() },
               delayMs: minimumDelay * 1000,
             });
-            console.log('✅ [BullMQ] One-time job queued for lookout:', lookout.id, 'delay:', minimumDelay, 's');
+            log.debug('✅ [BullMQ] One-time job queued for lookout:', lookout.id, 'delay:', minimumDelay, 's');
           } else {
-            console.log('⏰ Creating QStash one-time execution for lookout:', lookout.id);
-            console.log('📅 Scheduled time:', nextRunAt.toISOString());
+            log.debug('⏰ Creating QStash one-time execution for lookout:', lookout.id);
+            log.debug('📅 Scheduled time:', nextRunAt.toISOString());
             await qstash.publish({
               url: lookoutEndpoint,
               body: JSON.stringify(lookoutBody),
               headers: { 'Content-Type': 'application/json', ...lookoutQstashHeaders() },
               delay: minimumDelay,
             });
-            console.log('✅ QStash one-time execution scheduled for lookout:', lookout.id, 'delay:', minimumDelay, 's');
+            log.debug('✅ QStash one-time execution scheduled for lookout:', lookout.id, 'delay:', minimumDelay, 's');
           }
           // No scheduleId stored for one-time executions (both providers)
         } else {
-          console.log(`⏰ [${schedulingProvider}] Creating recurring schedule for lookout:`, lookout.id);
-          console.log('📅 Cron schedule with timezone:', cronSchedule);
+          log.debug(`⏰ [${schedulingProvider}] Creating recurring schedule for lookout:`, lookout.id);
+          log.debug('📅 Cron schedule with timezone:', cronSchedule);
 
           let scheduleId: string;
 
@@ -297,13 +301,13 @@ export async function createScheduledLookout({
             scheduleId = scheduleResponse.scheduleId;
           }
 
-          console.log(`✅ [${schedulingProvider}] Recurring schedule created: ${scheduleId} for lookout:`, lookout.id);
+          log.debug(`✅ [${schedulingProvider}] Recurring schedule created: ${scheduleId} for lookout:`, lookout.id);
 
           await updateLookout({ id: lookout.id, qstashScheduleId: scheduleId });
           lookout.qstashScheduleId = scheduleId;
         }
       } catch (scheduleError) {
-        console.error(`Error creating ${schedulingProvider} schedule:`, scheduleError);
+        log.error(`Error creating ${schedulingProvider} schedule:`, scheduleError);
         // Delete the lookout if scheduling fails
         await deleteLookout({ id: lookout.id });
         throw new Error(
@@ -314,7 +318,7 @@ export async function createScheduledLookout({
 
     return { success: true, lookout };
   } catch (error) {
-    console.error('Error creating scheduled lookout:', error);
+    log.error('Error creating scheduled lookout:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
@@ -335,7 +339,7 @@ export async function getUserLookouts() {
           const nextRunAt = calculateNextRun(lookout.cronSchedule, lookout.timezone);
           return { ...lookout, nextRunAt };
         } catch (error) {
-          console.error('Error calculating next run for lookout:', lookout.id, error);
+          log.error('Error calculating next run for lookout:', lookout.id, error);
           return lookout;
         }
       }
@@ -344,7 +348,7 @@ export async function getUserLookouts() {
 
     return { success: true, lookouts: updatedLookouts };
   } catch (error) {
-    console.error('Error getting user lookouts:', error);
+    log.error('Error getting user lookouts:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
@@ -398,7 +402,7 @@ export async function updateLookoutStatusAction({
           }
         }
       } catch (scheduleError) {
-        console.error(`Error updating ${schedulingProvider} schedule:`, scheduleError);
+        log.error(`Error updating ${schedulingProvider} schedule:`, scheduleError);
         // Continue with database update even if scheduler call fails
       }
     }
@@ -407,7 +411,7 @@ export async function updateLookoutStatusAction({
     const updatedLookout = await updateLookoutStatus({ id, status });
     return { success: true, lookout: updatedLookout };
   } catch (error) {
-    console.error('Error updating lookout status:', error);
+    log.error('Error updating lookout status:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
@@ -438,7 +442,7 @@ export async function forceStopLookoutAction({ id }: { id: string }) {
 
     return { success: true, lookout: updatedLookout };
   } catch (error) {
-    console.error('Error force stopping lookout:', error);
+    log.error('Error force stopping lookout:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
@@ -516,8 +520,8 @@ export async function updateLookoutAction({
       const userPrefs = await getCachedUserPreferencesByUserId(user.id).catch(() => null);
       const schedulingProvider = getLockoutProvider(userPrefs?.preferences ?? undefined);
       try {
-        console.log(`⏰ [${schedulingProvider}] Recreating schedule for lookout:`, id);
-        console.log('📅 Updated cron schedule with timezone:', cronSchedule);
+        log.debug(`⏰ [${schedulingProvider}] Recreating schedule for lookout:`, id);
+        log.debug('📅 Updated cron schedule with timezone:', cronSchedule);
 
         const lookoutEndpoint = resolveLookoutEndpoint();
 
@@ -561,7 +565,7 @@ export async function updateLookoutAction({
 
         return { success: true, lookout: updatedLookout };
       } catch (scheduleError) {
-        console.error(`Error updating ${schedulingProvider} schedule:`, scheduleError);
+        log.error(`Error updating ${schedulingProvider} schedule:`, scheduleError);
         throw new Error('Failed to update schedule. Please try again.');
       }
     } else {
@@ -580,7 +584,7 @@ export async function updateLookoutAction({
       return { success: true, lookout: updatedLookout };
     }
   } catch (error) {
-    console.error('Error updating lookout:', error);
+    log.error('Error updating lookout:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
@@ -609,7 +613,7 @@ export async function deleteLookoutAction({ id }: { id: string }) {
           await qstash.schedules.delete(lookout.qstashScheduleId);
         }
       } catch (error) {
-        console.error(`Error deleting ${schedulingProvider} schedule:`, error);
+        log.error(`Error deleting ${schedulingProvider} schedule:`, error);
         // Continue with database deletion even if scheduler call fails
       }
     }
@@ -618,7 +622,7 @@ export async function deleteLookoutAction({ id }: { id: string }) {
     const deletedLookout = await deleteLookout({ id });
     return { success: true, lookout: deletedLookout };
   } catch (error) {
-    console.error('Error deleting lookout:', error);
+    log.error('Error deleting lookout:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
@@ -663,7 +667,7 @@ export async function testLookoutAction({ id }: { id: string }) {
 
     return { success: true, message: 'Lookout test started successfully' };
   } catch (error) {
-    console.error('Error testing lookout:', error);
+    log.error('Error testing lookout:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }

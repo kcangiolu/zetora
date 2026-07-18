@@ -5,6 +5,10 @@ import { CONNECTOR_CONFIGS, type ConnectorProvider, type ConnectorConfig } from 
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('connectors-search');
+
 // Type definitions for Supermemory documents
 interface DocumentChunk {
   content: string;
@@ -97,26 +101,26 @@ export function createConnectorsSearchTool(userId: string, selectedConnectors?: 
       query: string;
       provider?: ConnectorProvider | 'all';
     }): Promise<SearchResponse> => {
-      console.log('🔍 [ConnectorsSearch] Starting search with params:', { query, provider, userId });
+      log.debug('🔍 [ConnectorsSearch] Starting search with params:', { query, provider, userId });
       try {
         let allResults: SupermemoryDocument[] = [];
         let totalCount = 0;
 
         if (provider === 'all') {
-          console.log('📋 [ConnectorsSearch] Searching all providers');
+          log.debug('📋 [ConnectorsSearch] Searching all providers');
           // Use selected connectors if available, otherwise search all
           const providersToSearch =
             selectedConnectors && selectedConnectors.length > 0
               ? selectedConnectors
               : (Object.keys(CONNECTOR_CONFIGS) as ConnectorProvider[]);
 
-          console.log('🔌 [ConnectorsSearch] Providers to search:', providersToSearch);
+          log.debug('🔌 [ConnectorsSearch] Providers to search:', providersToSearch);
 
           // Search each provider separately and combine results
           const searchPromises = providersToSearch.map(async (providerKey): Promise<SupermemorySearchResult> => {
             try {
               const config = CONNECTOR_CONFIGS[providerKey];
-              console.log(`🔎 [ConnectorsSearch] Searching ${providerKey} with tags:`, [userId, config.syncTag]);
+              log.debug(`🔎 [ConnectorsSearch] Searching ${providerKey} with tags:`, [userId, config.syncTag]);
               const result = await client.search.documents({
                 q: query,
                 containerTags: [userId, config.syncTag],
@@ -124,10 +128,10 @@ export function createConnectorsSearchTool(userId: string, selectedConnectors?: 
                 rerank: true,
                 includeSummary: true,
               });
-              console.log(`✅ [ConnectorsSearch] ${providerKey} returned ${result.results?.length || 0} results`);
+              log.debug(`✅ [ConnectorsSearch] ${providerKey} returned ${result.results?.length || 0} results`);
               return result as SupermemorySearchResult;
             } catch (error) {
-              console.error(`❌ [ConnectorsSearch] Error searching ${providerKey}:`, error);
+              log.error(`❌ [ConnectorsSearch] Error searching ${providerKey}:`, error);
               return { results: [], total: 0 };
             }
           });
@@ -141,14 +145,14 @@ export function createConnectorsSearchTool(userId: string, selectedConnectors?: 
           // Combine all results
           allResults = searchResults.flatMap((result) => result.results || []);
           totalCount = searchResults.reduce((sum, result) => sum + (result.total || 0), 0);
-          console.log(
+          log.debug(
             `📊 [ConnectorsSearch] Combined results: ${allResults.length} documents, total count: ${totalCount}`,
           );
         } else {
-          console.log(`📋 [ConnectorsSearch] Searching single provider: ${provider}`);
+          log.debug(`📋 [ConnectorsSearch] Searching single provider: ${provider}`);
           // Search specific provider
           const config = CONNECTOR_CONFIGS[provider as ConnectorProvider];
-          console.log(`🔎 [ConnectorsSearch] Searching ${provider} with tags:`, [userId, config.syncTag]);
+          log.debug(`🔎 [ConnectorsSearch] Searching ${provider} with tags:`, [userId, config.syncTag]);
           const result = (await client.search.documents({
             q: query,
             containerTags: [userId, config.syncTag],
@@ -159,7 +163,7 @@ export function createConnectorsSearchTool(userId: string, selectedConnectors?: 
           })) as SupermemorySearchResult;
           allResults = result.results || [];
           totalCount = result.total || 0;
-          console.log(`✅ [ConnectorsSearch] ${provider} returned ${allResults.length} results`);
+          log.debug(`✅ [ConnectorsSearch] ${provider} returned ${allResults.length} results`);
         }
 
         // Helper function to generate document URLs based on provider
@@ -214,19 +218,19 @@ export function createConnectorsSearchTool(userId: string, selectedConnectors?: 
         };
 
         // Filter out documents with empty or invalid content
-        console.log(`🔍 [ConnectorsSearch] Filtering results - before: ${allResults.length} documents`);
+        log.debug(`🔍 [ConnectorsSearch] Filtering results - before: ${allResults.length} documents`);
         const validResults = allResults.filter(hasValidContent);
-        console.log(`✨ [ConnectorsSearch] After filtering - valid: ${validResults.length} documents`);
+        log.debug(`✨ [ConnectorsSearch] After filtering - valid: ${validResults.length} documents`);
 
         // Add provider information and URLs to results
-        console.log('🔗 [ConnectorsSearch] Enhancing results with provider info and URLs');
+        log.debug('🔗 [ConnectorsSearch] Enhancing results with provider info and URLs');
         const enhancedResults: EnhancedDocument[] = validResults.map((doc): EnhancedDocument => {
           // Try to determine provider from metadata or document type
           let detectedProvider: ConnectorProvider | null = null;
 
           if (doc.metadata?.source) {
             detectedProvider = doc.metadata.source as ConnectorProvider;
-            console.log(
+            log.debug(
               `📌 [ConnectorsSearch] Document "${doc.title}" - provider from metadata.source: ${detectedProvider}`,
             );
           } else if (doc.metadata?.containerTags) {
@@ -235,16 +239,16 @@ export function createConnectorsSearchTool(userId: string, selectedConnectors?: 
               ? doc.metadata.containerTags
               : [doc.metadata.containerTags];
 
-            console.log(`📌 [ConnectorsSearch] Document "${doc.title}" - checking tags:`, docTags);
+            log.debug(`📌 [ConnectorsSearch] Document "${doc.title}" - checking tags:`, docTags);
             for (const [providerKey, config] of Object.entries(CONNECTOR_CONFIGS)) {
               if (docTags.includes(config.syncTag)) {
                 detectedProvider = providerKey as ConnectorProvider;
-                console.log(`📌 [ConnectorsSearch] Document "${doc.title}" - provider from tags: ${detectedProvider}`);
+                log.debug(`📌 [ConnectorsSearch] Document "${doc.title}" - provider from tags: ${detectedProvider}`);
                 break;
               }
             }
           } else {
-            console.log(`⚠️ [ConnectorsSearch] Document "${doc.title}" - no metadata source or container tags`);
+            log.debug(`⚠️ [ConnectorsSearch] Document "${doc.title}" - no metadata source or container tags`);
             // Fallback: try to detect from document characteristics
             for (const [providerKey, config] of Object.entries(CONNECTOR_CONFIGS)) {
               if (doc.metadata?.containerTags?.includes(config.syncTag)) {
@@ -256,7 +260,7 @@ export function createConnectorsSearchTool(userId: string, selectedConnectors?: 
 
           // Generate the document URL based on the provider
           const documentUrl = generateDocumentUrl(doc, detectedProvider);
-          console.log(`🔗 [ConnectorsSearch] Document "${doc.title}" - generated URL: ${documentUrl}`);
+          log.debug(`🔗 [ConnectorsSearch] Document "${doc.title}" - generated URL: ${documentUrl}`);
 
           // Get timestamps from metadata or use current date as fallback
           const now = new Date().toISOString();
@@ -291,10 +295,10 @@ export function createConnectorsSearchTool(userId: string, selectedConnectors?: 
         });
 
         // Sort results by score (accuracy) in descending order
-        console.log('📊 [ConnectorsSearch] Sorting results by score');
+        log.debug('📊 [ConnectorsSearch] Sorting results by score');
         enhancedResults.sort((a, b) => (b.score || 0) - (a.score || 0));
 
-        console.log(
+        log.debug(
           '✅ [ConnectorsSearch] Enhanced results:',
           enhancedResults.map((r) => ({
             title: r.title,
@@ -315,13 +319,13 @@ export function createConnectorsSearchTool(userId: string, selectedConnectors?: 
               : CONNECTOR_CONFIGS[provider as ConnectorProvider]?.name || provider,
         };
 
-        console.log(
+        log.debug(
           `🎉 [ConnectorsSearch] Search complete! Returning ${enhancedResults.length} results for query: "${query}"`,
         );
         return response;
       } catch (error) {
-        console.error('❌ [ConnectorsSearch] Error searching connectors:', error);
-        console.error('❌ [ConnectorsSearch] Error details:', {
+        log.error('❌ [ConnectorsSearch] Error searching connectors:', error);
+        log.error('❌ [ConnectorsSearch] Error details:', {
           message: error instanceof Error ? error.message : 'Unknown error',
           stack: error instanceof Error ? error.stack : undefined,
           query,

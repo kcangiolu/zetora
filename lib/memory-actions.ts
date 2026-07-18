@@ -7,6 +7,10 @@ import { graphitiClient } from '@/lib/graphiti/client';
 import { getUserPreferencesByUserId } from '@/lib/db/queries';
 import { deanonymizeText } from '@/lib/anonymizer/pseudonymize';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('memory-actions');
+
 const supermemoryClient = new Supermemory({
   apiKey: serverEnv.SUPERMEMORY_API_KEY,
 });
@@ -47,7 +51,6 @@ async function getMemoryProvider(userId: string): Promise<'supermemory' | 'graph
     return 'supermemory';
   }
 }
-
 
 // SuperMemory content can hold anonymization tokens (see lib/tools/supermemory.ts) —
 // de-anonymize before it ever reaches the user-facing memory management UI.
@@ -102,7 +105,7 @@ export async function getAllMemories(page = 1, pageSize = 20): Promise<MemoryRes
       const memories = episodes.map((ep: any, i: number) => graphitiEpisodeToMemoryItem(ep, i));
       return { memories, total: result.total || memories.length };
     } catch (error) {
-      console.error('Error fetching Graphiti memories:', error);
+      log.error('Error fetching Graphiti memories:', error);
       return { memories: [], total: 0 };
     }
   }
@@ -123,7 +126,7 @@ export async function getAllMemories(page = 1, pageSize = 20): Promise<MemoryRes
       total: result.pagination.totalItems || 0,
     };
   } catch (error) {
-    console.error('Error fetching memories:', error);
+    log.error('Error fetching memories:', error);
     throw error;
   }
 }
@@ -140,7 +143,7 @@ export async function deleteMemory(memoryId: string) {
       await client.deleteEpisode(memoryId);
       return { success: true };
     } catch (error) {
-      console.error('Error deleting Graphiti memory:', error);
+      log.error('Error deleting Graphiti memory:', error);
       throw error;
     }
   }
@@ -150,7 +153,7 @@ export async function deleteMemory(memoryId: string) {
     const data = await supermemoryClient.documents.delete(memoryId);
     return data;
   } catch (error) {
-    console.error('Error deleting memory:', error);
+    log.error('Error deleting memory:', error);
     throw error;
   }
 }

@@ -45,6 +45,10 @@ import { lookoutCallbackHeaders, lookoutQstashHeaders } from '@/lib/lookout-auth
 import { saveChat, saveMessages } from '@/lib/db/queries';
 import { all, allSettled } from 'better-all';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('actions-preferences');
+
 // Custom Instructions Server Actions
 export async function getCustomInstructions(providedUser?: User | null) {
   'use server';
@@ -58,7 +62,7 @@ export async function getCustomInstructions(providedUser?: User | null) {
     const instructions = await getCustomInstructionsByUserId({ userId: user.id });
     return instructions ?? null;
   } catch (error) {
-    console.error('Error getting custom instructions:', error);
+    log.error('Error getting custom instructions:', error);
     return null;
   }
 }
@@ -88,7 +92,7 @@ export async function saveCustomInstructions(content: string) {
 
     return { success: true, data: result };
   } catch (error) {
-    console.error('Error saving custom instructions:', error);
+    log.error('Error saving custom instructions:', error);
     return { success: false, error: 'Failed to save custom instructions' };
   }
 }
@@ -105,7 +109,7 @@ export async function deleteCustomInstructionsAction() {
     const result = await deleteCustomInstructions({ userId: user.id });
     return { success: true, data: result };
   } catch (error) {
-    console.error('Error deleting custom instructions:', error);
+    log.error('Error deleting custom instructions:', error);
     return { success: false, error: 'Failed to delete custom instructions' };
   }
 }
@@ -141,7 +145,7 @@ export async function testEmailDelivery() {
     }
     return { success: false, error: result.error || 'Unknown error' };
   } catch (error) {
-    console.error('Error testing email delivery:', error);
+    log.error('Error testing email delivery:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to send test email',

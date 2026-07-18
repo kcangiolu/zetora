@@ -4,6 +4,10 @@ import { serverEnv } from '@/env/server';
 import { scrapeWebpageWithNotte } from '@/lib/notte';
 import { FASTCRW_SCRAPE_TIMEOUT_MS, METADATA_TIMEOUT_MS } from '@/lib/timeouts';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('selfhosted-content');
+
 export interface ContentExtractionStrategy {
   getContents(links: string[]): Promise<SearchResult[]>;
 }
@@ -90,7 +94,7 @@ async function scrapeWithFastCrw(url: string, fastcrwUrl: string): Promise<Searc
       favicon: `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`,
     };
   } catch (error) {
-    console.error(`[SelfHostedContent] fastCRW scrape error for ${url}:`, error);
+    log.error(`[SelfHostedContent] fastCRW scrape error for ${url}:`, error);
     return null;
   }
 }
@@ -121,7 +125,7 @@ async function scrapeWithNotte(url: string): Promise<SearchResult | null> {
       favicon: `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`,
     };
   } catch (error) {
-    console.error(`[SelfHostedContent] Notte error for ${url}:`, error);
+    log.error(`[SelfHostedContent] Notte error for ${url}:`, error);
     return null;
   }
 }
@@ -180,7 +184,7 @@ export class SelfHostedContentStrategy implements ContentExtractionStrategy {
     const uniqueUrls = Array.from(new Set(links)).filter(isHttpUrl);
     if (uniqueUrls.length === 0) return [];
 
-    console.log(`[SelfHostedContent] getContents called with ${uniqueUrls.length} URLs`);
+    log.debug(`[SelfHostedContent] getContents called with ${uniqueUrls.length} URLs`);
 
     const results: SearchResult[] = [];
     let remaining = [...uniqueUrls];
@@ -214,7 +218,7 @@ export class SelfHostedContentStrategy implements ContentExtractionStrategy {
       serverEnv.NOTTE_API_KEY &&
       serverEnv.NOTTE_API_KEY !== 'placeholder'
     ) {
-      console.log(`[SelfHostedContent] ${remaining.length} URLs remaining, trying Notte`);
+      log.debug(`[SelfHostedContent] ${remaining.length} URLs remaining, trying Notte`);
       const notteResults = await all(
         Object.fromEntries(remaining.map((url, i) => [`nt:${i}`, async () => scrapeWithNotte(url)])),
         getBetterAllOptions(),
@@ -235,7 +239,7 @@ export class SelfHostedContentStrategy implements ContentExtractionStrategy {
 
     // Phase 3: Metadata fallback (only if not disabled)
     if (remaining.length > 0 && this.metadataEnabled) {
-      console.log(`[SelfHostedContent] ${remaining.length} URLs remaining, trying metadata fallback`);
+      log.debug(`[SelfHostedContent] ${remaining.length} URLs remaining, trying metadata fallback`);
       const metaResults = await all(
         Object.fromEntries(remaining.map((url, i) => [`md:${i}`, async () => scrapeWithMetadata(url)])),
         getBetterAllOptions(),
@@ -247,7 +251,7 @@ export class SelfHostedContentStrategy implements ContentExtractionStrategy {
       }
     }
 
-    console.log(`[SelfHostedContent] getContents returning ${results.length} total results`);
+    log.debug(`[SelfHostedContent] getContents returning ${results.length} total results`);
     return results;
   }
 }

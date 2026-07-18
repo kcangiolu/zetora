@@ -4,6 +4,10 @@ import { serverEnv } from '@/env/server';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('weather');
+
 export const weatherTool = tool({
   description: 'Get the weather data for a location using either location name or coordinates with OpenWeather API.',
   inputSchema: z.object({
@@ -74,15 +78,15 @@ export const weatherTool = tool({
               locationName = `${lat}, ${lng}`;
             }
           } catch (reverseGeocodeError) {
-            console.warn('Reverse geocoding failed:', reverseGeocodeError);
+            log.warn('Reverse geocoding failed:', reverseGeocodeError);
             locationName = `${lat}, ${lng}`;
           }
         }
       }
 
-      console.log('Latitude:', lat);
-      console.log('Longitude:', lng);
-      console.log('Location:', locationName);
+      log.debug('Latitude:', lat);
+      log.debug('Longitude:', lng);
+      log.debug('Location:', locationName);
 
       const apiKey = serverEnv.OPENWEATHER_API_KEY;
       const { weatherResponse, airPollutionResponse, openMeteoResponse } = await all(
@@ -122,9 +126,9 @@ export const weatherTool = tool({
       );
       const airPollutionForecastData = await airPollutionForecastResponse.json();
 
-      console.log('Air pollution forecast data:', airPollutionForecastData);
-      console.log('Open-Meteo 16-day forecast:', openMeteoData);
-      console.log('Weather data:', weatherData);
+      log.debug('Air pollution forecast data:', airPollutionForecastData);
+      log.debug('Open-Meteo 16-day forecast:', openMeteoData);
+      log.debug('Weather data:', weatherData);
 
       return {
         ...weatherData,
@@ -140,7 +144,7 @@ export const weatherTool = tool({
         open_meteo_forecast: openMeteoData,
       };
     } catch (error) {
-      console.error('Weather data error:', error);
+      log.error('Weather data error:', error);
       throw error;
     }
   },

@@ -4,6 +4,10 @@ import { convertToModelMessages, generateText, stepCountIs } from 'ai';
 import { resolveModel } from '@/ai/providers';
 import { z } from 'zod';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('raycast');
+
 export const maxDuration = 800;
 
 // Define separate system prompts for each group
@@ -121,7 +125,7 @@ export async function POST(req: Request) {
 
     return new Response(text);
   } catch (error) {
-    console.error('Raycast route error:', error);
+    log.error('Raycast route error:', error);
     return new Response('Failed to generate response', { status: 500 });
   }
 }

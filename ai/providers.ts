@@ -601,6 +601,10 @@ export const zetora = customProvider({
 import type { LanguageModel } from 'ai';
 import { getCustomProviders, getCustomModels } from '@/lib/custom-providers';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('providers');
+
 const customProviderInstances = new Map<string, ReturnType<typeof createOpenAICompatible>>();
 
 async function getOrCreateProvider(providerId: string, userId?: string) {
@@ -666,7 +670,7 @@ export async function resolveModel(
     const models = await getCustomModels(userId);
     const model = models.find((m) => m.id === modelId);
     if (!model) {
-      console.warn(`Custom model ${modelId} not found, falling back to default`);
+      log.warn(`Custom model ${modelId} not found, falling back to default`);
       resolved = zetora.languageModel('zetora-default');
     } else {
       const provider = await getOrCreateProvider(model.providerId, userId);

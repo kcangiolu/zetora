@@ -18,8 +18,11 @@ import FirecrawlApp from '@mendable/firecrawl-js';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
-const LOG_PREFIX = '🔨 [Build]';
+import { createLogger } from '@/lib/logger';
 
+const log = createLogger('build-tools');
+
+const LOG_PREFIX = '🔨 [Build]';
 
 class BoxManager {
   private box: Box | null = null;
@@ -39,7 +42,7 @@ class BoxManager {
   /** May only be called before the first getBox() call. */
   setRuntime(runtime: Runtime) {
     if (this.box || this.creating) {
-      console.warn(`${LOG_PREFIX} setRuntime() called after Box was already created — ignored`);
+      log.warn(`${LOG_PREFIX} setRuntime() called after Box was already created — ignored`);
       return;
     }
     this.runtime = runtime;
@@ -57,15 +60,15 @@ class BoxManager {
     }
 
     if (this.existingBoxId) {
-      console.log(`${LOG_PREFIX} Reconnecting to existing Box ${this.existingBoxId}...`);
+      log.debug(`${LOG_PREFIX} Reconnecting to existing Box ${this.existingBoxId}...`);
       this.creating = this.reconnectBox(this.existingBoxId);
     } else {
-      console.log(`${LOG_PREFIX} Creating new Box for user ${this.userId}...`);
+      log.debug(`${LOG_PREFIX} Creating new Box for user ${this.userId}...`);
       this.creating = this.initBox();
     }
 
     this.box = await this.creating;
-    console.log(`${LOG_PREFIX} Box ready: ${this.box.id}`);
+    log.debug(`${LOG_PREFIX} Box ready: ${this.box.id}`);
     return this.box;
   }
 
@@ -79,7 +82,7 @@ class BoxManager {
 
       return box;
     } catch (err) {
-      console.warn(`${LOG_PREFIX} Failed to reconnect to Box ${boxId}, creating new one:`, err);
+      log.warn(`${LOG_PREFIX} Failed to reconnect to Box ${boxId}, creating new one:`, err);
       this.existingBoxId = null;
       return this.initBox();
     }
@@ -103,9 +106,9 @@ class BoxManager {
     this._hasVercelMcp = enabledServers.some(
       (s) => s.authType === 'oauth' && s.oauthAuthorizationUrl?.includes('vercel.com'),
     );
-    console.log(`${LOG_PREFIX} MCP servers: ${this.mcpServerNames.join(', ')}`);
+    log.debug(`${LOG_PREFIX} MCP servers: ${this.mcpServerNames.join(', ')}`);
     if (this._hasVercelMcp)
-      console.log(`${LOG_PREFIX} Vercel MCP detected — agent will extract token from mcp-config.json`);
+      log.debug(`${LOG_PREFIX} Vercel MCP detected — agent will extract token from mcp-config.json`);
 
     return Box.create({
       apiKey: serverEnv.UPSTASH_BOX_API_KEY!,
@@ -141,7 +144,7 @@ class BoxManager {
   /** Disconnect without destroying the box — it persists for future messages. */
   async cleanup() {
     if (this.box) {
-      console.log(`${LOG_PREFIX} Disconnecting from Box ${this.box.id} (persisted)`);
+      log.debug(`${LOG_PREFIX} Disconnecting from Box ${this.box.id} (persisted)`);
       this.box = null;
       this.creating = null;
     }
@@ -157,7 +160,7 @@ function createBoxExecTool(dataStream: UIMessageStreamWriter<ChatMessage> | unde
     }),
     execute: async ({ command }, { toolCallId }) => {
       const execId = toolCallId;
-      console.log(`${LOG_PREFIX} [exec:${execId}] $ ${command}`);
+      log.debug(`${LOG_PREFIX} [exec:${execId}] $ ${command}`);
       const box = await boxManager.getBox();
 
       if (dataStream) {
@@ -171,7 +174,7 @@ function createBoxExecTool(dataStream: UIMessageStreamWriter<ChatMessage> | unde
         const run = await box.exec.command(command);
         const stdout = run.result ?? '';
         const status = run.status === 'completed' ? ('completed' as const) : ('error' as const);
-        console.log(`${LOG_PREFIX} [exec:${execId}] ${status} (${stdout.length} chars)`);
+        log.debug(`${LOG_PREFIX} [exec:${execId}] ${status} (${stdout.length} chars)`);
 
         if (dataStream) {
           dataStream.write({
@@ -183,7 +186,7 @@ function createBoxExecTool(dataStream: UIMessageStreamWriter<ChatMessage> | unde
         return { command, stdout, status };
       } catch (error) {
         const stderr = error instanceof Error ? error.message : String(error);
-        console.error(`${LOG_PREFIX} [exec:${execId}] Error:`, stderr);
+        log.error(`${LOG_PREFIX} [exec:${execId}] Error:`, stderr);
         if (dataStream) {
           dataStream.write({
             type: 'data-build_search',
@@ -210,12 +213,12 @@ function createBoxWriteFileTool(dataStream: UIMessageStreamWriter<ChatMessage> |
     }),
     execute: async ({ path, content }, { toolCallId }) => {
       const writeId = toolCallId;
-      console.log(`${LOG_PREFIX} [write:${writeId}] ${path} (${content.length} chars)`);
+      log.debug(`${LOG_PREFIX} [write:${writeId}] ${path} (${content.length} chars)`);
       const box = await boxManager.getBox();
 
       try {
         await box.files.write({ path, content });
-        console.log(`${LOG_PREFIX} [write:${writeId}] ✓ written`);
+        log.debug(`${LOG_PREFIX} [write:${writeId}] ✓ written`);
 
         if (dataStream) {
           dataStream.write({
@@ -233,7 +236,7 @@ function createBoxWriteFileTool(dataStream: UIMessageStreamWriter<ChatMessage> |
         return { path, bytes: content.length, status: 'completed' as const };
       } catch (error) {
         const stderr = error instanceof Error ? error.message : String(error);
-        console.error(`${LOG_PREFIX} [write:${writeId}] Error:`, stderr);
+        log.error(`${LOG_PREFIX} [write:${writeId}] Error:`, stderr);
 
         return { path, stderr, status: 'error' as const };
       }
@@ -250,13 +253,13 @@ function createBoxDownloadTool(dataStream: UIMessageStreamWriter<ChatMessage> | 
     }),
     execute: async ({ path }, { toolCallId }) => {
       const downloadId = toolCallId;
-      console.log(`${LOG_PREFIX} [download:${downloadId}] ${path}`);
+      log.debug(`${LOG_PREFIX} [download:${downloadId}] ${path}`);
       const box = await boxManager.getBox();
 
       try {
         const checkResult = await box.exec.command(`test -d "${path}" && echo "dir" || echo "file"`);
         const isDir = checkResult.result?.trim() === 'dir';
-        console.log(`${LOG_PREFIX} [download:${downloadId}] Type: ${isDir ? 'directory' : 'file'}`);
+        log.debug(`${LOG_PREFIX} [download:${downloadId}] Type: ${isDir ? 'directory' : 'file'}`);
 
         let archivePath = path;
         let filename: string;
@@ -279,7 +282,7 @@ function createBoxDownloadTool(dataStream: UIMessageStreamWriter<ChatMessage> | 
         }
 
         const buffer = Buffer.from(b64Content, 'base64');
-        console.log(`${LOG_PREFIX} [download:${downloadId}] ${filename} (${buffer.length} bytes)`);
+        log.debug(`${LOG_PREFIX} [download:${downloadId}] ${filename} (${buffer.length} bytes)`);
         const ext = filename.includes('.') ? filename.split('.').pop() : 'bin';
         const key = `zetora/builds/${nanoid()}/${filename}`;
 
@@ -315,7 +318,7 @@ function createBoxDownloadTool(dataStream: UIMessageStreamWriter<ChatMessage> | 
         );
 
         const url = `${STORAGE_PUBLIC_URL}/${key}`;
-        console.log(`${LOG_PREFIX} [download:${downloadId}] Uploaded to ${url}`);
+        log.debug(`${LOG_PREFIX} [download:${downloadId}] Uploaded to ${url}`);
 
         if (isDir) {
           await box.exec.command(`rm -f "${archivePath}"`).catch(() => {});
@@ -330,7 +333,7 @@ function createBoxDownloadTool(dataStream: UIMessageStreamWriter<ChatMessage> | 
 
         return { path, url, filename, status: 'completed' as const };
       } catch (error) {
-        console.error(`${LOG_PREFIX} [download:${downloadId}] Error:`, error);
+        log.error(`${LOG_PREFIX} [download:${downloadId}] Error:`, error);
         return { path, url: '', filename: '', status: 'error' as const, error: String(error) };
       }
     },
@@ -356,7 +359,7 @@ function createBoxAgentTool(
     }),
     execute: async ({ prompt }, { toolCallId }) => {
       const agentId = toolCallId;
-      console.log(`${LOG_PREFIX} [agent:${agentId}] Starting: "${prompt.slice(0, 80)}..."`);
+      log.debug(`${LOG_PREFIX} [agent:${agentId}] Starting: "${prompt.slice(0, 80)}..."`);
       const box = await boxManager.getBox();
 
       if (dataStream) {
@@ -391,12 +394,12 @@ function createBoxAgentTool(
         const emitToolCall = (toolName: string, input: Record<string, unknown>) => {
           const signature = `${toolName}:${JSON.stringify(input ?? {})}`;
           if (signature === lastToolCallSignature) {
-            console.log(`${LOG_PREFIX} [agent:${agentId}] Skipping duplicate tool call: ${toolName}`);
+            log.debug(`${LOG_PREFIX} [agent:${agentId}] Skipping duplicate tool call: ${toolName}`);
             return;
           }
           lastToolCallSignature = signature;
           toolCallCount++;
-          console.log(`${LOG_PREFIX} [agent:${agentId}] Tool #${toolCallCount}: ${toolName}`);
+          log.debug(`${LOG_PREFIX} [agent:${agentId}] Tool #${toolCallCount}: ${toolName}`);
           if (dataStream) {
             dataStream.write({
               type: 'data-build_search',
@@ -474,7 +477,7 @@ function createBoxAgentTool(
 
         const result = run.result ?? fullText;
         const cost = run.cost;
-        console.log(
+        log.debug(
           `${LOG_PREFIX} [agent:${agentId}] Completed: ${toolCallCount} tool calls, ${fullText.length} chars text${cost ? `, $${cost.totalUsd?.toFixed(4)}` : ''}`,
         );
 
@@ -512,7 +515,7 @@ function createBoxAgentTool(
         };
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        console.error(`${LOG_PREFIX} [agent:${agentId}] Error:`, errorMsg);
+        log.error(`${LOG_PREFIX} [agent:${agentId}] Error:`, errorMsg);
         if (dataStream) {
           dataStream.write({
             type: 'data-build_search',
@@ -535,7 +538,7 @@ function createBoxCodeTool(dataStream: UIMessageStreamWriter<ChatMessage> | unde
     }),
     execute: async ({ code, lang }, { toolCallId }) => {
       const codeId = toolCallId;
-      console.log(`${LOG_PREFIX} [code:${codeId}] ${lang} (${code.length} chars)`);
+      log.debug(`${LOG_PREFIX} [code:${codeId}] ${lang} (${code.length} chars)`);
       const box = await boxManager.getBox();
 
       if (dataStream) {
@@ -549,7 +552,7 @@ function createBoxCodeTool(dataStream: UIMessageStreamWriter<ChatMessage> | unde
         const run = await box.exec.code({ code, lang });
         const result = run.result ?? '';
         const exitCode = run.exitCode ?? 0;
-        console.log(`${LOG_PREFIX} [code:${codeId}] exit=${exitCode} (${result.length} chars)`);
+        log.debug(`${LOG_PREFIX} [code:${codeId}] exit=${exitCode} (${result.length} chars)`);
 
         if (dataStream) {
           dataStream.write({
@@ -569,7 +572,7 @@ function createBoxCodeTool(dataStream: UIMessageStreamWriter<ChatMessage> | unde
         return { result, exitCode, status: exitCode === 0 ? 'completed' : 'error' };
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        console.error(`${LOG_PREFIX} [code:${codeId}] Error:`, errorMsg);
+        log.error(`${LOG_PREFIX} [code:${codeId}] Error:`, errorMsg);
         if (dataStream) {
           dataStream.write({
             type: 'data-build_search',
@@ -593,7 +596,7 @@ function createBrowsePageTool(dataStream: UIMessageStreamWriter<ChatMessage> | u
       urls: z.array(z.string().url()).min(1).max(5).describe('URLs to browse and extract content from'),
     }),
     execute: async ({ urls }) => {
-      console.log(`${LOG_PREFIX} [browse] ${urls.length} URLs:`, urls);
+      log.debug(`${LOG_PREFIX} [browse] ${urls.length} URLs:`, urls);
       const results: Array<{ url: string; title: string; content: string; error?: string }> = [];
 
       const browseTasks = Object.fromEntries(
@@ -651,7 +654,7 @@ function createBrowsePageTool(dataStream: UIMessageStreamWriter<ChatMessage> | u
         if (r) results.push(r);
       }
 
-      console.log(`${LOG_PREFIX} [browse] Got ${results.length} results`);
+      log.debug(`${LOG_PREFIX} [browse] Got ${results.length} results`);
       return { results };
     },
   });
@@ -681,7 +684,7 @@ function createBuildWebSearchTool(dataStream: UIMessageStreamWriter<ChatMessage>
     }),
     execute: async ({ actionTitle, queries, category, includeDomains, startDate }, { toolCallId }) => {
       const searchId = toolCallId;
-      console.log(`${LOG_PREFIX} [search:${searchId}] ${queries.length} queries:`, queries);
+      log.debug(`${LOG_PREFIX} [search:${searchId}] ${queries.length} queries:`, queries);
 
       const total = queries.length;
       const allSearchResults: Array<{
@@ -726,9 +729,9 @@ function createBuildWebSearchTool(dataStream: UIMessageStreamWriter<ChatMessage>
             favicon: r.favicon || `https://www.google.com/s2/favicons?domain=${new URL(r.url).hostname}&sz=128`,
           }));
 
-          console.log(`${LOG_PREFIX} [search:${searchId}] Query "${query}" -> ${results.length} results`);
+          log.debug(`${LOG_PREFIX} [search:${searchId}] Query "${query}" -> ${results.length} results`);
         } catch (error) {
-          console.error(`${LOG_PREFIX} [search:${searchId}] Exa search error for "${query}":`, error);
+          log.error(`${LOG_PREFIX} [search:${searchId}] Exa search error for "${query}":`, error);
         }
 
         if (dataStream) {
@@ -831,7 +834,7 @@ function createBuildWebSearchTool(dataStream: UIMessageStreamWriter<ChatMessage>
               }
             }
           } catch (error) {
-            console.error(`${LOG_PREFIX} [search:${searchId}] Content fetch error for "${query}":`, error);
+            log.error(`${LOG_PREFIX} [search:${searchId}] Content fetch error for "${query}":`, error);
           }
         }
 
@@ -848,7 +851,7 @@ function createBuildWebSearchTool(dataStream: UIMessageStreamWriter<ChatMessage>
         });
       }
 
-      console.log(
+      log.debug(
         `${LOG_PREFIX} [search:${searchId}] Done: ${allSearchResults.reduce((n, s) => n + s.results.length, 0)} total results`,
       );
       return { searches: allSearchResults };
@@ -875,7 +878,7 @@ function createBoxInitTool(
       reason: z.string().describe('One sentence explaining why this runtime was chosen.'),
     }),
     execute: async ({ runtime, reason }, { toolCallId }) => {
-      console.log(`${LOG_PREFIX} [init:${toolCallId}] runtime=${runtime} — ${reason}`);
+      log.debug(`${LOG_PREFIX} [init:${toolCallId}] runtime=${runtime} — ${reason}`);
       boxManager.setRuntime(runtime);
 
       // Eagerly warm up the box so subsequent tools don't wait.
@@ -886,19 +889,19 @@ function createBoxInitTool(
 
       const installBun = async () => {
         try {
-          console.log(`${LOG_PREFIX} [init:${toolCallId}] Installing Bun...`);
+          log.debug(`${LOG_PREFIX} [init:${toolCallId}] Installing Bun...`);
           await box.exec.command(
             'curl -fsSL https://bun.sh/install | bash && ln -sf "$HOME/.bun/bin/bun" /usr/local/bin/bun 2>/dev/null || true',
           );
-          console.log(`${LOG_PREFIX} [init:${toolCallId}] Bun installed`);
+          log.debug(`${LOG_PREFIX} [init:${toolCallId}] Bun installed`);
         } catch (err) {
-          console.warn(`${LOG_PREFIX} [init:${toolCallId}] Bun install failed (non-fatal):`, err);
+          log.warn(`${LOG_PREFIX} [init:${toolCallId}] Bun install failed (non-fatal):`, err);
         }
       };
 
       const writeUploadedFiles = async () => {
         if (uploadedFiles.length === 0) return;
-        console.log(`${LOG_PREFIX} [init:${toolCallId}] Writing ${uploadedFiles.length} uploaded file(s) into box`);
+        log.debug(`${LOG_PREFIX} [init:${toolCallId}] Writing ${uploadedFiles.length} uploaded file(s) into box`);
         const TEXT_TYPES = new Set([
           'text/plain',
           'text/csv',
@@ -934,9 +937,9 @@ function createBoxInitTool(
               }
 
               downloadedPaths.push({ name: file.name, path: dest, mediaType: file.mediaType });
-              console.log(`${LOG_PREFIX} [init:${toolCallId}] Wrote: ${file.name} → ${dest}`);
+              log.debug(`${LOG_PREFIX} [init:${toolCallId}] Wrote: ${file.name} → ${dest}`);
             } catch (err) {
-              console.error(`${LOG_PREFIX} [init:${toolCallId}] Failed to write ${file.name}:`, err);
+              log.error(`${LOG_PREFIX} [init:${toolCallId}] Failed to write ${file.name}:`, err);
             }
           }),
         );

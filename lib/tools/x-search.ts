@@ -7,6 +7,10 @@ import { ChatMessage } from '@/lib/types';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('x-search');
+
 interface CitationSource {
   sourceType?: string;
   url?: string;
@@ -78,8 +82,8 @@ export function xSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>) {
         const effectiveStart = startDate && startDate.trim().length > 0 ? startDate : toYMD(daysAgo);
         const effectiveEnd = endDate && endDate.trim().length > 0 ? endDate : toYMD(today);
 
-        console.log('[X search - queries]:', queries);
-        console.log('[X search - includeHandles]:', normalizedInclude, '[excludeHandles]:', normalizedExclude);
+        log.debug('[X search - queries]:', queries);
+        log.debug('[X search - includeHandles]:', normalizedInclude, '[excludeHandles]:', normalizedExclude);
 
         const searchPromises = queries.map(async (query, index) => {
           try {
@@ -124,11 +128,11 @@ export function xSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>) {
                 x_search: xai.tools.xSearch(xSearchToolConfig),
               },
               onStepFinish: (step) => {
-                console.log(`[X search step for "${query}"]: `, step);
+                log.debug(`[X search step for "${query}"]: `, step);
               },
             });
 
-            console.log(`[X search data for "${query}"]: `, text);
+            log.debug(`[X search data for "${query}"]: `, text);
 
             const citations = (Array.isArray(sources) ? sources : []) as CitationSource[];
             let allSources = [];
@@ -168,7 +172,7 @@ export function xSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>) {
                     id: tweetId,
                   };
                 } catch (error) {
-                  console.error(`Error fetching tweet data for ${link.sourceType === 'url' ? link.url : ''}:`, error);
+                  log.error(`Error fetching tweet data for ${link.sourceType === 'url' ? link.url : ''}:`, error);
                   return null;
                 }
               });
@@ -233,7 +237,7 @@ export function xSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>) {
               handles: normalizedInclude || normalizedExclude || [],
             };
           } catch (error) {
-            console.error(`X search error for query "${query}":`, error);
+            log.error(`X search error for query "${query}":`, error);
 
             // Send error notification
             dataStream?.write({
@@ -289,7 +293,7 @@ export function xSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>) {
           handles: normalizedInclude || normalizedExclude || [],
         };
       } catch (error) {
-        console.error('X search error:', error);
+        log.error('X search error:', error);
         throw error;
       }
     },

@@ -15,6 +15,10 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('chat');
+
 type VisibilityType = 'public' | 'private';
 
 export async function saveChat({
@@ -228,12 +232,12 @@ export const getChatByIdForValidation = cache(
 // Cache chat lookups for the duration of the request
 export const getChatById = cache(async ({ id }: { id: string }) => {
   try {
-    console.log('🔍 [DB-DETAIL] getChatById: Starting query...');
+    log.debug('🔍 [DB-DETAIL] getChatById: Starting query...');
     const cacheQueryStart = Date.now();
     // Use direct select instead of relational query for better performance
     const [selectedChat] = await maindb.select().from(chat).where(eq(chat.id, id)).limit(1);
     const cacheQueryTime = (Date.now() - cacheQueryStart) / 1000;
-    console.log(`⏱️  [DB-DETAIL] getChatById: Query (with cache) took ${cacheQueryTime.toFixed(2)}s`);
+    log.debug(`⏱️  [DB-DETAIL] getChatById: Query (with cache) took ${cacheQueryTime.toFixed(2)}s`);
     return selectedChat || null;
   } catch (error) {
     throw new ChatSDKError('bad_request:database', 'Failed to get chat by id');
@@ -259,7 +263,7 @@ export async function getChatWithUserById({ id }: { id: string }) {
       .where(eq(chat.id, id));
     return result;
   } catch (error) {
-    console.log('Error getting chat with user by id', error);
+    log.debug('Error getting chat with user by id', error);
     return null;
   }
 }
@@ -462,12 +466,12 @@ export async function updateChatVisibilityById({
   chatId: string;
   visibility: 'private' | 'public';
 }) {
-  console.log('🔄 updateChatVisibilityById called with:', { chatId, visibility });
+  log.debug('🔄 updateChatVisibilityById called with:', { chatId, visibility });
 
   try {
-    console.log('📡 Executing database update for chat visibility');
+    log.debug('📡 Executing database update for chat visibility');
     const result = await db.update(chat).set({ visibility }).where(eq(chat.id, chatId));
-    console.log('✅ Database update successful, result:', result);
+    log.debug('✅ Database update successful, result:', result);
 
     // Return a consistent, serializable structure
     return {
@@ -477,7 +481,7 @@ export async function updateChatVisibilityById({
       visibility,
     };
   } catch (error) {
-    console.error('❌ Database error in updateChatVisibilityById:', {
+    log.error('❌ Database error in updateChatVisibilityById:', {
       chatId,
       visibility,
       error: error instanceof Error ? error.message : error,

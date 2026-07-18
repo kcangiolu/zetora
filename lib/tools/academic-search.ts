@@ -8,6 +8,10 @@ import { getBetterAllOptions } from '@/lib/better-all';
 
 import Firecrawl, { SearchResultWeb } from '@mendable/firecrawl-js';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('academic-search');
+
 const firecrawl = new Firecrawl({ apiKey: serverEnv.FIRECRAWL_API_KEY });
 
 export function academicSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>) {
@@ -26,8 +30,8 @@ export function academicSearchTool(dataStream?: UIMessageStreamWriter<ChatMessag
     }),
     execute: async ({ queries, maxResults }: { queries: string[]; maxResults?: number[] }) => {
       try {
-        console.log('Academic search queries:', queries);
-        console.log('Max results:', maxResults);
+        log.debug('Academic search queries:', queries);
+        log.debug('Max results:', maxResults);
 
         const searchPromises = queries.map(async (query, index) => {
           const currentMaxResults = maxResults?.[index] || maxResults?.[0] || 20;
@@ -90,7 +94,7 @@ export function academicSearchTool(dataStream?: UIMessageStreamWriter<ChatMessag
               results: processedResults,
             };
           } catch (error) {
-            console.error(`Academic search error for query "${query}":`, error);
+            log.error(`Academic search error for query "${query}":`, error);
 
             // Send error notification
             dataStream?.write({
@@ -122,7 +126,7 @@ export function academicSearchTool(dataStream?: UIMessageStreamWriter<ChatMessag
           searches,
         };
       } catch (error) {
-        console.error('Academic search error:', error);
+        log.error('Academic search error:', error);
         throw error;
       }
     },

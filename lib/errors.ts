@@ -1,3 +1,7 @@
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('errors');
+
 export type ErrorType =
   | 'bad_request'
   | 'unauthorized'
@@ -48,7 +52,7 @@ export class ChatSDKError extends Error {
     const { message, cause, statusCode } = this;
 
     if (visibility === 'log') {
-      console.error({
+      log.error({
         code,
         message,
         cause,

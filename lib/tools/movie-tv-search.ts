@@ -2,6 +2,10 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { serverEnv } from '@/env/server';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('movie-tv-search');
+
 export const movieTvSearchTool = tool({
   description: 'Search for a movie or TV show using TMDB API',
   inputSchema: z.object({
@@ -26,7 +30,7 @@ export const movieTvSearchTool = tool({
       );
 
       if (!searchResponse.ok) {
-        console.error('TMDB search error:', searchResponse.statusText);
+        log.error('TMDB search error:', searchResponse.statusText);
         return { result: null };
       }
 
@@ -82,7 +86,7 @@ export const movieTvSearchTool = tool({
 
       return { result };
     } catch (error) {
-      console.error('TMDB search error:', error);
+      log.error('TMDB search error:', error);
       throw error;
     }
   },

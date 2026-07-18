@@ -3,6 +3,10 @@ import { wrapLanguageModel, extractReasoningMiddleware } from 'ai';
 import { dynamicXmlToolMiddleware } from '@/ai/xml-tool-middleware';
 import { zetora, resolveModel } from '@/ai/providers';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('tertiary');
+
 // Custom (e.g. Ollama) reasoning models aren't wrapped with this at the
 // provider level the way built-in reasoning models are (main chat has a UI
 // for <think> content) — but a spoken response must never include it, so
@@ -77,13 +81,11 @@ export async function resolveTertiaryModel(
       // resolveModel handles both native zetora-* IDs and custom-{providerId}-{name}
       // IDs, and (given userId) applies the same anonymization/xml-parsing wrapping
       // it would for the main chat model.
-      resolved = (await resolveModel(
-        customModel,
-        preferences as Record<string, unknown> | null,
-        userId,
-      )) as ReturnType<typeof zetora.languageModel>;
+      resolved = (await resolveModel(customModel, preferences as Record<string, unknown> | null, userId)) as ReturnType<
+        typeof zetora.languageModel
+      >;
     } catch {
-      console.warn(`[Tertiary] Failed to load model ${customModel}, using default`);
+      log.warn(`[Tertiary] Failed to load model ${customModel}, using default`);
     }
   }
 

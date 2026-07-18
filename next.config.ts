@@ -11,11 +11,17 @@ const nextConfig: NextConfig = {
   // and .next/static into a minimal production image.
   output: 'standalone',
   compiler: {
-    // if NODE_ENV is production, remove console.log
+    // In production, strip console.log/debug/info noise from the bundle.
+    // 'warn' is excluded (kept) alongside 'error': this transform deletes
+    // matching console.* call expressions wherever they appear in compiled
+    // source — including inside lib/logger.ts's own warn()/error() method
+    // bodies — so without 'warn' here, createLogger(...).warn() would
+    // silently become a no-op in production despite the logger's contract
+    // that warn/error always emit.
     removeConsole:
       process.env.NODE_ENV === 'production'
         ? {
-            exclude: ['error'],
+            exclude: ['error', 'warn'],
           }
         : false,
   },

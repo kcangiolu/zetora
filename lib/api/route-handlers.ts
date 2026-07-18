@@ -6,6 +6,10 @@ import { getUser } from '@/lib/auth-utils';
 import { getComprehensiveUserData, type ComprehensiveUserData } from '@/lib/user-data-server';
 import type { User } from '@/lib/db/schema';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('route-handlers');
+
 /**
  * Composable wrappers for App Router route handlers. They centralize the
  * auth gate + try/catch boilerplate that used to be copy-pasted per route.
@@ -53,7 +57,7 @@ export function withError<Ctx extends RouteContext = RouteContext>(
       if (options.genericError === 'expose' && error instanceof Error) {
         return new ChatSDKError('bad_request:api', error.message).toResponse();
       }
-      console.error(`[api] ${req.method} ${new URL(req.url).pathname}:`, error);
+      log.error(`[api] ${req.method} ${new URL(req.url).pathname}:`, error);
       return Response.json({ error: 'Internal server error' }, { status: 500 });
     }
   };

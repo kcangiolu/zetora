@@ -2,6 +2,10 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { serverEnv } from '@/env/server';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('trending-movies');
+
 export const trendingMoviesTool = tool({
   description: 'Get trending movies from TMDB',
   inputSchema: z.object({}),
@@ -26,7 +30,7 @@ export const trendingMoviesTool = tool({
 
       return { results };
     } catch (error) {
-      console.error('Trending movies error:', error);
+      log.error('Trending movies error:', error);
       throw error;
     }
   },

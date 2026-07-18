@@ -43,6 +43,10 @@ import {
 import { sendVerificationEmail, sendTwoFactorOTPEmail } from './email';
 import { APIError } from 'better-auth/api';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('auth');
+
 config({
   path: '.env.local',
 });
@@ -92,10 +96,10 @@ async function handleSubscriptionWebhook(payload: any, status: string) {
         validUserId = userExists ? userExists.id : null;
 
         if (!userExists) {
-          console.warn(`⚠️ User with email ${data.customer.email} not found, creating subscription without user link`);
+          log.warn(`⚠️ User with email ${data.customer.email} not found, creating subscription without user link`);
         }
       } catch (error) {
-        console.error('Error checking user existence:', error);
+        log.error('Error checking user existence:', error);
       }
     }
 
@@ -158,7 +162,7 @@ async function handleSubscriptionWebhook(payload: any, status: string) {
       userId: validUserId,
     };
 
-    console.log('💾 Final subscription data:', {
+    log.debug('💾 Final subscription data:', {
       id: subscriptionData.id,
       status: subscriptionData.status,
       userId: subscriptionData.userId,
@@ -197,16 +201,16 @@ async function handleSubscriptionWebhook(payload: any, status: string) {
         },
       });
 
-    console.log('✅ Upserted subscription:', data.subscription_id);
+    log.debug('✅ Upserted subscription:', data.subscription_id);
 
     // Invalidate user caches when subscription status changes
     if (validUserId) {
       invalidateUserCaches(validUserId);
       clearUserDataCache(validUserId);
-      console.log('🗑️ Invalidated caches for user:', validUserId);
+      log.debug('🗑️ Invalidated caches for user:', validUserId);
     }
   } catch (error) {
-    console.error('💥 Error processing subscription webhook:', error);
+    log.error('💥 Error processing subscription webhook:', error);
     // Don't throw - let webhook succeed to avoid retries
   }
 }
@@ -381,8 +385,8 @@ export const auth = betterAuth({
               type === 'subscription.uncanceled' ||
               type === 'subscription.updated'
             ) {
-              console.log('🎯 Processing subscription webhook:', type);
-              console.log('📦 Payload data:', JSON.stringify(data, null, 2));
+              log.debug('🎯 Processing subscription webhook:', type);
+              log.debug('📦 Payload data:', JSON.stringify(data, null, 2));
 
               try {
                 // STEP 0: Validate product ID matches expected product
@@ -390,7 +394,7 @@ export const auth = betterAuth({
                 const incomingProductId = data.productId;
 
                 if (expectedProductId && incomingProductId && incomingProductId !== expectedProductId) {
-                  console.warn(
+                  log.warn(
                     `⚠️ Product ID mismatch - expected: ${expectedProductId}, received: ${incomingProductId}. Skipping subscription.`,
                   );
                   return; // Don't add subscription if product ID doesn't match
@@ -410,15 +414,15 @@ export const auth = betterAuth({
                     validUserId = userExists ? userId : null;
 
                     if (!userExists) {
-                      console.warn(
+                      log.warn(
                         `⚠️ User ${userId} not found, creating subscription without user link - will auto-link when user signs up`,
                       );
                     }
                   } catch (error) {
-                    console.error('Error checking user existence:', error);
+                    log.error('Error checking user existence:', error);
                   }
                 } else {
-                  console.error('🚨 No external ID found for subscription', {
+                  log.error('🚨 No external ID found for subscription', {
                     subscriptionId: data.id,
                     customerId: data.customerId,
                   });
@@ -450,7 +454,7 @@ export const auth = betterAuth({
                   userId: validUserId,
                 };
 
-                console.log('💾 Final subscription data:', {
+                log.debug('💾 Final subscription data:', {
                   id: subscriptionData.id,
                   status: subscriptionData.status,
                   userId: subscriptionData.userId,
@@ -488,16 +492,16 @@ export const auth = betterAuth({
                     },
                   });
 
-                console.log('✅ Upserted subscription:', data.id);
+                log.debug('✅ Upserted subscription:', data.id);
 
                 // Invalidate user caches when subscription changes
                 if (validUserId) {
                   invalidateUserCaches(validUserId);
                   clearUserDataCache(validUserId);
-                  console.log('🗑️ Invalidated caches for user:', validUserId);
+                  log.debug('🗑️ Invalidated caches for user:', validUserId);
                 }
               } catch (error) {
-                console.error('💥 Error processing subscription webhook:', error);
+                log.error('💥 Error processing subscription webhook:', error);
                 // Don't throw - let webhook succeed to avoid retries
               }
             }
@@ -544,11 +548,11 @@ export const auth = betterAuth({
           webhookKey: process.env.DODO_PAYMENTS_WEBHOOK_SECRET!,
           onPayload: async (payload) => {
             const webhookPayload = payload;
-            console.log('🔔 Received Dodo Payments webhook:', webhookPayload.type);
-            console.log('📦 Payload data:', JSON.stringify(webhookPayload.data, null, 2));
+            log.debug('🔔 Received Dodo Payments webhook:', webhookPayload.type);
+            log.debug('📦 Payload data:', JSON.stringify(webhookPayload.data, null, 2));
           },
           onSubscriptionActive: async (payload) => {
-            console.log('🎯 Processing subscription.active webhook');
+            log.debug('🎯 Processing subscription.active webhook');
             await handleSubscriptionWebhook(payload, 'active');
 
             // If this is a Max subscription (not Pro), revoke any active Polar subscription
@@ -569,42 +573,42 @@ export const auth = betterAuth({
                       where: and(eq(subscription.userId, userRecord.id), eq(subscription.status, 'active')),
                     });
                     if (activePolarSub) {
-                      console.log('🔄 [UPGRADE] Revoking Polar sub for Max upgrade:', activePolarSub.id);
+                      log.debug('🔄 [UPGRADE] Revoking Polar sub for Max upgrade:', activePolarSub.id);
                       await polarClient.subscriptions.revoke({ id: activePolarSub.id });
-                      console.log('✅ [UPGRADE] Polar sub revoked:', activePolarSub.id);
+                      log.debug('✅ [UPGRADE] Polar sub revoked:', activePolarSub.id);
                     }
 
                     invalidateUserCaches(userRecord.id);
                     clearUserDataCache(userRecord.id);
                   }
                 } catch (err) {
-                  console.error('❌ [UPGRADE] Failed to reconcile Polar subscription on Max upgrade:', err);
+                  log.error('❌ [UPGRADE] Failed to reconcile Polar subscription on Max upgrade:', err);
                 }
               }
             }
           },
           onSubscriptionOnHold: async (payload) => {
-            console.log('🎯 Processing subscription.on_hold webhook');
+            log.debug('🎯 Processing subscription.on_hold webhook');
             await handleSubscriptionWebhook(payload, 'on_hold');
           },
           onSubscriptionRenewed: async (payload) => {
-            console.log('🎯 Processing subscription.renewed webhook');
+            log.debug('🎯 Processing subscription.renewed webhook');
             await handleSubscriptionWebhook(payload, 'active');
           },
           onSubscriptionPlanChanged: async (payload) => {
-            console.log('🎯 Processing subscription.plan_changed webhook');
+            log.debug('🎯 Processing subscription.plan_changed webhook');
             await handleSubscriptionWebhook(payload, 'active');
           },
           onSubscriptionCancelled: async (payload) => {
-            console.log('🎯 Processing subscription.cancelled webhook');
+            log.debug('🎯 Processing subscription.cancelled webhook');
             await handleSubscriptionWebhook(payload, 'cancelled');
           },
           onSubscriptionFailed: async (payload) => {
-            console.log('🎯 Processing subscription.failed webhook');
+            log.debug('🎯 Processing subscription.failed webhook');
             await handleSubscriptionWebhook(payload, 'failed');
           },
           onSubscriptionExpired: async (payload) => {
-            console.log('🎯 Processing subscription.expired webhook');
+            log.debug('🎯 Processing subscription.expired webhook');
             await handleSubscriptionWebhook(payload, 'expired');
           },
         }),

@@ -1,6 +1,10 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('datetime');
+
 export const datetimeTool = tool({
   description: 'Get the current date and time in UTC',
   inputSchema: z.object({}),
@@ -64,7 +68,7 @@ export const datetimeTool = tool({
         },
       };
     } catch (error) {
-      console.error('Datetime error:', error);
+      log.error('Datetime error:', error);
       throw error;
     }
   },

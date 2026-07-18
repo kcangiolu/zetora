@@ -4,6 +4,10 @@ import { serverEnv } from '@/env/server';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('flight-tracker');
+
 const preferredTimingTypes = ['actual', 'estimated', 'scheduled'] as const;
 
 const getPreferredTimingValue = (timings?: Array<{ value?: string; type?: string }>): string | null => {
@@ -114,7 +118,7 @@ export const flightTrackerTool = tool({
     flightNumber: string;
     scheduledDepartureDate: string;
   }) => {
-    console.log(`[Tracking flight]: ${carrierCode} ${flightNumber} on ${scheduledDepartureDate}`);
+    log.debug(`[Tracking flight]: ${carrierCode} ${flightNumber} on ${scheduledDepartureDate}`);
     const tokenResponse = await fetch('https://api.amadeus.com/v1/security/oauth2/token', {
       method: 'POST',
       headers: {
@@ -128,7 +132,7 @@ export const flightTrackerTool = tool({
     });
 
     const tokenData = await tokenResponse.json();
-    console.log(tokenData);
+    log.debug(tokenData);
 
     const accessToken = tokenData.access_token;
 
@@ -149,7 +153,7 @@ export const flightTrackerTool = tool({
 
       const data = await response.json();
 
-      console.log(`[Flight data]: ${JSON.stringify(data, null, 2)}`);
+      log.debug(`[Flight data]: ${JSON.stringify(data, null, 2)}`);
 
       // Look up airline name
       let airlineName = carrierCode;
@@ -171,7 +175,7 @@ export const flightTrackerTool = tool({
           }
         }
       } catch (error) {
-        console.warn('Failed to lookup airline name:', error);
+        log.warn('Failed to lookup airline name:', error);
         // Fall back to carrier code
       }
 
@@ -213,7 +217,7 @@ export const flightTrackerTool = tool({
               airportNames[code] = code;
             }
           } catch (error) {
-            console.warn(`Failed to lookup airport name for ${code}:`, error);
+            log.warn(`Failed to lookup airport name for ${code}:`, error);
             airportNames[code] = code;
           }
         });
@@ -369,7 +373,7 @@ export const flightTrackerTool = tool({
 
       return { data: [], error: 'No flight data found' };
     } catch (error) {
-      console.error('Flight tracking error:', error);
+      log.error('Flight tracking error:', error);
       return {
         data: [],
         error: error instanceof Error ? error.message : 'Flight tracking failed',

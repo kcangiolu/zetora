@@ -1,6 +1,10 @@
 import { Queue, Worker, Job } from 'bullmq';
 import Redis from 'ioredis';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('bullmq');
+
 const QUEUE_NAME = 'lookout-scheduler';
 const PAUSED_KEY_PREFIX = 'bullmq:paused:';
 
@@ -160,7 +164,7 @@ export function startLookoutWorker(): Worker<LookoutJobData> {
   );
 
   worker.on('failed', (job, err) => {
-    console.error(`[BullMQ] Lookout job ${job?.id} failed (attempt ${job?.attemptsMade}):`, err.message);
+    log.error(`[BullMQ] Lookout job ${job?.id} failed (attempt ${job?.attemptsMade}):`, err.message);
   });
 
   return worker;

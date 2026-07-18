@@ -48,6 +48,10 @@ import { lookoutCallbackHeaders, lookoutQstashHeaders } from '@/lib/lookout-auth
 import { saveChat, saveMessages } from '@/lib/db/queries';
 import { all, allSettled } from 'better-all';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('billing');
+
 export async function getSubDetails() {
   'use server';
 
@@ -112,7 +116,7 @@ export async function previewMaxUpgrade() {
       return { success: false, error: 'Active Dodo Pro subscription not found' };
     }
 
-    console.log('ℹ️ [UPGRADE] previewMaxUpgrade selected subscription:', {
+    log.debug('ℹ️ [UPGRADE] previewMaxUpgrade selected subscription:', {
       userId: user.id,
       subscriptionId: activeDodoProSub.id,
       productId: activeDodoProSub.productId,
@@ -131,7 +135,7 @@ export async function previewMaxUpgrade() {
       proration_billing_mode: 'prorated_immediately',
     });
 
-    console.log('ℹ️ [UPGRADE] previewMaxUpgrade Dodo preview summary:', {
+    log.debug('ℹ️ [UPGRADE] previewMaxUpgrade Dodo preview summary:', {
       subscriptionId: activeDodoProSub.id,
       totalAmount: preview.immediate_charge.summary.total_amount,
       currency: preview.immediate_charge.summary.currency,
@@ -152,7 +156,7 @@ export async function previewMaxUpgrade() {
       },
     };
   } catch (error) {
-    console.error('❌ [UPGRADE] previewMaxUpgrade error:', error);
+    log.error('❌ [UPGRADE] previewMaxUpgrade error:', error);
     return { success: false, error: 'Failed to preview Max upgrade. Please try again.' };
   }
 }
@@ -201,7 +205,7 @@ export async function upgradeToMax() {
         return { success: false, error: 'Active Dodo Pro subscription not found' };
       }
 
-      console.log('ℹ️ [UPGRADE] upgradeToMax selected subscription:', {
+      log.debug('ℹ️ [UPGRADE] upgradeToMax selected subscription:', {
         userId: user.id,
         subscriptionId: activeDodoProSub.id,
         productId: activeDodoProSub.productId,
@@ -228,7 +232,7 @@ export async function upgradeToMax() {
     // Polar revocation happens in the Dodo webhook handler after Max becomes active.
     return { success: true, redirect: '/pricing' };
   } catch (error) {
-    console.error('❌ [UPGRADE] upgradeToMax error:', error);
+    log.error('❌ [UPGRADE] upgradeToMax error:', error);
     return { success: false, error: 'Something went wrong. Please try again.' };
   }
 }
@@ -289,7 +293,7 @@ export async function previewDowngradeToPro() {
       },
     };
   } catch (error) {
-    console.error('❌ [DOWNGRADE] previewDowngradeToPro error:', error);
+    log.error('❌ [DOWNGRADE] previewDowngradeToPro error:', error);
     return { success: false, error: 'Failed to preview Pro downgrade. Please try again.' };
   }
 }
@@ -341,7 +345,7 @@ export async function downgradeToPro() {
 
     return { success: true, redirect: '/success' };
   } catch (error) {
-    console.error('❌ [DOWNGRADE] downgradeToPro error:', error);
+    log.error('❌ [DOWNGRADE] downgradeToPro error:', error);
     return { success: false, error: 'Failed to downgrade to Pro. Please try again.' };
   }
 }
@@ -370,14 +374,14 @@ export async function getDiscountConfigAction(params?: DiscountConfigParams) {
         const country = (locationData.country || '').toUpperCase();
         isIndianUser = country === 'IN';
       } catch (geoError) {
-        console.warn('Geolocation lookup failed in getDiscountConfigAction:', geoError);
+        log.warn('Geolocation lookup failed in getDiscountConfigAction:', geoError);
         isIndianUser = false;
       }
     }
 
     return await getDiscountConfig(userEmail ?? undefined, isIndianUser);
   } catch (error) {
-    console.error('Error getting discount configuration:', error);
+    log.error('Error getting discount configuration:', error);
     return {
       enabled: false,
     };

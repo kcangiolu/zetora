@@ -7,6 +7,10 @@ import VerifyEmailTemplate from '@/components/emails/verify-email';
 import TwoFactorOtpEmailTemplate from '@/components/emails/two-factor-otp';
 import { render } from '@react-email/render';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('email');
+
 type EmailProvider = 'resend' | 'smtp';
 
 interface SendEmailParams {
@@ -56,13 +60,13 @@ function resolveEmailProvider(userPreference?: 'resend' | 'smtp'): EmailProvider
     if (serverEnv.SMTP_HOST && serverEnv.SMTP_USER && serverEnv.SMTP_PASS) {
       return 'smtp';
     }
-    console.warn('SMTP configured as preference but SMTP env vars are missing, falling back');
+    log.warn('SMTP configured as preference but SMTP env vars are missing, falling back');
   }
   if (userPreference === 'resend') {
     if (isRealResendKey(serverEnv.RESEND_API_KEY)) {
       return 'resend';
     }
-    console.warn('Resend configured as preference but RESEND_API_KEY is missing, falling back');
+    log.warn('Resend configured as preference but RESEND_API_KEY is missing, falling back');
   }
 
   // 2. Otherwise, auto-detect
@@ -144,13 +148,13 @@ export async function sendLookoutCompletionEmail({
         chatId,
       }),
     });
-    console.log(
+    log.debug(
       `✅ Lookout completion email sent successfully via ${provider}:`,
       'id' in data ? data.id : (data as any).messageId,
     );
     return { success: true, id: 'id' in data ? data.id : (data as any).messageId };
   } catch (error) {
-    console.error(`❌ Failed to send lookout completion email via ${provider}:`, error);
+    log.error(`❌ Failed to send lookout completion email via ${provider}:`, error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -168,10 +172,10 @@ export async function sendVerificationEmail(params: { to: string; url: string; e
       subject: 'Verify your email for Zetora',
       react: VerifyEmailTemplate({ url: params.url }),
     });
-    console.log(`✅ Verification email sent successfully via ${provider}`);
+    log.debug(`✅ Verification email sent successfully via ${provider}`);
     return { success: true, id: 'id' in data ? data.id : (data as any).messageId };
   } catch (error) {
-    console.error(`❌ Failed to send verification email via ${provider}:`, error);
+    log.error(`❌ Failed to send verification email via ${provider}:`, error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -189,14 +193,13 @@ export async function sendTwoFactorOTPEmail(params: { to: string; otp: string; e
       subject: `${params.otp} is your Zetora sign-in code`,
       react: TwoFactorOtpEmailTemplate({ otp: params.otp }),
     });
-    console.log(`✅ Two-factor OTP email sent successfully via ${provider}`);
+    log.debug(`✅ Two-factor OTP email sent successfully via ${provider}`);
     return { success: true, id: 'id' in data ? data.id : (data as any).messageId };
   } catch (error) {
-    console.error(`❌ Failed to send two-factor OTP email via ${provider}:`, error);
+    log.error(`❌ Failed to send two-factor OTP email via ${provider}:`, error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 }
-

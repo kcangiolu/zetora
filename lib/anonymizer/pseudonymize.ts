@@ -6,6 +6,10 @@ import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
 import { upsertPiiAliases, getPiiAliasesByTokens } from '@/lib/db/queries';
 import { detectEntities } from './client';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('pseudonymize');
+
 export interface AnonymizeContext {
   userId: string;
   language?: string;
@@ -47,7 +51,7 @@ export async function anonymizeText(text: string, ctx: AnonymizeContext): Promis
     entities = await detectEntities(text, ctx.language ?? 'en', ctx.denyTerms ?? [], ctx.nerEnabled ?? true);
   } catch (error) {
     if (ctx.failOpen) {
-      console.error('[anonymizer] detection failed, failing open (cleartext will be sent):', error);
+      log.error('[anonymizer] detection failed, failing open (cleartext will be sent):', error);
       return text;
     }
     throw new AnonymizationUnavailableError('PII detection service unavailable');
@@ -102,7 +106,7 @@ export async function deanonymizeText(text: string, ctx: Pick<AnonymizeContext, 
     // token lands in a saved assistant message, the model echoes it back on
     // every later turn in that chat, permanently propagating the leak even
     // after this account's anonymization setting is turned off.
-    console.error(`[anonymizer] No vault entry for token ${token}, masking instead of leaking raw marker`, {
+    log.error(`[anonymizer] No vault entry for token ${token}, masking instead of leaking raw marker`, {
       userId: ctx.userId,
     });
     result = result.split(token).join('[masked]');
@@ -119,7 +123,9 @@ async function mapJsonStrings(value: unknown, op: TextOp): Promise<unknown> {
   if (Array.isArray(value)) return Promise.all(value.map((v) => mapJsonStrings(v, op)));
   if (value && typeof value === 'object') {
     const entries = await Promise.all(
-      Object.entries(value as Record<string, unknown>).map(async ([key, v]) => [key, await mapJsonStrings(v, op)] as const),
+      Object.entries(value as Record<string, unknown>).map(
+        async ([key, v]) => [key, await mapJsonStrings(v, op)] as const,
+      ),
     );
     return Object.fromEntries(entries);
   }

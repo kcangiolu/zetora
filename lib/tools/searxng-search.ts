@@ -4,6 +4,10 @@ import type { SearchStrategy } from './web-search';
 import { SEARXNG_TIMEOUT_MS } from '@/lib/timeouts';
 import { mergeArchiveResults } from '@/lib/vector/archive-merge';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('searxng-search');
+
 interface SearXNGResult {
   url: string;
   title: string;
@@ -116,7 +120,7 @@ export class SearXNGSearchStrategy implements SearchStrategy {
 
           return { query, results, images: [] };
         } catch (error) {
-          console.error(`SearXNG search error for query "${query}":`, error);
+          log.error(`SearXNG search error for query "${query}":`, error);
 
           options.dataStream?.write({
             type: 'data-query_completion',
@@ -156,7 +160,7 @@ export class SearXNGSearchStrategy implements SearchStrategy {
           searches.push({ query: `[archive] ${queries[0]}`, results: archiveResults, images: [] });
         }
       } catch (error) {
-        console.warn('Hybrid search fusion failed, using raw SearXNG results:', error);
+        log.warn('Hybrid search fusion failed, using raw SearXNG results:', error);
       }
     }
 
@@ -168,7 +172,7 @@ export class SearXNGSearchStrategy implements SearchStrategy {
         queries[0],
         this.preferences,
         this.userId,
-      ).catch((err) => console.warn('Background content indexing failed:', err));
+      ).catch((err) => log.warn('Background content indexing failed:', err));
     }
 
     return { searches };

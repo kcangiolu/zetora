@@ -5,6 +5,10 @@ import { chat, type User, message, type Message, type Chat } from '../schema';
 import { ChatSDKError } from '../../errors';
 import { maindb } from '../index';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('chat-pages');
+
 // Optimized query to get chat with user data for ownership checks
 export async function getChatWithUserAndInitialMessages({ id }: { id: string }): Promise<{
   chat: Chat | null;
@@ -13,7 +17,7 @@ export async function getChatWithUserAndInitialMessages({ id }: { id: string }):
   hasMoreMessages: boolean;
 }> {
   try {
-    console.log('🔍 [DB-OPTIMIZED] getChatWithUserAndInitialMessages: Starting optimized query (db.query.chat)...');
+    log.debug('🔍 [DB-OPTIMIZED] getChatWithUserAndInitialMessages: Starting optimized query (db.query.chat)...');
     const startTime = Date.now();
 
     const record = await maindb.query.chat.findFirst({
@@ -37,7 +41,7 @@ export async function getChatWithUserAndInitialMessages({ id }: { id: string }):
     });
 
     const queryTime = (Date.now() - startTime) / 1000;
-    console.log(
+    log.debug(
       `⏱️  [DB-OPTIMIZED] getChatWithUserAndInitialMessages: db.query.chat (with user + messages) took ${queryTime.toFixed(
         2,
       )}s`,
@@ -50,7 +54,7 @@ export async function getChatWithUserAndInitialMessages({ id }: { id: string }):
       hasMoreMessages: false,
     };
   } catch (error) {
-    console.error('Error in getChatWithUserAndInitialMessages:', error);
+    log.error('Error in getChatWithUserAndInitialMessages:', error);
     throw new ChatSDKError('bad_request:database', 'Failed to get chat with user and messages');
   }
 }

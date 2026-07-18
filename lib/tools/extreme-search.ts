@@ -278,11 +278,7 @@ async function getMetadataFallbackResults(urls: string[], logPrefix: string): Pr
 
             const response = await fetch(endpoint.toString(), { method: 'GET' });
             if (!response.ok) {
-              log.error(
-                `[${logPrefix}] metadata.zetora.app failed for ${url}:`,
-                response.status,
-                response.statusText,
-              );
+              log.error(`[${logPrefix}] metadata.zetora.app failed for ${url}:`, response.status, response.statusText);
               return null;
             }
 
@@ -727,7 +723,9 @@ ${hasFilesForPlanning ? '- Include file search steps when the uploaded files are
   // full prompt re-processing every round) — tighter step and retry budgets,
   // plus a wall-clock deadline so a run can never grow unbounded.
   const isCustomAgentModel = Boolean(
-    (preferences as Record<string, unknown> | null)?.['zetora-tertiary-extreme-agent-model']?.toString()?.startsWith('custom-'),
+    (preferences as Record<string, unknown> | null)?.['zetora-tertiary-extreme-agent-model']
+      ?.toString()
+      ?.startsWith('custom-'),
   );
   const agentDeadline = EXTREME_WALL_CLOCK_MS > 0 ? Date.now() + EXTREME_WALL_CLOCK_MS : Number.POSITIVE_INFINITY;
 
@@ -1527,9 +1525,7 @@ ${JSON.stringify(plan)}
                       if (scrapeResult.markdown?.trim()) {
                         title = scrapeResult.metadata?.title || title;
                         content = scrapeResult.markdown.trim();
-                        log.info(
-                          `[BrowsePage][${url}] Firecrawl scrape fallback succeeded, length: ${content.length}`,
-                        );
+                        log.info(`[BrowsePage][${url}] Firecrawl scrape fallback succeeded, length: ${content.length}`);
                       }
                     } catch (fcErr) {
                       log.error(`[BrowsePage][${url}] Firecrawl scrape fallback failed:`, fcErr);

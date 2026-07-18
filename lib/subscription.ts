@@ -3,9 +3,19 @@ import { subscription, dodosubscription } from './db/schema';
 import { db, maindb } from './db';
 import { auth } from './auth';
 import { headers } from 'next/headers';
-import { getProUserStatus, setProUserStatus, getDodoSubscriptions, setDodoSubscriptions, setDodoProStatus } from './performance-cache';
+import {
+  getProUserStatus,
+  setProUserStatus,
+  getDodoSubscriptions,
+  setDodoSubscriptions,
+  setDodoProStatus,
+} from './performance-cache';
 import { flow } from 'better-all';
 import { getBetterAllOptions } from './better-all';
+
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('subscription');
 
 // Combined function to check Pro status from both Polar and Dodo Subscriptions.
 // Uses flow() to race both queries — exits as soon as either finds an active subscription.
@@ -20,7 +30,7 @@ async function getComprehensiveProStatus(
           const subs = await db.select().from(subscription).where(eq(subscription.userId, userId));
           const active = subs.find((sub) => sub.status === 'active');
           if (active) {
-            console.log('🔥 Polar subscription found for user:', userId);
+            log.debug('🔥 Polar subscription found for user:', userId);
             this.$end({ isProUser: true, source: 'polar' });
           }
           return subs;
@@ -41,7 +51,7 @@ async function getComprehensiveProStatus(
             return sub.status === 'active' || sub.status === 'cancelled';
           });
           if (active) {
-            console.log('🔥 Dodo subscription found for user:', userId);
+            log.debug('🔥 Dodo subscription found for user:', userId);
             setDodoProStatus(userId, { isProUser: true, hasSubscriptions: true });
             this.$end({ isProUser: true, source: 'dodo' });
           }
@@ -52,7 +62,7 @@ async function getComprehensiveProStatus(
     );
     return result ?? { isProUser: false, source: 'none' };
   } catch (error) {
-    console.error('Error getting comprehensive pro status:', error);
+    log.error('Error getting comprehensive pro status:', error);
     return { isProUser: false, source: 'none' };
   }
 }

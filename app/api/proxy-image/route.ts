@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('proxy-image');
+
 // This endpoint is reachable without auth (favicons/thumbnails on public
 // share pages), so it must not be usable as an SSRF gateway or open proxy:
 // http(s) only, no private/reserved IPs (checked on every redirect hop),
@@ -129,7 +133,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Image proxy error:', error);
+    log.error('Image proxy error:', error);
     return NextResponse.json({ error: 'Failed to proxy image' }, { status: 500 });
   }
 }

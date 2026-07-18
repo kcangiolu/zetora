@@ -5,6 +5,10 @@ import { serverEnv } from '@/env/server';
 import { allSettled } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('youtube-search');
+
 interface VideoDetails {
   title?: string;
   author_name?: string;
@@ -252,7 +256,7 @@ async function fetchMetadataWithRetry(supadata: Supadata, videoUrl: string, vide
         await new Promise((resolve) => setTimeout(resolve, retryDelay));
         continue;
       }
-      console.warn(`⚠️ Supadata metadata failed for ${videoId}:`, error);
+      log.warn(`⚠️ Supadata metadata failed for ${videoId}:`, error);
     }
   }
   return null;
@@ -327,7 +331,7 @@ async function resolveChannelIdFromQuery(supadata: Supadata, query: string) {
     if (!chosenChannel) return null;
     return chosenChannel.id || chosenChannel.handle || null;
   } catch (error) {
-    console.warn('⚠️ Failed to resolve channel ID from query', { query, error });
+    log.warn('⚠️ Failed to resolve channel ID from query', { query, error });
     return null;
   }
 }
@@ -356,7 +360,7 @@ async function resolvePlaylistIdFromQuery(supadata: Supadata, query: string) {
     const chosenPlaylist = playlistResults.find((result) => result.type === 'playlist');
     return chosenPlaylist?.id ?? null;
   } catch (error) {
-    console.warn('⚠️ Failed to resolve playlist ID from query', { query, error });
+    log.warn('⚠️ Failed to resolve playlist ID from query', { query, error });
     return null;
   }
 }
@@ -398,7 +402,7 @@ async function getVideosForMode({
       });
       return flattenVideoIds(ids);
     } catch (error) {
-      console.warn('⚠️ Supadata channel.videos failed', { channelQuery, error });
+      log.warn('⚠️ Supadata channel.videos failed', { channelQuery, error });
       return [];
     }
   };
@@ -412,7 +416,7 @@ async function getVideosForMode({
       });
       return flattenVideoIds(ids);
     } catch (error) {
-      console.warn('⚠️ Supadata playlist.videos failed', { playlistId, error });
+      log.warn('⚠️ Supadata playlist.videos failed', { playlistId, error });
       return [];
     }
   };
@@ -439,7 +443,7 @@ async function getVideosForMode({
         })();
 
   if (normalizedIds.length === 0) {
-    console.warn(`⚠️ No video IDs resolved for mode="${mode}". Falling back to general search.`);
+    log.warn(`⚠️ No video IDs resolved for mode="${mode}". Falling back to general search.`);
     return getVideosForMode({
       supadata,
       query,
@@ -503,7 +507,7 @@ async function getVideosForMode({
       return videosWithMetadata;
     }
   } catch (error) {
-    console.warn('⚠️ Parallel metadata fetch error, falling back to IDs only:', error);
+    log.warn('⚠️ Parallel metadata fetch error, falling back to IDs only:', error);
   }
 
   // Fallback: return minimal video objects
@@ -538,7 +542,7 @@ export const youtubeSearchTool = tool({
         apiKey: serverEnv.SUPADATA_API_KEY,
       });
 
-      console.log('🔎 Supadata YouTube search', { query, timeRange, mode, channelVideoType });
+      log.debug('🔎 Supadata YouTube search', { query, timeRange, mode, channelVideoType });
 
       const videoResults = await getVideosForMode({
         supadata,
@@ -549,11 +553,11 @@ export const youtubeSearchTool = tool({
       });
 
       if (videoResults.length === 0) {
-        console.log('ℹ️ Supadata returned no video IDs for the provided input');
+        log.debug('ℹ️ Supadata returned no video IDs for the provided input');
         return { results: [] };
       }
 
-      console.log(`🎥 Resolved ${videoResults.length} video candidates for mode="${mode}"`);
+      log.debug(`🎥 Resolved ${videoResults.length} video candidates for mode="${mode}"`);
 
       // Process all videos in parallel
       const taskMap = await allSettled(
@@ -566,7 +570,7 @@ export const youtubeSearchTool = tool({
               async () => {
                 const videoId = video.id;
                 if (!videoId) {
-                  console.warn('⚠️ Video missing ID from Supadata result, skipping');
+                  log.warn('⚠️ Video missing ID from Supadata result, skipping');
                   return null;
                 }
 
@@ -637,7 +641,7 @@ export const youtubeSearchTool = tool({
 
                   return processedVideo;
                 } catch (error) {
-                  console.warn(`⚠️ Error processing video ${videoId}:`, error);
+                  log.warn(`⚠️ Error processing video ${videoId}:`, error);
                   // Return basic result with available data
                   return {
                     videoId,
@@ -672,13 +676,13 @@ export const youtubeSearchTool = tool({
           return new Date(b.publishedDate).getTime() - new Date(a.publishedDate).getTime();
         });
 
-      console.log(`🏁 Supadata processing completed with ${processedResults.length} enriched videos`);
+      log.debug(`🏁 Supadata processing completed with ${processedResults.length} enriched videos`);
 
       return {
         results: processedResults,
       };
     } catch (error) {
-      console.error('YouTube search error:', error);
+      log.error('YouTube search error:', error);
       throw error;
     }
   },

@@ -3,6 +3,10 @@ import type { ChatMessage } from '../types';
 import type { SearchStrategy } from './web-search';
 import { FASTCRW_SEARCH_TIMEOUT_MS } from '@/lib/timeouts';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('fastcrw-web-search');
+
 interface FastCrwApiResult {
   url: string;
   title: string;
@@ -90,7 +94,7 @@ export class FastCrwWebSearchStrategy implements SearchStrategy {
 
           return { query, results, images: [] };
         } catch (error) {
-          console.error(`fastCRW search error for query "${query}":`, error);
+          log.error(`fastCRW search error for query "${query}":`, error);
 
           options.dataStream?.write({
             type: 'data-query_completion',

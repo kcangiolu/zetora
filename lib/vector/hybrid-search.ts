@@ -6,6 +6,10 @@ import { buildUserFilter } from './qdrant-filters';
 import { getEmbeddingModel } from '@/ai/embeddings';
 import { resolveTertiaryModel } from '@/ai/tertiary';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('hybrid-search');
+
 // Only 5 archive candidates per query — this is a hint of possibly-related
 // past context, not a second source of "live" results.
 const QDRANT_QUERY_LIMIT = 5;
@@ -91,7 +95,7 @@ async function rerankResults(
       .slice(0, topK)
       .map(({ candidate }) => candidate);
   } catch (error) {
-    console.warn('Reranking failed, falling back to RRF order:', error);
+    log.warn('Reranking failed, falling back to RRF order:', error);
     return candidates.slice(0, topK);
   }
 }
@@ -134,7 +138,7 @@ export async function hybridSearch(
 
     if (qdrantResults.length > 0) {
       const scores = qdrantResults.map((r) => r.score);
-      console.log(
+      log.debug(
         `[HYBRID-SEARCH] Qdrant candidates: ${qdrantResults.length}, score range [${Math.min(...scores).toFixed(3)}, ${Math.max(...scores).toFixed(3)}]`,
       );
     }
@@ -186,11 +190,11 @@ export async function hybridSearch(
     const fused = Array.from(allResults.values()).sort((a, b) => b.score - a.score);
     const reranked = await rerankResults(query, fused, fused.length, preferences);
 
-    console.log(`[HYBRID-SEARCH] RRF fusion applied, ${fused.length} candidates → ${reranked.length} after reranking`);
+    log.debug(`[HYBRID-SEARCH] RRF fusion applied, ${fused.length} candidates → ${reranked.length} after reranking`);
 
     return reranked;
   } catch (error) {
-    console.warn('Hybrid search failed, falling back to SearXNG:', error);
+    log.warn('Hybrid search failed, falling back to SearXNG:', error);
     return searxngOnlyResults(searxngResults);
   }
 }

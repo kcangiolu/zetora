@@ -7,6 +7,10 @@
 // for deployments that want a deeper/latency-tolerant search (self-hosted
 // stacks where thoroughness matters more than speed).
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('web-search-limits');
+
 function envInt(name: string, fallback: number): number {
   const raw = process.env[name];
   if (!raw) return fallback;
@@ -39,9 +43,7 @@ export interface SearchEntry {
   images?: unknown[];
 }
 
-export function clampSearchInput<T extends { queries: string[]; maxResults?: (number | undefined)[] }>(
-  input: T,
-): T {
+export function clampSearchInput<T extends { queries: string[]; maxResults?: (number | undefined)[] }>(input: T): T {
   const queries = input.queries.slice(0, MAX_QUERIES);
   const maxResults = queries.map((_, i) => {
     const requested = input.maxResults?.[i] ?? DEFAULT_RESULTS_PER_QUERY;
@@ -163,13 +165,11 @@ export async function enrichBestQualityResults<T extends SearchEntry>(
   try {
     scraped = await scrapeUrls(Array.from(urlsToScrape));
   } catch (error) {
-    console.error('enrichBestQualityResults: scrape failed, keeping snippets:', error);
+    log.error('enrichBestQualityResults: scrape failed, keeping snippets:', error);
     return searches;
   }
 
-  const contentByUrl = new Map(
-    scraped.filter((s) => s.content?.trim()).map((s) => [normalizeUrl(s.url), s.content]),
-  );
+  const contentByUrl = new Map(scraped.filter((s) => s.content?.trim()).map((s) => [normalizeUrl(s.url), s.content]));
   if (contentByUrl.size === 0) return searches;
 
   return searches.map((search, i) => {

@@ -4,6 +4,10 @@ import { serverEnv } from '@/env/server';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('map-tools');
+
 interface GoogleResult {
   place_id: string;
   formatted_address: string;
@@ -40,7 +44,7 @@ export const findPlaceOnMapTool = tool({
     longitude: z.number().optional().describe('Longitude for reverse geocoding'),
   }),
   execute: async ({ query, latitude, longitude }) => {
-    console.log('Executing findPlaceOnMapTool...', query, latitude, longitude);
+    log.debug('Executing findPlaceOnMapTool...', query, latitude, longitude);
     try {
       const googleApiKey = serverEnv.GOOGLE_MAPS_API_KEY;
 
@@ -104,7 +108,7 @@ export const findPlaceOnMapTool = tool({
         count: places.length,
       };
     } catch (error) {
-      console.error('Geocoding error:', error);
+      log.error('Geocoding error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown geocoding error',
@@ -143,7 +147,7 @@ export const nearbyPlacesSearchTool = tool({
     radius: number;
     keyword?: string | null;
   }) => {
-    console.log('Executing nearbyPlacesSearchTool', { location, latitude, longitude, type, radius, keyword });
+    log.debug('Executing nearbyPlacesSearchTool', { location, latitude, longitude, type, radius, keyword });
     try {
       const googleApiKey = serverEnv.GOOGLE_MAPS_API_KEY;
 
@@ -160,7 +164,7 @@ export const nearbyPlacesSearchTool = tool({
         )}&key=${googleApiKey}`;
         const geocodeResponse = await fetch(geocodeUrl);
         const geocodeData = await geocodeResponse.json();
-        console.log('Geocode data:', geocodeData);
+        log.debug('Geocode data:', geocodeData);
 
         if (geocodeData.status === 'OK' && geocodeData.results.length > 0) {
           searchLat = geocodeData.results[0].geometry.location.lat;
@@ -240,7 +244,7 @@ export const nearbyPlacesSearchTool = tool({
             }
           };
 
-          console.log('[Place][Details][Reviews]', detailsData.reviews);
+          log.debug('[Place][Details][Reviews]', detailsData.reviews);
 
           return {
             place_id: place.place_id,
@@ -276,7 +280,7 @@ export const nearbyPlacesSearchTool = tool({
             source: 'google_places',
           };
         } catch (error) {
-          console.error(`Failed to get details for place ${place.name}:`, error);
+          log.error(`Failed to get details for place ${place.name}:`, error);
 
           const formatPriceLevel = (priceLevel: number | undefined): string => {
             if (priceLevel === undefined || priceLevel === null) return 'Not Available';
@@ -331,7 +335,7 @@ export const nearbyPlacesSearchTool = tool({
         count: sortedPlaces.length,
       };
     } catch (error) {
-      console.error('Nearby search error:', error);
+      log.error('Nearby search error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown nearby search error',

@@ -12,6 +12,10 @@ import {
 } from '../../performance-cache';
 import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('instructions');
+
 // Custom Instructions CRUD operations
 export async function getCustomInstructionsByUserId({ userId }: { userId: string }) {
   try {
@@ -23,7 +27,7 @@ export async function getCustomInstructionsByUserId({ userId }: { userId: string
 
     return instructions ?? null;
   } catch (error) {
-    console.error('Error getting custom instructions:', error);
+    log.error('Error getting custom instructions:', error);
     return null;
   }
 }

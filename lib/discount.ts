@@ -1,5 +1,9 @@
 import { get } from '@vercel/edge-config';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('discount');
+
 export interface DiscountConfig {
   enabled: boolean;
   message?: string;
@@ -63,7 +67,7 @@ export async function getDiscountConfig(userEmail?: string, isIndianUser?: boole
         .filter((domain) => domain.length > 0);
     }
   } catch (error) {
-    console.warn('Failed to fetch student domains from Edge Config:', error);
+    log.warn('Failed to fetch student domains from Edge Config:', error);
     // Fallback to hardcoded domains
     studentDomains = ['.edu', '.ac.in', '.edu.in'];
   }

@@ -3,6 +3,10 @@ import 'server-only';
 import { graphitiClient } from '@/lib/graphiti/client';
 import type { ChatMessage } from '@/lib/types';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('graphiti-ingest');
+
 // In-memory dedup so a resumed/replayed stream doesn't re-ingest the same
 // messages within this server process.
 const ingestedMessageIds = new Set<string>();
@@ -70,7 +74,7 @@ async function ingestWithRetry(
         errorMsg.includes('empty response') || errorMsg.includes('Expecting value') || errorMsg.includes('char 0');
 
       if (isRetryable && !isLastAttempt) {
-        console.warn(
+        log.warn(
           `[Graphiti] Chunk ${chunkIndex} attempt ${attempt + 1}/${maxRetries + 1} failed, retrying in ${500 * (attempt + 1)}ms...`,
         );
         await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
@@ -113,7 +117,7 @@ export function ingestChatIntoGraphiti({
   const allAlreadyIngested = newMessageIds.every((mid) => ingestedMessageIds.has(mid));
 
   if (allAlreadyIngested) {
-    console.log('[Graphiti] All messages already ingested, skipping');
+    log.debug('[Graphiti] All messages already ingested, skipping');
     return;
   }
 
@@ -162,12 +166,12 @@ export function ingestChatIntoGraphiti({
           index,
         );
       } catch (err) {
-        console.error(
+        log.error(
           `[Graphiti] Chunk ${index} ingestion failed after ${maxRetries} retries:`,
           err instanceof Error ? err.message : err,
         );
         // Continue with the remaining chunks
       }
     }
-  })().catch((err) => console.error('[Graphiti] Batch ingestion failed:', err instanceof Error ? err.message : err));
+  })().catch((err) => log.error('[Graphiti] Batch ingestion failed:', err instanceof Error ? err.message : err));
 }

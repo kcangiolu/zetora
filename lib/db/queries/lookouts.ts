@@ -13,6 +13,10 @@ import {
 } from '../../performance-cache';
 import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('db-lookouts');
+
 // Lookout CRUD operations
 export async function createLookout({
   userId,
@@ -51,10 +55,10 @@ export async function createLookout({
       })
       .returning();
 
-    console.log('✅ Created lookout with ID:', newLookout.id, 'for user:', userId);
+    log.debug('✅ Created lookout with ID:', newLookout.id, 'for user:', userId);
     return newLookout;
   } catch (error) {
-    console.error('❌ Failed to create lookout:', error);
+    log.error('❌ Failed to create lookout:', error);
     throw new ChatSDKError('bad_request:database', 'Failed to create lookout');
   }
 }
@@ -71,18 +75,18 @@ export const getLookoutsByUserId = cache(async ({ userId }: { userId: string }) 
 // Cache individual lookout lookups for the duration of the request
 export const getLookoutById = cache(async ({ id }: { id: string }) => {
   try {
-    console.log('🔍 Looking up lookout with ID:', id);
+    log.debug('🔍 Looking up lookout with ID:', id);
     const [selectedLookout] = await maindb.select().from(lookout).where(eq(lookout.id, id)).limit(1);
 
     if (selectedLookout) {
-      console.log('✅ Found lookout:', selectedLookout.id, selectedLookout.title);
+      log.debug('✅ Found lookout:', selectedLookout.id, selectedLookout.title);
     } else {
-      console.log('❌ No lookout found with ID:', id);
+      log.debug('❌ No lookout found with ID:', id);
     }
 
     return selectedLookout;
   } catch (error) {
-    console.error('❌ Error fetching lookout by ID:', id, error);
+    log.error('❌ Error fetching lookout by ID:', id, error);
     throw new ChatSDKError('bad_request:database', 'Failed to get lookout by id');
   }
 });

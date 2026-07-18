@@ -2,6 +2,10 @@ import { Output, tool, generateText } from 'ai';
 import { z } from 'zod';
 import { resolveTertiaryModel } from '@/ai/tertiary';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('text-translate');
+
 interface TextTranslateToolInput {
   text?: string;
   to: string;
@@ -107,17 +111,17 @@ export const textTranslateTool = tool({
     { text, to, from }: TextTranslateToolInput,
     { experimental_context },
   ): Promise<TextTranslateToolOutput> => {
-    console.log('[text-translate] Starting translation...');
-    console.log('[text-translate] Input:', { text: text?.substring(0, 100), to, from });
+    log.debug('[text-translate] Starting translation...');
+    log.debug('[text-translate] Input:', { text: text?.substring(0, 100), to, from });
 
     const context = experimental_context as ToolContext | undefined;
     const images = context?.images ?? [];
     const hasImages = images.length > 0;
     const translatePrefs = (context?.userPreferences ?? null) as Record<string, string> | null;
-    console.log('[text-translate] Has images:', hasImages, 'Image count:', images.length);
+    log.debug('[text-translate] Has images:', hasImages, 'Image count:', images.length);
 
     const targetLanguageCode = normalizeLanguageCode(to);
-    console.log('[text-translate] Target language code:', targetLanguageCode);
+    log.debug('[text-translate] Target language code:', targetLanguageCode);
 
     // Detect source language from text if provided
     const detectedLanguage = from
@@ -125,11 +129,11 @@ export const textTranslateTool = tool({
       : text && text.trim() !== ''
         ? await detectLanguageCode(text, translatePrefs)
         : 'auto';
-    console.log('[text-translate] Detected source language:', detectedLanguage);
+    log.debug('[text-translate] Detected source language:', detectedLanguage);
 
     // If we have images, pass them directly to TranslateGemma (vision model)
     if (hasImages) {
-      console.log('[text-translate] Processing with images...');
+      log.debug('[text-translate] Processing with images...');
 
       // Build the image-specific prompt
       const imagePromptText = renderTranslateGemmaImagePrompt({
@@ -138,9 +142,9 @@ export const textTranslateTool = tool({
         targetLanguageName: getLanguageName(targetLanguageCode),
         targetLanguageCode,
       });
-      console.log('[text-translate] Image prompt built:', imagePromptText);
+      log.debug('[text-translate] Image prompt built:', imagePromptText);
 
-      console.log('[text-translate] Calling model with', images.length, 'images...');
+      log.debug('[text-translate] Calling model with', images.length, 'images...');
       const { text: translatedText } = await generateText({
         model: await resolveTertiaryModel('translate-vision', translatePrefs),
         messages: [
@@ -157,8 +161,8 @@ export const textTranslateTool = tool({
         ],
         temperature: 0,
       });
-      console.log('[text-translate] Image translation complete. Result length:', translatedText.length);
-      console.log('[text-translate] Image translation result:', translatedText.substring(0, 200));
+      log.debug('[text-translate] Image translation complete. Result length:', translatedText.length);
+      log.debug('[text-translate] Image translation result:', translatedText.substring(0, 200));
 
       return {
         translatedText: translatedText.trim(),
@@ -174,22 +178,22 @@ export const textTranslateTool = tool({
       targetLanguageCode,
       text: text || '',
     });
-    console.log('[text-translate] Text prompt built:', promptText.substring(0, 200));
+    log.debug('[text-translate] Text prompt built:', promptText.substring(0, 200));
 
     // Text-only translation
     if (!text || text.trim() === '') {
-      console.log('[text-translate] Error: No text provided');
+      log.debug('[text-translate] Error: No text provided');
       throw new Error('No text to translate. Please provide text or an image containing text.');
     }
 
-    console.log('[text-translate] Calling TranslateGemma for text-only translation...');
+    log.debug('[text-translate] Calling TranslateGemma for text-only translation...');
     const { text: translatedText } = await generateText({
       model: await resolveTertiaryModel('translate-text', translatePrefs),
       prompt: promptText,
       temperature: 0,
     });
-    console.log('[text-translate] Text translation complete. Result length:', translatedText.length);
-    console.log('[text-translate] Translation result:', translatedText.substring(0, 200));
+    log.debug('[text-translate] Text translation complete. Result length:', translatedText.length);
+    log.debug('[text-translate] Translation result:', translatedText.substring(0, 200));
 
     return {
       translatedText: translatedText.trim(),

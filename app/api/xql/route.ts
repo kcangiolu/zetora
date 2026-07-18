@@ -19,6 +19,10 @@ import { zetora, resolveModel } from '@/ai/providers';
 import { z } from 'zod';
 import { xai } from '@ai-sdk/xai';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('xql');
+
 const xqlTool = tool({
   description:
     'Search X posts for recent information and discussions with the ability to filter by X handles, date range, and post engagement metrics.',
@@ -72,7 +76,7 @@ const xqlTool = tool({
     const effectiveStart = startDate && startDate.trim().length > 0 ? startDate : toYMD(daysAgo);
     const effectiveEnd = endDate && endDate.trim().length > 0 ? endDate : toYMD(today);
 
-    console.log('X search - includeHandles:', normalizedInclude, 'excludeHandles:', normalizedExclude);
+    log.debug('X search - includeHandles:', normalizedInclude, 'excludeHandles:', normalizedExclude);
 
     const xSearchToolConfig: Parameters<typeof xai.tools.xSearch>[0] = {
       fromDate: effectiveStart,
@@ -101,8 +105,8 @@ const xqlTool = tool({
         ?.map((source) => (source.sourceType === 'url' ? source.url : null))
         .filter((url) => url !== null) || [];
 
-    console.log('XQL Result: ', result);
-    console.log('XQL Sources: ', result.sources);
+    log.debug('XQL Result: ', result);
+    log.debug('XQL Sources: ', result.sources);
 
     return citations;
   },
@@ -115,7 +119,7 @@ const tools = {
 export type XQLMessage = UIMessage<never, UIDataTypes, InferUITools<typeof tools>>;
 
 export async function POST(req: Request) {
-  console.log('🔍 Search API endpoint hit');
+  log.debug('🔍 Search API endpoint hit');
 
   const requestStartTime = Date.now();
   const { messages } = await req.json();
@@ -135,7 +139,7 @@ export async function POST(req: Request) {
     messages: await convertToModelMessages(messages),
     stopWhen: hasToolCall('xql'),
     onAbort: ({ steps }) => {
-      console.log('Stream aborted after', steps.length, 'steps');
+      log.debug('Stream aborted after', steps.length, 'steps');
     },
     prepareStep: ({ stepNumber }) => {
       if (stepNumber === 0) {
@@ -176,38 +180,38 @@ export async function POST(req: Request) {
     } as ToolSet,
     onChunk(event) {
       if (event.chunk.type === 'tool-call') {
-        console.log('Called Tool: ', event.chunk.toolName);
+        log.debug('Called Tool: ', event.chunk.toolName);
       }
     },
     onStepFinish(event) {
       if (event.warnings) {
-        console.log('Warnings: ', event.warnings);
+        log.debug('Warnings: ', event.warnings);
       }
     },
     onFinish: async (event) => {
-      console.log('Fin reason: ', event.finishReason);
-      console.log('Steps: ', event.steps);
-      console.log('Tool calls: ', event.toolCalls);
-      console.log('Tool Result: ', event.toolResults);
-      console.log('Response: ', event.response);
-      console.log('Provider metadata: ', event.providerMetadata);
-      console.log('Sources: ', event.sources);
-      console.log('Usage: ', event.usage);
-      console.log('Total Usage: ', event.totalUsage);
+      log.debug('Fin reason: ', event.finishReason);
+      log.debug('Steps: ', event.steps);
+      log.debug('Tool calls: ', event.toolCalls);
+      log.debug('Tool Result: ', event.toolResults);
+      log.debug('Response: ', event.response);
+      log.debug('Provider metadata: ', event.providerMetadata);
+      log.debug('Sources: ', event.sources);
+      log.debug('Usage: ', event.usage);
+      log.debug('Total Usage: ', event.totalUsage);
 
       const requestEndTime = Date.now();
       const processingTime = (requestEndTime - requestStartTime) / 1000;
-      console.log('--------------------------------');
-      console.log(`Total request processing time: ${processingTime.toFixed(2)} seconds`);
-      console.log('--------------------------------');
+      log.debug('--------------------------------');
+      log.debug(`Total request processing time: ${processingTime.toFixed(2)} seconds`);
+      log.debug('--------------------------------');
     },
     onError(event) {
-      console.log('Error: ', event.error);
+      log.debug('Error: ', event.error);
       const requestEndTime = Date.now();
       const processingTime = (requestEndTime - requestStartTime) / 1000;
-      console.log('--------------------------------');
-      console.log(`Request processing time (with error): ${processingTime.toFixed(2)} seconds`);
-      console.log('--------------------------------');
+      log.debug('--------------------------------');
+      log.debug(`Request processing time (with error): ${processingTime.toFixed(2)} seconds`);
+      log.debug('--------------------------------');
     },
   });
 

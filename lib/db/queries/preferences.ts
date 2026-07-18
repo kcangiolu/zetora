@@ -12,6 +12,10 @@ import {
 } from '../../performance-cache';
 import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('db-preferences');
+
 // User Preferences CRUD operations
 //
 // Two preference fields hold third-party API keys the user types in
@@ -34,7 +38,7 @@ function applyToSecret(value: string, transform: (value: string) => string, labe
   try {
     return transform(value);
   } catch (error) {
-    console.error(`[preferences] Failed to process secret field "${label}":`, error);
+    log.error(`[preferences] Failed to process secret field "${label}":`, error);
     return value;
   }
 }
@@ -87,7 +91,7 @@ export async function getUserPreferencesByUserId({ userId }: { userId: string })
 
     return { ...preferences, preferences: decryptPreferenceSecrets(preferences.preferences) };
   } catch (error) {
-    console.error('Error getting user preferences:', error);
+    log.error('Error getting user preferences:', error);
     return null;
   }
 }

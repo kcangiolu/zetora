@@ -5,6 +5,10 @@ import { serverEnv } from '@/env/server';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('spotify-search');
+
 // Spotify API types
 interface SpotifyImage {
   url: string;
@@ -113,7 +117,7 @@ async function getAccessToken(): Promise<string> {
 
   if (!response.ok) {
     const error = await response.text();
-    console.error('Spotify auth error:', error);
+    log.error('Spotify auth error:', error);
     throw new Error(`Failed to authenticate with Spotify: ${response.status}`);
   }
 
@@ -157,14 +161,14 @@ async function spotifySearch(
   // Handle rate limiting with exponential backoff
   if (response.status === 429) {
     const retryAfter = parseInt(response.headers.get('Retry-After') || '1', 10);
-    console.warn(`Spotify rate limited. Retry after ${retryAfter}s`);
+    log.warn(`Spotify rate limited. Retry after ${retryAfter}s`);
     await new Promise((resolve) => setTimeout(resolve, retryAfter * 1000));
     return spotifySearch(query, types, limit, market);
   }
 
   if (!response.ok) {
     const error = await response.text();
-    console.error('Spotify search error:', error);
+    log.error('Spotify search error:', error);
     throw new Error(`Spotify search failed: ${response.status}`);
   }
 
@@ -288,7 +292,7 @@ async function rerankResults<T>(
 
     return ranking.map((r) => items[r.originalIndex]);
   } catch (error) {
-    console.error('Reranking failed, returning original order:', error);
+    log.error('Reranking failed, returning original order:', error);
     return items;
   }
 }
@@ -323,7 +327,7 @@ export const spotifySearchTool = tool({
     market?: string;
   }): Promise<SpotifySearchResult> => {
     try {
-      console.log('🎵 Spotify search:', { query, types, limit, market });
+      log.debug('🎵 Spotify search:', { query, types, limit, market });
 
       const response = await spotifySearch(query, types, limit, market);
 
@@ -395,12 +399,12 @@ export const spotifySearchTool = tool({
           isPublic: playlist.public,
         }));
 
-      console.log(
+      log.debug(
         `🎵 Found: ${tracks.length} tracks, ${artists.length} artists, ${albums.length} albums, ${playlists.length} playlists`,
       );
 
       // Rerank all results in parallel for better relevance
-      console.log('🎵 Reranking results with Cohere...');
+      log.debug('🎵 Reranking results with Cohere...');
       const { rerankedTracks, rerankedArtists, rerankedAlbums, rerankedPlaylists } = await all(
         {
           async rerankedTracks() {
@@ -419,7 +423,7 @@ export const spotifySearchTool = tool({
         getBetterAllOptions(),
       );
 
-      console.log('🎵 Reranking complete');
+      log.debug('🎵 Reranking complete');
 
       return {
         success: true,
@@ -437,7 +441,7 @@ export const spotifySearchTool = tool({
         },
       };
     } catch (error) {
-      console.error('Spotify search error:', error);
+      log.error('Spotify search error:', error);
       return {
         success: false,
         query,

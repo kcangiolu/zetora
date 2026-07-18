@@ -2,6 +2,10 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { rehostGeneratedImage } from '@/lib/generated-file-storage';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('generate-image');
+
 interface CustomProviderConfig {
   id: string;
   name: string;
@@ -60,7 +64,7 @@ export const generateImageTool = tool({
 
     const body = { model, prompt, n: 1, seed: finalSeed, ...(size ? { size } : {}), ...extraBody };
 
-    console.log(`[generate_image] POST ${base}/images/generations`, JSON.stringify(body, null, 2));
+    log.debug(`[generate_image] POST ${base}/images/generations`, JSON.stringify(body, null, 2));
 
     let response: Response;
     try {
@@ -76,12 +80,15 @@ export const generateImageTool = tool({
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[generate_image] ${response.status} response:`, errorText.slice(0, 2000));
-      return { success: false as const, error: `Image generation failed (${response.status}): ${errorText.slice(0, 500)}` };
+      log.error(`[generate_image] ${response.status} response:`, errorText.slice(0, 2000));
+      return {
+        success: false as const,
+        error: `Image generation failed (${response.status}): ${errorText.slice(0, 500)}`,
+      };
     }
 
     const data = await response.json();
-    console.log('[generate_image] response:', JSON.stringify(data, null, 2).slice(0, 2000));
+    log.debug('[generate_image] response:', JSON.stringify(data, null, 2).slice(0, 2000));
     const item = data?.data?.[0];
     const imageUrl: string | null = item?.url ?? (item?.b64_json ? `data:image/png;base64,${item.b64_json}` : null);
 

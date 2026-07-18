@@ -22,6 +22,10 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('db-usage');
+
 async function getExtremeSearchUsageByUserId({ userId }: { userId: string }) {
   try {
     const now = new Date();
@@ -94,7 +98,7 @@ export async function getExtremeSearchCount({ userId }: { userId: string }): Pro
     const usage = await getExtremeSearchUsageByUserId({ userId });
     return usage?.searchCount || 0;
   } catch (error) {
-    console.error('Error getting extreme search count:', error);
+    log.error('Error getting extreme search count:', error);
     return 0;
   }
 }
@@ -142,7 +146,7 @@ export async function incrementAnthropicUsage({ userId, model }: { userId: strin
 
     db.delete(anthropicUsage)
       .where(and(eq(anthropicUsage.userId, userId), lt(anthropicUsage.date, startOfWeek)))
-      .catch((err) => console.error('Failed to clean up old anthropic usage:', err));
+      .catch((err) => log.error('Failed to clean up old anthropic usage:', err));
 
     const [result] = await db
       .insert(anthropicUsage)
@@ -176,7 +180,7 @@ export async function getAnthropicUsageCount({ userId }: { userId: string }): Pr
     const usage = await getAnthropicUsageByUserId({ userId });
     return usage?.usageCount || 0;
   } catch (error) {
-    console.error('Error getting anthropic usage count:', error);
+    log.error('Error getting anthropic usage count:', error);
     return 0;
   }
 }
@@ -219,7 +223,7 @@ export async function incrementGoogleUsage({ userId, model }: { userId: string; 
 
     db.delete(googleUsage)
       .where(and(eq(googleUsage.userId, userId), lt(googleUsage.date, startOfMonth)))
-      .catch((err) => console.error('Failed to clean up old google usage:', err));
+      .catch((err) => log.error('Failed to clean up old google usage:', err));
 
     const [result] = await db
       .insert(googleUsage)
@@ -253,7 +257,7 @@ export async function getGoogleUsageCount({ userId }: { userId: string }): Promi
     const usage = await getGoogleUsageByUserId({ userId });
     return usage?.usageCount || 0;
   } catch (error) {
-    console.error('Error getting google usage count:', error);
+    log.error('Error getting google usage count:', error);
     return 0;
   }
 }
@@ -295,7 +299,7 @@ export async function incrementMessageUsage({ userId }: { userId: string }) {
     // Clean up previous day entries for this user (non-blocking, errors won't fail the increment)
     db.delete(messageUsage)
       .where(and(eq(messageUsage.userId, userId), lt(messageUsage.date, today)))
-      .catch((err) => console.error('Failed to clean up old message usage:', err));
+      .catch((err) => log.error('Failed to clean up old message usage:', err));
 
     // Atomic upsert: insert or increment if exists
     // Uses ON CONFLICT on the unique (userId, date) constraint
@@ -329,7 +333,7 @@ export async function getMessageCount({ userId }: { userId: string }): Promise<n
     const usage = await getMessageUsageByUserId({ userId });
     return usage?.messageCount || 0;
   } catch (error) {
-    console.error('Error getting message count:', error);
+    log.error('Error getting message count:', error);
     return 0;
   }
 }
@@ -368,7 +372,7 @@ export async function getMessageCountAndExtremeSearchByUserId({
       googleCount: googleUsageRow?.usageCount ?? 0,
     };
   } catch (error) {
-    console.error('Error getting batched usage counts:', error);
+    log.error('Error getting batched usage counts:', error);
     return { messageCount: 0, extremeSearchCount: 0, anthropicCount: 0, googleCount: 0 };
   }
 }
@@ -407,7 +411,7 @@ export async function getHistoricalUsageData({ userId, months = 6 }: { userId: s
       messageCount: row.messageCount,
     }));
   } catch (error) {
-    console.error('Error getting historical usage data:', error);
+    log.error('Error getting historical usage data:', error);
     return [];
   }
 }
@@ -436,7 +440,7 @@ export async function getAgentModeRequestCountForCurrentMonth({ userId }: { user
 
     return row?.requestCount ?? 0;
   } catch (error) {
-    console.error('Error getting agent mode request count:', error);
+    log.error('Error getting agent mode request count:', error);
     return 0;
   }
 }
@@ -472,7 +476,7 @@ export async function trackAgentModeUsageEventForMessage({
       });
   } catch (error) {
     // Usage tracking should never break builds; swallow and log.
-    console.error('Error tracking agent mode usage event:', error);
+    log.error('Error tracking agent mode usage event:', error);
   }
 }
 

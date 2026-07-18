@@ -51,6 +51,10 @@ import { lookoutCallbackHeaders, lookoutQstashHeaders } from '@/lib/lookout-auth
 import { saveChat, saveMessages } from '@/lib/db/queries';
 import { all, allSettled } from 'better-all';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('actions-usage');
+
 export async function getUserMessageCount(providedUser?: User | null) {
   'use server';
 
@@ -64,7 +68,7 @@ export async function getUserMessageCount(providedUser?: User | null) {
     const cacheKey = createMessageCountKey(user.id);
     const cached = usageCountCache.get(cacheKey);
     if (cached !== null) {
-      console.log('⏱️ [USAGE] getUserMessageCount: cache hit');
+      log.debug('⏱️ [USAGE] getUserMessageCount: cache hit');
       return { count: cached, error: null };
     }
 
@@ -73,14 +77,14 @@ export async function getUserMessageCount(providedUser?: User | null) {
       userId: user.id,
     });
     const durationMs = Date.now() - start;
-    console.log(`⏱️ [USAGE] getUserMessageCount: DB usage lookup took ${durationMs}ms`);
+    log.debug(`⏱️ [USAGE] getUserMessageCount: DB usage lookup took ${durationMs}ms`);
 
     // Cache the result
     usageCountCache.set(cacheKey, count);
 
     return { count, error: null };
   } catch (error) {
-    console.error('Error getting user message count:', error);
+    log.error('Error getting user message count:', error);
     return { count: 0, error: 'Failed to get message count' };
   }
 }
@@ -98,7 +102,7 @@ export async function getUserExtremeSearchCount(providedUser?: User | null) {
     const cacheKey = createExtremeCountKey(user.id);
     const cached = usageCountCache.get(cacheKey);
     if (cached !== null) {
-      console.log('⏱️ [USAGE] getUserExtremeSearchCount: cache hit');
+      log.debug('⏱️ [USAGE] getUserExtremeSearchCount: cache hit');
       return { count: cached, error: null };
     }
 
@@ -107,14 +111,14 @@ export async function getUserExtremeSearchCount(providedUser?: User | null) {
       userId: user.id,
     });
     const durationMs = Date.now() - start;
-    console.log(`⏱️ [USAGE] getUserExtremeSearchCount: DB usage lookup took ${durationMs}ms`);
+    log.debug(`⏱️ [USAGE] getUserExtremeSearchCount: DB usage lookup took ${durationMs}ms`);
 
     // Cache the result
     usageCountCache.set(cacheKey, count);
 
     return { count, error: null };
   } catch (error) {
-    console.error('Error getting user extreme search count:', error);
+    log.error('Error getting user extreme search count:', error);
     return { count: 0, error: 'Failed to get extreme search count' };
   }
 }
@@ -132,7 +136,7 @@ export async function getExtremeSearchUsageCount(providedUser?: User | null) {
     const cacheKey = createExtremeCountKey(user.id);
     const cached = usageCountCache.get(cacheKey);
     if (cached !== null) {
-      console.log('⏱️ [USAGE] getExtremeSearchUsageCount: cache hit');
+      log.debug('⏱️ [USAGE] getExtremeSearchUsageCount: cache hit');
       return { count: cached, error: null };
     }
 
@@ -141,14 +145,14 @@ export async function getExtremeSearchUsageCount(providedUser?: User | null) {
       userId: user.id,
     });
     const durationMs = Date.now() - start;
-    console.log(`⏱️ [USAGE] getExtremeSearchUsageCount: DB usage lookup took ${durationMs}ms`);
+    log.debug(`⏱️ [USAGE] getExtremeSearchUsageCount: DB usage lookup took ${durationMs}ms`);
 
     // Cache the result
     usageCountCache.set(cacheKey, count);
 
     return { count, error: null };
   } catch (error) {
-    console.error('Error getting extreme search usage count:', error);
+    log.error('Error getting extreme search usage count:', error);
     return { count: 0, error: 'Failed to get extreme search count' };
   }
 }
@@ -165,7 +169,7 @@ export async function getAnthropicUsageCountAction(providedUser?: User | null) {
     const cacheKey = createAnthropicCountKey(user.id);
     const cached = usageCountCache.get(cacheKey);
     if (cached !== null) {
-      console.log('⏱️ [USAGE] getAnthropicUsageCountAction: cache hit');
+      log.debug('⏱️ [USAGE] getAnthropicUsageCountAction: cache hit');
       return { count: cached, error: null };
     }
 
@@ -174,13 +178,13 @@ export async function getAnthropicUsageCountAction(providedUser?: User | null) {
       userId: user.id,
     });
     const durationMs = Date.now() - start;
-    console.log(`⏱️ [USAGE] getAnthropicUsageCountAction: DB usage lookup took ${durationMs}ms`);
+    log.debug(`⏱️ [USAGE] getAnthropicUsageCountAction: DB usage lookup took ${durationMs}ms`);
 
     usageCountCache.set(cacheKey, count);
 
     return { count, error: null };
   } catch (error) {
-    console.error('Error getting anthropic usage count:', error);
+    log.error('Error getting anthropic usage count:', error);
     return { count: 0, error: 'Failed to get anthropic usage count' };
   }
 }
@@ -197,7 +201,7 @@ export async function getAgentModeUsageCountAction(providedUser?: User | null) {
     const cacheKey = createAgentModeCountKey(user.id);
     const cached = usageCountCache.get(cacheKey);
     if (cached !== null) {
-      console.log('⏱️ [USAGE] getAgentModeUsageCountAction: cache hit');
+      log.debug('⏱️ [USAGE] getAgentModeUsageCountAction: cache hit');
       return { count: cached, error: null };
     }
 
@@ -206,13 +210,13 @@ export async function getAgentModeUsageCountAction(providedUser?: User | null) {
       userId: user.id,
     });
     const durationMs = Date.now() - start;
-    console.log(`⏱️ [USAGE] getAgentModeUsageCountAction: DB usage lookup took ${durationMs}ms`);
+    log.debug(`⏱️ [USAGE] getAgentModeUsageCountAction: DB usage lookup took ${durationMs}ms`);
 
     usageCountCache.set(cacheKey, count);
 
     return { count, error: null };
   } catch (error) {
-    console.error('Error getting agent mode usage count:', error);
+    log.error('Error getting agent mode usage count:', error);
     return { count: 0, error: 'Failed to get agent mode usage count' };
   }
 }
@@ -229,19 +233,19 @@ export async function getGoogleUsageCountAction(providedUser?: User | null) {
     const cacheKey = createGoogleCountKey(user.id);
     const cached = usageCountCache.get(cacheKey);
     if (cached !== null) {
-      console.log('⏱️ [USAGE] getGoogleUsageCountAction: cache hit');
+      log.debug('⏱️ [USAGE] getGoogleUsageCountAction: cache hit');
       return { count: cached, error: null };
     }
 
     const start = Date.now();
     const count = await getGoogleUsageCount({ userId: user.id });
     const durationMs = Date.now() - start;
-    console.log(`⏱️ [USAGE] getGoogleUsageCountAction: DB usage lookup took ${durationMs}ms`);
+    log.debug(`⏱️ [USAGE] getGoogleUsageCountAction: DB usage lookup took ${durationMs}ms`);
 
     usageCountCache.set(cacheKey, count);
     return { count, error: null };
   } catch (error) {
-    console.error('Error getting google usage count:', error);
+    log.error('Error getting google usage count:', error);
     return { count: 0, error: 'Failed to get google usage count' };
   }
 }
@@ -298,7 +302,7 @@ export async function getHistoricalUsage(providedUser?: User | null, days: numbe
 
     return completeData;
   } catch (error) {
-    console.error('Error getting historical usage:', error);
+    log.error('Error getting historical usage:', error);
     return [];
   }
 }

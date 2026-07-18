@@ -4,6 +4,10 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { storageClient, STORAGE_BUCKET_NAME } from '@/lib/storage';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('clean-images');
+
 export async function GET(req: NextRequest) {
   // Refuse to run with the default "placeholder" secret — otherwise a
   // missing env var would make this destructive endpoint publicly callable.
@@ -21,7 +25,7 @@ export async function GET(req: NextRequest) {
       status: 200,
     });
   } catch (error) {
-    console.error('An error occurred:', error);
+    log.error('An error occurred:', error);
     return new NextResponse('An error occurred while deleting files', {
       status: 500,
     });
@@ -58,12 +62,12 @@ async function deleteAllObjectsWithPrefix(prefix: string): Promise<number> {
       );
 
       totalDeleted += objects.length;
-      console.log(`Deleted ${objects.length} objects`);
+      log.debug(`Deleted ${objects.length} objects`);
     }
 
     continuationToken = listResponse.NextContinuationToken;
   } while (continuationToken);
 
-  console.log(`All objects with prefix "${prefix}" were deleted. Total: ${totalDeleted}`);
+  log.debug(`All objects with prefix "${prefix}" were deleted. Total: ${totalDeleted}`);
   return totalDeleted;
 }

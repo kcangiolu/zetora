@@ -9,6 +9,10 @@ import { allSettled } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { scrapeWithFastCrwForBrowsePage } from './selfhosted-content';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('retrieve');
+
 // Content type enum for different sources
 const ContentType = z.enum(['general', 'twitter', 'youtube', 'tiktok', 'instagram']);
 
@@ -239,24 +243,24 @@ async function retrieveSingleUrl(
 
     // Use Supadata for social media content
     if (detectedType !== 'general') {
-      console.log(`Detected ${detectedType} content, using Supadata API for ${url}`);
+      log.debug(`Detected ${detectedType} content, using Supadata API for ${url}`);
       try {
         // Fetch metadata
         const metadata = await supadata.metadata({ url });
-        console.log(`Successfully retrieved ${detectedType} metadata`);
+        log.debug(`Successfully retrieved ${detectedType} metadata`);
 
         // Always fetch transcript for all social media content
         let transcript: string | null = null;
         try {
-          console.log(`Fetching transcript for ${detectedType} content...`);
+          log.debug(`Fetching transcript for ${detectedType} content...`);
           const transcriptResult = await supadata.transcript({ url, mode: 'auto' });
 
-          console.log(
+          log.debug(
             'Transcript result type:',
             typeof transcriptResult,
             Array.isArray(transcriptResult) ? 'array' : 'object',
           );
-          console.log(
+          log.debug(
             'Transcript result keys:',
             transcriptResult && typeof transcriptResult === 'object' ? Object.keys(transcriptResult) : 'N/A',
           );
@@ -281,7 +285,7 @@ async function retrieveSingleUrl(
           else if (transcriptResult && typeof transcriptResult === 'object' && 'jobId' in transcriptResult) {
             // For large files, poll for job completion with exponential backoff
             const jobResponse = transcriptResult as TranscriptJobResponse;
-            console.log(`Got job ID: ${jobResponse.jobId}, polling for completion with exponential backoff...`);
+            log.debug(`Got job ID: ${jobResponse.jobId}, polling for completion with exponential backoff...`);
             const maxAttempts = 10; // Reduced from 30 - exponential backoff covers more time
             const baseDelayMs = 500; // Start with 500ms
             const maxDelayMs = 8000; // Cap at 8 seconds
@@ -291,7 +295,7 @@ async function retrieveSingleUrl(
               const jobResult = (await supadata.transcript.getJobStatus(jobResponse.jobId)) as TranscriptJobResult;
 
               if (jobResult.status === 'completed') {
-                console.log('Transcript job completed');
+                log.debug('Transcript job completed');
                 if (jobResult.content) {
                   transcript = jobResult.content;
                 } else if (jobResult.text) {
@@ -304,12 +308,12 @@ async function retrieveSingleUrl(
                 }
                 break;
               } else if (jobResult.status === 'failed') {
-                console.error('Transcript job failed:', jobResult.error);
+                log.error('Transcript job failed:', jobResult.error);
                 break;
               } else {
                 // Exponential backoff: 500ms, 1s, 2s, 4s, 8s, 8s, 8s...
                 const delay = Math.min(baseDelayMs * Math.pow(2, attempts), maxDelayMs);
-                console.log(
+                log.debug(
                   `Job status: ${jobResult.status}, waiting ${delay}ms (attempt ${attempts + 1}/${maxAttempts})...`,
                 );
                 await new Promise((resolve) => setTimeout(resolve, delay));
@@ -318,7 +322,7 @@ async function retrieveSingleUrl(
             }
 
             if (attempts >= maxAttempts) {
-              console.warn(`Transcript job timed out after ${maxAttempts} attempts with exponential backoff`);
+              log.warn(`Transcript job timed out after ${maxAttempts} attempts with exponential backoff`);
             }
           } else {
             // Direct result for smaller files or native transcripts
@@ -354,16 +358,16 @@ async function retrieveSingleUrl(
             }
 
             if (transcript) {
-              console.log('Extracted transcript preview:', transcript.slice(0, 10));
+              log.debug('Extracted transcript preview:', transcript.slice(0, 10));
             } else {
-              console.log('No transcript extracted, raw result:', JSON.stringify(directResult).substring(0, 200));
+              log.debug('No transcript extracted, raw result:', JSON.stringify(directResult).substring(0, 200));
             }
           }
 
           // Ensure transcript is always a string, not an array or object
           if (transcript) {
             if (Array.isArray(transcript)) {
-              console.warn('Transcript is an array, extracting text...');
+              log.warn('Transcript is an array, extracting text...');
               transcript = transcript
                 .map((seg): string => {
                   if (typeof seg === 'string') return seg;
@@ -375,7 +379,7 @@ async function retrieveSingleUrl(
                 .filter((text): text is string => Boolean(text))
                 .join(' ');
             } else if (typeof transcript !== 'string') {
-              console.warn('Transcript is not a string, converting...');
+              log.warn('Transcript is not a string, converting...');
               if (typeof transcript === 'object' && transcript !== null) {
                 const transcriptObj = transcript as Record<string, unknown>;
                 if ('text' in transcriptObj && typeof transcriptObj.text === 'string') {
@@ -395,11 +399,11 @@ async function retrieveSingleUrl(
               }
             }
 
-            console.log(`Transcript fetched successfully (length: ${transcript.length} chars)`);
-            console.log('Transcript preview:', transcript.substring(0, 100));
+            log.debug(`Transcript fetched successfully (length: ${transcript.length} chars)`);
+            log.debug('Transcript preview:', transcript.substring(0, 100));
           }
         } catch (transcriptError) {
-          console.warn('Failed to fetch transcript:', transcriptError);
+          log.warn('Failed to fetch transcript:', transcriptError);
           transcript = null;
         }
 
@@ -412,8 +416,8 @@ async function retrieveSingleUrl(
           response_time: responseTime,
         };
       } catch (supadataError) {
-        console.error('Supadata error:', supadataError);
-        console.log('Falling back to general scraping methods');
+        log.error('Supadata error:', supadataError);
+        log.debug('Falling back to general scraping methods');
         // Fall through to general scraping if Supadata fails
       }
     }
@@ -429,7 +433,7 @@ async function retrieveSingleUrl(
       try {
         const fastcrwResult = await scrapeWithFastCrwForBrowsePage(url);
         if (fastcrwResult?.content?.trim()) {
-          console.log(`fastCRW successfully scraped ${url}`);
+          log.debug(`fastCRW successfully scraped ${url}`);
           return {
             url,
             result: {
@@ -447,10 +451,14 @@ async function retrieveSingleUrl(
             response_time: (Date.now() - start) / 1000,
           };
         }
-        console.log(exaEnabled ? 'fastCRW returned no content, falling back to Exa/Parallel/Firecrawl' : 'fastCRW returned no content, Exa disabled by preference');
+        log.debug(
+          exaEnabled
+            ? 'fastCRW returned no content, falling back to Exa/Parallel/Firecrawl'
+            : 'fastCRW returned no content, Exa disabled by preference',
+        );
       } catch (fastcrwError) {
-        console.error('fastCRW error:', fastcrwError);
-        console.log(exaEnabled ? 'Falling back to Exa/Parallel/Firecrawl' : 'Exa disabled by preference');
+        log.error('fastCRW error:', fastcrwError);
+        log.debug(exaEnabled ? 'Falling back to Exa/Parallel/Firecrawl' : 'Exa disabled by preference');
       }
     }
 
@@ -460,44 +468,44 @@ async function retrieveSingleUrl(
     let source = 'exa';
 
     if (!exaEnabled) {
-      console.log('Exa disabled by preference, skipping to Parallel/Firecrawl');
+      log.debug('Exa disabled by preference, skipping to Parallel/Firecrawl');
       usingParallel = parallelEnabled;
       if (!parallelEnabled) usingFirecrawl = firecrawlEnabled;
     } else {
-    // General web scraping with Exa/Parallel/Firecrawl
-    console.log(`Retrieving content from ${url} with Exa AI, summary: ${include_summary}, livecrawl: ${live_crawl}`);
+      // General web scraping with Exa/Parallel/Firecrawl
+      log.debug(`Retrieving content from ${url} with Exa AI, summary: ${include_summary}, livecrawl: ${live_crawl}`);
 
-    try {
-      result = await exa.getContents([url], {
-        text: true,
-        summary: include_summary ? true : undefined,
-        livecrawl: live_crawl,
-      });
+      try {
+        result = await exa.getContents([url], {
+          text: true,
+          summary: include_summary ? true : undefined,
+          livecrawl: live_crawl,
+        });
 
-      if (!result.results || result.results.length === 0 || !result.results[0].text) {
-        console.log(
+        if (!result.results || result.results.length === 0 || !result.results[0].text) {
+          log.debug(
+            parallelEnabled
+              ? 'Exa AI returned no content, falling back to Parallel'
+              : `Exa AI returned no content, Parallel fallback disabled — ${firecrawlEnabled ? 'falling back to Firecrawl' : 'no fallback enabled'}`,
+          );
+          usingParallel = parallelEnabled;
+          if (!parallelEnabled) usingFirecrawl = firecrawlEnabled;
+        }
+      } catch (exaError) {
+        log.error('Exa AI error:', exaError);
+        log.debug(
           parallelEnabled
-            ? 'Exa AI returned no content, falling back to Parallel'
-            : `Exa AI returned no content, Parallel fallback disabled — ${firecrawlEnabled ? 'falling back to Firecrawl' : 'no fallback enabled'}`,
+            ? 'Falling back to Parallel'
+            : `Parallel fallback disabled — ${firecrawlEnabled ? 'falling back to Firecrawl' : 'no fallback enabled'}`,
         );
         usingParallel = parallelEnabled;
         if (!parallelEnabled) usingFirecrawl = firecrawlEnabled;
       }
-    } catch (exaError) {
-      console.error('Exa AI error:', exaError);
-      console.log(
-        parallelEnabled
-          ? 'Falling back to Parallel'
-          : `Parallel fallback disabled — ${firecrawlEnabled ? 'falling back to Firecrawl' : 'no fallback enabled'}`,
-      );
-      usingParallel = parallelEnabled;
-      if (!parallelEnabled) usingFirecrawl = firecrawlEnabled;
-    }
     }
 
     if (usingParallel) {
       try {
-        console.log(`Trying Parallel extract for ${url}`);
+        log.debug(`Trying Parallel extract for ${url}`);
         const parallelResult = await parallel.beta.extract({
           urls: [url],
           excerpts: false,
@@ -508,7 +516,7 @@ async function retrieveSingleUrl(
         if (parallelResult.results && parallelResult.results.length > 0) {
           const extractResult = parallelResult.results[0];
           if (extractResult.full_content) {
-            console.log(`Parallel successfully extracted ${url}`);
+            log.debug(`Parallel successfully extracted ${url}`);
             source = 'parallel';
             return {
               url,
@@ -529,13 +537,15 @@ async function retrieveSingleUrl(
           }
         }
 
-        console.log(
-          firecrawlEnabled ? 'Parallel returned no content, falling back to Firecrawl' : 'Parallel returned no content, Firecrawl fallback disabled',
+        log.debug(
+          firecrawlEnabled
+            ? 'Parallel returned no content, falling back to Firecrawl'
+            : 'Parallel returned no content, Firecrawl fallback disabled',
         );
         usingFirecrawl = firecrawlEnabled;
       } catch (parallelError) {
-        console.error('Parallel error:', parallelError);
-        console.log(firecrawlEnabled ? 'Falling back to Firecrawl' : 'Firecrawl fallback disabled');
+        log.error('Parallel error:', parallelError);
+        log.debug(firecrawlEnabled ? 'Falling back to Firecrawl' : 'Firecrawl fallback disabled');
         usingFirecrawl = firecrawlEnabled;
       }
     }
@@ -553,7 +563,7 @@ async function retrieveSingleUrl(
           throw new Error(`Firecrawl failed: ${scrapeResponse}`);
         }
 
-        console.log(`Firecrawl successfully scraped ${url}`);
+        log.debug(`Firecrawl successfully scraped ${url}`);
         source = 'firecrawl';
         return {
           url,
@@ -572,7 +582,7 @@ async function retrieveSingleUrl(
           response_time: (Date.now() - start) / 1000,
         };
       } catch (firecrawlError) {
-        console.error('Firecrawl error:', firecrawlError);
+        log.error('Firecrawl error:', firecrawlError);
         return {
           url,
           result: null,
@@ -616,7 +626,7 @@ async function retrieveSingleUrl(
       response_time: (Date.now() - start) / 1000,
     };
   } catch (error) {
-    console.error('Error retrieving URL:', error);
+    log.error('Error retrieving URL:', error);
     return {
       url,
       result: null,
@@ -757,7 +767,7 @@ export const retrieveTool = tool({
         ...(errors.length > 0 && { partial_errors: errors }),
       };
     } catch (error) {
-      console.error('Error in retrieveTool:', error);
+      log.error('Error in retrieveTool:', error);
       return {
         urls: url,
         results: [],

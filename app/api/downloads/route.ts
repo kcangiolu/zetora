@@ -6,6 +6,10 @@ import { auth } from '@/lib/auth';
 import { storageClient, STORAGE_BUCKET_NAME } from '@/lib/storage';
 import { getGeneratedFilesByUserId, deleteGeneratedFileById } from '@/lib/db/queries';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('downloads');
+
 // Safe integer parsing with bounds — mirrors app/api/upload/route.ts
 function parseLimit(raw: string | null, defaultVal: number, max: number): number {
   const n = parseInt(raw ?? String(defaultVal), 10);
@@ -22,7 +26,7 @@ export async function GET(request: NextRequest) {
   try {
     session = await auth.api.getSession({ headers: request.headers });
   } catch (error) {
-    console.warn('Error checking authentication:', error);
+    log.warn('Error checking authentication:', error);
   }
 
   if (!session?.user?.id) {
@@ -60,7 +64,7 @@ export async function DELETE(request: NextRequest) {
   try {
     session = await auth.api.getSession({ headers: request.headers });
   } catch (error) {
-    console.warn('Error checking authentication:', error);
+    log.warn('Error checking authentication:', error);
   }
 
   if (!session?.user?.id) {
@@ -83,12 +87,12 @@ export async function DELETE(request: NextRequest) {
     await storageClient.send(new DeleteObjectCommand({ Bucket: STORAGE_BUCKET_NAME, Key: deleted.key })).catch((e) => {
       // The DB row is already gone — log and move on rather than leaving the
       // user stuck if the bucket object was already removed out-of-band.
-      console.error('Failed to delete generated file object from storage:', e);
+      log.error('Failed to delete generated file object from storage:', e);
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting generated file:', error);
+    log.error('Error deleting generated file:', error);
     return NextResponse.json({ error: 'Failed to delete file' }, { status: 500 });
   }
 }

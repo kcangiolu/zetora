@@ -5,6 +5,10 @@ import { nanoid } from 'nanoid';
 import { storageClient, STORAGE_BUCKET_NAME, STORAGE_PUBLIC_URL } from '@/lib/storage';
 import { insertGeneratedFile } from '@/lib/db/queries';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('generated-file-storage');
+
 export interface PersistGeneratedFileParams {
   userId: string;
   chatId?: string | null;
@@ -110,7 +114,7 @@ export async function rehostGeneratedImage({
     });
     return url;
   } catch (error) {
-    console.error(`[${toolName}] Failed to re-host image, falling back to provider URL:`, error);
+    log.error(`[${toolName}] Failed to re-host image, falling back to provider URL:`, error);
     return sourceImageUrl;
   }
 }

@@ -6,6 +6,10 @@ import { getUser } from '@/lib/auth-utils';
 import { getCachedUserPreferencesByUserId, clearUserPreferencesCache } from '@/lib/user-data-server';
 import { upsertUserPreferences } from '@/lib/db/queries';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('custom-providers');
+
 export interface CustomProviderConfig {
   id: string;
   name: string;
@@ -45,7 +49,7 @@ export async function getCustomProviders(userId?: string): Promise<CustomProvide
         providers.push(...(parsed as CustomProviderConfig[]));
       }
     } catch {
-      console.warn('[custom-providers] Failed to parse CUSTOM_AI_PROVIDERS env var');
+      log.warn('[custom-providers] Failed to parse CUSTOM_AI_PROVIDERS env var');
     }
   }
 
@@ -142,7 +146,7 @@ export async function getCustomModels(userId?: string): Promise<CustomModelInfo[
             });
           }
         } catch (err) {
-          console.warn(`[custom-providers] Could not detect models for provider ${provider.id}:`, err);
+          log.warn(`[custom-providers] Could not detect models for provider ${provider.id}:`, err);
         }
       }),
   );
@@ -176,4 +180,3 @@ export function parseCustomModelId(
 
   return null;
 }
-

@@ -76,10 +76,14 @@ import { saveChat, saveMessages } from '@/lib/db/queries';
 import { all, allSettled } from 'better-all';
 import { resolveTertiaryModel } from '@/ai/tertiary';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('ai');
+
 export async function suggestQuestions(history: any[]) {
   'use server';
 
-  console.log(history);
+  log.debug(history);
 
   const suggestUser = await getUser().catch(() => null);
   const suggestPrefs = suggestUser ? await getCachedUserPreferencesByUserId(suggestUser.id).catch(() => null) : null;
@@ -144,18 +148,16 @@ Respond with ONLY the JSON object below, no markdown code fences or extra commen
 
     const rawMatch = text.match(/\{[\s\S]*\}/);
     const parsed = rawMatch ? JSON.parse(jsonrepair(rawMatch[0])) : null;
-    const validated = z
-      .object({ questions: z.array(z.string().max(150)).min(1).max(5) })
-      .safeParse(parsed);
+    const validated = z.object({ questions: z.array(z.string().max(150)).min(1).max(5) }).safeParse(parsed);
 
     if (!validated.success) {
-      console.error('[suggestQuestions] Could not parse questions from model output:', text);
+      log.error('[suggestQuestions] Could not parse questions from model output:', text);
       return { questions: [] };
     }
 
     return { questions: validated.data.questions };
   } catch (error) {
-    console.error('[suggestQuestions] Failed to generate follow-up questions:', error);
+    log.error('[suggestQuestions] Failed to generate follow-up questions:', error);
     return { questions: [] };
   }
 }
@@ -222,11 +224,11 @@ Output requirements:
       prompt: raw,
     });
 
-    console.log('Enhanced text: ', text);
+    log.debug('Enhanced text: ', text);
 
     return { success: true, enhanced: text.trim() };
   } catch (error) {
-    console.error('Error enhancing prompt:', error);
+    log.error('Error enhancing prompt:', error);
     return { success: false, error: 'Failed to enhance prompt' };
   }
 }

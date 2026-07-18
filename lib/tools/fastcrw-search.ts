@@ -1,3 +1,7 @@
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('fastcrw-search');
+
 /** @public part of the fastCRW provider port — not yet selected by the search-provider resolution in ai/providers.ts */
 export interface FastCrwSearchResult {
   title: string;
@@ -46,7 +50,7 @@ export class FastCrwSearchStrategy implements SearchProviderStrategy {
     include_domains?: string[],
     _startDate?: string,
   ): Promise<FastCrwSearchResult[]> {
-    console.log(`[FastCRW] search called with query: "${query}", category: ${category}`);
+    log.debug(`[FastCRW] search called with query: "${query}", category: ${category}`);
 
     try {
       const siteFilter = include_domains?.length
@@ -82,10 +86,10 @@ export class FastCrwSearchStrategy implements SearchProviderStrategy {
         favicon: `https://www.google.com/s2/favicons?domain=${new URL(r.url).hostname}&sz=128`,
       })) as FastCrwSearchResult[];
 
-      console.log(`[FastCRW] search returning ${mappedResults.length} results`);
+      log.debug(`[FastCRW] search returning ${mappedResults.length} results`);
       return mappedResults;
     } catch (error) {
-      console.error('[FastCRW] Error in search:', error);
+      log.error('[FastCRW] Error in search:', error);
       return [];
     }
   }

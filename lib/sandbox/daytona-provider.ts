@@ -3,6 +3,10 @@ import { SNAPSHOT_NAME } from '@/lib/constants';
 import type { SandboxProvider, SandboxResult } from './types';
 import { wrapCodeForFileCapture, parseFileMarker } from './file-capture';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('daytona-provider');
+
 export class DaytonaSandboxProvider implements SandboxProvider {
   constructor(private apiKey: string) {}
 
@@ -12,7 +16,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
 
     try {
       if (installLibs.length > 0) {
-        console.log('[DaytonaSandbox] Installing libs:', installLibs);
+        log.debug('[DaytonaSandbox] Installing libs:', installLibs);
         await sandbox.process.executeCommand(`pip install ${installLibs.join(' ')}`, undefined, undefined, 60);
       }
 

@@ -22,6 +22,10 @@ import {
   INumberingOptions,
 } from 'docx';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('export-docx');
+
 interface DocxExportMeta {
   modelLabel?: string;
   createdAt?: string | number | Date;
@@ -967,7 +971,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (e: any) {
-    console.error('DOCX export error:', e);
+    log.error('DOCX export error:', e);
     return NextResponse.json({ error: e?.message || 'Failed to generate DOCX' }, { status: 500 });
   }
 }

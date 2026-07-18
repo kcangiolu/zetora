@@ -14,6 +14,10 @@ import { clampSearchInput, dedupeAndCapSearches, enrichBestQualityResults } from
 import { SelfHostedContentStrategy } from './selfhosted-content';
 import { EXA_SEARCH_TIMEOUT_MS } from '@/lib/timeouts';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('web-search');
+
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -150,7 +154,7 @@ class ParallelSearchStrategy implements SearchStrategy {
   ) {
     // Limit queries to first 5 for Parallel AI
     const limitedQueries = queries.slice(0, 5);
-    console.log('Using Parallel AI batch processing for queries:', limitedQueries);
+    log.debug('Using Parallel AI batch processing for queries:', limitedQueries);
 
     // Send start notifications for all queries
     limitedQueries.forEach((query, index) => {
@@ -206,7 +210,7 @@ class ParallelSearchStrategy implements SearchStrategy {
                     },
                   })
                   .catch((error) => {
-                    console.error(`Firecrawl error for query "${query}":`, error);
+                    log.error(`Firecrawl error for query "${query}":`, error);
                     return { images: [] } as Partial<Document> as any;
                   });
               },
@@ -255,7 +259,7 @@ class ParallelSearchStrategy implements SearchStrategy {
             images: deduplicateByDomainAndUrl(images),
           };
         } catch (error) {
-          console.error(`Parallel AI search error for query "${query}":`, error);
+          log.error(`Parallel AI search error for query "${query}":`, error);
 
           options.dataStream?.write({
             type: 'data-query_completion',
@@ -280,7 +284,7 @@ class ParallelSearchStrategy implements SearchStrategy {
       const searchResults = limitedQueries.map((_, index) => perQueryMap[`q:${index}`]);
       return { searches: searchResults };
     } catch (error) {
-      console.error('Parallel AI batch orchestration error:', error);
+      log.error('Parallel AI batch orchestration error:', error);
 
       // Send error notifications for all queries
       limitedQueries.forEach((query, index) => {
@@ -429,7 +433,7 @@ class FirecrawlSearchStrategy implements SearchStrategy {
           images: images.filter((img) => img.url && img.description),
         };
       } catch (error) {
-        console.error(`Firecrawl search error for query "${query}":`, error);
+        log.error(`Firecrawl search error for query "${query}":`, error);
 
         options.dataStream?.write({
           type: 'data-query_completion',
@@ -538,7 +542,7 @@ class ExaSearchStrategy implements SearchStrategy {
                   },
                 })
                 .catch((error) => {
-                  console.error(`Firecrawl image search error for query "${query}":`, error);
+                  log.error(`Firecrawl image search error for query "${query}":`, error);
                   return { images: [] } as Partial<Document> as any;
                 });
             },
@@ -588,7 +592,7 @@ class ExaSearchStrategy implements SearchStrategy {
           ),
         };
       } catch (error) {
-        console.error(`Exa search error for query "${query}":`, error);
+        log.error(`Exa search error for query "${query}":`, error);
 
         options.dataStream?.write({
           type: 'data-query_completion',
@@ -649,7 +653,7 @@ const createSearchStrategy = (
   if (provider === 'searxng') {
     const url = serverEnv.SEARXNG_URL;
     if (!url) {
-      console.warn('SearXNG provider selected but SEARXNG_URL is not configured, falling back to Exa');
+      log.warn('SearXNG provider selected but SEARXNG_URL is not configured, falling back to Exa');
       return new ExaSearchStrategy(clients.exa, clients.firecrawl);
     }
     return new SearXNGSearchStrategy(url, preferences, userId);
@@ -658,7 +662,7 @@ const createSearchStrategy = (
   if (provider === 'fastcrw') {
     const url = serverEnv.FASTCRW_URL;
     if (!url) {
-      console.warn('fastCRW provider selected but FASTCRW_URL is not configured, falling back to Exa');
+      log.warn('fastCRW provider selected but FASTCRW_URL is not configured, falling back to Exa');
       return new ExaSearchStrategy(clients.exa, clients.firecrawl);
     }
     return new FastCrwWebSearchStrategy(url);
@@ -737,7 +741,7 @@ export function webSearchTool(
             .nullable()
             .optional()
             .describe(
-              "Array of start dates for filtering search results. Use ISO date format (YYYY-MM-DD). Results will be filtered to show only content published after this date. Only set this for breaking/recent news queries. Leave unset (or empty string) for reference material such as regulations, pricing, thresholds, or anything where the authoritative page may be old — restricting by date there hides official sources and surfaces only recent blog churn.",
+              'Array of start dates for filtering search results. Use ISO date format (YYYY-MM-DD). Results will be filtered to show only content published after this date. Only set this for breaking/recent news queries. Leave unset (or empty string) for reference material such as regulations, pricing, thresholds, or anything where the authoritative page may be old — restricting by date there hides official sources and surfaces only recent blog churn.',
             ),
         )
         .optional(),
@@ -764,12 +768,12 @@ export function webSearchTool(
       // routinely ignore the prompt-level 2-4 × 8 limits).
       ({ queries, maxResults } = clampSearchInput({ queries, maxResults }));
 
-      console.log('Queries:', queries);
-      console.log('Max Results:', maxResults);
-      console.log('Topics:', topics);
-      console.log('Quality:', quality);
-      console.log('Start Dates:', startDates);
-      console.log('Search Provider:', searchProvider);
+      log.debug('Queries:', queries);
+      log.debug('Max Results:', maxResults);
+      log.debug('Topics:', topics);
+      log.debug('Quality:', quality);
+      log.debug('Start Dates:', startDates);
+      log.debug('Search Provider:', searchProvider);
 
       // Create and use the appropriate search strategy
       const normalizedProvider = normalizeWebSearchProvider(searchProvider);
@@ -792,11 +796,12 @@ export function webSearchTool(
       let result = await strategy.search(queries, searchOptions);
       const hasNoResults = result.searches.every((s) => s.results.length === 0);
       const searchFallbackEnabled = preferences?.['zetora-fallback-search-firecrawl'] !== false;
-      const configuredFallbackProvider = (preferences?.['zetora-search-fallback-provider'] as string | undefined) || 'firecrawl';
+      const configuredFallbackProvider =
+        (preferences?.['zetora-search-fallback-provider'] as string | undefined) || 'firecrawl';
       const fallbackProvider =
         configuredFallbackProvider === 'none' ? null : normalizeWebSearchProvider(configuredFallbackProvider);
       if (hasNoResults && searchFallbackEnabled && fallbackProvider && fallbackProvider !== normalizedProvider) {
-        console.log(`${normalizedProvider} returned no results, falling back to ${fallbackProvider}`);
+        log.debug(`${normalizedProvider} returned no results, falling back to ${fallbackProvider}`);
         const fallbackStrategy = createSearchStrategy(fallbackProvider, clients, preferences, userId);
         result = await fallbackStrategy.search(queries, searchOptions);
       }
@@ -809,11 +814,15 @@ export function webSearchTool(
       // of guessing from 400 characters.
       const notteEnabled = preferences?.['zetora-fallback-notte'] !== false;
       const metadataEnabled = preferences?.['zetora-fallback-metadata'] !== false;
-      const enrichedSearches = await enrichBestQualityResults(cappedSearches, quality as ('default' | 'best')[], async (urls) => {
-        const contentStrategy = new SelfHostedContentStrategy({ notteEnabled, metadataEnabled });
-        const contents = await contentStrategy.getContents(urls);
-        return contents.map((c) => ({ url: c.url, content: c.content }));
-      });
+      const enrichedSearches = await enrichBestQualityResults(
+        cappedSearches,
+        quality as ('default' | 'best')[],
+        async (urls) => {
+          const contentStrategy = new SelfHostedContentStrategy({ notteEnabled, metadataEnabled });
+          const contents = await contentStrategy.getContents(urls);
+          return contents.map((c) => ({ url: c.url, content: c.content }));
+        },
+      );
 
       return { ...result, searches: enrichedSearches };
     },

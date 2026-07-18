@@ -60,6 +60,10 @@ import { saveChat, saveMessages } from '@/lib/db/queries';
 import { all, allSettled } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('chats');
+
 // Lightweight function for sidebar recent chats - minimal payload, no cursor pagination
 export async function getRecentChats(
   userId: string,
@@ -82,7 +86,7 @@ export async function getRecentChats(
   try {
     return await getRecentChatsByUserId({ userId, limit });
   } catch (error) {
-    console.error('Error fetching recent chats:', error);
+    log.error('Error fetching recent chats:', error);
     return { chats: [], hasMore: false };
   }
 }
@@ -106,7 +110,7 @@ export async function getUserChats(
       endingBefore: endingBefore || null,
     });
   } catch (error) {
-    console.error('Error fetching user chats:', error);
+    log.error('Error fetching user chats:', error);
     return { chats: [], hasMore: false };
   }
 }
@@ -134,7 +138,7 @@ export async function loadMoreChats(
       cursorIsPinned: cursorIsPinned ?? null,
     });
   } catch (error) {
-    console.error('Error loading more chats:', error);
+    log.error('Error loading more chats:', error);
     return { chats: [], hasMore: false };
   }
 }
@@ -148,7 +152,7 @@ export async function deleteChat(chatId: string) {
   try {
     return await deleteChatById({ id: chatId });
   } catch (error) {
-    console.error('Error deleting chat:', error);
+    log.error('Error deleting chat:', error);
     return null;
   }
 }
@@ -176,7 +180,7 @@ export async function bulkDeleteChats(chatIds: string[]) {
     const deletedCount = settledValues.filter((r) => r.status === 'fulfilled' && r.value !== null).length;
     return { success: true, deletedCount };
   } catch (error) {
-    console.error('Error bulk deleting chats:', error);
+    log.error('Error bulk deleting chats:', error);
     throw new Error('Failed to delete chats');
   }
 }
@@ -185,17 +189,17 @@ export async function bulkDeleteChats(chatIds: string[]) {
 export async function updateChatVisibility(chatId: string, visibility: 'private' | 'public') {
   'use server';
 
-  console.log('🔄 updateChatVisibility called with:', { chatId, visibility });
+  log.debug('🔄 updateChatVisibility called with:', { chatId, visibility });
 
   if (!chatId) {
-    console.error('❌ updateChatVisibility: No chatId provided');
+    log.error('❌ updateChatVisibility: No chatId provided');
     throw new Error('Chat ID is required');
   }
 
   try {
-    console.log('📡 Calling updateChatVisibilityById with:', { chatId, visibility });
+    log.debug('📡 Calling updateChatVisibilityById with:', { chatId, visibility });
     const result = await updateChatVisibilityById({ chatId, visibility });
-    console.log('✅ updateChatVisibilityById successful, result:', result);
+    log.debug('✅ updateChatVisibilityById successful, result:', result);
 
     // Return a serializable plain object instead of raw database result
     return {
@@ -205,7 +209,7 @@ export async function updateChatVisibility(chatId: string, visibility: 'private'
       rowCount: result?.rowCount || 0,
     };
   } catch (error) {
-    console.error('❌ Error in updateChatVisibility:', {
+    log.error('❌ Error in updateChatVisibility:', {
       chatId,
       visibility,
       error: error instanceof Error ? error.message : error,
@@ -223,7 +227,7 @@ export async function updateChatPinned(chatId: string, isPinned: boolean) {
   try {
     return await updateChatPinnedById({ chatId, isPinned });
   } catch (error) {
-    console.error('Error updating chat pinned state:', error);
+    log.error('Error updating chat pinned state:', error);
     return null;
   }
 }
@@ -239,7 +243,7 @@ export async function deleteTrailingMessages({ id }: { id: string }) {
     const [message] = await getMessageById({ id });
 
     if (!message) {
-      console.error(`No message found with id: ${id}`);
+      log.error(`No message found with id: ${id}`);
       return;
     }
 
@@ -253,9 +257,9 @@ export async function deleteTrailingMessages({ id }: { id: string }) {
       timestamp: message.createdAt,
     });
 
-    console.log(`Successfully deleted trailing messages after message ID: ${id}`);
+    log.debug(`Successfully deleted trailing messages after message ID: ${id}`);
   } catch (error) {
-    console.error(`Error deleting trailing messages: ${error}`);
+    log.error(`Error deleting trailing messages: ${error}`);
     throw error; // Re-throw to allow caller to handle
   }
 }
@@ -269,7 +273,7 @@ export async function updateChatTitle(chatId: string, title: string) {
   try {
     return await updateChatTitleById({ chatId, title: title.trim() });
   } catch (error) {
-    console.error('Error updating chat title:', error);
+    log.error('Error updating chat title:', error);
     return null;
   }
 }
@@ -339,7 +343,7 @@ export async function forkChat(
 
     return { success: true, newChatId };
   } catch (error) {
-    console.error('Error forking chat:', error);
+    log.error('Error forking chat:', error);
     return { success: false, error: 'Failed to fork chat' };
   }
 }
@@ -425,7 +429,7 @@ export async function branchOutChat({
 
     return { success: true, chatId: newChatId };
   } catch (error) {
-    console.error('Error branching out chat:', error);
+    log.error('Error branching out chat:', error);
     return { success: false, error: 'Failed to branch out chat' };
   }
 }
@@ -544,7 +548,7 @@ export async function getAllChatsWithPreview(limit: number = 25, offset: number 
 
     return { chats: chatsWithPreview };
   } catch (error) {
-    console.error('Error fetching chats:', error);
+    log.error('Error fetching chats:', error);
     return { error: 'Failed to fetch chats', status: 500 };
   }
 }
@@ -585,7 +589,7 @@ export async function searchChatsByTitle(query: string, limit: number = 25, offs
 
     return { chats: chatsWithPreview };
   } catch (error) {
-    console.error('Error searching chats:', error);
+    log.error('Error searching chats:', error);
     return { error: 'Failed to search chats', status: 500 };
   }
 }

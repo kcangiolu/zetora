@@ -14,6 +14,10 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { del as blobDel, head as blobHead } from '@vercel/blob';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('upload');
+
 // Image types (5MB limit) — webp/heic/heif cover iOS Photos picker output
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif'];
 
@@ -144,7 +148,7 @@ export async function GET(request: NextRequest) {
   try {
     session = await auth.api.getSession({ headers: request.headers });
   } catch (error) {
-    console.warn('Error checking authentication:', error);
+    log.warn('Error checking authentication:', error);
   }
 
   if (!session?.user?.id) {
@@ -176,7 +180,7 @@ export async function GET(request: NextRequest) {
             }),
           );
         } catch (e) {
-          console.error('R2 list error:', e);
+          log.error('R2 list error:', e);
           return null;
         }
       },
@@ -208,7 +212,7 @@ export async function GET(request: NextRequest) {
             )
             .then((r) => r.rows);
         } catch (e) {
-          console.error('DB file query error:', e);
+          log.error('DB file query error:', e);
           return [] as DbFileRow[];
         }
       },
@@ -332,7 +336,7 @@ export async function POST(request: NextRequest) {
       headers: request.headers,
     });
   } catch (error) {
-    console.warn('Error checking authentication:', error);
+    log.warn('Error checking authentication:', error);
   }
 
   const isAuthenticated = !!session?.user?.id;
@@ -390,7 +394,7 @@ export async function POST(request: NextRequest) {
       authenticated: isAuthenticated,
     });
   } catch (error) {
-    console.error('Error generating presigned URL:', error);
+    log.error('Error generating presigned URL:', error);
     return NextResponse.json({ error: 'Failed to generate upload URL' }, { status: 500 });
   }
 }
@@ -400,7 +404,7 @@ export async function DELETE(request: NextRequest) {
   try {
     session = await auth.api.getSession({ headers: request.headers });
   } catch (error) {
-    console.warn('Error checking authentication:', error);
+    log.warn('Error checking authentication:', error);
   }
 
   if (!session?.user?.id) {
@@ -453,7 +457,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting file:', error);
+    log.error('Error deleting file:', error);
     return NextResponse.json({ error: 'Failed to delete file' }, { status: 500 });
   }
 }

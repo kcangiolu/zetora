@@ -1,5 +1,9 @@
 import { getKVRedisClient } from './redis';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('rate-limit');
+
 const WINDOW_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const MAX_REQUESTS = 25; // 25 requests per week for unauthenticated users
 
@@ -16,7 +20,7 @@ export const unauthenticatedRateLimit = {
     const denied: RateLimitResult = { success: false, limit: MAX_REQUESTS, remaining: 0, reset: now + WINDOW_MS };
     const redis = getKVRedisClient();
     if (!redis) {
-      console.warn('[rate-limit] Redis is not configured — denying unauthenticated request');
+      log.warn('[rate-limit] Redis is not configured — denying unauthenticated request');
       return denied;
     }
     try {
@@ -36,7 +40,7 @@ export const unauthenticatedRateLimit = {
       const success = count <= MAX_REQUESTS;
       return { success, limit: MAX_REQUESTS, remaining: Math.max(0, MAX_REQUESTS - count), reset: now + WINDOW_MS };
     } catch (error) {
-      console.error('[rate-limit] limit() failed — denying unauthenticated request:', error);
+      log.error('[rate-limit] limit() failed — denying unauthenticated request:', error);
       return denied;
     }
   },

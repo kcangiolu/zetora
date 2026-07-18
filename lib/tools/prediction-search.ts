@@ -6,6 +6,10 @@ import { serverEnv } from '@/env/server';
 import { Valyu } from 'valyu-js';
 import { cohere } from '@ai-sdk/cohere';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('prediction-search');
+
 // Type definitions for Valyu API responses
 interface PolymarketOutcome {
   outcome: string;
@@ -222,8 +226,8 @@ export function predictionSearchTool(dataStream?: UIMessageStreamWriter<ChatMess
         .describe('Maximum number of results to return. Default is 15.'),
     }),
     execute: async ({ query, maxResults = 15 }: { query: string; maxResults?: number }) => {
-      console.log('Prediction market search query:', query);
-      console.log('Max results:', maxResults);
+      log.debug('Prediction market search query:', query);
+      log.debug('Max results:', maxResults);
 
       const valyu = new Valyu(serverEnv.VALYU_API_KEY);
 
@@ -252,7 +256,7 @@ export function predictionSearchTool(dataStream?: UIMessageStreamWriter<ChatMess
         })) as unknown as ValyuSearchResponse;
 
         if (!response.success) {
-          console.error('Valyu API error:', response.error);
+          log.error('Valyu API error:', response.error);
           dataStream?.write({
             type: 'data-query_completion',
             data: {
@@ -299,7 +303,7 @@ export function predictionSearchTool(dataStream?: UIMessageStreamWriter<ChatMess
               relevanceScore: r.score,
             }));
           } catch (rerankError) {
-            console.error('Rerank error, using original order:', rerankError);
+            log.error('Rerank error, using original order:', rerankError);
             // Fall back to original order if reranking fails
           }
         }
@@ -335,7 +339,7 @@ export function predictionSearchTool(dataStream?: UIMessageStreamWriter<ChatMess
           sources: response.results_by_source,
         };
       } catch (error) {
-        console.error('Prediction market search error:', error);
+        log.error('Prediction market search error:', error);
 
         dataStream?.write({
           type: 'data-query_completion',

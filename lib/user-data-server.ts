@@ -41,6 +41,10 @@ export function invalidateSessionCacheForToken(token: string): void {
 import { all, flow } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('user-data-server');
+
 // Status type literals
 type ProSource = 'polar' | 'dodo' | 'none';
 type PlanTier = 'free' | 'pro' | 'max';
@@ -453,7 +457,7 @@ export const getLightweightUserAuth = cache(async (): Promise<LightweightUserAut
 
     return lightweightData;
   } catch (error) {
-    console.error('Error in lightweight auth check:', error);
+    log.error('Error in lightweight auth check:', error);
     return null;
   }
 });
@@ -678,8 +682,7 @@ export const getComprehensiveUserData = cache(async (): Promise<ComprehensiveUse
 
     return comprehensiveData;
   } catch (error) {
-    console.error('Error getting comprehensive user data:', error);
+    log.error('Error getting comprehensive user data:', error);
     return null;
   }
 });
-

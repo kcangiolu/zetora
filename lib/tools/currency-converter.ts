@@ -5,6 +5,10 @@ import { serverEnv } from '@/env/server';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('currency-converter');
+
 export const currencyConverterTool = tool({
   description: 'Convert currency from one to another using Valyu forex data',
   inputSchema: z.object({
@@ -57,7 +61,7 @@ export const currencyConverterTool = tool({
         ) as ForexResult | undefined;
         return firstNumeric?.content;
       } catch (error) {
-        console.error('Valyu forex fetch error:', error);
+        log.error('Valyu forex fetch error:', error);
         return undefined;
       }
     };

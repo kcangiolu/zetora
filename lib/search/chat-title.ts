@@ -9,12 +9,16 @@ import { getUser } from '@/lib/auth-utils';
 import { getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { resolveTertiaryModel } from '@/ai/tertiary';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('chat-title');
+
 export async function generateTitleFromUserMessage({ message }: { message: UIMessage }) {
   const startTime = Date.now();
   const firstTextPart = message.parts.find((part) => part.type === 'text');
   const prompt = JSON.stringify(firstTextPart && firstTextPart.type === 'text' ? firstTextPart.text : '');
 
-  console.log('Prompt: ', prompt);
+  log.debug('Prompt: ', prompt);
 
   const titleUser = await getUser().catch(() => null);
   const titlePrefs = titleUser ? await getCachedUserPreferencesByUserId(titleUser.id).catch(() => null) : null;
@@ -64,10 +68,10 @@ export async function generateTitleFromUserMessage({ message }: { message: UIMes
       } satisfies GoogleLanguageModelOptions,
     },
     onFinish: (output) => {
-      console.log('Title generated: ', output.text);
-      console.log('Model Used: ', output.model.modelId);
+      log.debug('Title generated: ', output.text);
+      log.debug('Model Used: ', output.model.modelId);
       const durationMs = Date.now() - startTime;
-      console.log(`⏱️ [USAGE] generateTitleFromUserMessage: Model took ${durationMs}ms`);
+      log.debug(`⏱️ [USAGE] generateTitleFromUserMessage: Model took ${durationMs}ms`);
     },
   });
 
@@ -78,10 +82,10 @@ export async function generateTitleFromUserMessage({ message }: { message: UIMes
     .trim()
     .slice(0, 80);
 
-  console.log('Title: ', title);
+  log.debug('Title: ', title);
 
   const durationMs = Date.now() - startTime;
-  console.log(`⏱️ [USAGE] generateTitleFromUserMessage: Model took ${durationMs}ms`);
+  log.debug(`⏱️ [USAGE] generateTitleFromUserMessage: Model took ${durationMs}ms`);
 
   return title || 'New Chat';
 }

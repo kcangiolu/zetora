@@ -10,6 +10,10 @@ import { differenceInSeconds } from 'date-fns';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('search-stream');
+
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: chatId } = await params;
 
@@ -80,30 +84,30 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
    */
   if (!stream) {
     const messages = await getMessagesByChatId({ id: chatId });
-    console.log('Messages: ', messages);
+    log.debug('Messages: ', messages);
     const mostRecentMessage = messages.at(-1);
 
     if (!mostRecentMessage) {
-      console.log('No most recent message found');
+      log.debug('No most recent message found');
       return new Response(emptyDataStream.pipeThrough(new JsonToSseTransformStream()), { status: 200 });
     }
 
     if (mostRecentMessage.role !== 'assistant') {
-      console.log('Most recent message is not an assistant message');
+      log.debug('Most recent message is not an assistant message');
       return new Response(emptyDataStream.pipeThrough(new JsonToSseTransformStream()), { status: 200 });
     }
 
     const messageCreatedAt = new Date(mostRecentMessage.createdAt);
 
     if (differenceInSeconds(resumeRequestedAt, messageCreatedAt) > 15) {
-      console.log('Most recent message is too old');
+      log.debug('Most recent message is too old');
       return new Response(emptyDataStream.pipeThrough(new JsonToSseTransformStream()), { status: 200 });
     }
 
     const restoredStream = createUIMessageStream<ChatMessage>({
       execute: ({ writer }) => {
-        console.log('Restoring stream...');
-        console.log('Most recent message: ', mostRecentMessage);
+        log.debug('Restoring stream...');
+        log.debug('Most recent message: ', mostRecentMessage);
         writer.write({
           type: 'data-appendMessage',
           data: JSON.stringify(mostRecentMessage),

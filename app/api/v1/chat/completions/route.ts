@@ -10,6 +10,10 @@ import { StreamTokenBuffer } from '@/ai/anonymization-middleware';
 import { TOKEN_PATTERN } from '@/lib/anonymizer/pseudonymize';
 import type { SearchProvider } from '@/lib/utils';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('v1-chat-completions');
+
 // Small curated toolset for spoken conversations — kept intentionally narrow so
 // the prompt stays light and turns stay low-latency (see the voice search plan).
 const VOICE_TOOL_NAMES = ['web_search', 'retrieve', 'get_weather_data', 'datetime'];
@@ -72,11 +76,7 @@ export async function POST(req: NextRequest) {
     modelId.startsWith('custom-') &&
     (prefs as Record<string, unknown> | null)?.['zetora-xml-tool-parsing-enabled'] === true;
 
-  const anonymizeContext = await getAnonymizeContext(
-    modelId,
-    prefs as Record<string, unknown> | null,
-    userId,
-  );
+  const anonymizeContext = await getAnonymizeContext(modelId, prefs as Record<string, unknown> | null, userId);
 
   const tools = await loadConfiguredTools({
     activeToolNames: VOICE_TOOL_NAMES,
@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
         });
         controller.enqueue(encoder.encode('data: [DONE]\n\n'));
       } catch (error) {
-        console.error('[api/v1/chat/completions] stream error:', error);
+        log.error('[api/v1/chat/completions] stream error:', error);
         controller.error(error);
         return;
       }

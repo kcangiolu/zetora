@@ -4,6 +4,10 @@ import { and, desc, eq, lt } from 'drizzle-orm';
 import { generatedFile } from '../schema';
 import { maindb } from '../index';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('generated-files');
+
 export interface InsertGeneratedFileParams {
   userId: string;
   chatId?: string | null;
@@ -37,7 +41,7 @@ export async function insertGeneratedFile(params: InsertGeneratedFileParams) {
       .returning();
     return row ?? null;
   } catch (error) {
-    console.error('Failed to insert generated file record:', error);
+    log.error('Failed to insert generated file record:', error);
     return null;
   }
 }

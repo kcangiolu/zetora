@@ -7,6 +7,10 @@ import { hasVisionSupport } from '@/ai/providers';
 import { getComprehensiveUserData, getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { resolveTertiaryModel } from '@/ai/tertiary';
 
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('auto-router');
+
 interface AutoRouterRoute {
   name: string;
   description: string;
@@ -109,7 +113,7 @@ Based on your analysis, provide your response in the following JSON formats if y
       resolvedModel = visionRoute?.model || 'zetora-default';
     }
 
-    console.log('Resolved model:', resolvedModel);
+    log.debug('Resolved model:', resolvedModel);
 
     return {
       success: true,
@@ -117,7 +121,7 @@ Based on your analysis, provide your response in the following JSON formats if y
       route: matchedRoute?.name || 'other',
     };
   } catch (error) {
-    console.error('Error routing with auto router:', error);
+    log.error('Error routing with auto router:', error);
     return { success: false, error: 'Failed to route query' };
   }
 }
