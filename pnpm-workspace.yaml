@@ -9,3 +9,26 @@ allowBuilds:
   sharp: true
   sqlite3: true
   unrs-resolver: true
+
+# Forces transitive dependencies up to their CVE-patched versions (see
+# `pnpm audit --prod`). package.json's own top-level "overrides" field is
+# npm-only and silently ignored by pnpm — this is the field pnpm actually
+# reads (pnpm.io/settings).
+overrides:
+  react-is: ^19.0.0-rc-69d4b800-20241021
+  '@types/node': ^25.5.0
+  path-to-regexp: '>=6.3.0'
+  tar: '>=7.5.16'
+  axios: '>=1.16.0'
+  form-data: '>=4.0.6'
+  hono: '>=4.12.25'
+  undici: '>=6.27.0'
+  '@ai-sdk/provider-utils': '>=3.0.98'
+  esbuild: '>=0.28.1'
+  postcss: '>=8.5.10'
+  uuid: '>=11.1.1'
+  # Only reachable today through @react-email/preview-server's pinned inner
+  # copy (dev-only `email:dev` script, never deployed) — deduped up to the
+  # same versions the app itself already uses.
+  next: '>=16.2.5'
+  ws: '>=8.21.0'

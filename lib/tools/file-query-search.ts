@@ -5,7 +5,7 @@ import { PDFReader } from '@vectorstores/readers/pdf';
 import { CSVReader } from '@vectorstores/readers/csv';
 import { DocxReader } from '@vectorstores/readers/docx';
 import { TextFileReader } from '@vectorstores/readers/text';
-import { ExcelReader } from '@vectorstores/excel';
+import { ExcelReader } from '@/lib/tools/readers/excel-reader';
 import { vercelEmbedding } from '@vectorstores/vercel';
 import { cohere } from '@ai-sdk/cohere';
 import { all, allSettled } from 'better-all';
