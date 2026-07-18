@@ -1,4 +1,5 @@
 // /app/api/lookout/route.ts
+import { createLogger } from '@/lib/logger';
 import { generateTitleFromUserMessage } from '@/lib/search/chat-title';
 import { convertToModelMessages, streamText, createUIMessageStream, stepCountIs, JsonToSseTransformStream } from 'ai';
 import { zetora, resolveModel, shouldBypassRateLimits } from '@/ai/providers';
@@ -60,6 +61,8 @@ import {
 import { ChatMessage } from '@/lib/types';
 import { type UIMessageStreamWriter } from 'ai';
 import { XaiProviderOptions } from '@ai-sdk/xai';
+
+const log = createLogger('lookout');
 
 /**
  * Truncates markdown at a natural paragraph boundary to avoid broken links,
@@ -557,13 +560,13 @@ async function checkUserIsProById(userId: string): Promise<boolean> {
     );
     return result ?? false;
   } catch (error) {
-    console.error('Error checking pro status:', error);
+    log.error('Error checking pro status:', error);
     return false; // Fail closed - don't allow access if we can't verify
   }
 }
 
 export async function POST(req: Request) {
-  console.log('🔍 Lookout API endpoint hit from QStash');
+  log.info('🔍 Lookout API endpoint hit from QStash');
 
   // Reject callers that don't present the shared scheduling secret — this
   // endpoint runs LLM jobs as the userId provided in the body.
@@ -579,11 +582,7 @@ export async function POST(req: Request) {
   try {
     const { lookoutId, prompt, userId } = await req.json();
 
-    console.log('--------------------------------');
-    console.log('Lookout ID:', lookoutId);
-    console.log('User ID:', userId);
-    console.log('Prompt:', prompt);
-    console.log('--------------------------------');
+    log.debug('Running lookout', { lookoutId, userId, prompt });
 
     // Verify lookout exists and get details with retry logic
     let lookout: any = null;
@@ -597,14 +596,14 @@ export async function POST(req: Request) {
         if (retryCount < maxRetries) {
           // Actual exponential backoff: 500ms, 1000ms, 2000ms
           const delay = 500 * Math.pow(2, retryCount - 1);
-          console.log(`Lookout not found on attempt ${retryCount}, retrying in ${delay}ms...`);
+          log.info(`Lookout not found on attempt ${retryCount}, retrying in ${delay}ms...`);
           await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
     }
 
     if (!lookout) {
-      console.error('Lookout not found after', maxRetries, 'attempts:', lookoutId);
+      log.error('Lookout not found after', maxRetries, 'attempts:', lookoutId);
       return new Response('Lookout not found', { status: 404 });
     }
 
@@ -625,12 +624,12 @@ export async function POST(req: Request) {
     );
 
     if (!userResult) {
-      console.error('User not found:', userId);
+      log.error('User not found:', userId);
       return new Response('User not found', { status: 404 });
     }
 
     if (!isUserPro) {
-      console.error('User is not pro, cannot run lookout:', userId);
+      log.error('User is not pro, cannot run lookout:', userId);
       return new Response('Lookouts require a Pro subscription', { status: 403 });
     }
 
@@ -708,7 +707,7 @@ export async function POST(req: Request) {
 
     // Get search mode from lookout (default to 'extreme' for backward compatibility)
     const searchMode = lookout.searchMode || 'extreme';
-    console.log('🔍 Using search mode:', searchMode);
+    log.info('🔍 Using search mode:', searchMode);
 
     // Create data stream with execute function
     const abortController = new AbortController();
@@ -729,7 +728,7 @@ export async function POST(req: Request) {
         const activeToolNames = Object.keys(tools);
         const systemPrompt = getSystemPromptForSearchMode(searchMode);
 
-        console.log('🛠️ Active tools:', activeToolNames);
+        log.info('🛠️ Active tools:', activeToolNames);
 
         // Start streaming
         const result = streamText({
@@ -757,18 +756,16 @@ export async function POST(req: Request) {
           },
           onChunk(event) {
             if (event.chunk.type === 'tool-call') {
-              console.log('Called Tool: ', event.chunk.toolName);
+              log.info('Called tool:', event.chunk.toolName);
             }
           },
           onStepFinish(event) {
             if (event.warnings) {
-              console.log('Warnings: ', event.warnings);
+              log.warn('Step warnings:', event.warnings);
             }
           },
           onFinish: async (event) => {
-            console.log('Finish reason: ', event.finishReason);
-            console.log('Steps: ', event.steps);
-            console.log('Usage: ', event.usage);
+            log.debug('Finished', { finishReason: event.finishReason, steps: event.steps, usage: event.usage });
 
             if (event.finishReason === 'stop') {
               try {
@@ -782,7 +779,7 @@ export async function POST(req: Request) {
                   message: userMessage,
                 });
 
-                console.log('Generated title: ', title);
+                log.info('Generated title:', title);
 
                 // Update the chat with the generated title
                 await updateChatTitleById({
@@ -796,7 +793,7 @@ export async function POST(req: Request) {
                 );
 
                 if (extremeSearchUsed) {
-                  console.log('Extreme search was used, incrementing count');
+                  log.info('Extreme search was used, incrementing count');
                   await incrementExtremeSearchUsage({ userId: userResult.id });
                 }
 
@@ -841,7 +838,7 @@ export async function POST(req: Request) {
                       nextRunAt,
                     });
                   } catch (error) {
-                    console.error('Error calculating next run time:', error);
+                    log.error('Error calculating next run time:', error);
                   }
                 } else if (lookout.frequency === 'once') {
                   // Mark one-time lookouts as paused after running
@@ -874,8 +871,10 @@ export async function POST(req: Request) {
                       }
                     }
 
-                    console.log('📧 Assistant response length:', assistantResponseText.length);
-                    console.log('📧 First 200 chars:', assistantResponseText.substring(0, 200));
+                    log.debug('📧 Assistant response preview', {
+                      length: assistantResponseText.length,
+                      preview: assistantResponseText.substring(0, 200),
+                    });
 
                     const trimmedResponse = assistantResponseText.trim() || 'No response available.';
                     const finalResponse = truncateMarkdown(trimmedResponse, 2000);
@@ -892,7 +891,7 @@ export async function POST(req: Request) {
                       emailProvider,
                     });
                   } catch (emailError) {
-                    console.error('Failed to send completion email:', emailError);
+                    log.error('Failed to send completion email:', emailError);
                   }
                 }
 
@@ -902,21 +901,19 @@ export async function POST(req: Request) {
                   status: 'active',
                 });
 
-                console.log('Scheduled search completed successfully');
+                log.info('Scheduled search completed successfully');
               } catch (error) {
-                console.error('Error in onFinish:', error);
+                log.error('Error in onFinish:', error);
               }
             }
 
             // Calculate and log overall request processing time
             const requestEndTime = Date.now();
             const processingTime = (requestEndTime - requestStartTime) / 1000;
-            console.log('--------------------------------');
-            console.log(`Total request processing time: ${processingTime.toFixed(2)} seconds`);
-            console.log('--------------------------------');
+            log.debug(`Total request processing time: ${processingTime.toFixed(2)} seconds`);
           },
           onError: async (event) => {
-            console.log('Error: ', event.error);
+            log.error('Stream error:', event.error);
 
             // Calculate run duration and capture error
             runDuration = Date.now() - requestStartTime;
@@ -933,7 +930,7 @@ export async function POST(req: Request) {
                 duration: runDuration,
               });
             } catch (updateError) {
-              console.error('Failed to update lookout with error info:', updateError);
+              log.error('Failed to update lookout with error info:', updateError);
             }
 
             // Set lookout status back to active on error
@@ -942,16 +939,14 @@ export async function POST(req: Request) {
                 id: lookoutId,
                 status: 'active',
               });
-              console.log('Reset lookout status to active after error');
+              log.info('Reset lookout status to active after error');
             } catch (statusError) {
-              console.error('Failed to reset lookout status after error:', statusError);
+              log.error('Failed to reset lookout status after error:', statusError);
             }
 
             const requestEndTime = Date.now();
             const processingTime = (requestEndTime - requestStartTime) / 1000;
-            console.log('--------------------------------');
-            console.log(`Request processing time (with error): ${processingTime.toFixed(2)} seconds`);
-            console.log('--------------------------------');
+            log.debug(`Request processing time (with error): ${processingTime.toFixed(2)} seconds`);
           },
         });
 
@@ -962,7 +957,7 @@ export async function POST(req: Request) {
             sendReasoning: true,
             messageMetadata: ({ part }) => {
               if (part.type === 'finish') {
-                console.log('Finish part: ', part);
+                log.debug('Finish part:', part);
                 const processingTime = (Date.now() - streamStartTime) / 1000;
                 return {
                   model: 'zetora-default',
@@ -978,7 +973,7 @@ export async function POST(req: Request) {
         );
       },
       onError(error) {
-        console.log('Error: ', error);
+        log.error('Stream error:', error);
         return 'Oops, an error occurred in scheduled search!';
       },
       onFinish: async ({ messages: streamedMessages }) => {
@@ -1031,7 +1026,7 @@ export async function POST(req: Request) {
 
     return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
   } catch (error) {
-    console.error('Error in lookout API:', error);
+    log.error('Error in lookout API:', error);
     return new Response('Internal server error', { status: 500 });
   }
 }

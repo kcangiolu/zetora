@@ -5,6 +5,7 @@
 // ----> Use structured source collection to provide comprehensive research results
 // ----> Return all collected sources and research data to the user
 
+import { createLogger } from '@/lib/logger';
 import Exa from 'exa-js';
 import { getSandboxProvider } from '@/lib/sandbox';
 import type { SandboxProviderType } from '@/lib/sandbox';
@@ -43,6 +44,8 @@ import {
   type SearchResult,
 } from './selfhosted-content';
 import { type SearchProviderStrategy, SearchCategory } from './fastcrw-search';
+
+const log = createLogger('extreme-search');
 
 interface CitationSource {
   sourceType?: string;
@@ -138,7 +141,7 @@ async function buildFileRetrievers(files: { url: string; contentType: string; na
             const retriever = await createFileRetriever(file);
             retrieversByUrl.set(file.url, retriever);
           } catch (error) {
-            console.error(`Error indexing file ${file.name}:`, error);
+            log.error(`Error indexing file ${file.name}:`, error);
           }
         },
       ]),
@@ -177,7 +180,7 @@ async function searchFilesForQuery(
               });
             }
           } catch (error) {
-            console.error(`Error searching file ${file.name}:`, error);
+            log.error(`Error searching file ${file.name}:`, error);
           }
         },
       ]),
@@ -262,7 +265,7 @@ async function getMetadataFallbackResults(urls: string[], logPrefix: string): Pr
   const uniqueUrls = Array.from(new Set(urls)).filter(isHttpUrl);
   if (uniqueUrls.length === 0) return [];
 
-  console.log(`[${logPrefix}] Using metadata.zetora.app fallback for ${uniqueUrls.length} URLs:`, uniqueUrls);
+  log.debug(`[${logPrefix}] Using metadata.zetora.app fallback for ${uniqueUrls.length} URLs:`, uniqueUrls);
 
   const metadataResults = await all(
     Object.fromEntries(
@@ -275,7 +278,7 @@ async function getMetadataFallbackResults(urls: string[], logPrefix: string): Pr
 
             const response = await fetch(endpoint.toString(), { method: 'GET' });
             if (!response.ok) {
-              console.error(
+              log.error(
                 `[${logPrefix}] metadata.zetora.app failed for ${url}:`,
                 response.status,
                 response.statusText,
@@ -311,7 +314,7 @@ async function getMetadataFallbackResults(urls: string[], logPrefix: string): Pr
               image: data.image,
             } satisfies SearchResult;
           } catch (error) {
-            console.error(`[${logPrefix}] metadata.zetora.app error for ${url}:`, error);
+            log.error(`[${logPrefix}] metadata.zetora.app error for ${url}:`, error);
             return null;
           }
         },
@@ -339,7 +342,7 @@ class ExaContentStrategy implements ContentExtractionStrategy {
   ) {}
 
   async getContents(links: string[]): Promise<SearchResult[]> {
-    console.log(`[Exa] getContents called with ${links.length} URLs:`, links);
+    log.debug(`[Exa] getContents called with ${links.length} URLs:`, links);
     const results: SearchResult[] = [];
     const failedUrls: string[] = [];
 
@@ -352,7 +355,7 @@ class ExaContentStrategy implements ContentExtractionStrategy {
         },
         livecrawl: 'preferred',
       });
-      console.log(`[Exa] getContents received ${result.results.length} results from Exa API`);
+      log.info(`[Exa] getContents received ${result.results.length} results from Exa API`);
 
       // Process Exa results
       for (const r of result.results) {
@@ -375,14 +378,14 @@ class ExaContentStrategy implements ContentExtractionStrategy {
       const missingUrls = links.filter((url) => !exaUrls.includes(url));
       failedUrls.push(...missingUrls);
     } catch (error) {
-      console.error('[Exa] API error:', error);
-      console.log('[Exa] Adding all URLs to Firecrawl fallback list');
+      log.error('[Exa] API error:', error);
+      log.info('[Exa] Adding all URLs to Firecrawl fallback list');
       failedUrls.push(...links);
     }
 
     // Use Firecrawl as fallback for failed URLs - parallelize scraping
     if (failedUrls.length > 0 && this.firecrawlEnabled) {
-      console.log(`[Exa] Using Firecrawl fallback for ${failedUrls.length} URLs:`, failedUrls);
+      log.debug(`[Exa] Using Firecrawl fallback for ${failedUrls.length} URLs:`, failedUrls);
 
       const firecrawlResults = await all(
         Object.fromEntries(
@@ -398,7 +401,7 @@ class ExaContentStrategy implements ContentExtractionStrategy {
                 });
 
                 if (scrapeResponse.markdown) {
-                  console.log(`[Exa] Firecrawl successfully scraped ${url}`);
+                  log.info(`[Exa] Firecrawl successfully scraped ${url}`);
                   return {
                     title: scrapeResponse.metadata?.title || url.split('/').pop() || 'Retrieved Content',
                     url: url,
@@ -407,10 +410,10 @@ class ExaContentStrategy implements ContentExtractionStrategy {
                     favicon: `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=128`,
                   };
                 }
-                console.error(`[Exa] Firecrawl failed for ${url}:`, scrapeResponse);
+                log.error(`[Exa] Firecrawl failed for ${url}:`, scrapeResponse);
                 return null;
               } catch (firecrawlError) {
-                console.error(`[Exa] Firecrawl error for ${url}:`, firecrawlError);
+                log.error(`[Exa] Firecrawl error for ${url}:`, firecrawlError);
                 return null;
               }
             },
@@ -435,7 +438,7 @@ class ExaContentStrategy implements ContentExtractionStrategy {
       results.push(...metadataFallback);
     }
 
-    console.log(`[Exa] getContents returning ${results.length} total results`);
+    log.info(`[Exa] getContents returning ${results.length} total results`);
     return results;
   }
 }
@@ -457,7 +460,7 @@ class ExaSearchStrategy implements SearchProviderStrategy {
     include_domains?: string[],
     startDate?: string,
   ): Promise<SearchResult[]> {
-    console.log(`[Exa] searchWeb called with query: "${query}", category: ${category}, startDate: ${startDate}`);
+    log.info(`[Exa] searchWeb called with query: "${query}", category: ${category}, startDate: ${startDate}`);
     try {
       // Format dates for Exa (ISO format)
       const startPublishedDate = startDate ? new Date(startDate).toISOString() : undefined;
@@ -492,7 +495,7 @@ class ExaSearchStrategy implements SearchProviderStrategy {
         ...(startPublishedDate && { startPublishedDate }),
         ...(endPublishedDate && { endPublishedDate }),
       });
-      console.log(`[Exa] searchWeb received ${results.length} results from Exa API`);
+      log.info(`[Exa] searchWeb received ${results.length} results from Exa API`);
 
       const mappedResults = results.map((r) => ({
         title: r.title || '',
@@ -502,10 +505,10 @@ class ExaSearchStrategy implements SearchProviderStrategy {
         favicon: r.favicon || `https://www.google.com/s2/favicons?domain=${new URL(r.url).hostname}&sz=128`,
       })) as SearchResult[];
 
-      console.log(`[Exa] searchWeb returning ${mappedResults.length} results`);
+      log.info(`[Exa] searchWeb returning ${mappedResults.length} results`);
       return mappedResults;
     } catch (error) {
-      console.error('[Exa] Error in searchWeb:', error);
+      log.error('[Exa] Error in searchWeb:', error);
       return [];
     }
   }
@@ -521,7 +524,7 @@ class SearXNGSearchStrategy implements SearchProviderStrategy {
     include_domains?: string[],
     startDate?: string,
   ): Promise<SearchResult[]> {
-    console.log(`[SearXNG] search called with query: "${query}", category: ${category}, startDate: ${startDate}`);
+    log.info(`[SearXNG] search called with query: "${query}", category: ${category}, startDate: ${startDate}`);
     try {
       const siteFilter = include_domains?.length
         ? ' ' + include_domains.map((domain) => `site:${domain}`).join(' OR ')
@@ -554,10 +557,10 @@ class SearXNGSearchStrategy implements SearchProviderStrategy {
           favicon: `https://www.google.com/s2/favicons?domain=${new URL(r.url).hostname}&sz=128`,
         })) as SearchResult[];
 
-      console.log(`[SearXNG] search returning ${mappedResults.length} results`);
+      log.info(`[SearXNG] search returning ${mappedResults.length} results`);
       return mappedResults;
     } catch (error) {
-      console.error('[SearXNG] Error in search:', error);
+      log.error('[SearXNG] Error in search:', error);
       return [];
     }
   }
@@ -600,15 +603,15 @@ async function extremeSearch(
   if (extremeContentProvider === 'searxng-fastcrw' && searxngUrl && fastcrwUrl) {
     searchStrategy = new SearXNGSearchStrategy(searxngUrl.replace(/\/$/, ''));
     contentStrategy = new SelfHostedContentStrategy({ fastcrwUrl, notteEnabled, metadataEnabled });
-    console.log('[ExtremeSearch] SearXNG + fastCRW stack');
+    log.info('SearXNG + fastCRW stack');
   } else if (extremeContentProvider === 'notte-only' && searxngUrl) {
     searchStrategy = new SearXNGSearchStrategy(searxngUrl.replace(/\/$/, ''));
     contentStrategy = new SelfHostedContentStrategy({ notteEnabled, metadataEnabled });
-    console.log('[ExtremeSearch] SearXNG + Notte only stack');
+    log.info('SearXNG + Notte only stack');
   } else {
     searchStrategy = new ExaSearchStrategy(exa);
     contentStrategy = new ExaContentStrategy(exa, firecrawl, firecrawlContentEnabled, metadataEnabled);
-    console.log('[ExtremeSearch] Exa + Firecrawl stack');
+    log.info('Exa + Firecrawl stack');
   }
 
   // Filter supported files early for planner and later file indexing
@@ -687,12 +690,12 @@ ${hasFilesForPlanning ? '- Include file search steps when the uploaded files are
 - Make the plan technical and specific to the topic`,
   });
 
-  console.log(result.plan);
+  log.debug('Research plan:', result.plan);
   const plan = result.plan;
 
   // calculate the total number of todos
   const totalTodos = plan.reduce((acc, curr) => acc + curr.todos.length, 0);
-  console.log(`Total todos: ${totalTodos}`);
+  log.info(`Total todos: ${totalTodos}`);
 
   if (dataStream) {
     dataStream.write({
@@ -711,7 +714,7 @@ ${hasFilesForPlanning ? '- Include file search steps when the uploaded files are
   let fileRetrievers = new Map<string, BaseRetriever>();
 
   if (supportedFiles.length > 0) {
-    console.log(`[ExtremeSearch] Indexing ${supportedFiles.length} files for file query search`);
+    log.info(`Indexing ${supportedFiles.length} files for file query search`);
     fileRetrievers = await buildFileRetrievers(supportedFiles);
   }
 
@@ -1035,7 +1038,7 @@ ${JSON.stringify(plan)}
                   .describe('Array of search queries (1-3) to find information in the uploaded files'),
               }),
               execute: async ({ queries }, { toolCallId }) => {
-                console.log('File query search:', queries);
+                log.debug('File query search:', queries);
 
                 const total = queries.length;
                 const normalizedQueries = queries as string[];
@@ -1082,7 +1085,7 @@ ${JSON.stringify(plan)}
 
                         return { query, results };
                       } catch (error) {
-                        console.error(`File query error for "${query}":`, error);
+                        log.error(`File query error for "${query}":`, error);
 
                         if (dataStream) {
                           dataStream.write({
@@ -1149,7 +1152,7 @@ ${JSON.stringify(plan)}
             .replace(/&#39;/g, "'")
             .replace(/&apos;/g, "'");
 
-          console.log('Running code:', code);
+          log.debug('Running code:', code);
           // Detect all imported top-level package names from the code
           const importedPackages = new Set<string>();
           // Match: import X, import X as Y, import X.sub, from X import Y, from X.sub import Y
@@ -1204,7 +1207,7 @@ ${JSON.stringify(plan)}
                       title: chart.title || title || `Chart ${index + 1}`,
                     };
                   } catch (uploadError) {
-                    console.error('Failed to upload chart to R2:', uploadError);
+                    log.error('Failed to upload chart to R2:', uploadError);
                     return null;
                   }
                 }
@@ -1220,7 +1223,7 @@ ${JSON.stringify(plan)}
           );
           const charts = Object.values(await all(chartTasks, getBetterAllOptions())).filter(Boolean);
 
-          console.log('Charts uploaded:', charts);
+          log.debug('Charts uploaded:', charts);
 
           if (dataStream) {
             dataStream.write({
@@ -1258,9 +1261,7 @@ ${JSON.stringify(plan)}
             ),
         }),
         execute: async ({ queries, category, includeDomains, startDate }, { toolCallId }) => {
-          console.log('Web search queries:', queries);
-          console.log('Category:', category);
-          console.log('Start date:', startDate);
+          log.debug('Web search queries:', { queries, category, startDate });
 
           const total = queries.length;
           const searchPromises = queries.map(async (query: string, index: number) => {
@@ -1281,7 +1282,7 @@ ${JSON.stringify(plan)}
             }
 
             let results = await searchStrategy.search(query, category, includeDomains, startDate);
-            console.log(`Found ${results.length} results for query "${query}"`);
+            log.info(`Found ${results.length} results for query "${query}"`);
 
             allSources.push(...results);
 
@@ -1351,11 +1352,11 @@ ${JSON.stringify(plan)}
                     };
                   }) as SearchResult[];
                 } else {
-                  console.log('getContents returned no results, using original search results');
+                  log.info('getContents returned no results, using original search results');
                 }
               } catch (error) {
-                console.error('Error fetching content:', error);
-                console.log('Using original search results due to error');
+                log.error('Error fetching content:', error);
+                log.info('Using original search results due to error');
               }
             }
 
@@ -1408,7 +1409,7 @@ ${JSON.stringify(plan)}
           reason: z.string().optional().describe('Brief reason for reading the page in full'),
         }),
         execute: async ({ urls, reason }, { toolCallId }) => {
-          console.log('[BrowsePage] Browsing URLs:', urls, 'Reason:', reason);
+          log.info('[BrowsePage] Browsing URLs:', urls, 'Reason:', reason);
 
           const browseId = toolCallId;
           const total = urls.length;
@@ -1460,10 +1461,10 @@ ${JSON.stringify(plan)}
                       if (fcResult) {
                         title = fcResult.title;
                         content = fcResult.content;
-                        console.log(`[BrowsePage][${url}] fastCRW scrape succeeded, length: ${content.length}`);
+                        log.info(`[BrowsePage][${url}] fastCRW scrape succeeded, length: ${content.length}`);
                       }
                     } catch (fcErr) {
-                      console.error(`[BrowsePage][${url}] fastCRW scrape failed:`, fcErr);
+                      log.error(`[BrowsePage][${url}] fastCRW scrape failed:`, fcErr);
                     }
                   }
 
@@ -1489,15 +1490,15 @@ ${JSON.stringify(plan)}
                       if (notteResult.markdown?.trim()) {
                         content = notteResult.markdown.trim();
                         title = inferTitleFromMarkdown(content, hostname);
-                        console.log(`[BrowsePage][${url}] Notte scrape succeeded, length: ${content.length}`);
+                        log.info(`[BrowsePage][${url}] Notte scrape succeeded, length: ${content.length}`);
                       }
                     } catch (notteError) {
-                      console.error(`[BrowsePage][${url}] Notte scrape failed:`, notteError);
+                      log.error(`[BrowsePage][${url}] Notte scrape failed:`, notteError);
                     }
                   }
 
                   if (!content && !isPdf && exaBrowseEnabled) {
-                    console.log(`[BrowsePage][${url}] trying Exa fallback`);
+                    log.info(`[BrowsePage][${url}] trying Exa fallback`);
                     try {
                       const exaResult = await exa.getContents([url], {
                         text: { maxCharacters: 10000, includeHtmlTags: false },
@@ -1507,15 +1508,15 @@ ${JSON.stringify(plan)}
                       if (exaContent?.text?.trim()) {
                         title = exaContent.title || title;
                         content = exaContent.text.trim();
-                        console.log(`[BrowsePage][${url}] Exa fallback succeeded, length: ${content.length}`);
+                        log.info(`[BrowsePage][${url}] Exa fallback succeeded, length: ${content.length}`);
                       }
                     } catch (exaErr) {
-                      console.error(`[BrowsePage][${url}] Exa fallback failed:`, exaErr);
+                      log.error(`[BrowsePage][${url}] Exa fallback failed:`, exaErr);
                     }
                   }
 
                   if (!content && firecrawlContentEnabled) {
-                    console.log(`[BrowsePage][${url}] trying Firecrawl scrape fallback`);
+                    log.info(`[BrowsePage][${url}] trying Firecrawl scrape fallback`);
                     try {
                       const scrapeResult = await firecrawl.scrape(url, {
                         formats: ['markdown'],
@@ -1526,12 +1527,12 @@ ${JSON.stringify(plan)}
                       if (scrapeResult.markdown?.trim()) {
                         title = scrapeResult.metadata?.title || title;
                         content = scrapeResult.markdown.trim();
-                        console.log(
+                        log.info(
                           `[BrowsePage][${url}] Firecrawl scrape fallback succeeded, length: ${content.length}`,
                         );
                       }
                     } catch (fcErr) {
-                      console.error(`[BrowsePage][${url}] Firecrawl scrape fallback failed:`, fcErr);
+                      log.error(`[BrowsePage][${url}] Firecrawl scrape fallback failed:`, fcErr);
                     }
                   }
 
@@ -1545,7 +1546,7 @@ ${JSON.stringify(plan)}
 
                   return { url, title, content, favicon };
                 } catch (error) {
-                  console.error(`[BrowsePage] Error browsing ${url}:`, error);
+                  log.error(`[BrowsePage] Error browsing ${url}:`, error);
                   return { url, title: url, content: '', error: String(error) };
                 }
               },
@@ -1609,8 +1610,7 @@ ${JSON.stringify(plan)}
             .describe('The X handles to exclude in the search (max 10). Cannot be used with includeXHandles.'),
         }),
         execute: async ({ queries, startDate, endDate, includeXHandles, excludeXHandles }, { toolCallId }) => {
-          console.log('X search queries:', queries);
-          console.log('X search parameters:', { startDate, endDate, includeXHandles, excludeXHandles });
+          log.debug('X search queries:', { queries, startDate, endDate, includeXHandles, excludeXHandles });
 
           const sanitizeHandle = (handle: string) => handle.replace(/^@+/, '').trim();
           const extractTweetId = (url: string) => url.match(/status\/(\d+)/)?.[1] || null;
@@ -1676,11 +1676,11 @@ ${JSON.stringify(plan)}
                   x_search: xai.tools.xSearch(xSearchToolConfig),
                 },
                 onStepFinish: (step) => {
-                  console.log(`[X search step for "${query}"]: `, step);
+                  log.debug(`[X search step for "${query}"]:`, step);
                 },
               });
 
-              console.log(`[X search data for "${query}"]: `, text);
+              log.debug(`[X search data for "${query}"]:`, text);
 
               const citations = (Array.isArray(sources) ? sources : []) as CitationSource[];
               let xSources: any[] = [];
@@ -1725,7 +1725,7 @@ ${JSON.stringify(plan)}
                       title: `Post from @${userHandle}`,
                     };
                   } catch (error) {
-                    console.error(`Error fetching tweet data for ${link.url}:`, error);
+                    log.error(`Error fetching tweet data for ${link.url}:`, error);
                     return null;
                   }
                 });
@@ -1799,13 +1799,13 @@ ${JSON.stringify(plan)}
                 });
               }
 
-              console.log(`[X search via xAI] Found ${xSources.length} results for query "${query}"`);
+              log.info(`[X search via xAI] Found ${xSources.length} results for query "${query}"`);
               return {
                 query,
                 result,
               };
             } catch (error) {
-              console.error('X search error:', error);
+              log.error('X search error:', error);
 
               if (dataStream) {
                 dataStream.write({
@@ -1873,20 +1873,20 @@ ${JSON.stringify(plan)}
       },
     },
     onStepFinish: (step) => {
-      console.log('Finish reason [extreme-search]:', step);
-      console.log('Step finished [extreme-search]:', step.finishReason);
+      log.debug('Step finished:', step);
       if (step.toolResults) {
-        console.log('Tool results [extreme-search]:', step.toolResults);
         toolResults.push(...step.toolResults);
       }
     },
     onFinish: (event) => {
-      console.log('Finish reason [extreme-search]:', event.finishReason);
-      console.log('Steps [extreme-search]:', event.steps);
-      console.log('Tool calls [extreme-search]:', event.toolCalls);
-      console.log('Tool results [extreme-search]:', event.toolResults);
-      console.log('Response [extreme-search]:', event.response);
-      console.log('Provider metadata [extreme-search]:', event.providerMetadata);
+      log.debug('Research agent finished', {
+        finishReason: event.finishReason,
+        steps: event.steps,
+        toolCalls: event.toolCalls,
+        toolResults: event.toolResults,
+        response: event.response,
+        providerMetadata: event.providerMetadata,
+      });
     },
     prepareStep: async () => {
       // Force the model to always call a tool — it cannot stop by returning plain text.
@@ -1911,7 +1911,7 @@ ${JSON.stringify(plan)}
     return result.toolName === 'codeRunner' && typeof output === 'object' && output !== null && 'charts' in output;
   });
 
-  console.log('Chart results:', chartResults);
+  log.debug('Chart results:', chartResults);
 
   const charts = chartResults.flatMap((result) => {
     const output = (result.output ?? result.result) as any;
@@ -1923,9 +1923,7 @@ ${JSON.stringify(plan)}
     }));
   });
 
-  console.log('Tool results:', toolResults);
-  console.log('Charts:', charts);
-  console.log('Source 2:', allSources[2]);
+  log.debug('Final research results', { toolResults, charts, sampleSource: allSources[2] });
 
   return {
     // text,
@@ -1952,7 +1950,7 @@ export function extremeSearchTool(
         ),
     }),
     execute: async ({ prompt }, { experimental_context }) => {
-      console.log({ prompt, filesCount: files.length });
+      log.debug('extremeSearch called', { prompt, filesCount: files.length });
 
       const ctx = experimental_context as { userPreferences?: Record<string, string> } | undefined;
       const extremePrefs = (ctx?.userPreferences ?? null) as Record<string, string> | null;

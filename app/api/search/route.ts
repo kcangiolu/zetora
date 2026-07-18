@@ -17,6 +17,7 @@ import {
   AsyncIterableStream,
 } from 'ai';
 import { pipeJsonRender } from '@json-render/core';
+import { createLogger } from '@/lib/logger';
 import {
   zetora,
   resolveModel,
@@ -76,6 +77,8 @@ import { resolvePrepareStepOverride } from '@/lib/search/prepare-step';
 import { SEARCH_REQUEST_TIMEOUT_MS } from '@/lib/timeouts';
 import { CohereChatModelOptions } from '@ai-sdk/cohere';
 import { xai } from '@ai-sdk/xai';
+
+const log = createLogger('search');
 
 interface CriticalChecksResult {
   canProceed: boolean;
@@ -151,10 +154,10 @@ function initializeChatAndChecks({
 
     try {
       const value = await promise;
-      console.log(`⏱ ${label}: ${Date.now() - startedAt}ms`);
+      log.debug(`⏱ ${label}: ${Date.now() - startedAt}ms`);
       return value;
     } catch (error) {
-      console.log(`⏱ ${label}: ${Date.now() - startedAt}ms (failed)`);
+      log.debug(`⏱ ${label}: ${Date.now() - startedAt}ms (failed)`);
       throw error;
     }
   }
@@ -404,7 +407,7 @@ function initializeChatAndChecks({
       })
       .catch((error) => {
         if (error instanceof ChatSDKError) throw error;
-        console.error('Chat initialization failed:', error);
+        log.error('Chat initialization failed:', error);
         throw new ChatSDKError('bad_request:database', 'Failed to initialize chat');
       }),
   );
@@ -480,7 +483,7 @@ export async function POST(req: Request) {
   let model = requestedModel.trim();
   let autoRouteName: string | undefined;
 
-  console.log('🔍 Search API:', {
+  log.info('🔍 Search API:', {
     model,
     requestedModel,
     group,
@@ -701,8 +704,8 @@ export async function POST(req: Request) {
 
   const setupTimeMs = Date.now() - requestStartTime;
   if (shouldLogTimings) {
-    console.log('⏱ Pre-stream operation timings (ms):', preStreamTimings);
-    console.log(`🚀 Time to streamText: ${(setupTimeMs / 1000).toFixed(2)}s`);
+    log.info('⏱ Pre-stream operation timings (ms):', preStreamTimings);
+    log.info(`🚀 Time to streamText: ${(setupTimeMs / 1000).toFixed(2)}s`);
   }
 
   const streamStartTime = Date.now();
@@ -716,7 +719,7 @@ export async function POST(req: Request) {
 
   const prunedMessages = shouldPrune
     ? await (async () => {
-        console.log(
+        log.info(
           `🔧 Pruning messages: ${userMessageCount} user messages (${hydratedMessages.length} total messages)`,
         );
         const pruned = pruneMessages({
@@ -726,7 +729,7 @@ export async function POST(req: Request) {
           }),
           toolCalls: 'before-last-5-messages',
         });
-        console.log(`✂️ Pruned to ${pruned.length} messages`);
+        log.info(`✂️ Pruned to ${pruned.length} messages`);
         return pruned;
       })()
     : await convertToModelMessages(hydratedMessages, {
@@ -955,7 +958,7 @@ export async function POST(req: Request) {
           model = 'zetora-default';
         }
       } catch (error) {
-        console.error('Auto router error:', error);
+        log.error('Auto router error:', error);
         model = 'zetora-default';
       }
     } else {
@@ -995,7 +998,7 @@ export async function POST(req: Request) {
         if (mcpToolsClosed) return;
         mcpToolsClosed = true;
         await closeMcpTools().catch((error) => {
-          console.warn('Failed closing MCP clients:', error);
+          log.warn('Failed closing MCP clients:', error);
         });
       };
 
@@ -1011,7 +1014,7 @@ export async function POST(req: Request) {
         closeMcpTools = resolvedMcp.closeAll;
 
         if (resolvedMcp.errors.length > 0) {
-          console.warn('MCP tool loading errors:', resolvedMcp.errors);
+          log.warn('MCP tool loading errors:', resolvedMcp.errors);
         }
       }
 
@@ -1139,7 +1142,9 @@ export async function POST(req: Request) {
             transient: true,
           });
           // Update the placeholder title in the DB
-          updateChatTitleById({ chatId: id, title: chatTitle }).catch(console.error);
+          updateChatTitleById({ chatId: id, title: chatTitle }).catch((error) =>
+            log.error('Failed to update chat title:', error),
+          );
         });
       }
 
@@ -1650,19 +1655,17 @@ export async function POST(req: Request) {
           const downloadTasks = requestedDownloads.reduce(
             (acc, { url }, index) => {
               acc[`dl:${index}`] = async (): Promise<DownloadResult> => {
-                console.log(`[experimental_download] Downloading for Anthropic: ${url.toString()}`);
+                log.info(`Downloading for Anthropic: ${url.toString()}`);
                 const response = await fetch(url.toString());
                 if (!response.ok) {
-                  console.error(`[experimental_download] Failed: ${url.toString()} - ${response.status}`);
+                  log.error(`Download failed: ${url.toString()} - ${response.status}`);
                   throw new Error(`Failed to download file: ${response.status} ${response.statusText}`);
                 }
 
                 const data = new Uint8Array(await response.arrayBuffer());
                 const mediaType = response.headers.get('content-type') || undefined;
 
-                console.log(
-                  `[experimental_download] Success: ${url.toString()} (${data.byteLength} bytes, ${mediaType})`,
-                );
+                log.info(`Download succeeded: ${url.toString()} (${data.byteLength} bytes, ${mediaType})`);
                 return { data, mediaType };
               };
               return acc;
@@ -1700,11 +1703,7 @@ export async function POST(req: Request) {
             return null;
           }
 
-          console.log('Fixing tool call================================');
-          console.log('toolCall', toolCall);
-          console.log('tools', tools);
-          console.log('parameterSchema', inputSchema);
-          console.log('error', error);
+          log.debug('Repairing tool call', { toolCall, tools, inputSchema, error });
 
           const tool = tools[toolCall.toolName as keyof typeof tools];
 
@@ -1740,17 +1739,17 @@ export async function POST(req: Request) {
               ].join('\n'),
             });
 
-            console.log('repairedArgs', repairedArgs);
+            log.debug('repairedArgs', repairedArgs);
 
             return { ...toolCall, args: JSON.stringify(repairedArgs) };
           } catch (repairError) {
-            console.error('[experimental_repairToolCall] Failed to repair tool call:', repairError);
+            log.error('Failed to repair tool call:', repairError);
             return null;
           }
         },
         onChunk(event) {
           if (event.chunk.type === 'tool-call') {
-            console.log('Called Tool: ', event.chunk.toolName);
+            log.info('Called tool:', event.chunk.toolName);
           }
         },
         onStepFinish(event) {
@@ -1766,7 +1765,7 @@ export async function POST(req: Request) {
           // console.log('Finish event: ', event);
           const processingTime = (Date.now() - streamStartTime) / 1000;
           setUsageMetadataFromUsage(event.totalUsage, processingTime);
-          console.log(`✅ Request completed: ${processingTime.toFixed(2)}s (${event.finishReason})`);
+          log.info(`✅ Request completed: ${processingTime.toFixed(2)}s (${event.finishReason})`);
 
           try {
             if (lightweightUser?.userId && event.finishReason === 'stop') {
@@ -1812,7 +1811,7 @@ export async function POST(req: Request) {
                   );
                 }
               } catch (error) {
-                console.error('Failed to track usage:', error);
+                log.error('Failed to track usage:', error);
               }
             }
           } finally {
@@ -1821,7 +1820,7 @@ export async function POST(req: Request) {
         },
         onError(event) {
           const processingTime = (Date.now() - requestStartTime) / 1000;
-          console.error(`❌ Request failed: ${processingTime.toFixed(2)}s`, event.error);
+          log.error(`❌ Request failed: ${processingTime.toFixed(2)}s`, event.error);
           closeMcpToolsSafe().catch(() => null);
         },
       });
@@ -1841,7 +1840,7 @@ export async function POST(req: Request) {
           };
 
           if (part.type === 'finish') {
-            console.log('Finish part: ', part);
+            log.debug('Finish part:', part);
             const processingTime = (Date.now() - streamStartTime) / 1000;
             return {
               ...baseMetadata,
@@ -1864,7 +1863,7 @@ export async function POST(req: Request) {
     },
     onError(error) {
       if (requestTimeoutTimer) clearTimeout(requestTimeoutTimer);
-      console.log('Error: ', error);
+      log.error('Stream error:', error);
       if (error instanceof Error && error.message.includes('Rate Limit')) {
         return 'Oops, you have reached the rate limit! Please try again later.';
       }
@@ -1882,7 +1881,7 @@ export async function POST(req: Request) {
       const newMessages = streamedMessages.filter((message: ChatMessage) => !initialMessageIds.has(message.id));
 
       if (newMessages.length === 0) {
-        console.log('No new messages to persist for chat', id);
+        log.info('No new messages to persist for chat', id);
         return;
       }
 
@@ -1891,7 +1890,7 @@ export async function POST(req: Request) {
       // stale onFinish writes from older streams from being inserted out of order.
       const latestStreamId = await getLatestStreamIdByChatId({ chatId: id });
       if (latestStreamId !== streamId) {
-        console.log('Skipping stale stream message persistence', {
+        log.info('Skipping stale stream message persistence', {
           chatId: id,
           streamId,
           latestStreamId,
@@ -1905,7 +1904,7 @@ export async function POST(req: Request) {
       if (requestLastUserMessageId) {
         const latestUserMessageId = await getLatestUserMessageIdByChatId({ chatId: id });
         if (latestUserMessageId !== requestLastUserMessageId) {
-          console.log('Skipping stale turn message persistence', {
+          log.info('Skipping stale turn message persistence', {
             chatId: id,
             streamId,
             requestLastUserMessageId,
@@ -1932,7 +1931,7 @@ export async function POST(req: Request) {
         : newMessages;
 
       if (isAborted && messagesToPersist.length === 0) {
-        console.log('Stream aborted with no persistable assistant output', { chatId: id, streamId });
+        log.info('Stream aborted with no persistable assistant output', { chatId: id, streamId });
         return;
       }
 
