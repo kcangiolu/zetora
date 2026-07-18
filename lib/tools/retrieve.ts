@@ -7,7 +7,7 @@ import Parallel from 'parallel-web';
 import { Supadata } from '@supadata/js';
 import { allSettled } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
-import { scrapeWithFastCrwForBrowsePage } from './selfhosted-content';
+import { scrapeWithFastCrwForBrowsePage } from './self-hosted-content';
 
 import { createLogger } from '@/lib/logger';
 

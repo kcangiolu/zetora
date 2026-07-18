@@ -2105,7 +2105,7 @@ export function PreferencesSection({
               {showCustomProviderForm && (
                 <div className="px-4 py-3 space-y-2.5 border-t border-border/40">
                   <Input
-                    placeholder="Name (e.g. Ollama Local)"
+                    placeholder="Name (e.g. Ollama self-hosted)"
                     value={newProvider.name}
                     onChange={(e) => setNewProvider((v) => ({ ...v, name: e.target.value }))}
                     className="h-8 text-xs rounded-lg"

@@ -11,7 +11,7 @@ import { getBetterAllOptions } from '@/lib/better-all';
 import { SearXNGSearchStrategy } from './searxng-search';
 import { FastCrwWebSearchStrategy } from './fastcrw-web-search';
 import { clampSearchInput, dedupeAndCapSearches, enrichBestQualityResults } from './web-search-limits';
-import { SelfHostedContentStrategy } from './selfhosted-content';
+import { SelfHostedContentStrategy } from './self-hosted-content';
 import { EXA_SEARCH_TIMEOUT_MS } from '@/lib/timeouts';
 
 import { createLogger } from '@/lib/logger';

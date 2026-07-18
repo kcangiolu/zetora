@@ -42,7 +42,7 @@ import {
   scrapeWithFastCrwForBrowsePage,
   type ContentExtractionStrategy,
   type SearchResult,
-} from './selfhosted-content';
+} from './self-hosted-content';
 import { type SearchProviderStrategy, SearchCategory } from './fastcrw-search';
 
 const log = createLogger('extreme-search');

@@ -6,7 +6,7 @@ export const VOICE_S2S_BACKENDS = [
   },
   {
     value: 'local' as const,
-    label: 'Local',
+    label: 'Self-hosted',
     description: 'STT/LLM/TTS auto-hébergés (Whisper, modèle sélectionné, Custom TTS Server)',
   },
 ] as const;
