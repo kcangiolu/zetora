@@ -21,9 +21,6 @@ import { createLogger } from '@/lib/logger';
 import {
   zetora,
   resolveModel,
-  requiresAuthentication,
-  requiresProSubscription,
-  requiresMaxSubscription,
   shouldBypassRateLimits,
   getModelParameters,
   hasVisionSupport,
@@ -72,6 +69,7 @@ import { resolvePrepareStepOverride } from '@/lib/search/prepare-step';
 import { SEARCH_REQUEST_TIMEOUT_MS } from '@/lib/timeouts';
 import { xai } from '@ai-sdk/xai';
 import { initializeChatAndChecks, appendToLastUserMessage } from '@/lib/search/chat-initialization';
+import { checkModelAccess, buildUnauthenticatedRateLimitError } from '@/lib/search/access-gate';
 import {
   collectAttachments,
   stripFilePartsForModel,
@@ -199,40 +197,17 @@ export async function POST(req: Request) {
     if (!rateLimitResult) {
       return new ChatSDKError('rate_limit:api', 'Rate limit check failed').toResponse();
     }
-    const { success, limit, reset } = rateLimitResult;
     recordTiming('unauthenticated_rate_limit', opStart);
 
-    if (!success) {
-      const resetDate = new Date(reset);
-      return new ChatSDKError(
-        'rate_limit:api',
-        `You've reached the limit of ${limit} searches per day for unauthenticated users. Sign in for more searches or wait until ${resetDate.toLocaleString()}.`,
-      ).toResponse();
+    const rateLimitError = buildUnauthenticatedRateLimitError(rateLimitResult);
+    if (rateLimitError) {
+      return rateLimitError.toResponse();
     }
   }
 
-  // Early exit checks (no DB operations needed)
-  if (!lightweightUser) {
-    if (requiresAuthentication(model)) {
-      return new ChatSDKError('unauthorized:model', `${model} requires authentication`).toResponse();
-    }
-    if (specialMode === 'mcp') {
-      return new ChatSDKError('unauthorized:auth', 'Authentication required to use MCP mode').toResponse();
-    }
-    // Extreme Search is no longer a mode you must be authenticated to select
-    // — extreme_search is a base tool, gated below via activeTools filtering
-    // (signed-out users simply never get it offered).
-  } else {
-    // Fast auth checks using lightweight user (no additional DB calls)
-    if (requiresMaxSubscription(model) && !lightweightUser.isMaxUser) {
-      return new ChatSDKError('upgrade_required:model', `${model} requires a Max subscription`).toResponse();
-    }
-    if (requiresProSubscription(model) && !lightweightUser.isProUser && !lightweightUser.isMaxUser) {
-      return new ChatSDKError('upgrade_required:model', `${model} requires a Pro subscription`).toResponse();
-    }
-    if (specialMode === 'mcp' && !lightweightUser.isProUser && !lightweightUser.isMaxUser) {
-      return new ChatSDKError('upgrade_required:auth', 'MCP mode requires a Pro subscription').toResponse();
-    }
+  const gateError = checkModelAccess({ lightweightUser, model, specialMode });
+  if (gateError) {
+    return gateError.toResponse();
   }
 
   // Start config and custom instructions in parallel
