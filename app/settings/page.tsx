@@ -12,7 +12,7 @@ import {
   DownloadsSection,
   SkillsSection,
   DiagnosticsSection,
-} from '@/components/settings-dialog';
+} from '@/components/settings';
 import { cn } from '@/lib/utils';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import {

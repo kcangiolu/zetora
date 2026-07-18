@@ -73,9 +73,3 @@ export function useUser(): UserContextType {
   return context;
 }
 
-// Convenience hooks for specific data
-export function useIsProUser() {
-  const { isProUser, isLoading } = useUser();
-  return { isProUser, isLoading };
-}
-
