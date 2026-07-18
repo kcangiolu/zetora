@@ -133,6 +133,18 @@ export type CustomProviderConfig = {
   anonymize?: boolean;
 };
 
+// Resolves a 'custom-<provider>-<model>' picker id back to its provider entry.
+export function parseCustomModel(modelId: string, providers: CustomProviderConfig[]) {
+  if (!modelId.startsWith('custom-')) return null;
+  const withoutPrefix = modelId.slice('custom-'.length);
+  for (const provider of providers) {
+    if (withoutPrefix.startsWith(`${provider.id}-`)) {
+      return { modelName: withoutPrefix.slice(`${provider.id}-`.length), provider };
+    }
+  }
+  return null;
+}
+
 export type AutoRouterRoute = {
   name: string;
   description: string;
