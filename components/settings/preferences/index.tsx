@@ -1641,6 +1641,7 @@ export function PreferencesSection({
                               isProUser={hasPaidAccess}
                               isMaxUser={isMaxUser}
                               excludeModels={['zetora-auto']}
+                              additionalModels={customModelsList}
                               className="w-full h-7"
                               compact
                             />

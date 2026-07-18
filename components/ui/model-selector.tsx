@@ -14,9 +14,10 @@ import {
   type ModelProvider,
 } from '@/ai/models';
 import { LockIcon, Eye, Brain, FilePdf } from '@phosphor-icons/react';
-import { Zap, Wand2, Search, ChevronDown, Check, Cpu, Puzzle } from 'lucide-react';
+import { Zap, Wand2, Search, ChevronDown, Check, Cpu, Puzzle, Star } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
@@ -268,18 +269,25 @@ interface ModelSelectorDialogProps {
 
 function sortModelsForList(
   modelsToShow: Array<(typeof models)[0]>,
-  options: { user?: unknown; isProUser: boolean; isMaxUser: boolean },
+  options: { user?: unknown; isProUser: boolean; isMaxUser: boolean; preferredModels?: string[] },
 ) {
   if (modelsToShow.length === 0) return modelsToShow;
 
   const shouldSortFreeFirst = !options.user || !options.isProUser || !options.isMaxUser;
+  const preferredSet = new Set(options.preferredModels || []);
 
+  const favoriteModels: Array<(typeof models)[0]> = [];
   const newModels: Array<(typeof models)[0]> = [];
   const freeModels: Array<(typeof models)[0]> = [];
   const lockedModels: Array<(typeof models)[0]> = [];
   const regularModels: Array<(typeof models)[0]> = [];
 
   for (const model of modelsToShow) {
+    if (preferredSet.has(model.value)) {
+      favoriteModels.push(model);
+      continue;
+    }
+
     if (model.isNew) {
       newModels.push(model);
       continue;
@@ -298,8 +306,8 @@ function sortModelsForList(
     regularModels.push(model);
   }
 
-  if (shouldSortFreeFirst) return [...newModels, ...freeModels, ...lockedModels];
-  return [...newModels, ...regularModels];
+  if (shouldSortFreeFirst) return [...favoriteModels, ...newModels, ...freeModels, ...lockedModels];
+  return [...favoriteModels, ...newModels, ...regularModels];
 }
 
 export function ModelSelectorDialog({
@@ -324,6 +332,10 @@ export function ModelSelectorDialog({
   const modelListRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   const [enabledProviders, setEnabledProviders] = useState<string[] | null>(null);
+
+  // Preferred models: shown first and, when the 'all' tab is active, used to
+  // filter the list down to favorites only (mirrors the chat model switcher).
+  const [preferredModels, setPreferredModels] = useSyncedPreferences<string[]>('zetora-preferred-models', []);
 
   useEffect(() => {
     fetch('/api/provider-status')
@@ -402,14 +414,19 @@ export function ModelSelectorDialog({
   }, [availableModels, enabledProviders, getGroupKey]);
 
   // Count models per provider
+  // 'all' count reflects the preferred-models filter, individual providers show their full count
   const providerModelCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: availableModels.length };
+    const allBase =
+      preferredModels && preferredModels.length > 0
+        ? availableModels.filter((m) => preferredModels.includes(m.value))
+        : availableModels;
+    const counts: Record<string, number> = { all: allBase.length };
     for (const model of availableModels) {
       const groupKey = getGroupKey(model);
       counts[groupKey] = (counts[groupKey] || 0) + 1;
     }
     return counts;
-  }, [availableModels, getGroupKey]);
+  }, [availableModels, preferredModels, getGroupKey]);
 
   // Providers manually flagged via PROVIDERS[x].hasNew
   const providersWithNewModels = useMemo(() => {
@@ -422,13 +439,19 @@ export function ModelSelectorDialog({
 
   // Filter models by provider
   const filteredByProvider = useMemo(() => {
-    if (selectedProvider === 'all') return availableModels;
+    if (selectedProvider === 'all') {
+      if (preferredModels && preferredModels.length > 0) {
+        const preferredSet = new Set(preferredModels);
+        return availableModels.filter((model) => preferredSet.has(model.value));
+      }
+      return availableModels;
+    }
     return availableModels.filter((model) => getGroupKey(model) === selectedProvider);
-  }, [availableModels, selectedProvider, getGroupKey]);
+  }, [availableModels, selectedProvider, preferredModels, getGroupKey]);
 
   const sortedModelsForList = useMemo(
-    () => sortModelsForList(filteredByProvider, { user, isProUser, isMaxUser }),
-    [filteredByProvider, isProUser, isMaxUser, user],
+    () => sortModelsForList(filteredByProvider, { user, isProUser, isMaxUser, preferredModels }),
+    [filteredByProvider, isProUser, isMaxUser, user, preferredModels],
   );
 
   // Search functionality
@@ -650,6 +673,36 @@ export function ModelSelectorDialog({
                 NEW
               </span>
             )}
+
+            {/* Favorite Star */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const isFav = preferredModels.includes(model.value);
+                    if (isFav) {
+                      setPreferredModels(preferredModels.filter((id) => id !== model.value));
+                    } else {
+                      setPreferredModels([...preferredModels, model.value]);
+                    }
+                  }}
+                  className={cn(
+                    'inline-flex items-center justify-center p-0.5 rounded transition-colors',
+                    preferredModels.includes(model.value)
+                      ? 'text-amber-500'
+                      : 'text-muted-foreground/30 opacity-0 group-hover:opacity-100',
+                    isMobile && 'opacity-100 p-1',
+                  )}
+                >
+                  <Star className={cn('size-3', preferredModels.includes(model.value) && 'fill-current')} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">
+                {preferredModels.includes(model.value) ? 'Remove from favorites' : 'Add to favorites'}
+              </TooltipContent>
+            </Tooltip>
           </div>
 
           <p
@@ -775,7 +828,11 @@ export function ModelSelectorDialog({
                           <span className="absolute inset-0 -m-0.5 rounded-full bg-amber-400/15 dark:bg-amber-500/10 blur-[3px]" />
                         )}
                         {isAll ? (
-                          <ZetoraLogo width={isMobile ? 16 : 14} height={isMobile ? 16 : 14} />
+                          preferredModels && preferredModels.length > 0 ? (
+                            <Star className={cn(isMobile ? 'size-4' : 'size-3.5', 'fill-current')} />
+                          ) : (
+                            <ZetoraLogo width={isMobile ? 16 : 14} height={isMobile ? 16 : 14} />
+                          )
                         ) : (
                           <ProviderIcon
                             provider={(provider.startsWith('custom:') ? 'custom' : provider) as ModelProvider}
@@ -810,7 +867,7 @@ export function ModelSelectorDialog({
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side={isMobile ? 'bottom' : 'left'} className="text-xs">
-                    {isAll ? 'All Models' : groupLabel(provider)}
+                    {isAll ? (preferredModels && preferredModels.length > 0 ? 'Favorites' : 'All Models') : groupLabel(provider)}
                     {hasNew ? ' (New Model!)' : ''} ({count})
                   </TooltipContent>
                 </Tooltip>
