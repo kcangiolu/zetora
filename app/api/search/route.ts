@@ -52,9 +52,8 @@ import { getBetterAllOptions } from '@/lib/better-all';
 import { markdownJoinerTransform } from '@/lib/parser';
 import { ChatMessage } from '@/lib/types';
 import { getGroupConfig } from '@/lib/search/group-config';
-import { toolGroupMap } from '@/lib/search/groups/auto';
-import { getAllSkillIds } from '@/lib/skills/registry';
-import type { SkillId, SpecialModeId } from '@/lib/utils';
+import type { SpecialModeId } from '@/lib/utils';
+import { filterActiveTools, getEnabledSkillIds } from '@/lib/search/tool-filter';
 import {
   getCurrentUser,
   getLightweightUser,
@@ -268,53 +267,19 @@ export async function POST(req: Request) {
       },
       getBetterAllOptions(),
     );
-  let activeTools: string[] = [...config.tools];
   const { instructions } = config;
   recordTiming('await_parallel_setup', opStart);
 
-  // Image generation/editing are Max-only — strip them for everyone else,
-  // regardless of which mode/group surfaced them.
-  if (!lightweightUser?.isMaxUser) {
-    activeTools = activeTools.filter((toolName) => toolName !== 'generate_image' && toolName !== 'edit_image');
-  }
+  const activeTools = filterActiveTools({
+    tools: config.tools,
+    specialMode,
+    isSignedIn: Boolean(lightweightUser),
+    isMaxUser: lightweightUser?.isMaxUser ?? false,
+    preferences: userPreferencesResult?.preferences,
+    sessionEnabledSources,
+  });
 
-  // Base Sources+Skills path (no exclusive special mode): narrow the bundled
-  // tool set to what the user actually enabled, and never offer extreme_search
-  // to signed-out users (it used to require the 'extreme' group's requireAuth
-  // gate; that gate now lives here since extreme_search is an always-on tool).
-  // zetora-visible-modes is the pre-migration key name, read as a fallback in
-  // case a client hasn't run the one-time copy to zetora-enabled-sources yet.
-  if (!specialMode) {
-    const globalEnabledSources = (userPreferencesResult?.preferences?.['zetora-enabled-sources'] ??
-      userPreferencesResult?.preferences?.['zetora-visible-modes']) as string[] | undefined;
-    // Session-only override sent by the client (see components/chat-interface.tsx):
-    // never persisted, so it narrows this request's tools without touching the
-    // account-wide preference read above.
-    const sessionOverride = Array.isArray(sessionEnabledSources) ? (sessionEnabledSources as string[]) : undefined;
-    let enabledSources = globalEnabledSources;
-    if (sessionOverride && sessionOverride.length > 0) {
-      const sessionSet = new Set(sessionOverride);
-      enabledSources =
-        globalEnabledSources && globalEnabledSources.length > 0
-          ? globalEnabledSources.filter((id) => sessionSet.has(id))
-          : sessionOverride;
-    }
-    if (enabledSources && enabledSources.length > 0) {
-      const enabledSet = new Set(enabledSources);
-      activeTools = activeTools.filter((toolName) => {
-        const owningGroup = toolGroupMap[toolName];
-        return !owningGroup || enabledSet.has(owningGroup);
-      });
-    }
-    if (!lightweightUser) {
-      activeTools = activeTools.filter((toolName) => toolName !== 'extreme_search');
-    }
-  }
-
-  const disabledSkillIds = new Set(
-    (userPreferencesResult?.preferences?.['zetora-disabled-skills'] as string[] | undefined) ?? [],
-  );
-  const enabledSkillIds = getAllSkillIds().filter((skillId) => !disabledSkillIds.has(skillId)) as SkillId[];
+  const enabledSkillIds = getEnabledSkillIds(userPreferencesResult?.preferences);
 
   if (!criticalResult.canProceed) {
     throw criticalResult.error;
