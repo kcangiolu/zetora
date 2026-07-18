@@ -72,6 +72,13 @@ import { resolvePrepareStepOverride } from '@/lib/search/prepare-step';
 import { SEARCH_REQUEST_TIMEOUT_MS } from '@/lib/timeouts';
 import { xai } from '@ai-sdk/xai';
 import { initializeChatAndChecks, appendToLastUserMessage } from '@/lib/search/chat-initialization';
+import {
+  collectAttachments,
+  stripFilePartsForModel,
+  buildFileInstruction,
+  buildImageInstruction,
+  fetchInlineableTextFiles,
+} from '@/lib/search/message-attachments';
 import { getSearchProviderOptions, getStreamTextStaticSettings } from '@/lib/search/provider-options';
 
 const log = createLogger('search');
@@ -409,170 +416,31 @@ export async function POST(req: Request) {
         ignoreIncompleteToolCalls: true,
       });
 
-  // Extract document files from ALL messages for file_query_search tool
-  // PDF support requires Pro subscription (enforced in form-component.tsx)
-  const documentMimeTypes = [
-    'application/pdf',
-    'text/csv',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'application/vnd.ms-excel',
-  ];
-
-  // Collect all document files from all messages in the conversation
-  const contextFiles: Array<{ url: string; contentType: string; name?: string }> = [];
-  const seenUrls = new Set<string>();
-
-  for (const msg of hydratedMessages) {
-    const parts = (msg.parts as (TextPart | ImagePart | FilePart)[]) ?? [];
-    for (const part of parts) {
-      if (part.type === 'file') {
-        const filePart = part as any;
-        const mediaType = filePart.mediaType || '';
-        const url = filePart.url || '';
-        if (documentMimeTypes.includes(mediaType) && url && !seenUrls.has(url)) {
-          seenUrls.add(url);
-          contextFiles.push({
-            url,
-            contentType: mediaType,
-            name: filePart.name,
-          });
-        }
-      }
-    }
-  }
-
-  // Collect uploaded images across the conversation. Images are always
-  // hosted; whether they're injected into the model's context (native
-  // vision) or only handed to it as a URL reference (e.g. for the
-  // edit_image tool) is governed by the client's Vision toggle below —
-  // mirrors the document pipeline above so any model, vision or not, can
-  // accept an image attachment without crashing.
-  const contextImages: Array<{ url: string; contentType: string; name?: string }> = [];
-  const seenImageUrls = new Set<string>();
-
-  for (const msg of hydratedMessages) {
-    const parts = (msg.parts as (TextPart | ImagePart | FilePart)[]) ?? [];
-    for (const part of parts) {
-      if (part.type === 'file') {
-        const filePart = part as any;
-        const mediaType = filePart.mediaType || '';
-        const url = filePart.url || '';
-        if (mediaType.startsWith('image/') && url && !seenImageUrls.has(url)) {
-          seenImageUrls.add(url);
-          contextImages.push({ url, contentType: mediaType, name: filePart.name });
-        }
-      }
-    }
-  }
+  // Collect every attached file across the conversation: documents for
+  // file_query_search, images (vision / edit_image), and other files that
+  // are decoded as text below.
+  const { contextFiles, contextImages, otherFileParts } = collectAttachments(hydratedMessages);
 
   // Falls back to the model's catalog vision flag if the client didn't send
   // the toggle (older client) — same default the toggle itself starts from.
   const effectiveVisionEnabled = typeof visionEnabled === 'boolean' ? visionEnabled : hasVisionSupport(model);
 
-  // Process messages to remove file parts from the raw model input — every
-  // attached file is handled out-of-band instead (document/text instructions
-  // and image URLs are injected as text below; large text files and known
-  // documents go through file_query_search). Images are the only part kept
-  // in the content array, and only when Vision is on.
-  let processedMessages = prunedMessages.map((msg: any) => {
-    if (msg.role === 'user' && Array.isArray(msg.content)) {
-      const filteredContent = msg.content.filter((part: any) => {
-        if (part.type === 'file') {
-          const mediaType = part.mimeType || part.mediaType || '';
-          if (mediaType.startsWith('image/')) return effectiveVisionEnabled;
-          return false;
-        }
-        return true;
-      });
-      return { ...msg, content: filteredContent };
-    }
-    return msg;
-  });
+  const processedMessages = stripFilePartsForModel(prunedMessages, effectiveVisionEnabled);
 
   // If there are document files in the conversation, add instruction to the last user message
   if (contextFiles.length > 0) {
-    const fileNames = contextFiles.map((f) => f.name || 'unnamed file').join(', ');
-    const fileInstruction = `\n\n[Attached files in conversation: ${fileNames}. Use the file_query_search tool to search and retrieve information from these files.]`;
-    appendToLastUserMessage(processedMessages, fileInstruction);
+    appendToLastUserMessage(processedMessages, buildFileInstruction(contextFiles));
   }
 
-  // Always tell the model the URL of any attached image — even when Vision
-  // is on this doubles as the reference edit_image needs, and when Vision is
-  // off it's the only way a non-vision model can act on the image at all
-  // (same trick it already uses to edit a generated image without "seeing" it).
   if (contextImages.length > 0) {
-    const imageList = contextImages.map((f) => `${f.name || 'unnamed image'}: ${f.url}`).join('\n');
-    const imageInstruction = effectiveVisionEnabled
-      ? `\n\n[Attached image URLs (also shown to you above):\n${imageList}\nPass one of these URLs to the edit_image tool if asked to modify it.]`
-      : `\n\n[Attached images (Vision is off, you cannot see their contents):\n${imageList}\nPass one of these URLs to the edit_image tool if asked to modify one.]`;
-    appendToLastUserMessage(processedMessages, imageInstruction);
-  }
-
-  // Any other attached file (not an image, not a known file_query_search
-  // document type) is accepted regardless of extension at upload time —
-  // whether it's actually text is only known once we try to decode it here.
-  // Small text files are inlined directly; large ones are routed through
-  // file_query_search like any other document; anything that doesn't decode
-  // as UTF-8 is reported as unreadable rather than sent to the model.
-  const TEXT_INLINE_THRESHOLD_BYTES = 128 * 1024;
-  const otherFileParts: Array<{ url: string; contentType: string; name?: string }> = [];
-  const seenOtherUrls = new Set<string>();
-
-  for (const msg of hydratedMessages) {
-    const parts = (msg.parts as (TextPart | ImagePart | FilePart)[]) ?? [];
-    for (const part of parts) {
-      if (part.type === 'file') {
-        const filePart = part as any;
-        const mediaType = filePart.mediaType || '';
-        const url = filePart.url || '';
-        if (
-          url &&
-          !seenOtherUrls.has(url) &&
-          !mediaType.startsWith('image/') &&
-          !documentMimeTypes.includes(mediaType)
-        ) {
-          seenOtherUrls.add(url);
-          otherFileParts.push({ url, contentType: mediaType, name: filePart.name });
-        }
-      }
-    }
+    appendToLastUserMessage(processedMessages, buildImageInstruction(contextImages, effectiveVisionEnabled));
   }
 
   if (otherFileParts.length > 0) {
-    const inlineTextFiles: Array<{ name: string; text: string }> = [];
-    const unreadableFiles: Array<{ name: string }> = [];
-
-    await Promise.all(
-      otherFileParts.map(async (file) => {
-        const name = file.name || 'unnamed file';
-        try {
-          const res = await fetch(file.url, { signal: AbortSignal.timeout(15_000) });
-          if (!res.ok) {
-            unreadableFiles.push({ name });
-            return;
-          }
-          const bytes = new Uint8Array(await res.arrayBuffer());
-          let text: string | null;
-          try {
-            text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-          } catch {
-            text = null;
-          }
-          if (text === null) {
-            unreadableFiles.push({ name });
-            return;
-          }
-          if (bytes.byteLength <= TEXT_INLINE_THRESHOLD_BYTES) {
-            inlineTextFiles.push({ name, text });
-          } else {
-            contextFiles.push({ url: file.url, contentType: file.contentType || 'text/plain', name: file.name });
-          }
-        } catch {
-          unreadableFiles.push({ name });
-        }
-      }),
-    );
+    const { inlineTextFiles, unreadableFiles, largeTextFiles } = await fetchInlineableTextFiles(otherFileParts);
+    // Large text files are routed through file_query_search like any other
+    // document.
+    contextFiles.push(...largeTextFiles);
 
     if (inlineTextFiles.length > 0 || unreadableFiles.length > 0) {
       const inlineBlocks = inlineTextFiles
