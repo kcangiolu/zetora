@@ -26,7 +26,6 @@ import {
   requiresMaxSubscription,
   shouldBypassRateLimits,
   getModelParameters,
-  getMaxOutputTokens,
   hasVisionSupport,
   getModelProvider,
   getAnonymizeContext,
@@ -53,11 +52,8 @@ import { v7 as uuidv7 } from 'uuid';
 import { geolocation } from '@vercel/functions';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
-import { GroqProviderOptions } from '@ai-sdk/groq';
 import { markdownJoinerTransform } from '@/lib/parser';
 import { ChatMessage } from '@/lib/types';
-import { OpenAIResponsesProviderOptions } from '@ai-sdk/openai';
-import { AnthropicProviderOptions } from '@ai-sdk/anthropic';
 import { getGroupConfig } from '@/lib/search/group-config';
 import { toolGroupMap } from '@/lib/search/groups/auto';
 import { getAllSkillIds } from '@/lib/skills/registry';
@@ -69,15 +65,14 @@ import {
 } from '@/lib/search/server-helpers';
 import { getCachedCustomInstructionsByUserId, getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { resolveTertiaryModel } from '@/ai/tertiary';
-import { GoogleGenerativeAIProviderOptions, GoogleLanguageModelOptions } from '@ai-sdk/google';
 import { unauthenticatedRateLimit, getClientIdentifier } from '@/lib/rate-limit';
 import { loadConfiguredTools } from '@/lib/search/tool-loader';
 import { ingestChatIntoGraphiti } from '@/lib/search/graphiti-ingest';
 import { resolvePrepareStepOverride } from '@/lib/search/prepare-step';
 import { SEARCH_REQUEST_TIMEOUT_MS } from '@/lib/timeouts';
-import { CohereChatModelOptions } from '@ai-sdk/cohere';
 import { xai } from '@ai-sdk/xai';
 import { initializeChatAndChecks, appendToLastUserMessage } from '@/lib/search/chat-initialization';
+import { getSearchProviderOptions, getStreamTextStaticSettings } from '@/lib/search/provider-options';
 
 const log = createLogger('search');
 
@@ -858,432 +853,27 @@ export async function POST(req: Request) {
         (shouldUseXaiMultiAgent
           ? '\n\nWhen multi-agent mode is enabled, you are operating in a high-agency research workflow. Use only the xAI server-side web search and X search tools available in this environment. Do not call any other research or search tools.\n\nYour job is to behave like a rigorous research analyst:\n- Break the request into sub-questions when useful.\n- Search broadly first, then narrow based on what you find.\n- Use multiple searches when the topic is ambiguous, fast-moving, comparative, or requires validation.\n- Cross-check important claims across multiple sources whenever possible.\n- Prefer recent and primary sources for news, releases, product changes, pricing, benchmarks, and policy updates.\n- Use X search when social signals, firsthand announcements, or fast-moving discourse are relevant.\n- Use web search when you need official documentation, articles, product pages, blogs, papers, or other published sources.\n- If both web and X are relevant, use both.\n\nOutput requirements:\n- Synthesize findings into a clear, direct answer instead of narrating every search step.\n- Be concise but complete.\n- Include uncertainty when evidence is mixed, incomplete, or time-sensitive.\n- Do not fabricate facts, sources, timelines, quotes, or consensus.\n- If you cannot verify a claim well enough, say so plainly.\n- Ground the final answer in the sources you found and make sure the answer actually reflects them.\n\nResponse structure guidelines:\n- Start with a direct answer or conclusion in 1-3 sentences.\n- Then present the most important findings as short sections or bullet points.\n- For comparative questions, explicitly compare the options point-by-point.\n- For fast-moving topics, clearly separate confirmed facts from tentative signals.\n- End with a brief takeaway, recommendation, or next step when useful.\n- Keep the response skimmable and avoid long, repetitive paragraphs.\n\nTool behavior requirements:\n- Do not mention internal tool limitations unless necessary.\n- Do not ask for permission to search.\n- Do not stop after a single weak search if the question clearly needs deeper verification.\n- Avoid redundant searches that do not add evidence.\n- Prefer quality of evidence over quantity of searches.'
           : '');
+      const staticSettings = getStreamTextStaticSettings({
+        model,
+        specialMode,
+        shouldUseXaiMultiAgent,
+        isXmlParsedCustomModel,
+      });
       const result = streamText({
         model: resolvedModel,
         messages: processedMessages,
         ...getModelParameters(shouldUseXaiMultiAgent ? 'grok-4.20-multi-agent' : model),
-        // XML-parsed local models keep their tools armed on every step (see
-        // prepareStep), so the step count is their only hard bound against
-        // search-after-search looping: 1 tool round + 1 slack + synthesis.
-        stopWhen: stepCountIs(
-          shouldUseXaiMultiAgent ? 5 : specialMode === 'mcp' ? 50 : !specialMode ? 15 : isXmlParsedCustomModel ? 3 : 5,
-        ),
-        ...(shouldUseXaiMultiAgent
-          ? {}
-          : model === 'zetora-default' ||
-              model === 'zetora-grok4.1-fast-thinking' ||
-              model === 'zetora-glm-4.6' ||
-              model === 'zetora-glm-4.6v-flash' ||
-              model === 'zetora-glm-4.6v'
-            ? {
-                maxOutputTokens: getMaxOutputTokens(model),
-              }
-            : {}),
-        // Local llama.cpp serves one slot: 10 retries on 10-25k-token prompts
-        // stack minutes of dead time, so custom models get a tight budget.
-        maxRetries: isXmlParsedCustomModel ? 2 : 10,
+        stopWhen: stepCountIs(staticSettings.stopWhenStepCount),
+        ...(staticSettings.maxOutputTokens !== undefined ? { maxOutputTokens: staticSettings.maxOutputTokens } : {}),
+        maxRetries: staticSettings.maxRetries,
         abortSignal: abortController.signal,
         activeTools: shouldUseXaiMultiAgent ? ['xai_web_search', 'xai_x_search'] : streamActiveTools,
         experimental_transform: markdownJoinerTransform(),
         system: baseSystem,
         toolChoice: 'auto',
         tools: streamTools,
-        ...(model === 'zetora-anthropic' ||
-        model === 'zetora-anthropic-think' ||
-        model === 'zetora-anthropic-sonnet-4.6' ||
-        model === 'zetora-anthropic-sonnet-4.6-think' ||
-        model === 'zetora-anthropic-opus-4.6' ||
-        model === 'zetora-anthropic-opus-4.6-think'
-          ? {
-              headers: {
-                'anthropic-beta': 'context-1m-2025-08-07',
-              },
-            }
-          : {}),
-        providerOptions: {
-          gateway: {
-            only: [
-              'openai',
-              'google',
-              'vertex',
-              'zai',
-              'arcee-ai',
-              'deepseek',
-              'alibaba',
-              'baseten',
-              'minimax',
-              'streamlake',
-              'fireworks',
-              'bedrock',
-              'vercel',
-              'xai',
-              'xai',
-              'bytedance',
-              'moonshotai',
-              'novita',
-              'togetherai',
-              'inception',
-            ],
-            ...(model === 'zetora-kimi-k2-v2-thinking'
-              ? {
-                  order: ['moonshotai'],
-                }
-              : {}),
-            ...(model === 'zetora-qwen-coder' || model === 'zetora-deepseek-v3' || model === 'zetora-qwen-235'
-              ? {
-                  order: ['baseten'],
-                }
-              : {}),
-            ...(model === 'zetora-nova-2-lite'
-              ? {
-                  order: ['bedrock'],
-                }
-              : {}),
-            ...(model === 'zetora-kat-coder'
-              ? {
-                  order: ['streamlake'],
-                }
-              : {}),
-            ...(model === 'zetora-glm-4.7' || model === 'zetora-glm-4.7-flash'
-              ? {
-                  order: ['zai'],
-                }
-              : {}),
-            ...(model === 'zetora-kimi-k2.5' || model === 'zetora-kimi-k2.5-thinking'
-              ? {
-                  order: ['fireworks'],
-                }
-              : {}),
-          },
-          'workersai.chat': {
-            chat_template_kwargs: {
-              enable_thinking: false,
-            },
-          },
-          sarvam: {
-            reasoning_effort: 'high',
-          },
-          openai: {
-            ...(model !== 'zetora-qwen-coder'
-              ? {
-                  parallelToolCalls: false,
-                }
-              : {}),
-            ...((model === 'zetora-gpt5' ||
-            model === 'zetora-gpt5-mini' ||
-            model === 'zetora-o3' ||
-            model === 'zetora-gpt5-nano' ||
-            model === 'zetora-gpt5-codex' ||
-            model === 'zetora-gpt5-medium' ||
-            model === 'zetora-o4-mini' ||
-            model === 'zetora-gpt-4.1' ||
-            model === 'zetora-gpt-4.1-mini' ||
-            model === 'zetora-gpt-4.1-nano' ||
-            model === 'zetora-gpt-5.1' ||
-            model === 'zetora-gpt-5.1-thinking' ||
-            model === 'zetora-gpt-5.1-codex' ||
-            model === 'zetora-gpt-5.1-codex-mini' ||
-            model === 'zetora-gpt-5.1-codex-max' ||
-            model === 'zetora-gpt-5.2' ||
-            model === 'zetora-gpt-5.4' ||
-            model === 'zetora-gpt-5.4-mini' ||
-            model === 'zetora-gpt-5.4-nano' ||
-            model === 'zetora-gpt-5.4-thinking' ||
-            model === 'zetora-gpt-5.4-thinking-xhigh' ||
-            model === 'zetora-gpt-5.2-thinking' ||
-            model === 'zetora-gpt-5.2-thinking-xhigh' ||
-            model === 'zetora-gpt-5.2-codex' ||
-            model === 'zetora-gpt-5.3-codex'
-              ? {
-                  reasoningEffort:
-                    model === 'zetora-gpt5-nano' || model === 'zetora-gpt5' || model === 'zetora-gpt5-mini'
-                      ? 'minimal'
-                      : model === 'zetora-gpt-5.2-thinking-xhigh' || model === 'zetora-gpt-5.4-thinking-xhigh'
-                        ? 'xhigh'
-                        : model === 'zetora-gpt-5.1' ||
-                            model === 'zetora-gpt-5.2' ||
-                            model === 'zetora-gpt-5.4' ||
-                            model === 'zetora-gpt-5.4-mini' ||
-                            model === 'zetora-gpt-5.4-nano'
-                          ? 'none'
-                          : 'medium',
-                  parallelToolCalls:
-                    model === 'zetora-gpt-5.2-thinking-xhigh' || model === 'zetora-gpt-5.4-thinking-xhigh'
-                      ? true
-                      : false,
-                  reasoningSummary: 'detailed',
-                  promptCacheKey: 'zetora-oai',
-                  ...(model === 'zetora-gpt-5.1' ||
-                  model === 'zetora-gpt-5.4' ||
-                  model === 'zetora-gpt-5.4-mini' ||
-                  model === 'zetora-gpt-5.4-nano' ||
-                  model === 'zetora-gpt-5.4-thinking' ||
-                  model === 'zetora-gpt-5.2' ||
-                  model === 'zetora-gpt-5.2-thinking' ||
-                  model === 'zetora-gpt-5.2-codex' ||
-                  model === 'zetora-gpt-5.3-codex' ||
-                  model === 'zetora-gpt-5.1-codex' ||
-                  model === 'zetora-gpt-5.1-codex-mini' ||
-                  model === 'zetora-gpt-5.1-codex-max' ||
-                  model === 'zetora-gpt5' ||
-                  model === 'zetora-gpt5-codex' ||
-                  model === 'zetora-gpt4.1'
-                    ? {
-                        promptCacheRetention: '24h',
-                      }
-                    : {}),
-                  store: false,
-                  ...(model === 'zetora-gpt-5.4' ||
-                  model === 'zetora-gpt-5.4-mini' ||
-                  model === 'zetora-gpt-5.4-nano' ||
-                  model === 'zetora-gpt-5.4-thinking' ||
-                  model === 'zetora-gpt-5.4-thinking-xhigh'
-                    ? {
-                        serviceTier: 'priority',
-                      }
-                    : {}),
-                  // only for reasoning models
-                  ...(model === 'zetora-gpt-5.1' ||
-                  model === 'zetora-gpt-5.1-codex' ||
-                  model === 'zetora-gpt-5.1-codex-mini' ||
-                  model === 'zetora-gpt5' ||
-                  model === 'zetora-gpt5-codex' ||
-                  model === 'zetora-gpt-5.1-thinking' ||
-                  model === 'zetora-gpt5-nano' ||
-                  model === 'zetora-gpt5-mini' ||
-                  model === 'zetora-gpt-5.4' ||
-                  model === 'zetora-gpt-5.4-mini' ||
-                  model === 'zetora-gpt-5.4-nano' ||
-                  model === 'zetora-gpt-5.4-thinking' ||
-                  model === 'zetora-gpt-5.4-thinking-xhigh' ||
-                  model === 'zetora-gpt-5.1-codex-max' ||
-                  model === 'zetora-gpt-5.2' ||
-                  model === 'zetora-gpt-5.2-thinking' ||
-                  model === 'zetora-gpt-5.2-codex' ||
-                  model === 'zetora-gpt-5.3-codex'
-                    ? {
-                        include: ['reasoning.encrypted_content'],
-                      }
-                    : {}),
-                  textVerbosity:
-                    model === 'zetora-o3' ||
-                    model === 'zetora-gpt5-codex' ||
-                    model === 'zetora-gpt-5.1-codex' ||
-                    model === 'zetora-gpt-5.1-codex-mini' ||
-                    model === 'zetora-gpt-5.1-codex-max' ||
-                    model === 'zetora-gpt-5.2-codex' ||
-                    model === 'zetora-gpt-5.3-codex' ||
-                    model === 'zetora-o4-mini' ||
-                    model === 'zetora-gpt-4.1' ||
-                    model === 'zetora-gpt-4.1-mini' ||
-                    model === 'zetora-gpt-4.1-nano'
-                      ? 'medium'
-                      : 'high',
-                }
-              : {}) satisfies OpenAIResponsesProviderOptions),
-          },
-          deepseek: {
-            parallelToolCalls: false,
-          },
-          groq: {
-            ...(model === 'zetora-gpt-oss-20' || model === 'zetora-gpt-oss-120'
-              ? {
-                  reasoningEffort: 'high',
-                  reasoningFormat: 'hidden',
-                }
-              : {}),
-            ...(model === 'zetora-qwen-32b'
-              ? {
-                  reasoningEffort: 'none',
-                }
-              : {}),
-            parallelToolCalls: false,
-            structuredOutputs: true,
-            serviceTier: 'auto',
-          } satisfies GroqProviderOptions,
-          xai: shouldUseXaiMultiAgent
-            ? {
-                reasoningEffort: 'high',
-                parallel_function_calling: true,
-                parallel_tool_calls: true,
-                parallelToolCalls: true,
-                paralelFunctionCalling: true,
-              }
-            : {
-                parallel_function_calling: false,
-                parallel_tool_calls: false,
-                parallelToolCalls: false,
-                paralelFunctionCalling: false,
-              },
-          anannas: {
-            parallel_function_calling: false,
-            parallel_tool_calls: false,
-          },
-          cohere: {
-            ...(model === 'zetora-cmd-a-think'
-              ? {
-                  thinking: {
-                    type: 'enabled',
-                    tokenBudget: 1000,
-                  },
-                }
-              : {}),
-          } satisfies CohereChatModelOptions,
-          zai: {
-            ...(model === 'zetora-glm-4.7' ||
-            model === 'zetora-glm-4.7-flash' ||
-            model === 'zetora-glm-5' ||
-            model === 'zetora-pony-alpha-2'
-              ? {
-                  thinking: {
-                    type: 'disabled',
-                    clear_thinking: true,
-                  },
-                }
-              : {}),
-          },
-          anthropic: {
-            ...(model === 'zetora-anthropic-think' || model === 'zetora-anthropic-opus-think'
-              ? {
-                  sendReasoning: true,
-                  thinking: {
-                    type: 'enabled',
-                    budgetTokens: 4000,
-                  },
-                }
-              : {}),
-            ...(model === 'zetora-anthropic-sonnet-4.6-think' || model === 'zetora-anthropic-opus-4.6-think'
-              ? {
-                  sendReasoning: true,
-                  thinking: {
-                    type: 'adaptive' as const,
-                  },
-                  effort: 'medium' as const,
-                }
-              : {}),
-            disableParallelToolUse: true,
-          } satisfies AnthropicProviderOptions,
-          google: {
-            ...(model === 'zetora-google-think' || model === 'zetora-google-pro-think'
-              ? {
-                  thinkingConfig: {
-                    thinkingBudget: 400,
-                    includeThoughts: true,
-                  },
-                }
-              : {}),
-            ...(model === 'zetora-gemini-3-flash-think' ||
-            model === 'zetora-gemini-3.1-pro' ||
-            model === 'zetora-gemini-3.1-flash-lite-think'
-              ? {
-                  thinkingConfig: {
-                    thinkingLevel: 'medium',
-                    includeThoughts: true,
-                  },
-                }
-              : {}),
-            threshold: 'OFF',
-          } satisfies GoogleGenerativeAIProviderOptions,
-          vertex: {
-            ...(model === 'zetora-gemini-3-flash-think' ||
-            model === 'zetora-gemini-3.1-pro' ||
-            model === 'zetora-gemini-3.1-flash-lite-think'
-              ? {
-                  thinkingConfig: {
-                    thinkingLevel: 'medium',
-                    includeThoughts: true,
-                  },
-                }
-              : {}),
-            threshold: 'OFF',
-          } satisfies GoogleLanguageModelOptions,
-          openrouter: {
-            ...(model === 'zetora-anthropic-think' || model === 'zetora-anthropic-opus-think'
-              ? {
-                  reasoning: {
-                    exclude: false,
-                    max_tokens: 400,
-                  },
-                }
-              : {}),
-            // ...(model === "zetora-pony-alpha" ? {
-            //   reasoning: {
-            //     exclude: true,
-            //   },
-            // } : {}),
-          },
-          bytedance: {
-            reasoningEffort: 'minimal',
-          },
-          ark: {
-            thinking: { type: 'disabled' },
-            reasoning: { effort: 'minimal' },
-          },
-          alibaba: {
-            ...(model === 'zetora-qwen-3-max-preview-thinking'
-              ? {
-                  enable_thinking: true,
-                }
-              : {}),
-            ...(model === 'zetora-qwen-3.5-flash'
-              ? {
-                  enable_thinking: false,
-                }
-              : {}),
-          },
-          moonshotai: {
-            ...(model === 'zetora-kimi-k2.5'
-              ? {
-                  thinking: { type: 'disabled' },
-                }
-              : {}),
-            ...(model === 'zetora-kimi-k2.5-thinking'
-              ? {
-                  thinking: { type: 'enabled' },
-                }
-              : {}),
-          },
-          fireworks: {
-            ...(model === 'zetora-kimi-k2.5'
-              ? {
-                  thinking: { type: 'disabled' },
-                }
-              : {}),
-            ...(model === 'zetora-kimi-k2.5-thinking'
-              ? {
-                  thinking: { type: 'enabled' },
-                }
-              : {}),
-          },
-          novita: {
-            ...(model === 'zetora-deepseek-chat-think-exp'
-              ? {
-                  enable_thinking: true,
-                }
-              : {}),
-            ...(model === 'zetora-qwen-3.5'
-              ? {
-                  enable_thinking: false,
-                }
-              : {}),
-          },
-          mistral: {
-            ...(model === 'zetora-mistral-small-think'
-              ? {
-                  reasoning_effort: 'high',
-                }
-              : {}),
-          },
-          inception: {
-            ...(model === 'zetora-mercury-2'
-              ? {
-                  reasoning_effort: 'high',
-                  reasoning_summary: true,
-                  reasoning_summary_wait: true,
-                }
-              : {}),
-          },
-        },
+        ...(staticSettings.headers ? { headers: staticSettings.headers } : {}),
+        providerOptions: getSearchProviderOptions(model, shouldUseXaiMultiAgent),
         experimental_context: (() => {
           // Extract images and files from the last user message's attachments
           const lastUserMessage = [...hydratedMessages].reverse().find((m) => m.role === 'user');
