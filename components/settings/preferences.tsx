@@ -1,5 +1,6 @@
 'use client';
 
+import type { SettingsUser } from './shared';
 import { Button } from '@/components/ui/button';
 
 import { Label } from '@/components/ui/label';
@@ -299,7 +300,7 @@ function TertiaryModelRow({
   description: string;
   defaultModelLabel: string;
   additionalModels: Model[];
-  user: any;
+  user: SettingsUser;
   isProUser: boolean;
   isMaxUser: boolean;
 }) {
@@ -564,7 +565,7 @@ export function PreferencesSection({
   isCustomInstructionsEnabled,
   setIsCustomInstructionsEnabledAction,
 }: {
-  user: any;
+  user: SettingsUser;
   isCustomInstructionsEnabled?: boolean;
   setIsCustomInstructionsEnabledAction?: (value: boolean | ((val: boolean) => boolean)) => void;
 }) {

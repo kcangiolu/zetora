@@ -1,5 +1,6 @@
 'use client';
 
+import type { SettingsUser } from './shared';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
 
@@ -45,7 +46,7 @@ import type { TooltipRow } from '@/components/charts/tooltip/tooltip-content';
 // Component for Usage Information
 type TimePeriod = '7d' | '30d' | '12m';
 
-export function UsageSection({ user }: any) {
+export function UsageSection({ user }: { user: SettingsUser }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('7d');
 

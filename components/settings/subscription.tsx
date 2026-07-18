@@ -1,5 +1,6 @@
 'use client';
 
+import type { SettingsUser } from './shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -32,12 +33,22 @@ import { Crown02Icon } from '@hugeicons/core-free-icons';
 
 // Custom visx-based chart components
 
-export function SubscriptionSection({ subscriptionData, isProUser, user }: any) {
+export function SubscriptionSection({
+  subscriptionData,
+  isProUser,
+  user,
+}: {
+  // Legacy Polar/Dodo payload shape — untyped upstream (see UserContextType.subscriptionData).
+  subscriptionData: any;
+  isProUser: boolean;
+  user: SettingsUser;
+}) {
   const [isManagingSubscription, setIsManagingSubscription] = useState(false);
   const isMobile = useMediaQuery('(max-width: 768px)');
 
   // Use data from user object (already cached)
-  const dodoProStatus = user?.dodoProStatus || null;
+  // Not part of ComprehensiveUserData — legacy field, always undefined; kept as-is.
+  const dodoProStatus = (user as any)?.dodoProStatus || null;
 
   // Fetch Polar orders using React Query
   const { data: polarOrders, isLoading: polarOrdersLoading } = useQuery({
@@ -195,7 +206,7 @@ export function SubscriptionSection({ subscriptionData, isProUser, user }: any) 
       setIsManagingSubscription(true);
 
       console.log('Settings Dialog - Provider source:', proSource);
-      console.log('User dodoProStatus:', user?.dodoProStatus);
+      console.log('User dodoProStatus:', (user as any)?.dodoProStatus);
       console.log('User full object keys:', Object.keys(user || {}));
 
       if (proSource === 'dodo') {
@@ -204,7 +215,7 @@ export function SubscriptionSection({ subscriptionData, isProUser, user }: any) 
         console.log('User object for DodoPayments:', {
           id: user?.id,
           email: user?.email,
-          dodoProStatus: user?.dodoProStatus,
+          dodoProStatus: (user as any)?.dodoProStatus,
           isProUser: user?.isProUser,
         });
         await betterauthClient.dodopayments.customer.portal();

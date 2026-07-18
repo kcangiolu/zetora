@@ -1,5 +1,6 @@
 'use client';
 
+import type { SettingsUser } from './shared';
 import { Button } from '@/components/ui/button';
 
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -33,7 +34,7 @@ import { CONNECTOR_CONFIGS, CONNECTOR_ICONS, type ConnectorProvider } from '@/li
 
 // Custom visx-based chart components
 
-export function ConnectorsSection({ user }: { user: any }) {
+export function ConnectorsSection({ user }: { user: SettingsUser }) {
   const isProUser = user?.isProUser || false;
   const isMobile = useMediaQuery('(max-width: 768px)');
   const [connectingProvider, setConnectingProvider] = useState<ConnectorProvider | null>(null);

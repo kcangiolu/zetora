@@ -1,4 +1,9 @@
 import { cn } from '@/lib/utils';
+import type { ComprehensiveUserData } from '@/lib/user-data';
+
+// What app/settings/page.tsx actually passes down from useUser() — sections
+// render before the fetch resolves, so null/undefined must stay part of the type.
+export type SettingsUser = ComprehensiveUserData | null | undefined;
 
 export type FileFilter = 'all' | 'images' | 'documents';
 
