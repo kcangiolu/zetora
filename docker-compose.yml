@@ -88,6 +88,13 @@ services:
     image: registry.example.com/kcangiolu/zetora-app:latest
     container_name: zetora-app
     ports:
+      # NOT loopback-restricted, same reasoning as minio/s2s-service above:
+      # some reverse-proxy topologies run on a different host. If yours runs
+      # on this same host, change this to '127.0.0.1:3333:3333' — and either
+      # way, do NOT set TRUSTED_PROXY=true (see .env.example) unless you've
+      # confirmed every request genuinely passes through that proxy first;
+      # otherwise a client reaching this port directly can spoof its rate
+      # limit identity.
       - '3333:3333'
     env_file:
       - .env

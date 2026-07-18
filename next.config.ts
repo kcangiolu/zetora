@@ -61,7 +61,11 @@ const nextConfig: NextConfig = {
       'sileo',
     ],
     serverActions: {
-      bodySizeLimit: '2000mb',
+      // File uploads go through presigned S3/MinIO URLs, never a server
+      // action — none of app/actions/* need more than a JSON payload, so
+      // this stays small to keep a POST flood from buffering gigabytes into
+      // memory per request.
+      bodySizeLimit: '10mb',
     },
     staleTimes: {
       dynamic: 10,

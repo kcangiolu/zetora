@@ -7,6 +7,9 @@ import { kvGet, kvSet } from '@/lib/redis';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { unauthenticatedRateLimit, getClientIdentifier } from '@/lib/rate-limit';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('x-wrapped');
 
 interface CitationSource {
   sourceType?: string;
@@ -247,13 +250,13 @@ Hard rules:
         x_search: xai.tools.xSearch(xSearchToolConfig),
       },
       onStepFinish: (step) => {
-        console.log('Step: ', step);
+        log.debug('Step:', step);
       },
       // Allow enough tool-call steps for all searches.
       stopWhen: stepCountIs(searchSteps.length),
     });
 
-    console.log('Text for X Wrapped: ', text);
+    log.debug('Text for X Wrapped:', text);
 
     const citations = (Array.isArray(sources) ? sources : []) as CitationSource[];
     const tweetUrls = citations
@@ -442,7 +445,7 @@ Output must match the schema exactly.`,
 
     return NextResponse.json(wrappedData);
   } catch (error) {
-    console.error('X Wrapped API error:', error);
-    return NextResponse.json({ error: 'Failed to generate X Wrapped', details: String(error) }, { status: 500 });
+    log.error('X Wrapped API error:', error);
+    return NextResponse.json({ error: 'Failed to generate X Wrapped' }, { status: 500 });
   }
 }

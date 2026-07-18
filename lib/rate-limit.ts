@@ -42,11 +42,27 @@ export const unauthenticatedRateLimit = {
   },
 };
 
-// Helper function to get IP address from request
+// Helper function to get IP address from request.
+//
+// zetora.app's port is published on all interfaces (docker-compose.yml), so
+// without TRUSTED_PROXY=true these headers are entirely client-controlled —
+// trusting them would let anyone bypass rate limiting by spoofing a fresh IP
+// on every request. Only trust them once the operator confirms every request
+// actually passes through their reverse proxy first (see .env.example).
 export function getClientIdentifier(req: Request): string {
-  const forwarded = req.headers.get('x-forwarded-for');
+  if (process.env.TRUSTED_PROXY !== 'true') return 'ip:unknown';
+
   const realIp = req.headers.get('x-real-ip');
   const cfConnectingIp = req.headers.get('cf-connecting-ip');
-  const ip = forwarded?.split(',')[0]?.trim() || realIp?.trim() || cfConnectingIp?.trim();
+  const forwarded = req.headers.get('x-forwarded-for');
+  // X-Forwarded-For is a comma-separated hop chain; a well-behaved proxy
+  // appends (never replaces), so the FIRST entry is still whatever the
+  // client sent. The LAST entry is the one our own proxy added — take that,
+  // not the first.
+  const forwardedIps = forwarded
+    ?.split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const ip = cfConnectingIp?.trim() || realIp?.trim() || forwardedIps?.[forwardedIps.length - 1];
   return ip ? `ip:${ip}` : 'ip:unknown';
 }
