@@ -14,27 +14,21 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { type Model } from '@/ai/models';
 import { Switch } from '@/components/ui/switch';
 import Image from 'next/image';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { ModelSelectorDialog } from '@/components/ui/model-selector';
-import { Loader2, Search, Zap, ZapOff, Plus, HardDrive, Timer, Shield, ShieldOff } from 'lucide-react';
+import { Loader2, Search, Zap, ZapOff, Plus, Shield, ShieldOff } from 'lucide-react';
 import {
-  storageProviders,
-  lockoutProviders,
-  memoryProviders,
-  emailProviders,
   type CustomProviderConfig,
   type AutoRouterRoute,
   type AutoRouterConfig,
   getDefaultAutoRouterRoutes,
   TertiaryModelRow,
-  EmailTestButton,
-  parseCustomModel,
 } from './shared';
 import { CustomizeTab } from './customize';
 import { GeneralTab } from './general';
 import { VoiceTab } from './voice';
 import { SearchTab } from './search';
+import { IntegrationsTab } from './integrations';
 
 export function PreferencesSection({
   user,
@@ -45,49 +39,6 @@ export function PreferencesSection({
   isCustomInstructionsEnabled?: boolean;
   setIsCustomInstructionsEnabledAction?: (value: boolean | ((val: boolean) => boolean)) => void;
 }) {
-  const [sandboxProvider, setSandboxProvider] = useSyncedPreferences<'daytona' | 'docker'>(
-    'zetora-sandbox-provider',
-    'daytona',
-  );
-
-  const [storageProvider, setStorageProvider] = useSyncedPreferences<'cloudflare-r2' | 'minio'>(
-    'zetora-storage-provider',
-    'cloudflare-r2',
-  );
-
-  const [emailProvider, setEmailProvider] = useSyncedPreferences<'resend' | 'smtp'>('zetora-email-provider', 'resend');
-
-  const [lockoutProvider, setLockoutProvider] = useSyncedPreferences<'qstash' | 'bullmq'>(
-    'zetora-lockout-provider',
-    'qstash',
-  );
-
-  const [memoryProvider, setMemoryProvider] = useSyncedPreferences<'supermemory' | 'graphiti'>(
-    'zetora-memory-provider',
-    'supermemory',
-  );
-  const [selectedGraphitiProvider, setSelectedGraphitiProvider] = useSyncedPreferences<string>(
-    'zetora-graphiti-active-provider',
-    '',
-  );
-  const [graphitiLlmModel, setGraphitiLlmModel] = useSyncedPreferences<string>('zetora-graphiti-llm-model', '');
-  const [, setGraphitiLlmBaseUrl] = useSyncedPreferences<string>('zetora-graphiti-llm-base-url', '');
-  const [graphitiEmbeddingProvider, setGraphitiEmbeddingProvider] = useSyncedPreferences<string>(
-    'zetora-graphiti-embedding-provider',
-    '',
-  );
-  const [, setGraphitiEmbeddingModel] = useSyncedPreferences<string>('zetora-graphiti-embedding-model', '');
-  const [graphitiChunkSize, setGraphitiChunkSize] = useSyncedPreferences<number>('zetora-graphiti-chunk-size', 8000);
-  const [graphitiMaxRetries, setGraphitiMaxRetries] = useSyncedPreferences<number>('zetora-graphiti-max-retries', 2);
-  const [graphitiChunkDelayMs, setGraphitiChunkDelayMs] = useSyncedPreferences<number>(
-    'zetora-graphiti-chunk-delay-ms',
-    2000,
-  );
-
-  const [xqlEnabled, setXqlEnabled] = useSyncedPreferences<boolean>('zetora-xql-enabled', true);
-  const [lookoutEnabled, setLookoutEnabled] = useSyncedPreferences<boolean>('zetora-lookout-enabled', true);
-  const [voiceEnabled, setVoiceEnabled] = useSyncedPreferences<boolean>('zetora-voice-enabled', true);
-  const [appsEnabled, setAppsEnabled] = useSyncedPreferences<boolean>('zetora-apps-enabled', true);
   const [autoRouterEnabled, setAutoRouterEnabled] = useSyncedPreferences<boolean>('zetora-auto-router-enabled', false);
   const [autoRouterConfig, setAutoRouterConfig] = useSyncedPreferences<AutoRouterConfig>('zetora-auto-router-config', {
     routes: getDefaultAutoRouterRoutes(),
@@ -218,77 +169,6 @@ export function PreferencesSection({
     }
   };
 
-  const handleStorageProviderChange = (newProvider: 'cloudflare-r2' | 'minio') => {
-    setStorageProvider(newProvider);
-    sileo.success({
-      title: `Storage provider changed to ${newProvider === 'cloudflare-r2' ? 'Cloudflare R2' : 'MinIO'}`,
-      description: 'This will be used for all file uploads and artifact storage',
-      icon: <HardDrive className="h-4 w-4" />,
-    });
-  };
-
-  const handleLockoutProviderChange = (newProvider: 'qstash' | 'bullmq') => {
-    setLockoutProvider(newProvider);
-    const label = lockoutProviders.find((p) => p.value === newProvider)?.label ?? newProvider;
-    sileo.success({
-      title: `Lookout scheduler changed to ${label}`,
-      description: 'This will be used for all future scheduled searches',
-      icon: <Timer className="h-4 w-4" />,
-    });
-  };
-
-  // The provider's API key is decrypted server-side and forwarded straight to
-  // Graphiti by /api/graphiti/link-provider — it never touches the browser.
-  const linkGraphitiProvider = async (providerId: string, target: 'llm' | 'embedding', modelName: string) => {
-    try {
-      const res = await fetch('/api/graphiti/link-provider', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ providerId, target, modelName }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-    } catch {
-      sileo.error({ title: 'Could not configure Graphiti service' });
-    }
-  };
-
-  const handleGraphitiLlmSelect = async (modelId: string) => {
-    setSelectedGraphitiProvider(modelId);
-    if (modelId) {
-      const parsed = parseCustomModel(modelId, customProviders);
-      if (parsed) {
-        setGraphitiLlmModel(parsed.modelName);
-        setGraphitiLlmBaseUrl(parsed.provider.baseURL);
-        await linkGraphitiProvider(parsed.provider.id, 'llm', parsed.modelName);
-      }
-    } else {
-      setGraphitiLlmModel('');
-      setGraphitiLlmBaseUrl('');
-    }
-  };
-
-  const handleGraphitiEmbeddingSelect = async (modelId: string) => {
-    setGraphitiEmbeddingProvider(modelId);
-    if (modelId) {
-      const parsed = parseCustomModel(modelId, customProviders);
-      if (parsed) {
-        setGraphitiEmbeddingModel(parsed.modelName);
-        await linkGraphitiProvider(parsed.provider.id, 'embedding', parsed.modelName);
-      }
-    } else {
-      setGraphitiEmbeddingModel('');
-    }
-  };
-
-  const handleMemoryProviderChange = (newProvider: 'supermemory' | 'graphiti') => {
-    setMemoryProvider(newProvider);
-    const label = memoryProviders.find((p) => p.value === newProvider)?.label ?? newProvider;
-    sileo.success({
-      title: `Memory provider changed to ${label}`,
-      description: 'This will be used for all future memory operations',
-    });
-  };
-
   const [preferencesTab, setPreferencesTab] = useState<
     'general' | 'search' | 'ai-models' | 'voice' | 'integrations' | 'customize'
   >('general');
@@ -367,124 +247,13 @@ export function PreferencesSection({
 
         {/* ── Integrations tab ── */}
         {preferencesTab === 'integrations' && (
-          <div className="mt-4">
-            <div className="rounded-xl border border-border/60 divide-y divide-border/40 px-4">
-              {/* Sandbox Provider */}
-              <div className="flex items-center justify-between py-3.5 gap-6">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">Sandbox Provider</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Environment used to execute Python code</p>
-                </div>
-                <Select value={sandboxProvider} onValueChange={(v) => setSandboxProvider(v as 'daytona' | 'docker')}>
-                  <SelectTrigger className="w-[140px] h-8 text-xs rounded-lg shrink-0">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="daytona">Daytona (Cloud)</SelectItem>
-                    <SelectItem value="docker">Docker (Local)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Storage Provider */}
-              <div className="flex items-center justify-between py-3.5 gap-6">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">Storage Provider</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Object storage for uploads and artifacts</p>
-                </div>
-                <Select value={storageProvider} onValueChange={(v) => handleStorageProviderChange(v as any)}>
-                  <SelectTrigger className="w-[140px] h-8 text-xs rounded-lg shrink-0">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {storageProviders.map((p) => (
-                      <SelectItem key={p.value} value={p.value}>
-                        <div className="flex items-center gap-2">
-                          <span>{p.label}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {preferencesTab === 'integrations' && (
-          <div className="mt-4">
-            <div className="rounded-xl border border-border/60 divide-y divide-border/40 px-4">
-              {/* Lookout Scheduling Provider */}
-              <div className="flex items-center justify-between py-3.5 gap-6">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">Lookout Scheduler</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Scheduling backend for automated searches</p>
-                </div>
-                <Select
-                  value={lockoutProvider}
-                  onValueChange={(v) => handleLockoutProviderChange(v as 'qstash' | 'bullmq')}
-                >
-                  <SelectTrigger className="w-[140px] h-8 text-xs rounded-lg shrink-0">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {lockoutProviders.map((p) => (
-                      <SelectItem key={p.value} value={p.value}>
-                        <span>{p.label}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Email Provider */}
-              <div className="flex items-center justify-between py-3.5 gap-6">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">Email Provider</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">How lookout completion emails are sent</p>
-                </div>
-                <Select value={emailProvider} onValueChange={(v) => setEmailProvider(v as 'resend' | 'smtp')}>
-                  <SelectTrigger className="w-[140px] h-8 text-xs rounded-lg shrink-0">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {emailProviders.map((p) => (
-                      <SelectItem key={p.value} value={p.value}>
-                        <span>{p.label}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="py-3.5">
-                <EmailTestButton />
-              </div>
-
-              {/* Memory Provider */}
-              <div className="flex items-center justify-between py-3.5 gap-6">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">Memory Provider</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Backend for long-term memory storage</p>
-                </div>
-                <Select
-                  value={memoryProvider}
-                  onValueChange={(v) => handleMemoryProviderChange(v as 'supermemory' | 'graphiti')}
-                >
-                  <SelectTrigger className="w-[140px] h-8 text-xs rounded-lg shrink-0">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {memoryProviders.map((p) => (
-                      <SelectItem key={p.value} value={p.value}>
-                        {p.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
+          <IntegrationsTab
+            user={user}
+            isMaxUser={isMaxUser}
+            hasPaidAccess={hasPaidAccess}
+            customModelsList={customModelsList}
+            customProviders={customProviders}
+          />
         )}
 
         {/* ── Voice & Media tab ── */}
@@ -593,204 +362,6 @@ export function PreferencesSection({
                   )}
                 </div>
               )}
-            </div>
-          </div>
-        )}
-
-        {preferencesTab === 'integrations' && (
-          <div className="mt-4">
-            {/* Tools */}
-            <div className="rounded-xl border border-border/60 mt-4 overflow-hidden">
-              <div className="px-4 py-3 border-b border-border/40">
-                <p className="text-sm font-medium">Tools</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Show or hide tool shortcuts in the sidebar</p>
-              </div>
-
-              <div className="flex items-center justify-between px-4 py-3.5 gap-6">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">Lookout</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Show the Lookout shortcut in the sidebar</p>
-                </div>
-                <Switch id="lookout-enabled" checked={lookoutEnabled} onCheckedChange={setLookoutEnabled} />
-              </div>
-
-              <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">XQL (Beta)</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Show the X/Twitter search shortcut in the sidebar
-                  </p>
-                </div>
-                <Switch id="xql-enabled" checked={xqlEnabled} onCheckedChange={setXqlEnabled} />
-              </div>
-
-              <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">Voice</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Show the Voice shortcut in the sidebar</p>
-                </div>
-                <Switch id="voice-enabled" checked={voiceEnabled} onCheckedChange={setVoiceEnabled} />
-              </div>
-
-              <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">Apps</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Show the Apps shortcut in the sidebar</p>
-                </div>
-                <Switch id="apps-enabled" checked={appsEnabled} onCheckedChange={setAppsEnabled} />
-              </div>
-            </div>
-
-            {/* Graphiti Services */}
-            <div className="rounded-xl border border-border/60 mt-4 overflow-hidden">
-              <div className="px-4 py-3 border-b border-border/40">
-                <p className="text-sm font-medium">Graphiti Services</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Self-hosted Graphiti instances (temporal knowledge graph)
-                </p>
-              </div>
-
-              {/* LLM Extractor */}
-              <div className="flex items-center justify-between px-4 py-3.5 gap-6">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">LLM Extractor</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Model used for entity extraction</p>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {!selectedGraphitiProvider && (
-                    <span className="text-[11px] text-muted-foreground/70 shrink-0">Not set</span>
-                  )}
-                  <ModelSelectorDialog
-                    selectedModel={selectedGraphitiProvider}
-                    onModelSelect={handleGraphitiLlmSelect}
-                    user={user}
-                    isProUser={hasPaidAccess}
-                    isMaxUser={isMaxUser}
-                    additionalModels={customModelsList}
-                    onlyAdditionalModels
-                    className="w-[180px] h-8"
-                    compact
-                  />
-                  {selectedGraphitiProvider && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
-                      onClick={() => handleGraphitiLlmSelect('')}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              {/* Embedding */}
-              <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">Embedding</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Model used for vector embeddings</p>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {!graphitiEmbeddingProvider && (
-                    <span className="text-[11px] text-muted-foreground/70 shrink-0">Not set</span>
-                  )}
-                  <ModelSelectorDialog
-                    selectedModel={graphitiEmbeddingProvider}
-                    onModelSelect={handleGraphitiEmbeddingSelect}
-                    user={user}
-                    isProUser={hasPaidAccess}
-                    isMaxUser={isMaxUser}
-                    additionalModels={customModelsList}
-                    onlyAdditionalModels
-                    className="w-[180px] h-8"
-                    compact
-                  />
-                  {graphitiEmbeddingProvider && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
-                      onClick={() => handleGraphitiEmbeddingSelect('')}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              {/* Episode Chunk Size */}
-              <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">Episode chunk size (characters)</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Maximum characters per chunk sent to Graphiti. Lower values prevent &quot;LLM returned an empty
-                    response&quot; errors on models with small context windows. Recommended: 8000 for 16k context
-                    models.
-                  </p>
-                </div>
-                <Input
-                  type="number"
-                  min={1000}
-                  max={32000}
-                  step={1000}
-                  value={graphitiChunkSize ?? 8000}
-                  onChange={(e) => {
-                    const value = Number(e.target.value);
-                    if (Number.isNaN(value)) return;
-                    setGraphitiChunkSize(Math.min(32000, Math.max(1000, value)));
-                  }}
-                  className="h-8 w-24 text-xs rounded-lg shrink-0"
-                />
-              </div>
-
-              {/* Max Ingestion Retries */}
-              <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">Max ingestion retries</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Number of retry attempts when Graphiti ingestion fails. Set to 0 to disable retries.
-                  </p>
-                </div>
-                <Input
-                  type="number"
-                  min={0}
-                  max={5}
-                  step={1}
-                  value={graphitiMaxRetries ?? 2}
-                  onChange={(e) => {
-                    const value = Number(e.target.value);
-                    if (Number.isNaN(value)) return;
-                    setGraphitiMaxRetries(Math.min(5, Math.max(0, value)));
-                  }}
-                  className="h-8 w-24 text-xs rounded-lg shrink-0"
-                />
-              </div>
-
-              {/* Chunk Delay */}
-              <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">Delay between chunks (ms)</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Pause between each chunk sent to Graphiti. Increase to 4000-5000 if you still see &quot;Expecting
-                    value&quot; errors.
-                  </p>
-                </div>
-                <Input
-                  type="number"
-                  min={500}
-                  max={10000}
-                  step={500}
-                  value={graphitiChunkDelayMs ?? 2000}
-                  onChange={(e) => {
-                    const value = Number(e.target.value);
-                    if (Number.isNaN(value)) return;
-                    setGraphitiChunkDelayMs(Math.min(10000, Math.max(500, value)));
-                  }}
-                  className="h-8 w-24 text-xs rounded-lg shrink-0"
-                />
-              </div>
             </div>
           </div>
         )}
