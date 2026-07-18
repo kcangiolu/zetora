@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { unauthenticatedRateLimit, getClientIdentifier } from '@/lib/rate-limit';
-import { PDFDocument, StandardFonts, rgb, PDFName, PDFString } from 'pdf-lib';
+import { PDFDocument, StandardFonts, rgb, PDFName, PDFString, PDFArray, PDFFont, PDFImage, RGB } from 'pdf-lib';
 import { Lexer } from 'marked';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -273,7 +273,10 @@ export async function POST(req: NextRequest) {
     const content: string = preprocessMarkdownForCitationsAndMath(rawContent);
 
     const pdfDoc = await PDFDocument.create();
-    (pdfDoc as any).registerFontkit(fontkit);
+    // @pdf-lib/fontkit ships a UMD-style `export as namespace fontkit` .d.ts that doesn't
+    // structurally match pdf-lib's unexported `Fontkit` interface — narrow cast via the
+    // method's own parameter type instead of reaching for `any`.
+    pdfDoc.registerFontkit(fontkit as unknown as Parameters<typeof pdfDoc.registerFontkit>[0]);
 
     // Load Geist fonts for better Unicode support and modern design
     const geistRegularPath = path.join(process.cwd(), 'app/api/export/pdf/fonts/Geist-Regular.ttf');
@@ -397,8 +400,8 @@ export async function POST(req: NextRequest) {
             A: { Type: 'Action', S: 'URI', URI: PDFString.of(href) },
           }),
         );
-        const existingAnnots: any = page.node.get(PDFName.of('Annots'));
-        if (existingAnnots) (existingAnnots as any).push(linkRef);
+        const existingAnnots = page.node.get(PDFName.of('Annots'));
+        if (existingAnnots instanceof PDFArray) existingAnnots.push(linkRef);
         else page.node.set(PDFName.of('Annots'), pdfDoc.context.obj([linkRef]));
       } catch {}
     };
@@ -536,15 +539,20 @@ export async function POST(req: NextRequest) {
     // Render inline tokens with styles (strong/em/codespan/link) and proper wrapping
     type Seg = {
       text: string;
-      font: any;
+      font: PDFFont;
       size: number;
-      color?: any;
+      color?: RGB;
       break?: boolean;
       href?: string;
       badge?: boolean;
       center?: boolean;
       superscript?: boolean;
+      subscript?: boolean;
       latex?: string;
+      // Attached after inline math (LaTeX) is rasterized to a PNG — see prepareInlineMathSegments.
+      _img?: PDFImage;
+      _drawH?: number;
+      _drawW?: number;
     };
     const flattenInline = (tokens: any[] | undefined, baseFont: any, baseSize: number): Seg[] => {
       if (!tokens || !Array.isArray(tokens)) return [];
@@ -924,7 +932,7 @@ export async function POST(req: NextRequest) {
               size,
               superscript: isSup,
               ...(isSup ? {} : { subscript: true }),
-            } as any);
+            });
           }
           continue;
         }
@@ -1153,15 +1161,15 @@ export async function POST(req: NextRequest) {
           y = pageHeight - margin;
         }
       } catch (e) {
-        console.warn('MathJax display render failed:', (e as any)?.message || e);
+        console.warn('MathJax display render failed:', e instanceof Error ? e.message : String(e));
       }
     };
 
     const prepareInlineMathSegments = async (segments: Seg[], baseSize: number) => {
       for (const seg of segments) {
-        if ((seg as any).latex && !(seg as any).center) {
+        if (seg.latex && !seg.center) {
           try {
-            const node = mjDocument.convert((seg as any).latex, { display: false });
+            const node = mjDocument.convert(seg.latex, { display: false });
             const svg = mjAdaptor.outerHTML(node);
 
             const baseSvg = extractMathSvg(svg);
@@ -1174,7 +1182,7 @@ export async function POST(req: NextRequest) {
             } catch {
               ({ pngImg } = await svgToPngImage(baseSvg, scaleFactor));
             }
-            (seg as any)._img = pngImg;
+            seg._img = pngImg;
 
             const targetH = Math.min(baseSize, baseSize * MATH_INLINE_HEIGHT_MULTIPLIER);
             const aspectRatio = pngImg.width / pngImg.height;
@@ -1191,13 +1199,13 @@ export async function POST(req: NextRequest) {
               finalH = finalW / aspectRatio;
             }
 
-            (seg as any)._drawH = finalH;
-            (seg as any)._drawW = finalW;
+            seg._drawH = finalH;
+            seg._drawW = finalW;
           } catch (e) {
-            console.warn('MathJax inline render failed:', (e as any)?.message || e);
-            const fb = simplifyLatex((seg as any).latex || '');
+            console.warn('MathJax inline render failed:', e instanceof Error ? e.message : String(e));
+            const fb = simplifyLatex(seg.latex || '');
             seg.text = fb;
-            delete (seg as any).latex;
+            delete seg.latex;
           }
         }
       }
@@ -1211,7 +1219,7 @@ export async function POST(req: NextRequest) {
       await prepareInlineMathSegments(segments, baseSize);
 
       const widthOfSeg = (seg: Seg) => {
-        const w = (seg as any)._drawW;
+        const w = seg._drawW;
         if (typeof w === 'number') return w;
         return measureTextWidth(seg.font, seg.text, seg.size);
       };
@@ -1223,10 +1231,10 @@ export async function POST(req: NextRequest) {
           x = margin + Math.max(0, (maxLineWidth - totalWidth) / 2);
         }
         for (const seg of line) {
-          if ((seg as any).latex && !(seg as any).center && (seg as any)._img) {
-            const img = (seg as any)._img;
-            const w = (seg as any)._drawW;
-            const h = (seg as any)._drawH;
+          if (seg.latex && !seg.center && seg._img && seg._drawW != null && seg._drawH != null) {
+            const img = seg._img;
+            const w = seg._drawW;
+            const h = seg._drawH;
             // Move math symbols higher - center around baseline
             const imgY = y - h * MATH_INLINE_BASELINE_MULTIPLIER;
             page.drawImage(img, { x, y: imgY, width: w, height: h });
@@ -1237,7 +1245,7 @@ export async function POST(req: NextRequest) {
           const segWidth = widthOfSeg(seg);
           let advanceWidth = segWidth;
 
-          if ((seg as any).superscript) {
+          if (seg.superscript) {
             const supSize = Math.max(6, Math.round(seg.size * 0.8));
             const yOffset = supSize * 0.35;
             drawTextWithFallback(seg.text, x, y + yOffset, supSize, seg.font ?? fontItalic, seg.color ?? rgb(0, 0, 0));
@@ -1246,7 +1254,7 @@ export async function POST(req: NextRequest) {
             } catch {
               advanceWidth = seg.text.length * supSize * 0.5 + 0.5;
             }
-          } else if ((seg as any).subscript) {
+          } else if (seg.subscript) {
             const subSize = Math.max(6, Math.round(seg.size * 0.8));
             const yOffset = -subSize * 0.15;
             drawTextWithFallback(seg.text, x, y + yOffset, subSize, seg.font ?? fontItalic, seg.color ?? rgb(0, 0, 0));
@@ -1259,8 +1267,8 @@ export async function POST(req: NextRequest) {
             drawTextWithFallback(seg.text, x, y, seg.size, seg.font, seg.color ?? rgb(0, 0, 0));
           }
 
-          if ((seg as any).href) {
-            addLinkAnnotation(String((seg as any).href), x, y, advanceWidth, seg.size);
+          if (seg.href) {
+            addLinkAnnotation(String(seg.href), x, y, advanceWidth, seg.size);
           }
 
           x += advanceWidth;
@@ -1275,18 +1283,18 @@ export async function POST(req: NextRequest) {
       };
 
       for (const seg of segments) {
-        if ((seg as any).latex && (seg as any).center) {
+        if (seg.latex && seg.center) {
           if (line.length) flushLine();
-          await drawMathBlock((seg as any).latex, baseSize);
+          await drawMathBlock(seg.latex, baseSize);
           available = maxLineWidth - indent;
           continue;
         }
-        if ((seg as any).break) {
+        if (seg.break) {
           if (line.length) flushLine();
           continue;
         }
-        if ((seg as any).latex && !(seg as any).center && (seg as any)._drawW) {
-          const w = (seg as any)._drawW as number;
+        if (seg.latex && !seg.center && seg._drawW) {
+          const w = seg._drawW as number;
           if (w <= available) {
             line.push(seg);
             available -= w;
@@ -1298,12 +1306,12 @@ export async function POST(req: NextRequest) {
               available -= w;
             } else {
               /* If even a single inline math is wider than a line, reduce height for this segment */
-              const img = (seg as any)._img;
+              const img = seg._img;
               if (img) {
                 const targetH = Math.max(8, Math.round(baseSize * 0.9));
-                (seg as any)._drawH = targetH;
-                (seg as any)._drawW = img.width * (targetH / img.height);
-                const nw = (seg as any)._drawW as number;
+                seg._drawH = targetH;
+                seg._drawW = img.width * (targetH / img.height);
+                const nw = seg._drawW as number;
                 if (nw <= available) {
                   line.push(seg);
                   available -= nw;
@@ -1313,8 +1321,8 @@ export async function POST(req: NextRequest) {
                 }
               } else {
                 // fallback: treat as plain text
-                seg.text = simplifyLatex((seg as any).latex || '');
-                delete (seg as any).latex;
+                seg.text = simplifyLatex(seg.latex || '');
+                delete seg.latex;
               }
             }
           }
@@ -1524,7 +1532,7 @@ export async function POST(req: NextRequest) {
         const flush = () => {
           if (line.length) {
             lines.push(line);
-            const maxHeight = Math.max(...line.map((seg) => (seg as any)._drawH ?? seg.size ?? fallbackSize));
+            const maxHeight = Math.max(...line.map((seg) => seg._drawH ?? seg.size ?? fallbackSize));
             lineHeights.push(maxHeight);
           }
           line = [];
@@ -1532,14 +1540,14 @@ export async function POST(req: NextRequest) {
         };
 
         for (const seg of segments ?? []) {
-          if ((seg as any).break) {
+          if (seg.break) {
             flush();
             continue;
           }
           const font = seg.font;
           const size = seg.size;
           let remaining = seg.text || '';
-          const inlineW = (seg as any)._drawW;
+          const inlineW = seg._drawW;
           const isInlineImage = typeof inlineW === 'number' && !remaining.length;
           while (remaining.length || isInlineImage) {
             let w = 0;
@@ -1576,7 +1584,7 @@ export async function POST(req: NextRequest) {
         }
         if (line.length) {
           lines.push(line);
-          const maxHeight = Math.max(...line.map((seg) => (seg as any)._drawH ?? seg.size ?? fallbackSize));
+          const maxHeight = Math.max(...line.map((seg) => seg._drawH ?? seg.size ?? fallbackSize));
           lineHeights.push(maxHeight);
         }
         return { lines, lineHeights };
@@ -1643,7 +1651,7 @@ export async function POST(req: NextRequest) {
             color: fillColor,
             borderColor: rgb(0.85, 0.85, 0.88),
             borderWidth: 0.75,
-          } as any);
+          });
         }
 
         // subtle accent line under header row for stronger separation
@@ -1672,13 +1680,13 @@ export async function POST(req: NextRequest) {
             for (const seg of lineSegs) {
               const segFont = seg.font || usedFont;
               const segSize = seg.size || usedSize;
-              const raise = (seg as any).superscript ? Math.round(segSize * 0.35) : 0;
+              const raise = seg.superscript ? Math.round(segSize * 0.35) : 0;
               const drawY = baselineY + raise;
               const text = seg.text || '';
               let advanceWidth = 0;
-              const img = (seg as any)._img;
-              const drawW = (seg as any)._drawW;
-              const drawH = (seg as any)._drawH;
+              const img = seg._img;
+              const drawW = seg._drawW;
+              const drawH = seg._drawH;
               if (img && typeof drawW === 'number' && typeof drawH === 'number') {
                 const imgY = baselineY - drawH * MATH_INLINE_BASELINE_MULTIPLIER;
                 page.drawImage(img, { x: xCursor, y: imgY, width: drawW, height: drawH });
@@ -1688,8 +1696,8 @@ export async function POST(req: NextRequest) {
                 drawTextWithFallback(seg.text, xCursor, drawY, segSize, segFont, seg.color || rgb(0, 0, 0));
               }
 
-              if ((seg as any).href) {
-                addLinkAnnotation(String((seg as any).href), xCursor, drawY, advanceWidth, segSize);
+              if (seg.href) {
+                addLinkAnnotation(String(seg.href), xCursor, drawY, advanceWidth, segSize);
               }
 
               xCursor += advanceWidth;
