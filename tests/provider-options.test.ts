@@ -89,7 +89,6 @@ describe('getSearchProviderOptions', () => {
       'bedrock',
       'vercel',
       'xai',
-      'xai',
       'bytedance',
       'moonshotai',
       'novita',

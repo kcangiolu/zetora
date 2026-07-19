@@ -82,7 +82,6 @@ export function getSearchProviderOptions(model: string, shouldUseXaiMultiAgent: 
         'bedrock',
         'vercel',
         'xai',
-        'xai',
         'bytedance',
         'moonshotai',
         'novita',
