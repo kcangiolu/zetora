@@ -25,7 +25,6 @@ export { codeContextTool } from './code-context';
 export { createFileQuerySearchTool } from './file-query-search';
 export { spotifySearchTool } from './spotify-search';
 export { predictionSearchTool } from './prediction-search';
-export { createBuildTools } from './build-tools';
 export { skillTool } from './skill';
 export { generateImageTool } from './generate-image';
 export { editImageTool } from './edit-image';

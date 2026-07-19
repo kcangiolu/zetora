@@ -21,17 +21,7 @@ import {
   CustomUIDataTypes,
   DataQueryCompletionPart,
   DataExtremeSearchPart,
-  DataBuildSearchPart,
 } from '@/lib/types';
-import {
-  BoxExecResult,
-  BoxWriteResult,
-  BoxReadResult,
-  BoxListResult,
-  BoxDownloadResult,
-  BoxAgentResult,
-  BoxCodeResult,
-} from '@/components/build-search';
 import { SPEC_DATA_PART_TYPE } from '@json-render/core';
 import { useSpeech } from '@/hooks/use-speech';
 import { extractSpeakableText } from '@/lib/speakable-text';
@@ -2967,128 +2957,6 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                 );
             }
             break;
-          case 'tool-box_exec': {
-            const buildAnnotations =
-              (annotations?.filter((a) => a.type === 'data-build_search') as DataBuildSearchPart[]) || [];
-            const execAnns = buildAnnotations.filter((a) => a.data.kind === 'exec');
-            const latestAnn = execAnns[execAnns.length - 1]?.data;
-            return (
-              <BoxExecResult
-                key={`${messageIndex}-${partIndex}-tool`}
-                input={part.input}
-                result={part.output}
-                state={toImageCardState(part.state)}
-                annotation={latestAnn}
-              />
-            );
-          }
-
-          case 'tool-box_write': {
-            const buildAnnotations =
-              (annotations?.filter((a) => a.type === 'data-build_search') as DataBuildSearchPart[]) || [];
-            const writeAnns = buildAnnotations.filter((a) => a.data.kind === 'write');
-            const latestAnn = writeAnns[writeAnns.length - 1]?.data;
-            return (
-              <BoxWriteResult
-                key={`${messageIndex}-${partIndex}-tool`}
-                input={part.input}
-                result={part.output}
-                state={toImageCardState(part.state)}
-                annotation={latestAnn}
-              />
-            );
-          }
-
-          case 'tool-box_read': {
-            const buildAnnotations =
-              (annotations?.filter((a) => a.type === 'data-build_search') as DataBuildSearchPart[]) || [];
-            const readAnns = buildAnnotations.filter((a) => a.data.kind === 'read');
-            const latestAnn = readAnns[readAnns.length - 1]?.data;
-            return (
-              <BoxReadResult
-                key={`${messageIndex}-${partIndex}-tool`}
-                input={part.input}
-                result={part.output}
-                state={toImageCardState(part.state)}
-                annotation={latestAnn}
-              />
-            );
-          }
-
-          case 'tool-box_list_files': {
-            const buildAnnotations =
-              (annotations?.filter((a) => a.type === 'data-build_search') as DataBuildSearchPart[]) || [];
-            const listAnns = buildAnnotations.filter((a) => a.data.kind === 'list');
-            const latestAnn = listAnns[listAnns.length - 1]?.data;
-            return (
-              <BoxListResult
-                key={`${messageIndex}-${partIndex}-tool`}
-                input={part.input}
-                result={part.output}
-                state={toImageCardState(part.state)}
-                annotation={latestAnn}
-              />
-            );
-          }
-
-          case 'tool-box_download': {
-            const buildAnnotations =
-              (annotations?.filter((a) => a.type === 'data-build_search') as DataBuildSearchPart[]) || [];
-            const dlAnns = buildAnnotations.filter((a) => a.data.kind === 'download');
-            const latestAnn = dlAnns[dlAnns.length - 1]?.data;
-            return (
-              <BoxDownloadResult
-                key={`${messageIndex}-${partIndex}-tool`}
-                input={part.input}
-                result={part.output}
-                state={toImageCardState(part.state)}
-                annotation={latestAnn}
-              />
-            );
-          }
-
-          case 'tool-box_agent': {
-            const buildAnnotations =
-              (annotations?.filter((a) => a.type === 'data-build_search') as DataBuildSearchPart[]) || [];
-            const agentAnns = buildAnnotations.filter((a) => a.data.kind === 'agent');
-            return (
-              <BoxAgentResult
-                key={`${messageIndex}-${partIndex}-tool`}
-                input={part.input}
-                result={part.output}
-                state={toImageCardState(part.state)}
-                annotations={agentAnns}
-              />
-            );
-          }
-
-          case 'tool-box_code': {
-            const buildAnnotations =
-              (annotations?.filter((a) => a.type === 'data-build_search') as DataBuildSearchPart[]) || [];
-            const codeAnns = buildAnnotations.filter((a) => a.data.kind === 'code');
-            const latestAnn = codeAnns[codeAnns.length - 1]?.data;
-            return (
-              <BoxCodeResult
-                key={`${messageIndex}-${partIndex}-tool`}
-                input={part.input}
-                result={part.output}
-                state={toImageCardState(part.state)}
-                annotation={latestAnn}
-              />
-            );
-          }
-
-          case 'tool-box_browse_page': {
-            return (
-              <SearchLoadingState
-                key={`${messageIndex}-${partIndex}-tool`}
-                icon={Globe}
-                text={part.state === 'output-available' ? 'Browsed pages' : 'Browsing pages...'}
-                color="blue"
-              />
-            );
-          }
-
           case 'tool-skill': {
             if (part.state === 'output-available') {
               const loadedSkills = (part.output as { loadedSkills?: Array<{ id: string; name: string }> } | undefined)

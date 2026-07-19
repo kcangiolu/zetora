@@ -87,7 +87,6 @@
     "@tanstack/react-table": "^8.21.3",
     "@tavily/core": "^0.7.2",
     "@types/three": "^0.183.1",
-    "@upstash/box": "^0.1.26",
     "@upstash/qstash": "^2.10.1",
     "@vectorstores/core": "^0.1.8",
     "@vectorstores/readers": "^0.1.8",

@@ -222,9 +222,6 @@ importers:
       '@types/three':
         specifier: ^0.183.1
         version: 0.183.1
-      '@upstash/box':
-        specifier: ^0.1.26
-        version: 0.1.36(zod@4.4.3)
       '@upstash/qstash':
         specifier: ^2.10.1
         version: 2.11.0
@@ -3990,12 +3987,6 @@ packages:
     resolution: {integrity: sha512-nAB74NfSNKknqQ1RrYj6uz8FcXEomu/MATJZxh/x+BArzN2U3JbOYC0APYzUIGhVY3m5hRxA8VPNdPBoG8txlA==}
     cpu: [x64]
     os: [win32]
-
-  '@upstash/box@0.1.36':
-    resolution: {integrity: sha512-hFin+SFLGA2JA6z1+eMS3wehDzUrk98IcEXN5HjejISx/5i17ZESMZsAZhmXgI/uvP3euYzwytYB/fGk4vRIUQ==}
-    engines: {node: '>=18.0.0'}
-    peerDependencies:
-      zod: ^3.25.0 || ^4.0.0
 
   '@upstash/qstash@2.11.0':
     resolution: {integrity: sha512-AfPPxsUeOJCrxMQ9dkh1RZL40wgxCsUNFkxrbBSomC3U4j4qKFRawU8sDK+dqqH+sZFUS1biVM4GK46d5Tg2Vg==}
@@ -11612,11 +11603,6 @@ snapshots:
 
   '@unrs/resolver-binding-win32-x64-msvc@1.12.2':
     optional: true
-
-  '@upstash/box@0.1.36(zod@4.4.3)':
-    dependencies:
-      zod: 4.4.3
-      zod-to-json-schema: 3.25.2(zod@4.4.3)
 
   '@upstash/qstash@2.11.0':
     dependencies:

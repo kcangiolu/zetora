@@ -33,7 +33,6 @@ import type {
   createFileQuerySearchTool,
   spotifySearchTool,
   predictionSearchTool,
-  createBuildTools,
   skillTool,
   generateImageTool,
   editImageTool,
@@ -194,17 +193,6 @@ type skillTool = InferUITool<typeof skillTool>;
 type generateImageTool = InferUITool<typeof generateImageTool>;
 type editImageTool = InferUITool<typeof editImageTool>;
 
-type BuildTools = ReturnType<typeof createBuildTools> extends { tools: infer T } ? T : never;
-type boxInitTool = InferUITool<BuildTools[keyof BuildTools]>;
-type boxExecTool = InferUITool<BuildTools[keyof BuildTools]>;
-type boxWriteTool = InferUITool<BuildTools[keyof BuildTools]>;
-type boxReadTool = InferUITool<BuildTools[keyof BuildTools]>;
-type boxListFilesTool = InferUITool<BuildTools[keyof BuildTools]>;
-type boxDownloadTool = InferUITool<BuildTools[keyof BuildTools]>;
-type boxAgentTool = InferUITool<BuildTools[keyof BuildTools]>;
-type boxCodeTool = InferUITool<BuildTools[keyof BuildTools]>;
-type boxBrowsePageTool = InferUITool<BuildTools[keyof BuildTools]>;
-
 // type mcpSearchTool = InferUITool<typeof mcpSearchTool>;
 
 export type ChatTools = {
@@ -255,116 +243,6 @@ export type ChatTools = {
   skill: skillTool;
   generate_image: generateImageTool;
   edit_image: editImageTool;
-
-  // Build Mode Tools
-  box_init: boxInitTool;
-  box_exec: boxExecTool;
-  box_write: boxWriteTool;
-  box_read: boxReadTool;
-  box_list_files: boxListFilesTool;
-  box_download: boxDownloadTool;
-  box_agent: boxAgentTool;
-  box_code: boxCodeTool;
-  box_browse_page: boxBrowsePageTool;
-  build_web_search: boxExecTool;
-};
-
-export type AgentStreamEvent =
-  | { type: 'text_delta'; text: string }
-  | { type: 'tool_call'; toolName: string; input: Record<string, unknown> }
-  | { type: 'finish'; usage: { inputTokens: number; outputTokens: number } };
-
-export type DataBuildSearchPart = {
-  type: 'data-build_search';
-  data:
-    | {
-        kind: 'exec';
-        execId: string;
-        command: string;
-        status: 'running' | 'completed' | 'error';
-        stdout?: string;
-        stderr?: string;
-        exitCode?: number;
-      }
-    | {
-        kind: 'write';
-        writeId: string;
-        path: string;
-        contentPreview: string;
-        status: 'completed';
-      }
-    | {
-        kind: 'read';
-        readId: string;
-        path: string;
-        content: string;
-        status: 'completed';
-      }
-    | {
-        kind: 'list';
-        listId: string;
-        path: string;
-        files: Array<{ name: string; isDir: boolean; size?: number }>;
-        status: 'completed';
-      }
-    | {
-        kind: 'download';
-        downloadId: string;
-        path: string;
-        url: string;
-        filename: string;
-        status: 'completed';
-      }
-    | {
-        kind: 'preview';
-        previewId: string;
-        port: number;
-        url: string;
-        status: 'completed';
-        token?: string;
-        username?: string;
-        password?: string;
-      }
-    | {
-        kind: 'agent';
-        agentId: string;
-        prompt: string;
-        status: 'running' | 'streaming' | 'completed' | 'error';
-        event?: AgentStreamEvent;
-        result?: string;
-        cost?: { inputTokens: number; outputTokens: number; totalUsd?: number; computeMs?: number };
-      }
-    | {
-        kind: 'code';
-        codeId: string;
-        code: string;
-        lang: string;
-        status: 'running' | 'completed' | 'error';
-        result?: string;
-        exitCode?: number;
-      }
-    | {
-        kind: 'search_query';
-        searchId: string;
-        queryId: string;
-        query: string;
-        index: number;
-        total: number;
-        status: 'started' | 'reading_content' | 'completed' | 'error';
-        actionTitle?: string;
-      }
-    | {
-        kind: 'search_source';
-        searchId: string;
-        queryId: string;
-        source: { title: string; url: string; favicon?: string };
-      }
-    | {
-        kind: 'search_content';
-        searchId: string;
-        queryId: string;
-        content: { title: string; url: string; text: string; favicon?: string };
-      };
 };
 
 type DataPredictionResultsPart = {
@@ -434,7 +312,6 @@ export type CustomUIDataTypes = {
     url?: string;
   };
   mcp_elicitation_done: { elicitationId: string };
-  build_search: DataBuildSearchPart['data'];
 };
 
 export type ChatMessage = UIMessage<MessageMetadata, CustomUIDataTypes, ChatTools>;
