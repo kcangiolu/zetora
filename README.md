@@ -1,5 +1,7 @@
 # Zetora
 
+A fork of [Scira](https://github.com/zaidmukaddam/scira) by Zaid Mukaddam, extended into an agentic research platform.
+
 Research at the speed of thought. The agentic research platform that plans, retrieves, and cites — so you can think faster.
 
 ## How It Works

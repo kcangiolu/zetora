@@ -1,6 +1,6 @@
 # Zetora — Architecture Overview
 
-Zetora is a self-hosted, AI-powered agentic search engine (fork of [Scira](https://github.com/zaidmukaddam/scira)). It combines a Next.js application with a full Docker stack of supporting services (database, caches, object storage, vector store, metasearch, knowledge graph, TTS/STT, job queue, code sandbox).
+Zetora is a self-hosted, AI-powered agentic search engine — a fork of [Scira](https://github.com/zaidmukaddam/scira) by Zaid Mukaddam. It combines a Next.js application with a full Docker stack of supporting services (database, caches, object storage, vector store, metasearch, knowledge graph, TTS/STT, job queue, code sandbox).
 
 ## Tech stack
 
