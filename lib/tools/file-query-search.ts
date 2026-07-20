@@ -1,4 +1,4 @@
-import { rerank, tool, UIMessageStreamWriter } from 'ai';
+import { rerank, tool, EmbeddingModel, UIMessageStreamWriter } from 'ai';
 import { z } from 'zod';
 import { VectorStoreIndex, BaseRetriever } from '@vectorstores/core';
 import { PDFReader } from '@vectorstores/readers/pdf';
@@ -11,6 +11,7 @@ import { cohere } from '@ai-sdk/cohere';
 import { all, allSettled } from 'better-all';
 import { ChatMessage } from '@/lib/types';
 import { getBetterAllOptions } from '@/lib/better-all';
+import { getFileEmbeddingModel } from '@/ai/embeddings';
 
 import { createLogger } from '@/lib/logger';
 
@@ -76,7 +77,7 @@ interface QuerySearchResult {
   results: FileQueryResult[];
 }
 
-async function createRetriever(file: FileContext): Promise<BaseRetriever> {
+async function createRetriever(file: FileContext, embeddingModel: EmbeddingModel): Promise<BaseRetriever> {
   const mimeType = file.contentType;
 
   if (!isSupportedMimeType(mimeType)) {
@@ -93,19 +94,19 @@ async function createRetriever(file: FileContext): Promise<BaseRetriever> {
 
   // Create vector store index
   const index = await VectorStoreIndex.fromDocuments(documents, {
-    embedFunc: vercelEmbedding(cohere.embedding('embed-v4.0')),
+    embedFunc: vercelEmbedding(embeddingModel),
   });
 
   // Create retriever with higher similarity top K for more results
   return index.asRetriever({ similarityTopK: 10 });
 }
 
-async function buildRetrieversByUrl(files: FileContext[]) {
+async function buildRetrieversByUrl(files: FileContext[], embeddingModel: EmbeddingModel) {
   const tasks = files.reduce(
     (acc, file, index) => {
       const fileKey = `${index}:${file.name || new URL(file.url).pathname.split('/').pop() || 'unknown'}`;
       acc[fileKey] = async function () {
-        const retriever = await createRetriever(file);
+        const retriever = await createRetriever(file, embeddingModel);
         return [file.url, retriever] as const;
       };
       return acc;
@@ -186,7 +187,11 @@ async function searchFiles(
   return allResults.slice(0, maxResults);
 }
 
-export function createFileQuerySearchTool(files: FileContext[], dataStream?: UIMessageStreamWriter<ChatMessage>) {
+export function createFileQuerySearchTool(
+  files: FileContext[],
+  dataStream?: UIMessageStreamWriter<ChatMessage>,
+  userPreferences?: Record<string, unknown>,
+) {
   // Filter to only supported files
   const supportedFiles = files.filter((f) => isSupportedMimeType(f.contentType));
 
@@ -231,7 +236,8 @@ export function createFileQuerySearchTool(files: FileContext[], dataStream?: UIM
       try {
         log.debug('🔍 [FileQuerySearch] Reranking:', shouldRerank);
         // Index first (independent step), then search and return results.
-        const retrieversByUrl = await buildRetrieversByUrl(supportedFiles);
+        const embeddingModel = await getFileEmbeddingModel(userPreferences);
+        const retrieversByUrl = await buildRetrieversByUrl(supportedFiles, embeddingModel);
 
         const searchPromises = queries.map(async (query, index) => {
           try {

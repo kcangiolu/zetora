@@ -144,6 +144,7 @@ export async function upsertUserPreferences({
     'zetora-graphiti-embedding-provider'?: string;
     'zetora-graphiti-embedding-model'?: string;
     'zetora-embedding-enabled'?: boolean;
+    'zetora-file-embedding-provider'?: 'cohere' | 'custom';
     'zetora-xml-tool-parsing-enabled'?: boolean;
     'zetora-graphiti-chunk-size'?: number;
     'zetora-graphiti-max-retries'?: number;

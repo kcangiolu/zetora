@@ -212,7 +212,7 @@ export async function loadConfiguredTools({
         case 'file_query_search': {
           if (contextFiles.length === 0) return;
           const { createFileQuerySearchTool } = await import('@/lib/tools/file-query-search');
-          tools.file_query_search = createFileQuerySearchTool(contextFiles, dataStream);
+          tools.file_query_search = createFileQuerySearchTool(contextFiles, dataStream, userPreferences);
           return;
         }
         case 'search_memories':

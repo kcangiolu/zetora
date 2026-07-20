@@ -10,7 +10,8 @@ import Exa from 'exa-js';
 import { getSandboxProvider } from '@/lib/sandbox';
 import type { SandboxProviderType } from '@/lib/sandbox';
 import { Output, generateText, hasToolCall, stepCountIs, tool } from 'ai';
-import type { UIMessageStreamWriter } from 'ai';
+import type { EmbeddingModel, UIMessageStreamWriter } from 'ai';
+import { getFileEmbeddingModel } from '@/ai/embeddings';
 import { z } from 'zod';
 import { serverEnv } from '@/env/server';
 import { resolveTertiaryModel } from '@/ai/tertiary';
@@ -109,7 +110,10 @@ interface ChartArtifact {
   [key: string]: unknown;
 }
 
-async function createFileRetriever(file: { url: string; contentType: string; name?: string }): Promise<BaseRetriever> {
+async function createFileRetriever(
+  file: { url: string; contentType: string; name?: string },
+  embeddingModel: EmbeddingModel,
+): Promise<BaseRetriever> {
   const mimeType = file.contentType;
   if (!isSupportedMimeType(mimeType)) {
     throw new Error(`Unsupported file type: ${mimeType}`);
@@ -123,14 +127,18 @@ async function createFileRetriever(file: { url: string; contentType: string; nam
   const documents = await reader.loadDataAsContent(content);
 
   const index = await VectorStoreIndex.fromDocuments(documents, {
-    embedFunc: vercelEmbedding(cohere.embedding('embed-v4.0')),
+    embedFunc: vercelEmbedding(embeddingModel),
   });
 
   return index.asRetriever({ similarityTopK: 10 });
 }
 
-async function buildFileRetrievers(files: { url: string; contentType: string; name?: string }[]) {
+async function buildFileRetrievers(
+  files: { url: string; contentType: string; name?: string }[],
+  preferences: Record<string, unknown> | null,
+) {
   const retrieversByUrl = new Map<string, BaseRetriever>();
+  const embeddingModel = await getFileEmbeddingModel(preferences);
 
   await all(
     Object.fromEntries(
@@ -138,7 +146,7 @@ async function buildFileRetrievers(files: { url: string; contentType: string; na
         `file:${index}`,
         async () => {
           try {
-            const retriever = await createFileRetriever(file);
+            const retriever = await createFileRetriever(file, embeddingModel);
             retrieversByUrl.set(file.url, retriever);
           } catch (error) {
             log.error(`Error indexing file ${file.name}:`, error);
@@ -711,7 +719,7 @@ ${hasFilesForPlanning ? '- Include file search steps when the uploaded files are
 
   if (supportedFiles.length > 0) {
     log.info(`Indexing ${supportedFiles.length} files for file query search`);
-    fileRetrievers = await buildFileRetrievers(supportedFiles);
+    fileRetrievers = await buildFileRetrievers(supportedFiles, preferences);
   }
 
   const hasFiles = supportedFiles.length > 0 && fileRetrievers.size > 0;

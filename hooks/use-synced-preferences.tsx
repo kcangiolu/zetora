@@ -31,6 +31,7 @@ export type PreferenceKey =
   | 'zetora-search-stack'
   | 'zetora-embedding-provider'
   | 'zetora-embedding-model'
+  | 'zetora-file-embedding-provider'
   | 'zetora-qdrant-enabled'
   | 'zetora-tertiary-chat-title-model'
   | 'zetora-tertiary-chat-title-provider'

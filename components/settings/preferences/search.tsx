@@ -73,6 +73,11 @@ export function SearchTab({
     'nomic-embed-text',
   );
 
+  const [fileEmbeddingProvider, setFileEmbeddingProvider] = useSyncedPreferences<'cohere' | 'custom'>(
+    'zetora-file-embedding-provider',
+    'cohere',
+  );
+
   const [qdrantEnabled, setQdrantEnabled] = useSyncedPreferences<boolean>('zetora-qdrant-enabled', false);
 
   const [hybridSearchEnabled, setHybridSearchEnabled] = useSyncedPreferences<boolean>(
@@ -365,6 +370,78 @@ export function SearchTab({
               disabled={!qdrantEnabled}
             />
           </div>
+        </div>
+
+        {/* File Search Embedding */}
+        <div className="rounded-xl border border-border/60 mt-4 overflow-hidden">
+          <div className="px-4 py-3 border-b border-border/40">
+            <p className="text-sm font-medium">File Search Embedding</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Embedding model used to index uploaded documents (file_query_search, extreme_search) — independent of the
+              Vector Database setting above
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between px-4 py-3.5 gap-6">
+            <div className="min-w-0">
+              <p className="text-sm font-medium">Provider</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {fileEmbeddingProvider === 'custom'
+                  ? 'Uses your selected Custom AI Provider'
+                  : 'Cohere embed-v4.0 (requires COHERE_API_KEY)'}
+              </p>
+            </div>
+            <Select
+              value={fileEmbeddingProvider ?? 'cohere'}
+              onValueChange={(v) => setFileEmbeddingProvider(v as 'cohere' | 'custom')}
+            >
+              <SelectTrigger className="w-[140px] h-8 text-xs rounded-lg shrink-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cohere">Cohere</SelectItem>
+                <SelectItem value="custom">Custom Provider</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {fileEmbeddingProvider === 'custom' && (
+            <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
+              <div className="min-w-0">
+                <p className="text-sm font-medium">Embedding Model</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Select from your Custom AI Providers</p>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {!selectedEmbeddingProvider && (
+                  <span className="text-[11px] text-muted-foreground/70 shrink-0 max-w-[120px] truncate">
+                    Falls back to Cohere until set
+                  </span>
+                )}
+                <ModelSelectorDialog
+                  selectedModel={selectedEmbeddingProvider}
+                  onModelSelect={handleEmbeddingModelSelect}
+                  user={user}
+                  isProUser={hasPaidAccess}
+                  isMaxUser={isMaxUser}
+                  additionalModels={customModelsList}
+                  className="w-[180px] h-8"
+                  compact
+                />
+                {selectedEmbeddingProvider && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+                    title="Reset to default"
+                    onClick={() => handleEmbeddingModelSelect('')}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Retrieve Fallbacks */}

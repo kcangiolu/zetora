@@ -105,7 +105,7 @@ export const lockoutProviders = [
   },
   {
     value: 'bullmq',
-    label: 'BullMQ (Self-Hosted)',
+    label: 'BullMQ',
     description: 'File de jobs Redis auto-hébergée avec Bull Board pour le monitoring.',
     default: false,
   },
