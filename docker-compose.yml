@@ -6,8 +6,8 @@
 # stt-service, s2s-service) are referenced via ${ZETORA_*_IMAGE} vars with a
 # generic `:local` fallback — this file alone doesn't point at any specific
 # registry. Kenny's own deployment supplies the real private-registry tags
-# via docker-compose.internal.yml (not published here — see
-# docker-compose.internal.yml.example if present) with:
+# via docker-compose.internal.yml, tracked in the private zetora-agent
+# overlay (AGENT.md §2.3), not published here:
 #   docker compose -f docker-compose.yml -f docker-compose.internal.yml pull/up
 # A prod host that only has this compose file deployed (e.g. Unraid's
 # Compose Manager) doesn't have the source subdirectories
