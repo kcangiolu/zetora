@@ -136,7 +136,7 @@ function VerifyEmail({ url }: VerifyEmailProps) {
 }
 
 VerifyEmail.PreviewProps = {
-  url: 'https://zetora.ai/api/auth/verify-email?token=example-token&callbackURL=%2F',
+  url: `${getAppUrl()}/api/auth/verify-email?token=example-token&callbackURL=%2F`,
 } satisfies VerifyEmailProps;
 
 export default VerifyEmail;

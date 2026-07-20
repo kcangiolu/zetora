@@ -221,8 +221,6 @@ async function handleSubscriptionWebhook(payload: any, status: string) {
 // comma-separated list for any additional domains.
 const configuredOrigins = [
   'http://localhost:3000',
-  'https://zetora.ai',
-  'https://www.zetora.ai',
   'https://zetora.example.com',
   process.env.NEXT_PUBLIC_APP_URL,
   process.env.BETTER_AUTH_BASE_URL,

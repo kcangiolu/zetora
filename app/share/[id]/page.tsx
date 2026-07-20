@@ -22,12 +22,12 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     description: 'A shared chat on zetora.ai',
     openGraph: {
       title: chat.title,
-      url: `https://zetora.ai/share/${id}`,
+      url: `/share/${id}`,
       description: 'A shared chat on zetora.ai',
       siteName: 'zetora.ai',
       images: [
         {
-          url: `https://zetora.ai/api/og/chat/${id}`,
+          url: `/api/og/chat/${id}`,
           width: 1200,
           height: 630,
         },
@@ -36,20 +36,20 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     twitter: {
       card: 'summary_large_image',
       title: chat.title,
-      url: `https://zetora.ai/share/${id}`,
+      url: `/share/${id}`,
       description: 'A shared chat on zetora.ai',
       siteName: 'zetora.ai',
       creator: '@zetoraai',
       images: [
         {
-          url: `https://zetora.ai/api/og/chat/${id}`,
+          url: `/api/og/chat/${id}`,
           width: 1200,
           height: 630,
         },
       ],
     },
     alternates: {
-      canonical: `https://zetora.ai/share/${id}`,
+      canonical: `/share/${id}`,
     },
   } as Metadata;
 }
@@ -71,7 +71,8 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
   });
 
   const user = await userPromise;
-  const shareUrl = `https://zetora.ai/share/${id}`;
+  const appOrigin = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || 'http://localhost:3000';
+  const shareUrl = `${appOrigin}/share/${id}`;
   const uiMessages = convertToUIMessages(messages);
 
   const sharedBy = chat.userName || chat.userEmail || 'Zetora user';

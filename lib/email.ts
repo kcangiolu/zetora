@@ -84,18 +84,23 @@ function resolveEmailProvider(userPreference?: 'resend' | 'smtp'): EmailProvider
   return 'resend';
 }
 
-function getFromAddress(): string {
-  const provider = resolveEmailProvider();
+function getFromAddress(provider: EmailProvider): string {
   if (provider === 'smtp') {
-    return serverEnv.SMTP_FROM || 'Zetora AI <noreply@zetora.ai>';
+    if (!serverEnv.SMTP_FROM) {
+      throw new Error('SMTP_FROM is not configured');
+    }
+    return serverEnv.SMTP_FROM;
   }
-  return 'Zetora AI <noreply@zetora.ai>';
+  if (!serverEnv.RESEND_FROM) {
+    throw new Error('RESEND_FROM is not configured');
+  }
+  return serverEnv.RESEND_FROM;
 }
 
 async function sendViaResend(params: SendEmailParams) {
   const resend = getResendClient();
   const { data, error } = await resend.emails.send({
-    from: getFromAddress(),
+    from: getFromAddress('resend'),
     to: [params.to],
     subject: params.subject,
     react: params.react,
@@ -113,7 +118,7 @@ async function sendViaSmtp(params: SendEmailParams) {
   }
   const html = await render(params.react);
   return transporter.sendMail({
-    from: getFromAddress(),
+    from: getFromAddress('smtp'),
     to: params.to,
     subject: params.subject,
     html,

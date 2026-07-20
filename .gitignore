@@ -58,3 +58,6 @@ video/node_modules
 /minio-data/
 # Local-only compose override (WSL libcuda fix, machine-specific)
 docker-compose.override.yml
+
+# Generated from public/privacy-policy.template.html by scripts/generate-static-pages.mjs
+/public/privacy-policy.html

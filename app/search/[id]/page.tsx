@@ -85,12 +85,12 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     description: 'A search in zetora.ai',
     openGraph: {
       title: title,
-      url: `https://zetora.ai/search/${id}`,
+      url: `/search/${id}`,
       description: 'A search in zetora.ai',
       siteName: 'zetora.ai',
       images: [
         {
-          url: `https://zetora.ai/api/og/chat/${id}`,
+          url: `/api/og/chat/${id}`,
           width: 1200,
           height: 630,
         },
@@ -99,20 +99,20 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     twitter: {
       card: 'summary_large_image',
       title: title,
-      url: `https://zetora.ai/search/${id}`,
+      url: `/search/${id}`,
       description: 'A search in zetora.ai',
       siteName: 'zetora.ai',
       creator: '@zetoraai',
       images: [
         {
-          url: `https://zetora.ai/api/og/chat/${id}`,
+          url: `/api/og/chat/${id}`,
           width: 1200,
           height: 630,
         },
       ],
     },
     alternates: {
-      canonical: `https://zetora.ai/search/${id}`,
+      canonical: `/search/${id}`,
     },
   } as Metadata;
 }

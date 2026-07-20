@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   openGraph: {
     title,
     description,
-    url: 'https://zetora.ai/apps',
+    url: '/apps',
     siteName: 'Zetora AI',
     type: 'website',
   },
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     creator: '@zetoraai',
   },
   alternates: {
-    canonical: 'https://zetora.ai/apps',
+    canonical: '/apps',
   },
 };
 

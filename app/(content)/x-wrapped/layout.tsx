@@ -9,10 +9,10 @@ export const metadata: Metadata = {
     description:
       'Discover your personalized year-in-review on X with AI-powered insights and beautiful visualizations.',
     type: 'website',
-    url: 'https://zetora.ai/x-wrapped',
+    url: '/x-wrapped',
     images: [
       {
-        url: 'https://zetora.ai/api/og/x-wrapped',
+        url: '/api/og/x-wrapped',
         width: 1200,
         height: 630,
         alt: 'X Wrapped 2025',
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'X Wrapped 2025',
     description: 'Get your personalized year-in-review on X',
-    images: ['https://zetora.ai/api/og/x-wrapped'],
+    images: ['/api/og/x-wrapped'],
   },
 };
 

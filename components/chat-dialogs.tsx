@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
-import { BinocularsIcon, BookOpen01Icon } from '@hugeicons/core-free-icons';
+import { BinocularsIcon } from '@hugeicons/core-free-icons';
 import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogDescription } from '@/components/ui/dialog';
 import { ChatHistoryDialog } from '@/components/chat-history-dialog';
 import { SignInPromptDialog } from '@/components/sign-in-prompt-dialog';
@@ -214,11 +214,6 @@ interface LookoutAnnouncementDialogProps {
 
 const LookoutAnnouncementDialog = React.memo(({ open, onOpenChange }: LookoutAnnouncementDialogProps) => {
   const router = useRouter();
-  const [isMac, setIsMac] = React.useState(false);
-
-  React.useEffect(() => {
-    setIsMac(navigator.platform.toUpperCase().indexOf('MAC') >= 0);
-  }, []);
 
   React.useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -227,10 +222,6 @@ const LookoutAnnouncementDialog = React.memo(({ open, onOpenChange }: LookoutAnn
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         e.preventDefault();
         router.push('/lookout');
-        onOpenChange(false);
-      } else if ((e.metaKey || e.ctrlKey) && (e.key === 'b' || e.key === 'B')) {
-        e.preventDefault();
-        router.push('/blog');
         onOpenChange(false);
       }
     };
@@ -292,31 +283,17 @@ const LookoutAnnouncementDialog = React.memo(({ open, onOpenChange }: LookoutAnn
           </div>
 
           <div className="space-y-3">
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex">
               <Button
                 onClick={() => {
                   router.push('/lookout');
                   onOpenChange(false);
                 }}
-                className="w-full sm:flex-1 group"
+                className="w-full group"
               >
                 <HugeiconsIcon icon={BinocularsIcon} size={16} color="currentColor" className="mr-2" />
                 Explore Lookout
-                <span className="sm:ml-auto text-xs font-mono hidden sm:inline opacity-60">⌘ ⏎</span>
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  router.push('/blog');
-                  onOpenChange(false);
-                }}
-                className="w-full sm:flex-1 group shadow-none"
-              >
-                <HugeiconsIcon icon={BookOpen01Icon} size={16} color="currentColor" className="mr-2" />
-                Read Blog
-                <span className="sm:ml-auto font-mono text-xs hidden sm:inline opacity-60">
-                  {isMac ? '⌘' : 'Ctrl'} B
-                </span>
+                <span className="ml-auto text-xs font-mono hidden sm:inline opacity-60">⌘ ⏎</span>
               </Button>
             </div>
 

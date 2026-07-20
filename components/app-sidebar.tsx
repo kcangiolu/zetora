@@ -9,9 +9,7 @@ import {
   SignIn,
   XLogoIcon,
   GithubLogoIcon,
-  InstagramLogoIcon,
   InfoIcon,
-  BookIcon,
   FileTextIcon,
   ShieldIcon,
   BugIcon,
@@ -324,16 +322,6 @@ function UserDropdownContent({
                 <span>About</span>
               </Link>
               <Link
-                href="/blog"
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={closeMobileSidebar}
-                className="flex items-center gap-3 px-2.5 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-accent/30 hover:text-foreground transition-colors duration-150"
-              >
-                <BookIcon size={16} weight="regular" />
-                <span>Blog</span>
-              </Link>
-              <Link
                 href="/terms"
                 onClick={closeMobileSidebar}
                 className="flex items-center gap-3 px-2.5 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-accent/30 hover:text-foreground transition-colors duration-150"
@@ -369,16 +357,6 @@ function UserDropdownContent({
               >
                 <XLogoIcon size={16} weight="regular" />
                 <span>X.com</span>
-              </a>
-              <a
-                href="https://www.instagram.com/zetora.ai"
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={closeMobileSidebar}
-                className="flex items-center gap-3 px-2.5 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-accent/30 hover:text-foreground transition-colors duration-150"
-              >
-                <InstagramLogoIcon size={16} weight="regular" />
-                <span>Instagram</span>
               </a>
               <a
                 href="https://zetora.userjot.com"
@@ -552,12 +530,6 @@ export const AppSidebar = memo(({ user, onHistoryClick, isProUser }: AppSidebarP
       href: '/about',
     },
     {
-      id: 'blog',
-      label: 'Blog',
-      icon: BookIcon,
-      href: '/blog',
-    },
-    {
       id: 'terms',
       label: 'Terms',
       icon: FileTextIcon,
@@ -692,7 +664,8 @@ export const AppSidebar = memo(({ user, onHistoryClick, isProUser }: AppSidebarP
       setShareVisibility(visibility);
       const appOrigin =
         (process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ??
-          (typeof window !== 'undefined' ? window.location.origin : '')) || 'https://zetora.ai';
+          (typeof window !== 'undefined' ? window.location.origin : '')) ||
+        'http://localhost:3000';
       const shareUrl = visibility === 'public' ? `${appOrigin}/share/${shareTarget.id}` : '';
       sileo.success({
         title: visibility === 'public' ? 'Chat shared' : 'Chat is now private',

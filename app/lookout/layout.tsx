@@ -13,12 +13,12 @@ export const metadata: Metadata = {
   openGraph: {
     title,
     description,
-    url: 'https://zetora.ai/lookout',
+    url: '/lookout',
     siteName: 'Zetora AI',
     type: 'website',
     images: [
       {
-        url: 'https://zetora.ai/lookout/opengraph-image.png',
+        url: '/lookout/opengraph-image.png',
         width: 1200,
         height: 630,
         alt: 'Zetora Lookout - Automated Search Monitoring',
@@ -29,11 +29,11 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title,
     description,
-    images: ['https://zetora.ai/lookout/twitter-image.png'],
+    images: ['/lookout/twitter-image.png'],
     creator: '@zetoraai',
   },
   alternates: {
-    canonical: 'https://zetora.ai/lookout',
+    canonical: '/lookout',
   },
 };
 

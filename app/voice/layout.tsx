@@ -10,12 +10,12 @@ export const metadata: Metadata = {
   openGraph: {
     title,
     description,
-    url: 'https://zetora.ai/voice',
+    url: '/voice',
     siteName: 'Zetora AI',
     type: 'website',
     images: [
       {
-        url: 'https://zetora.ai/voice/opengraph-image.png',
+        url: '/voice/opengraph-image.png',
         width: 1200,
         height: 630,
         alt: 'Zetora Voice - AI Voice Assistant',
@@ -26,11 +26,11 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title,
     description,
-    images: ['https://zetora.ai/voice/twitter-image.png'],
+    images: ['/voice/twitter-image.png'],
     creator: '@zetoraai',
   },
   alternates: {
-    canonical: 'https://zetora.ai/voice',
+    canonical: '/voice',
   },
 };
 

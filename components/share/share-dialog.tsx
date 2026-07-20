@@ -46,7 +46,8 @@ export function ShareDialog({
 
   const appOrigin =
     (process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ??
-      (typeof window !== 'undefined' ? window.location.origin : '')) || 'https://zetora.ai';
+      (typeof window !== 'undefined' ? window.location.origin : '')) ||
+    'http://localhost:3000';
   const shareUrl = chatId ? `${appOrigin}/share/${chatId}` : '';
 
   useEffect(() => {

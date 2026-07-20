@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   title: 'Privacy Policy',
   description: 'Zetora AI Privacy Policy — how we collect, use, and protect your personal data.',
   alternates: {
-    canonical: 'https://zetora.ai/privacy-policy',
+    canonical: '/privacy-policy',
   },
   robots: {
     index: true,

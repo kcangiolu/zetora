@@ -162,15 +162,6 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  async redirects() {
-    return [
-      {
-        source: '/blog',
-        destination: 'https://blog.zetora.ai',
-        permanent: true,
-      },
-    ];
-  },
   images: {
     qualities: [75, 100],
     // Search results can embed SVG favicons/thumbnails from anywhere, so SVG

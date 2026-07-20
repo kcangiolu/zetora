@@ -15,7 +15,7 @@ import { HapticsProvider } from '@/components/haptics-provider';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://zetora.ai'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || 'http://localhost:3000'),
   title: {
     default: 'Zetora AI - Research anything. Do anything.',
     template: '%s | Zetora AI',
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   description:
     'Zetora is an AI assistant that searches the web in depth, cites sources, and connects to 100+ apps including GitHub, Notion, and Slack.',
   openGraph: {
-    url: 'https://zetora.ai',
+    url: '/',
     siteName: 'Zetora AI',
   },
   keywords: [
@@ -86,7 +86,7 @@ export const metadata: Metadata = {
     },
   },
   alternates: {
-    canonical: 'https://zetora.ai',
+    canonical: '/',
   },
 };
 

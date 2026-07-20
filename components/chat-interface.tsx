@@ -175,7 +175,10 @@ const ChatInterface = memo(
     useEffect(() => {
       setVisionEnabled(hasVisionSupport(selectedModel));
     }, [selectedModel]);
-    const [defaultGroupPreference] = useSyncedPreferences<SearchGroupId>('zetora-default-group', 'auto' as SearchGroupId);
+    const [defaultGroupPreference] = useSyncedPreferences<SearchGroupId>(
+      'zetora-default-group',
+      'auto' as SearchGroupId,
+    );
     const initialGroupDefault = (
       groupParam ? (groupParam as unknown as SearchGroupId) : defaultGroupPreference
     ) as SearchGroupId;
@@ -1161,7 +1164,8 @@ const ChatInterface = memo(
 
             const appOrigin =
               (process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ??
-                (typeof window !== 'undefined' ? window.location.origin : '')) || 'https://zetora.ai';
+                (typeof window !== 'undefined' ? window.location.origin : '')) ||
+              'http://localhost:3000';
             const shareUrl = visibility === 'public' ? `${appOrigin}/share/${chatId}` : '';
             sileo.success({
               title: `Chat is now ${visibility}`,

@@ -108,7 +108,7 @@ function getBaseUrl() {
   if (process.env.NODE_ENV === 'development') {
     return process.env.NGROK_URL || 'http://localhost:3000';
   }
-  return 'https://zetora.ai';
+  return process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || 'http://localhost:3000';
 }
 
 export async function createConnection(provider: ConnectorProvider, userId: string) {

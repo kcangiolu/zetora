@@ -133,7 +133,8 @@ const FILE_TYPE_MAP: Record<string, { typeLabel: string; icon: LucideIcon }> = {
 
 function parseUrlLike(href: string): URL | null {
   try {
-    if (href.startsWith('/')) return new URL(href, 'https://zetora.ai');
+    if (href.startsWith('/'))
+      return new URL(href, process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || 'http://localhost:3000');
     return new URL(href);
   } catch {
     return null;

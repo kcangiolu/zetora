@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/generate-static-pages.mjs",
     "dev": "next dev",
+    "prebuild": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/generate-static-pages.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
