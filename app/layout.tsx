@@ -71,7 +71,7 @@ export const metadata: Metadata = {
     'AI Search Engine',
     'mplx.run',
     'mplx ai',
-    'kenny cangiolu',
+    'flowinit',
     'zetora.how',
     'search engine',
     'AI',

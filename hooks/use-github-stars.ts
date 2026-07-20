@@ -11,7 +11,7 @@ export function useGitHubStars() {
     queryKey: ['github-stars'],
     queryFn: async (): Promise<number | null> => {
       try {
-        const response = await fetch('https://api.github.com/repos/kennycangiolu/zetora');
+        const response = await fetch('https://api.github.com/repos/kcangiolu/zetora');
         if (!response.ok) {
           throw new Error('Failed to fetch GitHub stars');
         }

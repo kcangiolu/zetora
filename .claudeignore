@@ -1,5 +1,5 @@
 # =============================================================================
-# .claudeignore — kennycangiolu/zetora
+# .claudeignore — kcangiolu/zetora
 # Projet : Next.js 14+ (App Router) + TypeScript + Tailwind + Vercel AI SDK
 # But    : Réduire la consommation de tokens Claude Code en ignorant tout
 #          ce qui n'est pas du code source ou de la config lisible.

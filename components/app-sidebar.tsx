@@ -369,7 +369,7 @@ function UserDropdownContent({
                 <span>Feedback</span>
               </a>
               <a
-                href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fkennycangiolu%2Fzetora"
+                href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fkcangiolu%2Fzetora"
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={closeMobileSidebar}
