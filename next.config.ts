@@ -1,10 +1,29 @@
 import type { NextConfig } from 'next';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createJiti } from 'jiti';
 
 const jiti = createJiti(fileURLToPath(import.meta.url));
 
 jiti.import('./env/server.ts');
+
+// Resolves `@extensions/register` to a private overlay's agent/register.ts
+// when one is checked out on disk (see AGENT.md §2.3, never present in this
+// repo), or to the public no-op fallback otherwise. A statically-analyzable
+// `import('agent/register')` would break the build whenever the overlay is
+// absent — this alias keeps the specifier constant and resolves the target
+// at config-eval time instead.
+//
+// Turbopack's resolveAlias rejects a leading-slash absolute path as
+// "server relative" (unimplemented) — it wants one relative to this file —
+// while webpack's resolve.alias wants an absolute path. Same existsSync
+// check, two representations of the target.
+const agentRegisterPath = fileURLToPath(new URL('./agent/register.ts', import.meta.url));
+const hasAgentOverlay = existsSync(agentRegisterPath);
+const extensionsRegisterPathRelative = hasAgentOverlay ? './agent/register.ts' : './lib/extensions-noop.ts';
+const extensionsRegisterPathAbsolute = hasAgentOverlay
+  ? agentRegisterPath
+  : fileURLToPath(new URL('./lib/extensions-noop.ts', import.meta.url));
 
 const nextConfig: NextConfig = {
   // Required by the Dockerfile's runner stage, which copies .next/standalone
@@ -30,6 +49,7 @@ const nextConfig: NextConfig = {
     resolveAlias: {
       '#default-font': '@mathjax/mathjax-newcm-font/mjs',
       '#default-font/*': '@mathjax/mathjax-newcm-font/mjs/*',
+      '@extensions/register': extensionsRegisterPathRelative,
     },
     resolveExtensions: ['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs', '.json'],
   },
@@ -103,6 +123,7 @@ const nextConfig: NextConfig = {
     config.resolve.alias = config.resolve.alias || {};
     config.resolve.alias['#default-font'] = '@mathjax/mathjax-newcm-font/mjs';
     config.resolve.alias['#default-font/*'] = '@mathjax/mathjax-newcm-font/mjs/*';
+    config.resolve.alias['@extensions/register'] = extensionsRegisterPathAbsolute;
 
     // Ensure proper module resolution for MathJax ESM modules
     if (isServer) {

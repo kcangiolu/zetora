@@ -1,5 +1,11 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "lib/extensions.ts",
+    "lib/extensions-noop.ts",
+    "components/extension-slot.tsx",
+    "lib/services/bullmq.ts"
+  ],
   "ignore": ["public/pcm-processor-worklet.js", "scripts/migrate.js", "components/ui/**"],
   "ignoreBinaries": ["vc"],
   "ignoreDependencies": ["postcss-load-config"]
