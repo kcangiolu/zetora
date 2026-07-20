@@ -215,13 +215,11 @@ async function handleSubscriptionWebhook(payload: any, status: string) {
   }
 }
 
-// Origins allowed for auth flows. The upstream defaults are kept for the
-// hosted deployment, plus this instance's own URLs from env so a self-hosted
+// Origins allowed for auth flows, driven entirely by env so a self-hosted
 // fork works without editing this file. ALLOWED_ORIGINS is an optional
 // comma-separated list for any additional domains.
 const configuredOrigins = [
   'http://localhost:3000',
-  'https://zetora.example.com',
   process.env.NEXT_PUBLIC_APP_URL,
   process.env.BETTER_AUTH_BASE_URL,
   ...(process.env.ALLOWED_ORIGINS?.split(',').map((o) => o.trim()) ?? []),

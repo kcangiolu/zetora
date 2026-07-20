@@ -59,5 +59,9 @@ video/node_modules
 # Local-only compose override (WSL libcuda fix, machine-specific)
 docker-compose.override.yml
 
+# Private registry image tags — mirrored manually to prod hosts, same as
+# .env (see docker-compose.yml header comment).
+docker-compose.internal.yml
+
 # Generated from public/privacy-policy.template.html by scripts/generate-static-pages.mjs
 /public/privacy-policy.html

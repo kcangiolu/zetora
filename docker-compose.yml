@@ -3,12 +3,17 @@
 #
 # Pull-only, on purpose: no service here has a `build:` section. Custom
 # images (zetora-app, zetora-migrate, graphiti-*, presidio-api, zetora-tts,
-# stt-service, s2s-service) are built and published by
-# .gitea/workflows/docker.yml, not by this file. A prod host that only has
-# this compose file deployed (e.g. Unraid's Compose Manager) doesn't have
-# the source subdirectories (./s2s-service, ./graphiti-service, ...) that a
-# `build:` context would need — always `docker compose pull` before
-# `up -d` so Compose never falls back to trying to build one locally.
+# stt-service, s2s-service) are referenced via ${ZETORA_*_IMAGE} vars with a
+# generic `:local` fallback — this file alone doesn't point at any specific
+# registry. Kenny's own deployment supplies the real private-registry tags
+# via docker-compose.internal.yml (not published here — see
+# docker-compose.internal.yml.example if present) with:
+#   docker compose -f docker-compose.yml -f docker-compose.internal.yml pull/up
+# A prod host that only has this compose file deployed (e.g. Unraid's
+# Compose Manager) doesn't have the source subdirectories
+# (./s2s-service, ./graphiti-service, ...) that a `build:` context would
+# need — always `docker compose pull` before `up -d` so Compose never falls
+# back to trying to build one locally.
 #
 # Usage:
 #   1. Copy .env.example to .env and fill in the required values.
@@ -62,7 +67,7 @@ services:
   # Exits cleanly after completion; zetora.app waits for it before starting.
   # ---------------------------------------------------------------------------
   db-migrate:
-    image: registry.example.com/kcangiolu/zetora-migrate:latest
+    image: ${ZETORA_MIGRATE_IMAGE:-zetora-migrate:local}
     container_name: zetora-db-migrate
     env_file:
       - .env
@@ -85,7 +90,7 @@ services:
     # purpose (see the header comment). Images are built by
     # .gitea/workflows/docker.yml; the NEXT_PUBLIC_* build-args that used to
     # live here now live in that workflow's build-args instead.
-    image: registry.example.com/kcangiolu/zetora-app:latest
+    image: ${ZETORA_APP_IMAGE:-zetora-app:local}
     container_name: zetora-app
     ports:
       # NOT loopback-restricted, same reasoning as minio/s2s-service above:
@@ -279,7 +284,7 @@ services:
       until (/usr/bin/mc alias set zetora http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD}) do echo '...waiting...' && sleep 1; done;
       /usr/bin/mc mb zetora/zetora-uploads --ignore-existing;
       /usr/bin/mc anonymous set public zetora/zetora-uploads;
-      printf '%s' '{\"CORSRules\":[{\"AllowedOrigin\":[\"${ALLOWED_ORIGINS:-https://zetora.example.com}\"],\"AllowedMethod\":[\"GET\",\"PUT\",\"HEAD\"],\"AllowedHeader\":[\"*\"]}]}' > /tmp/cors.json;
+      printf '%s' '{\"CORSRules\":[{\"AllowedOrigin\":[\"${ALLOWED_ORIGINS:-https://your-domain.example}\"],\"AllowedMethod\":[\"GET\",\"PUT\",\"HEAD\"],\"AllowedHeader\":[\"*\"]}]}' > /tmp/cors.json;
       /usr/bin/mc cors set zetora/zetora-uploads /tmp/cors.json || true;
       exit 0;
       "
@@ -551,7 +556,7 @@ services:
     restart: unless-stopped
 
   graphiti-api:
-    image: registry.example.com/kcangiolu/zetora-graphiti-api:latest
+    image: ${ZETORA_GRAPHITI_API_IMAGE:-zetora-graphiti-api:local}
     container_name: zetora-graphiti-api
     ports:
       - '127.0.0.1:8001:8001'
@@ -591,7 +596,7 @@ services:
     restart: unless-stopped
 
   graphiti-mcp:
-    image: registry.example.com/kcangiolu/zetora-graphiti-mcp:latest
+    image: ${ZETORA_GRAPHITI_MCP_IMAGE:-zetora-graphiti-mcp:local}
     container_name: zetora-graphiti-mcp
     ports:
       - '127.0.0.1:8002:8002'
@@ -628,7 +633,7 @@ services:
   # Anonymizer (PII detection for the activatable anonymization layer)
   # ---------------------------------------------------------------------------
   presidio-api:
-    image: registry.example.com/kcangiolu/zetora-presidio-api:latest
+    image: ${ZETORA_PRESIDIO_API_IMAGE:-zetora-presidio-api:local}
     container_name: zetora-presidio-api
     ports:
       - '127.0.0.1:8004:8000'
@@ -717,7 +722,7 @@ services:
     #   docker compose --profile tts up -d qwen3-tts
     # Or set COMPOSE_PROFILES=tts in .env to keep it resident like before.
     profiles: ['tts']
-    image: registry.example.com/kcangiolu/zetora-tts:latest
+    image: ${ZETORA_TTS_IMAGE:-zetora-tts:local}
     container_name: zetora-qwen3-tts
     runtime: nvidia
     ports:
@@ -769,7 +774,7 @@ services:
   # languages incl. French, ~5% WER) and smaller than Whisper medium.
   # ---------------------------------------------------------------------------
   stt-service:
-    image: registry.example.com/kcangiolu/zetora-stt:latest
+    image: ${ZETORA_STT_IMAGE:-zetora-stt:local}
     container_name: zetora-stt
     runtime: nvidia
     ports:
@@ -798,7 +803,7 @@ services:
   # s2s-service/server.py and the voice s2s plan for the full design.
   # ---------------------------------------------------------------------------
   s2s-service:
-    image: registry.example.com/kcangiolu/zetora-s2s:latest
+    image: ${ZETORA_S2S_IMAGE:-zetora-s2s:local}
     container_name: zetora-s2s
     ports:
       # NOT loopback-restricted: the browser connects to this over
