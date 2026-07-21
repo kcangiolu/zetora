@@ -482,16 +482,21 @@ export async function POST(req: Request) {
 
   const stream = createUIMessageStream<ChatMessage>({
     execute: async ({ writer: dataStream }) => {
-      let mcpDynamicTools: Record<string, any> = {};
-      let closeMcpTools = async () => {};
+      const mcpDynamicTools: Record<string, any> = {};
+      let dynamicToolNames: string[] = [];
+      const closeDynamicToolsFns: Array<() => Promise<void>> = [];
       let mcpToolsClosed = false;
 
       const closeMcpToolsSafe = async () => {
         if (mcpToolsClosed) return;
         mcpToolsClosed = true;
-        await closeMcpTools().catch((error) => {
-          log.warn('Failed closing MCP clients:', error);
-        });
+        await Promise.all(
+          closeDynamicToolsFns.map((closeFn) =>
+            closeFn().catch((error) => {
+              log.warn('Failed closing MCP clients:', error);
+            }),
+          ),
+        );
       };
 
       const shouldLoadMcpTools = Boolean(lightweightUser?.isProUser && specialMode === 'mcp');
@@ -502,16 +507,31 @@ export async function POST(req: Request) {
           userId: lightweightUser.userId,
           dataStream,
         });
-        mcpDynamicTools = resolvedMcp.tools;
-        closeMcpTools = resolvedMcp.closeAll;
+        Object.assign(mcpDynamicTools, resolvedMcp.tools);
+        dynamicToolNames = [...dynamicToolNames, ...Object.keys(resolvedMcp.tools)];
+        closeDynamicToolsFns.push(resolvedMcp.closeAll);
 
         if (resolvedMcp.errors.length > 0) {
           log.warn('MCP tool loading errors:', resolvedMcp.errors);
         }
       }
 
-      const dynamicMcpToolNames = Object.keys(mcpDynamicTools);
-      const configuredActiveTools = [...activeTools, ...(specialMode === 'mcp' ? dynamicMcpToolNames : [])];
+      // A registered extension mode (see lib/search/extension-modes.ts) may
+      // contribute its own dynamically-resolved tools — e.g. the private
+      // agent overlay's coordinator connecting to internal infra MCP
+      // servers. Generic here: the core has no idea what these tools are.
+      const resolveDynamicTools = getExtensionMode(specialMode)?.resolveDynamicTools;
+      if (resolveDynamicTools && lightweightUser) {
+        const resolved = await resolveDynamicTools({
+          userId: lightweightUser.userId,
+          dataStream,
+        });
+        Object.assign(mcpDynamicTools, resolved.tools);
+        dynamicToolNames = [...dynamicToolNames, ...resolved.toolNames];
+        closeDynamicToolsFns.push(resolved.closeAll);
+      }
+
+      const configuredActiveTools = [...activeTools, ...dynamicToolNames];
       const streamActiveTools =
         model === 'zetora-qwen-coder-plus' || model === 'zetora-qwen-3-vl' || model === 'zetora-qwen-3-vl-thinking'
           ? [...configuredActiveTools].filter((tool) => tool !== 'code_interpreter')
@@ -528,7 +548,7 @@ export async function POST(req: Request) {
         searchProvider,
         timezone,
         contextFiles,
-        includeMcpTools: specialMode === 'mcp',
+        includeMcpTools: dynamicToolNames.length > 0,
         mcpDynamicTools,
         lightweightUser,
         selectedConnectors,

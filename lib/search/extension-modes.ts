@@ -1,4 +1,6 @@
 import 'server-only';
+import type { UIMessageStreamWriter } from 'ai';
+import type { ChatMessage } from '@/lib/types';
 
 // Server-side registry an extension (see lib/extensions.ts, AGENT.md §2.3 if
 // you have the private overlay checked out) populates via register() to add
@@ -10,6 +12,16 @@ export interface ExtensionModeServerConfig {
   id: string;
   instructions: string;
   tools: readonly string[];
+  // Optional per-request hook: a mode may contribute tools resolved
+  // dynamically (e.g. connections to remote tool servers) beyond its static
+  // `tools` list above. Called once after auth in app/api/search/route.ts;
+  // returned toolNames are armed like any other active tool, and closeAll()
+  // is chained into the request's existing MCP cleanup path. The core has no
+  // idea what these tools are or where they come from.
+  resolveDynamicTools?: (ctx: {
+    userId: string;
+    dataStream: UIMessageStreamWriter<ChatMessage>;
+  }) => Promise<{ tools: Record<string, unknown>; toolNames: string[]; closeAll: () => Promise<void> }>;
   // Hard step bound for this mode's streamText loop — defaults applied by
   // the caller (getStreamTextStaticSettings) when unset.
   stepCount?: number;
