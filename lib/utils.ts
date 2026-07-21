@@ -161,7 +161,7 @@ export function getSearchGroups(searchProvider: SearchProvider = 'exa') {
     },
     {
       id: 'multi-agent' as const,
-      name: 'Multi-agent',
+      name: 'Swarm',
       description: 'High-agency research with xAI web and X search plus grouped sources',
       icon: AgentNetworkIcon,
       show: true,

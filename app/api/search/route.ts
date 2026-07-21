@@ -52,6 +52,7 @@ import { getBetterAllOptions } from '@/lib/better-all';
 import { markdownJoinerTransform } from '@/lib/parser';
 import { ChatMessage } from '@/lib/types';
 import { getGroupConfig } from '@/lib/search/group-config';
+import { getExtensionMode, getExtensionModeIds } from '@/lib/search/extension-modes';
 import type { SpecialModeId } from '@/lib/utils';
 import { filterActiveTools, getEnabledSkillIds } from '@/lib/search/tool-filter';
 import {
@@ -118,8 +119,13 @@ export async function POST(req: Request) {
   // purpose modes, 'auto', or absent) falls through to the base Sources+
   // Skills path.
   const SPECIAL_MODE_IDS = new Set(['memory', 'connectors', 'mcp', 'multi-agent', 'buddy', 'canvas']);
-  const specialMode =
-    typeof group === 'string' && SPECIAL_MODE_IDS.has(group) ? (group as SpecialModeId | 'buddy') : undefined;
+  // Extension-registered modes (lib/search/extension-modes.ts) are exclusive
+  // in the same sense as the hardcoded ids above — populated by loadExtensions()
+  // at boot (instrumentation.ts), empty when no overlay is checked out.
+  const specialMode: SpecialModeId | 'buddy' | string | undefined =
+    typeof group === 'string' && (SPECIAL_MODE_IDS.has(group) || getExtensionModeIds().includes(group))
+      ? group
+      : undefined;
 
   if (!Array.isArray(requestMessages) || requestMessages.length === 0) {
     return new ChatSDKError('bad_request:api', 'Messages array is required and cannot be empty').toResponse();
@@ -527,6 +533,7 @@ export async function POST(req: Request) {
         lightweightUser,
         selectedConnectors,
         memoryProvider:
+          getExtensionMode(specialMode)?.memoryProvider ||
           (userPreferencesResult?.preferences?.['zetora-memory-provider'] as 'supermemory' | 'graphiti' | undefined) ||
           'supermemory',
         userPreferences: (userPreferencesResult?.preferences ?? {}) as Record<string, unknown>,
@@ -776,6 +783,7 @@ export async function POST(req: Request) {
             latestStepHasToolRoundTrip,
             streamActiveTools,
             baseSystem,
+            keepToolsArmed: getExtensionMode(specialMode)?.keepToolsArmed,
           });
         },
 

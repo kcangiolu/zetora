@@ -3,6 +3,7 @@ import 'server-only';
 import type { ComprehensiveUserData } from '@/lib/user-data-server';
 import { getComprehensiveUserData } from '@/lib/user-data-server';
 import type { SpecialModeId } from '@/lib/utils';
+import { getExtensionMode } from './extension-modes';
 
 import * as autoGroup from './groups/auto';
 import * as memoryGroup from './groups/memory';
@@ -12,6 +13,8 @@ import * as multi_agentGroup from './groups/multi-agent';
 import * as buddyGroup from './groups/buddy';
 import * as canvasGroup from './groups/canvas';
 
+// Legacy hardcoded modes, plus (as a plain string) any id an extension
+// registered at boot via registerExtensionMode (lib/search/extension-modes.ts).
 type LegacySpecialModeId = SpecialModeId | 'buddy';
 
 // Sources (web, code, academic, reddit, ...) are no longer individual
@@ -49,7 +52,7 @@ export function getBaseConfig() {
 }
 
 export async function getGroupConfig(
-  specialMode: LegacySpecialModeId | undefined,
+  specialMode: LegacySpecialModeId | string | undefined,
   lightweightUser?: { userId: string; email: string; isProUser: boolean } | null,
   fullUserPromise?: Promise<ComprehensiveUserData | null>,
 ) {
@@ -57,7 +60,29 @@ export async function getGroupConfig(
     return getBaseConfig();
   }
 
-  let resolvedMode: LegacySpecialModeId | null = specialMode;
+  const extensionMode = getExtensionMode(specialMode);
+  if (extensionMode) {
+    const requireAuth = extensionMode.requireAuth !== false;
+
+    if (!lightweightUser) {
+      const user = fullUserPromise ? await fullUserPromise : await getComprehensiveUserData();
+      if (!user) {
+        if (requireAuth) return getBaseConfig();
+      } else if (extensionMode.requirePro && !user.isProUser) {
+        return getBaseConfig();
+      }
+    } else if (extensionMode.requirePro && !lightweightUser.isProUser) {
+      return getBaseConfig();
+    }
+
+    return { tools: extensionMode.tools, instructions: extensionMode.instructions };
+  }
+
+  if (!(specialMode in specialGroups)) {
+    return getBaseConfig();
+  }
+
+  let resolvedMode: LegacySpecialModeId | null = specialMode as LegacySpecialModeId;
 
   const requiresPro = specialMode === 'connectors' || specialMode === 'mcp' || specialMode === 'multi-agent' || specialMode === 'canvas';
 

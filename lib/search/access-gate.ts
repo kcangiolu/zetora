@@ -11,7 +11,9 @@ export function checkModelAccess({
 }: {
   lightweightUser: { isProUser?: boolean; isMaxUser?: boolean } | null;
   model: string;
-  specialMode: SpecialModeId | 'buddy' | undefined;
+  // string covers extension-mode ids (lib/search/extension-modes.ts) as well
+  // as the hardcoded SpecialModeId/'buddy' modes.
+  specialMode: SpecialModeId | 'buddy' | string | undefined;
 }): ChatSDKError | null {
   if (!lightweightUser) {
     if (requiresAuthentication(model)) {

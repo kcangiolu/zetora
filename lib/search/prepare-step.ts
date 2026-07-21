@@ -22,6 +22,10 @@ export interface PrepareStepInput {
   latestStepHasToolRoundTrip: boolean;
   streamActiveTools: string[];
   baseSystem: string;
+  // Set by the caller when `group` is a registered extension mode
+  // (lib/search/extension-modes.ts) with keepToolsArmed: true — behaves
+  // like the 'auto' branch below instead of draining after one tool round.
+  keepToolsArmed?: boolean;
 }
 
 export interface PrepareStepOverride {
@@ -38,6 +42,7 @@ export function resolvePrepareStepOverride({
   latestStepHasToolRoundTrip,
   streamActiveTools,
   baseSystem,
+  keepToolsArmed,
 }: PrepareStepInput): PrepareStepOverride | undefined {
   // MCP mode and xAI multi-agent mode: keep tools available across steps.
   if (group === 'mcp' || shouldUseXaiMultiAgent) {
@@ -49,10 +54,11 @@ export function resolvePrepareStepOverride({
       : undefined;
   }
 
-  // Auto mode: the model loads a skill via a tool call and then keeps
-  // researching with it — never drain activeTools mid-run like the
-  // single-tool-round-then-synthesize modes below.
-  if (group === 'auto') {
+  // Auto mode (and any extension mode opting into keepToolsArmed): the model
+  // loads a skill/tool via a tool call and then keeps researching with it —
+  // never drain activeTools mid-run like the single-tool-round-then-
+  // synthesize modes below.
+  if (group === 'auto' || keepToolsArmed) {
     return {
       toolChoice: 'auto' as const,
       activeTools: streamActiveTools,

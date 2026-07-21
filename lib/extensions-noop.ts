@@ -1,17 +1,28 @@
-// Fallback for `@extensions/register` when no private overlay is checked out
-// (see next.config.ts's fs.existsSync-based alias). An overlay's
-// `agent/register.ts` must export this same shape, called from two
-// different bundles:
+// Shared fallback for BOTH `@extensions/register` and
+// `@extensions/register-client` when no private overlay is checked out (see
+// next.config.ts's fs.existsSync-based aliases) — safe as the fallback for
+// both since it's empty either way. A real overlay must implement register()
+// in agent/register.ts and registerClient() in agent/register-client.ts —
+// TWO SEPARATE FILES, not one exporting both:
 //
-// - register()       — server only, called once from instrumentation.ts.
-//   Wire up lib/services/bullmq.ts's registerJobHandler() here.
-// - registerClient()  — client only, called from
-//   components/extension-slot.tsx on mount. Wire up UI slot components here.
+// - register()       — server only, called once from instrumentation.ts via
+//   lib/extensions.ts. Wire up lib/services/bullmq.ts's registerJobHandler()
+//   here.
+// - registerClient()  — client only, called on mount via
+//   lib/extension-modes-client.ts / components/extension-slot.tsx. Wire up
+//   UI slot components / extension-mode UI descriptors here.
 //
-// Keep each function's actual imports *inside* its body (dynamic `import()`),
-// not at module top level — a top-level `import ... from 'bullmq'` (or any
-// other Node-only package) would break when this same file is bundled for
-// the client by registerClient()'s caller, and vice versa for browser-only
+// Next's RSC boundary check traces through dynamic import() calls, not just
+// static ones — a single module reachable from both a server call site and
+// a client call site gets its *whole* import graph (including anything a
+// dynamically-imported dependency pulls in) checked for 'server-only'
+// leaking into the client bundle. One file with both functions will build
+// fine as long as it's empty (like this one) but breaks the moment register()
+// dynamically imports anything with a top-level `import 'server-only'` —
+// hence two physical files upstream. Keep each function's actual imports
+// *inside* its body (dynamic `import()`) regardless — a top-level
+// `import ... from 'bullmq'` (or any other Node-only package) would still
+// break register-client.ts's client bundle, and vice versa for browser-only
 // imports reaching the server bundle.
 export async function register(): Promise<void> {
   // No extensions installed — intentionally empty.

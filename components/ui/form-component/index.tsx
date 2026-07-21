@@ -62,6 +62,13 @@ import { type ConnectorProvider } from '@/lib/connectors';
 import { useQueryClient } from '@tanstack/react-query';
 import { useWebHaptics } from 'web-haptics/react';
 import { ModelSwitcher, FlexibleIcon, ProBadge } from './model-switcher';
+import {
+  getExtensionModeUIs,
+  subscribeExtensionModeUIs,
+  loadClientExtensions,
+  type ExtensionModeUIDescriptor,
+} from '@/lib/extension-modes-client';
+import { useModeAccentStyle, ModeAccentSpread } from '@/components/mode-accent';
 import { ConnectorSelector } from './connector-selector';
 import { McpServerSelector } from './mcp-server-selector';
 import {
@@ -151,7 +158,7 @@ const WEB_SEARCH_PROVIDERS: Array<{
 
 // The 11 single-purpose search tools that are now always-on, filtered by the
 // zetora-enabled-sources preference, instead of an exclusive mode you had to
-// pick. Memory/Connectors/Apps/Multi-agent/Canvas stay exclusive per-message
+// pick. Memory/Connectors/Apps/Swarm/Canvas stay exclusive per-message
 // toggles (see VALID_SPECIAL_MODES) since they replace the whole tool set
 // (or, for Canvas, the whole response pipeline) rather than just adding one.
 const SOURCE_CATALOG_IDS = [
@@ -168,7 +175,9 @@ const SOURCE_CATALOG_IDS = [
   'spotify',
 ] as const;
 
-const VALID_SPECIAL_MODES = new Set<string>(['auto', 'memory', 'connectors', 'mcp', 'multi-agent', 'canvas']);
+// Extension-registered modes (lib/extension-modes-client.ts) are added to
+// this set at runtime once loaded — see extensionModeUIs below.
+const BASE_VALID_SPECIAL_MODES = new Set<string>(['auto', 'memory', 'connectors', 'mcp', 'multi-agent', 'canvas']);
 
 const FormComponent: React.FC<FormComponentProps> = ({
   chatId,
@@ -283,9 +292,49 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
   const hasInteracted = useMemo(() => messages.length > 0, [messages.length]);
 
+  // Extension-registered chat modes (lib/extension-modes-client.ts) — empty
+  // until an overlay's registerClient() runs (or forever, with no overlay
+  // checked out). extensionModesReady gates the stale-localStorage cleanup
+  // effect below so it doesn't race the async @extensions/register import.
+  const [extensionModeUIs, setExtensionModeUIs] = useState<ExtensionModeUIDescriptor[]>(() => getExtensionModeUIs());
+  const [extensionModesReady, setExtensionModesReady] = useState(false);
+  const modeAccentStyle = useModeAccentStyle(selectedGroup);
+  useEffect(() => {
+    let cancelled = false;
+    loadClientExtensions().then(() => {
+      if (!cancelled) setExtensionModesReady(true);
+    });
+    const unsubscribe = subscribeExtensionModeUIs(() => setExtensionModeUIs(getExtensionModeUIs()));
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, []);
+
   // Search groups for the plus menu
   const [searchProvider] = useSyncedPreferences<SearchProvider>('zetora-search-provider', 'exa');
-  const dynamicSearchGroups = useMemo(() => getSearchGroups(searchProvider), [searchProvider]);
+  const dynamicSearchGroups = useMemo(() => {
+    const base = getSearchGroups(searchProvider);
+    // Extension mode ids (lib/extension-modes-client.ts) aren't part of the
+    // closed SearchGroupId union — they're dynamically registered by an
+    // overlay the core knows nothing about at compile time. Cast so these
+    // entries slot into the same array/type as the hardcoded groups; every
+    // consumer here only reads id/name/description/icon/show/requireAuth/
+    // requirePro, so the structural mismatch is safe.
+    const extensionGroups = extensionModeUIs.map(
+      (descriptor) =>
+        ({
+          id: descriptor.id as SearchGroupId,
+          name: descriptor.name,
+          description: descriptor.description,
+          icon: descriptor.icon,
+          show: true,
+          ...(descriptor.requireAuth ? { requireAuth: true as const } : {}),
+          ...(descriptor.requirePro ? { requirePro: true as const } : {}),
+        }) as SearchGroup,
+    );
+    return [...base, ...extensionGroups] as SearchGroup[];
+  }, [searchProvider, extensionModeUIs]);
   const [visibleModesOuter] = useSyncedPreferences<string[]>('zetora-visible-modes', []);
   const [modeOrderOuter] = useSyncedPreferences<string[]>('zetora-group-order', []);
 
@@ -428,9 +477,10 @@ const FormComponent: React.FC<FormComponentProps> = ({
   // isn't one of the five remaining exclusive special modes falls back to
   // the base Sources+Skills path ('auto').
   useEffect(() => {
-    if (VALID_SPECIAL_MODES.has(selectedGroup)) return;
+    if (!extensionModesReady) return;
+    if (BASE_VALID_SPECIAL_MODES.has(selectedGroup) || extensionModeUIs.some((d) => d.id === selectedGroup)) return;
     setSelectedGroup('auto');
-  }, [selectedGroup, setSelectedGroup]);
+  }, [selectedGroup, setSelectedGroup, extensionModesReady, extensionModeUIs]);
 
   // Active group list based on which trigger is open
   const triggerBaseGroups = triggerPopup === '/' ? modeGroups : sourceGroups;
@@ -1286,11 +1336,12 @@ const FormComponent: React.FC<FormComponentProps> = ({
     [isProUser, user, onOpenSettings, handleGroupSelect, haptics],
   );
 
-  // Toggle one of the exclusive special modes (Memory/Connectors/Canvas) from
-  // the plus menu — click again to turn off and fall back to the base
-  // Sources+Skills path, mirroring the existing Multi-agent/Apps toggle rows.
+  // Toggle one of the exclusive special modes (Memory/Connectors/Canvas, or
+  // any extension-registered mode — see extensionModeUIs) from the plus
+  // menu — click again to turn off and fall back to the base Sources+Skills
+  // path, mirroring the existing Swarm/Apps toggle rows.
   const handleSpecialModeToggle = useCallback(
-    async (modeId: 'memory' | 'connectors' | 'canvas') => {
+    async (modeId: string) => {
       const group = dynamicSearchGroups.find((g) => g.id === modeId);
       if (!group) return;
 
@@ -1846,8 +1897,8 @@ const FormComponent: React.FC<FormComponentProps> = ({
     if (isMultiAgentModeEnabled && !isProUser) {
       haptics.trigger('warning');
       sileo.error({
-        title: 'Multi-agent research requires Pro',
-        description: 'Upgrade to Pro to use xAI multi-agent research',
+        title: 'Swarm research requires Pro',
+        description: 'Upgrade to Pro to use xAI Swarm research',
         icon: <Lock className="h-4 w-4" />,
       });
       return;
@@ -2386,7 +2437,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                             <AgentNetworkIcon width={16} height={16} />
                           </div>
                           <span className="flex-1 text-[13px] font-medium text-foreground truncate">
-                            Multi-agent mode
+                            Swarm mode
                           </span>
                           {isMultiAgentModeEnabled ? (
                             <div className="flex items-center gap-1.5 shrink-0">
@@ -2461,8 +2512,11 @@ const FormComponent: React.FC<FormComponentProps> = ({
                   attachments.length === 0 &&
                   uploadQueue.length === 0 &&
                   'rounded-b-none border-b-transparent',
+                modeAccentStyle && 'mode-accent-border',
               )}
+              style={modeAccentStyle}
             >
+              <ModeAccentSpread selectedGroup={selectedGroup} />
               {isRecording ? (
                 <Textarea
                   ref={inputRef}
@@ -2623,7 +2677,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                               }}
                             >
                               <AgentNetworkIcon width={16} height={16} />
-                              <span className="flex-1 text-[13px]">Multi-agent mode</span>
+                              <span className="flex-1 text-[13px]">Swarm mode</span>
                               {isMultiAgentModeEnabled ? (
                                 <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
                                   Active
@@ -2738,6 +2792,35 @@ const FormComponent: React.FC<FormComponentProps> = ({
                               )}
                             </button>
                           )}
+                          {extensionModeUIs.map((descriptor) => {
+                            if (descriptor.requireAuth && !user) return null;
+                            const isActive = selectedGroup === descriptor.id;
+                            return (
+                              <button
+                                key={descriptor.id}
+                                className={cn(
+                                  'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors',
+                                  isActive && 'bg-accent',
+                                )}
+                                onClick={() => handleSpecialModeToggle(descriptor.id)}
+                              >
+                                <FlexibleIcon icon={descriptor.icon} size={16} color="currentColor" strokeWidth={1.5} />
+                                <span className="flex-1 text-[13px]">{descriptor.name}</span>
+                                {isActive ? (
+                                  <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                    Active
+                                  </span>
+                                ) : (
+                                  descriptor.requirePro &&
+                                  !isProUser && (
+                                    <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                      Pro
+                                    </span>
+                                  )
+                                )}
+                              </button>
+                            );
+                          })}
                           {/* {(input.length > 0 || isEnhancing || isTypewriting) && (
                             <button className={cn('w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors', isEnhancementActive && 'bg-accent')} onClick={() => { if (!isEnhancing && !isTypewriting) handleEnhance(); setPlusMenuOpen(false); }} disabled={isEnhancing || isTypewriting || uploadQueue.length > 0 || status !== 'ready' || isLimitBlocked}>
                               {isEnhancementActive ? <GripIcon ref={gripIconRef} size={16} className="text-primary" /> : <Wand2 className="size-4 text-muted-foreground" />}
@@ -2893,7 +2976,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                                 }}
                               >
                                 <AgentNetworkIcon width={16} height={16} />
-                                <span className="flex-1 text-[13px]">Multi-agent mode</span>
+                                <span className="flex-1 text-[13px]">Swarm mode</span>
                                 {isMultiAgentModeEnabled ? (
                                   <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
                                     Active
@@ -2907,7 +2990,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                             </TooltipTrigger>
                             <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
                               <span className="text-[10px] leading-snug">
-                                Use xAI multi-agent mode with web and X tool calls plus sources
+                                Use xAI Swarm mode with web and X tool calls plus sources
                               </span>
                             </TooltipContent>
                           </Tooltip>
@@ -3045,6 +3128,41 @@ const FormComponent: React.FC<FormComponentProps> = ({
                             </TooltipContent>
                           </Tooltip>
                         )}
+                        {extensionModeUIs.map((descriptor) => {
+                          if (descriptor.requireAuth && !user) return null;
+                          const isActive = selectedGroup === descriptor.id;
+                          return (
+                            <Tooltip key={descriptor.id} delayDuration={200}>
+                              <TooltipTrigger asChild>
+                                <button
+                                  className={cn(
+                                    'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors',
+                                    isActive && 'bg-accent',
+                                  )}
+                                  onClick={() => handleSpecialModeToggle(descriptor.id)}
+                                >
+                                  <FlexibleIcon icon={descriptor.icon} size={16} color="currentColor" strokeWidth={1.5} />
+                                  <span className="flex-1 text-[13px]">{descriptor.name}</span>
+                                  {isActive ? (
+                                    <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                      Active
+                                    </span>
+                                  ) : (
+                                    descriptor.requirePro &&
+                                    !isProUser && (
+                                      <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                        Pro
+                                      </span>
+                                    )
+                                  )}
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
+                                <span className="text-[10px] leading-snug">{descriptor.description}</span>
+                              </TooltipContent>
+                            </Tooltip>
+                          );
+                        })}
                         {/* {(input.length > 0 || isEnhancing || isTypewriting) && (
                           <button className={cn('w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors', isEnhancementActive && 'bg-accent')} onClick={() => { if (!isEnhancing && !isTypewriting) handleEnhance(); setPlusMenuOpen(false); }} disabled={isEnhancing || isTypewriting || uploadQueue.length > 0 || status !== 'ready' || isLimitBlocked}>
                             {isEnhancementActive ? <GripIcon ref={gripIconRef} size={16} className="text-primary" /> : <Wand2 className="size-4 text-muted-foreground" />}
@@ -3175,12 +3293,12 @@ const FormComponent: React.FC<FormComponentProps> = ({
                                     setSelectedGroup('auto');
                                     setIsMultiAgentModeEnabled?.(false);
                                   }}
-                                  aria-label="Clear multi-agent mode"
+                                  aria-label="Clear Swarm mode"
                                 >
                                   <X className="size-3.5" strokeWidth={2} />
                                 </button>
                               </div>
-                              <span>Multi-agent Mode</span>
+                              <span>Swarm Mode</span>
                             </div>
                           </TooltipTrigger>
                           <TooltipContent

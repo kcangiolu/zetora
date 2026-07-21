@@ -191,6 +191,25 @@
   .skeleton-shimmer::after {
     animation: none !important;
   }
+
+  /* Generic "mode accent" capability (components/mode-accent.tsx) — a
+     rotating multicolor border falls back to a static one, and the one-shot
+     activation spread (purely decorative) is skipped outright. */
+  .mode-accent-border::before {
+    animation: none !important;
+    background: conic-gradient(
+      var(--accent-c1, #f97316),
+      var(--accent-c2, #ec4899),
+      var(--accent-c3, #8b5cf6),
+      var(--accent-c4, #3b82f6),
+      var(--accent-c5, #10b981),
+      var(--accent-c1, #f97316)
+    ) !important;
+  }
+
+  .mode-accent-spread {
+    display: none !important;
+  }
 }
 
 @theme {
@@ -1554,6 +1573,84 @@ body {
 
 .animate-pulse-subtle {
   animation: pulse-subtle 3s ease-in-out infinite;
+}
+
+/* Generic "mode accent" capability (components/mode-accent.tsx): an
+   extension-registered chat mode can supply a --accent-c1..c5 palette to get
+   a rotating multicolor conic-gradient border (.mode-accent-border) plus a
+   one-shot activation pulse that spreads across the chat window
+   (.mode-accent-spread). Inert without a palette — the core ships the
+   mechanism, never a specific mode's colors. See the reduced-motion
+   fallback above for the static/no-op behavior. */
+@property --mode-accent-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes mode-accent-rotate {
+  to {
+    --mode-accent-angle: 360deg;
+  }
+}
+
+@keyframes mode-accent-spread {
+  0% {
+    opacity: 0.55;
+    transform: scale(0.3);
+  }
+
+  70% {
+    opacity: 0.25;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(2.2);
+  }
+}
+
+.mode-accent-border {
+  position: relative;
+  --mode-accent-angle: 0deg;
+}
+
+.mode-accent-border::before {
+  content: '';
+  position: absolute;
+  inset: -1.5px;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--mode-accent-angle),
+    var(--accent-c1, #f97316),
+    var(--accent-c2, #ec4899),
+    var(--accent-c3, #8b5cf6),
+    var(--accent-c4, #3b82f6),
+    var(--accent-c5, #10b981),
+    var(--accent-c1, #f97316)
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: mode-accent-rotate 4s linear infinite;
+  pointer-events: none;
+}
+
+.mode-accent-spread {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--accent-c1, #f97316) 55%, transparent) 0%,
+    color-mix(in srgb, var(--accent-c3, #8b5cf6) 35%, transparent) 45%,
+    transparent 75%
+  );
+  animation: mode-accent-spread 900ms ease-out forwards;
 }
 
 /* Staggered animation delays */

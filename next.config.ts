@@ -18,12 +18,26 @@ jiti.import('./env/server.ts');
 // "server relative" (unimplemented) — it wants one relative to this file —
 // while webpack's resolve.alias wants an absolute path. Same existsSync
 // check, two representations of the target.
+//
+// Two separate specifiers/files for register() (server) vs registerClient()
+// (client), NOT one file exporting both: Next's RSC boundary check traces
+// through dynamic import() calls too, so a single module reachable from both
+// a server call site (lib/extensions.ts) and a client one
+// (lib/extension-modes-client.ts) gets its *whole* import graph — including
+// anything register() dynamically imports — checked against "no server-only
+// in a client-reachable module". lib/extensions-noop.ts is fine as the
+// shared fallback for both since it's empty either way.
 const agentRegisterPath = fileURLToPath(new URL('./agent/register.ts', import.meta.url));
+const agentRegisterClientPath = fileURLToPath(new URL('./agent/register-client.ts', import.meta.url));
+const noopPath = fileURLToPath(new URL('./lib/extensions-noop.ts', import.meta.url));
 const hasAgentOverlay = existsSync(agentRegisterPath);
+const hasAgentOverlayClient = existsSync(agentRegisterClientPath);
 const extensionsRegisterPathRelative = hasAgentOverlay ? './agent/register.ts' : './lib/extensions-noop.ts';
-const extensionsRegisterPathAbsolute = hasAgentOverlay
-  ? agentRegisterPath
-  : fileURLToPath(new URL('./lib/extensions-noop.ts', import.meta.url));
+const extensionsRegisterPathAbsolute = hasAgentOverlay ? agentRegisterPath : noopPath;
+const extensionsRegisterClientPathRelative = hasAgentOverlayClient
+  ? './agent/register-client.ts'
+  : './lib/extensions-noop.ts';
+const extensionsRegisterClientPathAbsolute = hasAgentOverlayClient ? agentRegisterClientPath : noopPath;
 
 const nextConfig: NextConfig = {
   // Required by the Dockerfile's runner stage, which copies .next/standalone
@@ -50,6 +64,7 @@ const nextConfig: NextConfig = {
       '#default-font': '@mathjax/mathjax-newcm-font/mjs',
       '#default-font/*': '@mathjax/mathjax-newcm-font/mjs/*',
       '@extensions/register': extensionsRegisterPathRelative,
+      '@extensions/register-client': extensionsRegisterClientPathRelative,
     },
     resolveExtensions: ['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs', '.json'],
   },
@@ -124,6 +139,7 @@ const nextConfig: NextConfig = {
     config.resolve.alias['#default-font'] = '@mathjax/mathjax-newcm-font/mjs';
     config.resolve.alias['#default-font/*'] = '@mathjax/mathjax-newcm-font/mjs/*';
     config.resolve.alias['@extensions/register'] = extensionsRegisterPathAbsolute;
+    config.resolve.alias['@extensions/register-client'] = extensionsRegisterClientPathAbsolute;
 
     // Ensure proper module resolution for MathJax ESM modules
     if (isServer) {

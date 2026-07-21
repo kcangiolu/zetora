@@ -11,7 +11,7 @@ export function filterActiveTools({
   sessionEnabledSources,
 }: {
   tools: readonly string[];
-  specialMode: SpecialModeId | 'buddy' | undefined;
+  specialMode: SpecialModeId | 'buddy' | string | undefined;
   isSignedIn: boolean;
   isMaxUser: boolean;
   preferences: Record<string, unknown> | undefined;
