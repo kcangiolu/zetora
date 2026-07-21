@@ -52,3 +52,27 @@ export function getExtensionMode(id: string | undefined): ExtensionModeServerCon
 export function getExtensionModeIds(): string[] {
   return [...registry.keys()];
 }
+
+// instrumentation.ts's register() call populates *a* copy of this module's
+// registry at boot — but Next.js/Turbopack doesn't guarantee route handlers
+// (app/api/**/route.ts) share that exact module instance with
+// instrumentation.ts's own module graph, so a registration made there can be
+// invisible here (observed in production: registerExtensionMode('agent')
+// ran successfully — its BullMQ job-scheduler side effects exist in Redis —
+// yet getExtensionModeIds() read from app/api/search/route.ts came back
+// empty). Top-level await self-heals per module instance: whichever copy of
+// this file a given entry point ends up with loads extensions itself before
+// any importer can call the functions above, since ES module evaluation
+// (including its own top-level awaits) always completes before dependents
+// can run. lib/extensions.ts's own `loaded` guard keeps this idempotent
+// within a single instance; harmless if it also runs redundantly in others.
+//
+// Skipped during `next build`'s static phase (NEXT_PHASE, set by Next.js
+// itself): register() can reach into BullMQ/Redis (agent/register.ts),
+// infrastructure that isn't and shouldn't be available at build time —
+// running it there hung the build. Runtime is the only phase this needs to
+// self-heal for anyway.
+if (process.env.EXTENSIONS_ENABLED === 'true' && process.env.NEXT_PHASE !== 'phase-production-build') {
+  const { loadExtensions } = await import('@/lib/extensions');
+  await loadExtensions();
+}
