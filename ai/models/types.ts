@@ -75,10 +75,7 @@ export interface Model {
   vision: boolean;
   reasoning: boolean;
   experimental: boolean;
-  category: string;
   pdf: boolean;
-  pro: boolean;
-  max?: boolean; // Requires Max plan (superset of Pro)
   requiresAuth: boolean;
   freeUnlimited: boolean;
   maxOutputTokens: number;

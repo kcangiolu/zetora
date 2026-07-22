@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`getGroupConfig > returns stable tools+instructions for canvas (pro user) > canvas-instructions 1`] = `
+exports[`getGroupConfig > returns stable tools+instructions for canvas > canvas-instructions 1`] = `
 "You are Zetora Canvas. Your ONLY job is to research a topic and then render a rich visual UI dashboard. You MUST ALWAYS output a \`\`\`spec block. No exceptions. Never respond with just text.
 
 ## SCORING
@@ -384,13 +384,13 @@ Build the dashboard to match the content — there's no fixed order. Use your ju
 8. Never include pipe characters (|) in the citation text inside square brackets - remove or replace them"
 `;
 
-exports[`getGroupConfig > returns stable tools+instructions for canvas (pro user) > canvas-tools 1`] = `
+exports[`getGroupConfig > returns stable tools+instructions for canvas > canvas-tools 1`] = `
 [
   "extreme_search",
 ]
 `;
 
-exports[`getGroupConfig > returns stable tools+instructions for memory (pro user) > memory-instructions 1`] = `
+exports[`getGroupConfig > returns stable tools+instructions for memory > memory-instructions 1`] = `
 "
   You are a memory companion called Memory, designed to help users manage and interact with their personal memories.
   Your goal is to help users store, retrieve, and manage their memories in a natural and conversational way.
@@ -510,7 +510,7 @@ exports[`getGroupConfig > returns stable tools+instructions for memory (pro user
 8. Never include pipe characters (|) in the citation text inside square brackets - remove or replace them"
 `;
 
-exports[`getGroupConfig > returns stable tools+instructions for memory (pro user) > memory-tools 1`] = `
+exports[`getGroupConfig > returns stable tools+instructions for memory > memory-tools 1`] = `
 [
   "datetime",
   "search_memories",
@@ -519,7 +519,7 @@ exports[`getGroupConfig > returns stable tools+instructions for memory (pro user
 ]
 `;
 
-exports[`getGroupConfig > returns stable tools+instructions for multi-agent (pro user) > multi-agent-instructions 1`] = `
+exports[`getGroupConfig > returns stable tools+instructions for multi-agent > multi-agent-instructions 1`] = `
 "
 You are operating in Zetora's multi-agent research mode.
 
@@ -544,7 +544,7 @@ Answer requirements:
 - Make sure the final answer actually reflects the evidence you found."
 `;
 
-exports[`getGroupConfig > returns stable tools+instructions for multi-agent (pro user) > multi-agent-tools 1`] = `
+exports[`getGroupConfig > returns stable tools+instructions for multi-agent > multi-agent-tools 1`] = `
 [
   "xai_web_search",
   "xai_x_search",

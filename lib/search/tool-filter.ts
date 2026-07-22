@@ -5,30 +5,18 @@ import type { SkillId, SpecialModeId } from '@/lib/utils';
 export function filterActiveTools({
   tools,
   specialMode,
-  isSignedIn,
-  isMaxUser,
   preferences,
   sessionEnabledSources,
 }: {
   tools: readonly string[];
   specialMode: SpecialModeId | 'buddy' | string | undefined;
-  isSignedIn: boolean;
-  isMaxUser: boolean;
   preferences: Record<string, unknown> | undefined;
   sessionEnabledSources: unknown;
 }): string[] {
   let activeTools = [...tools];
 
-  // Image generation/editing are Max-only — strip them for everyone else,
-  // regardless of which mode/group surfaced them.
-  if (!isMaxUser) {
-    activeTools = activeTools.filter((toolName) => toolName !== 'generate_image' && toolName !== 'edit_image');
-  }
-
   // Base Sources+Skills path (no exclusive special mode): narrow the bundled
-  // tool set to what the user actually enabled, and never offer extreme_search
-  // to signed-out users (it used to require the 'extreme' group's requireAuth
-  // gate; that gate now lives here since extreme_search is an always-on tool).
+  // tool set to what the user actually enabled.
   // zetora-visible-modes is the pre-migration key name, read as a fallback in
   // case a client hasn't run the one-time copy to zetora-enabled-sources yet.
   if (!specialMode) {
@@ -53,9 +41,6 @@ export function filterActiveTools({
         const owningGroup = toolGroupMap[toolName];
         return !owningGroup || enabledSet.has(owningGroup);
       });
-    }
-    if (!isSignedIn) {
-      activeTools = activeTools.filter((toolName) => toolName !== 'extreme_search');
     }
   }
 

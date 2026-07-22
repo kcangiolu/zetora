@@ -5,10 +5,8 @@ import {
   getErrorActions,
   getErrorIcon,
   isAuthError,
-  isUpgradeRequiredError,
   isModelError,
   isSignInRequired,
-  isProRequired,
   isRateLimited,
   visibilityBySurface,
 } from '@/lib/errors';
@@ -28,9 +26,7 @@ describe('ChatSDKError', () => {
   it.each([
     ['bad_request:api', 400],
     ['unauthorized:auth', 401],
-    ['upgrade_required:chat', 402],
     ['forbidden:auth', 403],
-    ['model_restricted:model', 403],
     ['not_found:chat', 404],
     ['rate_limit:api', 429],
     ['offline:chat', 503],
@@ -71,11 +67,10 @@ describe('getMessageByErrorCode', () => {
 });
 
 describe('predicates', () => {
-  it('classifies auth/model/upgrade/rate-limit errors', () => {
+  it('classifies auth/model/rate-limit errors', () => {
     expect(isAuthError(new ChatSDKError('forbidden:auth'))).toBe(true);
     expect(isAuthError(new ChatSDKError('forbidden:chat'))).toBe(false);
     expect(isModelError(new ChatSDKError('rate_limit:model'))).toBe(true);
-    expect(isUpgradeRequiredError(new ChatSDKError('upgrade_required:chat'))).toBe(true);
     expect(isRateLimited(new ChatSDKError('rate_limit:api'))).toBe(true);
   });
 
@@ -84,13 +79,6 @@ describe('predicates', () => {
     expect(isSignInRequired(new ChatSDKError('unauthorized:model'))).toBe(true);
     expect(isSignInRequired(new ChatSDKError('unauthorized:api'))).toBe(false);
     expect(isSignInRequired(new ChatSDKError('forbidden:auth'))).toBe(false);
-  });
-
-  it('isProRequired covers upgrade_required, forbidden and model_restricted', () => {
-    expect(isProRequired(new ChatSDKError('upgrade_required:auth'))).toBe(true);
-    expect(isProRequired(new ChatSDKError('forbidden:model'))).toBe(true);
-    expect(isProRequired(new ChatSDKError('model_restricted:model'))).toBe(true);
-    expect(isProRequired(new ChatSDKError('rate_limit:chat'))).toBe(false);
   });
 });
 
@@ -101,10 +89,10 @@ describe('getErrorActions / getErrorIcon', () => {
     expect(getErrorIcon(new ChatSDKError('unauthorized:chat'))).toBe('auth');
   });
 
-  it('suggests upgrading for pro-gated and rate-limited errors', () => {
-    expect(getErrorActions(new ChatSDKError('forbidden:model')).primary?.action).toBe('upgrade');
-    expect(getErrorActions(new ChatSDKError('rate_limit:chat')).primary?.action).toBe('upgrade');
-    expect(getErrorIcon(new ChatSDKError('rate_limit:chat'))).toBe('upgrade');
+  it('suggests a plain retry for rate-limited errors, no upgrade mention', () => {
+    expect(getErrorActions(new ChatSDKError('rate_limit:chat')).primary?.action).toBe('retry');
+    expect(getErrorActions(new ChatSDKError('rate_limit:chat')).primary?.label).toBe('Try Again Later');
+    expect(getErrorIcon(new ChatSDKError('rate_limit:chat'))).toBe('error');
   });
 
   it('defaults to retry with an error icon', () => {

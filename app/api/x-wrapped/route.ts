@@ -6,7 +6,7 @@ import { getTweet } from 'react-tweet/api';
 import { kvGet, kvSet } from '@/lib/redis';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
-import { unauthenticatedRateLimit, getClientIdentifier } from '@/lib/rate-limit';
+import { getLightweightUserAuth } from '@/lib/user-data-server';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('x-wrapped');
@@ -79,7 +79,8 @@ export async function POST(req: NextRequest) {
     const cleanUsername = parsedBody.data.username.replace(/^@+/, '').trim();
     if (!cleanUsername) return NextResponse.json({ error: 'Username is required' }, { status: 400 });
 
-    // Check cache
+    // Check cache — previously generated wraps stay publicly viewable (they're
+    // meant to be shared), same as any other completed/public content.
     const cacheKey = `x-wrapped:${cleanUsername}:${year}`;
     const cached = await kvGet<XWrappedData>(cacheKey);
     if (cached) {
@@ -87,13 +88,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Cache misses run a 16-step grok search plan plus a second generation
-    // call — expensive enough that an attacker cycling through usernames
-    // could rack up a large xAI bill. Only uncached generations count
-    // against the quota so cache hits stay fast for everyone.
-    const identifier = getClientIdentifier(req);
-    const rateLimitResult = await unauthenticatedRateLimit.limit(identifier);
-    if (!rateLimitResult.success) {
-      return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
+    // call — a real AI request, so it requires a signed-in account like any
+    // other generation in the app (see lib/search/access-gate.ts).
+    const lightweightUser = await getLightweightUserAuth();
+    if (!lightweightUser) {
+      return NextResponse.json({ error: 'Sign in required' }, { status: 401 });
     }
 
     const startDate = `${year}-01-01`;

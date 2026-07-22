@@ -38,7 +38,6 @@ import { LoadingSkeletons } from './components/loading-skeleton';
 import { NoActiveLookoutsEmpty, NoArchivedLookoutsEmpty } from './components/empty-state';
 import { TotalLimitWarning, DailyLimitWarning } from './components/warning-card';
 import { LookoutCard } from './components/lookout-card';
-import { ProUpgradeScreen } from './components/pro-upgrade-screen';
 import { LookoutForm } from './components/lookout-form';
 import { useLookoutForm } from './hooks/use-lookout-form';
 import {
@@ -99,8 +98,8 @@ export default function LookoutPage() {
   const [lookoutToDelete, setLookoutToDelete] = React.useState<string | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
 
-  // Authentication and Pro status
-  const { user, isProUser, isLoading: isProStatusLoading } = useUser();
+  // Authentication status
+  const { user, isLoading: isProStatusLoading } = useUser();
   const router = useRouter();
 
   // Lookouts data and mutations
@@ -274,11 +273,6 @@ export default function LookoutPage() {
         </div>
       </div>
     );
-  }
-
-  // Show upgrade prompt for non-Pro users
-  if (!isProUser) {
-    return <ProUpgradeScreen user={user} isProUser={isProUser} isProStatusLoading={isProStatusLoading} />;
   }
 
   return (

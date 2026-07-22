@@ -5,12 +5,6 @@ import { and, asc, desc, eq, gt, gte, isNull, lt, or, sql, type SQL } from 'driz
 import { user, chat, message, type Message, stream, buildSession } from '../schema';
 import { ChatSDKError } from '../../errors';
 import { db, maindb } from '../index';
-import {
-  getDodoSubscriptions,
-  setDodoSubscriptions,
-  getDodoProStatus,
-  setDodoProStatus,
-} from '../../performance-cache';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';

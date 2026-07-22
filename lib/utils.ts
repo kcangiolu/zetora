@@ -148,7 +148,6 @@ export function getSearchGroups(searchProvider: SearchProvider = 'exa') {
       icon: ConnectIcon,
       show: true,
       requireAuth: true,
-      requirePro: true,
     },
     {
       id: 'mcp' as const,
@@ -157,7 +156,6 @@ export function getSearchGroups(searchProvider: SearchProvider = 'exa') {
       icon: AppsIcon,
       show: process.env.NEXT_PUBLIC_MCP_ENABLED === 'true',
       requireAuth: true,
-      requirePro: true,
     },
     {
       id: 'multi-agent' as const,
@@ -166,7 +164,6 @@ export function getSearchGroups(searchProvider: SearchProvider = 'exa') {
       icon: AgentNetworkIcon,
       show: true,
       requireAuth: true,
-      requirePro: true,
     },
     {
       id: 'code' as const,
@@ -247,7 +244,6 @@ export function getSearchGroups(searchProvider: SearchProvider = 'exa') {
       icon: CanvasIcon,
       show: true,
       requireAuth: true,
-      requirePro: true,
     },
   ] as const;
 }

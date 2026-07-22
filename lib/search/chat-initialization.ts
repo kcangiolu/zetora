@@ -1,29 +1,24 @@
 import { createLogger } from '@/lib/logger';
 import { ChatSDKError } from '@/lib/errors';
-import { shouldBypassRateLimits, getModelProvider } from '@/ai/providers';
+import { shouldBypassRateLimits } from '@/ai/providers';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { createStreamId, saveNewChatWithStream } from '@/lib/db/queries';
-import { getMessageCountAndExtremeSearchByUserIdAction } from '@/lib/search/server-helpers';
+import { getMessageCountByUserIdAction } from '@/lib/search/server-helpers';
+import { ABUSE_DAILY_LIMIT } from '@/lib/constants';
 
 const log = createLogger('chat-initialization');
 
 export interface CriticalChecksResult {
   canProceed: boolean;
   error?: any;
-  isProUser: boolean;
-  isMaxUser: boolean;
   messageCount?: number;
-  extremeSearchUsage?: number;
-  subscriptionData?: any;
   shouldBypassLimits?: boolean;
 }
 
 export interface ChatInitializationParams {
   chatQueryPromise: Promise<any>;
-  lightweightUser: { userId: string; email: string; isProUser: boolean; isMaxUser: boolean } | null;
-  isProUser: boolean;
-  isMaxUser: boolean;
+  lightweightUser: { userId: string; email: string } | null;
   id: string;
   streamId: string;
   selectedVisibilityType: any;
@@ -63,8 +58,6 @@ export function appendToLastUserMessage(messages: any[], instruction: string): v
 export function initializeChatAndChecks({
   chatQueryPromise,
   lightweightUser,
-  isProUser,
-  isMaxUser,
   id,
   streamId,
   selectedVisibilityType,
@@ -90,87 +83,24 @@ export function initializeChatAndChecks({
     }
   }
 
-  // Unauthenticated users don't need chat validation
-  if (!lightweightUser) {
-    return {
-      criticalChecksPromise: Promise.resolve({
-        canProceed: true,
-        isProUser: false,
-        isMaxUser: false,
-        messageCount: 0,
-        extremeSearchUsage: 0,
-        subscriptionData: null,
-        shouldBypassLimits: false,
-      }),
-      chatInitializationPromise: Promise.resolve({ isNewChat: false, titlePromise: null }),
-    };
+  // Login is required upstream (lib/search/access-gate.ts) before this is
+  // ever invoked, so lightweightUser is always set here.
+  const user = lightweightUser!;
+
+  async function checkAbuseGuardrail(): Promise<CriticalChecksResult> {
+    const { messageCount } = await getMessageCountByUserIdAction(user.userId);
+    const shouldBypassLimits = shouldBypassRateLimits(model, user);
+    if (!shouldBypassLimits && messageCount >= ABUSE_DAILY_LIMIT) {
+      throw new ChatSDKError('rate_limit:chat', 'Daily message limit reached');
+    }
+    return { canProceed: true, messageCount, shouldBypassLimits };
   }
 
   if (isTemporaryChat) {
-    let criticalChecksPromise: Promise<CriticalChecksResult>;
-
-    if (isProUser) {
-      // Pro users: known from lightweightUser — resolve immediately, no DB needed
-      criticalChecksPromise = Promise.resolve({
-        canProceed: true,
-        isProUser: true,
-        isMaxUser,
-        messageCount: 0,
-        extremeSearchUsage: 0,
-        subscriptionData: null,
-        shouldBypassLimits: true,
-      });
-    } else {
-      criticalChecksPromise = (async () => {
-        const { messageCountResult, extremeSearchUsage, anthropicUsageResult, googleUsageResult } =
-          await getMessageCountAndExtremeSearchByUserIdAction(lightweightUser.userId);
-
-        if (messageCountResult.error) {
-          throw new ChatSDKError('bad_request:api', 'Failed to verify usage limits');
-        }
-        if (extremeSearchUsage.error) {
-          throw new ChatSDKError('bad_request:api', 'Failed to verify extreme search usage limits');
-        }
-        if (anthropicUsageResult.error) {
-          throw new ChatSDKError('bad_request:api', 'Failed to verify anthropic usage limits');
-        }
-        if (googleUsageResult.error) {
-          throw new ChatSDKError('bad_request:api', 'Failed to verify google usage limits');
-        }
-
-        const shouldBypassLimits = shouldBypassRateLimits(model, lightweightUser);
-        const isAnthropicModel = getModelProvider(model) === 'anthropic';
-        const isMaxGoogleModel = getModelProvider(model) === 'google' && lightweightUser.isMaxUser;
-        if (!shouldBypassLimits && messageCountResult.count !== undefined && messageCountResult.count >= 100) {
-          throw new ChatSDKError('rate_limit:chat', 'Daily search limit reached');
-        }
-        if (
-          isAnthropicModel &&
-          lightweightUser.isMaxUser &&
-          anthropicUsageResult.count !== undefined &&
-          anthropicUsageResult.count >= 60
-        ) {
-          throw new ChatSDKError('rate_limit:model', 'Daily Anthropic limit reached for Max users.');
-        }
-        if (isMaxGoogleModel && googleUsageResult.count !== undefined && googleUsageResult.count >= 80) {
-          throw new ChatSDKError('rate_limit:model', 'Monthly Gemini limit reached for Max users.');
-        }
-
-        return {
-          canProceed: true,
-          isProUser: false,
-          isMaxUser: false,
-          messageCount: messageCountResult.count,
-          extremeSearchUsage: extremeSearchUsage.count,
-          anthropicUsage: anthropicUsageResult.count,
-          subscriptionData: { hasSubscription: false },
-          shouldBypassLimits,
-        };
-      })().catch((error) => {
-        if (error instanceof ChatSDKError) throw error;
-        throw new ChatSDKError('bad_request:api', 'Failed to verify user access');
-      });
-    }
+    const criticalChecksPromise = checkAbuseGuardrail().catch((error) => {
+      if (error instanceof ChatSDKError) throw error;
+      throw new ChatSDKError('bad_request:api', 'Failed to verify user access');
+    });
 
     return {
       criticalChecksPromise,
@@ -181,96 +111,37 @@ export function initializeChatAndChecks({
   // Validate ownership once and get chat data
   const validatedChatPromise = withTiming(
     'chat_init.existingChat_wait',
-    chatQueryPromise.then((existingChat) => {
-      if (existingChat && existingChat.userId !== lightweightUser.userId) {
+    chatQueryPromise.then((existingChat: any) => {
+      if (existingChat && existingChat.userId !== user.userId) {
         throw new ChatSDKError('forbidden:chat', 'This chat belongs to another user');
       }
       return existingChat;
     }),
   );
 
-  // Build critical checks promise first (must complete before chat creation)
-  let criticalChecksPromise: Promise<CriticalChecksResult>;
-
-  if (isProUser) {
-    // Pro users: ownership check only, no usage DB calls or fullUserPromise needed.
-    // validatedChatPromise is fast (cache + indexed lookup) and unblocks saveChat/createStreamId earlier.
-    criticalChecksPromise = validatedChatPromise.then(() => ({
-      canProceed: true,
-      isProUser: true,
-      isMaxUser,
-      messageCount: 0,
-      extremeSearchUsage: 0,
-      subscriptionData: null,
-      shouldBypassLimits: true,
-    }));
-  } else {
-    // Non-Pro users: validate ownership and check usage limits.
-    // Run chat validation and usage fetch in parallel to save one RTT.
-    criticalChecksPromise = (async () => {
-      const { validatedChat, usageResult } = await all(
-        {
-          async validatedChat() {
-            return validatedChatPromise;
-          },
-          async usageResult() {
-            return getMessageCountAndExtremeSearchByUserIdAction(lightweightUser.userId);
-          },
+  // Validate ownership and check the abuse guardrail in parallel to save one RTT.
+  let criticalChecksPromise: Promise<CriticalChecksResult> = (async () => {
+    const { validatedChat, abuseCheck } = await all(
+      {
+        async validatedChat() {
+          return validatedChatPromise;
         },
-        getBetterAllOptions(),
-      );
+        async abuseCheck() {
+          return checkAbuseGuardrail();
+        },
+      },
+      getBetterAllOptions(),
+    );
 
-      if (validatedChat && validatedChat.userId !== lightweightUser.userId) {
-        throw new ChatSDKError('forbidden:chat', 'This chat belongs to another user');
-      }
+    if (validatedChat && validatedChat.userId !== user.userId) {
+      throw new ChatSDKError('forbidden:chat', 'This chat belongs to another user');
+    }
 
-      const { messageCountResult, extremeSearchUsage, anthropicUsageResult, googleUsageResult } = usageResult;
-      if (messageCountResult.error) {
-        throw new ChatSDKError('bad_request:api', 'Failed to verify usage limits');
-      }
-      if (extremeSearchUsage.error) {
-        throw new ChatSDKError('bad_request:api', 'Failed to verify extreme search usage limits');
-      }
-      if (anthropicUsageResult.error) {
-        throw new ChatSDKError('bad_request:api', 'Failed to verify anthropic usage limits');
-      }
-      if (googleUsageResult.error) {
-        throw new ChatSDKError('bad_request:api', 'Failed to verify google usage limits');
-      }
-
-      const shouldBypassLimits = shouldBypassRateLimits(model, lightweightUser);
-      const isAnthropicModel = getModelProvider(model) === 'anthropic';
-      const isMaxGoogleModel = getModelProvider(model) === 'google' && lightweightUser.isMaxUser;
-      if (!shouldBypassLimits && messageCountResult.count !== undefined && messageCountResult.count >= 100) {
-        throw new ChatSDKError('rate_limit:chat', 'Daily search limit reached');
-      }
-      if (
-        isAnthropicModel &&
-        lightweightUser.isMaxUser &&
-        anthropicUsageResult.count !== undefined &&
-        anthropicUsageResult.count >= 60
-      ) {
-        throw new ChatSDKError('rate_limit:model', 'Daily Anthropic limit reached for Max users.');
-      }
-      if (isMaxGoogleModel && googleUsageResult.count !== undefined && googleUsageResult.count >= 80) {
-        throw new ChatSDKError('rate_limit:model', 'Monthly Gemini limit reached for Max users.');
-      }
-
-      return {
-        canProceed: true,
-        isProUser: false,
-        isMaxUser: false,
-        messageCount: messageCountResult.count,
-        extremeSearchUsage: extremeSearchUsage.count,
-        anthropicUsage: anthropicUsageResult.count,
-        subscriptionData: { hasSubscription: false },
-        shouldBypassLimits,
-      };
-    })().catch((error) => {
-      if (error instanceof ChatSDKError) throw error;
-      throw new ChatSDKError('bad_request:api', 'Failed to verify user access');
-    });
-  }
+    return abuseCheck;
+  })().catch((error) => {
+    if (error instanceof ChatSDKError) throw error;
+    throw new ChatSDKError('bad_request:api', 'Failed to verify user access');
+  });
 
   criticalChecksPromise = withTiming('chat_init.criticalResult_wait', criticalChecksPromise);
 
@@ -314,7 +185,7 @@ export function initializeChatAndChecks({
           // New chat: save chat + stream ID in one CTE query (single DB round-trip)
           await saveNewChatWithStream({
             chatId: id,
-            userId: lightweightUser.userId,
+            userId: user.userId,
             title: 'New Chat',
             visibility: selectedVisibilityType,
             streamId,

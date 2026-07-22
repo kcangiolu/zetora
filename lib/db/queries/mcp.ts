@@ -4,12 +4,6 @@ import { and, desc, eq, isNotNull, or } from 'drizzle-orm';
 import { userMcpServer } from '../schema';
 import { ChatSDKError } from '../../errors';
 import { maindb } from '../index';
-import {
-  getDodoSubscriptions,
-  setDodoSubscriptions,
-  getDodoProStatus,
-  setDodoProStatus,
-} from '../../performance-cache';
 import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
 
 export interface UserMcpServerInput {

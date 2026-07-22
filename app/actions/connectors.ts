@@ -1,71 +1,6 @@
 'use server';
 
 import { getCurrentUser } from './user';
-
-import { UIMessage, generateText, Output } from 'ai';
-import type { ModelMessage } from 'ai';
-import { hasVisionSupport, zetora, resolveModel } from '@/ai/providers';
-import {
-  getChatsByUserId,
-  getRecentChatsByUserId,
-  deleteChatById,
-  updateChatVisibilityById,
-  getChatById,
-  getMessageById,
-  deleteMessagesByChatIdAfterTimestamp,
-  updateChatTitleById,
-  updateChatPinnedById,
-  getExtremeSearchCount,
-  incrementMessageUsage,
-  incrementAnthropicUsage,
-  incrementGoogleUsage,
-  getMessageCount,
-  getAnthropicUsageCount,
-  getGoogleUsageCount,
-  getAgentModeRequestCountForCurrentMonth,
-  getHistoricalUsageData,
-  getCustomInstructionsByUserId,
-  createCustomInstructions,
-  updateCustomInstructions,
-  deleteCustomInstructions,
-  upsertUserPreferences,
-  getDodoSubscriptionsByUserId,
-  createLookout,
-  getLookoutsByUserId,
-  getLookoutById,
-  updateLookout,
-  updateLookoutStatus,
-  deleteLookout,
-  getChatWithUserById,
-} from '@/lib/db/queries';
-import { db, maindb } from '@/lib/db';
-import { chat, message, buildSession, dodosubscription, type User } from '@/lib/db/schema';
-import { eq, desc, ilike, and, asc, inArray, notExists } from 'drizzle-orm';
-import { get } from '@vercel/edge-config';
-import { GroqProviderOptions, groq } from '@ai-sdk/groq';
-import {
-  createBullMqSchedule,
-  scheduleBullMqOnce,
-  deleteBullMqSchedule,
-  pauseBullMqSchedule,
-  resumeBullMqSchedule,
-  getLockoutProvider,
-} from '@/lib/services/bullmq';
-import type { CharacterAlignmentResponseModel } from '@elevenlabs/elevenlabs-js/api/types/CharacterAlignmentResponseModel';
-import {
-  usageCountCache,
-  createMessageCountKey,
-  createExtremeCountKey,
-  createAnthropicCountKey,
-  createGoogleCountKey,
-  createAgentModeCountKey,
-} from '@/lib/performance-cache';
-import {
-  getComprehensiveUserData,
-  getLightweightUserAuth,
-  getCachedUserPreferencesByUserId,
-  clearUserPreferencesCache,
-} from '@/lib/user-data-server';
 import {
   createConnection,
   listUserConnections,
@@ -74,9 +9,6 @@ import {
   getSyncStatus,
   type ConnectorProvider,
 } from '@/lib/connectors';
-import { lookoutCallbackHeaders, lookoutQstashHeaders } from '@/lib/lookout-auth';
-import { saveChat, saveMessages } from '@/lib/db/queries';
-import { all, allSettled } from 'better-all';
 
 import { createLogger } from '@/lib/logger';
 
@@ -175,49 +107,3 @@ export async function getConnectorSyncStatusAction(provider: ConnectorProvider) 
     return { success: false, error: 'Failed to get sync status', status: null };
   }
 }
-
-// Server action to get supported student domains from Edge Config
-export async function getStudentDomainsAction() {
-  'use server';
-
-  try {
-    const studentDomainsConfig = await get('student_domains');
-    if (studentDomainsConfig && typeof studentDomainsConfig === 'string') {
-      // Parse CSV string to array, trim whitespace, and sort alphabetically
-      const domains = studentDomainsConfig
-        .split(',')
-        .map((domain) => domain.trim())
-        .filter((domain) => domain.length > 0)
-        .sort();
-
-      return {
-        success: true,
-        domains,
-        count: domains.length,
-      };
-    }
-
-    // Fallback to hardcoded domains if Edge Config fails
-    const fallbackDomains = ['.edu', '.ac.in'].sort();
-    return {
-      success: true,
-      domains: fallbackDomains,
-      count: fallbackDomains.length,
-      fallback: true,
-    };
-  } catch (error) {
-    log.error('Failed to fetch student domains from Edge Config:', error);
-
-    // Return fallback domains on error
-    const fallbackDomains = ['.edu', '.ac.in'].sort();
-    return {
-      success: false,
-      domains: fallbackDomains,
-      count: fallbackDomains.length,
-      fallback: true,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
-}
-
-// Fetch chats for the authenticated user (paginated)

@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { useChat } from '@ai-sdk/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
-import { Crown02Icon, UserCircleIcon } from '@hugeicons/core-free-icons';
+import { UserCircleIcon } from '@hugeicons/core-free-icons';
 import { PlusIcon } from '@phosphor-icons/react';
 import { useRouter, usePathname } from 'next/navigation';
 import { parseAsString, useQueryState } from 'nuqs';
@@ -36,7 +36,6 @@ import {
   Check,
   AlertCircle,
   ExternalLink,
-  ArrowRight,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
@@ -64,17 +63,15 @@ import {
 // Hook imports
 import { useAutoResume } from '@/hooks/use-auto-resume';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { useUsageData } from '@/hooks/use-usage-data';
 import { useUser } from '@/contexts/user-context';
 import { useOptimizedScroll } from '@/hooks/use-optimized-scroll';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 import { useSessionPreference } from '@/hooks/use-session-preference';
 
 // Utility and type imports
-import { SEARCH_LIMITS } from '@/lib/constants';
 import { ChatSDKError } from '@/lib/errors';
 import { cn, SearchGroupId } from '@/lib/utils';
-import { requiresProSubscription, hasVisionSupport } from '@/ai/models';
+import { hasVisionSupport } from '@/ai/models';
 import { ConnectorProvider } from '@/lib/connectors';
 
 // State management imports
@@ -227,10 +224,6 @@ const ChatInterface = memo(
     );
 
     // Get persisted values for dialog states
-    const [persistedHasShownUpgradeDialog, setPersitedHasShownUpgradeDialog] = useLocalStorage(
-      'zetora-upgrade-prompt-shown',
-      false,
-    );
     const [persistedHasShownSignInPrompt, setPersitedHasShownSignInPrompt] = useLocalStorage(
       'zetora-signin-prompt-shown',
       false,
@@ -260,23 +253,18 @@ const ChatInterface = memo(
     // Use reducer for complex state management
     const [chatState, dispatch] = useReducer(
       chatReducer,
-      createInitialState(
-        initialVisibility,
-        persistedHasShownUpgradeDialog,
-        persistedHasShownSignInPrompt,
-        persistedHasShownLookoutAnnouncement,
-      ),
+      createInitialState(initialVisibility, persistedHasShownSignInPrompt, persistedHasShownLookoutAnnouncement),
     );
 
-    const {
-      user,
-      subscriptionData,
-      isProUser: isUserPro,
-      isLoading: proStatusLoading,
-      shouldCheckLimits: shouldCheckUserLimits,
-      shouldBypassLimitsForModel,
-    } = useUser();
-    const isUserMax = user?.isMaxUser === true;
+    const { user, isLoading: isUserLoading } = useUser();
+
+    // Login is required to start a new chat (existing chats — including
+    // public shares — stay readable without an account; see access-gate.ts).
+    useEffect(() => {
+      if (!isUserLoading && !user && !initialChatId) {
+        router.push('/sign-in');
+      }
+    }, [isUserLoading, user, initialChatId, router]);
 
     const { dataStream, setDataStream } = useDataStream();
 
@@ -498,9 +486,6 @@ const ChatInterface = memo(
       };
     }, [markManualScroll, syncSkipAutoScroll]);
 
-    const shouldFetchUsageData = Boolean(user && !isUserPro);
-    const { data: usageData } = useUsageData(user || null, shouldFetchUsageData);
-
     // Sign-in prompt timer
     const signInTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -514,39 +499,8 @@ const ChatInterface = memo(
       openedElicitationIdsRef.current.clear();
     }, [chatId]);
 
-    // Pro users bypass all limit checks - much cleaner!
-    const effectiveSelectedModel = useMemo(() => {
-      if (proStatusLoading) return selectedModel;
-      if (requiresProSubscription(selectedModel) && !isUserPro) return 'zetora-default';
-      return selectedModel;
-    }, [selectedModel, isUserPro, proStatusLoading]);
-    const shouldBypassLimits = shouldBypassLimitsForModel(effectiveSelectedModel);
-
-    // Check the appropriate limit based on selected group
-    const isExtremeMode = effectiveSelectedGroup === 'extreme';
-    const currentUsageCount = usageData ? (isExtremeMode ? usageData.extremeSearchCount : usageData.messageCount) : 0;
-    const currentLimit = isExtremeMode ? SEARCH_LIMITS.EXTREME_SEARCH_LIMIT : SEARCH_LIMITS.DAILY_SEARCH_LIMIT;
-
-    // Check if current mode has exceeded its limit
-    const hasExceededCurrentModeLimit =
-      shouldCheckUserLimits &&
-      !proStatusLoading &&
-      !shouldBypassLimits &&
-      usageData &&
-      currentUsageCount >= currentLimit;
-
-    // Check if BOTH limits are exhausted
-    const messageCountExhausted = usageData && usageData.messageCount >= SEARCH_LIMITS.DAILY_SEARCH_LIMIT;
-    const extremeSearchCountExhausted = usageData && usageData.extremeSearchCount >= SEARCH_LIMITS.EXTREME_SEARCH_LIMIT;
-
-    // Only block UI when BOTH limits are exhausted (so user can switch modes if one still has quota)
-    const isLimitBlocked = Boolean(
-      shouldCheckUserLimits &&
-      !proStatusLoading &&
-      !shouldBypassLimits &&
-      messageCountExhausted &&
-      extremeSearchCountExhausted,
-    );
+    // Any connected account has access to every model — no Pro gate left.
+    const effectiveSelectedModel = selectedModel;
 
     // Timer ref cleanup only — sign-in prompt is now a passive inline CTA, not an auto-firing modal
     useEffect(() => {
@@ -639,7 +593,7 @@ const ChatInterface = memo(
               model: selectedModelRef.current,
               visionEnabled: visionEnabledRef.current,
               group:
-                isUserPro && isMultiAgentModeEnabledRef.current
+                user && isMultiAgentModeEnabledRef.current
                   ? ('multi-agent' as SearchGroupId)
                   : selectedGroupRef.current,
               timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -1063,18 +1017,9 @@ const ChatInterface = memo(
     useEffect(() => {
       dispatch({
         type: 'SET_ANY_DIALOG_OPEN',
-        payload:
-          chatState.commandDialogOpen ||
-          chatState.showSignInPrompt ||
-          chatState.showUpgradeDialog ||
-          chatState.showAnnouncementDialog,
+        payload: chatState.commandDialogOpen || chatState.showSignInPrompt || chatState.showAnnouncementDialog,
       });
-    }, [
-      chatState.commandDialogOpen,
-      chatState.showSignInPrompt,
-      chatState.showUpgradeDialog,
-      chatState.showAnnouncementDialog,
-    ]);
+    }, [chatState.commandDialogOpen, chatState.showSignInPrompt, chatState.showAnnouncementDialog]);
 
     // Keyboard shortcut for command dialog
     useEffect(() => {
@@ -1241,9 +1186,6 @@ const ChatInterface = memo(
           user={user || null}
           onHistoryClick={() => dispatch({ type: 'SET_COMMAND_DIALOG_OPEN', payload: true })}
           isOwner={isOwner}
-          subscriptionData={subscriptionData}
-          isProUser={isUserPro}
-          isProStatusLoading={proStatusLoading}
           isCustomInstructionsEnabled={isCustomInstructionsEnabled}
           setIsCustomInstructionsEnabledAction={setIsCustomInstructionsEnabled}
           settingsOpen={settingsOpen}
@@ -1470,13 +1412,6 @@ const ChatInterface = memo(
                 dispatch({ type: 'SET_HAS_SHOWN_SIGNIN_PROMPT', payload: value });
                 setPersitedHasShownSignInPrompt(value);
               }}
-              showUpgradeDialog={chatState.showUpgradeDialog}
-              setShowUpgradeDialog={(open) => dispatch({ type: 'SET_SHOW_UPGRADE_DIALOG', payload: open })}
-              hasShownUpgradeDialog={chatState.hasShownUpgradeDialog}
-              setHasShownUpgradeDialog={(value) => {
-                dispatch({ type: 'SET_HAS_SHOWN_UPGRADE_DIALOG', payload: value });
-                setPersitedHasShownUpgradeDialog(value);
-              }}
               showLookoutAnnouncement={chatState.showAnnouncementDialog}
               setShowLookoutAnnouncement={(open) => dispatch({ type: 'SET_SHOW_ANNOUNCEMENT_DIALOG', payload: open })}
               hasShownLookoutAnnouncement={chatState.hasShownAnnouncementDialog}
@@ -1527,76 +1462,6 @@ const ChatInterface = memo(
                       <h1 className="text-4xl sm:text-5xl mb-0! text-foreground dark:text-foreground font-be-vietnam-pro! font-light tracking-tighter">
                         zetora
                       </h1>
-                      {isUserPro && (
-                        <h1 className="text-2xl font-baumans! leading-4 inline-block px-3! pt-1! pb-2.5! rounded-xl shadow-sm m-0! mt-2! bg-linear-to-br from-secondary/25 via-primary/20 to-accent/25 text-foreground ring-1 ring-ring/35 ring-offset-1 ring-offset-background dark:bg-linear-to-br dark:from-primary dark:via-secondary dark:to-primary dark:text-foreground">
-                          {isUserMax ? 'max' : 'pro'}
-                        </h1>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Show initial limit exceeded message */}
-                {uiStatus === 'ready' && messages.length === 0 && isLimitBlocked && (
-                  <div className="mt-20 mx-auto max-w-md">
-                    <div className="bg-background border border-border rounded-xl shadow-lg overflow-hidden">
-                      {/* Header Section */}
-                      <div className="text-center px-8 pt-10 pb-6">
-                        <div className="inline-flex items-center justify-center w-12 h-12 bg-muted rounded-lg mb-6">
-                          <HugeiconsIcon
-                            icon={Crown02Icon}
-                            size={24}
-                            className="text-muted-foreground"
-                            strokeWidth={1.5}
-                          />
-                        </div>
-                        <h2 className="text-xl font-semibold text-foreground mb-2">All Search Limits Reached</h2>
-                        <p className="text-sm text-muted-foreground">
-                          You&apos;ve used {SEARCH_LIMITS.DAILY_SEARCH_LIMIT} regular searches and{' '}
-                          {SEARCH_LIMITS.EXTREME_SEARCH_LIMIT} extreme searches
-                        </p>
-                      </div>
-
-                      {/* Content Section */}
-                      <div className="px-8 pb-8">
-                        <div className="space-y-4 mb-8">
-                          <div className="bg-muted/50 rounded-lg p-4">
-                            <h3 className="text-sm font-medium text-foreground mb-2">
-                              {isUserMax ? 'Max Benefits' : 'Pro Benefits'}
-                            </h3>
-                            <ul className="text-sm text-muted-foreground space-y-1">
-                              <li>• Unlimited daily searches</li>
-                              <li>• Faster response times</li>
-                              <li>• Premium AI models</li>
-                              <li>• Priority support</li>
-                            </ul>
-                          </div>
-                        </div>
-
-                        {/* Actions Section */}
-                        <div className="space-y-3">
-                          <Button
-                            onClick={() => {
-                              window.location.href = '/pricing';
-                            }}
-                            className="w-full h-10 font-medium"
-                          >
-                            <HugeiconsIcon icon={Crown02Icon} size={16} className="mr-2" strokeWidth={1.5} />
-                            {isUserMax ? 'Manage Max' : 'Upgrade to Max'}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            onClick={() => {
-                              if (user) {
-                                queryClient.invalidateQueries({ queryKey: ['user-usage', user.id] });
-                              }
-                            }}
-                            className="w-full h-9 text-sm"
-                          >
-                            Check for updates
-                          </Button>
-                        </div>
-                      </div>
                     </div>
                   </div>
                 )}
@@ -1638,8 +1503,7 @@ const ChatInterface = memo(
               </div>
 
               {/* Single Form Component with dynamic positioning */}
-              {((user && isOwner) || !initialChatId || (!user && chatState.selectedVisibilityType === 'private')) &&
-                !isLimitBlocked && (
+              {((user && isOwner) || (!initialChatId && user)) && (
                   <div
                     className={cn(
                       'transition-all duration-100',
@@ -1652,23 +1516,9 @@ const ChatInterface = memo(
                           }`,
                     )}
                   >
-                    {/* Passive sign-in nudge — floats above the form when messages exist */}
-                    {!user && messages.length > 0 && (
-                      <div className="absolute -top-9 left-1/2 -translate-x-1/2 pointer-events-none flex items-center justify-center w-full">
-                        <Link
-                          href="/sign-in"
-                          className="pointer-events-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-muted-foreground bg-background/80 backdrop-blur-sm border border-border/50 hover:bg-accent hover:text-foreground shadow-sm transition-all"
-                        >
-                          This chat won&apos;t be saved · Sign in for history
-                          <ArrowRight className="size-3 shrink-0" />
-                        </Link>
-                      </div>
-                    )}
-
                     <FormComponent
                       chatId={chatId}
                       user={user!}
-                      subscriptionData={subscriptionData}
                       input={input}
                       setInput={setInput}
                       attachments={chatState.attachments}
@@ -1697,7 +1547,6 @@ const ChatInterface = memo(
                           typeof hasSubmitted === 'function' ? hasSubmitted(chatState.hasSubmitted) : hasSubmitted;
                         dispatch({ type: 'SET_HAS_SUBMITTED', payload: newValue });
                       }}
-                      isLimitBlocked={isLimitBlocked}
                       onOpenSettings={handleOpenSettings}
                       selectedConnectors={selectedConnectors}
                       setSelectedConnectors={setSelectedConnectors}
@@ -1711,15 +1560,6 @@ const ChatInterface = memo(
                             }
                           : undefined
                       }
-                      usageData={
-                        usageData
-                          ? {
-                              messageCount: usageData.messageCount,
-                              extremeSearchCount: usageData.extremeSearchCount,
-                              error: usageData.error,
-                            }
-                          : undefined
-                      }
                       isTemporaryChatEnabled={isTemporaryChat}
                       isTemporaryChat={isTemporaryChat}
                       isTemporaryChatLocked={isTemporaryChatLocked}
@@ -1728,8 +1568,8 @@ const ChatInterface = memo(
                       onBeforeSubmit={() => setIsTransitioning(true)}
                     />
 
-                    {/* Example Categories - only for non-pro, non-temporary users */}
-                    {messages.length === 0 && !chatState.hasSubmitted && !isTemporaryChat && !isUserPro && (
+                    {/* Example Categories - shown on a fresh, non-temporary chat */}
+                    {messages.length === 0 && !chatState.hasSubmitted && !isTemporaryChat && (
                       <div className="mt-5 space-y-2.5">
                         <ExampleCategories onSelectExample={handleExampleSelect} />
                       </div>
@@ -1738,8 +1578,7 @@ const ChatInterface = memo(
                 )}
 
               {/* Form backdrop overlay - hides content below form when in submitted mode */}
-              {((user && isOwner) || !initialChatId || (!user && chatState.selectedVisibilityType === 'private')) &&
-                !isLimitBlocked &&
+              {((user && isOwner) || (!initialChatId && user)) &&
                 (messages.length > 0 || chatState.hasSubmitted) && (
                   <div
                     className={`fixed right-0 bottom-0! h-24 sm:h-20! z-10 bg-linear-to-t from-background via-background/95 to-background/80 backdrop-blur-sm pointer-events-none ${
@@ -1750,46 +1589,6 @@ const ChatInterface = memo(
                   />
                 )}
 
-              {/* Show limit exceeded message */}
-              {isLimitBlocked && messages.length > 0 && (
-                <div
-                  className={`fixed bottom-8 sm:bottom-4 right-0 w-full max-w-[95%] sm:max-w-2xl mx-auto z-20 ${
-                    state === 'expanded'
-                      ? 'left-0 md:left-[calc(var(--sidebar-width))]'
-                      : 'left-0 md:left-[calc(var(--sidebar-width-icon))]'
-                  }`}
-                >
-                  <div className="p-4 bg-background border border-border rounded-lg shadow-lg">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-8 h-8 bg-muted rounded-md">
-                          <HugeiconsIcon
-                            icon={Crown02Icon}
-                            size={16}
-                            strokeWidth={1.5}
-                            className="text-muted-foreground"
-                          />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-foreground">All search limits reached</p>
-                          <p className="text-xs text-muted-foreground">Resets daily at midnight UTC</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            window.location.href = '/pricing';
-                          }}
-                          className="h-8 px-3 text-xs"
-                        >
-                          Upgrade
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </SidebarInset>

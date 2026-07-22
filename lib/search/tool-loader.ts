@@ -27,7 +27,7 @@ interface LoadConfiguredToolsParams {
   contextFiles: Array<{ url: string; contentType: string; name?: string }>;
   includeMcpTools: boolean;
   mcpDynamicTools: Record<string, any>;
-  lightweightUser: { userId: string; email: string; isProUser: boolean } | null;
+  lightweightUser: { userId: string; email: string } | null;
   selectedConnectors: any;
   memoryProvider?: 'supermemory' | 'graphiti';
   userPreferences?: Record<string, unknown>;

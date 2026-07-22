@@ -130,10 +130,6 @@ export async function POST(req: Request) {
     return new ChatSDKError('unauthorized:auth', 'Authentication required to use this feature').toResponse();
   }
 
-  if (!user.isProUser) {
-    return new ChatSDKError('upgrade_required:auth', 'This feature requires a Pro subscription').toResponse();
-  }
-
   const result = streamText({
     model: await resolveModel('zetora-default'),
     messages: await convertToModelMessages(messages),

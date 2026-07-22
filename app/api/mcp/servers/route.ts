@@ -1,4 +1,4 @@
-import { withProAuth } from '@/lib/api/route-handlers';
+import { withAuth } from '@/lib/api/route-handlers';
 import { createUserMcpServer, getUserMcpServersByUserId } from '@/lib/db/queries';
 import {
   getEncryptedMcpCredentials,
@@ -79,12 +79,12 @@ function serializeMcpServer(server: {
   };
 }
 
-export const GET = withProAuth(async (_request, { user }) => {
+export const GET = withAuth(async (_request, { user }) => {
   const servers = await getUserMcpServersByUserId({ userId: user.id });
   return Response.json({ servers: servers.map(serializeMcpServer) });
 });
 
-export const POST = withProAuth(
+export const POST = withAuth(
   async (request, { user }) => {
     const input = createMcpServerSchema.parse(await request.json());
     await validateMcpServerUrl(input.url);

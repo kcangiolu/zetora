@@ -204,11 +204,6 @@ export function CustomizeTab() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-medium truncate">{m.label}</span>
-                          {m.pro && (
-                            <span className="font-pixel text-[11px] text-muted-foreground/50 uppercase tracking-wider shrink-0">
-                              Pro
-                            </span>
-                          )}
                           {m.isNew && (
                             <span className="text-[7px] bg-primary/10 text-primary px-1 py-0.5 rounded font-medium shrink-0">
                               New

@@ -7,7 +7,7 @@ import { ChatHistoryDialog } from '@/components/chat-history-dialog';
 import { useUser } from '@/contexts/user-context';
 
 export function SidebarLayout({ children }: { children: React.ReactNode }) {
-  const { user, isProUser } = useUser();
+  const { user } = useUser();
   const [commandDialogOpen, setCommandDialogOpen] = useState(false);
 
   const handleHistoryClick = useCallback(() => {
@@ -35,7 +35,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
         onVisibilityChange={() => {}}
         user={user || null}
         onHistoryClick={handleHistoryClick}
-        isProUser={isProUser}
       />
       <SidebarInset>{children}</SidebarInset>
 

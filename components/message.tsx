@@ -32,10 +32,10 @@ import {
 } from 'lucide-react';
 import { UIMessagePart } from 'ai';
 import { deleteTrailingMessages } from '@/app/actions';
-import { getErrorActions, getErrorIcon, isSignInRequired, isProRequired, isRateLimited } from '@/lib/errors';
+import { getErrorActions, getErrorIcon, isSignInRequired, isRateLimited } from '@/lib/errors';
 import { UserIcon } from '@phosphor-icons/react';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
-import { Copy01Icon, Crown02Icon, PencilEdit02Icon } from '@hugeicons/core-free-icons';
+import { Copy01Icon, PencilEdit02Icon } from '@hugeicons/core-free-icons';
 import { Attachment, ChatMessage, ChatTools, CustomUIDataTypes } from '@/lib/types';
 import { UseChatHelpers } from '@ai-sdk/react';
 import { ComprehensiveUserData } from '@/lib/user-data-server';
@@ -99,16 +99,6 @@ const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
     switch (errorIcon) {
       case 'auth':
         return <UserIcon className="h-4 w-4 text-blue-500 dark:text-blue-300" weight="fill" />;
-      case 'upgrade':
-        return (
-          <HugeiconsIcon
-            icon={Crown02Icon}
-            size={16}
-            color="currentColor"
-            strokeWidth={1.5}
-            className="text-amber-500 dark:text-amber-300"
-          />
-        );
       case 'warning':
         return <AlertCircle className="h-4 w-4 text-orange-500 dark:text-orange-300" />;
       default:
@@ -127,15 +117,6 @@ const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
           title: 'text-primary dark:text-primary',
           text: 'text-primary/80 dark:text-primary/80',
           button: 'bg-primary hover:bg-primary/90 text-primary-foreground',
-        };
-      case 'upgrade':
-        return {
-          bg: 'bg-secondary/30 dark:bg-secondary/20',
-          border: 'border-secondary dark:border-secondary',
-          iconBg: 'bg-secondary/50 dark:bg-secondary/40',
-          title: 'text-secondary-foreground dark:text-secondary-foreground',
-          text: 'text-secondary-foreground/80 dark:text-secondary-foreground/80',
-          button: 'bg-secondary hover:bg-secondary/90 text-secondary-foreground',
         };
       case 'warning':
         return {
@@ -166,16 +147,10 @@ const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
       case 'signin':
         window.location.href = '/sign-in';
         break;
-      case 'upgrade':
-        window.location.href = '/pricing';
-        break;
       case 'retry':
         if (handleRetry) {
           handleRetry();
         }
-        break;
-      case 'refresh':
-        window.location.href = '/new';
         break;
       default:
         if (handleRetry) {
@@ -186,7 +161,7 @@ const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
 
   // Determine if user can perform action
   const canPerformAction = (action: string) => {
-    if (action === 'retry' || action === 'refresh') {
+    if (action === 'retry') {
       return (user || selectedVisibilityType === 'private') && handleRetry;
     }
     return true;
@@ -202,12 +177,9 @@ const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
           <div className="flex-1">
             <h3 className={`font-medium ${colors.title}`}>
               {isChatSDKError && isSignInRequired(parsedError as any) && 'Sign In Required'}
-              {isChatSDKError &&
-                (isProRequired(parsedError as any) || isRateLimited(parsedError as any)) &&
-                'Upgrade Required'}
+              {isChatSDKError && isRateLimited(parsedError as any) && 'Rate Limited'}
               {isChatSDKError &&
                 !isSignInRequired(parsedError as any) &&
-                !isProRequired(parsedError as any) &&
                 !isRateLimited(parsedError as any) &&
                 'Error'}
               {!isChatSDKError && 'Error'}
@@ -245,15 +217,6 @@ const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
               {actions.primary && canPerformAction(actions.primary.action) && (
                 <Button onClick={() => handleAction(actions.primary!.action)} className={colors.button} size="sm">
                   {actions.primary.action === 'signin' && <LogIn className="mr-2 h-3.5 w-3.5" />}
-                  {actions.primary.action === 'upgrade' && (
-                    <HugeiconsIcon
-                      icon={Crown02Icon}
-                      size={14}
-                      color="currentColor"
-                      strokeWidth={1.5}
-                      className="mr-2"
-                    />
-                  )}
                   {actions.primary.action === 'retry' && <RefreshCw className="mr-2 h-3.5 w-3.5" />}
                   {actions.primary.label}
                 </Button>
@@ -436,7 +399,6 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
   );
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const isProUser = Boolean(user?.isProUser);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -515,7 +477,6 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
       const documentFiles: File[] = [];
       const textFiles: File[] = []; // any other extension — inlined or RAG'd server-side if it decodes as text
       const oversizedFiles: File[] = [];
-      const blockedPdfFiles: File[] = [];
 
       files.forEach((file) => {
         if (file.size > getMaxSizeForFile(file)) {
@@ -526,11 +487,7 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
         if (file.type.startsWith('image/')) {
           imageFiles.push(file);
         } else if (file.type === 'application/pdf') {
-          if (!isProUser) {
-            blockedPdfFiles.push(file);
-          } else {
-            pdfFiles.push(file);
-          }
+          pdfFiles.push(file);
         } else if (EDITOR_DOCUMENT_MIME_TYPES.includes(file.type)) {
           documentFiles.push(file);
         } else {
@@ -540,10 +497,6 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
 
       if (oversizedFiles.length > 0) {
         sileo.error({ title: `Some files exceed the size limit: ${oversizedFiles.map((f) => f.name).join(', ')}` });
-      }
-
-      if (blockedPdfFiles.length > 0) {
-        sileo.error({ title: `PDF uploads require Pro subscription. Upgrade to access PDF analysis.` });
       }
 
       const validFiles: File[] = [...imageFiles, ...documentFiles, ...pdfFiles, ...textFiles];
@@ -634,7 +587,7 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
         onFinish();
       }
     },
-    [isProUser, message.id, message.parts, setMessages, uploadFile],
+    [message.id, message.parts, setMessages, uploadFile],
   );
 
   const handleFileChange = useCallback(

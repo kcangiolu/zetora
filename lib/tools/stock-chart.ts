@@ -4,7 +4,6 @@ import { Valyu } from 'valyu-js';
 import { tavily } from '@tavily/core';
 import Exa from 'exa-js';
 import { serverEnv } from '@/env/server';
-import { isUserProCached } from '@/lib/subscription';
 import { allSettled } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
@@ -619,20 +618,17 @@ export const stockChartTool = tool({
       financial_period,
     });
 
-    // Check if user is pro for premium features
-    const isProUser = await isUserProCached();
-    log.debug('Pro user:', isProUser);
-
-    // Override pro-only features if user is not pro
-    const actualIncludeEarnings = isProUser; // Earnings always require pro
-    const actualIncludeStatistics = isProUser && include_statistics;
-    const actualIncludeBalanceSheet = isProUser && include_balance_sheet;
-    const actualIncludeIncomeStatement = isProUser && include_income_statement;
-    const actualIncludeCashFlow = isProUser && include_cash_flow;
-    const actualIncludeDividends = isProUser && include_dividends;
-    const actualIncludeInsiderTransactions = isProUser && include_insider_transactions;
-    const actualIncludeMarketMovers = isProUser && include_market_movers;
-    const actualFilingTypes = isProUser ? filing_types : undefined;
+    // Financial extras are no longer gated behind a Pro tier — any
+    // connected account gets whatever it asked for.
+    const actualIncludeEarnings = true;
+    const actualIncludeStatistics = include_statistics;
+    const actualIncludeBalanceSheet = include_balance_sheet;
+    const actualIncludeIncomeStatement = include_income_statement;
+    const actualIncludeCashFlow = include_cash_flow;
+    const actualIncludeDividends = include_dividends;
+    const actualIncludeInsiderTransactions = include_insider_transactions;
+    const actualIncludeMarketMovers = include_market_movers;
+    const actualFilingTypes = filing_types;
 
     // Initialize all API clients
     const tvly = tavily({ apiKey: serverEnv.TAVILY_API_KEY });

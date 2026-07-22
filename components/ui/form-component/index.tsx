@@ -10,10 +10,8 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   models,
   requiresAuthentication,
-  requiresProSubscription,
   hasPdfSupport,
   getAcceptedFileTypes,
-  shouldBypassRateLimits,
   supportsExtremeMode,
   supportsCanvasMode,
 } from '@/ai/models';
@@ -29,7 +27,6 @@ import {
   Ghost,
   AlertCircle,
   FileText,
-  Lock,
 } from 'lucide-react';
 import { MagicEditIcon } from '@/components/ui/magic-edit-icon';
 import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogDescription } from '@/components/ui/dialog';
@@ -37,9 +34,7 @@ import { cn, SearchGroup, SearchGroupId, getSearchGroups, SearchProvider } from 
 import { track } from '@vercel/analytics';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ComprehensiveUserData } from '@/hooks/use-user-data';
-import { enhancePrompt, getDiscountConfigAction, listUserConnectorsAction } from '@/app/actions';
-import { DiscountConfig } from '@/lib/discount';
-import { PRICING } from '@/lib/constants';
+import { enhancePrompt, listUserConnectorsAction } from '@/app/actions';
 import { LockIcon, Eye, MagnifyingGlassIcon } from '@phosphor-icons/react';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { GlobalSearchIcon, DocumentAttachmentIcon } from '@hugeicons/core-free-icons';
@@ -61,7 +56,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { type ConnectorProvider } from '@/lib/connectors';
 import { useQueryClient } from '@tanstack/react-query';
 import { useWebHaptics } from 'web-haptics/react';
-import { ModelSwitcher, FlexibleIcon, ProBadge } from './model-switcher';
+import { ModelSwitcher, FlexibleIcon } from './model-switcher';
 import {
   getExtensionModeUIs,
   subscribeExtensionModeUIs,
@@ -97,7 +92,6 @@ export interface FormComponentProps {
   setAttachments: React.Dispatch<React.SetStateAction<Array<Attachment>>>;
   chatId: string;
   user: ComprehensiveUserData | null;
-  subscriptionData?: any;
   fileInputRef: React.RefObject<HTMLInputElement>;
   inputRef: React.RefObject<HTMLTextAreaElement>;
   stop: () => void;
@@ -112,7 +106,6 @@ export interface FormComponentProps {
   showExperimentalModels: boolean;
   status: UseChatHelpers<ChatMessage>['status'];
   setHasSubmitted: React.Dispatch<React.SetStateAction<boolean>>;
-  isLimitBlocked?: boolean;
   onOpenSettings?: (tab?: string) => void;
   selectedConnectors?: ConnectorProvider[];
   setSelectedConnectors?: React.Dispatch<React.SetStateAction<ConnectorProvider[]>>;
@@ -182,7 +175,6 @@ const BASE_VALID_SPECIAL_MODES = new Set<string>(['auto', 'memory', 'connectors'
 const FormComponent: React.FC<FormComponentProps> = ({
   chatId,
   user,
-  subscriptionData,
   input,
   setInput,
   attachments,
@@ -200,7 +192,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
   messages,
   status,
   setHasSubmitted,
-  isLimitBlocked = false,
   onOpenSettings,
   usageData,
   selectedConnectors = [],
@@ -234,9 +225,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [isTypewriting, setIsTypewriting] = useState(false);
-  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [showSignInDialog, setShowSignInDialog] = useState(false);
-  const [discountConfig, setDiscountConfig] = useState<DiscountConfig | null>(null);
 
   // Inline trigger popup state: '@' for sources, '/' for modes (extreme/connectors)
   const [triggerPopup, setTriggerPopup] = useState<'@' | '/' | null>(null);
@@ -286,8 +275,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const audioLinesRef = useRef<any>(null);
   const gripIconRef = useRef<any>(null);
 
-  const isProUser = useMemo(() => Boolean(user?.isProUser), [user?.isProUser]);
-
   const isProcessing = useMemo(() => status === 'submitted' || status === 'streaming', [status]);
 
   const hasInteracted = useMemo(() => messages.length > 0, [messages.length]);
@@ -319,8 +306,8 @@ const FormComponent: React.FC<FormComponentProps> = ({
     // closed SearchGroupId union — they're dynamically registered by an
     // overlay the core knows nothing about at compile time. Cast so these
     // entries slot into the same array/type as the hardcoded groups; every
-    // consumer here only reads id/name/description/icon/show/requireAuth/
-    // requirePro, so the structural mismatch is safe.
+    // consumer here only reads id/name/description/icon/show/requireAuth,
+    // so the structural mismatch is safe.
     const extensionGroups = extensionModeUIs.map(
       (descriptor) =>
         ({
@@ -330,7 +317,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
           icon: descriptor.icon,
           show: true,
           ...(descriptor.requireAuth ? { requireAuth: true as const } : {}),
-          ...(descriptor.requirePro ? { requirePro: true as const } : {}),
         }) as SearchGroup,
     );
     return [...base, ...extensionGroups] as SearchGroup[];
@@ -560,72 +546,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
     };
   }, [cleanupMediaRecorder]);
 
-  // Fetch discount config when needed
-  const fetchDiscountConfigForm = useCallback(async () => {
-    if (discountConfig) return; // Already fetched
-
-    try {
-      const config = await getDiscountConfigAction({
-        isIndianUser: location.isIndia,
-      });
-      setDiscountConfig(config as DiscountConfig);
-    } catch (error) {
-      console.error('Failed to fetch discount config:', error);
-    }
-  }, [discountConfig, location.isIndia]);
-
-  // Calculate pricing with student discounts
-  const calculatePricing = useCallback(() => {
-    const defaultUSDPrice = PRICING.PRO_MONTHLY;
-    const defaultINRPrice = PRICING.PRO_MONTHLY_INR;
-
-    // Check if student discount is active
-    if (!discountConfig || !discountConfig.enabled || !discountConfig.isStudentDiscount) {
-      return {
-        usd: { originalPrice: defaultUSDPrice, finalPrice: defaultUSDPrice, hasDiscount: false },
-        inr: location.isIndia
-          ? { originalPrice: defaultINRPrice, finalPrice: defaultINRPrice, hasDiscount: false }
-          : null,
-      };
-    }
-
-    // USD pricing with student discount
-    const usdPricing = discountConfig.finalPrice
-      ? {
-          originalPrice: defaultUSDPrice,
-          finalPrice: discountConfig.finalPrice,
-          hasDiscount: true,
-        }
-      : {
-          originalPrice: defaultUSDPrice,
-          finalPrice: defaultUSDPrice,
-          hasDiscount: false,
-        };
-
-    // INR pricing with student discount - show if available in discount config
-    let inrPricing: { originalPrice: number; finalPrice: number; hasDiscount: boolean } | null = null;
-    if (discountConfig.inrPrice || location.isIndia) {
-      inrPricing = discountConfig.inrPrice
-        ? {
-            originalPrice: defaultINRPrice,
-            finalPrice: discountConfig.inrPrice,
-            hasDiscount: true,
-          }
-        : {
-            originalPrice: defaultINRPrice,
-            finalPrice: defaultINRPrice,
-            hasDiscount: false,
-          };
-    }
-
-    return {
-      usd: usdPricing,
-      inr: inrPricing,
-    };
-  }, [discountConfig, location.isIndia]);
-
-  const pricing = calculatePricing();
-
   // Control audio lines animation
   useEffect(() => {
     if (audioLinesRef.current) {
@@ -782,12 +702,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
   }, [typewriterText]);
 
   const handleEnhance = useCallback(async () => {
-    if (!isProUser) {
-      haptics.trigger('warning');
-      fetchDiscountConfigForm();
-      setShowUpgradeDialog(true);
-      return;
-    }
     if (!input || input.trim().length === 0) {
       haptics.trigger('error');
       sileo.error({ title: 'Please enter a prompt to enhance' });
@@ -822,17 +736,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
         error: (err) => ({ title: (err as Error).message }),
       },
     );
-  }, [
-    input,
-    haptics,
-    isProcessing,
-    isProUser,
-    setInput,
-    typewriterText,
-    isEnhancing,
-    setShowUpgradeDialog,
-    fetchDiscountConfigForm,
-  ]);
+  }, [input, haptics, isProcessing, setInput, typewriterText, isEnhancing]);
 
   const handleRecord = useCallback(async () => {
     if (isRecording && mediaRecorderRef.current) {
@@ -1098,14 +1002,12 @@ const FormComponent: React.FC<FormComponentProps> = ({
           const extremeModels = models.filter((model) => {
             if (!supportsExtremeMode(model.value)) return false;
             if (requiresAuthentication(model.value) && !user) return false;
-            if (requiresProSubscription(model.value) && !isProUser) return false;
             return true;
           });
 
           if (extremeModels.length > 0) {
             const defaultModel = extremeModels.find((m) => m.value === 'zetora-default');
-            const firstFreeModel = extremeModels.find((m) => !m.pro);
-            const targetModel = defaultModel || firstFreeModel || extremeModels[0];
+            const targetModel = defaultModel || extremeModels[0];
             setSelectedModel(targetModel.value);
             sileo.info({
               title: `Switched to ${targetModel.label} for extreme mode`,
@@ -1140,7 +1042,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
       selectedModel,
       setSelectedModel,
       user,
-      isProUser,
       setIsMultiAgentModeEnabled,
     ],
   );
@@ -1148,14 +1049,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
   // Handle trigger popup group selection: switch mode + strip the trigger text from input
   const handleTriggerSelect = useCallback(
     (group: SearchGroup) => {
-      // Check pro requirement
-      if ('requirePro' in group && group.requirePro && !isProUser) {
-        setTriggerPopup(null);
-        setTriggerFilter('');
-        setShowUpgradeDialog(true);
-        return;
-      }
-
       handleGroupSelect(group);
 
       // Strip the trigger text (@ or /) from input
@@ -1191,7 +1084,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
       setTriggerPopup(null);
       setTriggerFilter('');
     },
-    [handleGroupSelect, inputRef, setInput, isProUser, triggerPopup],
+    [handleGroupSelect, inputRef, setInput, triggerPopup],
   );
 
   // Handle temp/private toggle from / trigger popup
@@ -1236,13 +1129,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const handleTriggerMultiAgentSelect = useCallback(() => {
     if (!setIsMultiAgentModeEnabled) return;
 
-    if (!isProUser) {
-      setTriggerPopup(null);
-      setTriggerFilter('');
-      setShowUpgradeDialog(true);
-      return;
-    }
-
     const isTurningOff = selectedGroup === 'multi-agent' || isMultiAgentModeEnabled;
     setSelectedGroup(isTurningOff ? 'auto' : 'multi-agent');
     setIsMultiAgentModeEnabled(!isTurningOff);
@@ -1279,11 +1165,9 @@ const FormComponent: React.FC<FormComponentProps> = ({
     setTriggerFilter('');
   }, [
     setIsMultiAgentModeEnabled,
-    isProUser,
     triggerPopup,
     inputRef,
     setInput,
-    setShowUpgradeDialog,
     setSelectedGroup,
     isMultiAgentModeEnabled,
     selectedGroup,
@@ -1304,19 +1188,11 @@ const FormComponent: React.FC<FormComponentProps> = ({
     [setSelectedConnectors],
   );
 
-  // Plus menu group select with pro/auth/connector guards
+  // Plus menu group select with auth/connector guards
   const handlePlusMenuGroupSelect = useCallback(
     async (group: SearchGroup) => {
-      // Check if this is a Pro-only group and user is not Pro
-      if ('requirePro' in group && group.requirePro && !isProUser) {
-        haptics.trigger('warning');
-        setPlusMenuOpen(false);
-        setShowUpgradeDialog(true);
-        return;
-      }
-
       // Check if connectors group is selected but no connectors are connected
-      if (group.id === 'connectors' && user && onOpenSettings && isProUser) {
+      if (group.id === 'connectors' && user && onOpenSettings) {
         try {
           const result = await listUserConnectorsAction();
           if (result.success && result.connections.length === 0) {
@@ -1333,7 +1209,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
       handleGroupSelect(group);
       setPlusMenuOpen(false);
     },
-    [isProUser, user, onOpenSettings, handleGroupSelect, haptics],
+    [user, onOpenSettings, handleGroupSelect, haptics],
   );
 
   // Toggle one of the exclusive special modes (Memory/Connectors/Canvas, or
@@ -1352,13 +1228,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
         return;
       }
 
-      if ('requirePro' in group && group.requirePro && !isProUser) {
-        haptics.trigger('warning');
-        setPlusMenuOpen(false);
-        setShowUpgradeDialog(true);
-        return;
-      }
-
       if (selectedGroup === modeId) {
         haptics.trigger('selection');
         setSelectedGroup('auto');
@@ -1366,7 +1235,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
         return;
       }
 
-      if (modeId === 'connectors' && user && onOpenSettings && isProUser) {
+      if (modeId === 'connectors' && user && onOpenSettings) {
         try {
           const result = await listUserConnectorsAction();
           if (result.success && result.connections.length === 0) {
@@ -1383,7 +1252,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
       handleGroupSelect(group);
       setPlusMenuOpen(false);
     },
-    [dynamicSearchGroups, user, isProUser, selectedGroup, setSelectedGroup, onOpenSettings, handleGroupSelect, haptics],
+    [dynamicSearchGroups, user, selectedGroup, setSelectedGroup, onOpenSettings, handleGroupSelect, haptics],
   );
 
   const uploadFile = useCallback(async (file: File): Promise<Attachment> => {
@@ -1461,7 +1330,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
       const documentFiles: File[] = []; // CSV, DOCX, XLSX for file_query_search
       const textFiles: File[] = []; // any other extension — inlined or RAG'd server-side if it decodes as text
       const oversizedFiles: File[] = [];
-      const blockedPdfFiles: File[] = [];
 
       // Supported document types for file_query_search tool
       const documentMimeTypes = [
@@ -1480,11 +1348,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
         if (file.type.startsWith('image/')) {
           imageFiles.push(file);
         } else if (file.type === 'application/pdf') {
-          if (!isProUser) {
-            blockedPdfFiles.push(file);
-          } else {
-            pdfFiles.push(file);
-          }
+          pdfFiles.push(file);
         } else if (documentMimeTypes.includes(file.type)) {
           documentFiles.push(file);
         } else {
@@ -1493,18 +1357,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
           textFiles.push(file);
         }
       });
-
-      if (blockedPdfFiles.length > 0) {
-        console.log(
-          'Blocked PDF files for non-Pro user:',
-          blockedPdfFiles.map((f) => f.name),
-        );
-        sileo.error({
-          title: 'PDF uploads require Pro subscription',
-          description: 'Upgrade to access PDF analysis',
-          icon: <Lock className="h-4 w-4" />,
-        });
-      }
 
       if (imageFiles.length === 0 && pdfFiles.length === 0 && documentFiles.length === 0 && textFiles.length === 0) {
         console.log('No supported files found');
@@ -1580,7 +1432,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
         event.target.value = '';
       }
     },
-    [attachments.length, setAttachments, isProUser, uploadFile],
+    [attachments.length, setAttachments, uploadFile],
   );
 
   const removeAttachment = useCallback(
@@ -1657,7 +1509,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
       const documentFiles: File[] = []; // CSV, DOCX, XLSX for file_query_search
       const textFiles: File[] = []; // any other extension — inlined or RAG'd server-side if it decodes as text
       const oversizedFiles: File[] = [];
-      const blockedPdfFiles: File[] = [];
 
       // Supported document types for file_query_search tool
       const documentMimeTypes = [
@@ -1678,11 +1529,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
         if (file.type.startsWith('image/')) {
           imageFiles.push(file);
         } else if (file.type === 'application/pdf') {
-          if (!isProUser) {
-            blockedPdfFiles.push(file);
-          } else {
-            pdfFiles.push(file);
-          }
+          pdfFiles.push(file);
         } else if (documentMimeTypes.includes(file.type)) {
           documentFiles.push(file);
         } else {
@@ -1702,18 +1549,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
           oversizedFiles.map((f) => `${f.name} (${f.size} bytes)`),
         );
         sileo.error({ title: `Some files exceed the size limit: ${oversizedFiles.map((f) => f.name).join(', ')}` });
-      }
-
-      if (blockedPdfFiles.length > 0) {
-        console.log(
-          'Blocked PDF files for non-Pro user:',
-          blockedPdfFiles.map((f) => f.name),
-        );
-        sileo.error({
-          title: 'PDF uploads require Pro subscription',
-          description: 'Upgrade to access PDF analysis',
-          icon: <Lock className="h-4 w-4" />,
-        });
       }
 
       if (imageFiles.length === 0 && pdfFiles.length === 0 && documentFiles.length === 0 && textFiles.length === 0) {
@@ -1783,7 +1618,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
         }
       }, 100);
     },
-    [attachments.length, setAttachments, uploadFile, isProUser],
+    [attachments.length, setAttachments, uploadFile],
   );
 
   const handlePaste = useCallback(
@@ -1892,28 +1727,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
       return;
     }
 
-    const shouldBypassLimitsForThisModel = shouldBypassRateLimits(selectedModel, user);
-
-    if (isMultiAgentModeEnabled && !isProUser) {
-      haptics.trigger('warning');
-      sileo.error({
-        title: 'Swarm research requires Pro',
-        description: 'Upgrade to Pro to use xAI Swarm research',
-        icon: <Lock className="h-4 w-4" />,
-      });
-      return;
-    }
-
-    if (isLimitBlocked && !shouldBypassLimitsForThisModel) {
-      haptics.trigger('warning');
-      sileo.error({
-        title: 'Daily search limit reached',
-        description: 'Upgrade to Pro for unlimited searches',
-        icon: <Lock className="h-4 w-4" />,
-      });
-      return;
-    }
-
     if (input.length > MAX_INPUT_CHARS) {
       haptics.trigger('error');
       sileo.error({
@@ -2011,7 +1824,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
     isRecording,
     selectedModel,
     user,
-    isLimitBlocked,
     input,
     attachments,
     sendMessage,
@@ -2027,7 +1839,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
     lastSubmittedQueryRef,
     formQueryClient,
     isMultiAgentModeEnabled,
-    isProUser,
     onBeforeSubmit,
     selectedGroup,
   ]);
@@ -2294,11 +2105,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
             ref={fileInputRef}
             multiple
             onChange={handleFileChange}
-            accept={getAcceptedFileTypes(
-              selectedModel,
-              user?.isProUser ||
-                (subscriptionData?.hasSubscription && subscriptionData?.subscription?.status === 'active'),
-            )}
+            accept={getAcceptedFileTypes(selectedModel)}
             tabIndex={-1}
           />
           <input
@@ -2307,11 +2114,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
             ref={postSubmitFileInputRef}
             multiple
             onChange={handleFileChange}
-            accept={getAcceptedFileTypes(
-              selectedModel,
-              user?.isProUser ||
-                (subscriptionData?.hasSubscription && subscriptionData?.subscription?.status === 'active'),
-            )}
+            accept={getAcceptedFileTypes(selectedModel)}
             tabIndex={-1}
           />
 
@@ -2372,8 +2175,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
                       group.id === 'multi-agent'
                         ? isMultiAgentModeEnabled || selectedGroup === 'multi-agent'
                         : selectedGroup === group.id;
-                    const isProOnly = 'requirePro' in group && group.requirePro && !isProUser;
-
                     return (
                       <button
                         key={group.id}
@@ -2402,11 +2203,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
                             <span className="text-[10px] font-medium text-primary/70">Active</span>
                             <CheckIcon className="size-3 text-primary" />
                           </div>
-                        )}
-                        {isProOnly && !isCurrentGroup && (
-                          <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide text-primary/70 bg-primary/8 px-1.5 py-0.5 rounded">
-                            Pro
-                          </span>
                         )}
                       </button>
                     );
@@ -2439,16 +2235,12 @@ const FormComponent: React.FC<FormComponentProps> = ({
                           <span className="flex-1 text-[13px] font-medium text-foreground truncate">
                             Swarm mode
                           </span>
-                          {isMultiAgentModeEnabled ? (
+                          {isMultiAgentModeEnabled && (
                             <div className="flex items-center gap-1.5 shrink-0">
                               <span className="text-[10px] font-medium text-primary/70">Active</span>
                               <CheckIcon className="size-3 text-primary" />
                             </div>
-                          ) : !isProUser ? (
-                            <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide text-primary/70 bg-primary/8 px-1.5 py-0.5 rounded">
-                              Pro
-                            </span>
-                          ) : null}
+                          )}
                         </button>
                       )}
                       {showTempInTrigger && (
@@ -2667,10 +2459,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
                               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors"
                               onClick={() => {
                                 haptics.trigger('selection');
-                                if (!isProUser) {
-                                  setShowUpgradeDialog(true);
-                                  return;
-                                }
                                 const isTurningOff = selectedGroup === 'multi-agent' || isMultiAgentModeEnabled;
                                 setSelectedGroup(isTurningOff ? 'auto' : 'multi-agent');
                                 setIsMultiAgentModeEnabled(!isTurningOff);
@@ -2678,15 +2466,11 @@ const FormComponent: React.FC<FormComponentProps> = ({
                             >
                               <AgentNetworkIcon width={16} height={16} />
                               <span className="flex-1 text-[13px]">Swarm mode</span>
-                              {isMultiAgentModeEnabled ? (
+                              {isMultiAgentModeEnabled && (
                                 <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
                                   Active
                                 </span>
-                              ) : !isProUser ? (
-                                <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                  Pro
-                                </span>
-                              ) : null}
+                              )}
                             </button>
                           )}
                           {user && mcpEnabled && (
@@ -2705,11 +2489,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
                               {selectedGroup === 'mcp' && (
                                 <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
                                   Active
-                                </span>
-                              )}
-                              {!isProUser && (
-                                <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                  Pro
                                 </span>
                               )}
                             </button>
@@ -2751,16 +2530,10 @@ const FormComponent: React.FC<FormComponentProps> = ({
                                 strokeWidth={1.5}
                               />
                               <span className="flex-1 text-[13px]">Connectors</span>
-                              {selectedGroup === 'connectors' ? (
+                              {selectedGroup === 'connectors' && (
                                 <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
                                   Active
                                 </span>
-                              ) : (
-                                !isProUser && (
-                                  <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                    Pro
-                                  </span>
-                                )
                               )}
                             </button>
                           )}
@@ -2779,16 +2552,10 @@ const FormComponent: React.FC<FormComponentProps> = ({
                                 strokeWidth={1.5}
                               />
                               <span className="flex-1 text-[13px]">Canvas</span>
-                              {selectedGroup === 'canvas' ? (
+                              {selectedGroup === 'canvas' && (
                                 <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
                                   Active
                                 </span>
-                              ) : (
-                                !isProUser && (
-                                  <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                    Pro
-                                  </span>
-                                )
                               )}
                             </button>
                           )}
@@ -2806,17 +2573,10 @@ const FormComponent: React.FC<FormComponentProps> = ({
                               >
                                 <FlexibleIcon icon={descriptor.icon} size={16} color="currentColor" strokeWidth={1.5} />
                                 <span className="flex-1 text-[13px]">{descriptor.name}</span>
-                                {isActive ? (
+                                {isActive && (
                                   <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
                                     Active
                                   </span>
-                                ) : (
-                                  descriptor.requirePro &&
-                                  !isProUser && (
-                                    <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                      Pro
-                                    </span>
-                                  )
                                 )}
                               </button>
                             );
@@ -2966,10 +2726,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
                                 )}
                                 onClick={() => {
                                   haptics.trigger('selection');
-                                  if (!isProUser) {
-                                    setShowUpgradeDialog(true);
-                                    return;
-                                  }
                                   const isTurningOff = selectedGroup === 'multi-agent' || isMultiAgentModeEnabled;
                                   setSelectedGroup(isTurningOff ? 'auto' : 'multi-agent');
                                   setIsMultiAgentModeEnabled(!isTurningOff);
@@ -2977,15 +2733,11 @@ const FormComponent: React.FC<FormComponentProps> = ({
                               >
                                 <AgentNetworkIcon width={16} height={16} />
                                 <span className="flex-1 text-[13px]">Swarm mode</span>
-                                {isMultiAgentModeEnabled ? (
+                                {isMultiAgentModeEnabled && (
                                   <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
                                     Active
                                   </span>
-                                ) : !isProUser ? (
-                                  <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                    Pro
-                                  </span>
-                                ) : null}
+                                )}
                               </button>
                             </TooltipTrigger>
                             <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
@@ -3013,11 +2765,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
                                 {selectedGroup === 'mcp' && (
                                   <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
                                     Active
-                                  </span>
-                                )}
-                                {!isProUser && selectedGroup !== 'mcp' && (
-                                  <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                    Pro
                                   </span>
                                 )}
                               </button>
@@ -3073,16 +2820,10 @@ const FormComponent: React.FC<FormComponentProps> = ({
                                   strokeWidth={1.5}
                                 />
                                 <span className="flex-1 text-[13px]">Connectors</span>
-                                {selectedGroup === 'connectors' ? (
+                                {selectedGroup === 'connectors' && (
                                   <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
                                     Active
                                   </span>
-                                ) : (
-                                  !isProUser && (
-                                    <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                      Pro
-                                    </span>
-                                  )
                                 )}
                               </button>
                             </TooltipTrigger>
@@ -3108,16 +2849,10 @@ const FormComponent: React.FC<FormComponentProps> = ({
                                   strokeWidth={1.5}
                                 />
                                 <span className="flex-1 text-[13px]">Canvas</span>
-                                {selectedGroup === 'canvas' ? (
+                                {selectedGroup === 'canvas' && (
                                   <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
                                     Active
                                   </span>
-                                ) : (
-                                  !isProUser && (
-                                    <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                      Pro
-                                    </span>
-                                  )
                                 )}
                               </button>
                             </TooltipTrigger>
@@ -3143,17 +2878,10 @@ const FormComponent: React.FC<FormComponentProps> = ({
                                 >
                                   <FlexibleIcon icon={descriptor.icon} size={16} color="currentColor" strokeWidth={1.5} />
                                   <span className="flex-1 text-[13px]">{descriptor.name}</span>
-                                  {isActive ? (
+                                  {isActive && (
                                     <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
                                       Active
                                     </span>
-                                  ) : (
-                                    descriptor.requirePro &&
-                                    !isProUser && (
-                                      <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                        Pro
-                                      </span>
-                                    )
                                   )}
                                 </button>
                               </TooltipTrigger>
@@ -3367,12 +3095,11 @@ const FormComponent: React.FC<FormComponentProps> = ({
                       selectedConnectors={selectedConnectors}
                       onConnectorToggle={handleConnectorToggle}
                       user={user}
-                      isProUser={isProUser}
                     />
                   )}
 
                   {/* Inline MCP server selector when MCP mode is active */}
-                  {selectedGroup === 'mcp' && <McpServerSelector user={user} isProUser={isProUser} />}
+                  {selectedGroup === 'mcp' && <McpServerSelector user={user} />}
                 </div>
 
                 {/* Right: Enhance, Model selector, voice/send */}
@@ -3393,12 +3120,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                           if (!isEnhancing && !isTypewriting) handleEnhance();
                         }}
                         disabled={
-                          input.length === 0 ||
-                          isEnhancing ||
-                          isTypewriting ||
-                          uploadQueue.length > 0 ||
-                          status !== 'ready' ||
-                          isLimitBlocked
+                          input.length === 0 || isEnhancing || isTypewriting || uploadQueue.length > 0 || status !== 'ready'
                         }
                       >
                         {isEnhancementActive ? (
@@ -3452,7 +3174,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
                     onModelSelect={(model) => {
                       setSelectedModel(model.value);
                     }}
-                    subscriptionData={subscriptionData}
                     user={user}
                     selectedGroup={selectedGroup}
                     autoRoutedModel={autoRoutedModel}
@@ -3527,7 +3248,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
                             (input.length === 0 && attachments.length === 0 && !isEnhancing && !isTypewriting) ||
                             uploadQueue.length > 0 ||
                             status !== 'ready' ||
-                            isLimitBlocked ||
                             isEnhancing ||
                             isTypewriting
                           }
@@ -3602,8 +3322,8 @@ const FormComponent: React.FC<FormComponentProps> = ({
           </div>
         </div>
 
-        {/* Temporary Chat Hint - only on initial state, pro users get fixed-height wrapper to prevent jank */}
-        {!hasInteracted && isProUser ? (
+        {/* Temporary Chat Hint - only on initial state, signed-in users get fixed-height wrapper to prevent jank */}
+        {!hasInteracted && user ? (
           <div className="relative h-8">
             <AnimatePresence>
               {isTemporaryChatEnabled && (
@@ -3661,120 +3381,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
             </p>
           </motion.div>
         ) : null}
-
-        {/* Pro Upgrade Dialog */}
-        <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
-          <DialogContent className="p-0 overflow-hidden gap-0 bg-background sm:max-w-[450px]" showCloseButton={false}>
-            <DialogHeader className="p-2">
-              <div className="relative w-full p-6 rounded-md text-white overflow-hidden">
-                <div className="absolute inset-0 bg-[url('/placeholder.png')] bg-cover bg-center rounded-sm">
-                  <div className="absolute inset-0 bg-linear-to-t from-black/60 via-black/30 to-black/10"></div>
-                </div>
-                <div className="relative z-10 flex flex-col gap-4">
-                  <DialogTitle className="flex items-center gap-3 text-white">
-                    <div className="flex items-center gap-1 flex-wrap">
-                      <span className="text-xl sm:text-2xl font-bold">Unlock</span>
-                      <ProBadge className="text-white! bg-white/20! ring-white/30! font-extralight! mb-0.5!" />
-                    </div>
-                  </DialogTitle>
-                  <DialogDescription className="text-white/90">
-                    {discountConfig?.enabled && discountConfig?.isStudentDiscount && (
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-sm border border-white/20 text-white text-sm font-medium">
-                          🎓 Student Discount
-                        </div>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2 mb-2">
-                      {pricing.inr ? (
-                        // Show INR pricing when available
-                        pricing.inr.hasDiscount ? (
-                          <>
-                            <span className="text-lg text-white/60 line-through">₹{pricing.inr.originalPrice}</span>
-                            <span className="text-2xl font-bold">₹{pricing.inr.finalPrice}</span>
-                          </>
-                        ) : (
-                          <span className="text-2xl font-bold">₹{pricing.inr.finalPrice}</span>
-                        )
-                      ) : // Show USD pricing for non-Indian users
-                      pricing.usd.hasDiscount ? (
-                        <>
-                          <span className="text-lg text-white/60 line-through">${pricing.usd.originalPrice}</span>
-                          <span className="text-2xl font-bold">${pricing.usd.finalPrice.toFixed(2)}</span>
-                        </>
-                      ) : (
-                        <span className="text-2xl font-bold">${pricing.usd.finalPrice}</span>
-                      )}
-                      <span className="text-sm text-white/80">/month</span>
-                    </div>
-                    <p className="text-sm text-white/80 text-left">
-                      Get enhanced capabilities including prompt enhancement and unlimited features
-                    </p>
-                  </DialogDescription>
-                  <Button
-                    onClick={() => {
-                      window.location.href = '/pricing';
-                    }}
-                    className="backdrop-blur-md bg-white/90 border border-white/20 text-black hover:bg-white w-full font-medium mt-3"
-                  >
-                    Upgrade to Pro
-                  </Button>
-                </div>
-              </div>
-            </DialogHeader>
-
-            <div className="px-6 py-6 flex flex-col gap-4">
-              <div className="flex items-center gap-4">
-                <CheckIcon className="size-4 text-primary shrink-0" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-foreground">Prompt Enhancement</p>
-                  <p className="text-xs text-muted-foreground">AI-powered prompt optimization</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <CheckIcon className="size-4 text-primary shrink-0" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-foreground">Unlimited Searches</p>
-                  <p className="text-xs text-muted-foreground">No daily limits on your research</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <CheckIcon className="size-4 text-primary shrink-0" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-foreground">Advanced AI Models</p>
-                  <p className="text-xs text-muted-foreground">
-                    Access to all AI models including Grok 4, Claude and GPT-5
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <CheckIcon className="size-4 text-primary shrink-0" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-foreground">Zetora Lookout</p>
-                  <p className="text-xs text-muted-foreground">Automated search monitoring on your schedule</p>
-                </div>
-              </div>
-
-              <div className="flex gap-2 w-full items-center mt-4">
-                <div className="flex-1 border-b border-foreground/10" />
-                <p className="text-xs text-foreground/50">Cancel anytime • Secure payment</p>
-                <div className="flex-1 border-b border-foreground/10" />
-              </div>
-
-              <Button
-                variant="ghost"
-                onClick={() => setShowUpgradeDialog(false)}
-                className="w-full text-muted-foreground hover:text-foreground mt-2"
-                size="sm"
-              >
-                Not now
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
 
         {/* Sign In Dialog (Voice) */}
         <Dialog open={showSignInDialog} onOpenChange={setShowSignInDialog}>

@@ -121,18 +121,13 @@ export default function PrivacyPage() {
                   account.
                 </li>
                 <li>
-                  <strong>Subscription Data:</strong> Information about your subscription status and payment history
-                  (but not payment details).
-                </li>
-                <li>
                   <strong>Cookies and Similar Technologies:</strong> We use cookies and similar tracking technologies to
                   enhance your experience.
                 </li>
               </ul>
               <p>
-                <strong>Important Note on Payment Data:</strong> Zetora AI does not collect, store, or process any
-                payment card details, bank information, UPI details, or other sensitive payment data. All payment
-                information is handled directly by our payment processors (Polar and DodoPayments).
+                <strong>Note on Payment Data:</strong> Zetora AI does not sell subscriptions and does not collect,
+                store, or process any payment card details, bank information, or other payment data.
               </p>
 
               <h2 id="how-use">
@@ -162,10 +157,6 @@ export default function PrivacyPage() {
                     <li>
                       <strong>AI Processing Partners:</strong> OpenAI, Anthropic, xAI, and others for processing search
                       queries
-                    </li>
-                    <li>
-                      <strong>Payment Processors:</strong> Polar and DodoPayments for billing and subscription
-                      management
                     </li>
                   </ul>
                 </li>

@@ -2,7 +2,6 @@ import { TextPart, ImagePart, FilePart, ModelMessage } from 'ai';
 
 export type AttachmentRef = { url: string; contentType: string; name?: string };
 
-// PDF support requires Pro subscription (enforced in form-component.tsx)
 export const DOCUMENT_MIME_TYPES = [
   'application/pdf',
   'text/csv',

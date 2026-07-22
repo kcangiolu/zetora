@@ -13,14 +13,10 @@ import { searchProviders, type CustomProviderConfig, parseCustomModel } from './
 
 export function SearchTab({
   user,
-  isMaxUser,
-  hasPaidAccess,
   customModelsList,
   customProviders,
 }: {
   user: SettingsUser;
-  isMaxUser: boolean;
-  hasPaidAccess: boolean;
   customModelsList: Model[];
   customProviders: CustomProviderConfig[];
 }) {
@@ -308,8 +304,6 @@ export function SearchTab({
                   selectedModel={selectedEmbeddingProvider}
                   onModelSelect={handleEmbeddingModelSelect}
                   user={user}
-                  isProUser={hasPaidAccess}
-                  isMaxUser={isMaxUser}
                   additionalModels={customModelsList}
                   className="w-[180px] h-8"
                   compact
@@ -421,8 +415,6 @@ export function SearchTab({
                   selectedModel={selectedEmbeddingProvider}
                   onModelSelect={handleEmbeddingModelSelect}
                   user={user}
-                  isProUser={hasPaidAccess}
-                  isMaxUser={isMaxUser}
                   additionalModels={customModelsList}
                   className="w-[180px] h-8"
                   compact

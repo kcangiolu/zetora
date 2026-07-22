@@ -2,12 +2,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { z } from 'zod';
 
 const getUser = vi.hoisted(() => vi.fn());
-const getComprehensiveUserData = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/auth-utils', () => ({ getUser }));
-vi.mock('@/lib/user-data-server', () => ({ getComprehensiveUserData }));
 
-import { withError, withAuth, withProAuth, parseBody, type RouteContext } from '@/lib/api/route-handlers';
+import { withError, withAuth, parseBody, type RouteContext } from '@/lib/api/route-handlers';
 import { ChatSDKError } from '@/lib/errors';
 
 const ctx: RouteContext = { params: Promise.resolve({}) };
@@ -31,11 +29,11 @@ describe('withError', () => {
 
   it('renders thrown ChatSDKError via toResponse', async () => {
     const handler = withError(async () => {
-      throw new ChatSDKError('upgrade_required:auth', 'pro only');
+      throw new ChatSDKError('unauthorized:auth', 'sign in required');
     });
     const res = await handler(req(), ctx);
-    expect(res.status).toBe(402);
-    expect(await res.json()).toMatchObject({ code: 'upgrade_required:auth' });
+    expect(res.status).toBe(401);
+    expect(await res.json()).toMatchObject({ code: 'unauthorized:auth' });
   });
 
   it('maps ZodError to a 400 with the first issue message', async () => {
@@ -75,26 +73,6 @@ describe('withAuth', () => {
     const handler = withAuth(async (_req, { user }) => Response.json({ id: user.id }));
     const res = await handler(req(), ctx);
     expect(await res.json()).toEqual({ id: 'u1' });
-  });
-});
-
-describe('withProAuth', () => {
-  it('401s anonymous users through the error boundary', async () => {
-    getComprehensiveUserData.mockResolvedValue(null);
-    const res = await withProAuth(async () => Response.json({}))(req(), ctx);
-    expect(res.status).toBe(401);
-  });
-
-  it('402s signed-in non-Pro users', async () => {
-    getComprehensiveUserData.mockResolvedValue({ id: 'u1', isProUser: false });
-    const res = await withProAuth(async () => Response.json({}))(req(), ctx);
-    expect(res.status).toBe(402);
-  });
-
-  it('passes comprehensive data to the handler for Pro users', async () => {
-    getComprehensiveUserData.mockResolvedValue({ id: 'u1', isProUser: true });
-    const handler = withProAuth(async (_req, { user }) => Response.json({ pro: user.isProUser }));
-    expect(await (await handler(req(), ctx)).json()).toEqual({ pro: true });
   });
 });
 

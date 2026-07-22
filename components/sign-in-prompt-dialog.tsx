@@ -137,21 +137,6 @@ export function SignInPromptDialog({ open, onOpenChange }: SignInPromptDialogPro
         <SignInButton provider="microsoft" loading={microsoftLoading} setLoading={setMicrosoftLoading} />
       </div>
 
-      {/* Divider */}
-      <div className="relative my-4">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-border"></div>
-        </div>
-        <div className="relative flex justify-center text-xs">
-          <span className="px-2 bg-background text-muted-foreground">or</span>
-        </div>
-      </div>
-
-      {/* Guest Option */}
-      <Button variant="ghost" onClick={() => onOpenChange(false)} className="w-full h-10 font-normal text-sm">
-        Continue without account
-      </Button>
-
       {/* Legal */}
       <p className="text-xs text-muted-foreground text-center mt-4">
         By continuing, you accept our{' '}
@@ -182,21 +167,6 @@ export function SignInPromptDialog({ open, onOpenChange }: SignInPromptDialogPro
               <SignInButton provider="twitter" loading={twitterLoading} setLoading={setTwitterLoading} />
               <SignInButton provider="microsoft" loading={microsoftLoading} setLoading={setMicrosoftLoading} />
             </div>
-
-            {/* Divider */}
-            <div className="relative my-4">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-border"></div>
-              </div>
-              <div className="relative flex justify-center text-xs">
-                <span className="px-2 bg-background text-muted-foreground">or</span>
-              </div>
-            </div>
-
-            {/* Guest Option */}
-            <Button variant="ghost" onClick={() => onOpenChange(false)} className="w-full h-10 font-normal text-sm">
-              Continue without account
-            </Button>
 
             {/* Legal */}
             <p className="text-xs text-muted-foreground text-center mt-4">

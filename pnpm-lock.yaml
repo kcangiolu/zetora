@@ -81,9 +81,6 @@ importers:
       '@daytonaio/sdk':
         specifier: ^0.140.0
         version: 0.140.0(ws@8.21.0)
-      '@dodopayments/better-auth':
-        specifier: ^1.4.3
-        version: 1.6.3(better-auth@1.6.13(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(@upstash/redis@1.38.0)(kysely@0.29.2)(pg@8.21.0))(next@16.2.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(pg@8.21.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.9))(zod@4.4.3)
       '@elevenlabs/elevenlabs-js':
         specifier: ^2.39.0
         version: 2.49.1
@@ -123,12 +120,6 @@ importers:
       '@phosphor-icons/react':
         specifier: ^2.1.10
         version: 2.1.10(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
-      '@polar-sh/better-auth':
-        specifier: ^1.8.3
-        version: 1.8.4(@polar-sh/sdk@0.46.7)(@stripe/react-stripe-js@4.0.2(@stripe/stripe-js@7.9.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@stripe/stripe-js@7.9.0)(better-auth@1.6.13(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(@upstash/redis@1.38.0)(kysely@0.29.2)(pg@8.21.0))(next@16.2.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(pg@8.21.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.9))(react@19.2.6)(zod@4.4.3)
-      '@polar-sh/sdk':
-        specifier: ^0.46.5
-        version: 0.46.7
       '@radix-ui/react-accordion':
         specifier: ^1.2.12
         version: 1.2.12(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -243,9 +234,6 @@ importers:
       '@vercel/config':
         specifier: ^0.0.38
         version: 0.0.38
-      '@vercel/edge-config':
-        specifier: ^1.4.3
-        version: 1.4.3(@opentelemetry/api@1.9.1)(next@16.2.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))
       '@vercel/functions':
         specifier: ^3.4.3
         version: 3.6.1(@aws-sdk/credential-provider-web-identity@3.972.45)
@@ -318,9 +306,6 @@ importers:
       docx:
         specifier: ^9.6.1
         version: 9.7.1
-      dodopayments:
-        specifier: ^2.23.2
-        version: 2.34.0
       dotenv:
         specifier: ^16.6.1
         version: 16.6.1
@@ -1196,18 +1181,6 @@ packages:
   '@discoveryjs/json-ext@0.6.3':
     resolution: {integrity: sha512-4B4OijXeVNOPZlYA2oEwWOTkzyltLao+xbotHQeqN++Rv27Y6s818+n2Qkp8q+Fxhn0t/5lA5X1Mxktud8eayQ==}
     engines: {node: '>=14.17.0'}
-
-  '@dodopayments/better-auth@1.6.3':
-    resolution: {integrity: sha512-UIcfcpV5MFJ90heJ1rdo7Fxnows/6wFyv1hDBNwB1qUNGfrqdL/7WrHdQ1dVHBmL/kZ68OXIDokCxjSGzJqRwA==}
-    engines: {node: '>=16.0.0'}
-    peerDependencies:
-      better-auth: ^1.4.0
-      zod: ^3.25.0 || ^4.0.0
-
-  '@dodopayments/core@0.3.12':
-    resolution: {integrity: sha512-cahX0AmZI9QN6PhXDE24vUa/UBD4qU21iCgyJRC0L7jxX3dQNMwQSfP2ow9xovnrBQxrsebnwwlDoKi5wl20dA==}
-    peerDependencies:
-      zod: ^3.25.0 || ^4.0.0
 
   '@drizzle-team/brocli@0.10.2':
     resolution: {integrity: sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w==}
@@ -2136,24 +2109,6 @@ packages:
     peerDependencies:
       react: '>= 16.8'
       react-dom: '>= 16.8'
-
-  '@polar-sh/better-auth@1.8.4':
-    resolution: {integrity: sha512-BgWCcBQDRYwQn2NEYYzGSEfnrmBJHaDTvYBXGE2V3mmGPKspUDS8+p1LzbNY0Sw681LT8HB5w5Q81Ysc46CVSQ==}
-    engines: {node: '>=16'}
-    peerDependencies:
-      '@polar-sh/sdk': ^0.47.0
-      better-auth: ^1.4.12
-      zod: ^3.25.0 || ^4.0.0
-
-  '@polar-sh/checkout@0.2.1':
-    resolution: {integrity: sha512-AEKKw3o4ykApECA4bU6a2YC0+aQKTFUasca4ZgCDIjG8AHlu3SjW3Taxh2nfeYAczhah0m0axVF9AV8VfdYzfw==}
-    peerDependencies:
-      '@stripe/react-stripe-js': ^3.6.0 || ^4.0.2
-      '@stripe/stripe-js': ^7.1.0
-      react: ^18 || ^19
-
-  '@polar-sh/sdk@0.46.7':
-    resolution: {integrity: sha512-g8/goRQFfnik9Ood2Ej5AsbEXv2rohzhVlmW7wjkCuwdc8i59FWhdBjolX2tUwcXXjugziXrhCZJLivY3W6ytQ==}
 
   '@radix-ui/number@1.1.1':
     resolution: {integrity: sha512-MkKCwxlXTgz6CFoJx3pCwn07GKp36+aZyu/u2Ln2VrA5DcdyCZkASEDBTd8x5whTQQL5CiYf4prXKLcgQdv29g==}
@@ -3366,17 +3321,6 @@ packages:
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
-  '@stripe/react-stripe-js@4.0.2':
-    resolution: {integrity: sha512-l2wau+8/LOlHl+Sz8wQ1oDuLJvyw51nQCsu6/ljT6smqzTszcMHifjAJoXlnMfcou3+jK/kQyVe04u/ufyTXgg==}
-    peerDependencies:
-      '@stripe/stripe-js': '>=1.44.1 <8.0.0'
-      react: '>=16.8.0 <20.0.0'
-      react-dom: '>=16.8.0 <20.0.0'
-
-  '@stripe/stripe-js@7.9.0':
-    resolution: {integrity: sha512-ggs5k+/0FUJcIgNY08aZTqpBTtbExkJMYMLSMwyucrhtWexVOEY1KJmhBsxf+E/Q15f5rbwBpj+t0t2AW2oCsQ==}
-    engines: {node: '>=12.16'}
-
   '@supadata/js@1.4.0':
     resolution: {integrity: sha512-DzKwwXApb58bAMv6PzW+kbRGMOffNfxBlN4B7eLJ/boFhylmlj6zI9fXlMKFIPt+vnPpJXGCk7OaguaosTYdYA==}
     engines: {node: '>=18'}
@@ -4055,21 +3999,6 @@ packages:
   '@vercel/config@0.0.38':
     resolution: {integrity: sha512-G5UIE6+PZzBsy/jsBPzdqdauMyUWfHeE1JaxuYsQfk50chTqNXmGsfr856n3wQy7krlFLc0pFG9YTFnNoLBvtw==}
     hasBin: true
-
-  '@vercel/edge-config-fs@0.1.0':
-    resolution: {integrity: sha512-NRIBwfcS0bUoUbRWlNGetqjvLSwgYH/BqKqDN7vK1g32p7dN96k0712COgaz6VFizAm9b0g6IG6hR6+hc0KCPg==}
-
-  '@vercel/edge-config@1.4.3':
-    resolution: {integrity: sha512-8vTDATodRrH49wMzKEjZ8/5H2qs1aPkD0uRK585f/Fx4YN2wfHfY/3td9OFrh+gdnCq07z8A5f0hoY6xhBcPkg==}
-    engines: {node: '>=14.6'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.7.0
-      next: '>=16.2.5'
-    peerDependenciesMeta:
-      '@opentelemetry/api':
-        optional: true
-      next:
-        optional: true
 
   '@vercel/functions@3.6.1':
     resolution: {integrity: sha512-xz+zZvj/XE6KDHZ8kYNO25Axpjng/kTJd/87SwONa6hzlq94K69OdqH1ZC/CehbtwWknpeyHqUHmpnfoaCbLZQ==}
@@ -5027,10 +4956,6 @@ packages:
   docx@9.7.1:
     resolution: {integrity: sha512-ilXFf9Moz47ABjFpDiA5s1w9lpb4EFSp7+5iiJSbfyYDM+bpZdAgLlSr7fW4aXhVe/E+F6QCv0EvRVFEd5CsWg==}
     engines: {node: '>=10'}
-
-  dodopayments@2.34.0:
-    resolution: {integrity: sha512-IlEUv+4iO08wQh7RkKbhtyv1C4coepTsvuKDANs2qZEs3/7DIot7mdbVGL28szSYbKAmuKu5NsEmppwruqAZlg==}
-    hasBin: true
 
   dom-helpers@5.2.1:
     resolution: {integrity: sha512-nRCa7CK3VTrM2NmGkIy4cbK7IZlgBE/PYMn55rrXefr5xXDP0LdtfPnblFDoVdcAfslJ7or6iqAUnx0CCGIWQA==}
@@ -9142,18 +9067,6 @@ snapshots:
 
   '@discoveryjs/json-ext@0.6.3': {}
 
-  '@dodopayments/better-auth@1.6.3(better-auth@1.6.13(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(@upstash/redis@1.38.0)(kysely@0.29.2)(pg@8.21.0))(next@16.2.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(pg@8.21.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.9))(zod@4.4.3)':
-    dependencies:
-      '@dodopayments/core': 0.3.12(zod@4.4.3)
-      better-auth: 1.6.13(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(@upstash/redis@1.38.0)(kysely@0.29.2)(pg@8.21.0))(next@16.2.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(pg@8.21.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.9)
-      zod: 4.4.3
-
-  '@dodopayments/core@0.3.12(zod@4.4.3)':
-    dependencies:
-      dodopayments: 2.34.0
-      standardwebhooks: 1.0.0
-      zod: 4.4.3
-
   '@drizzle-team/brocli@0.10.2': {}
 
   '@elevenlabs/elevenlabs-js@2.49.1':
@@ -9853,29 +9766,6 @@ snapshots:
     dependencies:
       react: 19.2.6
       react-dom: 19.2.6(react@19.2.6)
-
-  '@polar-sh/better-auth@1.8.4(@polar-sh/sdk@0.46.7)(@stripe/react-stripe-js@4.0.2(@stripe/stripe-js@7.9.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@stripe/stripe-js@7.9.0)(better-auth@1.6.13(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(@upstash/redis@1.38.0)(kysely@0.29.2)(pg@8.21.0))(next@16.2.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(pg@8.21.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.9))(react@19.2.6)(zod@4.4.3)':
-    dependencies:
-      '@polar-sh/checkout': 0.2.1(@stripe/react-stripe-js@4.0.2(@stripe/stripe-js@7.9.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@stripe/stripe-js@7.9.0)(react@19.2.6)
-      '@polar-sh/sdk': 0.46.7
-      better-auth: 1.6.13(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(@upstash/redis@1.38.0)(kysely@0.29.2)(pg@8.21.0))(next@16.2.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(pg@8.21.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.9)
-      zod: 4.4.3
-    transitivePeerDependencies:
-      - '@stripe/react-stripe-js'
-      - '@stripe/stripe-js'
-      - react
-
-  '@polar-sh/checkout@0.2.1(@stripe/react-stripe-js@4.0.2(@stripe/stripe-js@7.9.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@stripe/stripe-js@7.9.0)(react@19.2.6)':
-    dependencies:
-      '@stripe/react-stripe-js': 4.0.2(@stripe/stripe-js@7.9.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
-      '@stripe/stripe-js': 7.9.0
-      date-fns: 4.4.0
-      react: 19.2.6
-
-  '@polar-sh/sdk@0.46.7':
-    dependencies:
-      standardwebhooks: 1.0.0
-      zod: 4.4.3
 
   '@radix-ui/number@1.1.1': {}
 
@@ -11054,15 +10944,6 @@ snapshots:
 
   '@standard-schema/spec@1.1.0': {}
 
-  '@stripe/react-stripe-js@4.0.2(@stripe/stripe-js@7.9.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)':
-    dependencies:
-      '@stripe/stripe-js': 7.9.0
-      prop-types: 15.8.1
-      react: 19.2.6
-      react-dom: 19.2.6(react@19.2.6)
-
-  '@stripe/stripe-js@7.9.0': {}
-
   '@supadata/js@1.4.0':
     dependencies:
       cross-fetch: 4.1.0
@@ -11669,15 +11550,6 @@ snapshots:
       '@vercel/routing-utils': 6.0.2
       pretty-cache-header: 1.0.0
       zod: 3.25.76
-
-  '@vercel/edge-config-fs@0.1.0': {}
-
-  '@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.1)(next@16.2.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))':
-    dependencies:
-      '@vercel/edge-config-fs': 0.1.0
-    optionalDependencies:
-      '@opentelemetry/api': 1.9.1
-      next: 16.2.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
 
   '@vercel/functions@3.6.1(@aws-sdk/credential-provider-web-identity@3.972.45)':
     dependencies:
@@ -12666,10 +12538,6 @@ snapshots:
       nanoid: 5.1.11
       xml: 1.0.1
       xml-js: 1.6.11
-
-  dodopayments@2.34.0:
-    dependencies:
-      standardwebhooks: 1.0.0
 
   dom-helpers@5.2.1:
     dependencies:

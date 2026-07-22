@@ -69,7 +69,7 @@ import {
 import { ServiceIcon, CatalogCard, CardSkeleton, isOauthWithClientSetup } from './marketplace-shared';
 
 function McpMarketplaceContent() {
-  const { user, isProUser, isLoading: isAuthLoading } = useUser();
+  const { user, isLoading: isAuthLoading } = useUser();
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -105,7 +105,7 @@ function McpMarketplaceContent() {
   );
   const [search, setSearch] = useQueryState('q', parseAsString.withDefault(''));
   const [category, setCategory] = useState<CategoryId>('all');
-  const isReadOnlyMarketplace = !isProUser;
+  const isReadOnlyMarketplace = !user;
 
   const [apiKeyTarget, setApiKeyTarget] = useState<CatalogItem | null>(null);
   const [apiKeyValues, setApiKeyValues] = useState<Record<string, string>>({});
@@ -155,7 +155,7 @@ function McpMarketplaceContent() {
       if (!r.ok) return { servers: [] as ServerRecord[] };
       return r.json() as Promise<{ servers: ServerRecord[] }>;
     },
-    enabled: Boolean(user?.id && isProUser),
+    enabled: Boolean(user?.id),
     staleTime: 10_000,
   });
 
@@ -507,8 +507,8 @@ function McpMarketplaceContent() {
   });
 
   const handleAdd = (item: CatalogItem) => {
-    if (!isProUser) {
-      router.push('/pricing');
+    if (!user) {
+      router.push('/sign-in');
       return;
     }
     if (item.auth === 'apikey') {
@@ -526,8 +526,8 @@ function McpMarketplaceContent() {
   };
 
   const handleCustomOpen = () => {
-    if (!isProUser) {
-      router.push('/pricing');
+    if (!user) {
+      router.push('/sign-in');
       return;
     }
     setShowCustomDialog(true);
@@ -608,10 +608,10 @@ function McpMarketplaceContent() {
             {isReadOnlyMarketplace && (
               <div className="rounded-xl border border-border/50 bg-card/30 px-3.5 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <p className="text-xs text-muted-foreground">
-                  Browse all apps for free. Upgrade to connect and run app tools in chat.
+                  Browse all apps for free. Sign in to connect and run app tools in chat.
                 </p>
-                <Button size="sm" className="h-7 w-fit" onClick={() => router.push('/pricing')}>
-                  Upgrade to Pro
+                <Button size="sm" className="h-7 w-fit" onClick={() => router.push('/sign-in')}>
+                  Sign in
                 </Button>
               </div>
             )}

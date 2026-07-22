@@ -12,16 +12,6 @@ export function requiresAuthentication(modelValue: string): boolean {
   return model?.requiresAuth || false;
 }
 
-export function requiresProSubscription(modelValue: string): boolean {
-  const model = getModelConfig(modelValue);
-  return model?.pro || false;
-}
-
-export function requiresMaxSubscription(modelValue: string): boolean {
-  const model = getModelConfig(modelValue);
-  return model?.max || false;
-}
-
 export function hasVisionSupport(modelValue: string): boolean {
   const model = getModelConfig(modelValue);
   return model?.vision || false;
@@ -50,7 +40,7 @@ export function shouldBypassRateLimits(modelValue: string, user: any): boolean {
 }
 
 // Get acceptable file types for a model
-export function getAcceptedFileTypes(modelValue: string, isProUser: boolean): string {
+export function getAcceptedFileTypes(modelValue: string): string {
   const model = getModelConfig(modelValue);
   // Document file types for file_query_search tool - available for ALL models
   const documentTypes = '.csv,.xlsx,.xls,.docx';

@@ -3,9 +3,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUser } from '@/contexts/user-context';
 import {
-  UsageSection,
   PreferencesSection,
-  SubscriptionSection,
   ConnectorsSection,
   MemoriesSection,
   UploadsSection,
@@ -16,9 +14,7 @@ import {
 import { cn } from '@/lib/utils';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import {
-  Analytics01Icon,
   Settings02Icon,
-  Crown02Icon,
   ConnectIcon,
   Brain02Icon,
   Attachment01Icon,
@@ -45,11 +41,11 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useRouter } from 'next/navigation';
 
 function SettingsContent() {
-  const { user, isProUser, isLoading, subscriptionData } = useUser();
+  const { user, isLoading } = useUser();
   const router = useRouter();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
-  const defaultTab = searchParams.get('tab') || 'usage';
+  const defaultTab = searchParams.get('tab') || 'preferences';
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [isCustomInstructionsEnabled, setIsCustomInstructionsEnabled] = useSyncedPreferences<boolean>(
     'zetora-custom-instructions-enabled',
@@ -58,8 +54,6 @@ function SettingsContent() {
   const [blurPersonalInfo, setBlurPersonalInfo] = useSyncedPreferences<boolean>('zetora-blur-personal-info', false);
 
   const tabs = [
-    { value: 'usage', label: 'Usage', icon: Analytics01Icon },
-    { value: 'subscription', label: 'Subscription', icon: Crown02Icon },
     { value: 'preferences', label: 'Preferences', icon: Settings02Icon },
     { value: 'security', label: 'Security', icon: ShieldKeyIcon },
     { value: 'connectors', label: 'Connectors', icon: ConnectIcon },
@@ -128,11 +122,6 @@ function SettingsContent() {
                   <h3 className={cn('font-semibold text-base truncate', blurPersonalInfo && 'blur-sm')}>
                     {user?.name || 'User'}
                   </h3>
-                  {isProUser && (
-                    <span className="inline-block font-baumans! leading-4 mb-1! px-2.5! pt-0! pb-1! rounded-xl shadow-sm bg-linear-to-br from-secondary/25 via-primary/20 to-accent/25 text-foreground ring-1 ring-ring/35 ring-offset-1 ring-offset-background dark:bg-linear-to-br dark:from-primary dark:via-secondary dark:to-primary dark:text-foreground">
-                      {user?.isMaxUser ? 'max' : 'pro'}
-                    </span>
-                  )}
                 </div>
                 <p className={cn('text-xs text-muted-foreground truncate', blurPersonalInfo && 'blur-sm')}>
                   {user?.email}
@@ -213,15 +202,7 @@ function SettingsContent() {
                   <p className={cn('text-xs text-muted-foreground break-all', blurPersonalInfo && 'blur-sm')}>
                     {user?.email}
                   </p>
-                  {isLoading ? (
-                    <Skeleton className="h-5 w-16 mx-auto mt-2" />
-                  ) : (
-                    isProUser && (
-                      <span className="inline-block font-baumans! leading-4 px-2! pt-0.5! pb-1.5! rounded-xl shadow-sm bg-linear-to-br from-secondary/25 via-primary/20 to-accent/25 text-foreground ring-1 ring-ring/35 ring-offset-1 ring-offset-background dark:bg-linear-to-br dark:from-primary dark:via-secondary dark:to-primary dark:text-foreground mt-2">
-                        {user?.isMaxUser ? 'max' : 'pro'}
-                      </span>
-                    )
-                  )}
+                  {isLoading && <Skeleton className="h-5 w-16 mx-auto mt-2" />}
                 </div>
                 <div className="w-full pt-3 flex items-center justify-between">
                   <Label htmlFor="blur-personal-desktop" className="text-xs text-muted-foreground">
@@ -271,32 +252,6 @@ function SettingsContent() {
           {/* Content Area */}
           <div className="flex-1 min-w-0">
             <Card className="p-0 shadow-none bg-transparent border-none">
-              <TabsContent value="usage" className="m-0">
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-pixel-grid text-xs text-muted-foreground/30">01</span>
-                      <h2 className="text-lg font-semibold">Usage Statistics</h2>
-                    </div>
-                    <p className="text-sm text-muted-foreground">Track your daily and monthly usage</p>
-                  </div>
-                  <UsageSection user={user} />
-                </div>
-              </TabsContent>
-
-              <TabsContent value="subscription" className="m-0">
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-pixel-grid text-xs text-muted-foreground/30">02</span>
-                      <h2 className="text-lg font-semibold">Subscription</h2>
-                    </div>
-                    <p className="text-sm text-muted-foreground">Manage your subscription and billing</p>
-                  </div>
-                  <SubscriptionSection subscriptionData={subscriptionData} isProUser={isProUser} user={user} />
-                </div>
-              </TabsContent>
-
               <TabsContent value="preferences" className="m-0">
                 <div className="space-y-4">
                   <div>

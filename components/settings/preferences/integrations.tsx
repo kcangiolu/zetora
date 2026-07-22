@@ -22,14 +22,10 @@ import {
 
 export function IntegrationsTab({
   user,
-  isMaxUser,
-  hasPaidAccess,
   customModelsList,
   customProviders,
 }: {
   user: SettingsUser;
-  isMaxUser: boolean;
-  hasPaidAccess: boolean;
   customModelsList: Model[];
   customProviders: CustomProviderConfig[];
 }) {
@@ -329,8 +325,6 @@ export function IntegrationsTab({
                 selectedModel={selectedGraphitiProvider}
                 onModelSelect={handleGraphitiLlmSelect}
                 user={user}
-                isProUser={hasPaidAccess}
-                isMaxUser={isMaxUser}
                 additionalModels={customModelsList}
                 onlyAdditionalModels
                 className="w-[180px] h-8"
@@ -364,8 +358,6 @@ export function IntegrationsTab({
                 selectedModel={graphitiEmbeddingProvider}
                 onModelSelect={handleGraphitiEmbeddingSelect}
                 user={user}
-                isProUser={hasPaidAccess}
-                isMaxUser={isMaxUser}
                 additionalModels={customModelsList}
                 onlyAdditionalModels
                 className="w-[180px] h-8"

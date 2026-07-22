@@ -23,15 +23,11 @@ import {
 
 export function AiModelsTab({
   user,
-  isMaxUser,
-  hasPaidAccess,
   customModelsList,
   customProviders,
   setCustomProviders,
 }: {
   user: SettingsUser;
-  isMaxUser: boolean;
-  hasPaidAccess: boolean;
   customModelsList: Model[];
   customProviders: CustomProviderConfig[];
   setCustomProviders: Dispatch<SetStateAction<CustomProviderConfig[]>>;
@@ -178,30 +174,25 @@ export function AiModelsTab({
     <>
       <div className="mt-4">
         <div className="rounded-xl border border-border/60 divide-y divide-border/40 px-4">
-          {/* Auto Router toggle (Pro only) */}
+          {/* Auto Router toggle */}
           <div className="flex items-center justify-between py-3.5 gap-6">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <p className="text-sm font-medium">Auto Model Router</p>
-                {!hasPaidAccess && (
-                  <span className="font-pixel text-xs text-muted-foreground/50 uppercase tracking-wider">Pro</span>
-                )}
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">Route queries to the best model based on intent</p>
             </div>
             <Switch
               id="auto-router-enabled"
-              checked={hasPaidAccess ? autoRouterEnabled : false}
+              checked={autoRouterEnabled}
               onCheckedChange={(value) => {
-                if (!hasPaidAccess) return;
                 setAutoRouterEnabled(value);
               }}
-              disabled={!hasPaidAccess}
             />
           </div>
 
-          {/* Auto Router routes - inline expand (paid + enabled only) */}
-          {hasPaidAccess && autoRouterEnabled && (
+          {/* Auto Router routes - inline expand (enabled only) */}
+          {autoRouterEnabled && (
             <div className="py-3.5 space-y-2.5">
               <div className="flex items-center justify-between">
                 <p className="text-xs text-muted-foreground font-medium">Routes</p>
@@ -255,8 +246,6 @@ export function AiModelsTab({
                           selectedModel={route.model}
                           onModelSelect={(v) => updateAutoRouterRoute(index, { model: v })}
                           user={user}
-                          isProUser={hasPaidAccess}
-                          isMaxUser={isMaxUser}
                           excludeModels={['zetora-auto']}
                           additionalModels={customModelsList}
                           className="w-full h-7"
@@ -445,8 +434,6 @@ export function AiModelsTab({
               defaultModelLabel="Grok 4.1 Fast"
               additionalModels={customModelsList}
               user={user}
-              isProUser={hasPaidAccess}
-              isMaxUser={isMaxUser}
             />
             <TertiaryModelRow
               modelKey="zetora-tertiary-chat-title-model"
@@ -456,8 +443,6 @@ export function AiModelsTab({
               defaultModelLabel="Gemini 3.1 Flash Lite"
               additionalModels={customModelsList}
               user={user}
-              isProUser={hasPaidAccess}
-              isMaxUser={isMaxUser}
             />
             <TertiaryModelRow
               modelKey="zetora-tertiary-followup-model"
@@ -467,8 +452,6 @@ export function AiModelsTab({
               defaultModelLabel="Gemini 3.1 Flash Lite"
               additionalModels={customModelsList}
               user={user}
-              isProUser={hasPaidAccess}
-              isMaxUser={isMaxUser}
             />
             <TertiaryModelRow
               modelKey="zetora-tertiary-enhance-model"
@@ -478,8 +461,6 @@ export function AiModelsTab({
               defaultModelLabel="Kimi K2"
               additionalModels={customModelsList}
               user={user}
-              isProUser={hasPaidAccess}
-              isMaxUser={isMaxUser}
             />
             <TertiaryModelRow
               modelKey="zetora-tertiary-tool-repair-model"
@@ -489,8 +470,6 @@ export function AiModelsTab({
               defaultModelLabel="Grok 4.1 Fast"
               additionalModels={customModelsList}
               user={user}
-              isProUser={hasPaidAccess}
-              isMaxUser={isMaxUser}
             />
             <TertiaryModelRow
               modelKey="zetora-tertiary-auto-router-model"
@@ -500,8 +479,6 @@ export function AiModelsTab({
               defaultModelLabel="Arch-Router 1.5B"
               additionalModels={customModelsList}
               user={user}
-              isProUser={hasPaidAccess}
-              isMaxUser={isMaxUser}
             />
             <TertiaryModelRow
               modelKey="zetora-tertiary-translate-text-model"
@@ -511,8 +488,6 @@ export function AiModelsTab({
               defaultModelLabel="Gemini 3 Flash"
               additionalModels={customModelsList}
               user={user}
-              isProUser={hasPaidAccess}
-              isMaxUser={isMaxUser}
             />
             <TertiaryModelRow
               modelKey="zetora-tertiary-translate-vision-model"
@@ -522,8 +497,6 @@ export function AiModelsTab({
               defaultModelLabel="Gemini 3 Flash"
               additionalModels={customModelsList}
               user={user}
-              isProUser={hasPaidAccess}
-              isMaxUser={isMaxUser}
             />
             <TertiaryModelRow
               modelKey="zetora-tertiary-lang-detect-model"
@@ -533,8 +506,6 @@ export function AiModelsTab({
               defaultModelLabel="Grok 4.1 Fast"
               additionalModels={customModelsList}
               user={user}
-              isProUser={hasPaidAccess}
-              isMaxUser={isMaxUser}
             />
             <TertiaryModelRow
               modelKey="zetora-tertiary-extreme-planner-model"
@@ -544,8 +515,6 @@ export function AiModelsTab({
               defaultModelLabel="Grok 4.1 Fast (Reasoning)"
               additionalModels={customModelsList}
               user={user}
-              isProUser={hasPaidAccess}
-              isMaxUser={isMaxUser}
             />
             <TertiaryModelRow
               modelKey="zetora-tertiary-extreme-agent-model"
@@ -555,8 +524,6 @@ export function AiModelsTab({
               defaultModelLabel="Grok 4.1 Fast (Reasoning)"
               additionalModels={customModelsList}
               user={user}
-              isProUser={hasPaidAccess}
-              isMaxUser={isMaxUser}
             />
             <TertiaryModelRow
               modelKey="zetora-tertiary-voice-model"
@@ -566,8 +533,6 @@ export function AiModelsTab({
               defaultModelLabel="Grok 4.1 Fast"
               additionalModels={customModelsList}
               user={user}
-              isProUser={hasPaidAccess}
-              isMaxUser={isMaxUser}
             />
           </div>
         </div>

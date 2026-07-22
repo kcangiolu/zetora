@@ -22,7 +22,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.spyOn(console, 'log').mockImplementation(() => {});
   vi.spyOn(console, 'error').mockImplementation(() => {});
-  getComprehensiveUserData.mockResolvedValue({ id: 'u1', isProUser: true });
+  getComprehensiveUserData.mockResolvedValue({ id: 'u1' });
   getCachedUserPreferencesByUserId.mockResolvedValue({ preferences: {} });
   resolveTertiaryModel.mockResolvedValue('tertiary-model');
   hasVisionSupport.mockReturnValue(true);
@@ -34,14 +34,6 @@ describe('routeWithAutoRouter', () => {
     expect(await routeWithAutoRouter({ query: 'q', routes })).toEqual({
       success: false,
       error: 'User not found',
-    });
-  });
-
-  it('requires a Pro subscription', async () => {
-    getComprehensiveUserData.mockResolvedValue({ id: 'u1', isProUser: false });
-    expect(await routeWithAutoRouter({ query: 'q', routes })).toEqual({
-      success: false,
-      error: 'pro_required',
     });
   });
 

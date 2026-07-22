@@ -32,12 +32,12 @@ A few modes remain **exclusive per-message selections**, because they replace th
 | Special mode    | Description                                                                           |
 | --------------- | ------------------------------------------------------------------------------------- |
 | **Memory**      | Your personal memory companion, backed by a knowledge graph                           |
-| **Connectors**  | Search Google Drive, Notion & OneDrive _(Pro)_                                        |
-| **Apps (MCP)**  | Use tools from your connected MCP apps _(Pro)_                                        |
-| **Multi-agent** | High-agency research via xAI's multi-agent Grok with server-side web/X search _(Pro)_ |
-| **Canvas**      | Research and generate interactive dashboards and visual reports _(Pro)_               |
+| **Connectors**  | Search Google Drive, Notion & OneDrive                                                |
+| **Apps (MCP)**  | Use tools from your connected MCP apps                                                |
+| **Multi-agent** | High-agency research via xAI's multi-agent Grok with server-side web/X search         |
+| **Canvas**      | Research and generate interactive dashboards and visual reports                       |
 
-**Voice** (real-time conversational AI, with a fully local speech-to-speech backend) and **XQL** (advanced X query language for tweet analysis, _Pro_) live on their own dedicated pages.
+**Voice** (real-time conversational AI, with a fully local speech-to-speech backend) and **XQL** (advanced X query language for tweet analysis) live on their own dedicated pages.
 
 ### Skills (15 skills)
 
@@ -82,7 +82,7 @@ Loadable per-message via the `skill` tool (subject to your disabled-skills prefe
 
 #### Generation
 
-- **Image generation & editing** — Generate images from text and edit existing ones (inpainting, object add/remove), with custom prompts, seed control, and durable storage _(Max)_
+- **Image generation & editing** — Generate images from text and edit existing ones (inpainting, object add/remove), with custom prompts, seed control, and durable storage
 - **Document generation** — Produce downloadable .docx, .pptx, .pdf, and .xlsx files via the document skills and the code sandbox
 
 #### Productivity & Utilities
@@ -260,7 +260,7 @@ Use this to deploy the full stack (app + Postgres, Redis, MinIO, Qdrant, SearXNG
    - **Core secrets**: `BETTER_AUTH_SECRET` (generate with `openssl rand -base64 32`), `POSTGRES_PASSWORD`.
    - **MinIO**: `MINIO_ROOT_PASSWORD` (and optionally `MINIO_ROOT_USER`, `S3_PUBLIC_URL`).
    - **AI providers**: at least one provider API key.
-   - Optional but recommended: `BULLMQ_REDIS_PASSWORD`, Graphiti `GRAPHITI_LLM_*`/`GRAPHITI_EMBEDDING_*` keys, OAuth provider credentials, payment provider keys.
+   - Optional but recommended: `BULLMQ_REDIS_PASSWORD`, Graphiti `GRAPHITI_LLM_*`/`GRAPHITI_EMBEDDING_*` keys, OAuth provider credentials.
 
    See `.env.example` for the full list of available variables, and the comments at the top of `docker-compose.yml` for how to drop optional services.
 

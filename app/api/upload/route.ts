@@ -9,7 +9,6 @@ import { auth } from '@/lib/auth';
 import { storageClient, storagePresignClient, STORAGE_BUCKET_NAME, STORAGE_PUBLIC_URL } from '@/lib/storage';
 import { db } from '@/lib/db';
 import { chat, message } from '@/lib/db/schema';
-import { unauthenticatedRateLimit, getClientIdentifier } from '@/lib/rate-limit';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { del as blobDel, head as blobHead } from '@vercel/blob';
@@ -329,7 +328,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  // Check for authentication but don't require it
   let session: Awaited<ReturnType<typeof auth.api.getSession>> | null = null;
   try {
     session = await auth.api.getSession({
@@ -339,7 +337,9 @@ export async function POST(request: NextRequest) {
     log.warn('Error checking authentication:', error);
   }
 
-  const isAuthenticated = !!session?.user?.id;
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   try {
     const body = await request.json();
@@ -349,24 +349,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: validated.error.issues[0]?.message || 'Invalid request' }, { status: 400 });
     }
 
-    const { filename, contentType, size } = validated.data;
-
-    // Rate-limit unauthenticated uploads by IP
-    if (!isAuthenticated) {
-      const identifier = getClientIdentifier(request);
-      const { success } = await unauthenticatedRateLimit.limit(identifier);
-      if (!success) {
-        return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
-      }
-    }
+    const { filename, contentType } = validated.data;
 
     // Sanitize extension to prevent path injection in the R2 key
     const rawExt = filename.split('.').pop() ?? '';
     const ext = sanitizeExtension(rawExt);
 
-    const key = isAuthenticated
-      ? `zetora/users/${session!.user.id}/${nanoid()}.${ext}`
-      : `zetora/public-${nanoid()}.${ext}`;
+    const key = `zetora/users/${session.user.id}/${nanoid()}.${ext}`;
 
     const command = new PutObjectCommand({
       Bucket: STORAGE_BUCKET_NAME,
@@ -377,7 +366,7 @@ export async function POST(request: NextRequest) {
       // signature and the PUT 403s.
       ContentType: contentType,
       // Store owner so individual files can be attributed even if the key format changes
-      Metadata: isAuthenticated ? { 'user-id': session!.user.id } : undefined,
+      Metadata: { 'user-id': session.user.id },
     });
 
     const presignedUrl = await getSignedUrl(storagePresignClient, command, {
@@ -391,7 +380,7 @@ export async function POST(request: NextRequest) {
       presignedUrl,
       url: publicUrl,
       key,
-      authenticated: isAuthenticated,
+      authenticated: true,
     });
   } catch (error) {
     log.error('Error generating presigned URL:', error);

@@ -5,12 +5,6 @@ import { eq } from 'drizzle-orm';
 import { user, type User } from '../schema';
 import { ChatSDKError } from '../../errors';
 import { db } from '../index';
-import {
-  getDodoSubscriptions,
-  setDodoSubscriptions,
-  getDodoProStatus,
-  setDodoProStatus,
-} from '../../performance-cache';
 import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
 
 // Cache user lookups for the duration of the request

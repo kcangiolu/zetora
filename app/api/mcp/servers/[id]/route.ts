@@ -1,4 +1,4 @@
-import { withProAuth } from '@/lib/api/route-handlers';
+import { withAuth } from '@/lib/api/route-handlers';
 import { ChatSDKError } from '@/lib/errors';
 import { deleteUserMcpServer, getUserMcpServerById, updateUserMcpServer } from '@/lib/db/queries';
 import {
@@ -85,7 +85,7 @@ function serializeMcpServer(server: {
   };
 }
 
-export const PATCH = withProAuth(
+export const PATCH = withAuth(
   async (request, { params, user }) => {
     const { id } = (await params) as { id: string };
     const existing = await getUserMcpServerById({ id, userId: user.id });
@@ -179,7 +179,7 @@ export const PATCH = withProAuth(
   { genericError: 'expose' },
 );
 
-export const DELETE = withProAuth(
+export const DELETE = withAuth(
   async (_request, { params, user }) => {
     const { id } = (await params) as { id: string };
     const deleted = await deleteUserMcpServer({ id, userId: user.id });

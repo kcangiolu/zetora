@@ -1,11 +1,11 @@
-import { withProAuth } from '@/lib/api/route-handlers';
+import { withAuth } from '@/lib/api/route-handlers';
 import { getUserMcpServerById } from '@/lib/db/queries';
 import { ChatSDKError } from '@/lib/errors';
 import { buildMcpOAuthAuthorizationUrl } from '@/lib/mcp/oauth';
 import { validateMcpOAuthConfig } from '@/lib/mcp/server-config';
 import { injectManagedOAuthCredentials } from '@/lib/mcp/managed-credentials';
 
-export const POST = withProAuth(
+export const POST = withAuth(
   async (request, { params, user }) => {
     const { id } = (await params) as { id: string };
     const rawServer = await getUserMcpServerById({ id, userId: user.id });

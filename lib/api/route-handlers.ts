@@ -3,7 +3,6 @@ import 'server-only';
 import { z } from 'zod';
 import { ChatSDKError } from '@/lib/errors';
 import { getUser } from '@/lib/auth-utils';
-import { getComprehensiveUserData, type ComprehensiveUserData } from '@/lib/user-data-server';
 import type { User } from '@/lib/db/schema';
 
 import { createLogger } from '@/lib/logger';
@@ -71,23 +70,6 @@ export function withAuth<Ctx extends RouteContext = RouteContext>(
   return withError(async (req, ctx) => {
     const user = await getUser();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    return handler(req, { ...ctx, user });
-  }, options);
-}
-
-/**
- * Pro-gated route: resolves comprehensive user data (subscription status
- * included) and rejects non-Pro users, mirroring the assertProUser pattern
- * the MCP routes established.
- */
-export function withProAuth<Ctx extends RouteContext = RouteContext>(
-  handler: Handler<Ctx & { user: ComprehensiveUserData }>,
-  options?: RouteErrorOptions,
-): Handler<Ctx> {
-  return withError(async (req, ctx) => {
-    const user = await getComprehensiveUserData();
-    if (!user) throw new ChatSDKError('unauthorized:auth', 'Authentication required');
-    if (!user.isProUser) throw new ChatSDKError('upgrade_required:auth', 'Pro subscription required');
     return handler(req, { ...ctx, user });
   }, options);
 }

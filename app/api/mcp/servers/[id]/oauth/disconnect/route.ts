@@ -1,8 +1,8 @@
-import { withProAuth } from '@/lib/api/route-handlers';
+import { withAuth } from '@/lib/api/route-handlers';
 import { getUserMcpServerById, updateUserMcpServer } from '@/lib/db/queries';
 import { ChatSDKError } from '@/lib/errors';
 
-export const POST = withProAuth(
+export const POST = withAuth(
   async (_request, { params, user }) => {
     const { id } = (await params) as { id: string };
     const server = await getUserMcpServerById({ id, userId: user.id });

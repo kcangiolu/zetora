@@ -6,8 +6,6 @@ import { MarqueeText } from '@/components/ui/marquee-text';
 import {
   models,
   requiresAuthentication,
-  requiresProSubscription,
-  requiresMaxSubscription,
   getFilteredModels,
   PROVIDERS,
   getModelProvider,
@@ -256,8 +254,6 @@ interface ModelSelectorDialogProps {
   selectedModel: string;
   onModelSelect: (modelValue: string) => void;
   user?: any;
-  isProUser: boolean;
-  isMaxUser?: boolean;
   excludeModels?: string[];
   additionalModels?: (typeof models)[0][];
   onlyAdditionalModels?: boolean;
@@ -269,11 +265,11 @@ interface ModelSelectorDialogProps {
 
 function sortModelsForList(
   modelsToShow: Array<(typeof models)[0]>,
-  options: { user?: unknown; isProUser: boolean; isMaxUser: boolean; preferredModels?: string[] },
+  options: { user?: unknown; preferredModels?: string[] },
 ) {
   if (modelsToShow.length === 0) return modelsToShow;
 
-  const shouldSortFreeFirst = !options.user || !options.isProUser || !options.isMaxUser;
+  const shouldSortLockedLast = !options.user;
   const preferredSet = new Set(options.preferredModels || []);
 
   const favoriteModels: Array<(typeof models)[0]> = [];
@@ -293,11 +289,8 @@ function sortModelsForList(
       continue;
     }
 
-    if (shouldSortFreeFirst) {
-      const needsAuth = requiresAuthentication(model.value) && !options.user;
-      const needsPro = requiresProSubscription(model.value) && !options.isProUser && !options.isMaxUser;
-      const needsMax = requiresMaxSubscription(model.value) && !options.isMaxUser;
-      const isLocked = needsAuth || needsPro || needsMax;
+    if (shouldSortLockedLast) {
+      const isLocked = requiresAuthentication(model.value) && !options.user;
       if (isLocked) lockedModels.push(model);
       else freeModels.push(model);
       continue;
@@ -306,7 +299,7 @@ function sortModelsForList(
     regularModels.push(model);
   }
 
-  if (shouldSortFreeFirst) return [...favoriteModels, ...newModels, ...freeModels, ...lockedModels];
+  if (shouldSortLockedLast) return [...favoriteModels, ...newModels, ...freeModels, ...lockedModels];
   return [...favoriteModels, ...newModels, ...regularModels];
 }
 
@@ -314,8 +307,6 @@ export function ModelSelectorDialog({
   selectedModel,
   onModelSelect,
   user,
-  isProUser,
-  isMaxUser = false,
   excludeModels = [],
   additionalModels = [],
   onlyAdditionalModels = false,
@@ -450,8 +441,8 @@ export function ModelSelectorDialog({
   }, [availableModels, selectedProvider, preferredModels, getGroupKey]);
 
   const sortedModelsForList = useMemo(
-    () => sortModelsForList(filteredByProvider, { user, isProUser, isMaxUser, preferredModels }),
-    [filteredByProvider, isProUser, isMaxUser, user, preferredModels],
+    () => sortModelsForList(filteredByProvider, { user, preferredModels }),
+    [filteredByProvider, user, preferredModels],
   );
 
   // Search functionality
@@ -473,9 +464,7 @@ export function ModelSelectorDialog({
     const scored = sortedModelsForList.map((model) => {
       const providerKey = model.provider || getModelProvider(model.value, model.label);
       const providerName = PROVIDERS[providerKey]?.name || '';
-      const aggregate = normalizeText(
-        [model.label, model.description, model.category, providerName, model.value].join(' '),
-      );
+      const aggregate = normalizeText([model.label, model.description, providerName, model.value].join(' '));
       let score = 0;
       if (aggregate.includes(normalized)) score += 5;
       for (const token of tokens) {
@@ -566,9 +555,7 @@ export function ModelSelectorDialog({
           if (focusedIndex >= 0 && focusedIndex < count) {
             const model = displayModels[focusedIndex];
             const needsAuth = requiresAuthentication(model.value) && !user;
-            const needsPro = requiresProSubscription(model.value) && !isProUser && !isMaxUser;
-            const needsMax = requiresMaxSubscription(model.value) && !isMaxUser;
-            if (needsAuth || needsPro || needsMax) return;
+            if (needsAuth) return;
             onModelSelect(model.value);
             setOpen(false);
           }
@@ -586,15 +573,13 @@ export function ModelSelectorDialog({
         }
       }
     },
-    [displayModels, focusedIndex, user, isProUser, isMaxUser, onModelSelect, activeProviders, selectedProvider],
+    [displayModels, focusedIndex, user, onModelSelect, activeProviders, selectedProvider],
   );
 
   // Model card renderer
   const renderModelCard = (model: (typeof models)[0], index: number) => {
     const requiresAuth = requiresAuthentication(model.value) && !user;
-    const requiresPro = requiresProSubscription(model.value) && !isProUser && !isMaxUser;
-    const requiresMax = requiresMaxSubscription(model.value) && !isMaxUser;
-    const isLocked = requiresAuth || requiresPro || requiresMax;
+    const isLocked = requiresAuth;
     const modelProvider = model.provider || getModelProvider(model.value, model.label);
     const isSelected = selectedModel === model.value;
     const isAutoRouter = model.value === 'zetora-auto';
@@ -652,16 +637,6 @@ export function ModelSelectorDialog({
               {model.label}
             </span>
 
-            {requiresMax && !isMaxUser && (
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-violet-500/10 text-violet-600 dark:text-violet-400 leading-none">
-                MAX
-              </span>
-            )}
-            {requiresPro && !requiresMax && !isProUser && (
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-primary/10 text-primary leading-none">
-                PRO
-              </span>
-            )}
             {requiresAuth && !user && <LockIcon className="size-3 text-muted-foreground/60" />}
             {isAutoRouter && (
               <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-primary/10 text-primary leading-none">

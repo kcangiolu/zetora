@@ -17,21 +17,14 @@ import {
   deleteMessagesByChatIdAfterTimestamp,
   updateChatTitleById,
   updateChatPinnedById,
-  getExtremeSearchCount,
   incrementMessageUsage,
-  incrementAnthropicUsage,
-  incrementGoogleUsage,
   getMessageCount,
-  getAnthropicUsageCount,
-  getGoogleUsageCount,
-  getAgentModeRequestCountForCurrentMonth,
   getHistoricalUsageData,
   getCustomInstructionsByUserId,
   createCustomInstructions,
   updateCustomInstructions,
   deleteCustomInstructions,
   upsertUserPreferences,
-  getDodoSubscriptionsByUserId,
   createLookout,
   getLookoutsByUserId,
   getLookoutById,
@@ -41,7 +34,7 @@ import {
   getChatWithUserById,
 } from '@/lib/db/queries';
 import { db, maindb } from '@/lib/db';
-import { chat, message, buildSession, dodosubscription, type User } from '@/lib/db/schema';
+import { chat, message, buildSession, type User } from '@/lib/db/schema';
 import { eq, desc, ilike, and, asc, inArray, notExists } from 'drizzle-orm';
 import { groq } from '@ai-sdk/groq';
 import {
@@ -54,14 +47,7 @@ import {
 } from '@/lib/services/bullmq';
 import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 import type { CharacterAlignmentResponseModel } from '@elevenlabs/elevenlabs-js/api/types/CharacterAlignmentResponseModel';
-import {
-  usageCountCache,
-  createMessageCountKey,
-  createExtremeCountKey,
-  createAnthropicCountKey,
-  createGoogleCountKey,
-  createAgentModeCountKey,
-} from '@/lib/performance-cache';
+import { usageCountCache, createMessageCountKey } from '@/lib/performance-cache';
 import { getLightweightUserAuth, getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import {
   createConnection,
@@ -184,8 +170,8 @@ export async function enhancePrompt(raw: string) {
   try {
     const auth = await getLightweightUserAuth();
 
-    if (!auth?.isProUser) {
-      return { success: false, error: 'Pro subscription required' };
+    if (!auth) {
+      return { success: false, error: 'Authentication required' };
     }
 
     const system = `You are an expert prompt engineer. Rewrite and enhance the user's prompt.

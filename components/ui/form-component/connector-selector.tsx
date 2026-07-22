@@ -15,12 +15,11 @@ interface ConnectorSelectorProps {
   selectedConnectors: ConnectorProvider[];
   onConnectorToggle: (provider: ConnectorProvider) => void;
   user: ComprehensiveUserData | null;
-  isProUser?: boolean;
 }
 
 // Connector Selector Component
 export const ConnectorSelector: React.FC<ConnectorSelectorProps> = React.memo(
-  ({ selectedConnectors, onConnectorToggle, user, isProUser }) => {
+  ({ selectedConnectors, onConnectorToggle, user }) => {
     const [open, setOpen] = useState(false);
     const isMobile = useIsMobile();
     const haptics = useWebHaptics();
@@ -28,7 +27,7 @@ export const ConnectorSelector: React.FC<ConnectorSelectorProps> = React.memo(
     const { data: connectorsData } = useQuery({
       queryKey: ['connectors', user?.id],
       queryFn: listUserConnectorsAction,
-      enabled: !!user && isProUser,
+      enabled: !!user,
       staleTime: 1000 * 60 * 2,
     });
 
@@ -41,12 +40,12 @@ export const ConnectorSelector: React.FC<ConnectorSelectorProps> = React.memo(
     const isSingleConnector = availableConnectors.length === 1;
 
     React.useEffect(() => {
-      if (isProUser && selectedCount === 0 && availableConnectors.length > 0) {
+      if (selectedCount === 0 && availableConnectors.length > 0) {
         availableConnectors.forEach(([provider]) => {
           onConnectorToggle(provider as ConnectorProvider);
         });
       }
-    }, [isProUser, selectedCount, availableConnectors, onConnectorToggle]);
+    }, [selectedCount, availableConnectors, onConnectorToggle]);
 
     // Hooks must run unconditionally — declare before the early return below.
     const handleOpenChange = useCallback(
@@ -57,7 +56,7 @@ export const ConnectorSelector: React.FC<ConnectorSelectorProps> = React.memo(
       [haptics],
     );
 
-    if (!isProUser || availableConnectors.length === 0) return null;
+    if (availableConnectors.length === 0) return null;
 
     const handleToggle = (provider: ConnectorProvider) => {
       if (isSingleConnector && selectedConnectors.includes(provider)) return;

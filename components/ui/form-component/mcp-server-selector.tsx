@@ -15,10 +15,9 @@ import { useWebHaptics } from 'web-haptics/react';
 
 interface McpServerSelectorProps {
   user: ComprehensiveUserData | null;
-  isProUser?: boolean;
 }
 
-export const McpServerSelector: React.FC<McpServerSelectorProps> = React.memo(({ user, isProUser }) => {
+export const McpServerSelector: React.FC<McpServerSelectorProps> = React.memo(({ user }) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const isMobile = useIsMobile();
@@ -42,7 +41,7 @@ export const McpServerSelector: React.FC<McpServerSelectorProps> = React.memo(({
         }>;
       }>;
     },
-    enabled: Boolean(user?.id && isProUser),
+    enabled: Boolean(user?.id),
     staleTime: 10_000,
   });
 
@@ -107,7 +106,7 @@ export const McpServerSelector: React.FC<McpServerSelectorProps> = React.memo(({
     [haptics],
   );
 
-  if (!isProUser || servers.length === 0) return null;
+  if (servers.length === 0) return null;
 
   const serverItems = (
     <div className="flex flex-col min-h-0">

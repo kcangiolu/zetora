@@ -16,22 +16,13 @@ const baseTools = [
 const base = {
   tools: baseTools,
   specialMode: undefined,
-  isSignedIn: true,
-  isMaxUser: true,
   preferences: undefined,
   sessionEnabledSources: undefined,
 };
 
 describe('filterActiveTools', () => {
-  it('keeps everything for a signed-in Max user with no source preference', () => {
+  it('keeps everything with no source preference — any connected account gets every tool', () => {
     expect(filterActiveTools(base)).toEqual(baseTools);
-  });
-
-  it('strips image tools for non-Max users, in special modes too', () => {
-    expect(filterActiveTools({ ...base, isMaxUser: false })).not.toEqual(expect.arrayContaining(['generate_image']));
-    const mcp = filterActiveTools({ ...base, isMaxUser: false, specialMode: 'mcp' });
-    expect(mcp).not.toContain('generate_image');
-    expect(mcp).not.toContain('edit_image');
   });
 
   it('narrows tools to globally enabled sources, keeping group-less utilities', () => {
@@ -79,17 +70,10 @@ describe('filterActiveTools', () => {
     expect(result).toEqual(baseTools);
   });
 
-  it('never offers extreme_search to signed-out users', () => {
-    const result = filterActiveTools({ ...base, isSignedIn: false });
-    expect(result).not.toContain('extreme_search');
-    expect(result).toContain('web_search');
-  });
-
-  it('skips source narrowing and the extreme_search gate in special modes', () => {
+  it('skips source narrowing in special modes', () => {
     const result = filterActiveTools({
       ...base,
       specialMode: 'memory',
-      isSignedIn: false,
       preferences: { 'zetora-enabled-sources': ['web'] },
     });
     expect(result).toContain('reddit_search');
@@ -98,7 +82,7 @@ describe('filterActiveTools', () => {
 
   it('does not mutate the input tools array', () => {
     const tools = [...baseTools];
-    filterActiveTools({ ...base, tools, isMaxUser: false });
+    filterActiveTools({ ...base, tools });
     expect(tools).toEqual(baseTools);
   });
 });

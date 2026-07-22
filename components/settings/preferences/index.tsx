@@ -47,8 +47,6 @@ export function PreferencesSection({
   const [preferencesTab, setPreferencesTab] = useState<
     'general' | 'search' | 'ai-models' | 'voice' | 'integrations' | 'customize'
   >('general');
-  const isMaxUser = Boolean(user?.isMaxUser);
-  const hasPaidAccess = Boolean(user?.isProUser || user?.isMaxUser);
 
   return (
     <div>
@@ -82,24 +80,12 @@ export function PreferencesSection({
 
         {/* ── Search & Retrieval tab ── */}
         {preferencesTab === 'search' && (
-          <SearchTab
-            user={user}
-            isMaxUser={isMaxUser}
-            hasPaidAccess={hasPaidAccess}
-            customModelsList={customModelsList}
-            customProviders={customProviders}
-          />
+          <SearchTab user={user} customModelsList={customModelsList} customProviders={customProviders} />
         )}
 
         {/* ── Integrations tab ── */}
         {preferencesTab === 'integrations' && (
-          <IntegrationsTab
-            user={user}
-            isMaxUser={isMaxUser}
-            hasPaidAccess={hasPaidAccess}
-            customModelsList={customModelsList}
-            customProviders={customProviders}
-          />
+          <IntegrationsTab user={user} customModelsList={customModelsList} customProviders={customProviders} />
         )}
 
         {/* ── Voice & Media tab ── */}
@@ -109,8 +95,6 @@ export function PreferencesSection({
         {preferencesTab === 'ai-models' && (
           <AiModelsTab
             user={user}
-            isMaxUser={isMaxUser}
-            hasPaidAccess={hasPaidAccess}
             customModelsList={customModelsList}
             customProviders={customProviders}
             setCustomProviders={setCustomProviders}

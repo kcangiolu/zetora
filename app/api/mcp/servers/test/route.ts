@@ -1,5 +1,5 @@
 import { createMCPClient } from '@ai-sdk/mcp';
-import { withProAuth } from '@/lib/api/route-handlers';
+import { withAuth } from '@/lib/api/route-handlers';
 import { ChatSDKError } from '@/lib/errors';
 import { getUserMcpServerById, updateUserMcpServer } from '@/lib/db/queries';
 import { resolveMcpAuthHeaders } from '@/lib/mcp/auth-headers';
@@ -44,7 +44,7 @@ function normalizeMcpTestErrorMessage(message: string, context?: { transportType
 // Keeps its own try/catch (unlike sibling routes): a failed connection test
 // must be persisted to the server row (lastTestedAt/lastError) before the
 // error response goes out, which the generic boundary can't do.
-export const POST = withProAuth(async (request, { user }) => {
+export const POST = withAuth(async (request, { user }) => {
   let serverIdForUpdate: string | null = null;
   let errorContext: { transportType?: 'http' | 'sse'; url?: string } | undefined;
 

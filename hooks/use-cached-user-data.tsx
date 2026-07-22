@@ -11,7 +11,7 @@ export function useCachedUserData() {
   const { data: session, isPending: isSessionPending } = useSession();
 
   // Get fresh data from the existing hook
-  const { user: freshUser, isLoading: isFreshLoading, error, refetch, isRefetching, ...otherUserData } = useUserData();
+  const { user: freshUser, isLoading: isFreshLoading, error, refetch, isRefetching } = useUserData();
 
   // Cache user data in localStorage
   const [cachedUser, setCachedUser] = useLocalStorage<ComprehensiveUserData | null>('zetora-user-data', null);
@@ -38,11 +38,6 @@ export function useCachedUserData() {
   // Show loading only if we have no cached data and fresh data is loading
   const isLoading = !cachedUser && isFreshLoading;
 
-  // Recalculate derived properties based on current user data
-  const isProUser = Boolean(user?.isProUser);
-  const proSource = user?.proSource || 'none';
-  const subscriptionStatus = user?.subscriptionStatus || 'none';
-
   // Helper function to check if user should have unlimited access for specific models
   const shouldBypassLimitsForModel = (selectedModel: string) => {
     return shouldBypassRateLimits(selectedModel, user);
@@ -56,58 +51,7 @@ export function useCachedUserData() {
     refetch,
     isRefetching,
 
-    // Quick access to commonly used properties
-    isProUser,
-    proSource,
-    subscriptionStatus,
-
-    // Polar subscription details
-    polarSubscription: user?.polarSubscription,
-    hasPolarSubscription: Boolean(user?.polarSubscription),
-
-    // Dodo Subscription details
-    dodoSubscription: user?.dodoSubscription,
-    hasDodoSubscription: Boolean(user?.dodoSubscription?.hasSubscriptions),
-    dodoExpiresAt: user?.dodoSubscription?.expiresAt,
-    isDodoExpiring: Boolean(user?.dodoSubscription?.isExpiringSoon),
-    isDodoExpired: Boolean(user?.dodoSubscription?.isExpired),
-
-    // Subscription history
-    subscriptionHistory: user?.subscriptionHistory || [],
-
-    // Rate limiting helpers
-    shouldCheckLimits: Boolean(!isLoading && user && !user.isProUser),
     shouldBypassLimitsForModel,
-
-    // Subscription status checks
-    hasActiveSubscription: user?.subscriptionStatus === 'active',
-    isSubscriptionCanceled: user?.subscriptionStatus === 'canceled',
-    isSubscriptionExpired: user?.subscriptionStatus === 'expired',
-    hasNoSubscription: user?.subscriptionStatus === 'none',
-
-    // Legacy compatibility helpers
-    subscriptionData: user?.polarSubscription
-      ? {
-          hasSubscription: true,
-          subscription: user.polarSubscription,
-        }
-      : { hasSubscription: false },
-
-    // Map dodoSubscription to legacy dodoProStatus structure for settings dialog
-    dodoProStatus: user?.dodoSubscription
-      ? {
-          isProUser: proSource === 'dodo' && isProUser,
-          hasSubscriptions: user.dodoSubscription.hasSubscriptions,
-          expiresAt: user.dodoSubscription.expiresAt,
-          mostRecentSubscription: user.dodoSubscription.mostRecentSubscription,
-          daysUntilExpiration: user.dodoSubscription.daysUntilExpiration,
-          isExpired: user.dodoSubscription.isExpired,
-          isExpiringSoon: user.dodoSubscription.isExpiringSoon,
-          source: proSource,
-        }
-      : null,
-
-    expiresAt: user?.dodoSubscription?.expiresAt,
 
     // Additional utilities
     isCached: Boolean(cachedUser),

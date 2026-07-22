@@ -6,7 +6,6 @@ import {
   ArrowUpRight,
   ArrowRight,
   Bot,
-  GraduationCap,
   Eye,
   Filter,
   X,
@@ -44,11 +43,10 @@ import {
   ProAccordionContent,
 } from '@/components/ui/pro-accordion';
 import { useGitHubStars } from '@/hooks/use-github-stars';
-import { models } from '@/ai/models';
+import { models, getModelProvider, PROVIDERS, type ModelProvider } from '@/ai/models';
 import { VercelLogo } from '@/components/logos/vercel-logo';
 import { ExaLogo } from '@/components/logos/exa-logo';
 import { ElevenLabsLogo } from '@/components/logos/elevenlabs-logo';
-import { PRICING, SEARCH_LIMITS } from '@/lib/constants';
 
 import { ThemeSwitcher } from '@/components/theme-switcher';
 import { ZetoraLogo } from '@/components/logos/zetora-logo';
@@ -253,9 +251,7 @@ function AppsBeamSection() {
 
 export default function AboutPage() {
   const router = useRouter();
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedCapabilities, setSelectedCapabilities] = useState<string[]>([]);
-  const [openCategory, setOpenCategory] = useState(false);
   const [openCapabilities, setOpenCapabilities] = useState(false);
   const [showAllModels, setShowAllModels] = useState(false);
   const { data: githubStars, isLoading: isLoadingStars } = useGitHubStars();
@@ -292,10 +288,10 @@ export default function AboutPage() {
     { icon: ChartNoAxesCombined, name: 'Prediction', description: 'Prediction markets from Polymarket and Kalshi' },
     { icon: Music, name: 'YouTube', description: 'Video summaries, transcripts, and analysis' },
     { icon: Headphones, name: 'Spotify', description: 'Search songs, artists, and albums' },
-    { icon: Plug, name: 'Connectors', description: 'Search Google Drive, Notion & OneDrive', pro: true },
-    { icon: Database, name: 'Memory', description: 'Your personal memory companion', pro: true },
-    { icon: Mic, name: 'Voice', description: 'Conversational AI with real-time voice', pro: true },
-    { icon: FileText, name: 'XQL', description: 'Advanced X query language for tweet analysis', pro: true },
+    { icon: Plug, name: 'Connectors', description: 'Search Google Drive, Notion & OneDrive' },
+    { icon: Database, name: 'Memory', description: 'Your personal memory companion' },
+    { icon: Mic, name: 'Voice', description: 'Conversational AI with real-time voice' },
+    { icon: FileText, name: 'XQL', description: 'Advanced X query language for tweet analysis' },
   ];
 
   return (
@@ -310,9 +306,6 @@ export default function AboutPage() {
             </Link>
 
             <nav className="hidden md:flex items-center gap-6">
-              <Link href="/pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                Pricing
-              </Link>
               <Link
                 href="https://git.new/zetora"
                 className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -617,11 +610,8 @@ export default function AboutPage() {
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <span className="font-pixel text-[9px] uppercase tracking-wider text-muted-foreground bg-muted/50 px-2.5 py-1 rounded-full">
-                {searchModes.filter((m) => !('pro' in m && m.pro)).length} Free
-              </span>
               <span className="font-pixel text-[9px] uppercase tracking-wider text-primary bg-primary/10 px-2.5 py-1 rounded-full">
-                {searchModes.filter((m) => 'pro' in m && m.pro).length} Pro
+                All included
               </span>
             </div>
           </div>
@@ -634,15 +624,9 @@ export default function AboutPage() {
               >
                 <div className="flex items-start justify-between mb-4">
                   <mode.icon className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
-                  {'pro' in mode && mode.pro ? (
-                    <span className="font-pixel text-[8px] uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
-                      Pro
-                    </span>
-                  ) : (
-                    <span className="font-pixel-grid text-lg text-border/40 select-none leading-none">
-                      {String(i + 1).padStart(2, '0')}
-                    </span>
-                  )}
+                  <span className="font-pixel-grid text-lg text-border/40 select-none leading-none">
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
                 </div>
                 <h3 className="text-xs sm:text-sm font-medium text-foreground mb-1">{mode.name}</h3>
                 <p className="text-[10px] sm:text-[11px] text-muted-foreground leading-relaxed">{mode.description}</p>
@@ -696,9 +680,6 @@ export default function AboutPage() {
                 Start for free
                 <ArrowRight className="w-3.5 h-3.5 ml-2" />
               </Button>
-              <Button variant="outline" className="rounded-full px-8 h-11" onClick={() => router.push('/pricing')}>
-                See pricing
-              </Button>
             </div>
           </div>
         </div>
@@ -726,47 +707,6 @@ export default function AboutPage() {
 
           {/* Filter Controls */}
           <div className="flex flex-wrap gap-3 mb-8">
-            <Popover open={openCategory} onOpenChange={setOpenCategory}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={openCategory}
-                  className="h-9 justify-between rounded-full text-xs"
-                >
-                  {selectedCategory === 'all' ? 'All Categories' : selectedCategory}
-                  <ArrowUpRight className="ml-2 h-3 w-3 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[200px] p-0 rounded-xl">
-                <Command>
-                  <CommandInput placeholder="Search..." className="h-9" />
-                  <CommandList>
-                    <CommandEmpty>No category found.</CommandEmpty>
-                    <CommandGroup>
-                      {[
-                        { value: 'all', label: 'All Categories' },
-                        { value: 'Free', label: 'Free' },
-                        { value: 'Pro', label: 'Pro' },
-                        { value: 'Experimental', label: 'Experimental' },
-                      ].map((category) => (
-                        <CommandItem
-                          key={category.value}
-                          value={category.value}
-                          onSelect={(v) => {
-                            setSelectedCategory(v);
-                            setOpenCategory(false);
-                          }}
-                        >
-                          {category.label}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-
             <Popover open={openCapabilities} onOpenChange={setOpenCapabilities}>
               <PopoverTrigger asChild>
                 <Button
@@ -817,14 +757,11 @@ export default function AboutPage() {
               </PopoverContent>
             </Popover>
 
-            {(selectedCategory !== 'all' || selectedCapabilities.length > 0) && (
+            {selectedCapabilities.length > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => {
-                  setSelectedCategory('all');
-                  setSelectedCapabilities([]);
-                }}
+                onClick={() => setSelectedCapabilities([])}
                 className="h-9 text-muted-foreground rounded-full text-xs"
               >
                 <X className="w-3 h-3 mr-1" /> Clear
@@ -836,33 +773,16 @@ export default function AboutPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {(() => {
               const filteredModels = models.filter((model) => {
-                const categoryMatch = selectedCategory === 'all' || model.category === selectedCategory;
-                const capabilityMatch =
-                  selectedCapabilities.length === 0 ||
-                  selectedCapabilities.some((c) => {
-                    if (c === 'vision') return model.vision;
-                    if (c === 'reasoning') return model.reasoning;
-                    if (c === 'pdf') return model.pdf;
-                    return false;
-                  });
-                return categoryMatch && capabilityMatch;
+                if (selectedCapabilities.length === 0) return true;
+                return selectedCapabilities.some((c) => {
+                  if (c === 'vision') return model.vision;
+                  if (c === 'reasoning') return model.reasoning;
+                  if (c === 'pdf') return model.pdf;
+                  return false;
+                });
               });
 
-              const groupedModels = filteredModels.reduce(
-                (acc, model) => {
-                  const category = model.category;
-                  if (!acc[category]) acc[category] = [];
-                  acc[category].push(model);
-                  return acc;
-                },
-                {} as Record<string, typeof models>,
-              );
-
-              const sortedModels = ['Free', 'Experimental', 'Pro']
-                .filter((c) => groupedModels[c]?.length > 0)
-                .flatMap((c) => groupedModels[c]);
-
-              if (sortedModels.length === 0) {
+              if (filteredModels.length === 0) {
                 return (
                   <div className="col-span-full p-12 text-center border border-border/50 rounded-2xl">
                     <Filter className="w-6 h-6 text-muted-foreground mx-auto mb-4" />
@@ -871,10 +791,7 @@ export default function AboutPage() {
                       variant="outline"
                       size="sm"
                       className="rounded-full"
-                      onClick={() => {
-                        setSelectedCategory('all');
-                        setSelectedCapabilities([]);
-                      }}
+                      onClick={() => setSelectedCapabilities([])}
                     >
                       Clear filters
                     </Button>
@@ -882,11 +799,14 @@ export default function AboutPage() {
                 );
               }
 
-              const modelsToShow = showAllModels ? sortedModels : sortedModels.slice(0, 9);
+              const modelsToShow = showAllModels ? filteredModels : filteredModels.slice(0, 9);
 
               return (
                 <>
-                  {modelsToShow.map((model: any) => (
+                  {modelsToShow.map((model: any) => {
+                    const providerKey = (model.provider || getModelProvider(model.value, model.label)) as ModelProvider;
+                    const providerName = PROVIDERS[providerKey]?.name || providerKey;
+                    return (
                     <div
                       key={model.value}
                       className="p-5 rounded-xl border border-border/50 bg-card/30 hover:bg-card hover:border-border transition-all duration-200 group"
@@ -894,7 +814,7 @@ export default function AboutPage() {
                       <div className="flex items-start justify-between mb-2">
                         <h3 className="text-sm font-medium text-foreground">{model.label}</h3>
                         <span className="font-pixel text-[9px] uppercase tracking-wider text-muted-foreground/60 group-hover:text-muted-foreground transition-colors">
-                          {model.category}
+                          {providerName}
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground mb-4 line-clamp-2 leading-relaxed">
@@ -928,8 +848,9 @@ export default function AboutPage() {
                         )}
                       </div>
                     </div>
-                  ))}
-                  {sortedModels.length > 9 && (
+                  );
+                  })}
+                  {filteredModels.length > 9 && (
                     <div className="col-span-full flex justify-center pt-4">
                       <Button
                         variant="outline"
@@ -937,7 +858,7 @@ export default function AboutPage() {
                         className="rounded-full"
                         onClick={() => setShowAllModels(!showAllModels)}
                       >
-                        {showAllModels ? 'Show less' : `Show ${sortedModels.length - 9} more`}
+                        {showAllModels ? 'Show less' : `Show ${filteredModels.length - 9} more`}
                       </Button>
                     </div>
                   )}
@@ -948,130 +869,43 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Pricing Section */}
+      {/* Access Section */}
       <section className="border-t border-border/50 bg-muted/10">
         <div className="max-w-6xl mx-auto px-6 py-24">
           <div className="mb-16 text-center max-w-lg mx-auto">
-            <span className="font-pixel text-[10px] uppercase tracking-[0.2em] text-primary/80 mb-4 block">Plans</span>
+            <span className="font-pixel text-[10px] uppercase tracking-[0.2em] text-primary/80 mb-4 block">
+              Access
+            </span>
             <h2 className="text-3xl sm:text-4xl font-light tracking-tight font-be-vietnam-pro mb-4">
-              Simple, <span className="font-pixel text-3xl sm:text-4xl">honest</span> pricing
+              One account, <span className="font-pixel text-3xl sm:text-4xl">everything</span> included
             </h2>
-            <p className="text-muted-foreground">Start free. Upgrade when you need unlimited power.</p>
+            <p className="text-muted-foreground">
+              Sign in and get every model, every mode, and every tool — no tiers, no upgrades.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
-            <div className="p-8 lg:p-10 flex flex-col rounded-2xl border border-border/50 bg-card/30">
-              <h3 className="text-lg font-semibold mb-2 text-foreground">Free</h3>
-              <p className="text-sm text-muted-foreground mb-6">Get started with the essentials</p>
-              <div className="flex items-baseline mb-8">
-                <span className="text-5xl font-pixel tracking-tight text-foreground">$0</span>
-                <span className="text-sm text-muted-foreground ml-2">/month</span>
-              </div>
-              <ul className="space-y-3 mb-8">
-                {[
-                  `${SEARCH_LIMITS.DAILY_SEARCH_LIMIT} research runs per day`,
-                  'Basic AI models',
-                  'Research history',
-                ].map((item) => (
-                  <li key={item} className="flex items-center gap-3 text-sm text-muted-foreground">
-                    <Check className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-              <Button variant="outline" className="w-full h-11 rounded-xl mt-auto" onClick={() => router.push('/')}>
-                Get Started
-              </Button>
-            </div>
-
-            <div className="p-8 lg:p-10 flex flex-col rounded-2xl border border-primary/20 bg-card relative overflow-hidden">
-              <div className="absolute top-0 left-0 right-0 h-1 bg-linear-to-r from-primary/60 via-primary to-primary/60" />
-              <div className="flex items-center gap-3 mb-2">
-                <h3 className="text-lg font-semibold text-foreground">Pro</h3>
-                <span className="font-pixel text-[9px] uppercase tracking-wider text-primary bg-primary/10 px-2.5 py-1 rounded-full">
-                  Popular
-                </span>
-              </div>
-              <p className="text-sm text-muted-foreground mb-6">Everything for serious research</p>
-              <div className="mb-1">
-                <span className="text-5xl font-pixel tracking-tight text-foreground">${PRICING.PRO_MONTHLY}</span>
-                <span className="text-sm text-muted-foreground ml-2">/month</span>
-              </div>
-              <p className="text-xs text-muted-foreground mb-8">Less than a coffee a day</p>
-              <ul className="space-y-3 mb-8">
-                {[
-                  'Unlimited research',
-                  'All standard AI models',
-                  'Zetora Apps (100+ integrations)',
-                  'PDF analysis',
-                  'Voice mode',
-                  'XQL (X Query Language)',
-                  'Zetora Lookout',
-                  'Priority support',
-                ].map((item) => (
-                  <li key={item} className="flex items-center gap-3 text-sm text-foreground/80">
-                    <Check className="w-3.5 h-3.5 text-primary shrink-0" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-              <Button className="w-full h-11 rounded-xl mt-auto" onClick={() => router.push('/pricing')}>
-                Upgrade to Pro <Sparkles className="w-3.5 h-3.5 ml-1.5" />
-              </Button>
-            </div>
-
-            <div className="p-8 lg:p-10 flex flex-col rounded-2xl border border-border/50 bg-card/30">
-              <div className="flex items-center gap-3 mb-2">
-                <h3 className="text-lg font-semibold text-foreground">Max</h3>
-              </div>
-              <p className="text-sm text-muted-foreground mb-6">All paid features + Anthropic Claude models</p>
-              <div className="mb-1">
-                <span className="text-5xl font-pixel tracking-tight text-foreground">$60</span>
-                <span className="text-sm text-muted-foreground ml-2">/month</span>
-              </div>
-              <p className="text-xs text-muted-foreground mb-8">For Anthropic Sonnet, Opus, and Thinking models</p>
-              <ul className="space-y-3 mb-8">
-                {[
-                  'All paid features',
-                  'Claude Sonnet models',
-                  'Claude Opus models',
-                  'Thinking variants',
-                  'Canvas support for Max models',
-                  'Priority support',
-                ].map((item) => (
-                  <li key={item} className="flex items-center gap-3 text-sm text-foreground/80">
-                    <Check className="w-3.5 h-3.5 text-primary shrink-0" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-              <Button
-                variant="outline"
-                className="w-full h-11 rounded-xl mt-auto"
-                onClick={() => router.push('/pricing')}
-              >
-                Upgrade to Max <Sparkles className="w-3.5 h-3.5 ml-1.5" />
-              </Button>
-            </div>
-          </div>
-
-          <div className="max-w-4xl mx-auto mt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-6 border border-border/50 rounded-2xl bg-card/30">
-            <div className="flex items-start gap-4">
-              <GraduationCap className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
-              <div>
-                <h3 className="text-sm font-medium mb-1">Student discount</h3>
-                <p className="text-xs text-muted-foreground">
-                  Get Pro for $5/month with a university email. Student pricing applies to Pro only.
-                </p>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-full shrink-0"
-              onClick={() => router.push('/pricing')}
-            >
-              Get Student Pricing
+          <div className="max-w-lg mx-auto p-8 lg:p-10 flex flex-col rounded-2xl border border-primary/20 bg-card relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-linear-to-r from-primary/60 via-primary to-primary/60" />
+            <h3 className="text-lg font-semibold mb-2 text-foreground">Full access</h3>
+            <p className="text-sm text-muted-foreground mb-8">Everything, for every signed-in account</p>
+            <ul className="space-y-3 mb-8">
+              {[
+                'Unlimited research',
+                'Every AI model, including Claude Sonnet and Opus',
+                'Zetora Apps (100+ integrations)',
+                'PDF analysis',
+                'Voice mode',
+                'XQL (X Query Language)',
+                'Zetora Lookout',
+              ].map((item) => (
+                <li key={item} className="flex items-center gap-3 text-sm text-foreground/80">
+                  <Check className="w-3.5 h-3.5 text-primary shrink-0" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+            <Button className="w-full h-11 rounded-xl mt-auto" onClick={() => router.push('/sign-in')}>
+              Sign in <Sparkles className="w-3.5 h-3.5 ml-1.5" />
             </Button>
           </div>
         </div>
@@ -1100,9 +934,6 @@ export default function AboutPage() {
                 <Button size="sm" className="rounded-full" onClick={() => router.push('/')}>
                   Start searching <ArrowRight className="ml-1.5 h-3 w-3" />
                 </Button>
-                <Button variant="outline" size="sm" className="rounded-full" onClick={() => router.push('/pricing')}>
-                  View pricing
-                </Button>
               </div>
             </div>
 
@@ -1114,27 +945,6 @@ export default function AboutPage() {
                     Zetora is an open-source AI assistant built for research and action. It searches the web in depth,
                     cites its sources, and connects to 100+ apps via MCP so you can act on what you find without leaving
                     the conversation.
-                  </ProAccordionContent>
-                </ProAccordionItem>
-                <ProAccordionItem value="item-2">
-                  <ProAccordionTrigger>What&apos;s the difference between Free, Pro, and Max?</ProAccordionTrigger>
-                  <ProAccordionContent>
-                    Free includes limited daily research runs with essential models. Pro ($15/month) unlocks unlimited
-                    research, standard paid models, PDF analysis, Lookout automations, and priority support. Max
-                    ($60/month) includes all paid features plus Anthropic Claude Sonnet, Opus, and Thinking models.
-                  </ProAccordionContent>
-                </ProAccordionItem>
-                <ProAccordionItem value="item-3">
-                  <ProAccordionTrigger>Is there a student discount?</ProAccordionTrigger>
-                  <ProAccordionContent>
-                    Yes! Students with university emails (.edu, .ac.in, .ac.uk, etc.) automatically get Pro for just
-                    $5/month &mdash; that&apos;s $120 saved per year. Applied automatically at checkout.
-                  </ProAccordionContent>
-                </ProAccordionItem>
-                <ProAccordionItem value="item-4">
-                  <ProAccordionTrigger>Can I cancel anytime?</ProAccordionTrigger>
-                  <ProAccordionContent>
-                    Yes, cancel any time. Your benefits continue until the end of your billing period.
                   </ProAccordionContent>
                 </ProAccordionItem>
                 <ProAccordionItem value="item-5">

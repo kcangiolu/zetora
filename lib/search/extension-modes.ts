@@ -34,7 +34,6 @@ export interface ExtensionModeServerConfig {
   // (memory/connectors/mcp/multi-agent/canvas), all of which silently fall
   // back to the base config for signed-out users. Set false to opt out.
   requireAuth?: boolean;
-  requirePro?: boolean;
   // Overrides the zetora-memory-provider preference for this mode's turn.
   memoryProvider?: 'graphiti' | 'supermemory';
 }

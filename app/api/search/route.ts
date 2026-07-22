@@ -24,7 +24,6 @@ import {
   shouldBypassRateLimits,
   getModelParameters,
   hasVisionSupport,
-  getModelProvider,
   getAnonymizeContext,
 } from '@/ai/providers';
 import {
@@ -36,10 +35,7 @@ import {
   saveNewChatWithStream,
   saveMessages,
   saveUserTurnMessage,
-  incrementExtremeSearchUsage,
   incrementMessageUsage,
-  incrementAnthropicUsage,
-  incrementGoogleUsage,
   updateChatTitleById,
 } from '@/lib/db/queries';
 import { ChatSDKError } from '@/lib/errors';
@@ -55,21 +51,16 @@ import { getGroupConfig } from '@/lib/search/group-config';
 import { getExtensionMode, getExtensionModeIds } from '@/lib/search/extension-modes';
 import type { SpecialModeId } from '@/lib/utils';
 import { filterActiveTools, getEnabledSkillIds } from '@/lib/search/tool-filter';
-import {
-  getCurrentUser,
-  getLightweightUser,
-  getMessageCountAndExtremeSearchByUserIdAction,
-} from '@/lib/search/server-helpers';
+import { getLightweightUser } from '@/lib/search/server-helpers';
 import { getCachedCustomInstructionsByUserId, getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { resolveTertiaryModel } from '@/ai/tertiary';
-import { unauthenticatedRateLimit, getClientIdentifier } from '@/lib/rate-limit';
 import { loadConfiguredTools } from '@/lib/search/tool-loader';
 import { ingestChatIntoGraphiti } from '@/lib/search/graphiti-ingest';
 import { resolvePrepareStepOverride } from '@/lib/search/prepare-step';
 import { SEARCH_REQUEST_TIMEOUT_MS } from '@/lib/timeouts';
 import { xai } from '@ai-sdk/xai';
 import { initializeChatAndChecks, appendToLastUserMessage } from '@/lib/search/chat-initialization';
-import { checkModelAccess, buildUnauthenticatedRateLimitError } from '@/lib/search/access-gate';
+import { checkModelAccess } from '@/lib/search/access-gate';
 import {
   collectAttachments,
   stripFilePartsForModel,
@@ -174,12 +165,6 @@ export async function POST(req: Request) {
   const chatQueryPromise = isTemporaryChat ? Promise.resolve(null) : getChatByIdForValidation({ id });
   const persistedMessagesPromise =
     isTemporaryChat || incomingMessages.length > 1 ? Promise.resolve<ChatMessage[]>([]) : getMessagesByChatId({ id });
-  const isDev = process.env.NODE_ENV === 'development';
-  const rateLimitPromise = lightweightUserPromise.then((user) => {
-    if (user || isDev) return null;
-    const identifier = getClientIdentifier(req);
-    return unauthenticatedRateLimit.limit(identifier);
-  });
   recordTiming('start_parallel_operations', opStart);
 
   // Wait for lightweight user first (needed for early exit checks)
@@ -187,45 +172,22 @@ export async function POST(req: Request) {
   const lightweightUser = await lightweightUserPromise;
   recordTiming('get_lightweight_user', opStart);
 
-  // Start full user fetch immediately (doesn't block early exits)
-  const isProUser = lightweightUser?.isProUser ?? false;
-  const isMaxUser = lightweightUser?.isMaxUser ?? false;
-  const shouldUseXaiMultiAgent = specialMode === 'multi-agent' && isProUser;
-  opStart = Date.now();
-  const fullUserPromise = lightweightUser ? getCurrentUser() : Promise.resolve(null);
-  recordTiming('create_full_user_promise', opStart);
-
-  // Rate limit check for unauthenticated users (skip in dev environment)
-  if (!lightweightUser && !isDev) {
-    opStart = Date.now();
-    const rateLimitResult = await rateLimitPromise;
-    if (!rateLimitResult) {
-      return new ChatSDKError('rate_limit:api', 'Rate limit check failed').toResponse();
-    }
-    recordTiming('unauthenticated_rate_limit', opStart);
-
-    const rateLimitError = buildUnauthenticatedRateLimitError(rateLimitResult);
-    if (rateLimitError) {
-      return rateLimitError.toResponse();
-    }
-  }
-
-  const gateError = checkModelAccess({ lightweightUser, model, specialMode });
+  // Login is required to make a request — any connected account has access
+  // to every model/mode, so there is no further tier gate to check.
+  const gateError = checkModelAccess({ lightweightUser });
   if (gateError) {
     return gateError.toResponse();
   }
 
+  const shouldUseXaiMultiAgent = specialMode === 'multi-agent';
+
   // Start config and custom instructions in parallel
-  // Use lightweightUser.userId directly instead of waiting for fullUserPromise
   opStart = Date.now();
-  const configPromise = getGroupConfig(specialMode, lightweightUser, fullUserPromise);
-  const customInstructionsPromise =
-    lightweightUser && (isCustomInstructionsEnabled ?? true)
-      ? getCachedCustomInstructionsByUserId(lightweightUser.userId)
-      : Promise.resolve(null);
-  const userPreferencesPromise = lightweightUser
-    ? getCachedUserPreferencesByUserId(lightweightUser.userId)
+  const configPromise = getGroupConfig(specialMode);
+  const customInstructionsPromise = (isCustomInstructionsEnabled ?? true)
+    ? getCachedCustomInstructionsByUserId(lightweightUser!.userId)
     : Promise.resolve(null);
+  const userPreferencesPromise = getCachedUserPreferencesByUserId(lightweightUser!.userId);
   recordTiming('start_parallel_config_and_user_promises', opStart);
 
   // Initialize chat and perform critical checks (chatQueryPromise already started)
@@ -233,8 +195,6 @@ export async function POST(req: Request) {
   const { criticalChecksPromise, chatInitializationPromise } = initializeChatAndChecks({
     chatQueryPromise,
     lightweightUser,
-    isProUser,
-    isMaxUser,
     id,
     streamId,
     selectedVisibilityType,
@@ -279,8 +239,6 @@ export async function POST(req: Request) {
   const activeTools = filterActiveTools({
     tools: config.tools,
     specialMode,
-    isSignedIn: Boolean(lightweightUser),
-    isMaxUser: lightweightUser?.isMaxUser ?? false,
     preferences: userPreferencesResult?.preferences,
     sessionEnabledSources,
   });
@@ -499,7 +457,7 @@ export async function POST(req: Request) {
         );
       };
 
-      const shouldLoadMcpTools = Boolean(lightweightUser?.isProUser && specialMode === 'mcp');
+      const shouldLoadMcpTools = specialMode === 'mcp';
 
       if (shouldLoadMcpTools && lightweightUser) {
         const { resolveUserMcpTools } = await import('@/lib/tools/mcp-client');
@@ -877,46 +835,11 @@ export async function POST(req: Request) {
 
           try {
             if (lightweightUser?.userId && event.finishReason === 'stop') {
-              // Track usage synchronously - this is critical for billing and rate limiting
+              // Anti-abuse guardrail counter — the only usage tracking left
+              // now that Pro/Max-specific limits are gone.
               try {
-                const shouldTrackMessageUsage = !shouldBypassRateLimits(model, lightweightUser);
-                const shouldTrackExtremeSearchUsage = event.steps?.some((step) =>
-                  step.toolCalls?.some((toolCall) => toolCall && toolCall.toolName === 'extreme_search'),
-                );
-                const shouldTrackAnthropicUsage = getModelProvider(model) === 'anthropic' && lightweightUser.isMaxUser;
-                const shouldTrackGoogleUsage = getModelProvider(model) === 'google' && lightweightUser.isMaxUser;
-
-                if (
-                  shouldTrackMessageUsage ||
-                  shouldTrackExtremeSearchUsage ||
-                  shouldTrackAnthropicUsage ||
-                  shouldTrackGoogleUsage
-                ) {
-                  await all(
-                    {
-                      async messageUsage() {
-                        if (!shouldTrackMessageUsage) return false;
-                        await incrementMessageUsage({ userId: lightweightUser.userId });
-                        return true;
-                      },
-                      async extremeSearchUsage() {
-                        if (!shouldTrackExtremeSearchUsage) return false;
-                        await incrementExtremeSearchUsage({ userId: lightweightUser.userId });
-                        return true;
-                      },
-                      async anthropicUsage() {
-                        if (!shouldTrackAnthropicUsage) return false;
-                        await incrementAnthropicUsage({ userId: lightweightUser.userId, model });
-                        return true;
-                      },
-                      async googleUsage() {
-                        if (!shouldTrackGoogleUsage) return false;
-                        await incrementGoogleUsage({ userId: lightweightUser.userId, model });
-                        return true;
-                      },
-                    },
-                    getBetterAllOptions(),
-                  );
+                if (!shouldBypassRateLimits(model, lightweightUser)) {
+                  await incrementMessageUsage({ userId: lightweightUser.userId });
                 }
               } catch (error) {
                 log.error('Failed to track usage:', error);

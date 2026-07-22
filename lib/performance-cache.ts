@@ -2,7 +2,7 @@
 // Uses a doubly-linked list for O(1) LRU eviction
 
 import { allDatabases } from '@/lib/db';
-import { dodosubscription, subscription, user } from './db/schema';
+import { user } from './db/schema';
 
 interface CacheEntry<T> {
   data: T;
@@ -185,70 +185,18 @@ class PerformanceCache<T> {
 // Create cache instances with appropriate limits
 export const sessionCache = new PerformanceCache<any>('sessions', 500, 15 * 60 * 1000); // 15 min, 500 sessions
 export const usageCountCache = new PerformanceCache<number>('usage-counts', 2000, 5 * 60 * 1000); // 5 min, 2000 users
-const proUserStatusCache = new PerformanceCache<boolean>('pro-user-status', 1000, 30 * 60 * 1000); // 30 min, 1000 users
-
-// Dodo Subscriptions-specific caches
-const dodoSubscriptionCache = new PerformanceCache<any>('dodo-subscriptions', 1000, 5 * 60 * 1000); // 5 min, 1000 users
-const dodoProStatusCache = new PerformanceCache<any>('dodo-pro-status', 1000, 30 * 60 * 1000); // 30 min, 1000 users
 
 // Cache key generators
 export const createSessionKey = (token: string) => `session:${token}`;
 export const createMessageCountKey = (userId: string) => `msg-count:${userId}`;
-export const createExtremeCountKey = (userId: string) => `extreme-count:${userId}`;
-export const createAnthropicCountKey = (userId: string) => `anthropic-count:${userId}`;
-export const createGoogleCountKey = (userId: string) => `google-count:${userId}`;
-export const createAgentModeCountKey = (userId: string) => `agent-mode-count:${userId}`;
-const createProUserKey = (userId: string) => `pro-user:${userId}`;
-
-// Dodo Subscriptions cache key generators
-const createDodoSubscriptionKey = (userId: string) => `dodo-subscriptions:${userId}`;
-const createDodoProStatusKey = (userId: string) => `dodo-pro-status:${userId}`;
-
-// Pro user status helpers with caching
-export function getProUserStatus(userId: string): boolean | null {
-  const cacheKey = createProUserKey(userId);
-  return proUserStatusCache.get(cacheKey);
-}
-
-export function setProUserStatus(userId: string, isProUser: boolean): void {
-  const cacheKey = createProUserKey(userId);
-  proUserStatusCache.set(cacheKey, isProUser);
-}
-
-// Dodo Subscriptions cache helpers
-export function getDodoSubscriptions(userId: string) {
-  const cacheKey = createDodoSubscriptionKey(userId);
-  return dodoSubscriptionCache.get(cacheKey);
-}
-
-export function setDodoSubscriptions(userId: string, subscriptions: any) {
-  const cacheKey = createDodoSubscriptionKey(userId);
-  dodoSubscriptionCache.set(cacheKey, subscriptions);
-}
-
-export function getDodoProStatus(userId: string) {
-  const cacheKey = createDodoProStatusKey(userId);
-  return dodoProStatusCache.get(cacheKey);
-}
-
-export function setDodoProStatus(userId: string, statusData: any) {
-  const cacheKey = createDodoProStatusKey(userId);
-  dodoProStatusCache.set(cacheKey, statusData);
-}
 
 // Cache invalidation helpers
 export function invalidateUserCaches(userId: string) {
   usageCountCache.delete(createMessageCountKey(userId));
-  usageCountCache.delete(createExtremeCountKey(userId));
-  usageCountCache.delete(createAgentModeCountKey(userId));
-  proUserStatusCache.delete(createProUserKey(userId));
-  // Invalidate Dodo Subscription caches
-  dodoSubscriptionCache.delete(createDodoSubscriptionKey(userId));
-  dodoProStatusCache.delete(createDodoProStatusKey(userId));
 
   // Invalidate the db cache on ALL database instances (main + read replicas)
   // Only invalidate if the database has caching enabled ($cache may be undefined)
-  const tablesToInvalidate = { tables: [user, subscription, dodosubscription] };
+  const tablesToInvalidate = { tables: [user] };
   for (const database of allDatabases) {
     if (database.$cache) {
       database.$cache.invalidate(tablesToInvalidate);

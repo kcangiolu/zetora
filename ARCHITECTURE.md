@@ -10,7 +10,7 @@ Zetora is a self-hosted, AI-powered agentic search engine — a fork of [Scira](
 | Language                | TypeScript (strict), checked with `tsgo` (`@typescript/native-preview`)                                                                 |
 | AI                      | Vercel AI SDK v6 (`ai`) + many providers (`@ai-sdk/*`, OpenRouter, Ollama, custom OpenAI-compatible providers)                          |
 | UI                      | Tailwind CSS v4, Shadcn/Radix UI, Framer Motion, ECharts/visx/Recharts                                                                  |
-| Auth                    | Better Auth (GitHub / Google / Twitter OAuth), Polar & DodoPayments plugins for billing                                                 |
+| Auth                    | Better Auth (GitHub / Google / Twitter OAuth)                                                                                           |
 | ORM / DB                | Drizzle ORM + PostgreSQL 17 (migrations in `drizzle/migrations`)                                                                        |
 | Caching / rate limiting | Redis (`ioredis` / `redis`), sliding-window rate limiting via Redis sorted sets                                                         |
 | Object storage          | MinIO (S3-compatible) or Cloudflare R2 (`STORAGE_PROVIDER`)                                                                             |
@@ -28,8 +28,8 @@ Zetora is a self-hosted, AI-powered agentic search engine — a fork of [Scira](
 app/                    Next.js App Router
   (auth)/ (content)/ (search)/   Route groups (sign-in, legal pages, main search UI)
   api/                  API routes (see below)
-  actions.ts            Server actions (~91 KB — chat, history, subscription, usage…)
-  lookout/ new/ pricing/ search/ searches/ settings/ share/ voice/ xql/  Pages
+  actions/              Server actions (chat, history, usage…)
+  lookout/ new/ search/ searches/ settings/ share/ voice/ xql/  Pages
 ai/                     AI provider layer
   providers.ts          Model registry (zetora-default, -think, -vision… via gateway/custom providers)
   models.ts             Model catalog & capabilities (68 KB)
@@ -48,7 +48,6 @@ lib/
   graphiti/             Graphiti API client
   canvas/               Canvas rendering registry (json-render)
   auth.ts               Better Auth configuration
-  subscription.ts       Polar/Dodo subscription logic
 drizzle/migrations/     SQL migrations (0000 → 0010)
 graphiti-service/       Python FastAPI service (Graphiti + FalkorDB) + MCP server
 tts-service/            Python Qwen3-TTS FastAPI service (GPU)
@@ -109,7 +108,7 @@ Build flow: `Dockerfile` has `deps` → `builder` (Next.js build with placeholde
 2. **Web search tools**: SearXNG/fastCRW first when configured, SaaS providers otherwise; scraped content can be embedded and cached in Qdrant (`lib/vector`).
 3. **Lookouts**: user-scheduled searches; BullMQ repeatable jobs (`lib/services/bullmq.ts`) call back into `/api/lookout` (QStash used instead when BullMQ is disabled).
 4. **Memory**: Graphiti knowledge graph (self-hosted) or Supermemory (SaaS).
-5. **Billing**: Better Auth plugins for Polar and DodoPayments; free tier enforced via usage counters in Postgres/Redis.
+5. **Access**: no paid tiers — every signed-in account has full access; a per-account daily usage cap enforced via counters in Postgres/Redis guards against abuse.
 
 ## Security & resilience notes
 

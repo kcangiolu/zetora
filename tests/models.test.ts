@@ -4,7 +4,6 @@ import {
   PROVIDERS,
   getModelConfig,
   getModelProvider,
-  requiresProSubscription,
   hasVisionSupport,
   getMaxOutputTokens,
   getModelsByProvider,
@@ -31,9 +30,7 @@ describe('model catalog', () => {
   });
 
   it('accessors read from the catalog', () => {
-    const pro = models.find((m) => m.pro && !m.max);
     const vision = models.find((m) => m.vision);
-    expect(pro && requiresProSubscription(pro.value)).toBe(true);
     expect(vision && hasVisionSupport(vision.value)).toBe(true);
     expect(getModelConfig('definitely-not-a-model')).toBeUndefined();
     expect(getMaxOutputTokens(models[0].value)).toBe(models[0].maxOutputTokens);

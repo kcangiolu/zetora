@@ -221,8 +221,6 @@ export function TertiaryModelRow({
   defaultModelLabel,
   additionalModels,
   user,
-  isProUser,
-  isMaxUser,
 }: {
   modelKey: TertiaryModelPrefKey;
   providerKey: TertiaryProviderPrefKey;
@@ -231,8 +229,6 @@ export function TertiaryModelRow({
   defaultModelLabel: string;
   additionalModels: Model[];
   user: SettingsUser;
-  isProUser: boolean;
-  isMaxUser: boolean;
 }) {
   const [model, setModel] = useSyncedPreferences<string>(modelKey as PreferenceKey, '');
   const [, setProvider] = useSyncedPreferences<string>(providerKey as PreferenceKey, '');
@@ -262,8 +258,6 @@ export function TertiaryModelRow({
           selectedModel={model}
           onModelSelect={handleSelect}
           user={user}
-          isProUser={isProUser}
-          isMaxUser={isMaxUser}
           additionalModels={additionalModels}
           className="w-[180px] h-8"
           compact

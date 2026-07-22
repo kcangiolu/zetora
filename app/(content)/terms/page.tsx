@@ -9,8 +9,7 @@ const sections = [
   { id: 'content', label: 'Content' },
   { id: 'ip', label: 'IP' },
   { id: 'third-party', label: 'Third-Party' },
-  { id: 'pricing', label: 'Pricing' },
-  { id: 'cancellation', label: 'Cancellation' },
+  { id: 'pricing', label: 'Access' },
   { id: 'privacy', label: 'Privacy' },
   { id: 'liability', label: 'Liability' },
 ];
@@ -74,10 +73,9 @@ export default function TermsPage() {
                 </span>
               </div>
               <p className="text-sm text-foreground/80 leading-relaxed">
-                Zetora AI is free to use with optional paid plans including Pro at $15/mo and Max at $60/mo. Max
-                includes access to Anthropic Claude models with a 60 requests per week usage cap. We don&apos;t store
-                payment data. You own your queries. Be respectful, don&apos;t scrape, and verify important answers
-                independently. Cancel anytime; no refunds on subscriptions.
+                Zetora AI is free to use — sign in and get access to every model and feature, subject to a technical
+                daily usage cap to prevent abuse. You own your queries. Be respectful, don&apos;t scrape, and verify
+                important answers independently.
               </p>
             </div>
 
@@ -110,8 +108,8 @@ export default function TermsPage() {
               </p>
               <p>
                 Our service is hosted on Vercel and integrates with various AI technology providers, including OpenAI,
-                Anthropic, xAI, and others, to deliver search results and content generation capabilities. Pro users may
-                also connect third-party apps (such as GitHub, Notion, Slack, and others) via MCP to extend
+                Anthropic, xAI, and others, to deliver search results and content generation capabilities. Signed-in
+                users may also connect third-party apps (such as GitHub, Notion, Slack, and others) via MCP to extend
                 functionality.
               </p>
 
@@ -165,64 +163,29 @@ export default function TermsPage() {
                 <li>Our service is hosted on Vercel&apos;s infrastructure</li>
                 <li>We integrate with AI technology providers including OpenAI, Anthropic, xAI, and others</li>
                 <li>
-                  Pro users may connect third-party apps (GitHub, Notion, Slack, etc.) via MCP, which may transmit data
-                  to those services
-                </li>
-                <li>
-                  We use payment processors including Polar and DodoPayments for billing and subscription management
+                  Signed-in users may connect third-party apps (GitHub, Notion, Slack, etc.) via MCP, which may
+                  transmit data to those services
                 </li>
                 <li>These third-party services have their own terms of service and privacy policies</li>
                 <li>We are not responsible for the practices or policies of these third-party services</li>
               </ul>
 
               <h2 id="pricing">
-                <span className="font-pixel text-xs text-muted-foreground/50 mr-2">07</span>Pricing and Billing
+                <span className="font-pixel text-xs text-muted-foreground/50 mr-2">07</span>Access
               </h2>
               <p>
-                Zetora AI offers both free and paid subscription plans. For detailed pricing information, visit our{' '}
-                <Link href="/pricing">Pricing page</Link>.
-              </p>
-              <p>
-                We may, without prior notice, change the availability, pricing category, or subscription tier
-                classification of specific AI models at any time, including moving models between Free, Pro, and Max
-                tiers, if usage patterns, suspected misuse, abuse-prevention needs, provider cost changes, reliability
+                Zetora AI does not sell subscriptions. Any account you create has access to every AI model and
+                feature. We may, without prior notice, change the availability of specific AI models at any time if
+                usage patterns, suspected misuse, abuse-prevention needs, provider cost changes, reliability
                 concerns, security considerations, or other operational factors make such changes necessary.
               </p>
-              <ul>
-                <li>
-                  <strong>Free Plan:</strong> Includes limited daily searches with access to basic AI models
-                </li>
-                <li>
-                  <strong>Zetora Pro:</strong> $15/month subscription with unlimited searches and access to standard
-                  paid features and non-Max AI models
-                </li>
-                <li>
-                  <strong>Zetora Max:</strong> $60/month subscription with all paid features plus Anthropic Claude
-                  models, subject to a 60 requests per week usage cap
-                </li>
-              </ul>
               <p>
-                <strong>Important:</strong> Zetora AI does not store any payment card details, bank information, or
-                other sensitive payment data. All payment information is processed directly by our payment providers.
-              </p>
-
-              <h2 id="cancellation">
-                <span className="font-pixel text-xs text-muted-foreground/50 mr-2">08</span>Cancellation and Refunds
-              </h2>
-              <p>You may cancel your subscription at any time. Upon cancellation:</p>
-              <ul>
-                <li>Your subscription will remain active until the end of your current billing period</li>
-                <li>You will retain access to paid features until the subscription expires</li>
-                <li>Your account will automatically revert to the free plan</li>
-                <li>No partial refunds will be provided for unused portions of your subscription</li>
-              </ul>
-              <p>
-                <strong>No Refund Policy:</strong> All subscription fees are final and non-refundable. Please consider
-                this policy carefully before subscribing to our paid plans.
+                To prevent abuse, we apply a technical daily usage cap per account. This is not a paid tier and does
+                not vary between accounts.
               </p>
 
               <h2 id="privacy">
-                <span className="font-pixel text-xs text-muted-foreground/50 mr-2">09</span>Privacy
+                <span className="font-pixel text-xs text-muted-foreground/50 mr-2">08</span>Privacy
               </h2>
               <p>
                 Your use of Zetora AI is also governed by our <Link href="/privacy-policy">Privacy Policy</Link>, which
@@ -230,7 +193,7 @@ export default function TermsPage() {
               </p>
 
               <h2 id="liability">
-                <span className="font-pixel text-xs text-muted-foreground/50 mr-2">10</span>Limitation of Liability
+                <span className="font-pixel text-xs text-muted-foreground/50 mr-2">09</span>Limitation of Liability
               </h2>
               <p>
                 To the maximum extent permitted by law, Zetora AI shall not be liable for any indirect, incidental,
@@ -239,7 +202,7 @@ export default function TermsPage() {
               </p>
 
               <h2>
-                <span className="font-pixel text-xs text-muted-foreground/50 mr-2">11</span>Disclaimers
+                <span className="font-pixel text-xs text-muted-foreground/50 mr-2">10</span>Disclaimers
               </h2>
               <p>
                 Zetora AI is provided &quot;as is&quot; and &quot;as available&quot; without any warranties of any kind,
@@ -247,7 +210,7 @@ export default function TermsPage() {
               </p>
 
               <h2>
-                <span className="font-pixel text-xs text-muted-foreground/50 mr-2">12</span>Termination
+                <span className="font-pixel text-xs text-muted-foreground/50 mr-2">11</span>Termination
               </h2>
               <p>
                 We reserve the right to suspend or terminate your access to Zetora AI, with or without notice, for
@@ -256,7 +219,7 @@ export default function TermsPage() {
               </p>
 
               <h2>
-                <span className="font-pixel text-xs text-muted-foreground/50 mr-2">13</span>Governing Law
+                <span className="font-pixel text-xs text-muted-foreground/50 mr-2">12</span>Governing Law
               </h2>
               <p>
                 These Terms shall be governed by and construed in accordance with the laws of the jurisdiction in which
@@ -264,7 +227,7 @@ export default function TermsPage() {
               </p>
 
               <h2>
-                <span className="font-pixel text-xs text-muted-foreground/50 mr-2">14</span>Contact Us
+                <span className="font-pixel text-xs text-muted-foreground/50 mr-2">13</span>Contact Us
               </h2>
               <p>If you have any questions about these Terms of Service, please contact us at:</p>
               <p>

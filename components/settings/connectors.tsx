@@ -18,7 +18,6 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
 import { Check, X, Trash2 } from 'lucide-react';
-import Link from 'next/link';
 import { useState } from 'react';
 
 import { sileo } from 'sileo';
@@ -29,13 +28,12 @@ import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
-import { Crown02Icon, InformationCircleIcon } from '@hugeicons/core-free-icons';
+import { InformationCircleIcon } from '@hugeicons/core-free-icons';
 import { CONNECTOR_CONFIGS, CONNECTOR_ICONS, type ConnectorProvider } from '@/lib/connectors';
 
 // Custom visx-based chart components
 
 export function ConnectorsSection({ user }: { user: SettingsUser }) {
-  const isProUser = user?.isProUser || false;
   const isMobile = useMediaQuery('(max-width: 768px)');
   const [connectingProvider, setConnectingProvider] = useState<ConnectorProvider | null>(null);
   const [syncingProvider, setSyncingProvider] = useState<ConnectorProvider | null>(null);
@@ -48,7 +46,7 @@ export function ConnectorsSection({ user }: { user: SettingsUser }) {
   } = useQuery({
     queryKey: ['connectors', user?.id],
     queryFn: listUserConnectorsAction,
-    enabled: !!user && isProUser,
+    enabled: !!user,
     staleTime: 1000 * 60 * 2,
   });
 
@@ -56,7 +54,7 @@ export function ConnectorsSection({ user }: { user: SettingsUser }) {
   const connectionStatusQueries = useQuery({
     queryKey: ['connectorsStatus', user?.id],
     queryFn: async () => {
-      if (!user?.id || !isProUser) return {};
+      if (!user?.id) return {};
 
       const providers = Object.keys(CONNECTOR_CONFIGS) as ConnectorProvider[];
       const statusMap = await all(
@@ -84,7 +82,7 @@ export function ConnectorsSection({ user }: { user: SettingsUser }) {
         {} as Record<string, any>,
       );
     },
-    enabled: !!user?.id && isProUser,
+    enabled: !!user?.id,
     staleTime: 1000 * 60 * 2,
   });
 
@@ -198,41 +196,11 @@ export function ConnectorsSection({ user }: { user: SettingsUser }) {
           Connectors <span className="font-pixel text-[11px] uppercase tracking-wider text-primary/50">Beta</span>
         </AlertTitle>
         <AlertDescription className="text-muted-foreground text-xs">
-          Available for Pro users. This feature is in beta and there may be breaking changes.
+          This feature is in beta and there may be breaking changes.
         </AlertDescription>
       </Alert>
 
-      {!isProUser && (
-        <div className="border border-dashed border-border/60 rounded-xl p-6 text-center bg-muted/10">
-          <div className="flex flex-col items-center space-y-4">
-            <div className="w-12 h-12 rounded-xl bg-muted/50 flex items-center justify-center">
-              <HugeiconsIcon
-                icon={Crown02Icon}
-                size={24}
-                color="currentColor"
-                strokeWidth={1.5}
-                className="text-muted-foreground"
-              />
-            </div>
-            <div className="space-y-2">
-              <h4 className="font-semibold text-base">
-                <span className="font-pixel text-xs uppercase tracking-wider">Pro</span> Feature
-              </h4>
-              <p className="text-muted-foreground text-xs max-w-sm mx-auto">
-                Connectors are available for Pro users only. Upgrade to connect Google Drive, Notion, and OneDrive.
-              </p>
-            </div>
-            <Button asChild className="rounded-lg">
-              <Link href="/pricing">
-                <HugeiconsIcon icon={Crown02Icon} size={14} color="currentColor" strokeWidth={1.5} className="mr-2" />
-                Upgrade to Pro
-              </Link>
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {isProUser && (
+      {user && (
         <div className="space-y-3">
           {Object.entries(CONNECTOR_CONFIGS).map(([provider, config]) => {
             const connectionStatus = connectionStatuses[provider]?.status;

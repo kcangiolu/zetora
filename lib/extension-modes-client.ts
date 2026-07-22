@@ -13,7 +13,6 @@ export interface ExtensionModeUIDescriptor {
   description: string;
   icon: SearchGroup['icon'];
   requireAuth?: boolean;
-  requirePro?: boolean;
   // Palette for the generic "mode accent" animation (app/globals.css,
   // components/mode-accent.tsx) — inert if omitted.
   accent?: { palette: string[] };

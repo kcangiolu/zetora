@@ -6,7 +6,6 @@ import { zetora, resolveModel, shouldBypassRateLimits } from '@/ai/providers';
 import { resolveTertiaryModel } from '@/ai/tertiary';
 import {
   createStreamId,
-  incrementExtremeSearchUsage,
   incrementMessageUsage,
   updateChatTitleById,
   getLookoutById,
@@ -21,10 +20,10 @@ import { after } from 'next/server';
 import { v7 as uuidv7 } from 'uuid';
 import { CronExpressionParser } from 'cron-parser';
 import { sendLookoutCompletionEmail } from '@/lib/email';
-import { db, maindb } from '@/lib/db';
-import { chat as chatTable, message as messageTable, subscription, dodosubscription } from '@/lib/db/schema';
+import { maindb } from '@/lib/db';
+import { chat as chatTable, message as messageTable } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import { all, flow } from 'better-all';
+import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { verifyLookoutRequest } from '@/lib/lookout-auth';
@@ -533,38 +532,6 @@ You are an advanced research assistant focused on deep analysis and comprehensiv
   return basePrompt + linkFormatRules + (modeInstructions[searchMode] || modeInstructions.extreme);
 }
 
-// Helper function to check if a user is pro by userId.
-// Uses flow() to race both queries — exits as soon as either finds an active subscription.
-async function checkUserIsProById(userId: string): Promise<boolean> {
-  try {
-    const result = await flow<boolean>(
-      {
-        async polarSubscriptions() {
-          const subs = await db.select().from(subscription).where(eq(subscription.userId, userId));
-          const now = new Date();
-          const active = subs.find((sub) => sub.status === 'active' && new Date(sub.currentPeriodEnd) > now);
-          if (active) this.$end(true);
-          return subs;
-        },
-        async dodoSubscriptions() {
-          const subs = await db.select().from(dodosubscription).where(eq(dodosubscription.userId, userId));
-          const now = new Date();
-          const active = subs.find(
-            (sub) => sub.status === 'active' && (!sub.currentPeriodEnd || new Date(sub.currentPeriodEnd) > now),
-          );
-          if (active) this.$end(true);
-          return subs;
-        },
-      },
-      getBetterAllOptions(),
-    );
-    return result ?? false;
-  } catch (error) {
-    log.error('Error checking pro status:', error);
-    return false; // Fail closed - don't allow access if we can't verify
-  }
-}
-
 export async function POST(req: Request) {
   log.info('🔍 Lookout API endpoint hit from QStash');
 
@@ -607,14 +574,11 @@ export async function POST(req: Request) {
       return new Response('Lookout not found', { status: 404 });
     }
 
-    // Get user details, check pro status, and fetch preferences in parallel (eliminate waterfall)
-    const { userResult, isUserPro, userPrefs } = await all(
+    // Get user details and preferences in parallel (eliminate waterfall)
+    const { userResult, userPrefs } = await all(
       {
         async userResult() {
           return getUserById(userId);
-        },
-        async isUserPro() {
-          return checkUserIsProById(userId);
         },
         async userPrefs() {
           return getCachedUserPreferencesByUserId(userId);
@@ -626,11 +590,6 @@ export async function POST(req: Request) {
     if (!userResult) {
       log.error('User not found:', userId);
       return new Response('User not found', { status: 404 });
-    }
-
-    if (!isUserPro) {
-      log.error('User is not pro, cannot run lookout:', userId);
-      return new Response('Lookouts require a Pro subscription', { status: 403 });
     }
 
     // Generate a new chat ID for this scheduled search
@@ -786,16 +745,6 @@ export async function POST(req: Request) {
                   chatId,
                   title: `Scheduled: ${title}`,
                 });
-
-                // Track extreme search usage
-                const extremeSearchUsed = event.steps?.some((step) =>
-                  step.toolCalls?.some((toolCall) => toolCall.toolName === 'extreme_search'),
-                );
-
-                if (extremeSearchUsed) {
-                  log.info('Extreme search was used, incrementing count');
-                  await incrementExtremeSearchUsage({ userId: userResult.id });
-                }
 
                 // Calculate run duration
                 runDuration = Date.now() - requestStartTime;

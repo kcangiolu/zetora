@@ -3,11 +3,9 @@ import { experimental_transcribe as transcribe } from 'ai';
 import { withError } from '@/lib/api/route-handlers';
 import { getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { resolveVoiceRequestUserId } from '@/lib/voice-session-token';
-import { unauthenticatedRateLimit, getClientIdentifier } from '@/lib/rate-limit';
 
-// Auth is optional here: anonymous callers just get the default STT provider
-// instead of their saved preference. The s2s-service (local voice backend)
-// authenticates via a Bearer voice-session token instead of a cookie.
+// The s2s-service (local voice backend) authenticates via a Bearer
+// voice-session token instead of a cookie, but a session is required either way.
 export const POST = withError(async (request) => {
   const formData = await request.formData();
   const audio = formData.get('audio');
@@ -17,17 +15,11 @@ export const POST = withError(async (request) => {
   }
 
   const userId = await resolveVoiceRequestUserId(request);
-
-  // Each transcription is a billed ElevenLabs/custom-STT call — anonymous
-  // callers are IP-rate-limited the same way /api/upload and /api/x-wrapped
-  // are, so this can't become a free STT proxy.
   if (!userId) {
-    const rateLimitResult = await unauthenticatedRateLimit.limit(getClientIdentifier(request));
-    if (!rateLimitResult.success) {
-      return Response.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
-    }
+    return Response.json({ error: 'Authentication required' }, { status: 401 });
   }
-  const prefs = userId ? await getCachedUserPreferencesByUserId(userId).catch(() => null) : null;
+
+  const prefs = await getCachedUserPreferencesByUserId(userId).catch(() => null);
   const p = prefs?.preferences ?? {};
   const sttProvider = p['zetora-stt-provider'] || 'elevenlabs';
 

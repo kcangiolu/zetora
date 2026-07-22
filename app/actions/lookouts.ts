@@ -15,7 +15,7 @@ import {
   deleteLookout,
 } from '@/lib/db/queries';
 import { db, maindb } from '@/lib/db';
-import { chat, message, buildSession, dodosubscription, type User } from '@/lib/db/schema';
+import { chat, message, buildSession, type User } from '@/lib/db/schema';
 import { eq, desc, ilike, and, asc, inArray, notExists } from 'drizzle-orm';
 import { GroqProviderOptions, groq } from '@ai-sdk/groq';
 import { Client } from '@upstash/qstash';
@@ -28,14 +28,6 @@ import {
   getLockoutProvider,
 } from '@/lib/services/bullmq';
 import type { CharacterAlignmentResponseModel } from '@elevenlabs/elevenlabs-js/api/types/CharacterAlignmentResponseModel';
-import {
-  usageCountCache,
-  createMessageCountKey,
-  createExtremeCountKey,
-  createAnthropicCountKey,
-  createGoogleCountKey,
-  createAgentModeCountKey,
-} from '@/lib/performance-cache';
 import { CronExpressionParser } from 'cron-parser';
 import { getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import {
@@ -172,11 +164,6 @@ export async function createScheduledLookout({
     const user = await getCurrentUser();
     if (!user) {
       throw new Error('Authentication required');
-    }
-
-    // Check if user is Pro
-    if (!user.isProUser) {
-      throw new Error('Pro subscription required for scheduled searches');
     }
 
     // Check lookout limits

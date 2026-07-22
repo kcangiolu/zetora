@@ -15,7 +15,7 @@ import {
   BugIcon,
   UsersIcon,
 } from '@phosphor-icons/react';
-import { Crown02Icon, BinocularsIcon, SearchList02Icon, FolderLibraryIcon } from '@hugeicons/core-free-icons';
+import { BinocularsIcon, FolderLibraryIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import {
   RocketIcon as VercelIcon,
@@ -109,7 +109,6 @@ type SignedOutLink = {
 
 interface UserDropdownContentProps {
   user: ComprehensiveUserData;
-  isProUser: boolean;
   blurPersonalInfo: boolean;
   closeMobileSidebar: () => void;
   onShortcutsOpen: () => void;
@@ -118,7 +117,6 @@ interface UserDropdownContentProps {
 
 function UserDropdownContent({
   user,
-  isProUser,
   blurPersonalInfo,
   closeMobileSidebar,
   onShortcutsOpen,
@@ -164,18 +162,7 @@ function UserDropdownContent({
           <p className={cn('text-sm font-semibold leading-none', blurPersonalInfo && 'blur-sm')}>
             {user.name || 'User'}
           </p>
-          <p className="text-xs text-muted-foreground">
-            {isProUser ? (
-              <span>
-                Zetora{' '}
-                <span className="font-pixel text-[10px] uppercase tracking-wider">
-                  {user.isMaxUser ? 'Max' : 'Pro'}
-                </span>
-              </span>
-            ) : (
-              'Zetora Free'
-            )}
-          </p>
+          <p className="text-xs text-muted-foreground">Zetora</p>
         </div>
       </DropdownMenuLabel>
 
@@ -405,9 +392,6 @@ interface AppSidebarProps {
   user: ComprehensiveUserData | null;
   onHistoryClick: () => void;
   isOwner?: boolean;
-  subscriptionData?: any;
-  isProUser?: boolean;
-  isProStatusLoading?: boolean;
   isCustomInstructionsEnabled?: boolean;
   setIsCustomInstructionsEnabledAction?: (value: boolean | ((val: boolean) => boolean)) => void;
   settingsOpen?: boolean;
@@ -453,7 +437,7 @@ const groupChatsByDate = (chats: any[]) => {
   return groups;
 };
 
-export const AppSidebar = memo(({ user, onHistoryClick, isProUser }: AppSidebarProps) => {
+export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
   const [blurPersonalInfo] = useSyncedPreferences<boolean>('zetora-blur-personal-info', false);
   const [xqlEnabled] = useSyncedPreferences<boolean>('zetora-xql-enabled', true);
   const [lookoutEnabled] = useSyncedPreferences<boolean>('zetora-lookout-enabled', true);
@@ -738,13 +722,6 @@ export const AppSidebar = memo(({ user, onHistoryClick, isProUser }: AppSidebarP
                   </div>
                   <div className="flex flex-row items-center gap-2 leading-none group-data-[collapsible=icon]:hidden">
                     <span className="font-be-vietnam-pro font-light tracking-tighter text-xl">zetora</span>
-                    {user && isProUser && (
-                      <div className="w-fit">
-                        <span className="animate-shimmer text-xs font-baumans inline-flex items-center justify-center min-w-6 h-4 px-1.5 pt-0 pb-0.5 rounded-md shadow-sm bg-linear-to-br from-secondary/30 via-primary/25 to-accent/30 text-foreground ring-1 ring-primary/25 ring-offset-1 ring-offset-background dark:bg-linear-to-br dark:from-primary dark:via-secondary dark:to-primary dark:text-foreground dark:ring-primary/40">
-                          {user.isMaxUser ? 'max' : 'pro'}
-                        </span>
-                      </div>
-                    )}
                   </div>
                 </Link>
               </Button>
@@ -1239,49 +1216,6 @@ export const AppSidebar = memo(({ user, onHistoryClick, isProUser }: AppSidebarP
           )}
         </SidebarMenu>
 
-        {/* Upgrade */}
-        {user && !isProUser && (
-          <SidebarGroup className="p-0 mt-auto">
-            <SidebarGroupContent>
-              {/* Expanded state */}
-              <div className="group-data-[collapsible=icon]:hidden">
-                <Link
-                  prefetch={true}
-                  href="/pricing"
-                  onClick={closeMobileSidebar}
-                  className="relative flex flex-col gap-1.5 rounded-2xl p-4 pb-3 bg-muted hover:bg-muted/80 transition-colors overflow-hidden group/upgrade"
-                >
-                  <span className="text-base font-medium">Upgrade to Pro</span>
-                  <span className="text-xs text-muted-foreground pr-12">
-                    Unlimited searches, 100+ apps, voice & more
-                  </span>
-                  <div className="absolute -bottom-2 -right-2 flex items-center justify-center size-14 rounded-full bg-background group-hover/upgrade:scale-110 transition-transform duration-300">
-                    <HugeiconsIcon icon={Crown02Icon} size={22} className="text-foreground" />
-                  </div>
-                </Link>
-              </div>
-
-              {/* Collapsed state */}
-              <div className="hidden group-data-[collapsible=icon]:block">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link
-                      prefetch={true}
-                      href="/pricing"
-                      onClick={closeMobileSidebar}
-                      className="flex items-center justify-center size-8 mx-auto rounded-full bg-muted hover:bg-muted/80 transition-colors"
-                    >
-                      <HugeiconsIcon icon={Crown02Icon} size={16} className="text-foreground" />
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" align="center">
-                    Upgrade to Pro
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
       </SidebarContent>
 
       {/* Footer - User Account with Dropdown Menu */}
@@ -1296,35 +1230,23 @@ export const AppSidebar = memo(({ user, onHistoryClick, isProUser }: AppSidebarP
                     <button className="flex w-full items-center justify-between gap-2 px-3 py-4 text-left outline-hidden ring-0 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-0 active:bg-primary/20 active:text-sidebar-accent-foreground">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <div className="relative shrink-0">
-                          <div className={cn('rounded-full', isProUser && 'p-[1.5px] bg-primary')}>
-                            <Avatar
+                          <Avatar className="h-8 w-8 overflow-hidden rounded-full mask-[radial-gradient(white,black)] [-webkit-mask-image:-webkit-radial-gradient(white,black)]">
+                            <AvatarImage src={user.image || ''} className={cn(blurPersonalInfo && 'blur-sm')} />
+                            <AvatarFallback
                               className={cn(
-                                'h-8 w-8 overflow-hidden rounded-full mask-[radial-gradient(white,black)] [-webkit-mask-image:-webkit-radial-gradient(white,black)]',
-                                isProUser && 'ring-[1.5px] ring-sidebar',
+                                'bg-primary text-primary-foreground font-semibold',
+                                blurPersonalInfo && 'blur-sm',
                               )}
                             >
-                              <AvatarImage src={user.image || ''} className={cn(blurPersonalInfo && 'blur-sm')} />
-                              <AvatarFallback
-                                className={cn(
-                                  'bg-primary text-primary-foreground font-semibold',
-                                  blurPersonalInfo && 'blur-sm',
-                                )}
-                              >
-                                {user.name
-                                  ? user.name
-                                      .split(' ')
-                                      .map((n: string) => n[0])
-                                      .join('')
-                                      .toUpperCase()
-                                  : 'U'}
-                              </AvatarFallback>
-                            </Avatar>
-                          </div>
-                          {isProUser && (
-                            <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 flex items-center justify-center h-3.5 px-1 pb-0.5 rounded-full text-[10px] font-baumans leading-none bg-primary text-primary-foreground shadow-xs">
-                              {user?.isMaxUser ? 'max' : 'pro'}
-                            </span>
-                          )}
+                              {user.name
+                                ? user.name
+                                    .split(' ')
+                                    .map((n: string) => n[0])
+                                    .join('')
+                                    .toUpperCase()
+                                : 'U'}
+                            </AvatarFallback>
+                          </Avatar>
                         </div>
                         <div className="flex flex-col gap-0.25 leading-none flex-1 min-w-0 items-start">
                           <span
@@ -1335,18 +1257,7 @@ export const AppSidebar = memo(({ user, onHistoryClick, isProUser }: AppSidebarP
                           >
                             {user.name || 'User'}
                           </span>
-                          <span className="text-xs text-sidebar-foreground/70 truncate text-left w-full">
-                            {isProUser ? (
-                              <span>
-                                Zetora{' '}
-                                <span className="font-pixel text-[10px] uppercase tracking-wider">
-                                  {user?.isMaxUser ? 'Max' : 'Pro'}
-                                </span>
-                              </span>
-                            ) : (
-                              'Zetora Free'
-                            )}
-                          </span>
+                          <span className="text-xs text-sidebar-foreground/70 truncate text-left w-full">Zetora</span>
                         </div>
                       </div>
                       <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
@@ -1361,7 +1272,6 @@ export const AppSidebar = memo(({ user, onHistoryClick, isProUser }: AppSidebarP
                   >
                     <UserDropdownContent
                       user={user}
-                      isProUser={Boolean(isProUser)}
                       blurPersonalInfo={Boolean(blurPersonalInfo)}
                       closeMobileSidebar={closeMobileSidebar}
                       onShortcutsOpen={() => setKeyboardShortcutsOpen(true)}
@@ -1377,42 +1287,29 @@ export const AppSidebar = memo(({ user, onHistoryClick, isProUser }: AppSidebarP
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-10 w-10 p-0 overflow-visible">
                       <div className="relative">
-                        <div className={cn('rounded-full', isProUser && 'p-[1.5px] bg-primary')}>
-                          <Avatar
+                        <Avatar className="h-6 w-6 overflow-hidden rounded-full mask-[radial-gradient(white,black)] [-webkit-mask-image:-webkit-radial-gradient(white,black)]">
+                          <AvatarImage src={user.image || ''} className={cn(blurPersonalInfo && 'blur-sm')} />
+                          <AvatarFallback
                             className={cn(
-                              'h-6 w-6 overflow-hidden rounded-full mask-[radial-gradient(white,black)] [-webkit-mask-image:-webkit-radial-gradient(white,black)]',
-                              isProUser && 'ring-[1.5px] ring-sidebar',
+                              'bg-primary text-primary-foreground font-semibold text-xs',
+                              blurPersonalInfo && 'blur-sm',
                             )}
                           >
-                            <AvatarImage src={user.image || ''} className={cn(blurPersonalInfo && 'blur-sm')} />
-                            <AvatarFallback
-                              className={cn(
-                                'bg-primary text-primary-foreground font-semibold text-xs',
-                                blurPersonalInfo && 'blur-sm',
-                              )}
-                            >
-                              {user.name
-                                ? user.name
-                                    .split(' ')
-                                    .map((n: string) => n[0])
-                                    .join('')
-                                    .toUpperCase()
-                                : 'U'}
-                            </AvatarFallback>
-                          </Avatar>
-                        </div>
-                        {isProUser && (
-                          <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 flex items-center justify-center h-3 px-1 pb-0.5 rounded-full text-[9px] font-baumans leading-none bg-primary text-primary-foreground shadow-xs">
-                            {user?.isMaxUser ? 'max' : 'pro'}
-                          </span>
-                        )}
+                            {user.name
+                              ? user.name
+                                  .split(' ')
+                                  .map((n: string) => n[0])
+                                  .join('')
+                                  .toUpperCase()
+                              : 'U'}
+                          </AvatarFallback>
+                        </Avatar>
                       </div>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent side="right" align="end" className="w-60">
                     <UserDropdownContent
                       user={user}
-                      isProUser={Boolean(isProUser)}
                       blurPersonalInfo={Boolean(blurPersonalInfo)}
                       closeMobileSidebar={closeMobileSidebar}
                       onShortcutsOpen={() => setKeyboardShortcutsOpen(true)}

@@ -24,14 +24,6 @@ import {
   getLockoutProvider,
 } from '@/lib/services/bullmq';
 import type { CharacterAlignmentResponseModel } from '@elevenlabs/elevenlabs-js/api/types/CharacterAlignmentResponseModel';
-import {
-  usageCountCache,
-  createMessageCountKey,
-  createExtremeCountKey,
-  createAnthropicCountKey,
-  createGoogleCountKey,
-  createAgentModeCountKey,
-} from '@/lib/performance-cache';
 import { getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import {
   createConnection,

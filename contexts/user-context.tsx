@@ -12,39 +12,7 @@ interface UserContextType {
   refetch: () => void;
   isRefetching: boolean;
 
-  // Quick access to commonly used properties
-  isProUser: boolean;
-  proSource: string;
-  subscriptionStatus: string;
-
-  // Polar subscription details
-  polarSubscription: any;
-  hasPolarSubscription: boolean;
-
-  // Dodo Subscription details
-  dodoSubscription: any;
-  hasDodoSubscription: boolean;
-  dodoExpiresAt: Date | null | undefined;
-  isDodoExpiring: boolean;
-  isDodoExpired: boolean;
-
-  // Subscription history
-  subscriptionHistory: any[];
-
-  // Rate limiting helpers
-  shouldCheckLimits: boolean | undefined;
   shouldBypassLimitsForModel: (selectedModel: string) => boolean;
-
-  // Subscription status checks
-  hasActiveSubscription: boolean;
-  isSubscriptionCanceled: boolean;
-  isSubscriptionExpired: boolean;
-  hasNoSubscription: boolean;
-
-  // Legacy compatibility helpers
-  subscriptionData: any;
-  dodoProStatus: any;
-  expiresAt: Date | null | undefined;
 
   // Additional utilities
   isCached: boolean;
@@ -72,4 +40,3 @@ export function useUser(): UserContextType {
 
   return context;
 }
-

@@ -32,10 +32,6 @@ export async function routeWithAutoRouter({
       return { success: false, error: 'User not found' };
     }
 
-    if (!user.isProUser) {
-      return { success: false, error: 'pro_required' };
-    }
-
     const routerPrefs = await getCachedUserPreferencesByUserId(user.id).catch(() => null);
     const routerPrefsMap = (routerPrefs?.preferences ?? {}) as Record<string, string>;
 

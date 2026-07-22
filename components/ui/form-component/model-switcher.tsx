@@ -4,8 +4,6 @@ import { Button } from '@/components/ui/button';
 import {
   models,
   requiresAuthentication,
-  requiresProSubscription,
-  requiresMaxSubscription,
   getFilteredModels,
   isModelRestrictedInRegion,
   supportsExtremeMode,
@@ -19,12 +17,11 @@ import { X, Check, CheckIcon, Zap, Search, ChevronDown, Star, Puzzle } from 'luc
 import { MarqueeText } from '@/components/ui/marquee-text';
 import { MagicWandIcon } from '@/components/ui/magic-wand-icon';
 import { ProcessorIcon } from '@/components/ui/processor-icon';
-import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { cn, SearchGroupId } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ComprehensiveUserData } from '@/hooks/use-user-data';
 import { getUserCountryCode } from '@/app/actions';
-import { PRICING } from '@/lib/constants';
 import { LockIcon, Eye, Brain, FilePdf } from '@phosphor-icons/react';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { StarIcon } from '@hugeicons/core-free-icons';
@@ -79,15 +76,6 @@ export function FlexibleIcon({
 
   return <HugeiconsIcon icon={icon} size={size} color={color} strokeWidth={strokeWidth} className={className} />;
 }
-
-// Pro Badge Component
-export const ProBadge = ({ className = '' }: { className?: string }) => (
-  <span
-    className={`font-baumans inline-flex items-center gap-1 rounded-lg shadow-sm border-none! outline-0! ring-offset-1 ring-offset-background/50! bg-linear-to-br from-secondary/25 via-primary/20 to-accent/25 text-foreground px-2.5 pt-0.5 pb-2! sm:pt-1 leading-3 dark:bg-linear-to-br dark:from-primary dark:via-secondary dark:to-primary dark:text-foreground ${className}`}
-  >
-    <span>pro</span>
-  </span>
-);
 
 // Provider Icon Component
 const ProviderIcon = ({
@@ -330,7 +318,6 @@ const PROVIDER_ORDER: (ModelProvider | 'all')[] = [
   'custom',
 ];
 
-let modelUpgradeDialogModelValueCache: string | null = null;
 let modelSwitcherOpenCache = false;
 let cachedCountryCode: string | null = null;
 let countryCodeRequest: Promise<string | null> | null = null;
@@ -360,7 +347,6 @@ interface ModelSwitcherProps {
   messages: Array<ChatMessage>;
   status: UseChatHelpers<ChatMessage>['status'];
   onModelSelect?: (model: (typeof models)[0]) => void;
-  subscriptionData?: any;
   user?: ComprehensiveUserData | null;
   selectedGroup: SearchGroupId;
   autoRoutedModel?: { model: string; route: string } | null;
@@ -375,17 +361,11 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
     attachments,
     messages,
     onModelSelect,
-    subscriptionData,
     user,
     selectedGroup,
     autoRoutedModel,
     inputRef: externalInputRef,
   }) => {
-    const isProUser = useMemo(() => Boolean(user?.isProUser), [user?.isProUser]);
-    const isMaxUser = useMemo(() => Boolean(user?.isMaxUser), [user?.isMaxUser]);
-
-    const isSubscriptionLoading = useMemo(() => user && !subscriptionData, [user, subscriptionData]);
-
     const [countryCode, setCountryCode] = useState<string | null>(null);
 
     // Fetch country code on mount
@@ -439,11 +419,7 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       [customGroupNames],
     );
 
-    const [showUpgradeDialogState, setShowUpgradeDialogState] = useState(false);
     const [showSignInDialog, setShowSignInDialog] = useState(false);
-    const [selectedProModelValue, setSelectedProModelValue] = useState<string | null>(
-      () => modelUpgradeDialogModelValueCache,
-    );
     const [selectedAuthModel, setSelectedAuthModel] = useState<(typeof models)[0] | null>(null);
     const [openState, setOpenState] = useState(() => modelSwitcherOpenCache);
     const setOpen = useCallback((nextOpen: boolean) => {
@@ -451,36 +427,6 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       setOpenState(nextOpen);
     }, []);
     const open = openState;
-    const showUpgradeDialog = showUpgradeDialogState;
-
-    const setShowUpgradeDialog = useCallback((open: boolean) => {
-      setShowUpgradeDialogState(open);
-      if (!open) {
-        modelUpgradeDialogModelValueCache = null;
-        setSelectedProModelValue(null);
-      }
-    }, []);
-
-    const selectedProModel = useMemo(
-      () => models.find((model) => model.value === selectedProModelValue) ?? null,
-      [selectedProModelValue],
-    );
-    const selectedRequiresMax = useMemo(
-      () => (selectedProModel ? requiresMaxSubscription(selectedProModel.value) : false),
-      [selectedProModel],
-    );
-    const setSelectedProModel = useCallback((model: (typeof models)[0] | null) => {
-      const value = model?.value ?? null;
-      modelUpgradeDialogModelValueCache = value;
-      setSelectedProModelValue(value);
-    }, []);
-
-    useEffect(() => {
-      if (!isMaxUser) return;
-      setShowUpgradeDialog(false);
-      modelUpgradeDialogModelValueCache = null;
-      setSelectedProModelValue(null);
-    }, [isMaxUser, setShowUpgradeDialog]);
 
     const isMobile = useIsMobile();
     const haptics = useWebHaptics();
@@ -543,14 +489,12 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
         const aggregate = [
           m.label,
           m.description,
-          m.category,
           providerName,
           m.value, // Include model ID for exact matches
           m.vision ? 'vision' : '',
           m.reasoning ? 'reasoning' : '',
           m.pdf ? 'pdf' : '',
           m.experimental ? 'experimental' : '',
-          m.pro ? 'pro' : '',
           m.requiresAuth ? 'auth' : '',
           m.isNew ? 'new' : '',
           m.fast ? 'fast' : '',
@@ -629,17 +573,6 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       [searchQuery, escapeHtml, escapeRegExp],
     );
 
-    const pricing = useMemo(
-      () => ({
-        usd: {
-          originalPrice: PRICING.PRO_MONTHLY,
-          finalPrice: PRICING.PRO_MONTHLY,
-          hasDiscount: false,
-        },
-      }),
-      [],
-    );
-
     const isFilePart = useCallback((p: unknown): p is { type: 'file'; mediaType?: string } => {
       return (
         typeof p === 'object' &&
@@ -694,10 +627,8 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
         filtered = filtered.filter((model) => getGroupKey(model) === selectedProvider);
       }
 
-      // Auto-correct only after subscription state has settled to avoid reload jitter.
       if (
         user !== undefined &&
-        !isSubscriptionLoading &&
         selectedGroup === 'canvas' &&
         filtered.length > 0 &&
         !filtered.some((m) => m.value === selectedModel)
@@ -719,17 +650,15 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       selectedModel,
       setSelectedModel,
       user,
-      isSubscriptionLoading,
       getGroupKey,
     ]);
 
-    // Show all models (including Pro) for everyone; locked models will prompt auth/upgrade on click
+    // Show all models for everyone; auth-gated models will prompt sign-in on click
     const visibleModelsForList = useMemo(() => {
       let modelsToShow = filteredModels;
 
-      // Sort models: favorites first, then new models, then by auth/plan status
-      // Locked models go last for users who can't access them (free, pro-without-max, or signed-out)
-      const shouldSortLockedLast = !user || !isProUser || !isMaxUser;
+      // Sort models: favorites first, then new models, then auth-gated models last for signed-out users
+      const shouldSortLockedLast = !user;
       const preferredSet = new Set(preferredModels || []);
 
       if (modelsToShow.length > 0) {
@@ -742,10 +671,7 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
         for (const model of modelsToShow) {
           const isFavorite = preferredSet.has(model.value);
           const isNew = model.isNew === true;
-          const needsAuth = model.requiresAuth === true;
-          const needsPro = requiresProSubscription(model.value) && !isProUser;
-          const needsMax = requiresMaxSubscription(model.value) && !isMaxUser;
-          const isLocked = needsAuth || needsPro || needsMax;
+          const isLocked = model.requiresAuth === true;
 
           if (isFavorite) {
             favoriteModels.push(model);
@@ -769,7 +695,7 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       }
 
       return modelsToShow;
-    }, [filteredModels, isProUser, isMaxUser, user, preferredModels]);
+    }, [filteredModels, user, preferredModels]);
 
     const rankedModels = useMemo(() => {
       const query = searchQuery.trim();
@@ -803,130 +729,24 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       return scored.map((s) => s.model);
     }, [availableModels, searchQuery, computeScore, normalizeText, preferredModels]);
 
-    const sortedModels = useMemo(() => visibleModelsForList, [visibleModelsForList]);
-
-    const groupedModels = useMemo(
-      () =>
-        sortedModels.reduce(
-          (acc, model) => {
-            const category = model.category;
-            if (!acc[category]) {
-              acc[category] = [];
-            }
-            acc[category].push(model);
-            return acc;
-          },
-          {} as Record<string, typeof availableModels>,
-        ),
-      [sortedModels],
-    );
-
-    // Persisted ordering: category order and per-category model order
-    const [modelCategoryOrder] = useLocalStorage<string[]>(
-      'zetora-model-category-order',
-      isProUser ? ['Pro', 'Experimental', 'Free'] : ['Free', 'Experimental', 'Pro'],
-    );
-    const [modelOrderMap] = useLocalStorage<Record<string, string[]>>('zetora-model-order', {});
-
-    const orderedGroupEntries = useMemo(() => {
-      const baseOrder =
-        modelCategoryOrder && modelCategoryOrder.length > 0
-          ? modelCategoryOrder
-          : isProUser
-            ? ['Pro', 'Experimental', 'Free']
-            : ['Free', 'Experimental', 'Pro'];
-      const categoriesPresent = Object.keys(groupedModels);
-      const normalizedOrder = [
-        ...baseOrder.filter((c) => categoriesPresent.includes(c)),
-        ...categoriesPresent.filter((c) => !baseOrder.includes(c)),
-      ];
-      const preferredSet = new Set(preferredModels || []);
-      const normalizedByCategory = normalizedOrder
-        .filter((category) => groupedModels[category] && groupedModels[category].length > 0)
-        .map((category) => {
-          const order = modelOrderMap[category] || [];
-          const modelsInCategory = groupedModels[category];
-          // Preserve original order when no overrides are set; apply only explicit positions
-          const positionById = new Map(order.map((id, idx) => [id, idx] as const));
-          const orderedModels = [...modelsInCategory].sort((a, b) => {
-            // Prioritize favorites first
-            const aIsFavorite = preferredSet.has(a.value) ? 1 : 0;
-            const bIsFavorite = preferredSet.has(b.value) ? 1 : 0;
-            if (bIsFavorite !== aIsFavorite) return bIsFavorite - aIsFavorite;
-            // Then apply custom order if set
-            const ia = positionById.get(a.value);
-            const ib = positionById.get(b.value);
-            if (ia !== undefined && ib !== undefined) return ia - ib;
-            if (ia !== undefined) return -1;
-            if (ib !== undefined) return 1;
-            return 0; // keep insertion order
-          });
-          return [category, orderedModels] as const;
-        });
-
-      if (isProUser) {
-        const flat = normalizedByCategory.flatMap(([, ms]) => ms);
-        return [['all', flat] as const];
-      }
-
-      return normalizedByCategory;
-    }, [groupedModels, isProUser, modelCategoryOrder, modelOrderMap, preferredModels]);
-
     const currentModel = useMemo(
       () => availableModels.find((m) => m.value === selectedModel),
       [availableModels, selectedModel],
     );
 
-    // Auto-switch away from restricted or paid models when necessary
+    // Auto-switch away from region-restricted models when necessary
     useEffect(() => {
       if (user === undefined) return;
-      if (isSubscriptionLoading) return;
 
-      const currentModelRequiresPro = requiresProSubscription(selectedModel);
-      const currentModelRequiresMax = requiresMaxSubscription(selectedModel);
-      const currentModelExists = availableModels.find((m) => m.value === selectedModel);
       const isCurrentModelRestricted = isModelRestrictedInRegion(selectedModel, countryCode || undefined);
 
-      // If current model is restricted in user's region, switch to default
       if (isCurrentModelRestricted && selectedModel !== 'zetora-default') {
         console.log(
           `Auto-switching from restricted model '${selectedModel}' to 'zetora-default' - model not available in region ${countryCode}`,
         );
         setSelectedModel('zetora-default');
-        return;
       }
-
-      // If current model requires max but user is not max, switch to default
-      if (user && currentModelExists && currentModelRequiresMax && !isMaxUser && selectedModel !== 'zetora-default') {
-        console.log(`Auto-switching from max model '${selectedModel}' to 'zetora-default' - user lost max access`);
-        setSelectedModel('zetora-default');
-        return;
-      }
-
-      // If current model requires pro but user is not pro, switch to default.
-      // Skip this branch for Max-only models because those are handled above.
-      if (
-        user &&
-        currentModelExists &&
-        currentModelRequiresPro &&
-        !currentModelRequiresMax &&
-        !isProUser &&
-        selectedModel !== 'zetora-default'
-      ) {
-        console.log(`Auto-switching from pro model '${selectedModel}' to 'zetora-default' - user lost pro access`);
-        setSelectedModel('zetora-default');
-      }
-    }, [
-      selectedModel,
-      isProUser,
-      isMaxUser,
-      isSubscriptionLoading,
-      setSelectedModel,
-      countryCode,
-      user,
-      currentModel,
-      availableModels,
-    ]);
+    }, [selectedModel, setSelectedModel, countryCode, user]);
 
     const handleModelChange = useCallback(
       (value: string) => {
@@ -934,31 +754,11 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
         if (!model) return;
 
         const requiresAuth = requiresAuthentication(model.value) && !user;
-        const requiresMax = requiresMaxSubscription(model.value) && !isMaxUser;
-        const requiresPro = requiresProSubscription(model.value) && !isProUser;
-
-        if (isSubscriptionLoading) {
-          return;
-        }
 
         if (requiresAuth) {
           haptics.trigger('warning');
           setSelectedAuthModel(model);
           setShowSignInDialog(true);
-          return;
-        }
-
-        if (requiresMax) {
-          haptics.trigger('warning');
-          setSelectedProModel(model);
-          setShowUpgradeDialog(true);
-          return;
-        }
-
-        if (requiresPro) {
-          haptics.trigger('warning');
-          setSelectedProModel(model);
-          setShowUpgradeDialog(true);
           return;
         }
 
@@ -973,14 +773,9 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       [
         availableModels,
         user,
-        isProUser,
-        isMaxUser,
-        isSubscriptionLoading,
         setSelectedModel,
         onModelSelect,
         haptics,
-        setSelectedProModel,
-        setShowUpgradeDialog,
       ],
     );
 
@@ -1110,26 +905,10 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
             if (focusedIndex >= 0 && focusedIndex < count) {
               const model = displayModels[focusedIndex];
               const needsAuth = requiresAuthentication(model.value) && !user;
-              const needsMax = requiresMaxSubscription(model.value) && !isMaxUser;
-              const needsPro = requiresProSubscription(model.value) && !isProUser;
-
-              if (isSubscriptionLoading) return;
 
               if (needsAuth) {
                 setSelectedAuthModel(model);
                 setShowSignInDialog(true);
-                return;
-              }
-
-              if (needsMax) {
-                setSelectedProModel(model);
-                setShowUpgradeDialog(true);
-                return;
-              }
-
-              if (needsPro) {
-                setSelectedProModel(model);
-                setShowUpgradeDialog(true);
                 return;
               }
 
@@ -1150,51 +929,22 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
           }
         }
       },
-      [
-        displayModels,
-        focusedIndex,
-        user,
-        isProUser,
-        isMaxUser,
-        isSubscriptionLoading,
-        handleModelChange,
-        activeProviders,
-        selectedProvider,
-        setOpen,
-        setSelectedProModel,
-        setShowUpgradeDialog,
-      ],
+      [displayModels, focusedIndex, user, handleModelChange, activeProviders, selectedProvider, setOpen],
     );
 
     // Model card component
     const renderModelCard = (model: (typeof models)[0], index: number) => {
       const requiresAuth = requiresAuthentication(model.value) && !user;
-      const requiresMax = requiresMaxSubscription(model.value) && !isMaxUser;
-      const requiresPro = requiresProSubscription(model.value) && !isProUser;
-      const isLocked = requiresAuth || requiresPro || requiresMax;
+      const isLocked = requiresAuth;
       const modelProvider = model.provider || getModelProvider(model.value, model.label);
       const isSelected = selectedModel === model.value;
       const isAutoRouter = model.value === 'zetora-auto';
       const isFocused = focusedIndex === index;
 
       const handleClick = () => {
-        if (isSubscriptionLoading) return;
-
         if (requiresAuth) {
           setSelectedAuthModel(model);
           setShowSignInDialog(true);
-          return;
-        }
-
-        if (requiresMax) {
-          setSelectedProModel(model);
-          setShowUpgradeDialog(true);
-          return;
-        }
-
-        if (requiresPro) {
-          setSelectedProModel(model);
-          setShowUpgradeDialog(true);
           return;
         }
 
@@ -1254,16 +1004,6 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
               </span>
 
               {/* Badges */}
-              {requiresMax && (
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-primary/10 text-primary leading-none">
-                  MAX
-                </span>
-              )}
-              {requiresPro && !isProUser && !requiresMax && (
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-primary/10 text-primary leading-none">
-                  PRO
-                </span>
-              )}
               {requiresAuth && !user && <LockIcon className="size-3 text-muted-foreground/60" />}
               {isAutoRouter && (
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-primary/10 text-primary leading-none">
@@ -1535,29 +1275,6 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
               </div>
             )}
 
-            {/* Upgrade Banner (for non-pro users) */}
-            {!isProUser && (
-              <div
-                onClick={() => {
-                  setShowUpgradeDialog(true);
-                }}
-                className="mx-2 mb-1 p-2 rounded-lg bg-linear-to-r from-primary/6 via-secondary/4 to-accent/6 border border-primary/15 cursor-pointer hover:border-primary/30 transition-colors duration-200 shrink-0"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] font-medium">Unlock all models</span>
-                      <ProBadge className="scale-[0.7] origin-left" />
-                    </div>
-                    <p className="text-[10px] text-muted-foreground/60 mt-0.5">Starting at ${PRICING.PRO_MONTHLY}/mo</p>
-                  </div>
-                  <Button type="button" size="sm" className="h-6 text-[10px] px-2.5 rounded-md shrink-0">
-                    Upgrade
-                  </Button>
-                </div>
-              </div>
-            )}
-
             {/* Model List */}
             <div
               ref={modelListRef}
@@ -1735,139 +1452,6 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
             </PopoverContent>
           </Popover>
         )}
-        {/* Upgrade Dialog */}
-        <Dialog
-          open={showUpgradeDialog}
-          onOpenChange={(nextOpen) => {
-            // Prevent lifecycle/cleanup events from auto-closing this dialog.
-            // We only allow explicit close actions (e.g. "Not now").
-            if (nextOpen) setShowUpgradeDialog(true);
-          }}
-        >
-          <DialogContent
-            className="sm:max-w-[400px] p-0 gap-0 overflow-hidden"
-            showCloseButton={false}
-            onInteractOutside={(event) => event.preventDefault()}
-            onFocusOutside={(event) => event.preventDefault()}
-          >
-            {/* Hero */}
-            <div className="relative px-6 pt-8 pb-6 text-center">
-              <div className="absolute inset-0 bg-[url('/placeholder.png')] bg-cover bg-center">
-                <div className="absolute inset-0 bg-linear-to-t from-background via-background/80 to-background/40" />
-              </div>
-              <div className="relative z-10">
-                {selectedProModel?.label ? (
-                  <div className="space-y-1.5">
-                    <p className="text-lg font-semibold tracking-tight">{selectedProModel.label}</p>
-                    <div className="flex items-center justify-center gap-1.5">
-                      <span className="text-xs text-muted-foreground">requires</span>
-                      {selectedRequiresMax ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary leading-none uppercase tracking-wider">
-                          Max
-                        </span>
-                      ) : (
-                        <ProBadge />
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center gap-2">
-                    <p className="text-3xl font-semibold tracking-tight font-be-vietnam-pro">zetora</p>
-                    <ProBadge />
-                  </div>
-                )}
-
-                <div className="flex items-baseline justify-center gap-1.5 mt-4">
-                  {selectedRequiresMax ? (
-                    <span className="text-2xl font-bold">$60</span>
-                  ) : pricing.usd.hasDiscount ? (
-                    <>
-                      <span className="text-sm text-muted-foreground line-through">${pricing.usd.originalPrice}</span>
-                      <span className="text-2xl font-bold">${pricing.usd.finalPrice.toFixed(2)}</span>
-                    </>
-                  ) : (
-                    <span className="text-2xl font-bold">${pricing.usd.finalPrice}</span>
-                  )}
-                  <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">/mo</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Features */}
-            <div className="px-6 pb-6 space-y-4">
-              <div className="rounded-xl border border-border/60 overflow-hidden grid grid-cols-2">
-                {(selectedRequiresMax
-                  ? [
-                      { title: 'All paid features', desc: 'Unlimited searches & more' },
-                      { title: 'Claude 4.6 Opus', desc: 'Most advanced Anthropic LLM' },
-                      { title: 'Claude 4.6 Opus Thinking', desc: 'With extended reasoning' },
-                      { title: 'Claude 4.5 Opus', desc: 'Previous advanced LLM' },
-                      { title: 'Claude 4.6 Sonnet', desc: 'Latest Sonnet model' },
-                      { title: 'Claude 4.5 Haiku', desc: 'Fast and efficient' },
-                      { title: '1M context window', desc: 'For Anthropic models' },
-                      { title: 'Canvas support', desc: 'Visualization mode' },
-                    ]
-                  : [
-                      { title: 'All standard AI models', desc: 'GPT-5.2, Gemini 3.1, Grok 4.1' },
-                      { title: 'Unlimited searches', desc: 'No daily limits' },
-                      { title: 'Extreme research', desc: 'Multi-step deep analysis' },
-                      { title: 'Voice mode', desc: 'Hands-free conversations' },
-                      { title: 'XQL', desc: 'Natural language X search' },
-                      { title: 'Lookout', desc: 'Scheduled monitoring' },
-                      { title: 'Connectors', desc: 'Drive, Notion, OneDrive' },
-                      { title: 'Prompt enhance', desc: 'AI-powered optimization' },
-                    ]
-                ).map((f, i) => (
-                  <div
-                    key={f.title}
-                    className={cn(
-                      'flex items-start gap-2 p-2.5',
-                      i % 2 === 0 && 'border-r border-border/40',
-                      i < 6 && 'border-b border-border/40',
-                    )}
-                  >
-                    <CheckIcon className="size-3 text-primary shrink-0 mt-0.5" />
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-medium leading-tight">{f.title}</p>
-                      <p className="font-pixel text-[8px] text-muted-foreground/50 uppercase tracking-wider mt-0.5">
-                        {f.desc}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <Button
-                onClick={() => {
-                  window.location.href = '/pricing';
-                }}
-                className="w-full rounded-lg h-9"
-              >
-                {selectedRequiresMax ? 'Upgrade to Max' : 'Upgrade to Pro'}
-              </Button>
-
-              {selectedRequiresMax && isProUser && (
-                <p className="text-[10px] text-center text-muted-foreground/60 leading-relaxed">
-                  Your existing paid subscription will be automatically cancelled once Max is activated.
-                </p>
-              )}
-
-              <div className="flex items-center justify-center gap-3">
-                <p className="font-pixel text-[9px] text-muted-foreground/40 uppercase tracking-wider">
-                  Cancel anytime · Secure payment
-                </p>
-              </div>
-
-              <button
-                onClick={() => setShowUpgradeDialog(false)}
-                className="w-full text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors py-1"
-              >
-                Not now
-              </button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
         {/* Sign In Dialog */}
         <Dialog open={showSignInDialog} onOpenChange={setShowSignInDialog}>
           <DialogContent className="sm:max-w-[400px] p-0 gap-0 overflow-hidden" showCloseButton={false}>

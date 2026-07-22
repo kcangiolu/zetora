@@ -22,7 +22,6 @@ import { useVoiceClient, type VoiceType, type ConversationTurn } from '@/hooks/u
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 import { useUser } from '@/contexts/user-context';
 import { cn, normalizeError } from '@/lib/utils';
-import { ProUpgradeScreen } from './components/pro-upgrade-screen';
 
 const VOICES: { value: VoiceType; label: string; description: string }[] = [
   { value: 'Ara', label: 'Ara', description: 'Warm, friendly' },
@@ -126,7 +125,7 @@ export default function VoicePage() {
   const transcriptScrollRef = useRef<HTMLDivElement>(null);
   const transcriptBottomRef = useRef<HTMLDivElement>(null);
 
-  const { user, isProUser, isLoading: isProStatusLoading } = useUser();
+  const { user, isLoading: isProStatusLoading } = useUser();
   const router = useRouter();
 
   const [voiceBackend] = useSyncedPreferences<'cloud' | 'local'>('zetora-voice-s2s-backend', 'cloud');
@@ -262,11 +261,6 @@ export default function VoicePage() {
         </div>
       </div>
     );
-  }
-
-  // Pro gate
-  if (!isProUser) {
-    return <ProUpgradeScreen user={user} isProUser={isProUser} isProStatusLoading={isProStatusLoading} />;
   }
 
   return (

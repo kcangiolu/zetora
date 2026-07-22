@@ -5,12 +5,6 @@ import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { chat, message, stream } from '../schema';
 import { ChatSDKError } from '../../errors';
 import { db, maindb } from '../index';
-import {
-  getDodoSubscriptions,
-  setDodoSubscriptions,
-  getDodoProStatus,
-  setDodoProStatus,
-} from '../../performance-cache';
 import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
 
 import { createLogger } from '@/lib/logger';

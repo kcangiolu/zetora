@@ -1,7 +1,5 @@
 import 'server-only';
 
-import type { ComprehensiveUserData } from '@/lib/user-data-server';
-import { getComprehensiveUserData } from '@/lib/user-data-server';
 import type { SpecialModeId } from '@/lib/utils';
 import { getExtensionMode } from './extension-modes';
 
@@ -51,30 +49,16 @@ export function getBaseConfig() {
   return { tools: autoGroup.tools, instructions: autoGroup.instructions };
 }
 
-export async function getGroupConfig(
-  specialMode: LegacySpecialModeId | string | undefined,
-  lightweightUser?: { userId: string; email: string; isProUser: boolean } | null,
-  fullUserPromise?: Promise<ComprehensiveUserData | null>,
-) {
+// Login is required upstream (lib/search/access-gate.ts) before this is ever
+// called, so lightweightUser is always set here — every connected account
+// gets every mode, no Pro/Max gate left to check.
+export async function getGroupConfig(specialMode: LegacySpecialModeId | string | undefined) {
   if (!specialMode) {
     return getBaseConfig();
   }
 
   const extensionMode = await getExtensionMode(specialMode);
   if (extensionMode) {
-    const requireAuth = extensionMode.requireAuth !== false;
-
-    if (!lightweightUser) {
-      const user = fullUserPromise ? await fullUserPromise : await getComprehensiveUserData();
-      if (!user) {
-        if (requireAuth) return getBaseConfig();
-      } else if (extensionMode.requirePro && !user.isProUser) {
-        return getBaseConfig();
-      }
-    } else if (extensionMode.requirePro && !lightweightUser.isProUser) {
-      return getBaseConfig();
-    }
-
     return { tools: extensionMode.tools, instructions: extensionMode.instructions };
   }
 
@@ -82,24 +66,7 @@ export async function getGroupConfig(
     return getBaseConfig();
   }
 
-  let resolvedMode: LegacySpecialModeId | null = specialMode as LegacySpecialModeId;
-
-  const requiresPro = specialMode === 'connectors' || specialMode === 'mcp' || specialMode === 'multi-agent' || specialMode === 'canvas';
-
-  if (!lightweightUser) {
-    const user = fullUserPromise ? await fullUserPromise : await getComprehensiveUserData();
-    if (!user) {
-      resolvedMode = null;
-    } else if (requiresPro && !user.isProUser) {
-      resolvedMode = null;
-    }
-  } else if (requiresPro && !lightweightUser.isProUser) {
-    resolvedMode = null;
-  }
-
-  if (!resolvedMode) {
-    return getBaseConfig();
-  }
+  const resolvedMode = specialMode as LegacySpecialModeId;
 
   return {
     tools: specialGroupTools[resolvedMode],
