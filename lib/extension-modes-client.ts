@@ -19,8 +19,24 @@ export interface ExtensionModeUIDescriptor {
   accent?: { palette: string[] };
 }
 
-const modeUIs = new Map<string, ExtensionModeUIDescriptor>();
-const listeners = new Set<() => void>();
+// Stored on globalThis rather than plain module-scope state: this module is
+// reachable both statically (the mode selector, components/mode-accent.tsx)
+// and dynamically (register-client.ts's `await import(...)` back into this
+// same file), and Turbopack can resolve those call sites to genuinely
+// separate module instances — a write from one instance would then be
+// invisible to reads from another, and `extensionsLoaded` could be false in
+// more than one instance, running the whole registerClient() import
+// redundantly. globalThis is the one thing guaranteed shared across module
+// instances in the same browser tab (see components/extension-slot.tsx,
+// which hit this exact bug in practice, and lib/search/extension-modes.ts
+// for the server-side counterpart).
+declare global {
+  var __zetoraModeUIs: Map<string, ExtensionModeUIDescriptor> | undefined;
+  var __zetoraModeUIListeners: Set<() => void> | undefined;
+  var __zetoraExtensionsLoaded: boolean | undefined;
+}
+const modeUIs = (globalThis.__zetoraModeUIs ??= new Map());
+const listeners = (globalThis.__zetoraModeUIListeners ??= new Set());
 
 export function registerExtensionModeUI(descriptor: ExtensionModeUIDescriptor): void {
   modeUIs.set(descriptor.id, descriptor);
@@ -39,10 +55,9 @@ export function subscribeExtensionModeUIs(listener: () => void): () => void {
 // Shared by ExtensionSlot (components/extension-slot.tsx) and the mode
 // selector so either can trigger the one-time @extensions/register-client
 // import, whichever mounts first.
-let extensionsLoaded = false;
 export async function loadClientExtensions(): Promise<void> {
-  if (extensionsLoaded) return;
-  extensionsLoaded = true;
+  if (globalThis.__zetoraExtensionsLoaded) return;
+  globalThis.__zetoraExtensionsLoaded = true;
 
   if (process.env.NEXT_PUBLIC_EXTENSIONS_ENABLED !== 'true') return;
 
