@@ -45,10 +45,35 @@ export function registerExtensionMode(config: ExtensionModeServerConfig): void {
   registry.set(config.id, config);
 }
 
-export function getExtensionMode(id: string | undefined): ExtensionModeServerConfig | undefined {
+// instrumentation.ts's register() hook and this module are not guaranteed to
+// share the same module-scope singleton under Next.js production bundling
+// (instrumentation is compiled as a separate entry point) — registrations
+// made there can be invisible here. Rather than rely on that boot-time call
+// alone, every reader lazily self-heals by loading extensions itself, once,
+// on first use. This must stay a lazy call INSIDE the function body (i.e. at
+// request time) and never a top-level await: a top-level await here runs
+// during this module's own evaluation, and if anything in the extension's
+// import graph re-enters this module via dynamic import() while that
+// evaluation is still in flight, the chunk loader deadlocks waiting for a
+// factory that can't finish (see git history — caused a full outage once).
+let extensionsLoadPromise: Promise<void> | null = null;
+
+function ensureExtensionsLoaded(): Promise<void> {
+  if (process.env.EXTENSIONS_ENABLED !== 'true' || process.env.NEXT_PHASE === 'phase-production-build') {
+    return Promise.resolve();
+  }
+  if (!extensionsLoadPromise) {
+    extensionsLoadPromise = import('@/lib/extensions').then(({ loadExtensions }) => loadExtensions());
+  }
+  return extensionsLoadPromise;
+}
+
+export async function getExtensionMode(id: string | undefined): Promise<ExtensionModeServerConfig | undefined> {
+  await ensureExtensionsLoaded();
   return id ? registry.get(id) : undefined;
 }
 
-export function getExtensionModeIds(): string[] {
+export async function getExtensionModeIds(): Promise<string[]> {
+  await ensureExtensionsLoaded();
   return [...registry.keys()];
 }

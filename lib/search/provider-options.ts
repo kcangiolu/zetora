@@ -7,7 +7,7 @@ import { AnthropicProviderOptions } from '@ai-sdk/anthropic';
 import { GoogleGenerativeAIProviderOptions, GoogleLanguageModelOptions } from '@ai-sdk/google';
 import { CohereChatModelOptions } from '@ai-sdk/cohere';
 
-export function getStreamTextStaticSettings({
+export async function getStreamTextStaticSettings({
   model,
   specialMode,
   shouldUseXaiMultiAgent,
@@ -17,13 +17,13 @@ export function getStreamTextStaticSettings({
   specialMode: SpecialModeId | 'buddy' | string | undefined;
   shouldUseXaiMultiAgent: boolean;
   isXmlParsedCustomModel: boolean;
-}): {
+}): Promise<{
   stopWhenStepCount: number;
   maxRetries: number;
   maxOutputTokens?: number;
   headers?: Record<string, string>;
-} {
-  const extensionMode = getExtensionMode(specialMode);
+}> {
+  const extensionMode = await getExtensionMode(specialMode);
   return {
     // XML-parsed local models keep their tools armed on every step (see
     // prepareStep), so the step count is their only hard bound against

@@ -10,51 +10,55 @@ describe('getStreamTextStaticSettings', () => {
     isXmlParsedCustomModel: false,
   };
 
-  it('uses 5 steps in multi-agent mode', () => {
-    expect(getStreamTextStaticSettings({ ...base, shouldUseXaiMultiAgent: true }).stopWhenStepCount).toBe(5);
+  it('uses 5 steps in multi-agent mode', async () => {
+    expect((await getStreamTextStaticSettings({ ...base, shouldUseXaiMultiAgent: true })).stopWhenStepCount).toBe(5);
   });
 
-  it('uses 50 steps for MCP mode', () => {
-    expect(getStreamTextStaticSettings({ ...base, specialMode: 'mcp' }).stopWhenStepCount).toBe(50);
+  it('uses 50 steps for MCP mode', async () => {
+    expect((await getStreamTextStaticSettings({ ...base, specialMode: 'mcp' })).stopWhenStepCount).toBe(50);
   });
 
-  it('uses 15 steps when no special mode is active', () => {
-    expect(getStreamTextStaticSettings(base).stopWhenStepCount).toBe(15);
+  it('uses 15 steps when no special mode is active', async () => {
+    expect((await getStreamTextStaticSettings(base)).stopWhenStepCount).toBe(15);
   });
 
-  it('caps XML-parsed custom models at 3 steps in a special mode', () => {
+  it('caps XML-parsed custom models at 3 steps in a special mode', async () => {
     expect(
-      getStreamTextStaticSettings({
-        ...base,
-        specialMode: 'memory',
-        model: 'custom-llamacpp:qwen3.6',
-        isXmlParsedCustomModel: true,
-      }).stopWhenStepCount,
+      (
+        await getStreamTextStaticSettings({
+          ...base,
+          specialMode: 'memory',
+          model: 'custom-llamacpp:qwen3.6',
+          isXmlParsedCustomModel: true,
+        })
+      ).stopWhenStepCount,
     ).toBe(3);
   });
 
-  it('uses 5 steps for other special modes', () => {
-    expect(getStreamTextStaticSettings({ ...base, specialMode: 'canvas' }).stopWhenStepCount).toBe(5);
+  it('uses 5 steps for other special modes', async () => {
+    expect((await getStreamTextStaticSettings({ ...base, specialMode: 'canvas' })).stopWhenStepCount).toBe(5);
   });
 
-  it('gives XML-parsed custom models a tight retry budget', () => {
-    expect(getStreamTextStaticSettings({ ...base, isXmlParsedCustomModel: true }).maxRetries).toBe(2);
-    expect(getStreamTextStaticSettings(base).maxRetries).toBe(10);
+  it('gives XML-parsed custom models a tight retry budget', async () => {
+    expect((await getStreamTextStaticSettings({ ...base, isXmlParsedCustomModel: true })).maxRetries).toBe(2);
+    expect((await getStreamTextStaticSettings(base)).maxRetries).toBe(10);
   });
 
-  it('sets maxOutputTokens only for the capped models', () => {
-    expect(getStreamTextStaticSettings(base).maxOutputTokens).toBe(getMaxOutputTokens('zetora-default'));
-    expect(getStreamTextStaticSettings({ ...base, model: 'zetora-glm-4.6' }).maxOutputTokens).toBe(
+  it('sets maxOutputTokens only for the capped models', async () => {
+    expect((await getStreamTextStaticSettings(base)).maxOutputTokens).toBe(getMaxOutputTokens('zetora-default'));
+    expect((await getStreamTextStaticSettings({ ...base, model: 'zetora-glm-4.6' })).maxOutputTokens).toBe(
       getMaxOutputTokens('zetora-glm-4.6'),
     );
-    expect(getStreamTextStaticSettings({ ...base, model: 'zetora-gpt5' }).maxOutputTokens).toBeUndefined();
+    expect((await getStreamTextStaticSettings({ ...base, model: 'zetora-gpt5' })).maxOutputTokens).toBeUndefined();
   });
 
-  it('never caps output tokens in multi-agent mode', () => {
-    expect(getStreamTextStaticSettings({ ...base, shouldUseXaiMultiAgent: true }).maxOutputTokens).toBeUndefined();
+  it('never caps output tokens in multi-agent mode', async () => {
+    expect(
+      (await getStreamTextStaticSettings({ ...base, shouldUseXaiMultiAgent: true })).maxOutputTokens,
+    ).toBeUndefined();
   });
 
-  it('adds the 1M-context beta header for anthropic models only', () => {
+  it('adds the 1M-context beta header for anthropic models only', async () => {
     for (const model of [
       'zetora-anthropic',
       'zetora-anthropic-think',
@@ -63,11 +67,11 @@ describe('getStreamTextStaticSettings', () => {
       'zetora-anthropic-opus-4.6',
       'zetora-anthropic-opus-4.6-think',
     ]) {
-      expect(getStreamTextStaticSettings({ ...base, model }).headers).toEqual({
+      expect((await getStreamTextStaticSettings({ ...base, model })).headers).toEqual({
         'anthropic-beta': 'context-1m-2025-08-07',
       });
     }
-    expect(getStreamTextStaticSettings(base).headers).toBeUndefined();
+    expect((await getStreamTextStaticSettings(base)).headers).toBeUndefined();
   });
 });
 

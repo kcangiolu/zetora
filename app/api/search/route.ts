@@ -123,7 +123,7 @@ export async function POST(req: Request) {
   // in the same sense as the hardcoded ids above — populated by loadExtensions()
   // at boot (instrumentation.ts), empty when no overlay is checked out.
   const specialMode: SpecialModeId | 'buddy' | string | undefined =
-    typeof group === 'string' && (SPECIAL_MODE_IDS.has(group) || getExtensionModeIds().includes(group))
+    typeof group === 'string' && (SPECIAL_MODE_IDS.has(group) || (await getExtensionModeIds()).includes(group))
       ? group
       : undefined;
 
@@ -520,7 +520,7 @@ export async function POST(req: Request) {
       // contribute its own dynamically-resolved tools — e.g. the private
       // agent overlay's coordinator connecting to internal infra MCP
       // servers. Generic here: the core has no idea what these tools are.
-      const resolveDynamicTools = getExtensionMode(specialMode)?.resolveDynamicTools;
+      const resolveDynamicTools = (await getExtensionMode(specialMode))?.resolveDynamicTools;
       if (resolveDynamicTools && lightweightUser) {
         const resolved = await resolveDynamicTools({
           userId: lightweightUser.userId,
@@ -553,7 +553,7 @@ export async function POST(req: Request) {
         lightweightUser,
         selectedConnectors,
         memoryProvider:
-          getExtensionMode(specialMode)?.memoryProvider ||
+          (await getExtensionMode(specialMode))?.memoryProvider ||
           (userPreferencesResult?.preferences?.['zetora-memory-provider'] as 'supermemory' | 'graphiti' | undefined) ||
           'supermemory',
         userPreferences: (userPreferencesResult?.preferences ?? {}) as Record<string, unknown>,
@@ -688,7 +688,7 @@ export async function POST(req: Request) {
         (shouldUseXaiMultiAgent
           ? '\n\nWhen multi-agent mode is enabled, you are operating in a high-agency research workflow. Use only the xAI server-side web search and X search tools available in this environment. Do not call any other research or search tools.\n\nYour job is to behave like a rigorous research analyst:\n- Break the request into sub-questions when useful.\n- Search broadly first, then narrow based on what you find.\n- Use multiple searches when the topic is ambiguous, fast-moving, comparative, or requires validation.\n- Cross-check important claims across multiple sources whenever possible.\n- Prefer recent and primary sources for news, releases, product changes, pricing, benchmarks, and policy updates.\n- Use X search when social signals, firsthand announcements, or fast-moving discourse are relevant.\n- Use web search when you need official documentation, articles, product pages, blogs, papers, or other published sources.\n- If both web and X are relevant, use both.\n\nOutput requirements:\n- Synthesize findings into a clear, direct answer instead of narrating every search step.\n- Be concise but complete.\n- Include uncertainty when evidence is mixed, incomplete, or time-sensitive.\n- Do not fabricate facts, sources, timelines, quotes, or consensus.\n- If you cannot verify a claim well enough, say so plainly.\n- Ground the final answer in the sources you found and make sure the answer actually reflects them.\n\nResponse structure guidelines:\n- Start with a direct answer or conclusion in 1-3 sentences.\n- Then present the most important findings as short sections or bullet points.\n- For comparative questions, explicitly compare the options point-by-point.\n- For fast-moving topics, clearly separate confirmed facts from tentative signals.\n- End with a brief takeaway, recommendation, or next step when useful.\n- Keep the response skimmable and avoid long, repetitive paragraphs.\n\nTool behavior requirements:\n- Do not mention internal tool limitations unless necessary.\n- Do not ask for permission to search.\n- Do not stop after a single weak search if the question clearly needs deeper verification.\n- Avoid redundant searches that do not add evidence.\n- Prefer quality of evidence over quantity of searches.'
           : '');
-      const staticSettings = getStreamTextStaticSettings({
+      const staticSettings = await getStreamTextStaticSettings({
         model,
         specialMode,
         shouldUseXaiMultiAgent,
@@ -803,7 +803,7 @@ export async function POST(req: Request) {
             latestStepHasToolRoundTrip,
             streamActiveTools,
             baseSystem,
-            keepToolsArmed: getExtensionMode(specialMode)?.keepToolsArmed,
+            keepToolsArmed: (await getExtensionMode(specialMode))?.keepToolsArmed,
           });
         },
 

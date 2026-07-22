@@ -60,7 +60,7 @@ export async function getGroupConfig(
     return getBaseConfig();
   }
 
-  const extensionMode = getExtensionMode(specialMode);
+  const extensionMode = await getExtensionMode(specialMode);
   if (extensionMode) {
     const requireAuth = extensionMode.requireAuth !== false;
 
