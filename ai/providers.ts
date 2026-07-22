@@ -700,4 +700,4 @@ export async function resolveModel(
   return resolved;
 }
 
-export { hasVisionSupport, getModelParameters, shouldBypassRateLimits, getModelProvider } from './models';
+export { hasVisionSupport, getModelParameters, shouldBypassRateLimits } from './models';

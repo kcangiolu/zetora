@@ -2,11 +2,7 @@ import 'server-only';
 
 import { getMessageCountByUserId } from '@/lib/db/queries';
 import { createMessageCountKey, usageCountCache } from '@/lib/performance-cache';
-import { getComprehensiveUserData, getLightweightUserAuth } from '@/lib/user-data-server';
-
-export async function getCurrentUser() {
-  return getComprehensiveUserData();
-}
+import { getLightweightUserAuth } from '@/lib/user-data-server';
 
 export async function getLightweightUser() {
   return getLightweightUserAuth();

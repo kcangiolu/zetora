@@ -1,9 +1,6 @@
 // Performance cache with memory limits and automatic cleanup
 // Uses a doubly-linked list for O(1) LRU eviction
 
-import { allDatabases } from '@/lib/db';
-import { user } from './db/schema';
-
 interface CacheEntry<T> {
   data: T;
   cachedAt: number;
@@ -189,18 +186,4 @@ export const usageCountCache = new PerformanceCache<number>('usage-counts', 2000
 // Cache key generators
 export const createSessionKey = (token: string) => `session:${token}`;
 export const createMessageCountKey = (userId: string) => `msg-count:${userId}`;
-
-// Cache invalidation helpers
-export function invalidateUserCaches(userId: string) {
-  usageCountCache.delete(createMessageCountKey(userId));
-
-  // Invalidate the db cache on ALL database instances (main + read replicas)
-  // Only invalidate if the database has caching enabled ($cache may be undefined)
-  const tablesToInvalidate = { tables: [user] };
-  for (const database of allDatabases) {
-    if (database.$cache) {
-      database.$cache.invalidate(tablesToInvalidate);
-    }
-  }
-}
 

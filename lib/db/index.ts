@@ -17,6 +17,3 @@ const dbread2 = drizzle(process.env.READ_DB_2 || serverEnv.DATABASE_URL, {
 });
 
 export const db = withReplicas(maindb, [dbread1, dbread2]);
-
-// Export all database instances for cache invalidation
-export const allDatabases = [maindb, dbread1, dbread2] as const;

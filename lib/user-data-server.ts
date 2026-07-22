@@ -17,17 +17,6 @@ function createLightweightAuthSessionKey(token: string): string {
   return `lightweight-auth:${token}`;
 }
 
-function invalidateSessionCacheForUser(userId: string): void {
-  const tokens = userSessionTokens.get(userId);
-  if (tokens) {
-    for (const token of tokens) {
-      sessionCache.delete(createSessionKey(token));
-      sessionCache.delete(createLightweightAuthSessionKey(token));
-    }
-    userSessionTokens.delete(userId);
-  }
-}
-
 export function invalidateSessionCacheForToken(token: string): void {
   sessionCache.delete(createSessionKey(token));
   sessionCache.delete(createLightweightAuthSessionKey(token));
@@ -146,15 +135,6 @@ function getCachedUserData(userId: string): ComprehensiveUserData | null {
 
 function setCachedUserData(userId: string, data: ComprehensiveUserData): void {
   userDataCache.set(userId, data, CACHE_TTL_MS);
-}
-
-export function clearUserDataCache(userId: string): void {
-  userDataCache.delete(userId);
-  lightweightAuthCache.delete(userId);
-  customInstructionsCache.delete(userId);
-  userPreferencesCache.delete(userId);
-  // Invalidate all session token cache entries for this user so stale data is not served
-  invalidateSessionCacheForUser(userId);
 }
 
 function getCachedLightweightAuth(userId: string): LightweightUserAuth | null {
