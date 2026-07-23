@@ -31,11 +31,9 @@ export interface ExtensionModeServerConfig {
   // and 'mcp' branches in prepare-step.ts).
   keepToolsArmed?: boolean;
   // Defaults to true: mirrors every pre-existing exclusive special mode
-  // (memory/connectors/mcp/multi-agent/canvas), all of which silently fall
-  // back to the base config for signed-out users. Set false to opt out.
+  // (connectors/mcp/multi-agent/canvas), all of which silently fall back to
+  // the base config for signed-out users. Set false to opt out.
   requireAuth?: boolean;
-  // Overrides the zetora-memory-provider preference for this mode's turn.
-  memoryProvider?: 'graphiti' | 'supermemory';
 }
 
 const registry = new Map<string, ExtensionModeServerConfig>();

@@ -512,7 +512,6 @@ export async function POST(req: Request) {
         lightweightUser,
         selectedConnectors,
         memoryProvider:
-          (await getExtensionMode(specialMode))?.memoryProvider ||
           (userPreferencesResult?.preferences?.['zetora-memory-provider'] as 'supermemory' | 'graphiti' | undefined) ||
           'supermemory',
         userPreferences: (userPreferencesResult?.preferences ?? {}) as Record<string, unknown>,
