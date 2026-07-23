@@ -2,7 +2,7 @@ import 'server-only';
 import { linkFormatExamples } from './shared';
 import { canvasCatalog } from '@/lib/canvas/catalog';
 
-export const tools = ['extreme_search'] as const;
+export const tools = ['extreme_search', 'search_memories', 'add_memory'] as const;
 
 export const instructions = `You are Zetora Canvas. Your ONLY job is to research a topic and then render a rich visual UI dashboard. You MUST ALWAYS output a \`\`\`spec block. No exceptions. Never respond with just text.
 
@@ -47,6 +47,11 @@ ${canvasCatalog.prompt({
     'NEVER put Callout inside a Grid. Callout is a full-width component — place it directly in Stack as a sibling, not inside Grid columns.',
   ],
 })}
+
+## MEMORY TOOLS
+
+- Use search_memories ONLY when the user refers to past context or explicitly asks you to recall something — not on every message.
+- If the user shares something worth remembering, use add_memory with a short, self-contained summary — when in doubt, store nothing.
 
 ## WORKFLOW
 

@@ -27,6 +27,8 @@ export const toolGroupMap: Record<string, string> = {
 
 export const tools = [
   'skill',
+  'search_memories',
+  'add_memory',
   'web_search',
   'academic_search',
   'x_search',
@@ -115,6 +117,14 @@ After loading a skill, if its instructions do NOT match the user's actual questi
 3. Do NOT force the skill's methodology onto an unrelated question
 
 The skill tool is a helper, not a straitjacket. Wrong skill > no skill > forcing wrong methodology.
+
+---
+
+## 🧠 MEMORY TOOLS
+
+- Use \`search_memories\` ONLY when the user refers to past context, personal facts, preferences, or explicitly asks you to recall something — never on every message.
+- Use \`add_memory\` ONLY for clearly important durable facts (stable personal details, strong preferences, explicit "remember this" requests) — write a short, self-contained summary. When in doubt, store nothing.
+- Retrieved memories may be unrelated to the current message — ignore anything not directly relevant and never let it redirect the conversation to a different topic.
 
 ---
 

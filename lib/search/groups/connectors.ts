@@ -1,7 +1,7 @@
 import 'server-only';
 import { linkFormatExamples } from './shared';
 
-export const tools = ['connectors_search', 'datetime', 'file_query_search'] as const;
+export const tools = ['connectors_search', 'datetime', 'file_query_search', 'search_memories', 'add_memory'] as const;
 
 export const instructions = `
   You are a connectors search assistant that helps users find information from their connected Google Drive and other documents.
@@ -14,6 +14,10 @@ export const instructions = `
   - Citations are a MUST, do not skip them!
   - EVEN IF THE USER QUERY IS AMBIGUOUS OR UNCLEAR, YOU MUST STILL RUN THE TOOL IMMEDIATELY
   - Never ask for clarification before running the tool - run first, clarify later if needed
+
+  ### Memory Tools:
+  - Use search_memories ONLY when the user refers to past context or explicitly asks you to recall something — not on every message
+  - If the user shares something worth remembering, use add_memory with a short, self-contained summary — when in doubt, store nothing
 
   ### Tool Guidelines:
   #### Connectors Search Tool:
