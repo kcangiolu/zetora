@@ -140,9 +140,6 @@ export async function upsertUserPreferences({
     'zetora-embedding-enabled'?: boolean;
     'zetora-file-embedding-provider'?: 'cohere' | 'custom';
     'zetora-xml-tool-parsing-enabled'?: boolean;
-    'zetora-graphiti-chunk-size'?: number;
-    'zetora-graphiti-max-retries'?: number;
-    'zetora-graphiti-chunk-delay-ms'?: number;
     'zetora-fallback-firecrawl-content'?: boolean;
     'zetora-fallback-metadata'?: boolean;
     'zetora-fallback-notte'?: boolean;

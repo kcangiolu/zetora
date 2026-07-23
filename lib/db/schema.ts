@@ -318,9 +318,6 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-graphiti-embedding-model'?: string;
       'zetora-embedding-enabled'?: boolean;
       'zetora-xml-tool-parsing-enabled'?: boolean;
-      'zetora-graphiti-chunk-size'?: number;
-      'zetora-graphiti-max-retries'?: number;
-      'zetora-graphiti-chunk-delay-ms'?: number;
       'zetora-fallback-firecrawl-content'?: boolean;
       'zetora-fallback-metadata'?: boolean;
       'zetora-fallback-notte'?: boolean;
@@ -408,10 +405,7 @@ export const piiAlias = pgTable(
     originalEnc: text('original_enc').notNull(),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
-  (table) => [
-    primaryKey({ columns: [table.userId, table.token] }),
-    index('piiAlias_userId_idx').on(table.userId),
-  ],
+  (table) => [primaryKey({ columns: [table.userId, table.token] }), index('piiAlias_userId_idx').on(table.userId)],
 );
 
 export const piiAliasRelations = relations(piiAlias, ({ one }) => ({

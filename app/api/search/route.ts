@@ -55,7 +55,7 @@ import { getLightweightUser } from '@/lib/search/server-helpers';
 import { getCachedCustomInstructionsByUserId, getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { resolveTertiaryModel } from '@/ai/tertiary';
 import { loadConfiguredTools } from '@/lib/search/tool-loader';
-import { ingestChatIntoGraphiti } from '@/lib/search/graphiti-ingest';
+import { runMemoryCurator } from '@/lib/search/memory-curator';
 import { resolvePrepareStepOverride } from '@/lib/search/prepare-step';
 import { SEARCH_REQUEST_TIMEOUT_MS } from '@/lib/timeouts';
 import { xai } from '@ai-sdk/xai';
@@ -184,9 +184,10 @@ export async function POST(req: Request) {
   // Start config and custom instructions in parallel
   opStart = Date.now();
   const configPromise = getGroupConfig(specialMode);
-  const customInstructionsPromise = (isCustomInstructionsEnabled ?? true)
-    ? getCachedCustomInstructionsByUserId(lightweightUser!.userId)
-    : Promise.resolve(null);
+  const customInstructionsPromise =
+    (isCustomInstructionsEnabled ?? true)
+      ? getCachedCustomInstructionsByUserId(lightweightUser!.userId)
+      : Promise.resolve(null);
   const userPreferencesPromise = getCachedUserPreferencesByUserId(lightweightUser!.userId);
   recordTiming('start_parallel_config_and_user_promises', opStart);
 
@@ -985,13 +986,11 @@ export async function POST(req: Request) {
         }),
       });
 
-      const episodeTitle = userQueryText ? userQueryText.slice(0, 100).replace(/\n/g, ' ').trim() : `chat-${id}`;
-
-      // Graphiti ingestion — fire-and-forget, does not block response
-      ingestChatIntoGraphiti({
+      // Background memory curator — fire-and-forget, does not block response
+      runMemoryCurator({
         messages: messagesToPersist,
-        episodeTitle,
-        groupId: lightweightUser.userId,
+        userQueryText,
+        userId: lightweightUser.userId,
         preferences: userPreferencesResult?.preferences,
       });
     },

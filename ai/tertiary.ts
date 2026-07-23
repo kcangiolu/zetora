@@ -25,7 +25,8 @@ export type TertiaryTask =
   | 'lang-detect'
   | 'extreme-planner'
   | 'extreme-agent'
-  | 'voice';
+  | 'voice'
+  | 'memory-curator';
 
 const TASK_DEFAULTS: Record<TertiaryTask, string> = {
   default: 'zetora-default',
@@ -40,6 +41,9 @@ const TASK_DEFAULTS: Record<TertiaryTask, string> = {
   'extreme-planner': 'zetora-ext-1',
   'extreme-agent': 'zetora-ext-1',
   voice: 'zetora-default',
+  // Reviews finished turns and decides what to store — needs reliable tool
+  // calling (search_memories/add_memory), not a fast summarizer model.
+  'memory-curator': 'zetora-default',
 };
 
 const PREF_KEYS: Record<TertiaryTask, { model: string; provider: string }> = {
@@ -64,6 +68,10 @@ const PREF_KEYS: Record<TertiaryTask, { model: string; provider: string }> = {
   },
   'extreme-agent': { model: 'zetora-tertiary-extreme-agent-model', provider: 'zetora-tertiary-extreme-agent-provider' },
   voice: { model: 'zetora-tertiary-voice-model', provider: 'zetora-tertiary-voice-provider' },
+  'memory-curator': {
+    model: 'zetora-tertiary-memory-curator-model',
+    provider: 'zetora-tertiary-memory-curator-provider',
+  },
 };
 
 export async function resolveTertiaryModel(
