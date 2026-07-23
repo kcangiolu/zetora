@@ -70,6 +70,10 @@ export function IntegrationsTab({
   const [lookoutEnabled, setLookoutEnabled] = useSyncedPreferences<boolean>('zetora-lookout-enabled', true);
   const [voiceEnabled, setVoiceEnabled] = useSyncedPreferences<boolean>('zetora-voice-enabled', true);
   const [appsEnabled, setAppsEnabled] = useSyncedPreferences<boolean>('zetora-apps-enabled', true);
+  const [swarmEnabled, setSwarmEnabled] = useSyncedPreferences<boolean>('zetora-swarm-enabled', true);
+  const [connectorsEnabled, setConnectorsEnabled] = useSyncedPreferences<boolean>('zetora-connectors-enabled', true);
+  const [canvasEnabled, setCanvasEnabled] = useSyncedPreferences<boolean>('zetora-canvas-enabled', true);
+  const [agentEnabled, setAgentEnabled] = useSyncedPreferences<boolean>('zetora-agent-enabled', true);
 
   const handleStorageProviderChange = (newProvider: 'cloudflare-r2' | 'minio') => {
     setStorageProvider(newProvider);
@@ -279,7 +283,9 @@ export function IntegrationsTab({
         <div className="rounded-xl border border-border/60 mt-4 overflow-hidden">
           <div className="px-4 py-3 border-b border-border/40">
             <p className="text-sm font-medium">Tools</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Show or hide tool shortcuts in the sidebar</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Show or hide tool shortcuts in the sidebar and chat modes
+            </p>
           </div>
 
           <div className="flex items-center justify-between px-4 py-3.5 gap-6">
@@ -309,9 +315,43 @@ export function IntegrationsTab({
           <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
             <div className="min-w-0">
               <p className="text-sm font-medium">Apps</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Show the Apps shortcut in the sidebar</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Show the Apps shortcut in the sidebar and the + menu
+              </p>
             </div>
             <Switch id="apps-enabled" checked={appsEnabled} onCheckedChange={setAppsEnabled} />
+          </div>
+
+          <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
+            <div className="min-w-0">
+              <p className="text-sm font-medium">Swarm mode</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Show Swarm mode in the + menu</p>
+            </div>
+            <Switch id="swarm-enabled" checked={swarmEnabled} onCheckedChange={setSwarmEnabled} />
+          </div>
+
+          <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
+            <div className="min-w-0">
+              <p className="text-sm font-medium">Connectors</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Show Connectors in the + menu</p>
+            </div>
+            <Switch id="connectors-enabled" checked={connectorsEnabled} onCheckedChange={setConnectorsEnabled} />
+          </div>
+
+          <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
+            <div className="min-w-0">
+              <p className="text-sm font-medium">Canvas</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Show Canvas in the + menu</p>
+            </div>
+            <Switch id="canvas-enabled" checked={canvasEnabled} onCheckedChange={setCanvasEnabled} />
+          </div>
+
+          <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
+            <div className="min-w-0">
+              <p className="text-sm font-medium">Agent</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Show the personal Agent mode in the + menu</p>
+            </div>
+            <Switch id="agent-enabled" checked={agentEnabled} onCheckedChange={setAgentEnabled} />
           </div>
         </div>
 

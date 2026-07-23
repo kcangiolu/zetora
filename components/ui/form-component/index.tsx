@@ -208,8 +208,17 @@ const FormComponent: React.FC<FormComponentProps> = ({
   setVisionEnabled,
 }) => {
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
-  const canvasEnabled = process.env.NEXT_PUBLIC_CANVAS_ENABLED === 'true';
-  const mcpEnabled = process.env.NEXT_PUBLIC_MCP_ENABLED === 'true';
+  const canvasEnvEnabled = process.env.NEXT_PUBLIC_CANVAS_ENABLED === 'true';
+  const mcpEnvEnabled = process.env.NEXT_PUBLIC_MCP_ENABLED === 'true';
+  // "Show this mode in the chat's + menu" — separate from any env-level
+  // availability gate above; both must hold for the mode to be offered.
+  const [appsEnabledPref] = useSyncedPreferences<boolean>('zetora-apps-enabled', true);
+  const [swarmEnabledPref] = useSyncedPreferences<boolean>('zetora-swarm-enabled', true);
+  const [connectorsEnabledPref] = useSyncedPreferences<boolean>('zetora-connectors-enabled', true);
+  const [canvasEnabledPref] = useSyncedPreferences<boolean>('zetora-canvas-enabled', true);
+  const [agentEnabledPref] = useSyncedPreferences<boolean>('zetora-agent-enabled', true);
+  const mcpEnabled = mcpEnvEnabled && appsEnabledPref;
+  const canvasEnabled = canvasEnvEnabled && canvasEnabledPref;
   const formQueryClient = useQueryClient();
   const isMounted = useRef(true);
   const isCompositionActive = useRef(false);
@@ -361,8 +370,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
     [],
   );
   const isSourceEnabled = useCallback(
-    (id: string) =>
-      isGloballyEnabled(id) && (sessionEnabledSources.length === 0 || sessionEnabledSources.includes(id)),
+    (id: string) => isGloballyEnabled(id) && (sessionEnabledSources.length === 0 || sessionEnabledSources.includes(id)),
     [isGloballyEnabled, sessionEnabledSources],
   );
   const toggleSource = useCallback(
@@ -434,7 +442,9 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const modeGroups = useMemo(() => {
     // Extreme is retired as a selectable mode (folded into the always-on
     // extreme_search tool + the "Extreme Search" skill) — no longer offered here.
-    const modeIds = new Set(['multi-agent', 'connectors']);
+    const modeIds = new Set<string>();
+    if (swarmEnabledPref) modeIds.add('multi-agent');
+    if (connectorsEnabledPref) modeIds.add('connectors');
     if (canvasEnabled) modeIds.add('canvas');
     if (mcpEnabled) modeIds.add('mcp');
     const filtered = dynamicSearchGroups.filter((group) => {
@@ -444,7 +454,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
     });
     const order = ['connectors', 'mcp', 'multi-agent', 'canvas'];
     return filtered.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
-  }, [dynamicSearchGroups, canvasEnabled, mcpEnabled, user]);
+  }, [dynamicSearchGroups, canvasEnabled, mcpEnabled, swarmEnabledPref, connectorsEnabledPref, user]);
 
   useEffect(() => {
     if (!setIsMultiAgentModeEnabled) return;
@@ -461,12 +471,35 @@ const FormComponent: React.FC<FormComponentProps> = ({
   // replaced single-purpose modes (e.g. a returning user whose selectedGroup
   // is still 'web' or 'reddit' from before this migration) — anything that
   // isn't one of the four remaining exclusive special modes falls back to
-  // the base Sources+Skills path ('auto').
+  // the base Sources+Skills path ('auto'). Also covers a mode the user just
+  // hid via Preferences > Tools while it was active — it shouldn't stay
+  // selected once its shortcut has disappeared from the + menu.
   useEffect(() => {
     if (!extensionModesReady) return;
-    if (BASE_VALID_SPECIAL_MODES.has(selectedGroup) || extensionModeUIs.some((d) => d.id === selectedGroup)) return;
-    setSelectedGroup('auto');
-  }, [selectedGroup, setSelectedGroup, extensionModesReady, extensionModeUIs]);
+    const isKnownMode =
+      BASE_VALID_SPECIAL_MODES.has(selectedGroup) || extensionModeUIs.some((d) => d.id === selectedGroup);
+    if (!isKnownMode) {
+      setSelectedGroup('auto');
+      return;
+    }
+    const isHiddenByPreference =
+      (selectedGroup === 'multi-agent' && !swarmEnabledPref) ||
+      (selectedGroup === 'connectors' && !connectorsEnabledPref) ||
+      (selectedGroup === 'canvas' && !canvasEnabled) ||
+      (selectedGroup === 'mcp' && !mcpEnabled) ||
+      ((selectedGroup as string) === 'agent' && !agentEnabledPref);
+    if (isHiddenByPreference) setSelectedGroup('auto');
+  }, [
+    selectedGroup,
+    setSelectedGroup,
+    extensionModesReady,
+    extensionModeUIs,
+    swarmEnabledPref,
+    connectorsEnabledPref,
+    canvasEnabled,
+    mcpEnabled,
+    agentEnabledPref,
+  ]);
 
   // Active group list based on which trigger is open
   const triggerBaseGroups = triggerPopup === '/' ? modeGroups : sourceGroups;
@@ -2232,9 +2265,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                           >
                             <AgentNetworkIcon width={16} height={16} />
                           </div>
-                          <span className="flex-1 text-[13px] font-medium text-foreground truncate">
-                            Swarm mode
-                          </span>
+                          <span className="flex-1 text-[13px] font-medium text-foreground truncate">Swarm mode</span>
                           {isMultiAgentModeEnabled && (
                             <div className="flex items-center gap-1.5 shrink-0">
                               <span className="text-[10px] font-medium text-primary/70">Active</span>
@@ -2454,7 +2485,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                             <span className="flex-1 text-[13px]">Upload files or images</span>
                           </button>
 
-                          {user && setIsMultiAgentModeEnabled && (
+                          {user && setIsMultiAgentModeEnabled && swarmEnabledPref && (
                             <button
                               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors"
                               onClick={() => {
@@ -2493,7 +2524,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                               )}
                             </button>
                           )}
-                          {user && (
+                          {user && connectorsEnabledPref && (
                             <button
                               className={cn(
                                 'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors',
@@ -2539,6 +2570,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                           )}
                           {extensionModeUIs.map((descriptor) => {
                             if (descriptor.requireAuth && !user) return null;
+                            if (descriptor.id === 'agent' && !agentEnabledPref) return null;
                             const isActive = selectedGroup === descriptor.id;
                             return (
                               <button
@@ -2694,7 +2726,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                           </TooltipContent>
                         </Tooltip>
 
-                        {user && setIsMultiAgentModeEnabled && (
+                        {user && setIsMultiAgentModeEnabled && swarmEnabledPref && (
                           <Tooltip delayDuration={200}>
                             <TooltipTrigger asChild>
                               <button
@@ -2752,7 +2784,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                             </TooltipContent>
                           </Tooltip>
                         )}
-                        {user && (
+                        {user && connectorsEnabledPref && (
                           <Tooltip delayDuration={200}>
                             <TooltipTrigger asChild>
                               <button
@@ -2814,6 +2846,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                         )}
                         {extensionModeUIs.map((descriptor) => {
                           if (descriptor.requireAuth && !user) return null;
+                          if (descriptor.id === 'agent' && !agentEnabledPref) return null;
                           const isActive = selectedGroup === descriptor.id;
                           return (
                             <Tooltip key={descriptor.id} delayDuration={200}>
@@ -2825,7 +2858,12 @@ const FormComponent: React.FC<FormComponentProps> = ({
                                   )}
                                   onClick={() => handleSpecialModeToggle(descriptor.id)}
                                 >
-                                  <FlexibleIcon icon={descriptor.icon} size={16} color="currentColor" strokeWidth={1.5} />
+                                  <FlexibleIcon
+                                    icon={descriptor.icon}
+                                    size={16}
+                                    color="currentColor"
+                                    strokeWidth={1.5}
+                                  />
                                   <span className="flex-1 text-[13px]">{descriptor.name}</span>
                                   {isActive && (
                                     <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
@@ -3069,7 +3107,11 @@ const FormComponent: React.FC<FormComponentProps> = ({
                           if (!isEnhancing && !isTypewriting) handleEnhance();
                         }}
                         disabled={
-                          input.length === 0 || isEnhancing || isTypewriting || uploadQueue.length > 0 || status !== 'ready'
+                          input.length === 0 ||
+                          isEnhancing ||
+                          isTypewriting ||
+                          uploadQueue.length > 0 ||
+                          status !== 'ready'
                         }
                       >
                         {isEnhancementActive ? (
