@@ -102,7 +102,10 @@ export type PreferenceKey =
   | 'zetora-image-edit-prompt-presets'
   | 'zetora-voice-s2s-backend'
   | 'zetora-tertiary-voice-model'
-  | 'zetora-tertiary-voice-provider';
+  | 'zetora-tertiary-voice-provider'
+  | 'zetora-memory-curator-enabled'
+  | 'zetora-tertiary-memory-curator-model'
+  | 'zetora-tertiary-memory-curator-provider';
 
 type AutoRouterConfig = {
   routes: Array<{

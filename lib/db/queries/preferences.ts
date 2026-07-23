@@ -153,6 +153,9 @@ export async function upsertUserPreferences({
     'zetora-voice-s2s-backend'?: 'cloud' | 'local';
     'zetora-tertiary-voice-model'?: string;
     'zetora-tertiary-voice-provider'?: string;
+    'zetora-memory-curator-enabled'?: boolean;
+    'zetora-tertiary-memory-curator-model'?: string;
+    'zetora-tertiary-memory-curator-provider'?: string;
     'zetora-image-gen-custom-provider-id'?: string;
     'zetora-image-gen-model'?: string;
     'zetora-image-gen-request-body'?: string;

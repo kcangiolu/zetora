@@ -339,6 +339,9 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-voice-s2s-backend'?: 'cloud' | 'local';
       'zetora-tertiary-voice-model'?: string;
       'zetora-tertiary-voice-provider'?: string;
+      'zetora-memory-curator-enabled'?: boolean;
+      'zetora-tertiary-memory-curator-model'?: string;
+      'zetora-tertiary-memory-curator-provider'?: string;
     }>()
     .notNull()
     .default({}),

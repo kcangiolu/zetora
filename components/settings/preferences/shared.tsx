@@ -197,7 +197,8 @@ type TertiaryModelPrefKey =
   | 'zetora-tertiary-lang-detect-model'
   | 'zetora-tertiary-extreme-planner-model'
   | 'zetora-tertiary-extreme-agent-model'
-  | 'zetora-tertiary-voice-model';
+  | 'zetora-tertiary-voice-model'
+  | 'zetora-tertiary-memory-curator-model';
 
 type TertiaryProviderPrefKey =
   | 'zetora-default-provider'
@@ -211,7 +212,8 @@ type TertiaryProviderPrefKey =
   | 'zetora-tertiary-lang-detect-provider'
   | 'zetora-tertiary-extreme-planner-provider'
   | 'zetora-tertiary-extreme-agent-provider'
-  | 'zetora-tertiary-voice-provider';
+  | 'zetora-tertiary-voice-provider'
+  | 'zetora-tertiary-memory-curator-provider';
 
 export function TertiaryModelRow({
   modelKey,

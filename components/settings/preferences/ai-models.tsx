@@ -534,6 +534,15 @@ export function AiModelsTab({
               additionalModels={customModelsList}
               user={user}
             />
+            <TertiaryModelRow
+              modelKey="zetora-tertiary-memory-curator-model"
+              providerKey="zetora-tertiary-memory-curator-provider"
+              label="Memory Curator"
+              description="Reviews finished chats and decides what to save to memory"
+              defaultModelLabel="Grok 4.1 Fast"
+              additionalModels={customModelsList}
+              user={user}
+            />
           </div>
         </div>
       </div>
