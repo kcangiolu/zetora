@@ -109,11 +109,11 @@ export async function POST(req: Request) {
   // base tool set for a turn. Any other/legacy `group` value (old single-
   // purpose modes, 'auto', or absent) falls through to the base Sources+
   // Skills path.
-  const SPECIAL_MODE_IDS = new Set(['memory', 'connectors', 'mcp', 'multi-agent', 'buddy', 'canvas']);
+  const SPECIAL_MODE_IDS = new Set(['connectors', 'mcp', 'multi-agent', 'canvas']);
   // Extension-registered modes (lib/search/extension-modes.ts) are exclusive
   // in the same sense as the hardcoded ids above — populated by loadExtensions()
   // at boot (instrumentation.ts), empty when no overlay is checked out.
-  const specialMode: SpecialModeId | 'buddy' | string | undefined =
+  const specialMode: SpecialModeId | string | undefined =
     typeof group === 'string' && (SPECIAL_MODE_IDS.has(group) || (await getExtensionModeIds()).includes(group))
       ? group
       : undefined;

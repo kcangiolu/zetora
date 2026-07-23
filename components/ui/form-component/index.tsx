@@ -170,7 +170,7 @@ const SOURCE_CATALOG_IDS = [
 
 // Extension-registered modes (lib/extension-modes-client.ts) are added to
 // this set at runtime once loaded — see extensionModeUIs below.
-const BASE_VALID_SPECIAL_MODES = new Set<string>(['auto', 'memory', 'connectors', 'mcp', 'multi-agent', 'canvas']);
+const BASE_VALID_SPECIAL_MODES = new Set<string>(['auto', 'connectors', 'mcp', 'multi-agent', 'canvas']);
 
 const FormComponent: React.FC<FormComponentProps> = ({
   chatId,
@@ -434,7 +434,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const modeGroups = useMemo(() => {
     // Extreme is retired as a selectable mode (folded into the always-on
     // extreme_search tool + the "Extreme Search" skill) — no longer offered here.
-    const modeIds = new Set(['multi-agent', 'memory', 'connectors']);
+    const modeIds = new Set(['multi-agent', 'connectors']);
     if (canvasEnabled) modeIds.add('canvas');
     if (mcpEnabled) modeIds.add('mcp');
     const filtered = dynamicSearchGroups.filter((group) => {
@@ -442,7 +442,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
       if ('requireAuth' in group && group.requireAuth && !user) return false;
       return modeIds.has(group.id);
     });
-    const order = ['memory', 'connectors', 'mcp', 'multi-agent', 'canvas'];
+    const order = ['connectors', 'mcp', 'multi-agent', 'canvas'];
     return filtered.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
   }, [dynamicSearchGroups, canvasEnabled, mcpEnabled, user]);
 
@@ -460,7 +460,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
   // One-time cleanup for stale localStorage values from before Sources/Skills
   // replaced single-purpose modes (e.g. a returning user whose selectedGroup
   // is still 'web' or 'reddit' from before this migration) — anything that
-  // isn't one of the five remaining exclusive special modes falls back to
+  // isn't one of the four remaining exclusive special modes falls back to
   // the base Sources+Skills path ('auto').
   useEffect(() => {
     if (!extensionModesReady) return;
@@ -2497,28 +2497,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
                             <button
                               className={cn(
                                 'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors',
-                                selectedGroup === 'memory' && 'bg-accent',
-                              )}
-                              onClick={() => handleSpecialModeToggle('memory')}
-                            >
-                              <FlexibleIcon
-                                icon={dynamicSearchGroups.find((g) => g.id === 'memory')!.icon}
-                                size={16}
-                                color="currentColor"
-                                strokeWidth={1.5}
-                              />
-                              <span className="flex-1 text-[13px]">Memory</span>
-                              {selectedGroup === 'memory' && (
-                                <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                  Active
-                                </span>
-                              )}
-                            </button>
-                          )}
-                          {user && (
-                            <button
-                              className={cn(
-                                'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors',
                                 selectedGroup === 'connectors' && 'bg-accent',
                               )}
                               onClick={() => handleSpecialModeToggle('connectors')}
@@ -2771,35 +2749,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
                             </TooltipTrigger>
                             <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
                               <span className="text-[10px] leading-snug">Use tools from your connected apps</span>
-                            </TooltipContent>
-                          </Tooltip>
-                        )}
-                        {user && (
-                          <Tooltip delayDuration={200}>
-                            <TooltipTrigger asChild>
-                              <button
-                                className={cn(
-                                  'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors',
-                                  selectedGroup === 'memory' && 'bg-accent',
-                                )}
-                                onClick={() => handleSpecialModeToggle('memory')}
-                              >
-                                <FlexibleIcon
-                                  icon={dynamicSearchGroups.find((g) => g.id === 'memory')!.icon}
-                                  size={16}
-                                  color="currentColor"
-                                  strokeWidth={1.5}
-                                />
-                                <span className="flex-1 text-[13px]">Memory</span>
-                                {selectedGroup === 'memory' && (
-                                  <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                    Active
-                                  </span>
-                                )}
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
-                              <span className="text-[10px] leading-snug">Recall and save personal context</span>
                             </TooltipContent>
                           </Tooltip>
                         )}

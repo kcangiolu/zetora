@@ -260,7 +260,6 @@ export const userPreferences = pgTable('user_preferences', {
         | 'stocks'
         | 'chat'
         | 'extreme'
-        | 'memory'
         | 'crypto'
         | 'code'
         | 'connectors'

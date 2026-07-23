@@ -3,7 +3,6 @@ import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import {
   GlobalSearchIcon,
-  Database02Icon,
   AtomicPowerIcon,
   Bitcoin02Icon,
   MicroscopeIcon,
@@ -51,7 +50,6 @@ export type SearchGroupId =
   | 'stocks'
   | 'chat'
   | 'extreme'
-  | 'memory'
   | 'crypto'
   | 'code'
   | 'connectors'
@@ -84,7 +82,7 @@ export type SkillId =
 // of layering on top of it. Every other former "mode" (web, code, academic,
 // extreme, ...) is now an always-on Source/Skill filtered by user
 // preference rather than something picked before sending a message.
-export type SpecialModeId = 'memory' | 'connectors' | 'mcp' | 'multi-agent' | 'canvas';
+export type SpecialModeId = 'connectors' | 'mcp' | 'multi-agent' | 'canvas';
 
 // Search provider information for dynamic descriptions
 const searchProviderInfo = {
@@ -184,14 +182,6 @@ export function getSearchGroups(searchProvider: SearchProvider = 'exa') {
       name: 'Extreme',
       description: 'Deep research with multiple sources and analysis',
       icon: AtomicPowerIcon,
-      show: true,
-      requireAuth: true,
-    },
-    {
-      id: 'memory' as const,
-      name: 'Memory',
-      description: 'Your personal memory companion',
-      icon: Database02Icon,
       show: true,
       requireAuth: true,
     },

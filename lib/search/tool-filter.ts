@@ -9,7 +9,7 @@ export function filterActiveTools({
   sessionEnabledSources,
 }: {
   tools: readonly string[];
-  specialMode: SpecialModeId | 'buddy' | string | undefined;
+  specialMode: SpecialModeId | string | undefined;
   preferences: Record<string, unknown> | undefined;
   sessionEnabledSources: unknown;
 }): string[] {

@@ -23,7 +23,6 @@ import {
   MessageSquare,
   Bitcoin,
   Plug,
-  Database,
   Headphones,
   ChartNoAxesCombined,
 } from 'lucide-react';
@@ -257,9 +256,7 @@ export default function AboutPage() {
   const { data: githubStars, isLoading: isLoadingStars } = useGitHubStars();
   const visibleGroups = useMemo(
     () =>
-      getSearchGroups('parallel').filter(
-        (g) => g.show && !['extreme', 'connectors', 'memory'].includes(g.id as string),
-      ),
+      getSearchGroups('parallel').filter((g) => g.show && !['extreme', 'connectors'].includes(g.id as string)),
     [],
   );
   const [selectedGroup, setSelectedGroup] = useState<string>(visibleGroups[0]?.id || 'web');
@@ -289,7 +286,6 @@ export default function AboutPage() {
     { icon: Music, name: 'YouTube', description: 'Video summaries, transcripts, and analysis' },
     { icon: Headphones, name: 'Spotify', description: 'Search songs, artists, and albums' },
     { icon: Plug, name: 'Connectors', description: 'Search Google Drive, Notion & OneDrive' },
-    { icon: Database, name: 'Memory', description: 'Your personal memory companion' },
     { icon: Mic, name: 'Voice', description: 'Conversational AI with real-time voice' },
     { icon: FileText, name: 'XQL', description: 'Advanced X query language for tweet analysis' },
   ];

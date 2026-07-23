@@ -16,7 +16,7 @@ afterAll(() => vi.useRealTimers());
 describe('getGroupConfig', () => {
   // Snapshots guard the split of group-config.ts into per-group files:
   // identical output before/after proves iso-functionality.
-  it.each(['canvas', 'memory', 'multi-agent'] as const)(
+  it.each(['canvas', 'connectors', 'multi-agent'] as const)(
     'returns stable tools+instructions for %s',
     async (group) => {
       const config = await getGroupConfig(group);

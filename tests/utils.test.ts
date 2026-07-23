@@ -48,7 +48,7 @@ describe('getSearchGroups', () => {
 
   it('always includes the core groups', () => {
     const ids = getSearchGroups().map((g) => g.id);
-    expect(ids).toEqual(expect.arrayContaining(['web', 'chat', 'x', 'extreme', 'memory']));
+    expect(ids).toEqual(expect.arrayContaining(['web', 'chat', 'x', 'extreme']));
   });
 });
 

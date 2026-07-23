@@ -4,31 +4,23 @@ import type { SpecialModeId } from '@/lib/utils';
 import { getExtensionMode } from './extension-modes';
 
 import * as autoGroup from './groups/auto';
-import * as memoryGroup from './groups/memory';
 import * as connectorsGroup from './groups/connectors';
 import * as mcpGroup from './groups/mcp';
 import * as multi_agentGroup from './groups/multi-agent';
-import * as buddyGroup from './groups/buddy';
 import * as canvasGroup from './groups/canvas';
-
-// Legacy hardcoded modes, plus (as a plain string) any id an extension
-// registered at boot via registerExtensionMode (lib/search/extension-modes.ts).
-type LegacySpecialModeId = SpecialModeId | 'buddy';
 
 // Sources (web, code, academic, reddit, ...) are no longer individual
 // "groups" the model is exclusively restricted to — they're always-on tools
 // filtered by the zetora-enabled-sources preference (see getBaseConfig
-// below and app/api/search/route.ts). Only these five modes still fully
+// below and app/api/search/route.ts). Only these four modes still fully
 // replace the base tool set for a turn: they read from raw external
-// systems (memory store, connectors, user MCP apps, xAI's own search) or
-// change the whole response pipeline (canvas), so "run this one thing
-// exclusively" remains the right model.
+// systems (connectors, user MCP apps, xAI's own search) or change the whole
+// response pipeline (canvas), so "run this one thing exclusively" remains
+// the right model.
 const specialGroups = {
-  memory: memoryGroup,
   connectors: connectorsGroup,
   mcp: mcpGroup,
   'multi-agent': multi_agentGroup,
-  buddy: buddyGroup,
   canvas: canvasGroup,
 };
 
@@ -52,7 +44,7 @@ export function getBaseConfig() {
 // Login is required upstream (lib/search/access-gate.ts) before this is ever
 // called, so lightweightUser is always set here — every connected account
 // gets every mode, no Pro/Max gate left to check.
-export async function getGroupConfig(specialMode: LegacySpecialModeId | string | undefined) {
+export async function getGroupConfig(specialMode: SpecialModeId | string | undefined) {
   if (!specialMode) {
     return getBaseConfig();
   }
@@ -66,7 +58,7 @@ export async function getGroupConfig(specialMode: LegacySpecialModeId | string |
     return getBaseConfig();
   }
 
-  const resolvedMode = specialMode as LegacySpecialModeId;
+  const resolvedMode = specialMode as keyof typeof specialGroups;
 
   return {
     tools: specialGroupTools[resolvedMode],

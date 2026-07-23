@@ -27,7 +27,7 @@ describe('getStreamTextStaticSettings', () => {
       (
         await getStreamTextStaticSettings({
           ...base,
-          specialMode: 'memory',
+          specialMode: 'connectors',
           model: 'custom-llamacpp:qwen3.6',
           isXmlParsedCustomModel: true,
         })

@@ -14,7 +14,7 @@ export async function getStreamTextStaticSettings({
   isXmlParsedCustomModel,
 }: {
   model: string;
-  specialMode: SpecialModeId | 'buddy' | string | undefined;
+  specialMode: SpecialModeId | string | undefined;
   shouldUseXaiMultiAgent: boolean;
   isXmlParsedCustomModel: boolean;
 }): Promise<{
