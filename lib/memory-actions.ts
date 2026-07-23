@@ -5,7 +5,10 @@ import { serverEnv } from '@/env/server';
 import { Supermemory } from 'supermemory';
 import { graphitiClient } from '@/lib/graphiti/client';
 import { getUserPreferencesByUserId } from '@/lib/db/queries';
-import { deanonymizeText } from '@/lib/anonymizer/pseudonymize';
+import { deanonymizeText, anonymizeToolInput } from '@/lib/anonymizer/pseudonymize';
+import { getAnonymizeContext } from '@/ai/providers';
+import { createGraphitiMemoryTools } from '@/lib/tools/graphiti-memory';
+import { createMemoryTools } from '@/lib/tools/supermemory';
 
 import { createLogger } from '@/lib/logger';
 
@@ -43,13 +46,18 @@ export interface MemoryResponse {
   total: number;
 }
 
-async function getMemoryProvider(userId: string): Promise<'supermemory' | 'graphiti'> {
+async function getPreferences(userId: string): Promise<Record<string, unknown>> {
   try {
     const prefs = await getUserPreferencesByUserId({ userId });
-    return (prefs?.preferences?.['zetora-memory-provider'] as 'supermemory' | 'graphiti') || 'supermemory';
+    return (prefs?.preferences ?? {}) as Record<string, unknown>;
   } catch {
-    return 'supermemory';
+    return {};
   }
+}
+
+async function getMemoryProvider(userId: string): Promise<'supermemory' | 'graphiti'> {
+  const preferences = await getPreferences(userId);
+  return (preferences['zetora-memory-provider'] as 'supermemory' | 'graphiti') || 'supermemory';
 }
 
 // SuperMemory content can hold anonymization tokens (see lib/tools/supermemory.ts) —
@@ -154,6 +162,80 @@ export async function deleteMemory(memoryId: string) {
     return data;
   } catch (error) {
     log.error('Error deleting memory:', error);
+    throw error;
+  }
+}
+
+// Manual add from the Memories settings tab — reuses the exact same
+// add_memory tool factories the chat LLM and the background curator use, so
+// SuperMemory anonymization wrapping stays in one place.
+export async function addMemoryManual(content: string): Promise<{ success: boolean }> {
+  const user = await getUser();
+  if (!user) throw new Error('Authentication required');
+
+  const memory = content.trim();
+  if (!memory) throw new Error('Memory content is required');
+
+  const provider = await getMemoryProvider(user.id);
+
+  if (provider === 'graphiti') {
+    const { addMemoryTool } = createGraphitiMemoryTools(user.id);
+    const result = (await addMemoryTool.execute!({ memory }, {} as never)) as {
+      success: boolean;
+      error?: string;
+    };
+    if (!result.success) throw new Error(result.error ?? 'Failed to add memory');
+    return { success: true };
+  }
+
+  const preferences = await getPreferences(user.id);
+  const anonymizeContext = await getAnonymizeContext('zetora-manual', preferences, user.id);
+  const { addMemory } = createMemoryTools(user.id, anonymizeContext);
+  const result = (await addMemory.execute!({ memory }, {} as never)) as { success: boolean; error?: string };
+  if (!result.success) throw new Error(result.error ?? 'Failed to add memory');
+  return { success: true };
+}
+
+// Edits an existing memory. SuperMemory supports a real in-place PATCH.
+// Graphiti has no update endpoint — graphiti_core.remove_episode() does a
+// real cascade cleanup of the edges/nodes solely derived from that episode
+// (see /episodes/{uuid} DELETE), so an edit there is a clean delete followed
+// by a fresh add, not a raw text swap.
+export async function updateMemory(memoryId: string, content: string): Promise<{ success: boolean }> {
+  const user = await getUser();
+  if (!user) throw new Error('Authentication required');
+
+  const memory = content.trim();
+  if (!memory) throw new Error('Memory content is required');
+
+  const provider = await getMemoryProvider(user.id);
+
+  if (provider === 'graphiti') {
+    try {
+      await graphitiClient.deleteEpisode(memoryId);
+      const { addMemoryTool } = createGraphitiMemoryTools(user.id);
+      const result = (await addMemoryTool.execute!({ memory }, {} as never)) as {
+        success: boolean;
+        error?: string;
+      };
+      if (!result.success) throw new Error(result.error ?? 'Failed to update memory');
+      return { success: true };
+    } catch (error) {
+      log.error('Error updating Graphiti memory:', error);
+      throw error;
+    }
+  }
+
+  try {
+    const preferences = await getPreferences(user.id);
+    const anonymizeContext = await getAnonymizeContext('zetora-manual', preferences, user.id);
+    const masked = anonymizeContext
+      ? ((await anonymizeToolInput({ memory }, anonymizeContext)) as { memory: string }).memory
+      : memory;
+    await supermemoryClient.documents.update(memoryId, { content: masked });
+    return { success: true };
+  } catch (error) {
+    log.error('Error updating memory:', error);
     throw error;
   }
 }
