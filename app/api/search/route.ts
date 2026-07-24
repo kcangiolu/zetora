@@ -100,6 +100,7 @@ export async function POST(req: Request) {
     searchProvider,
     selectedConnectors,
     sessionEnabledSources,
+    extensionSettings,
     isTemporaryChat,
     isAutoRouted,
     autoRouterEnabled,
@@ -489,6 +490,7 @@ export async function POST(req: Request) {
         const resolved = await resolveDynamicTools({
           userId: lightweightUser.userId,
           dataStream,
+          extensionSettings,
         });
         Object.assign(mcpDynamicTools, resolved.tools);
         dynamicToolNames = [...dynamicToolNames, ...resolved.toolNames];

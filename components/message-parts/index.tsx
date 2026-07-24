@@ -23,6 +23,7 @@ import {
   DataExtremeSearchPart,
 } from '@/lib/types';
 import { SPEC_DATA_PART_TYPE } from '@json-render/core';
+import { useDynamicToolRenderer, hasDynamicToolRenderer } from '@/components/dynamic-tool-renderer';
 import { useSpeech } from '@/hooks/use-speech';
 import { extractSpeakableText } from '@/lib/speakable-text';
 import { UseChatHelpers } from '@ai-sdk/react';
@@ -224,6 +225,9 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
     annotations,
   }) => {
     const { dataStream } = useDataStream();
+    const registeredDynamicToolRenderer = useDynamicToolRenderer(
+      part.type === 'dynamic-tool' ? (part as { toolName?: string }).toolName ?? '' : '',
+    );
     const [isRegenerating, setIsRegenerating] = useState(false);
     const [isBranchingOut, setIsBranchingOut] = useState(false);
     const [isDeletingMessage, setIsDeletingMessage] = useState(false);
@@ -1310,9 +1314,22 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
     }
 
     if (part.type === 'dynamic-tool') {
+      // A registered renderer (components/dynamic-tool-renderer.tsx) always
+      // wins over the generic MCP timeline / dynamic-tool grouping below —
+      // e.g. the agent overlay's propose_plan/ask_user tools render as an
+      // inline proposal/question card, never as a raw tool-call chip.
+      if (registeredDynamicToolRenderer) {
+        const RegisteredRenderer = registeredDynamicToolRenderer;
+        return <RegisteredRenderer part={part as any} sendMessage={sendMessage} />;
+      }
+
       const mcpDynamicToolIndices = parts
         .map((messagePart, index) =>
-          messagePart.type === 'dynamic-tool' && (messagePart as any).toolName?.startsWith('mcp_') ? index : -1,
+          messagePart.type === 'dynamic-tool' &&
+          (messagePart as any).toolName?.startsWith('mcp_') &&
+          !hasDynamicToolRenderer((messagePart as any).toolName)
+            ? index
+            : -1,
         )
         .filter((index) => index >= 0);
 
@@ -1479,14 +1496,23 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
         }
       }
 
-      const firstDynamicToolIndex = parts.findIndex((messagePart) => messagePart.type === 'dynamic-tool');
+      // Parts with a registered renderer already returned above (for
+      // themselves) — exclude them here too, so they don't get swept into
+      // this generic grouping's "first index wins" / stepper logic when
+      // some OTHER unregistered dynamic-tool part in the same message is
+      // being rendered.
+      const isUngroupedDynamicTool = (messagePart: unknown) =>
+        (messagePart as { type?: string }).type === 'dynamic-tool' &&
+        !hasDynamicToolRenderer((messagePart as { toolName?: string }).toolName ?? '');
+
+      const firstDynamicToolIndex = parts.findIndex(isUngroupedDynamicTool);
       if (partIndex !== firstDynamicToolIndex) {
         return null;
       }
 
       const dynamicSequenceEntries = parts
         .map((messagePart, index) =>
-          messagePart.type === 'dynamic-tool'
+          isUngroupedDynamicTool(messagePart)
             ? {
                 kind: 'tool' as const,
                 part: messagePart,

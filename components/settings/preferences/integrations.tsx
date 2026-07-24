@@ -1,6 +1,7 @@
 'use client';
 
 import type { SettingsUser } from '../shared';
+import { ExtensionSlot } from '@/components/extension-slot';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -354,6 +355,11 @@ export function IntegrationsTab({
             <Switch id="agent-enabled" checked={agentEnabled} onCheckedChange={setAgentEnabled} />
           </div>
         </div>
+
+        {/* An extension may render its own per-connector settings here (e.g.
+            the agent overlay's off/read-only/full toggles, C4) — nothing
+            renders when no overlay is checked out. */}
+        <ExtensionSlot name="settings-connectors" />
 
         {/* Graphiti Services */}
         <div className="rounded-xl border border-border/60 mt-4 overflow-hidden">

@@ -59,6 +59,7 @@ import { useWebHaptics } from 'web-haptics/react';
 import { ModelSwitcher, FlexibleIcon } from './model-switcher';
 import { ReasoningEffortToggle } from './reasoning-effort-toggle';
 import type { ReasoningEffort } from '@/lib/reasoning-effort-types';
+import { ExtensionSlot } from '@/components/extension-slot';
 import {
   getExtensionModeUIs,
   subscribeExtensionModeUIs,
@@ -3093,6 +3094,12 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
                   {/* Inline MCP server selector when MCP mode is active */}
                   {selectedGroup === 'mcp' && <McpServerSelector user={user} />}
+
+                  {/* An extension may render its own inline toolbar control here,
+                      scoped to the currently selected mode (e.g. the agent
+                      overlay's per-connector off/read-only/full picker,
+                      C4) — nothing renders when no overlay is checked out. */}
+                  <ExtensionSlot name="form-toolbar" groupId={selectedGroup} />
                 </div>
 
                 {/* Right: Enhance, Model selector, voice/send */}

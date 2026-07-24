@@ -40,6 +40,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { deleteChat, updateChatTitle } from '@/app/actions';
+import { getExtensionRequestSettings } from '@/lib/extension-modes-client';
 import { ButtonGroup } from '@/components/ui/button-group';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
@@ -610,6 +611,7 @@ const ChatInterface = memo(
               extremeSearchProvider: extremeSearchProviderRef.current,
               selectedConnectors: selectedConnectorsRef.current,
               sessionEnabledSources: sessionEnabledSourcesRef.current,
+              extensionSettings: getExtensionRequestSettings(),
               isTemporaryChat: isTemporaryChatRef.current,
               ...(initialChatId ? { chat_id: initialChatId } : {}),
               ...body,

@@ -25,6 +25,7 @@ export type PreferenceKey =
   | 'zetora-visible-modes'
   | 'zetora-enabled-sources'
   | 'zetora-disabled-skills'
+  | 'zetora-extension-connectors'
   | 'zetora-default-group'
   | 'zetora-sandbox-provider'
   | 'zetora-extreme-content-provider'
@@ -144,6 +145,7 @@ type PreferenceValue =
   | AutoRouterConfig
   | GraphitiProvider[]
   | ImageGenPromptPreset[]
+  | Record<string, string>
   | undefined;
 
 const DEBOUNCE_MS = 300; // Debounce DB writes by 300ms

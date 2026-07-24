@@ -249,6 +249,13 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-enabled-sources'?: string[];
       /** Skill ids explicitly turned off; empty/absent = all enabled. */
       'zetora-disabled-skills'?: string[];
+      /**
+       * Opaque per-extension connector modes (C4) — e.g. the agent overlay's
+       * off/read-only/full per-infra-server toggles. Keys and values are
+       * meaningless to the core; only the registering extension interprets
+       * them (agent/connector-modes.ts).
+       */
+      'zetora-extension-connectors'?: Record<string, string>;
       'zetora-default-group'?:
         | 'auto'
         | 'web'

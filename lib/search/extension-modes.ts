@@ -21,6 +21,13 @@ export interface ExtensionModeServerConfig {
   resolveDynamicTools?: (ctx: {
     userId: string;
     dataStream: UIMessageStreamWriter<ChatMessage>;
+    // Opaque per-request blob a client-side extension provider may attach to
+    // the chat request body (registerExtensionRequestSettings,
+    // lib/extension-modes-client.ts — e.g. the agent overlay's per-connector
+    // session overrides, C4). The core never inspects this; same
+    // "can only restrict, never widen" contract as sessionEnabledSources
+    // (lib/search/tool-filter.ts).
+    extensionSettings?: unknown;
   }) => Promise<{ tools: Record<string, unknown>; toolNames: string[]; closeAll: () => Promise<void> }>;
   // Hard step bound for this mode's streamText loop — defaults applied by
   // the caller (getStreamTextStaticSettings) when unset.
