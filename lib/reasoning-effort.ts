@@ -4,8 +4,7 @@ import { getModelConfig, getModelProvider } from '@/ai/models';
 import { parseCustomModelId, type CustomProviderConfig, type CustomBackendKind } from '@/lib/custom-providers';
 import type { ReasoningEffort, ReasoningCapability } from '@/lib/reasoning-effort-types';
 
-export type { ReasoningEffort, ReasoningCapability, CustomBackendKind };
-export { REASONING_EFFORT_LEVELS } from '@/lib/reasoning-effort-types';
+export type { ReasoningEffort, ReasoningCapability };
 
 type EffortTier = Exclude<ReasoningEffort, 'auto'>;
 
