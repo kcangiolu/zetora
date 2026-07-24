@@ -227,6 +227,7 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-extreme-content-provider'?: 'exa-firecrawl' | 'searxng-fastcrw' | 'notte-only';
       'zetora-tertiary-extreme-agent-model'?: string;
       'zetora-tertiary-extreme-agent-provider'?: string;
+      'zetora-tertiary-extreme-agent-effort'?: 'auto' | 'low' | 'medium' | 'high' | 'off';
       'zetora-group-order'?: string[];
       'zetora-model-order-global'?: string[];
       'zetora-blur-personal-info'?: boolean;
@@ -275,6 +276,7 @@ export const userPreferences = pgTable('user_preferences', {
         apiKey?: string;
         disableAutoDetect?: boolean;
         anonymize?: boolean;
+        backendKind?: 'ollama' | 'vllm' | 'llamacpp' | 'unknown';
       }>;
       'zetora-anonymization-enabled'?: boolean;
       'zetora-anonymization-custom-terms'?: string[];
@@ -290,24 +292,34 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-rerank-enabled'?: boolean;
       'zetora-tertiary-chat-title-model'?: string;
       'zetora-tertiary-chat-title-provider'?: string;
+      'zetora-tertiary-chat-title-effort'?: 'auto' | 'low' | 'medium' | 'high' | 'off';
       'zetora-tertiary-followup-model'?: string;
       'zetora-tertiary-followup-provider'?: string;
+      'zetora-tertiary-followup-effort'?: 'auto' | 'low' | 'medium' | 'high' | 'off';
       'zetora-tertiary-enhance-model'?: string;
       'zetora-tertiary-enhance-provider'?: string;
+      'zetora-tertiary-enhance-effort'?: 'auto' | 'low' | 'medium' | 'high' | 'off';
       'zetora-tertiary-tool-repair-model'?: string;
       'zetora-tertiary-tool-repair-provider'?: string;
+      'zetora-tertiary-tool-repair-effort'?: 'auto' | 'low' | 'medium' | 'high' | 'off';
       'zetora-tertiary-auto-router-model'?: string;
       'zetora-tertiary-auto-router-provider'?: string;
+      'zetora-tertiary-auto-router-effort'?: 'auto' | 'low' | 'medium' | 'high' | 'off';
       'zetora-tertiary-translate-text-model'?: string;
       'zetora-tertiary-translate-text-provider'?: string;
+      'zetora-tertiary-translate-text-effort'?: 'auto' | 'low' | 'medium' | 'high' | 'off';
       'zetora-tertiary-translate-vision-model'?: string;
       'zetora-tertiary-translate-vision-provider'?: string;
+      'zetora-tertiary-translate-vision-effort'?: 'auto' | 'low' | 'medium' | 'high' | 'off';
       'zetora-tertiary-lang-detect-model'?: string;
       'zetora-tertiary-lang-detect-provider'?: string;
+      'zetora-tertiary-lang-detect-effort'?: 'auto' | 'low' | 'medium' | 'high' | 'off';
       'zetora-tertiary-extreme-planner-model'?: string;
       'zetora-tertiary-extreme-planner-provider'?: string;
+      'zetora-tertiary-extreme-planner-effort'?: 'auto' | 'low' | 'medium' | 'high' | 'off';
       'zetora-default-model'?: string;
       'zetora-default-provider'?: string;
+      'zetora-default-effort'?: 'auto' | 'low' | 'medium' | 'high' | 'off';
       'zetora-lockout-provider'?: 'qstash' | 'bullmq';
       'zetora-memory-provider'?: 'supermemory' | 'graphiti';
       'zetora-graphiti-llm-model'?: string;
@@ -339,9 +351,11 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-voice-s2s-backend'?: 'cloud' | 'local';
       'zetora-tertiary-voice-model'?: string;
       'zetora-tertiary-voice-provider'?: string;
+      'zetora-tertiary-voice-effort'?: 'auto' | 'low' | 'medium' | 'high' | 'off';
       'zetora-memory-curator-enabled'?: boolean;
       'zetora-tertiary-memory-curator-model'?: string;
       'zetora-tertiary-memory-curator-provider'?: string;
+      'zetora-tertiary-memory-curator-effort'?: 'auto' | 'low' | 'medium' | 'high' | 'off';
     }>()
     .notNull()
     .default({}),

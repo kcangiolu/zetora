@@ -6,6 +6,12 @@ import { OpenAIResponsesProviderOptions } from '@ai-sdk/openai';
 import { AnthropicProviderOptions } from '@ai-sdk/anthropic';
 import { GoogleGenerativeAIProviderOptions, GoogleLanguageModelOptions } from '@ai-sdk/google';
 import { CohereChatModelOptions } from '@ai-sdk/cohere';
+import {
+  type ReasoningEffort,
+  OPENAI_STYLE_EFFORT_MAP,
+  ANTHROPIC_BUDGET_TOKENS_MAP,
+  GOOGLE_THINKING_BUDGET_MAP,
+} from '@/lib/reasoning-effort';
 
 export async function getStreamTextStaticSettings({
   model,
@@ -68,7 +74,11 @@ export async function getStreamTextStaticSettings({
   };
 }
 
-export function getSearchProviderOptions(model: string, shouldUseXaiMultiAgent: boolean) {
+export function getSearchProviderOptions(
+  model: string,
+  shouldUseXaiMultiAgent: boolean,
+  effort: ReasoningEffort = 'auto',
+) {
   return {
     gateway: {
       only: [
@@ -164,17 +174,19 @@ export function getSearchProviderOptions(model: string, shouldUseXaiMultiAgent: 
       model === 'zetora-gpt-5.3-codex'
         ? {
             reasoningEffort:
-              model === 'zetora-gpt5-nano' || model === 'zetora-gpt5' || model === 'zetora-gpt5-mini'
-                ? 'minimal'
-                : model === 'zetora-gpt-5.2-thinking-xhigh' || model === 'zetora-gpt-5.4-thinking-xhigh'
-                  ? 'xhigh'
-                  : model === 'zetora-gpt-5.1' ||
-                      model === 'zetora-gpt-5.2' ||
-                      model === 'zetora-gpt-5.4' ||
-                      model === 'zetora-gpt-5.4-mini' ||
-                      model === 'zetora-gpt-5.4-nano'
-                    ? 'none'
-                    : 'medium',
+              effort !== 'auto'
+                ? OPENAI_STYLE_EFFORT_MAP[effort]
+                : model === 'zetora-gpt5-nano' || model === 'zetora-gpt5' || model === 'zetora-gpt5-mini'
+                  ? 'minimal'
+                  : model === 'zetora-gpt-5.2-thinking-xhigh' || model === 'zetora-gpt-5.4-thinking-xhigh'
+                    ? 'xhigh'
+                    : model === 'zetora-gpt-5.1' ||
+                        model === 'zetora-gpt-5.2' ||
+                        model === 'zetora-gpt-5.4' ||
+                        model === 'zetora-gpt-5.4-mini' ||
+                        model === 'zetora-gpt-5.4-nano'
+                      ? 'none'
+                      : 'medium',
             parallelToolCalls:
               model === 'zetora-gpt-5.2-thinking-xhigh' || model === 'zetora-gpt-5.4-thinking-xhigh' ? true : false,
             reasoningSummary: 'detailed',
@@ -256,13 +268,13 @@ export function getSearchProviderOptions(model: string, shouldUseXaiMultiAgent: 
     groq: {
       ...(model === 'zetora-gpt-oss-20' || model === 'zetora-gpt-oss-120'
         ? {
-            reasoningEffort: 'high',
+            reasoningEffort: effort !== 'auto' ? OPENAI_STYLE_EFFORT_MAP[effort] : 'high',
             reasoningFormat: 'hidden',
           }
         : {}),
       ...(model === 'zetora-qwen-32b'
         ? {
-            reasoningEffort: 'none',
+            reasoningEffort: effort !== 'auto' ? OPENAI_STYLE_EFFORT_MAP[effort] : 'none',
           }
         : {}),
       parallelToolCalls: false,
@@ -312,22 +324,34 @@ export function getSearchProviderOptions(model: string, shouldUseXaiMultiAgent: 
     },
     anthropic: {
       ...(model === 'zetora-anthropic-think' || model === 'zetora-anthropic-opus-think'
-        ? {
-            sendReasoning: true,
-            thinking: {
-              type: 'enabled',
-              budgetTokens: 4000,
-            },
-          }
+        ? effort !== 'auto' && effort !== 'off'
+          ? {
+              sendReasoning: true,
+              thinking: {
+                type: 'enabled' as const,
+                budgetTokens: ANTHROPIC_BUDGET_TOKENS_MAP[effort],
+              },
+            }
+          : effort === 'off'
+            ? { thinking: { type: 'disabled' as const } }
+            : {
+                sendReasoning: true,
+                thinking: {
+                  type: 'enabled' as const,
+                  budgetTokens: 4000,
+                },
+              }
         : {}),
       ...(model === 'zetora-anthropic-sonnet-4.6-think' || model === 'zetora-anthropic-opus-4.6-think'
-        ? {
-            sendReasoning: true,
-            thinking: {
-              type: 'adaptive' as const,
-            },
-            effort: 'medium' as const,
-          }
+        ? effort === 'off'
+          ? { thinking: { type: 'disabled' as const } }
+          : {
+              sendReasoning: true,
+              thinking: {
+                type: 'adaptive' as const,
+              },
+              effort: effort !== 'auto' ? effort : ('medium' as const),
+            }
         : {}),
       disableParallelToolUse: true,
     } satisfies AnthropicProviderOptions,
@@ -335,20 +359,27 @@ export function getSearchProviderOptions(model: string, shouldUseXaiMultiAgent: 
       ...(model === 'zetora-google-think' || model === 'zetora-google-pro-think'
         ? {
             thinkingConfig: {
-              thinkingBudget: 400,
-              includeThoughts: true,
+              thinkingBudget: effort !== 'auto' ? GOOGLE_THINKING_BUDGET_MAP[effort] : 400,
+              includeThoughts: effort !== 'off',
             },
           }
         : {}),
       ...(model === 'zetora-gemini-3-flash-think' ||
       model === 'zetora-gemini-3.1-pro' ||
       model === 'zetora-gemini-3.1-flash-lite-think'
-        ? {
-            thinkingConfig: {
-              thinkingLevel: 'medium',
-              includeThoughts: true,
-            },
-          }
+        ? effort !== 'auto'
+          ? {
+              thinkingConfig: {
+                thinkingBudget: GOOGLE_THINKING_BUDGET_MAP[effort],
+                includeThoughts: effort !== 'off',
+              },
+            }
+          : {
+              thinkingConfig: {
+                thinkingLevel: 'medium',
+                includeThoughts: true,
+              },
+            }
         : {}),
       threshold: 'OFF',
     } satisfies GoogleGenerativeAIProviderOptions,
@@ -356,12 +387,19 @@ export function getSearchProviderOptions(model: string, shouldUseXaiMultiAgent: 
       ...(model === 'zetora-gemini-3-flash-think' ||
       model === 'zetora-gemini-3.1-pro' ||
       model === 'zetora-gemini-3.1-flash-lite-think'
-        ? {
-            thinkingConfig: {
-              thinkingLevel: 'medium',
-              includeThoughts: true,
-            },
-          }
+        ? effort !== 'auto'
+          ? {
+              thinkingConfig: {
+                thinkingBudget: GOOGLE_THINKING_BUDGET_MAP[effort],
+                includeThoughts: effort !== 'off',
+              },
+            }
+          : {
+              thinkingConfig: {
+                thinkingLevel: 'medium',
+                includeThoughts: true,
+              },
+            }
         : {}),
       threshold: 'OFF',
     } satisfies GoogleLanguageModelOptions,

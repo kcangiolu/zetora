@@ -1,17 +1,41 @@
 import 'server-only';
-import { wrapLanguageModel, extractReasoningMiddleware } from 'ai';
+import { wrapLanguageModel, type LanguageModelMiddleware } from 'ai';
 import { dynamicXmlToolMiddleware } from '@/ai/xml-tool-middleware';
 import { zetora, resolveModel } from '@/ai/providers';
+import { getCustomProviders } from '@/lib/custom-providers';
+import {
+  type ReasoningEffort,
+  getCustomReasoningOverrides,
+  getZetoraReasoningOverrides,
+  reasoningMaskMiddleware,
+} from '@/lib/reasoning-effort';
 
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('tertiary');
 
-// Custom (e.g. Ollama) reasoning models aren't wrapped with this at the
-// provider level the way built-in reasoning models are (main chat has a UI
-// for <think> content) — but a spoken response must never include it, so
-// voice strips it unconditionally regardless of which model answers.
-const voiceReasoningMiddleware = extractReasoningMiddleware({ tagName: 'think' });
+// Merges a reasoning-effort providerOptions override into whatever the
+// caller's own generateText/streamText call passes, per provider key — so a
+// caller's other providerOptions (e.g. chat-title's textVerbosity/store)
+// survive untouched.
+function createReasoningOptionsMiddleware(overrides: Record<string, unknown>): LanguageModelMiddleware {
+  return {
+    specificationVersion: 'v3',
+    transformParams: async ({ params }) => {
+      const merged: Record<string, unknown> = { ...(params.providerOptions ?? {}) };
+      for (const [providerKey, providerOverride] of Object.entries(overrides)) {
+        merged[providerKey] = {
+          ...(merged[providerKey] as Record<string, unknown> | undefined),
+          ...(providerOverride as Record<string, unknown>),
+        };
+      }
+      // The override values are plain JSON-serializable literals (strings,
+      // numbers, booleans, nested objects) — merged's index signature is just
+      // too loose (`unknown`) for SharedV3ProviderOptions' JSONObject values.
+      return { ...params, providerOptions: merged } as typeof params;
+    },
+  };
+}
 
 export type TertiaryTask =
   | 'default'
@@ -45,6 +69,33 @@ const TASK_DEFAULTS: Record<TertiaryTask, string> = {
   // calling (search_memories/add_memory), not a fast summarizer model.
   'memory-curator': 'zetora-default',
 };
+
+// Recommended default reasoning effort per task, shown in Settings and used
+// whenever the user hasn't overridden a task's effort preference. Fast,
+// deterministic background tasks (title, follow-up questions, voice — the
+// latter already unconditionally strips <think> above) default to 'off';
+// tasks that benefit from actual reasoning (extreme search, memory curation,
+// tool repair) default to 'auto' (untouched provider behavior).
+const TASK_RECOMMENDED_EFFORT: Record<TertiaryTask, ReasoningEffort> = {
+  default: 'auto',
+  'chat-title': 'off',
+  followup: 'off',
+  enhance: 'auto',
+  'tool-repair': 'auto',
+  'auto-router': 'auto',
+  'translate-text': 'auto',
+  'translate-vision': 'auto',
+  'lang-detect': 'auto',
+  'extreme-planner': 'auto',
+  'extreme-agent': 'auto',
+  voice: 'off',
+  'memory-curator': 'auto',
+};
+
+// Mirrors the `zetora-tertiary-<task>-model`/`-provider` naming above.
+function effortPrefKey(task: TertiaryTask): string {
+  return task === 'default' ? 'zetora-default-effort' : `zetora-tertiary-${task}-effort`;
+}
 
 const PREF_KEYS: Record<TertiaryTask, { model: string; provider: string }> = {
   default: { model: 'zetora-default-model', provider: 'zetora-default-provider' },
@@ -84,6 +135,7 @@ export async function resolveTertiaryModel(
   const isCustomModel = customModel?.startsWith('custom-');
 
   let resolved: ReturnType<typeof zetora.languageModel> | undefined;
+  let effectiveModelId = TASK_DEFAULTS[task];
   if (customModel) {
     try {
       // resolveModel handles both native zetora-* IDs and custom-{providerId}-{name}
@@ -92,6 +144,7 @@ export async function resolveTertiaryModel(
       resolved = (await resolveModel(customModel, preferences as Record<string, unknown> | null, userId)) as ReturnType<
         typeof zetora.languageModel
       >;
+      effectiveModelId = customModel;
     } catch {
       log.warn(`[Tertiary] Failed to load model ${customModel}, using default`);
     }
@@ -99,6 +152,7 @@ export async function resolveTertiaryModel(
 
   if (!resolved) {
     resolved = zetora.languageModel(TASK_DEFAULTS[task]);
+    effectiveModelId = TASK_DEFAULTS[task];
 
     const prefs = preferences as Record<string, unknown> | null;
     const xmlParsingEnabled = prefs?.['zetora-xml-tool-parsing-enabled'] === true;
@@ -120,8 +174,35 @@ export async function resolveTertiaryModel(
     }
   }
 
-  if (task === 'voice') {
-    resolved = wrapLanguageModel({ model: resolved, middleware: voiceReasoningMiddleware });
+  const effort = (preferences?.[effortPrefKey(task)] as ReasoningEffort | undefined) ?? TASK_RECOMMENDED_EFFORT[task];
+
+  let applyMaskMiddleware = false;
+
+  if (effectiveModelId.startsWith('custom-')) {
+    const customProviders = await getCustomProviders(userId);
+    const overrides = getCustomReasoningOverrides(effectiveModelId, effort, customProviders);
+    applyMaskMiddleware = overrides.applyMaskMiddleware;
+    if (Object.keys(overrides.providerOptions).length > 0) {
+      resolved = wrapLanguageModel({
+        model: resolved,
+        middleware: createReasoningOptionsMiddleware(overrides.providerOptions),
+      });
+    }
+  } else {
+    const { providerOptions } = getZetoraReasoningOverrides(effectiveModelId, effort);
+    if (Object.keys(providerOptions).length > 0) {
+      resolved = wrapLanguageModel({ model: resolved, middleware: createReasoningOptionsMiddleware(providerOptions) });
+    }
+  }
+
+  // Voice always strips <think> regardless of model/backend — a spoken
+  // response must never include it (main chat has a UI for it, voice
+  // doesn't). Every other mask-only custom model gets it whenever the
+  // resolved effort says "off" — this is what protects tasks like
+  // `followup` (no other guard) from a local reasoning model's hidden
+  // <think> output silently eating the whole output budget.
+  if (applyMaskMiddleware || task === 'voice') {
+    resolved = wrapLanguageModel({ model: resolved, middleware: reasoningMaskMiddleware });
   }
 
   return resolved;

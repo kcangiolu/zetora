@@ -10,6 +10,8 @@ import { getModelProvider, type Model } from '@/ai/models';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ReasoningEffortToggle } from '@/components/ui/form-component/reasoning-effort-toggle';
+import type { ReasoningEffort } from '@/lib/reasoning-effort-types';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { GlobalSearchIcon, Rocket01Icon } from '@hugeicons/core-free-icons';
 import { Loader2, Search, CheckCircle2, XCircle, Mail } from 'lucide-react';
@@ -121,6 +123,8 @@ export const emailProviders = [
   { value: 'smtp', label: 'SMTP' },
 ] as const;
 
+export type CustomBackendKind = 'ollama' | 'vllm' | 'llamacpp' | 'unknown';
+
 export type CustomProviderConfig = {
   id: string;
   name: string;
@@ -131,6 +135,10 @@ export type CustomProviderConfig = {
   hasApiKey?: boolean;
   disableAutoDetect?: boolean;
   anonymize?: boolean;
+  // Detected inference server kind, set once via the "Detect Models" probe.
+  // Governs whether the reasoning-effort toggle can send a real control
+  // parameter ('vllm'/'llamacpp') or can only hide the <think> output.
+  backendKind?: CustomBackendKind;
 };
 
 // Resolves a 'custom-<provider>-<model>' picker id back to its provider entry.
@@ -218,6 +226,8 @@ type TertiaryProviderPrefKey =
 export function TertiaryModelRow({
   modelKey,
   providerKey,
+  effortKey,
+  recommendedEffort = 'auto',
   label,
   description,
   defaultModelLabel,
@@ -226,6 +236,8 @@ export function TertiaryModelRow({
 }: {
   modelKey: TertiaryModelPrefKey;
   providerKey: TertiaryProviderPrefKey;
+  effortKey: PreferenceKey;
+  recommendedEffort?: ReasoningEffort;
   label: string;
   description: string;
   defaultModelLabel: string;
@@ -234,6 +246,7 @@ export function TertiaryModelRow({
 }) {
   const [model, setModel] = useSyncedPreferences<string>(modelKey as PreferenceKey, '');
   const [, setProvider] = useSyncedPreferences<string>(providerKey as PreferenceKey, '');
+  const [effort, setEffort] = useSyncedPreferences<ReasoningEffort>(effortKey, recommendedEffort);
 
   const handleSelect = (modelValue: string) => {
     setModel(modelValue);
@@ -264,6 +277,17 @@ export function TertiaryModelRow({
           className="w-[180px] h-8"
           compact
         />
+        {/* Capability for the system default model isn't known here (no
+            model id, just a display label) — only show once the user has
+            picked a specific model for this task. */}
+        {model && (
+          <ReasoningEffortToggle
+            selectedModel={model}
+            value={effort ?? recommendedEffort}
+            onChange={setEffort}
+            customModels={additionalModels}
+          />
+        )}
         {model && (
           <Button
             type="button"

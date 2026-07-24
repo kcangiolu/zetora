@@ -1,4 +1,6 @@
 // Pure model catalog types — client-safe, no server imports.
+import type { ReasoningCapability } from '@/lib/reasoning-effort-types';
+
 export interface ModelParameters {
   temperature?: number;
   topP?: number;
@@ -86,4 +88,11 @@ export interface Model {
   provider?: ModelProvider; // Optional - will be derived if not specified
   customProviderId?: string; // Identifies which custom provider this model came from
   customProviderName?: string;
+  // Whether the reasoning-effort toggle can send this model a real control
+  // parameter ('full'), can only hide its <think> output ('mask-only'), or
+  // should be hidden entirely (undefined/null — model doesn't reason).
+  // Built-in models rely on the static `reasoning` flag above instead;
+  // this is populated for custom provider models (see
+  // app/api/custom-providers/models/route.ts).
+  reasoningControl?: ReasoningCapability;
 }

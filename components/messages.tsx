@@ -10,6 +10,19 @@ import { Attachment, ChatMessage, CustomUIDataTypes } from '@/lib/types';
 import { UseChatHelpers } from '@ai-sdk/react';
 import { ComprehensiveUserData } from '@/lib/user-data-server';
 import { cn } from '@/lib/utils';
+
+// react-virtuoso logs "Zero-sized element, this should not happen" at its
+// hardcoded max log level (ERROR) whenever a row measures 0px on its first
+// layout pass — which is exactly what a just-appended, not-yet-streamed
+// assistant message row legitimately does before its first token arrives.
+// It's not a real bug (the row gets remeasured and grows once content
+// streams in) and ERROR is already virtuoso's default/ceiling level, so
+// there's no less-noisy `logLevel` prop value to opt into instead — this
+// global is virtuoso's own documented-in-source escape hatch for it.
+if (typeof window !== 'undefined') {
+  (window as unknown as { VIRTUOSO_LOG_LEVEL?: number }).VIRTUOSO_LOG_LEVEL = 4;
+}
+
 // Define interface for part, messageIndex and partIndex objects
 interface PartInfo {
   part: any;

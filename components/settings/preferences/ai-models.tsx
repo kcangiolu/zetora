@@ -11,15 +11,23 @@ import { type Model } from '@/ai/models';
 import { sileo } from 'sileo';
 import { useQueryClient } from '@tanstack/react-query';
 import { TrashIcon, FloppyDiskIcon } from '@phosphor-icons/react';
-import { X, Loader2, Zap, ZapOff, Plus, Shield, ShieldOff } from 'lucide-react';
+import { X, Loader2, Zap, ZapOff, Plus, Shield, ShieldOff, RefreshCw } from 'lucide-react';
 import { useState, useCallback, type Dispatch, type SetStateAction } from 'react';
 import {
   type CustomProviderConfig,
+  type CustomBackendKind,
   type AutoRouterRoute,
   type AutoRouterConfig,
   getDefaultAutoRouterRoutes,
   TertiaryModelRow,
 } from './shared';
+
+const BACKEND_KIND_LABEL: Record<CustomBackendKind, string> = {
+  llamacpp: 'llama.cpp',
+  vllm: 'vLLM',
+  ollama: 'Ollama',
+  unknown: 'Unknown backend',
+};
 
 export function AiModelsTab({
   user,
@@ -48,7 +56,9 @@ export function AiModelsTab({
   const [newProvider, setNewProvider] = useState({ name: '', baseURL: '', apiKey: '' });
   const [detectingModels, setDetectingModels] = useState(false);
   const [detectedModels, setDetectedModels] = useState<string[]>([]);
+  const [detectedBackendKind, setDetectedBackendKind] = useState<CustomBackendKind | null>(null);
   const [isSavingProvider, setIsSavingProvider] = useState(false);
+  const [redetectingBackendId, setRedetectingBackendId] = useState<string | null>(null);
 
   const handleDetectModels = async () => {
     if (!newProvider.baseURL) return;
@@ -61,6 +71,7 @@ export function AiModelsTab({
       });
       const data = await res.json();
       setDetectedModels(data.models || []);
+      setDetectedBackendKind(data.backendKind ?? null);
     } catch (e) {
       sileo.error({ title: 'Detection failed', description: String(e) });
     } finally {
@@ -76,7 +87,10 @@ export function AiModelsTab({
     setIsSavingProvider(true);
     try {
       const id = newProvider.name.toLowerCase().replace(/\s+/g, '-');
-      const updated = [...customProviders.filter((p) => p.id !== id), { id, ...newProvider }];
+      const updated = [
+        ...customProviders.filter((p) => p.id !== id),
+        { id, ...newProvider, backendKind: detectedBackendKind ?? undefined },
+      ];
       const res = await fetch('/api/custom-providers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -86,6 +100,7 @@ export function AiModelsTab({
       setCustomProviders(updated);
       setNewProvider({ name: '', baseURL: '', apiKey: '' });
       setDetectedModels([]);
+      setDetectedBackendKind(null);
       setShowCustomProviderForm(false);
       queryClient.invalidateQueries({ queryKey: ['customModels'] });
       sileo.success({ title: 'Provider saved', description: newProvider.name });
@@ -93,6 +108,32 @@ export function AiModelsTab({
       sileo.error({ title: 'Failed to save provider', description: String(e) });
     } finally {
       setIsSavingProvider(false);
+    }
+  };
+
+  const handleRedetectBackend = async (provider: CustomProviderConfig) => {
+    setRedetectingBackendId(provider.id);
+    try {
+      const res = await fetch('/api/custom-providers/detect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ baseURL: provider.baseURL, apiKey: provider.apiKey || undefined }),
+      });
+      const data = await res.json();
+      const updated = customProviders.map((p) =>
+        p.id === provider.id ? { ...p, backendKind: (data.backendKind as CustomBackendKind) ?? 'unknown' } : p,
+      );
+      await fetch('/api/custom-providers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ providers: updated }),
+      });
+      setCustomProviders(updated);
+      queryClient.invalidateQueries({ queryKey: ['customModels'] });
+    } catch (e) {
+      sileo.error({ title: 'Backend detection failed', description: String(e) });
+    } finally {
+      setRedetectingBackendId(null);
     }
   };
 
@@ -296,9 +337,34 @@ export function AiModelsTab({
                     <div className="min-w-0">
                       <p className="text-xs font-medium truncate">{p.name}</p>
                       <p className="text-[11px] text-muted-foreground/60 truncate">{p.baseURL}</p>
+                      <p
+                        className="text-[10px] text-muted-foreground/50 truncate"
+                        title={
+                          p.backendKind === 'vllm' || p.backendKind === 'llamacpp'
+                            ? 'Reasoning-effort toggle sends real control parameters to this backend'
+                            : "Backend doesn't support reasoning-effort control — the toggle can only hide thinking output"
+                        }
+                      >
+                        {p.backendKind ? BACKEND_KIND_LABEL[p.backendKind] : 'Backend not detected'}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                      title="Re-detect backend kind (Ollama / vLLM / llama.cpp)"
+                      disabled={redetectingBackendId === p.id}
+                      onClick={() => handleRedetectBackend(p)}
+                    >
+                      {redetectingBackendId === p.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-3 w-3" />
+                      )}
+                    </Button>
                     <Button
                       type="button"
                       variant="ghost"
@@ -399,6 +465,11 @@ export function AiModelsTab({
                   <span className="font-medium">Detected:</span> {detectedModels.join(', ')}
                 </p>
               )}
+              {detectedBackendKind && (
+                <p className="text-[11px] text-muted-foreground">
+                  <span className="font-medium">Backend:</span> {BACKEND_KIND_LABEL[detectedBackendKind]}
+                </p>
+              )}
             </div>
           )}
 
@@ -429,6 +500,8 @@ export function AiModelsTab({
             <TertiaryModelRow
               modelKey="zetora-default-model"
               providerKey="zetora-default-provider"
+              effortKey="zetora-default-effort"
+              recommendedEffort="auto"
               label="Default Model"
               description="Fallback model used by Lookout and other tasks"
               defaultModelLabel="Grok 4.1 Fast"
@@ -438,6 +511,8 @@ export function AiModelsTab({
             <TertiaryModelRow
               modelKey="zetora-tertiary-chat-title-model"
               providerKey="zetora-tertiary-chat-title-provider"
+              effortKey="zetora-tertiary-chat-title-effort"
+              recommendedEffort="off"
               label="Chat Title"
               description="Generates titles for new chats"
               defaultModelLabel="Gemini 3.1 Flash Lite"
@@ -447,6 +522,8 @@ export function AiModelsTab({
             <TertiaryModelRow
               modelKey="zetora-tertiary-followup-model"
               providerKey="zetora-tertiary-followup-provider"
+              effortKey="zetora-tertiary-followup-effort"
+              recommendedEffort="off"
               label="Follow-up Questions"
               description="Generates questions after each response"
               defaultModelLabel="Gemini 3.1 Flash Lite"
@@ -456,6 +533,8 @@ export function AiModelsTab({
             <TertiaryModelRow
               modelKey="zetora-tertiary-enhance-model"
               providerKey="zetora-tertiary-enhance-provider"
+              effortKey="zetora-tertiary-enhance-effort"
+              recommendedEffort="auto"
               label="Prompt Enhancement"
               description="Rewrites prompts (Enhance button)"
               defaultModelLabel="Kimi K2"
@@ -465,6 +544,8 @@ export function AiModelsTab({
             <TertiaryModelRow
               modelKey="zetora-tertiary-tool-repair-model"
               providerKey="zetora-tertiary-tool-repair-provider"
+              effortKey="zetora-tertiary-tool-repair-effort"
+              recommendedEffort="auto"
               label="Tool Call Repair"
               description="Fixes malformed tool call arguments"
               defaultModelLabel="Grok 4.1 Fast"
@@ -474,6 +555,8 @@ export function AiModelsTab({
             <TertiaryModelRow
               modelKey="zetora-tertiary-auto-router-model"
               providerKey="zetora-tertiary-auto-router-provider"
+              effortKey="zetora-tertiary-auto-router-effort"
+              recommendedEffort="auto"
               label="Auto Router"
               description="Classifies queries for model routing"
               defaultModelLabel="Arch-Router 1.5B"
@@ -483,6 +566,8 @@ export function AiModelsTab({
             <TertiaryModelRow
               modelKey="zetora-tertiary-translate-text-model"
               providerKey="zetora-tertiary-translate-text-provider"
+              effortKey="zetora-tertiary-translate-text-effort"
+              recommendedEffort="auto"
               label="Text Translation"
               description="Translates text between languages"
               defaultModelLabel="Gemini 3 Flash"
@@ -492,6 +577,8 @@ export function AiModelsTab({
             <TertiaryModelRow
               modelKey="zetora-tertiary-translate-vision-model"
               providerKey="zetora-tertiary-translate-vision-provider"
+              effortKey="zetora-tertiary-translate-vision-effort"
+              recommendedEffort="auto"
               label="Vision Translation"
               description="Extracts and translates text from images"
               defaultModelLabel="Gemini 3 Flash"
@@ -501,6 +588,8 @@ export function AiModelsTab({
             <TertiaryModelRow
               modelKey="zetora-tertiary-lang-detect-model"
               providerKey="zetora-tertiary-lang-detect-provider"
+              effortKey="zetora-tertiary-lang-detect-effort"
+              recommendedEffort="auto"
               label="Language Detection"
               description="Detects language of input text"
               defaultModelLabel="Grok 4.1 Fast"
@@ -510,6 +599,8 @@ export function AiModelsTab({
             <TertiaryModelRow
               modelKey="zetora-tertiary-extreme-planner-model"
               providerKey="zetora-tertiary-extreme-planner-provider"
+              effortKey="zetora-tertiary-extreme-planner-effort"
+              recommendedEffort="auto"
               label="Extreme Search Planner"
               description="Generates research plans in Extreme mode"
               defaultModelLabel="Grok 4.1 Fast (Reasoning)"
@@ -519,6 +610,8 @@ export function AiModelsTab({
             <TertiaryModelRow
               modelKey="zetora-tertiary-extreme-agent-model"
               providerKey="zetora-tertiary-extreme-agent-provider"
+              effortKey="zetora-tertiary-extreme-agent-effort"
+              recommendedEffort="auto"
               label="Extreme Search Agent"
               description="Executes the autonomous research loop"
               defaultModelLabel="Grok 4.1 Fast (Reasoning)"
@@ -528,6 +621,8 @@ export function AiModelsTab({
             <TertiaryModelRow
               modelKey="zetora-tertiary-voice-model"
               providerKey="zetora-tertiary-voice-provider"
+              effortKey="zetora-tertiary-voice-effort"
+              recommendedEffort="off"
               label="Voice (Local Backend)"
               description="LLM used by the local speech-to-speech backend"
               defaultModelLabel="Grok 4.1 Fast"
@@ -537,6 +632,8 @@ export function AiModelsTab({
             <TertiaryModelRow
               modelKey="zetora-tertiary-memory-curator-model"
               providerKey="zetora-tertiary-memory-curator-provider"
+              effortKey="zetora-tertiary-memory-curator-effort"
+              recommendedEffort="auto"
               label="Memory Curator"
               description="Reviews finished chats and decides what to save to memory"
               defaultModelLabel="Grok 4.1 Fast"

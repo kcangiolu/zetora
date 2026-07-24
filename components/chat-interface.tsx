@@ -63,6 +63,7 @@ import {
 // Hook imports
 import { useAutoResume } from '@/hooks/use-auto-resume';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import type { ReasoningEffort } from '@/lib/reasoning-effort-types';
 import { useUser } from '@/contexts/user-context';
 import { useOptimizedScroll } from '@/hooks/use-optimized-scroll';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
@@ -162,6 +163,10 @@ const ChatInterface = memo(
     }, [pathname, localChatTitle, headerMenuOpen, measureHeaderMenuAlignment]);
 
     const [selectedModel, setSelectedModel] = useLocalStorage('zetora-selected-model', 'zetora-default');
+    // Session-scoped like selectedModel, not a synced DB preference (the
+    // per-task recommended defaults live in Settings instead — see
+    // ai/tertiary.ts's TASK_RECOMMENDED_EFFORT for the tertiary equivalent).
+    const [reasoningEffort, setReasoningEffort] = useLocalStorage<ReasoningEffort>('zetora-reasoning-effort', 'auto');
     // Whether images are injected into the model's context (vs. hosted +
     // handed to it as a URL only). Defaults from the model's catalog `vision`
     // flag; custom providers aren't in the catalog so hasVisionSupport
@@ -530,6 +535,7 @@ const ChatInterface = memo(
 
     // Create refs to store current values to avoid closure issues
     const selectedModelRef = useRef(effectiveSelectedModel);
+    const reasoningEffortRef = useRef(reasoningEffort);
     const visionEnabledRef = useRef(visionEnabled);
     const selectedGroupRef = useRef(effectiveSelectedGroup);
     const isCustomInstructionsEnabledRef = useRef(isCustomInstructionsEnabled);
@@ -543,6 +549,7 @@ const ChatInterface = memo(
 
     // Update refs whenever state changes - this ensures we always have current values
     selectedModelRef.current = effectiveSelectedModel;
+    reasoningEffortRef.current = reasoningEffort;
     visionEnabledRef.current = visionEnabled;
     selectedGroupRef.current = effectiveSelectedGroup;
     isCustomInstructionsEnabledRef.current = isCustomInstructionsEnabled;
@@ -591,6 +598,7 @@ const ChatInterface = memo(
               id: chatId,
               messages: shouldTrimRequestHistory && latestUserMessage ? [latestUserMessage] : messages,
               model: selectedModelRef.current,
+              reasoningEffort: reasoningEffortRef.current,
               visionEnabled: visionEnabledRef.current,
               group:
                 user && isMultiAgentModeEnabledRef.current
@@ -1534,6 +1542,8 @@ const ChatInterface = memo(
                       sendMessage={sendMessageWithAutoRouting}
                       selectedModel={selectedModel}
                       setSelectedModel={handleModelChange}
+                      reasoningEffort={reasoningEffort}
+                      setReasoningEffort={setReasoningEffort}
                       visionEnabled={visionEnabled}
                       setVisionEnabled={setVisionEnabled}
                       resetSuggestedQuestions={resetSuggestedQuestions}

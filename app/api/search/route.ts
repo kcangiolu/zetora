@@ -15,6 +15,7 @@ import {
   FilePart,
   InferUIMessageChunk,
   AsyncIterableStream,
+  wrapLanguageModel,
 } from 'ai';
 import { pipeJsonRender } from '@json-render/core';
 import { createLogger } from '@/lib/logger';
@@ -54,6 +55,9 @@ import { filterActiveTools, getEnabledSkillIds } from '@/lib/search/tool-filter'
 import { getLightweightUser } from '@/lib/search/server-helpers';
 import { getCachedCustomInstructionsByUserId, getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { resolveTertiaryModel } from '@/ai/tertiary';
+import { getCustomProviders } from '@/lib/custom-providers';
+import { getCustomReasoningOverrides, reasoningMaskMiddleware } from '@/lib/reasoning-effort';
+import type { ReasoningEffort } from '@/lib/reasoning-effort-types';
 import { loadConfiguredTools } from '@/lib/search/tool-loader';
 import { runMemoryCurator } from '@/lib/search/memory-curator';
 import { resolvePrepareStepOverride } from '@/lib/search/prepare-step';
@@ -101,6 +105,7 @@ export async function POST(req: Request) {
     autoRouterEnabled,
     autoRouterConfig,
     visionEnabled,
+    reasoningEffort,
   } = await req.json();
   recordTiming('parse_request_body', opStart);
 
@@ -619,9 +624,30 @@ export async function POST(req: Request) {
         });
       }
 
-      const resolvedModel = shouldUseXaiMultiAgent
+      const VALID_REASONING_EFFORTS = new Set(['auto', 'low', 'medium', 'high', 'off']);
+      const effort: ReasoningEffort = VALID_REASONING_EFFORTS.has(reasoningEffort) ? reasoningEffort : 'auto';
+
+      let resolvedModel = shouldUseXaiMultiAgent
         ? xai.responses('grok-4.20-multi-agent')
         : await resolveModel(model, userPreferencesResult?.preferences ?? {}, lightweightUser?.userId);
+
+      // Custom providers aren't covered by getSearchProviderOptions (that's
+      // zetora-* only) — resolve their reasoning override separately. vLLM/
+      // llama.cpp backends get a real control param merged into providerOptions
+      // below; Ollama/unknown backends can only have their <think> output
+      // hidden after the fact, via middleware.
+      let customReasoningProviderOptions: Record<string, unknown> = {};
+      if (!shouldUseXaiMultiAgent && model.startsWith('custom-') && effort !== 'auto') {
+        const customProviders = await getCustomProviders(lightweightUser?.userId);
+        const overrides = getCustomReasoningOverrides(model, effort, customProviders);
+        customReasoningProviderOptions = overrides.providerOptions;
+        if (overrides.applyMaskMiddleware) {
+          resolvedModel = wrapLanguageModel({
+            model: resolvedModel as Extract<typeof resolvedModel, { specificationVersion: 'v3' }>,
+            middleware: reasoningMaskMiddleware,
+          });
+        }
+      }
       // Custom models parsed via the XML tool middleware need their tool
       // schemas present on every step: the middleware strips native tools into
       // a prompt and relies on the schemas to convert the model's XML back into
@@ -666,7 +692,10 @@ export async function POST(req: Request) {
         toolChoice: 'auto',
         tools: streamTools,
         ...(staticSettings.headers ? { headers: staticSettings.headers } : {}),
-        providerOptions: getSearchProviderOptions(model, shouldUseXaiMultiAgent),
+        providerOptions: {
+          ...getSearchProviderOptions(model, shouldUseXaiMultiAgent, effort),
+          ...customReasoningProviderOptions,
+        },
         experimental_context: (() => {
           // Extract images and files from the last user message's attachments
           const lastUserMessage = [...hydratedMessages].reverse().find((m) => m.role === 'user');

@@ -1,8 +1,9 @@
 import { withAuth } from '@/lib/api/route-handlers';
-import { getCustomModels } from '@/lib/custom-providers';
+import { getCustomModels, getCustomProviders } from '@/lib/custom-providers';
+import { getReasoningCapability } from '@/lib/reasoning-effort';
 
 export const GET = withAuth(async () => {
-  const customModels = await getCustomModels();
+  const [customModels, customProviders] = await Promise.all([getCustomModels(), getCustomProviders()]);
   const models = customModels.map((m) => ({
     value: m.id,
     label: m.label,
@@ -20,6 +21,10 @@ export const GET = withAuth(async () => {
     customProviderId: m.providerId,
     customProviderName: m.providerName,
     isNew: true,
+    // Decoupled from `reasoning` above (which drives the brain badge for
+    // known reasoning models) — this drives which reasoning-effort toggle
+    // the composer shows for this model.
+    reasoningControl: getReasoningCapability(m.id, customProviders),
   }));
 
   return Response.json({ models });

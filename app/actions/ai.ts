@@ -129,7 +129,11 @@ Respond with ONLY the JSON object below, no markdown code fences or extra commen
 }
 `,
       messages: history,
-      maxOutputTokens: 500,
+      // Generous budget: on providers where reasoning can only be masked, not
+      // disabled (see resolveTertiaryModel), a hidden <think> preamble still
+      // consumes real tokens before the JSON — 500 was tight enough that it
+      // could exhaust the budget before any output appeared at all.
+      maxOutputTokens: 2000,
     });
 
     const rawMatch = text.match(/\{[\s\S]*\}/);

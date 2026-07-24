@@ -57,6 +57,8 @@ import { type ConnectorProvider } from '@/lib/connectors';
 import { useQueryClient } from '@tanstack/react-query';
 import { useWebHaptics } from 'web-haptics/react';
 import { ModelSwitcher, FlexibleIcon } from './model-switcher';
+import { ReasoningEffortToggle } from './reasoning-effort-toggle';
+import type { ReasoningEffort } from '@/lib/reasoning-effort-types';
 import {
   getExtensionModeUIs,
   subscribeExtensionModeUIs,
@@ -99,6 +101,8 @@ export interface FormComponentProps {
   sendMessage: UseChatHelpers<ChatMessage>['sendMessage'];
   selectedModel: string;
   setSelectedModel: (value: string) => void;
+  reasoningEffort: ReasoningEffort;
+  setReasoningEffort: (value: ReasoningEffort) => void;
   resetSuggestedQuestions: () => void;
   lastSubmittedQueryRef: React.RefObject<string>;
   selectedGroup: SearchGroupId;
@@ -185,6 +189,8 @@ const FormComponent: React.FC<FormComponentProps> = ({
   stop,
   selectedModel,
   setSelectedModel,
+  reasoningEffort,
+  setReasoningEffort,
   resetSuggestedQuestions,
   lastSubmittedQueryRef,
   selectedGroup,
@@ -3155,6 +3161,12 @@ const FormComponent: React.FC<FormComponentProps> = ({
                       </span>
                     </TooltipContent>
                   </Tooltip>
+
+                  <ReasoningEffortToggle
+                    selectedModel={selectedModel}
+                    value={reasoningEffort}
+                    onChange={setReasoningEffort}
+                  />
 
                   <ModelSwitcher
                     selectedModel={selectedModel}

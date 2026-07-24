@@ -20,7 +20,13 @@ export interface CustomProviderConfig {
   // local endpoint (leave off) or a cloud service (turn on) — unlike
   // built-in providers, this can't be inferred, so the user sets it here.
   anonymize?: boolean;
+  // Detected inference server kind — governs whether the reasoning-effort
+  // toggle can send a real control parameter ('vllm'/'llamacpp') or can only
+  // mask the <think> output ('ollama'/'unknown'). Set by detectBackendKind().
+  backendKind?: CustomBackendKind;
 }
+
+export type CustomBackendKind = 'ollama' | 'vllm' | 'llamacpp' | 'unknown';
 
 export interface CustomModelInfo {
   id: string;
@@ -124,6 +130,71 @@ export async function detectModels(baseURL: string, apiKey?: string): Promise<st
 
   modelsCache.set(cacheKey, { models, expiresAt: Date.now() + MODELS_CACHE_TTL_MS });
   return models;
+}
+
+// In-memory cache for detected backend kinds, keyed by baseURL — same TTL
+// and shape as the model-list cache above.
+const backendKindCache = new Map<string, { kind: CustomBackendKind; expiresAt: number }>();
+
+function deriveRootURL(baseURL: string): string {
+  return baseURL.replace(/\/$/, '').replace(/\/v1$/, '');
+}
+
+// Probes an OpenAI-compatible endpoint's native (non-/v1) routes to guess
+// which server implementation is behind it, so the reasoning-effort toggle
+// knows whether it can send a real control parameter. Best-effort: an
+// endpoint behind a reverse proxy that strips these routes just falls back
+// to 'unknown' (mask-only), never breaks anything.
+export async function detectBackendKind(baseURL: string): Promise<CustomBackendKind> {
+  const cached = backendKindCache.get(baseURL);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.kind;
+  }
+
+  const root = deriveRootURL(baseURL);
+  const kind = await probeBackendKind(root);
+  backendKindCache.set(baseURL, { kind, expiresAt: Date.now() + MODELS_CACHE_TTL_MS });
+  return kind;
+}
+
+async function probeBackendKind(root: string): Promise<CustomBackendKind> {
+  const timeout = (ms: number) => AbortSignal.timeout(ms);
+
+  try {
+    const props = await fetch(`${root}/props`, { signal: timeout(1500) });
+    if (props.ok) {
+      const body = await props.json().catch(() => null);
+      if (body && ('default_generation_settings' in body || 'total_slots' in body)) {
+        return 'llamacpp';
+      }
+    }
+  } catch {
+    // not llama.cpp (or unreachable) — keep probing
+  }
+
+  try {
+    const version = await fetch(`${root}/api/version`, { signal: timeout(1500) });
+    if (version.ok) {
+      const body = await version.json().catch(() => null);
+      if (body && typeof body === 'object' && 'version' in body) {
+        return 'ollama';
+      }
+    }
+  } catch {
+    // not Ollama — keep probing
+  }
+
+  try {
+    const health = await fetch(`${root}/health`, { signal: timeout(1500) });
+    const requestId = health.headers.get('x-request-id');
+    if (requestId && /^[0-9a-f-]{36}$/i.test(requestId)) {
+      return 'vllm';
+    }
+  } catch {
+    // not vLLM (or unreachable)
+  }
+
+  return 'unknown';
 }
 
 export async function getCustomModels(userId?: string): Promise<CustomModelInfo[]> {
