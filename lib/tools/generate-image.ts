@@ -24,7 +24,12 @@ export const generateImageTool = tool({
     'Generate an image from a text prompt using the user-configured image generation provider (Max subscribers only).',
   inputSchema: z.object({
     prompt: z.string().describe('Detailed image generation prompt describing what to create'),
-    size: z.string().optional().describe('Image size, e.g. "1024x1024", "1792x1024", "1216x832"'),
+    size: z
+      .string()
+      .optional()
+      .describe(
+        'Image size as "WIDTHxHEIGHT", freely chosen to match what the user asked for (not limited to a fixed list) — e.g. "1024x1024", "1792x1024", "768x1344".',
+      ),
     seed: z
       .number()
       .int()
@@ -72,7 +77,7 @@ export const generateImageTool = tool({
         method: 'POST',
         headers,
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(120_000),
+        signal: AbortSignal.timeout(300_000),
       });
     } catch (err) {
       return { success: false as const, error: `Could not reach image provider: ${(err as Error).message}` };

@@ -103,7 +103,7 @@ export const editImageTool = tool({
         method: 'POST',
         headers,
         body: formData,
-        signal: AbortSignal.timeout(120_000),
+        signal: AbortSignal.timeout(300_000),
       });
     } catch (err) {
       return { success: false as const, error: `Could not reach image provider: ${(err as Error).message}` };
