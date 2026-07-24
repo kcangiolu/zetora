@@ -60,6 +60,14 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
           throw new Error(`TTS stream failed: ${response.status}`);
         }
 
+        // iOS Safari mutes Web Audio/HTML audio playback when the hardware
+        // silent switch is on, unless the page opts into the 'playback'
+        // audio session type (mirrors native AVAudioSession.Category.playback).
+        // Safari-only, still an Editor's Draft — guard with a feature check.
+        if ('audioSession' in navigator) {
+          (navigator as unknown as { audioSession: { type: string } }).audioSession.type = 'playback';
+        }
+
         const audioContext = new AudioContext({ sampleRate: PCM_SAMPLE_RATE });
         audioContextRef.current = audioContext;
         setIsLoading(false);
