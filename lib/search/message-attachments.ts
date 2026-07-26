@@ -1,4 +1,4 @@
-import { TextPart, ImagePart, FilePart, ModelMessage } from 'ai';
+import { ModelMessage } from 'ai';
 
 export type AttachmentRef = { url: string; contentType: string; name?: string };
 
@@ -14,20 +14,30 @@ export const DOCUMENT_MIME_TYPES = [
 // known document types (file_query_search), images (vision / edit_image),
 // and everything else (decoded as text later). Each category dedupes by URL
 // independently, preserving message order.
+//
+// Images produced by generate_image/edit_image never arrive as a `file`
+// part — the tool result is plain JSON containing an imageUrl — so they're
+// picked up separately here and reported in contextGeneratedImages too.
+// Unlike uploaded images, nothing elsewhere in the message array already
+// carries their bytes/URL as a model content part, so stripFilePartsForModel
+// has nothing to keep for them; the caller must inject a fresh image part
+// (see appendGeneratedImagePartsToLastUserMessage) to make them visible.
 export function collectAttachments(messages: Array<{ parts?: unknown }>): {
   contextFiles: AttachmentRef[];
   contextImages: AttachmentRef[];
+  contextGeneratedImages: AttachmentRef[];
   otherFileParts: AttachmentRef[];
 } {
   const contextFiles: AttachmentRef[] = [];
   const contextImages: AttachmentRef[] = [];
+  const contextGeneratedImages: AttachmentRef[] = [];
   const otherFileParts: AttachmentRef[] = [];
   const seenUrls = new Set<string>();
   const seenImageUrls = new Set<string>();
   const seenOtherUrls = new Set<string>();
 
   for (const msg of messages) {
-    const parts = (msg.parts as (TextPart | ImagePart | FilePart)[]) ?? [];
+    const parts = (msg.parts as any[]) ?? [];
     for (const part of parts) {
       if (part.type === 'file') {
         const filePart = part as any;
@@ -48,11 +58,22 @@ export function collectAttachments(messages: Array<{ parts?: unknown }>): {
           seenOtherUrls.add(url);
           otherFileParts.push({ url, contentType: mediaType, name: filePart.name });
         }
+      } else if (part.type === 'tool-generate_image' || part.type === 'tool-edit_image') {
+        const toolPart = part as any;
+        if (toolPart.state !== 'output-available' || !toolPart.output?.success) continue;
+        const url = toolPart.output.imageUrl || '';
+        if (!url) continue;
+        if (!seenImageUrls.has(url)) {
+          seenImageUrls.add(url);
+          const ref = { url, contentType: 'image/png' };
+          contextImages.push(ref);
+          contextGeneratedImages.push(ref);
+        }
       }
     }
   }
 
-  return { contextFiles, contextImages, otherFileParts };
+  return { contextFiles, contextImages, contextGeneratedImages, otherFileParts };
 }
 
 function documentMime(mediaType: string): boolean {
@@ -78,6 +99,30 @@ export function stripFilePartsForModel(messages: ModelMessage[], visionEnabled: 
     }
     return msg;
   });
+}
+
+// Makes generate_image/edit_image output actually visible to the model.
+// Uploaded images get this for free (their `file` part already carries the
+// bytes/URL; stripFilePartsForModel just decides whether to keep it), but a
+// generated image only ever exists as JSON text in a tool result, so there's
+// no existing image content part to keep — one has to be added. Only call
+// this when Vision is on; the URL-only text instruction from
+// buildImageInstruction is what carries the "treat it as an object" ability
+// (pass the URL to edit_image) in every case, vision on or off.
+export function appendGeneratedImagePartsToLastUserMessage(messages: ModelMessage[], images: AttachmentRef[]): void {
+  if (images.length === 0) return;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i] as any;
+    if (msg.role !== 'user') continue;
+    const imageParts = images.map((img) => ({ type: 'image', image: img.url, mediaType: img.contentType }));
+    if (Array.isArray(msg.content)) {
+      msg.content.push(...imageParts);
+    } else {
+      const textContent = typeof msg.content === 'string' ? msg.content : '';
+      msg.content = [{ type: 'text', text: textContent }, ...imageParts];
+    }
+    return;
+  }
 }
 
 export function buildFileInstruction(contextFiles: AttachmentRef[]): string {

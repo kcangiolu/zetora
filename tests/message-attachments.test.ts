@@ -6,6 +6,7 @@ import {
   buildFileInstruction,
   buildImageInstruction,
   fetchInlineableTextFiles,
+  appendGeneratedImagePartsToLastUserMessage,
 } from '@/lib/search/message-attachments';
 
 function fileMsg(parts: Array<{ mediaType?: string; url?: string; name?: string }>) {
@@ -56,6 +57,44 @@ describe('collectAttachments', () => {
     expect(result.contextImages).toHaveLength(0);
     expect(result.otherFileParts).toHaveLength(0);
   });
+
+  it('picks up successful generate_image/edit_image tool outputs as images', () => {
+    const { contextImages, contextGeneratedImages } = collectAttachments([
+      {
+        parts: [
+          { type: 'tool-generate_image', state: 'output-available', output: { success: true, imageUrl: 'https://x/gen.png' } },
+          { type: 'tool-edit_image', state: 'output-available', output: { success: true, imageUrl: 'https://x/edit.png' } },
+        ],
+      },
+    ]);
+    expect(contextGeneratedImages).toEqual([
+      { url: 'https://x/gen.png', contentType: 'image/png' },
+      { url: 'https://x/edit.png', contentType: 'image/png' },
+    ]);
+    expect(contextImages).toEqual(contextGeneratedImages);
+  });
+
+  it('ignores failed or in-flight generate_image/edit_image tool parts', () => {
+    const { contextImages, contextGeneratedImages } = collectAttachments([
+      {
+        parts: [
+          { type: 'tool-generate_image', state: 'output-available', output: { success: false, error: 'nope' } },
+          { type: 'tool-generate_image', state: 'input-available', input: { prompt: 'x' } },
+        ],
+      },
+    ]);
+    expect(contextImages).toHaveLength(0);
+    expect(contextGeneratedImages).toHaveLength(0);
+  });
+
+  it('dedupes generated images against already-uploaded images sharing a URL', () => {
+    const { contextImages, contextGeneratedImages } = collectAttachments([
+      fileMsg([{ mediaType: 'image/png', url: 'https://x/same.png', name: 'same.png' }]),
+      { parts: [{ type: 'tool-generate_image', state: 'output-available', output: { success: true, imageUrl: 'https://x/same.png' } }] },
+    ]);
+    expect(contextImages).toHaveLength(1);
+    expect(contextGeneratedImages).toHaveLength(0);
+  });
 });
 
 describe('stripFilePartsForModel', () => {
@@ -86,6 +125,42 @@ describe('stripFilePartsForModel', () => {
     const stripped = stripFilePartsForModel(messages, true);
     expect((stripped[0] as any).content.some((p: any) => p.mediaType === 'application/pdf')).toBe(false);
     expect(stripped[1]).toBe(messages[1]);
+  });
+});
+
+describe('appendGeneratedImagePartsToLastUserMessage', () => {
+  const images = [{ url: 'https://x/gen.png', contentType: 'image/png' }];
+
+  it('appends image content parts to the last user message', () => {
+    const messages = [
+      { role: 'user', content: [{ type: 'text', text: 'draw a cat' }] },
+      { role: 'assistant', content: [{ type: 'tool-result', toolCallId: '1' }] },
+    ] as any;
+    appendGeneratedImagePartsToLastUserMessage(messages, images);
+    expect(messages[0].content).toEqual([
+      { type: 'text', text: 'draw a cat' },
+      { type: 'image', image: 'https://x/gen.png', mediaType: 'image/png' },
+    ]);
+    expect(messages[1].content).toEqual([{ type: 'tool-result', toolCallId: '1' }]);
+  });
+
+  it('wraps a string content message into an array before appending', () => {
+    const messages = [{ role: 'user', content: 'draw a cat' }] as any;
+    appendGeneratedImagePartsToLastUserMessage(messages, images);
+    expect(messages[0].content).toEqual([
+      { type: 'text', text: 'draw a cat' },
+      { type: 'image', image: 'https://x/gen.png', mediaType: 'image/png' },
+    ]);
+  });
+
+  it('is a no-op when there are no images or no user message', () => {
+    const messages = [{ role: 'assistant', content: [{ type: 'text', text: 'hi' }] }] as any;
+    appendGeneratedImagePartsToLastUserMessage(messages, images);
+    expect(messages[0].content).toEqual([{ type: 'text', text: 'hi' }]);
+
+    const userMessages = [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }] as any;
+    appendGeneratedImagePartsToLastUserMessage(userMessages, []);
+    expect(userMessages[0].content).toEqual([{ type: 'text', text: 'hi' }]);
   });
 });
 

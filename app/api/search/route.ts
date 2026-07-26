@@ -71,6 +71,7 @@ import {
   buildFileInstruction,
   buildImageInstruction,
   fetchInlineableTextFiles,
+  appendGeneratedImagePartsToLastUserMessage,
 } from '@/lib/search/message-attachments';
 import { getSearchProviderOptions, getStreamTextStaticSettings } from '@/lib/search/provider-options';
 
@@ -359,7 +360,7 @@ export async function POST(req: Request) {
   // Collect every attached file across the conversation: documents for
   // file_query_search, images (vision / edit_image), and other files that
   // are decoded as text below.
-  const { contextFiles, contextImages, otherFileParts } = collectAttachments(hydratedMessages);
+  const { contextFiles, contextImages, contextGeneratedImages, otherFileParts } = collectAttachments(hydratedMessages);
 
   // Falls back to the model's catalog vision flag if the client didn't send
   // the toggle (older client) — same default the toggle itself starts from.
@@ -374,6 +375,14 @@ export async function POST(req: Request) {
 
   if (contextImages.length > 0) {
     appendToLastUserMessage(processedMessages, buildImageInstruction(contextImages, effectiveVisionEnabled));
+  }
+
+  // Generated/edited images have no `file` part for stripFilePartsForModel
+  // to keep — the URL-only instruction above already covers "treat it as an
+  // object" (edit_image) whether or not Vision is on; this is what actually
+  // makes the model see the pixels when Vision is on.
+  if (effectiveVisionEnabled && contextGeneratedImages.length > 0) {
+    appendGeneratedImagePartsToLastUserMessage(processedMessages, contextGeneratedImages);
   }
 
   if (otherFileParts.length > 0) {
