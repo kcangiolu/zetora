@@ -42,6 +42,17 @@ const zai = hasKey(process.env.ZAI_API_KEY)
     })
   : null;
 
+// Direct DeepSeek API — only V4 flash/pro (the models with graded
+// reasoning_effort control). Older deepseek-* models stay on
+// gateway/novita/baseten, which don't expose that knob anyway.
+const deepseekDirect = hasKey(process.env.DEEPSEEK_API_KEY)
+  ? createOpenAICompatible({
+      name: 'deepseek',
+      baseURL: 'https://api.deepseek.com',
+      apiKey: process.env.DEEPSEEK_API_KEY,
+    })
+  : null;
+
 const middleware = extractReasoningMiddleware({
   tagName: 'think',
 });
@@ -553,16 +564,22 @@ export const zetora = customProvider({
     'zetora-deepseek-chat': gateway('deepseek/deepseek-v3.2'),
     'zetora-deepseek-chat-think': gateway('deepseek/deepseek-v3.2-thinking'),
     'zetora-deepseek-chat-exp': gateway('deepseek/deepseek-v3.2-exp'),
-    'zetora-deepseek-v4-flash': gateway('deepseek/deepseek-v4-flash'),
-    'zetora-deepseek-v4-flash-think': wrapLanguageModel({
-      model: gateway('deepseek/deepseek-v4-flash-thinking'),
-      middleware,
-    }),
-    'zetora-deepseek-v4-pro': gateway('deepseek/deepseek-v4-pro'),
-    'zetora-deepseek-v4-pro-think': wrapLanguageModel({
-      model: gateway('deepseek/deepseek-v4-pro-thinking'),
-      middleware,
-    }),
+    'zetora-deepseek-v4-flash': deepseekDirect
+      ? deepseekDirect('deepseek-v4-flash')
+      : gateway('deepseek/deepseek-v4-flash'),
+    'zetora-deepseek-v4-flash-think': deepseekDirect
+      ? deepseekDirect('deepseek-v4-flash')
+      : wrapLanguageModel({
+          model: gateway('deepseek/deepseek-v4-flash-thinking'),
+          middleware,
+        }),
+    'zetora-deepseek-v4-pro': deepseekDirect ? deepseekDirect('deepseek-v4-pro') : gateway('deepseek/deepseek-v4-pro'),
+    'zetora-deepseek-v4-pro-think': deepseekDirect
+      ? deepseekDirect('deepseek-v4-pro')
+      : wrapLanguageModel({
+          model: gateway('deepseek/deepseek-v4-pro-thinking'),
+          middleware,
+        }),
     'zetora-v0-10': gateway('vercel/v0-1.0-md'),
     'zetora-v0-15': gateway('vercel/v0-1.5-md'),
     'zetora-qwen-coder-small': gateway('alibaba/qwen3-coder-30b-a3b'),

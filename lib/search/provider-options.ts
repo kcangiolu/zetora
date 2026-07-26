@@ -264,6 +264,19 @@ export function getSearchProviderOptions(
     },
     deepseek: {
       parallelToolCalls: false,
+      ...(model === 'zetora-deepseek-v4-flash' || model === 'zetora-deepseek-v4-pro'
+        ? { thinking: { type: 'disabled' } }
+        : {}),
+      ...(model === 'zetora-deepseek-v4-flash-think' || model === 'zetora-deepseek-v4-pro-think'
+        ? effort === 'off'
+          ? { thinking: { type: 'disabled' } }
+          : {
+              thinking: { type: 'enabled' },
+              // DeepSeek collapses low/medium into high server-side, so the
+              // raw tier can be forwarded as-is (see api-docs.deepseek.com).
+              ...(effort !== 'auto' ? { reasoning_effort: effort } : {}),
+            }
+        : {}),
     },
     groq: {
       ...(model === 'zetora-gpt-oss-20' || model === 'zetora-gpt-oss-120'

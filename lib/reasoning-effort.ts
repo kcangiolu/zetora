@@ -143,6 +143,15 @@ export function getZetoraReasoningOverrides(
           },
         },
       };
+    case 'deepseek':
+      return {
+        providerOptions: {
+          deepseek:
+            tier === 'off'
+              ? { thinking: { type: 'disabled' } }
+              : { thinking: { type: 'enabled' }, reasoning_effort: tier },
+        },
+      };
     default:
       // Provider not mapped to a generic reasoning param (e.g. served via
       // Groq/gateway routing) — no-op rather than guessing a shape.
