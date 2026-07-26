@@ -13,6 +13,12 @@ import { SKILL_CATALOG } from '@/lib/skills/catalog';
 
 // Custom visx-based chart components
 
+// Mirrors the `exclusive: true` skills in lib/skills/registry.ts (kept as a
+// separate hardcoded set here since SkillCatalogEntry, the client-safe type,
+// intentionally doesn't carry that field) — these two are also selectable as
+// a forced chat mode via the `/` trigger, gated on this same toggle.
+const FORCEABLE_SKILL_IDS = new Set(['deep-research', 'extreme-search']);
+
 export function SkillsSection() {
   const isMobile = useMediaQuery('(max-width: 768px)');
   const [disabledSkills, setDisabledSkills] = useSyncedPreferences<string[]>('zetora-disabled-skills', []);
@@ -101,6 +107,11 @@ export function SkillsSection() {
                     <p className={cn('text-muted-foreground leading-relaxed', isMobile ? 'text-[11px]' : 'text-xs')}>
                       {skill.description}
                     </p>
+                    {FORCEABLE_SKILL_IDS.has(skill.id) && (
+                      <p className="text-[10px] text-muted-foreground/50">
+                        Also available as a forced chat mode via <code>/</code>
+                      </p>
+                    )}
                   </div>
                 );
               })}

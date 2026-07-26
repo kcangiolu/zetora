@@ -18,6 +18,7 @@ import {
   Chart03Icon,
   CanvasIcon,
   SparklesIcon,
+  BinocularsIcon,
 } from '@hugeicons/core-free-icons';
 import { AgentNetworkIcon } from '@/components/icons/agent-network-icon';
 import { AppsIcon } from '@/components/icons/apps-icon';
@@ -56,7 +57,9 @@ export type SearchGroupId =
   | 'mcp'
   | 'multi-agent'
   | 'prediction'
-  | 'canvas';
+  | 'canvas'
+  | 'deep-research'
+  | 'extreme-search';
 
 // Research skills loadable via the 'skill' tool, available on every message
 // (subject to the zetora-disabled-skills preference).
@@ -81,8 +84,13 @@ export type SkillId =
 // they fully replace the base Sources+Skills tool set for that turn instead
 // of layering on top of it. Every other former "mode" (web, code, academic,
 // extreme, ...) is now an always-on Source/Skill filtered by user
-// preference rather than something picked before sending a message.
-export type SpecialModeId = 'connectors' | 'mcp' | 'multi-agent' | 'canvas';
+// preference rather than something picked before sending a message. Six
+// modes remain exclusive: connectors/mcp/multi-agent/canvas read from raw
+// external systems or replace the whole response pipeline; deep-research and
+// extreme-search instead force a specific research methodology or tool
+// (bypassing the model's own skill-selection) for a single message — see
+// lib/search/groups/deep-research.ts and extreme-search.ts.
+export type SpecialModeId = 'connectors' | 'mcp' | 'multi-agent' | 'canvas' | 'deep-research' | 'extreme-search';
 
 // Search provider information for dynamic descriptions
 const searchProviderInfo = {
@@ -232,6 +240,24 @@ export function getSearchGroups(searchProvider: SearchProvider = 'exa') {
       name: 'Canvas',
       description: 'Research and generate interactive dashboards and visual reports',
       icon: CanvasIcon,
+      show: true,
+      requireAuth: true,
+    },
+    {
+      id: 'deep-research' as const,
+      name: 'Deep Research',
+      description:
+        'Forces Deep Research for this message — decomposes multi-part questions into sub-questions and cross-validates each finding before answering.',
+      icon: BinocularsIcon,
+      show: true,
+      requireAuth: true,
+    },
+    {
+      id: 'extreme-search' as const,
+      name: 'Extreme Search',
+      description:
+        'Forces Extreme Search for this message — exhaustive multi-channel research on a single topic via a dedicated research agent; can take several minutes.',
+      icon: AtomicPowerIcon,
       show: true,
       requireAuth: true,
     },

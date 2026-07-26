@@ -11,6 +11,9 @@ const skills: Record<SkillId, SkillDefinition> = {
       'Multi-part questions, comparative analysis, "explain why" — decomposes into sub-questions and cross-validates. Use when the question has several distinct aspects that each need research. NOT for simple factual lookups or single-topic questions.',
     category: 'RESEARCH',
     section: 'core',
+    // Also selectable as a forced chat mode (lib/search/groups/deep-research.ts) — see
+    // the `exclusive` field's doc comment in ./types.ts.
+    exclusive: true,
     suggestedTools: ['web_search', 'academic_search', 'x_search', 'reddit_search', 'retrieve'],
     instructions: `
 ### Deep Research Methodology
@@ -44,6 +47,10 @@ Use this when the question is multi-part, comparative, or asks "why"/"how" in a 
       'Single topic, contested/niche, "find everything about" — maximal fan-out on one thematic axis. Use when one specific topic needs exhaustive coverage from many angles. NOT for multi-part questions (use deep-research) or simple lookups.',
     category: 'RESEARCH',
     section: 'core',
+    // Also selectable as a forced chat mode (lib/search/groups/extreme-search.ts), which
+    // invokes the dedicated extreme_search tool instead of this prose methodology — see
+    // the `exclusive` field's doc comment in ./types.ts.
+    exclusive: true,
     suggestedTools: ['web_search', 'x_search', 'reddit_search', 'academic_search'],
     instructions: `
 ### Extreme Search Methodology

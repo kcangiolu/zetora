@@ -175,7 +175,15 @@ const SOURCE_CATALOG_IDS = [
 
 // Extension-registered modes (lib/extension-modes-client.ts) are added to
 // this set at runtime once loaded — see extensionModeUIs below.
-const BASE_VALID_SPECIAL_MODES = new Set<string>(['auto', 'connectors', 'mcp', 'multi-agent', 'canvas']);
+const BASE_VALID_SPECIAL_MODES = new Set<string>([
+  'auto',
+  'connectors',
+  'mcp',
+  'multi-agent',
+  'canvas',
+  'deep-research',
+  'extreme-search',
+]);
 
 const FormComponent: React.FC<FormComponentProps> = ({
   chatId,
@@ -224,6 +232,10 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const [connectorsEnabledPref] = useSyncedPreferences<boolean>('zetora-connectors-enabled', true);
   const [canvasEnabledPref] = useSyncedPreferences<boolean>('zetora-canvas-enabled', true);
   const [agentEnabledPref] = useSyncedPreferences<boolean>('zetora-agent-enabled', true);
+  // Gates the deep-research/extreme-search forced-mode entries below: a
+  // disabled skill can no longer be forced, same list Settings > Skills
+  // writes to (components/settings/skills.tsx).
+  const [disabledSkillsPref] = useSyncedPreferences<string[]>('zetora-disabled-skills', []);
   const mcpEnabled = mcpEnvEnabled && appsEnabledPref;
   const canvasEnabled = canvasEnvEnabled && canvasEnabledPref;
   const formQueryClient = useQueryClient();
@@ -445,11 +457,17 @@ const FormComponent: React.FC<FormComponentProps> = ({
     return applyModeOrder(allVisible);
   }, [dynamicSearchGroups, visibleModesOuter, user, applyModeOrder]);
 
-  // Base groups for / trigger (extreme, apps, multi-agent, canvas)
+  // Base groups for / trigger (deep research, extreme search, apps, multi-agent, canvas)
   const modeGroups = useMemo(() => {
-    // Extreme is retired as a selectable mode (folded into the always-on
-    // extreme_search tool + the "Extreme Search" skill) — no longer offered here.
+    // The old 'extreme' id stays permanently retired (folded into the
+    // always-on extreme_search tool + the "Extreme Search" skill) and is
+    // never offered here. 'extreme-search' below is an unrelated, new id:
+    // forcing the dedicated extreme_search tool for one message, gated by
+    // the zetora-disabled-skills preference rather than an env/account
+    // toggle like the other modes in this list.
     const modeIds = new Set<string>();
+    if (!disabledSkillsPref.includes('deep-research')) modeIds.add('deep-research');
+    if (!disabledSkillsPref.includes('extreme-search')) modeIds.add('extreme-search');
     if (swarmEnabledPref) modeIds.add('multi-agent');
     if (connectorsEnabledPref) modeIds.add('connectors');
     if (canvasEnabled) modeIds.add('canvas');
@@ -459,9 +477,17 @@ const FormComponent: React.FC<FormComponentProps> = ({
       if ('requireAuth' in group && group.requireAuth && !user) return false;
       return modeIds.has(group.id);
     });
-    const order = ['connectors', 'mcp', 'multi-agent', 'canvas'];
+    const order = ['deep-research', 'extreme-search', 'connectors', 'mcp', 'multi-agent', 'canvas'];
     return filtered.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
-  }, [dynamicSearchGroups, canvasEnabled, mcpEnabled, swarmEnabledPref, connectorsEnabledPref, user]);
+  }, [
+    dynamicSearchGroups,
+    canvasEnabled,
+    mcpEnabled,
+    swarmEnabledPref,
+    connectorsEnabledPref,
+    disabledSkillsPref,
+    user,
+  ]);
 
   useEffect(() => {
     if (!setIsMultiAgentModeEnabled) return;
@@ -494,7 +520,9 @@ const FormComponent: React.FC<FormComponentProps> = ({
       (selectedGroup === 'connectors' && !connectorsEnabledPref) ||
       (selectedGroup === 'canvas' && !canvasEnabled) ||
       (selectedGroup === 'mcp' && !mcpEnabled) ||
-      ((selectedGroup as string) === 'agent' && !agentEnabledPref);
+      ((selectedGroup as string) === 'agent' && !agentEnabledPref) ||
+      (selectedGroup === 'deep-research' && disabledSkillsPref.includes('deep-research')) ||
+      (selectedGroup === 'extreme-search' && disabledSkillsPref.includes('extreme-search'));
     if (isHiddenByPreference) setSelectedGroup('auto');
   }, [
     selectedGroup,
@@ -506,6 +534,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
     canvasEnabled,
     mcpEnabled,
     agentEnabledPref,
+    disabledSkillsPref,
   ]);
 
   // Active group list based on which trigger is open

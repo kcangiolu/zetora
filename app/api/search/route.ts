@@ -48,7 +48,7 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { markdownJoinerTransform } from '@/lib/parser';
 import { ChatMessage } from '@/lib/types';
-import { getGroupConfig } from '@/lib/search/group-config';
+import { getGroupConfig, getBaseConfig } from '@/lib/search/group-config';
 import { getExtensionMode, getExtensionModeIds } from '@/lib/search/extension-modes';
 import type { SpecialModeId } from '@/lib/utils';
 import { filterActiveTools, getEnabledSkillIds } from '@/lib/search/tool-filter';
@@ -115,11 +115,14 @@ export async function POST(req: Request) {
   // base tool set for a turn. Any other/legacy `group` value (old single-
   // purpose modes, 'auto', or absent) falls through to the base Sources+
   // Skills path.
-  const SPECIAL_MODE_IDS = new Set(['connectors', 'mcp', 'multi-agent', 'canvas']);
+  const SPECIAL_MODE_IDS = new Set(['connectors', 'mcp', 'multi-agent', 'canvas', 'deep-research', 'extreme-search']);
   // Extension-registered modes (lib/search/extension-modes.ts) are exclusive
   // in the same sense as the hardcoded ids above — populated by loadExtensions()
   // at boot (instrumentation.ts), empty when no overlay is checked out.
-  const specialMode: SpecialModeId | string | undefined =
+  // `let` because deep-research/extreme-search get re-validated against
+  // zetora-disabled-skills once preferences are available below and
+  // downgraded back to undefined if the requester disabled that skill.
+  let specialMode: SpecialModeId | string | undefined =
     typeof group === 'string' && (SPECIAL_MODE_IDS.has(group) || (await getExtensionModeIds()).includes(group))
       ? group
       : undefined;
@@ -216,30 +219,56 @@ export async function POST(req: Request) {
 
   // Wait for critical checks, config, and chat initialization in parallel
   // Chat initialization is critical: for new chats it must complete before streaming (FK constraint)
-  const { criticalResult, config, customInstructionsResult, chatInitResult, userPreferencesResult, persistedMessages } =
-    await all(
-      {
-        async criticalResult() {
-          return criticalChecksPromise;
-        },
-        async config() {
-          return configPromise;
-        },
-        async customInstructionsResult() {
-          return customInstructionsPromise;
-        },
-        async chatInitResult() {
-          return chatInitializationPromise; // Must complete before streaming (especially for new chats)
-        },
-        async userPreferencesResult() {
-          return userPreferencesPromise;
-        },
-        async persistedMessages() {
-          return persistedMessagesPromise;
-        },
+  const {
+    criticalResult,
+    config: rawConfig,
+    customInstructionsResult,
+    chatInitResult,
+    userPreferencesResult,
+    persistedMessages,
+  } = await all(
+    {
+      async criticalResult() {
+        return criticalChecksPromise;
       },
-      getBetterAllOptions(),
+      async config() {
+        return configPromise;
+      },
+      async customInstructionsResult() {
+        return customInstructionsPromise;
+      },
+      async chatInitResult() {
+        return chatInitializationPromise; // Must complete before streaming (especially for new chats)
+      },
+      async userPreferencesResult() {
+        return userPreferencesPromise;
+      },
+      async persistedMessages() {
+        return persistedMessagesPromise;
+      },
+    },
+    getBetterAllOptions(),
+  );
+
+  // Defense in depth: the mode picker (components/ui/form-component/index.tsx)
+  // already hides deep-research/extreme-search once their skill is disabled
+  // and reverts a currently-selected one back to 'auto', but that's
+  // client-side only — a crafted/replayed request could still send
+  // group: 'deep-research' after the user disabled that skill. Re-validate
+  // against the just-resolved preferences here and silently fall back to the
+  // base Auto config, same as an unrecognized/legacy group id already does.
+  if (specialMode === 'deep-research' || specialMode === 'extreme-search') {
+    const disabledSkillIds = new Set(
+      (userPreferencesResult?.preferences?.['zetora-disabled-skills'] as string[] | undefined) ?? [],
     );
+    if (disabledSkillIds.has(specialMode)) {
+      specialMode = undefined;
+    }
+  }
+  // getBaseConfig() is a plain sync object literal (autoGroup.tools/instructions) —
+  // free to call again here even though configPromise already resolved above
+  // using the pre-guard specialMode.
+  const config = specialMode ? rawConfig : getBaseConfig();
   const { instructions } = config;
   recordTiming('await_parallel_setup', opStart);
 
