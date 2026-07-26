@@ -649,7 +649,14 @@ services:
           # into memory at once during startup, well before it ever answers
           # a health check — the container never got a chance to be "slow",
           # it was killed outright.
-          cpus: '1'
+          #
+          # cpus was 1 until 2026-07-26: /detect used to run analyze()
+          # straight on uvicorn's single event loop (fully serialized), so
+          # extra cores did nothing. Now that main.py offloads it to a
+          # thread pool, concurrent requests can actually use more than one
+          # core — bumped to match the pool size (see _analyze_pool in
+          # presidio-service/main.py).
+          cpus: '4'
           memory: 3G
     restart: unless-stopped
 

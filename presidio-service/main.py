@@ -1,4 +1,7 @@
+import asyncio
 import logging
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -7,6 +10,14 @@ from presidio_analyzer.nlp_engine import NlpEngineProvider
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s %(message)s")
 logger = logging.getLogger("presidio")
+
+# uvicorn runs a single worker/event loop here; analyzer.analyze() is
+# CPU-bound (spaCy NER) and was previously called straight on that loop,
+# so requests queued up and serialized one at a time regardless of how
+# many CPUs the container had. spaCy's Cython/numpy inner loops release
+# the GIL, so running analyze() in a thread pool lets concurrent /detect
+# calls actually use multiple cores instead of just piling up.
+_analyze_pool = ThreadPoolExecutor(max_workers=8)
 
 SUPPORTED_LANGUAGES = ["en", "fr"]
 
@@ -73,7 +84,11 @@ async def detect(input: DetectInput):
         )
 
     try:
-        results = analyzer.analyze(text=input.text, language=language, ad_hoc_recognizers=ad_hoc_recognizers)
+        loop = asyncio.get_running_loop()
+        analyze = partial(
+            analyzer.analyze, text=input.text, language=language, ad_hoc_recognizers=ad_hoc_recognizers
+        )
+        results = await loop.run_in_executor(_analyze_pool, analyze)
     except Exception as e:
         logger.error("analyze failed", exc_info=True)
         raise HTTPException(500, str(e))

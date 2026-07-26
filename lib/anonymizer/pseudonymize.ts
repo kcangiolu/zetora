@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { createHmac } from 'node:crypto';
+import pLimit from 'p-limit';
 import { serverEnv } from '@/env/server';
 import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
 import { upsertPiiAliases, getPiiAliasesByTokens } from '@/lib/db/queries';
@@ -9,6 +10,16 @@ import { detectEntities } from './client';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('pseudonymize');
+
+// presidio-api is one shared instance behind a fixed thread pool (see
+// _analyze_pool in presidio-service/main.py). Walking a large tool result
+// (e.g. dozens of web_search snippets) can fan out into hundreds of /detect
+// calls via mapJsonStrings' Promise.all; without a cap here those pile up
+// faster than presidio-api can drain them and start blowing the 10s client
+// timeout in client.ts even though the service itself is fine. This limit
+// is process-wide (module singleton) since the same overload can come from
+// multiple concurrent requests/users, not just one big payload.
+const detectLimit = pLimit(8);
 
 export interface AnonymizeContext {
   userId: string;
@@ -48,7 +59,9 @@ export async function anonymizeText(text: string, ctx: AnonymizeContext): Promis
 
   let entities;
   try {
-    entities = await detectEntities(text, ctx.language ?? 'en', ctx.denyTerms ?? [], ctx.nerEnabled ?? true);
+    entities = await detectLimit(() =>
+      detectEntities(text, ctx.language ?? 'en', ctx.denyTerms ?? [], ctx.nerEnabled ?? true),
+    );
   } catch (error) {
     if (ctx.failOpen) {
       log.error('[anonymizer] detection failed, failing open (cleartext will be sent):', error);
