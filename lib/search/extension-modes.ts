@@ -41,6 +41,14 @@ export interface ExtensionModeServerConfig {
   // (connectors/mcp/multi-agent/canvas), all of which silently fall back to
   // the base config for signed-out users. Set false to opt out.
   requireAuth?: boolean;
+  // Opt-in escape hatch for a mode whose scheduled (lookout) runs don't fit
+  // the normal streamText loop at all — app/api/lookout/route.ts checks this
+  // before resolving tools for the run and, when set, delegates entirely
+  // instead of calling getToolsForSearchMode/streamText. The mode decides on
+  // its own how (and whether) to notify the user; the lookout's chat/message
+  // rows are still created around it for the existing /lookout UI to link
+  // to, even though nothing writes an assistant reply into that chat.
+  runHeadless?: (input: { userId: string; lookoutId: string; prompt: string; chatId: string }) => Promise<void>;
 }
 
 const registry = new Map<string, ExtensionModeServerConfig>();
