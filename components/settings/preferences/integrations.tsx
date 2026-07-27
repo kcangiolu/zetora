@@ -361,6 +361,11 @@ export function IntegrationsTab({
             renders when no overlay is checked out. */}
         <ExtensionSlot name="settings-connectors" />
 
+        {/* Same as above — a separate slot (not folded into settings-connectors)
+            so the agent overlay's SSH host CRUD ships without touching the
+            older connector toggles it doesn't replace yet. */}
+        <ExtensionSlot name="settings-ssh-hosts" />
+
         {/* Graphiti Services */}
         <div className="rounded-xl border border-border/60 mt-4 overflow-hidden">
           <div className="px-4 py-3 border-b border-border/40">
