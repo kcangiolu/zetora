@@ -50,7 +50,9 @@ export type TertiaryTask =
   | 'extreme-planner'
   | 'extreme-agent'
   | 'voice'
-  | 'memory-curator';
+  | 'memory-curator'
+  | 'agent-worker'
+  | 'agent-guard';
 
 const TASK_DEFAULTS: Record<TertiaryTask, string> = {
   default: 'zetora-default',
@@ -68,6 +70,16 @@ const TASK_DEFAULTS: Record<TertiaryTask, string> = {
   // Reviews finished turns and decides what to store — needs reliable tool
   // calling (search_memories/add_memory), not a fast summarizer model.
   'memory-curator': 'zetora-default',
+  // Drives the OpenCode session inside the sandbox (bash/edit/read loop) via
+  // the gateway at /api/agent/llm/v1 — needs strong, reliable tool calling
+  // over many steps, so a coding-grade model rather than a fast summarizer.
+  'agent-worker': 'zetora-anthropic-sonnet-5',
+  // L1 intent verification: re-reads the user's original request against each
+  // proposed action. Sits in the critical path of every high-risk tool call,
+  // so it must be fast and cheap — and deliberately defaults to a DIFFERENT
+  // provider from agent-worker, so one provider outage can't take out both
+  // the actor and its reviewer at once.
+  'agent-guard': 'zetora-gemini-3-flash',
 };
 
 // Recommended default reasoning effort per task, shown in Settings and used
@@ -90,6 +102,11 @@ const TASK_RECOMMENDED_EFFORT: Record<TertiaryTask, ReasoningEffort> = {
   'extreme-agent': 'auto',
   voice: 'off',
   'memory-curator': 'auto',
+  'agent-worker': 'auto',
+  // The guard returns a small structured verdict under a 12s timeout, and a
+  // timeout is a fail-closed HUMAN_CHECK — reasoning tokens here buy latency,
+  // not safety.
+  'agent-guard': 'off',
 };
 
 // Mirrors the `zetora-tertiary-<task>-model`/`-provider` naming above.
@@ -123,6 +140,8 @@ const PREF_KEYS: Record<TertiaryTask, { model: string; provider: string }> = {
     model: 'zetora-tertiary-memory-curator-model',
     provider: 'zetora-tertiary-memory-curator-provider',
   },
+  'agent-worker': { model: 'zetora-tertiary-agent-worker-model', provider: 'zetora-tertiary-agent-worker-provider' },
+  'agent-guard': { model: 'zetora-tertiary-agent-guard-model', provider: 'zetora-tertiary-agent-guard-provider' },
 };
 
 export async function resolveTertiaryModel(

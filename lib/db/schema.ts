@@ -363,6 +363,12 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-tertiary-memory-curator-model'?: string;
       'zetora-tertiary-memory-curator-provider'?: string;
       'zetora-tertiary-memory-curator-effort'?: 'auto' | 'low' | 'medium' | 'high' | 'off';
+      'zetora-tertiary-agent-worker-model'?: string;
+      'zetora-tertiary-agent-worker-provider'?: string;
+      'zetora-tertiary-agent-worker-effort'?: 'auto' | 'low' | 'medium' | 'high' | 'off';
+      'zetora-tertiary-agent-guard-model'?: string;
+      'zetora-tertiary-agent-guard-provider'?: string;
+      'zetora-tertiary-agent-guard-effort'?: 'auto' | 'low' | 'medium' | 'high' | 'off';
     }>()
     .notNull()
     .default({}),

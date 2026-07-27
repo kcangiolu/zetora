@@ -123,7 +123,13 @@ export type PreferenceKey =
   | 'zetora-memory-curator-enabled'
   | 'zetora-tertiary-memory-curator-model'
   | 'zetora-tertiary-memory-curator-provider'
-  | 'zetora-tertiary-memory-curator-effort';
+  | 'zetora-tertiary-memory-curator-effort'
+  | 'zetora-tertiary-agent-worker-model'
+  | 'zetora-tertiary-agent-worker-provider'
+  | 'zetora-tertiary-agent-worker-effort'
+  | 'zetora-tertiary-agent-guard-model'
+  | 'zetora-tertiary-agent-guard-provider'
+  | 'zetora-tertiary-agent-guard-effort';
 
 type AutoRouterConfig = {
   routes: Array<{

@@ -32,15 +32,30 @@ const specialGroups = {
   'extreme-search': extremeSearchGroup,
 };
 
-const specialGroupTools = Object.fromEntries(
-  Object.entries(specialGroups).map(([id, group]) => [id, group.tools]),
-) as {
-  [K in keyof typeof specialGroups]: (typeof specialGroups)[K]['tools'];
-};
+// Direct property access, not a mapped Object.entries(specialGroups) derivation
+// as this used to read: knip's static analysis can't trace an export through
+// `Object.entries(nsImport).map(([, g]) => g.tools)`, so deepResearchGroup's
+// and extremeSearchGroup's `tools`/`instructions` were reported as unused
+// dead code despite being read right here — a false positive that broke the
+// dead-code CI check. Spelling out each group by name is what makes every
+// export's use traceable again, by knip and by a human reader alike.
+const specialGroupTools = {
+  connectors: connectorsGroup.tools,
+  mcp: mcpGroup.tools,
+  'multi-agent': multi_agentGroup.tools,
+  canvas: canvasGroup.tools,
+  'deep-research': deepResearchGroup.tools,
+  'extreme-search': extremeSearchGroup.tools,
+} satisfies Record<keyof typeof specialGroups, readonly string[]>;
 
-const specialGroupInstructions = Object.fromEntries(
-  Object.entries(specialGroups).map(([id, group]) => [id, group.instructions]),
-) as Record<keyof typeof specialGroups, string>;
+const specialGroupInstructions = {
+  connectors: connectorsGroup.instructions,
+  mcp: mcpGroup.instructions,
+  'multi-agent': multi_agentGroup.instructions,
+  canvas: canvasGroup.instructions,
+  'deep-research': deepResearchGroup.instructions,
+  'extreme-search': extremeSearchGroup.instructions,
+} satisfies Record<keyof typeof specialGroups, string>;
 
 // The always-on default: Auto's bundled tool set, further narrowed by
 // zetora-enabled-sources (app/api/search/route.ts) and zetora-disabled-skills

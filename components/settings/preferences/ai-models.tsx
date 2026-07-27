@@ -640,6 +640,28 @@ export function AiModelsTab({
               additionalModels={customModelsList}
               user={user}
             />
+            <TertiaryModelRow
+              modelKey="zetora-tertiary-agent-worker-model"
+              providerKey="zetora-tertiary-agent-worker-provider"
+              effortKey="zetora-tertiary-agent-worker-effort"
+              recommendedEffort="auto"
+              label="Agent Worker"
+              description="Drives the sandboxed coding agent — needs strong tool calling over long runs"
+              defaultModelLabel="Claude Sonnet 5"
+              additionalModels={customModelsList}
+              user={user}
+            />
+            <TertiaryModelRow
+              modelKey="zetora-tertiary-agent-guard-model"
+              providerKey="zetora-tertiary-agent-guard-provider"
+              effortKey="zetora-tertiary-agent-guard-effort"
+              recommendedEffort="off"
+              label="Agent Guard"
+              description="Checks each agent action against your original request. Pick a different provider than Agent Worker, so one outage can't take out both the actor and its reviewer"
+              defaultModelLabel="Gemini 3 Flash"
+              additionalModels={customModelsList}
+              user={user}
+            />
           </div>
         </div>
       </div>

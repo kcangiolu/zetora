@@ -10,7 +10,15 @@
     "components/mode-accent.tsx",
     "components/dynamic-tool-renderer.tsx"
   ],
-  "ignore": ["public/pcm-processor-worklet.js", "scripts/migrate.js", "components/ui/**"],
+  "ignore": [
+    "public/pcm-processor-worklet.js",
+    "scripts/migrate.js",
+    "components/ui/**"
+  ],
   "ignoreBinaries": ["vc"],
-  "ignoreDependencies": ["postcss-load-config"]
+  "ignoreDependencies": [
+    "postcss-load-config",
+    "shell-quote",
+    "@types/shell-quote"
+  ]
 }
