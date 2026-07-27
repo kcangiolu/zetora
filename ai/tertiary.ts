@@ -180,7 +180,13 @@ export async function resolveTertiaryModel(
     }
 
     const anonymizationEnabled = prefs?.['zetora-anonymization-enabled'] === true;
-    if (userId && anonymizationEnabled) {
+    // agent-worker drives OpenCode's tool-call loop (bash/edit/read/...) via
+    // the gateway (app/api/agent/llm/v1/chat/completions/route.ts) — rewriting
+    // PII spans mid-argument would corrupt a tool call's JSON. That route's
+    // own "NO PSEUDONYMIZER ON THIS PATH" comment documents the intent; this
+    // is what actually enforces it, since resolveTertiaryModel is otherwise
+    // task-agnostic about anonymization.
+    if (userId && anonymizationEnabled && task !== 'agent-worker') {
       const { createAnonymizationMiddleware } = await import('./anonymization-middleware');
       resolved = wrapLanguageModel({
         model: resolved,
