@@ -2531,9 +2531,11 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                     {/* Results list */}
                     <div className="">
                       {results.map((memory: any, index: number) => (
-                        <div key={memory.id || index} className="px-4 py-2">
+                        <div key={memory.id || memory.uuid || index} className="px-4 py-2">
                           <p className="text-xs text-[hsl(var(--muted-foreground))] line-clamp-2">
-                            • {memory.chunks[0].content || memory.memory || ''}
+                            {/* SuperMemory results carry chunks[].content; Graphiti results carry
+                                a flat `fact` string instead — no `chunks` field at all. */}
+                            • {memory.chunks?.[0]?.content || memory.memory || memory.fact || ''}
                           </p>
                         </div>
                       ))}
