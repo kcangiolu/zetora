@@ -27,7 +27,6 @@ import { useDynamicToolRenderer, hasDynamicToolRenderer } from '@/components/dyn
 import { useSpeech } from '@/hooks/use-speech';
 import { extractSpeakableText } from '@/lib/speakable-text';
 import { UseChatHelpers } from '@ai-sdk/react';
-import Image from 'next/image';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -2516,15 +2515,6 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                             {count} Memor{count !== 1 ? 'ies' : 'y'} Found
                           </h3>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Image
-                            src="/supermemory.svg"
-                            alt="Supermemory"
-                            width={100}
-                            height={16}
-                            className="opacity-60 hover:opacity-80 transition-opacity invert dark:invert-0"
-                          />
-                        </div>
                       </div>
                     </div>
 
@@ -2595,13 +2585,6 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                             </p>
                           </div>
                         </div>
-                        <Image
-                          src="/supermemory.svg"
-                          alt="Supermemory"
-                          width={100}
-                          height={16}
-                          className="opacity-60 hover:opacity-80 transition-opacity shrink-0 invert dark:invert-0"
-                        />
                       </div>
 
                       {addedMemory && (
