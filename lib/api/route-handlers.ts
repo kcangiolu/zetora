@@ -47,7 +47,13 @@ export function withError<Ctx extends RouteContext = RouteContext>(
     } catch (error) {
       if (error instanceof ChatSDKError) return error.toResponse();
       if (error instanceof z.ZodError) {
-        const message = error.issues[0]?.message || 'Invalid request payload';
+        const issue = error.issues[0];
+        // Zod's own message never names the field ("Too small: expected
+        // string to have >=1 characters") — prefixing the path is the
+        // difference between an actionable toast and a guessing game for
+        // whichever form field actually failed.
+        const path = issue?.path?.join('.');
+        const message = issue ? (path ? `${path}: ${issue.message}` : issue.message) : 'Invalid request payload';
         if (options.genericError === 'expose') {
           return new ChatSDKError('bad_request:api', message).toResponse();
         }
