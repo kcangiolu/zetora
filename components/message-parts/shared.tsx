@@ -3,6 +3,7 @@ import type { ChatMessage } from '@/lib/types';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { Chart03Icon } from '@hugeicons/core-free-icons';
 import { Spinner } from '../ui/spinner';
+import { pseudoRandom } from '@/lib/utils';
 
 export type XaiMultiAgentToolPart = {
   type: 'tool-xai_web_search' | 'tool-xai_x_search';
@@ -109,7 +110,7 @@ export const StockChartLoader = ({ title, input }: { title?: string; input?: any
               key={i}
               className="flex-1 rounded-t-sm bg-primary/6 animate-pulse"
               style={{
-                height: `${20 + Math.sin(i * 0.5) * 30 + Math.random() * 25}%`,
+                height: `${(20 + Math.sin(i * 0.5) * 30 + pseudoRandom(i) * 25).toFixed(2)}%`,
                 animationDelay: `${i * 40}ms`,
               }}
             />

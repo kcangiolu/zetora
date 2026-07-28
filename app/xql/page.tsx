@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/user-context';
 import { BorderTrail } from '@/components/core/border-trail';
 import { TextShimmer } from '@/components/core/text-shimmer';
-import { cn } from '@/lib/utils';
+import { cn, pseudoRandom } from '@/lib/utils';
 import { type XQLMessage } from '@/app/api/xql/route';
 import { highlight } from 'sugar-high';
 import { ZetoraLogo } from '@/components/logos/zetora-logo';
@@ -383,7 +383,7 @@ function XQLPageContent() {
                             key={i}
                             className="h-1 sm:h-1.5 rounded-full bg-muted animate-pulse"
                             style={{
-                              width: `${Math.random() * 30 + 15}px`,
+                              width: `${(pseudoRandom(i) * 30 + 15).toFixed(2)}px`,
                               animationDelay: `${i * 0.2}s`,
                             }}
                           />
