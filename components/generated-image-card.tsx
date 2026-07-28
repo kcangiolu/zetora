@@ -7,9 +7,6 @@ import { Pencil, Wand2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TextShimmer } from '@/components/core/text-shimmer';
 
-const NOISE_TEXTURE =
-  "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")";
-
 const REVEAL_TRANSITION = { duration: 0.6, ease: [0.22, 1, 0.36, 1] as const };
 
 function parseAspectRatio(size?: string): string {
@@ -122,9 +119,10 @@ function DiffusionPlaceholder({
         <img src={sourceImageUrl} alt="" className="absolute inset-0 w-full h-full object-cover blur-md scale-110 opacity-50" />
       )}
       <div
-        className={cn('absolute inset-[-40%]', !prefersReducedMotion && 'animate-diffusion-drift')}
+        className={cn('absolute inset-[-10%]', !prefersReducedMotion && 'animate-diffusion-drift')}
         style={{
-          filter: 'blur(48px)',
+          filter: 'blur(24px)',
+          willChange: prefersReducedMotion ? undefined : 'transform',
           background: `
             radial-gradient(circle at 30% 30%, color-mix(in oklab, var(--primary) 45%, transparent), transparent 60%),
             radial-gradient(circle at 70% 40%, color-mix(in oklab, var(--secondary) 45%, transparent), transparent 60%),
@@ -132,17 +130,11 @@ function DiffusionPlaceholder({
           `,
         }}
       />
-      <div
-        className={cn(
-          'absolute inset-[-50%] mix-blend-overlay opacity-[0.35] dark:opacity-[0.25]',
-          !prefersReducedMotion && 'animate-diffusion-grain',
-        )}
-        style={{ backgroundImage: NOISE_TEXTURE, backgroundRepeat: 'repeat' }}
-      />
       {!prefersReducedMotion && (
         <div
           className="absolute inset-0 animate-diffusion-sweep"
           style={{
+            willChange: 'background-position',
             background:
               'linear-gradient(90deg, transparent 0%, color-mix(in oklab, var(--foreground) 8%, transparent) 50%, transparent 100%)',
           }}
