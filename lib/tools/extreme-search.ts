@@ -985,6 +985,15 @@ ${JSON.stringify(plan)}
             }
           : {}),
       },
+      // DeepSeek's API rejects any tool_choice other than 'auto' while
+      // thinking is active, and defaults to thinking enabled server-side
+      // when the field is omitted — but prepareStep below always forces
+      // toolChoice: 'required'. Must be disabled unconditionally here,
+      // since the generic reasoning-effort override (lib/reasoning-effort.ts)
+      // only kicks in when the user picks a non-'auto' effort.
+      deepseek: {
+        thinking: { type: 'disabled' },
+      },
     },
     ...(modelId === 'zetora-ext-7'
       ? {

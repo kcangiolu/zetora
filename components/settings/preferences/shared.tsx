@@ -237,6 +237,7 @@ export function TertiaryModelRow({
   defaultModelLabel,
   additionalModels,
   user,
+  hideReasoningEffort = false,
 }: {
   modelKey: TertiaryModelPrefKey;
   providerKey: TertiaryProviderPrefKey;
@@ -247,6 +248,10 @@ export function TertiaryModelRow({
   defaultModelLabel: string;
   additionalModels: Model[];
   user: SettingsUser;
+  // This task's model call always forces a provider-level override that
+  // makes the reasoning-effort toggle a no-op (see ai/tertiary.ts) — showing
+  // it would imply a control that doesn't do anything.
+  hideReasoningEffort?: boolean;
 }) {
   const [model, setModel] = useSyncedPreferences<string>(modelKey as PreferenceKey, '');
   const [, setProvider] = useSyncedPreferences<string>(providerKey as PreferenceKey, '');
@@ -284,7 +289,7 @@ export function TertiaryModelRow({
         {/* Capability for the system default model isn't known here (no
             model id, just a display label) — only show once the user has
             picked a specific model for this task. */}
-        {model && (
+        {model && !hideReasoningEffort && (
           <ReasoningEffortToggle
             selectedModel={model}
             value={effort ?? recommendedEffort}

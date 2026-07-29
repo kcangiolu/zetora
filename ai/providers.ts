@@ -4,6 +4,7 @@ import { wrapLanguageModel, customProvider, extractReasoningMiddleware, gateway 
 import { dynamicXmlToolMiddleware } from '@/ai/xml-tool-middleware';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { createOpenAI } from '@ai-sdk/openai';
+import { createDeepSeek } from '@ai-sdk/deepseek';
 import { createWebSocketFetch } from 'ai-sdk-openai-websocket-fetch';
 import { xai } from '@ai-sdk/xai';
 import { groq } from '@ai-sdk/groq';
@@ -45,9 +46,14 @@ const zai = hasKey(process.env.ZAI_API_KEY)
 // Direct DeepSeek API — only V4 flash/pro (the models with graded
 // reasoning_effort control). Older deepseek-* models stay on
 // gateway/novita/baseten, which don't expose that knob anyway.
+// Uses the real @ai-sdk/deepseek package rather than the generic
+// openai-compatible wrapper — DeepSeek doesn't support structuredOutputs
+// either way, but this package still injects the JSON schema into a system
+// message and sets response_format: json_object, instead of silently
+// dropping the schema (which made Output.object() calls like extreme-search's
+// planner fail unpredictably with "response did not match schema").
 const deepseekDirect = hasKey(process.env.DEEPSEEK_API_KEY)
-  ? createOpenAICompatible({
-      name: 'deepseek',
+  ? createDeepSeek({
       baseURL: 'https://api.deepseek.com',
       apiKey: process.env.DEEPSEEK_API_KEY,
     })
@@ -564,22 +570,14 @@ export const zetora = customProvider({
     'zetora-deepseek-chat': gateway('deepseek/deepseek-v3.2'),
     'zetora-deepseek-chat-think': gateway('deepseek/deepseek-v3.2-thinking'),
     'zetora-deepseek-chat-exp': gateway('deepseek/deepseek-v3.2-exp'),
+    // Single entry per size — reasoning is toggled via providerOptions.deepseek.thinking
+    // (see lib/search/provider-options.ts / lib/reasoning-effort.ts), not a separate
+    // model id. The gateway fallback's 'thinking' variant slug isn't needed since the
+    // gateway forwards providerOptions.deepseek through to the same underlying toggle.
     'zetora-deepseek-v4-flash': deepseekDirect
       ? deepseekDirect('deepseek-v4-flash')
       : gateway('deepseek/deepseek-v4-flash'),
-    'zetora-deepseek-v4-flash-think': deepseekDirect
-      ? deepseekDirect('deepseek-v4-flash')
-      : wrapLanguageModel({
-          model: gateway('deepseek/deepseek-v4-flash-thinking'),
-          middleware,
-        }),
     'zetora-deepseek-v4-pro': deepseekDirect ? deepseekDirect('deepseek-v4-pro') : gateway('deepseek/deepseek-v4-pro'),
-    'zetora-deepseek-v4-pro-think': deepseekDirect
-      ? deepseekDirect('deepseek-v4-pro')
-      : wrapLanguageModel({
-          model: gateway('deepseek/deepseek-v4-pro-thinking'),
-          middleware,
-        }),
     'zetora-v0-10': gateway('vercel/v0-1.0-md'),
     'zetora-v0-15': gateway('vercel/v0-1.5-md'),
     'zetora-qwen-coder-small': gateway('alibaba/qwen3-coder-30b-a3b'),

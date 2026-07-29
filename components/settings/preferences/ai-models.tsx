@@ -617,6 +617,7 @@ export function AiModelsTab({
               defaultModelLabel="Grok 4.1 Fast (Reasoning)"
               additionalModels={customModelsList}
               user={user}
+              hideReasoningEffort
             />
             <TertiaryModelRow
               modelKey="zetora-tertiary-voice-model"

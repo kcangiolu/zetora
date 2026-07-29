@@ -11,8 +11,8 @@ import {
 } from '@/ai/models';
 
 describe('model catalog', () => {
-  it('holds 169 models with unique ids', () => {
-    expect(models).toHaveLength(169);
+  it('holds 167 models with unique ids', () => {
+    expect(models).toHaveLength(167);
     const ids = models.map((m) => m.value);
     expect(new Set(ids).size).toBe(ids.length);
   });
@@ -44,6 +44,6 @@ describe('model catalog', () => {
 
   it('getFilteredModels returns the full catalog outside restricted regions', () => {
     expect(getFilteredModels()).toBe(models);
-    expect(getFilteredModels('FR')).toHaveLength(169);
+    expect(getFilteredModels('FR')).toHaveLength(167);
   });
 });

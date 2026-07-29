@@ -199,7 +199,19 @@ export async function resolveTertiaryModel(
     }
   }
 
-  const effort = (preferences?.[effortPrefKey(task)] as ReasoningEffort | undefined) ?? TASK_RECOMMENDED_EFFORT[task];
+  // extreme-agent forces toolChoice: 'required' on every step of its research
+  // loop (lib/tools/extreme-search.ts), which is incompatible with native
+  // reasoning/thinking on several providers — that file hardcodes its own
+  // per-provider disables for this reason. A user-set effort here would wrap
+  // the model with an override that wins over those hardcoded disables (this
+  // middleware's transformParams applies last), silently reintroducing the
+  // conflict. There's also no UI control for this task's effort anymore
+  // (Settings hides it), so 'auto' — skip wrapping entirely — is the only
+  // value that can ever apply.
+  const effort =
+    task === 'extreme-agent'
+      ? 'auto'
+      : ((preferences?.[effortPrefKey(task)] as ReasoningEffort | undefined) ?? TASK_RECOMMENDED_EFFORT[task]);
 
   let applyMaskMiddleware = false;
 
