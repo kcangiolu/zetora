@@ -20,6 +20,7 @@ import {
   CitationGroup,
   FileLinkPreview,
   ImageWithPreview,
+  GeneratedImageDownloadChip,
   MobileHoverCard,
   preloadCitationMetadata,
 } from './citation-previews';
@@ -28,6 +29,10 @@ import { SpotifyIcon, getFilePreviewDefinition, getPlatformFromUrl, getDisplayDo
 interface MarkdownRendererProps {
   content: string;
   isUserMessage?: boolean;
+  // URLs already rendered by a generate_image/edit_image tool card in this
+  // message — matching markdown images are swapped for a download-only chip
+  // instead of duplicating the picture (see GeneratedImageDownloadChip).
+  generatedImageUrls?: Set<string>;
 }
 
 const MarkdownTableWithActions: React.FC<{ children: React.ReactNode }> = React.memo(({ children }) => {
@@ -170,7 +175,7 @@ const MarkdownTableWithActions: React.FC<{ children: React.ReactNode }> = React.
 MarkdownTableWithActions.displayName = 'MarkdownTableWithActions';
 
 const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
-  ({ content, isUserMessage = false }) => {
+  ({ content, isUserMessage = false, generatedImageUrls }) => {
     const {
       processedContent,
       citations: extractedCitations,
@@ -550,6 +555,9 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
         image(src, alt, title) {
           const key = getElementKey('image', String(src));
           if (!src) return <span key={key} />;
+          if (generatedImageUrls?.has(src)) {
+            return <GeneratedImageDownloadChip key={key} src={src} alt={alt || undefined} />;
+          }
           return <ImageWithPreview key={key} src={src} alt={alt || undefined} title={title || undefined} />;
         },
         heading(children, level) {
@@ -688,6 +696,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
         renderHoverCard,
         getElementKey,
         citationLinks,
+        generatedImageUrls,
       ],
     );
 

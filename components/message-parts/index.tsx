@@ -16,12 +16,7 @@ import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { CpuIcon, SplitIcon } from '@hugeicons/core-free-icons';
-import {
-  ChatMessage,
-  CustomUIDataTypes,
-  DataQueryCompletionPart,
-  DataExtremeSearchPart,
-} from '@/lib/types';
+import { ChatMessage, CustomUIDataTypes, DataQueryCompletionPart, DataExtremeSearchPart } from '@/lib/types';
 import { SPEC_DATA_PART_TYPE } from '@json-render/core';
 import { useDynamicToolRenderer, hasDynamicToolRenderer } from '@/components/dynamic-tool-renderer';
 import { useSpeech } from '@/hooks/use-speech';
@@ -225,7 +220,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
   }) => {
     const { dataStream } = useDataStream();
     const registeredDynamicToolRenderer = useDynamicToolRenderer(
-      part.type === 'dynamic-tool' ? (part as { toolName?: string }).toolName ?? '' : '',
+      part.type === 'dynamic-tool' ? ((part as { toolName?: string }).toolName ?? '') : '',
     );
     const [isRegenerating, setIsRegenerating] = useState(false);
     const [isBranchingOut, setIsBranchingOut] = useState(false);
@@ -495,11 +490,26 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
       const lastTextIndex = parts.reduce((acc, p, idx) => (p.type === 'text' ? idx : acc), -1);
       const hasCanvasSpec = partIndex === lastTextIndex && parts.some((p) => p.type === SPEC_DATA_PART_TYPE);
 
+      // Images already shown by a generate_image/edit_image tool card in this
+      // message — if the model echoes the same URL in its text (despite being
+      // told not to), swap it for a download chip instead of duplicating it.
+      const generatedImageUrls = new Set(
+        parts
+          .filter((p) => p.type === 'tool-generate_image' || p.type === 'tool-edit_image')
+          .map((p) => {
+            const anyPart = p as { state?: string; output?: { success?: boolean; imageUrl?: string } };
+            return anyPart.state === 'output-available' && anyPart.output?.success
+              ? anyPart.output.imageUrl
+              : undefined;
+          })
+          .filter((url): url is string => Boolean(url)),
+      );
+
       return (
         <div key={`${messageIndex}-${partIndex}-text`} className="mt-2">
           <div>
             <ChatTextHighlighter onHighlight={onHighlight} removeHighlightOnClick={true}>
-              <MarkdownRenderer content={cleanText} />
+              <MarkdownRenderer content={cleanText} generatedImageUrls={generatedImageUrls} />
             </ChatTextHighlighter>
           </div>
 

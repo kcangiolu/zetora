@@ -775,3 +775,44 @@ export const ImageWithPreview = React.memo(({ src, alt, title }: { src: string; 
 });
 
 ImageWithPreview.displayName = 'ImageWithPreview';
+
+// Swapped in for markdown images whose src matches one already rendered by a
+// generate_image/edit_image tool card in the same message — models sometimes
+// echo the image markdown despite being told not to. Re-rendering the <img>
+// would duplicate it; rendering nothing would leave a dangling lead-in
+// sentence ("Here's the image:") pointing at nothing. This keeps a single,
+// useful affordance (download) without a second visual copy.
+export const GeneratedImageDownloadChip = React.memo(({ src, alt }: { src: string; alt?: string }) => {
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const filename = useMemo(() => {
+    const base = (alt || 'image').replace(/[^a-z0-9]/gi, '-').toLowerCase();
+    const ext = src.match(/\.(png|jpe?g|gif|webp|svg)(\?|$)/i)?.[1] || 'png';
+    return `${base}.${ext}`;
+  }, [alt, src]);
+
+  const handleDownload = useCallback(async () => {
+    setIsDownloading(true);
+    try {
+      await downloadImageBlob(src, filename);
+    } catch {
+      window.open(src, '_blank');
+    } finally {
+      setIsDownloading(false);
+    }
+  }, [src, filename]);
+
+  return (
+    <button
+      type="button"
+      onClick={handleDownload}
+      disabled={isDownloading}
+      className="inline-flex items-center gap-1.5 my-1 px-2.5 py-1.5 rounded-lg border border-border bg-muted/30 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-60"
+    >
+      {isDownloading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+      {isDownloading ? 'Downloading…' : 'Download image'}
+    </button>
+  );
+});
+
+GeneratedImageDownloadChip.displayName = 'GeneratedImageDownloadChip';

@@ -12,7 +12,7 @@ Use this when the user asks to create, generate, or make an image.
 
 **Phase 3 — Generate**: Call \`generate_image\` with the crafted prompt.
 
-**Phase 4 — Describe the result**: After generation, briefly describe what was created so the user knows what they're looking at. Do not include the image URL or a markdown image link in your text response — the image is already rendered from the tool result.`;
+**Phase 4 — Describe the result**: After generation, briefly describe what was created so the user knows what they're looking at.`;
 
 export const IMAGE_EDITING_DEFAULT_INSTRUCTIONS = `### Image Editing Methodology
 
@@ -24,4 +24,4 @@ Use this when the user asks to edit or modify an existing image.
 
 **Phase 3 — Edit**: Call \`edit_image\` with the image URL and a clear description of the edit.
 
-**Phase 4 — Confirm**: Describe what was changed so the user can verify the result. Do not include the image URL or a markdown image link in your text response — the image is already rendered from the tool result.`;
+**Phase 4 — Confirm**: Describe what was changed so the user can verify the result.`;

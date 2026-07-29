@@ -2,12 +2,52 @@ import 'server-only';
 
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { nanoid } from 'nanoid';
+import sharp from 'sharp';
 import { storageClient, STORAGE_BUCKET_NAME, STORAGE_PUBLIC_URL } from '@/lib/storage';
 import { insertGeneratedFile } from '@/lib/db/queries';
 
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('generated-file-storage');
+
+// Some image providers return large, losslessly-encoded PNGs (10MB+) for
+// photorealistic content — fine for direct display, but several downstream
+// consumers reject or choke on it: llama.cpp's built-in remote-image
+// downloader (used for vision models) hard-caps fetches at 10MB and fails
+// with a generic "cannot make GET request" once exceeded, and other vision
+// APIs have their own (often smaller) limits. Re-encoding photographic
+// content as JPEG typically shrinks it 5-10x with no visible quality loss;
+// images with an alpha channel (icons/logos with transparency) stay PNG.
+const MAX_IMAGE_DIMENSION = 2048;
+const JPEG_QUALITY = 90;
+
+async function compressGeneratedImage(
+  buffer: Buffer,
+  contentType: string,
+): Promise<{ buffer: Buffer; contentType: string }> {
+  try {
+    const image = sharp(buffer);
+    const metadata = await image.metadata();
+    const resized = image.resize({
+      width: MAX_IMAGE_DIMENSION,
+      height: MAX_IMAGE_DIMENSION,
+      fit: 'inside',
+      withoutEnlargement: true,
+    });
+
+    if (metadata.hasAlpha) {
+      return { buffer: await resized.png({ compressionLevel: 9 }).toBuffer(), contentType: 'image/png' };
+    }
+    return {
+      buffer: await resized.jpeg({ quality: JPEG_QUALITY, mozjpeg: true }).toBuffer(),
+      contentType: 'image/jpeg',
+    };
+  } catch (error) {
+    // Not a raster image sharp can decode — keep the original as-is.
+    log.warn('Could not compress generated image, storing original:', error);
+    return { buffer, contentType };
+  }
+}
 
 export interface PersistGeneratedFileParams {
   userId: string;
@@ -101,6 +141,8 @@ export async function rehostGeneratedImage({
       contentType = response.headers.get('content-type') || 'image/png';
       buffer = Buffer.from(await response.arrayBuffer());
     }
+
+    ({ buffer, contentType } = await compressGeneratedImage(buffer, contentType));
 
     const filename = `${filenameHint}.${extensionFromContentType(contentType)}`;
     const { url } = await persistGeneratedFile({
