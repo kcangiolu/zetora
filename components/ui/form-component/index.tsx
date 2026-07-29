@@ -1,5 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
-import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import React, { Fragment, useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { sileo } from 'sileo';
 import { all } from 'better-all';
@@ -184,6 +184,11 @@ const BASE_VALID_SPECIAL_MODES = new Set<string>([
   'deep-research',
   'extreme-search',
 ]);
+
+// Within the '/' trigger popup, these force an existing skill for a single
+// message rather than swapping the whole pipeline for another agent —
+// labeled as "Skills" instead of "Modes" so they don't read as equivalent.
+const SKILL_MODE_IDS = new Set<string>(['deep-research', 'extreme-search']);
 
 const FormComponent: React.FC<FormComponentProps> = ({
   chatId,
@@ -557,13 +562,13 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
   const showMultiAgentInTrigger = useMemo(() => {
     if (triggerPopup !== '/') return false;
-    if (!user || !setIsMultiAgentModeEnabled) return false;
+    if (!user || !setIsMultiAgentModeEnabled || !swarmEnabledPref) return false;
     const isAlreadyInModeGroups = filteredTriggerGroups.some((group) => group.id === 'multi-agent');
     if (isAlreadyInModeGroups) return false;
     if (!triggerFilter) return true;
     const lower = triggerFilter.toLowerCase();
     return 'multi-agent'.includes(lower) || 'multi agent'.includes(lower) || 'research'.includes(lower);
-  }, [triggerPopup, user, setIsMultiAgentModeEnabled, triggerFilter, filteredTriggerGroups]);
+  }, [triggerPopup, user, setIsMultiAgentModeEnabled, swarmEnabledPref, triggerFilter, filteredTriggerGroups]);
 
   const triggerTotalItems =
     filteredTriggerGroups.length + (showMultiAgentInTrigger ? 1 : 0) + (showTempInTrigger ? 1 : 0);
@@ -2232,83 +2237,128 @@ const FormComponent: React.FC<FormComponentProps> = ({
                     })()),
                 }}
               >
-                <div className="px-3 pt-2.5 pb-1">
-                  <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest">
-                    {triggerPopup === '/' ? 'Modes' : 'Sources'}
-                  </p>
-                </div>
+                {triggerPopup !== '/' && (
+                  <div className="px-3 pt-2.5 pb-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest">
+                      Sources
+                    </p>
+                  </div>
+                )}
                 <div ref={triggerPopupScrollRef} className="px-1 pb-1 max-h-[260px] overflow-y-auto scrollbar-thin">
-                  {filteredTriggerGroups.map((group, index) => {
-                    const isHighlighted = index === triggerHighlightIndex;
-                    const isCurrentGroup =
-                      group.id === 'multi-agent'
-                        ? isMultiAgentModeEnabled || selectedGroup === 'multi-agent'
-                        : selectedGroup === group.id;
-                    return (
-                      <button
-                        key={group.id}
-                        data-at-index={index}
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          handleTriggerSelect(group);
-                        }}
-                        onMouseEnter={() => setTriggerHighlightIndex(index)}
-                        className={cn(
-                          'flex items-center gap-2.5 w-full px-2 py-1.5 rounded-lg text-left transition-colors duration-100',
-                          isHighlighted ? 'bg-accent/80' : 'bg-transparent',
-                        )}
-                      >
-                        <div
-                          className={cn(
-                            'flex items-center justify-center size-7 rounded-md shrink-0',
-                            isCurrentGroup ? 'bg-primary/10 text-primary' : 'bg-muted/80 text-muted-foreground',
+                  {(() => {
+                    // '/' mixes two different kinds of entries: skills (deep-research,
+                    // extreme-search) force an existing skill for one message, while modes
+                    // (multi-agent, connectors, mcp, canvas) swap the whole pipeline for
+                    // another agent. Label them separately so they don't read as equivalent.
+                    let renderedSkillsHeader = false;
+                    let renderedModesHeader = false;
+                    return filteredTriggerGroups.map((group, index) => {
+                      const isHighlighted = index === triggerHighlightIndex;
+                      const isCurrentGroup =
+                        group.id === 'multi-agent'
+                          ? isMultiAgentModeEnabled || selectedGroup === 'multi-agent'
+                          : selectedGroup === group.id;
+                      const isSkillGroup = triggerPopup === '/' && SKILL_MODE_IDS.has(group.id);
+                      const showSkillsHeader = isSkillGroup && !renderedSkillsHeader;
+                      const showModesHeader = triggerPopup === '/' && !isSkillGroup && !renderedModesHeader;
+                      if (showSkillsHeader) renderedSkillsHeader = true;
+                      if (showModesHeader) renderedModesHeader = true;
+                      return (
+                        <Fragment key={group.id}>
+                          {showSkillsHeader && (
+                            <p className="px-2 pt-1.5 pb-1 text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest">
+                              Skills
+                            </p>
                           )}
-                        >
-                          <FlexibleIcon icon={group.icon} size={16} color="currentColor" strokeWidth={1.8} />
-                        </div>
-                        <span className="flex-1 text-[13px] font-medium text-foreground truncate">{group.name}</span>
-                        {isCurrentGroup && (
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <span className="text-[10px] font-medium text-primary/70">Active</span>
-                            <CheckIcon className="size-3 text-primary" />
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
+                          {showModesHeader && (
+                            <>
+                              {renderedSkillsHeader && <div className="my-1 mx-2 border-t border-border/30" />}
+                              <p className="px-2 pt-1.5 pb-1 text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest">
+                                Modes
+                              </p>
+                            </>
+                          )}
+                          <button
+                            data-at-index={index}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              handleTriggerSelect(group);
+                            }}
+                            onMouseEnter={() => setTriggerHighlightIndex(index)}
+                            className={cn(
+                              'flex items-center gap-2.5 w-full px-2 py-1.5 rounded-lg text-left transition-colors duration-100',
+                              isHighlighted ? 'bg-accent/80' : 'bg-transparent',
+                            )}
+                          >
+                            <div
+                              className={cn(
+                                'flex items-center justify-center size-7 rounded-md shrink-0',
+                                isCurrentGroup ? 'bg-primary/10 text-primary' : 'bg-muted/80 text-muted-foreground',
+                              )}
+                            >
+                              <FlexibleIcon icon={group.icon} size={16} color="currentColor" strokeWidth={1.8} />
+                            </div>
+                            <span className="flex-1 text-[13px] font-medium text-foreground truncate">
+                              {group.name}
+                            </span>
+                            {isCurrentGroup && (
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="text-[10px] font-medium text-primary/70">Active</span>
+                                <CheckIcon className="size-3 text-primary" />
+                              </div>
+                            )}
+                          </button>
+                        </Fragment>
+                      );
+                    });
+                  })()}
                   {(showTempInTrigger || showMultiAgentInTrigger) && (
                     <>
                       {showMultiAgentInTrigger && (
-                        <button
-                          data-at-index={filteredTriggerGroups.length}
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            handleTriggerMultiAgentSelect();
-                          }}
-                          onMouseEnter={() => setTriggerHighlightIndex(filteredTriggerGroups.length)}
-                          className={cn(
-                            'flex items-center gap-2.5 w-full px-2 py-1.5 rounded-lg text-left transition-colors duration-100',
-                            triggerHighlightIndex === filteredTriggerGroups.length ? 'bg-accent/80' : 'bg-transparent',
+                        <>
+                          {!filteredTriggerGroups.some((g) => !SKILL_MODE_IDS.has(g.id)) && (
+                            <>
+                              {filteredTriggerGroups.length > 0 && (
+                                <div className="my-1 mx-2 border-t border-border/30" />
+                              )}
+                              <p className="px-2 pt-1.5 pb-1 text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest">
+                                Modes
+                              </p>
+                            </>
                           )}
-                        >
-                          <div
+                          <button
+                            data-at-index={filteredTriggerGroups.length}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              handleTriggerMultiAgentSelect();
+                            }}
+                            onMouseEnter={() => setTriggerHighlightIndex(filteredTriggerGroups.length)}
                             className={cn(
-                              'flex items-center justify-center size-7 rounded-md shrink-0',
-                              isMultiAgentModeEnabled
-                                ? 'bg-primary/10 text-primary'
-                                : 'bg-muted/80 text-muted-foreground',
+                              'flex items-center gap-2.5 w-full px-2 py-1.5 rounded-lg text-left transition-colors duration-100',
+                              triggerHighlightIndex === filteredTriggerGroups.length
+                                ? 'bg-accent/80'
+                                : 'bg-transparent',
                             )}
                           >
-                            <AgentNetworkIcon width={16} height={16} />
-                          </div>
-                          <span className="flex-1 text-[13px] font-medium text-foreground truncate">Swarm mode</span>
-                          {isMultiAgentModeEnabled && (
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <span className="text-[10px] font-medium text-primary/70">Active</span>
-                              <CheckIcon className="size-3 text-primary" />
+                            <div
+                              className={cn(
+                                'flex items-center justify-center size-7 rounded-md shrink-0',
+                                isMultiAgentModeEnabled
+                                  ? 'bg-primary/10 text-primary'
+                                  : 'bg-muted/80 text-muted-foreground',
+                              )}
+                            >
+                              <AgentNetworkIcon width={16} height={16} />
                             </div>
-                          )}
-                        </button>
+                            <span className="flex-1 text-[13px] font-medium text-foreground truncate">Swarm mode</span>
+                            {isMultiAgentModeEnabled && (
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="text-[10px] font-medium text-primary/70">Active</span>
+                                <CheckIcon className="size-3 text-primary" />
+                              </div>
+                            )}
+                          </button>
+                        </>
                       )}
                       {showTempInTrigger && (
                         <>
