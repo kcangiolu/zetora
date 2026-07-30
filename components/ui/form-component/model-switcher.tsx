@@ -607,8 +607,14 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
 
       // Filter by attachment types
       // Note: PDF filtering removed - PDFs are processed via file_query_search tool which works with any model
+      // Custom-provider models are exempt: the API route hardcodes `vision: false`
+      // for all of them (no capability data exists for arbitrary Ollama/vLLM/
+      // llama.cpp endpoints), so applying this filter to them would always hide
+      // every custom model whenever an image is attached. The in-chat Vision
+      // toggle (default off, manually enabled by the user) is what actually
+      // gates whether the image bytes are sent to a custom model.
       if (hasImageAttachments) {
-        filtered = filtered.filter((model) => model.vision);
+        filtered = filtered.filter((model) => model.vision || model.provider === 'custom');
       }
 
       // Filter by extreme mode
