@@ -1,5 +1,5 @@
-import React, { memo, useMemo, useState, useRef, useEffect, useCallback } from 'react';
-import { Virtuoso } from 'react-virtuoso';
+import React, { memo, useMemo, useState, useRef, useEffect, useCallback, useImperativeHandle } from 'react';
+import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { Message } from '@/components/message';
 import { DataUIPart, isToolUIPart } from 'ai';
 import { EnhancedErrorDisplay } from '@/components/message';
@@ -59,33 +59,46 @@ interface MessagesProps {
   // Defaults to the height of the main chat composer; callers with a shorter bottom
   // bar (e.g. the read-only share page) should override it.
   bottomSpacerClassName?: string;
+  // Fires whenever Virtuoso's own internal scroller crosses the at-bottom threshold —
+  // this is the source of truth for "at bottom", since Virtuoso owns its own scroll
+  // container and the outer page/window scroll doesn't move when it's virtualized.
+  onAtBottomChange?: (atBottom: boolean) => void;
 }
 
-const MessagesImpl: React.FC<MessagesProps> = ({
-  messages,
-  lastUserMessageIndex,
-  setMessages,
-  suggestedQuestions,
-  setSuggestedQuestions,
-  status,
-  error,
-  user,
-  selectedVisibilityType = 'private',
-  chatId,
-  onVisibilityChange,
-  initialMessages,
-  isOwner,
-  onHighlight,
-  attachmentsRenderer,
-  sendMessage,
-  regenerate,
-  stop,
-  hasSubmitted,
-  isTransitioning,
-  onBeforeSubmit,
-  skipCacheRef,
-  bottomSpacerClassName = 'mb-38! sm:mb-42!',
-}) => {
+export interface MessagesHandle {
+  scrollToBottom: (behavior?: 'smooth' | 'auto') => void;
+}
+
+const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function MessagesImpl(
+  {
+    messages,
+    lastUserMessageIndex,
+    setMessages,
+    suggestedQuestions,
+    setSuggestedQuestions,
+    status,
+    error,
+    user,
+    selectedVisibilityType = 'private',
+    chatId,
+    onVisibilityChange,
+    initialMessages,
+    isOwner,
+    onHighlight,
+    attachmentsRenderer,
+    sendMessage,
+    regenerate,
+    stop,
+    hasSubmitted,
+    isTransitioning,
+    onBeforeSubmit,
+    skipCacheRef,
+    bottomSpacerClassName = 'mb-38! sm:mb-42!',
+    onAtBottomChange,
+  },
+  ref,
+) {
+  const virtuosoRef = useRef<VirtuosoHandle>(null);
   // Track visibility state for each reasoning section using messageIndex-partIndex as key
   const [reasoningVisibilityMap, setReasoningVisibilityMap] = useState<Record<string, boolean>>({});
   const [reasoningFullscreenMap, setReasoningFullscreenMap] = useState<Record<string, boolean>>({});
@@ -100,6 +113,20 @@ const MessagesImpl: React.FC<MessagesProps> = ({
   // Compute the initial scroll target once, at mount, so incoming messages
   // don't keep resetting where Virtuoso thinks the "initial" bottom is.
   const initialTopMostItemIndexRef = useRef(Math.max(memoizedMessages.length - 1, 0));
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      scrollToBottom: (behavior = 'smooth') => {
+        virtuosoRef.current?.scrollToIndex({
+          index: memoizedMessages.length - 1,
+          align: 'end',
+          behavior,
+        });
+      },
+    }),
+    [memoizedMessages.length],
+  );
 
   // Check if there are any active tool invocations in the current messages
   const hasActiveToolInvocations = useMemo(() => {
@@ -459,18 +486,22 @@ const MessagesImpl: React.FC<MessagesProps> = ({
   return (
     <div className={cn(bottomSpacerClassName, 'flex-1 min-h-0 flex flex-col')} style={{ overflowAnchor: 'none' }}>
       <Virtuoso
+        ref={virtuosoRef}
         style={{ height: '100%', overflowX: 'hidden' }}
         data={memoizedMessages}
         computeItemKey={(index, message) => message.id ?? index}
         followOutput={(isAtBottom) => (isAtBottom ? 'smooth' : false)}
+        atBottomStateChange={onAtBottomChange}
+        atBottomThreshold={80}
         itemContent={renderMessageItem}
         components={{ Footer }}
       />
     </div>
   );
-};
+});
 
 // Add a display name for better debugging
+MessagesImpl.displayName = 'MessagesImpl';
 const Messages = memo(MessagesImpl);
 Messages.displayName = 'Messages';
 

@@ -299,7 +299,7 @@ function collectLocalStoragePreferences(): Partial<Record<PreferenceKey, Prefere
 export function useSyncedPreferences<T extends PreferenceValue>(
   key: PreferenceKey,
   defaultValue: T,
-): [T, (value: T | ((val: T) => T)) => void] {
+): [T, (value: T | ((val: T) => T)) => void, boolean] {
   const { user } = useUser();
   const queryClient = useQueryClient();
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -311,7 +311,7 @@ export function useSyncedPreferences<T extends PreferenceValue>(
   const [localValue, setLocalValue] = useState<T>(() => getStoredValue(key, defaultValue));
 
   // Fetch preferences from DB
-  const { data: dbPreferences } = useQuery({
+  const { data: dbPreferences, isFetched: dbPreferencesFetched } = useQuery({
     queryKey: ['userPreferences', user?.id],
     queryFn: fetchUserPreferences,
     enabled: !!user,
@@ -319,6 +319,12 @@ export function useSyncedPreferences<T extends PreferenceValue>(
     refetchOnWindowFocus: false,
     refetchOnMount: false,
   });
+
+  // Whether `localValue` reflects its final source: either there's no logged-in
+  // user (localStorage/default is authoritative), or the DB fetch has settled.
+  // Callers that need to act once on the "true" value (e.g. auto-scroll-on-open)
+  // must wait for this instead of trusting the first (possibly stale-default) render.
+  const isResolved = !user?.id || dbPreferencesFetched;
 
   // Migrate localStorage to DB on first load
   useEffect(() => {
@@ -507,5 +513,5 @@ export function useSyncedPreferences<T extends PreferenceValue>(
     };
   }, []);
 
-  return [localValue, setValue];
+  return [localValue, setValue, isResolved];
 }

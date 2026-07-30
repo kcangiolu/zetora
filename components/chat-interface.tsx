@@ -7,6 +7,7 @@ import Link from 'next/link';
 // Third-party library imports
 import { useChat } from '@ai-sdk/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { AnimatePresence, motion } from 'motion/react';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { UserCircleIcon } from '@hugeicons/core-free-icons';
 import { PlusIcon } from '@phosphor-icons/react';
@@ -20,7 +21,7 @@ import { suggestQuestions, updateChatVisibility, getChatMeta } from '@/app/actio
 
 // Component imports
 import { ChatDialogs } from '@/components/chat-dialogs';
-import Messages from '@/components/messages';
+import Messages, { MessagesHandle } from '@/components/messages';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SidebarInset, useSidebar, SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
@@ -247,7 +248,10 @@ const ChatInterface = memo(
     const [extremeSearchModel] = useSyncedPreferences<string>('zetora-tertiary-extreme-agent-model', '');
     const [isAutoRouterEnabled] = useSyncedPreferences<boolean>('zetora-auto-router-enabled', false);
     const [autoRouterConfig] = useSyncedPreferences<AutoRouterConfig>('zetora-auto-router-config', { routes: [] });
-    const [scrollToLatestOnOpen] = useSyncedPreferences<boolean>('zetora-scroll-to-latest-on-open', false);
+    const [scrollToLatestOnOpen, , scrollToLatestOnOpenResolved] = useSyncedPreferences<boolean>(
+      'zetora-scroll-to-latest-on-open',
+      false,
+    );
     // Browser-session-only source overrides set from the chat picker (see
     // components/ui/form-component) — never persisted to the account-wide
     // zetora-enabled-sources preference, only sent along with this session's requests.
@@ -384,6 +388,8 @@ const ChatInterface = memo(
 
     const lastSubmittedQueryRef = useRef(initialState.query);
     const bottomRef = useRef<HTMLDivElement>(null);
+    const messagesRef = useRef<MessagesHandle>(null);
+    const [showScrollToBottom, setShowScrollToBottom] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null!);
     const inputRef = useRef<HTMLTextAreaElement>(null!);
     const initializedRef = useRef(false);
@@ -405,6 +411,19 @@ const ChatInterface = memo(
     const { scrollToBottom, markManualScroll, resetManualScroll } = useOptimizedScroll(bottomRef, {
       skipScrollWhen: skipAutoScrollRef,
     });
+
+    // Messages renders via react-virtuoso, which owns its own internal scroll container —
+    // the page/window never scrolls for a tall conversation, so "at bottom" must come from
+    // Virtuoso's own atBottomStateChange rather than the window-based hook above.
+    const handleAtBottomChange = useCallback((atBottom: boolean) => {
+      setShowScrollToBottom(!atBottom);
+    }, []);
+
+    const handleScrollToBottomClick = useCallback(() => {
+      resetManualScroll();
+      setShowScrollToBottom(false);
+      messagesRef.current?.scrollToBottom();
+    }, [resetManualScroll]);
 
     // Detect intentional user scroll to stop auto-scrolling.
     // On touch: mark manual scroll on any touch + movement, and skip auto-scroll while finger is down.
@@ -728,6 +747,11 @@ const ChatInterface = memo(
 
       if (openChatAutoScrolledRef.current === existingChatId) return;
 
+      // Don't commit to "skip" on the pre-DB-fetch default (false) — that would
+      // permanently lock this chat out of auto-scrolling before the real preference
+      // value has a chance to arrive.
+      if (!scrollToLatestOnOpenResolved) return;
+
       if (!scrollToLatestOnOpen) {
         openChatAutoScrolledRef.current = existingChatId;
         return;
@@ -737,8 +761,9 @@ const ChatInterface = memo(
 
       openChatAutoScrolledRef.current = existingChatId;
       resetManualScroll();
-      requestAnimationFrame(() => requestAnimationFrame(() => scrollToBottom()));
-    }, [existingChatId, messages.length, resetManualScroll, scrollToBottom, scrollToLatestOnOpen, uiStatus]);
+      // Double rAF: wait for Virtuoso to mount and measure its rows before jumping to the end.
+      requestAnimationFrame(() => requestAnimationFrame(() => messagesRef.current?.scrollToBottom('auto')));
+    }, [existingChatId, messages.length, resetManualScroll, scrollToLatestOnOpen, scrollToLatestOnOpenResolved, uiStatus]);
 
     const sendMessageWithAutoRouting = useCallback(
       async (message: Parameters<typeof sendMessage>[0], options?: Parameters<typeof sendMessage>[1]) => {
@@ -1479,6 +1504,8 @@ const ChatInterface = memo(
                 {/* Use the Messages component */}
                 {messages.length > 0 && (
                   <Messages
+                    ref={messagesRef}
+                    onAtBottomChange={handleAtBottomChange}
                     skipCacheRef={skipCacheRef}
                     messages={messages as ChatMessage[]}
                     lastUserMessageIndex={lastUserMessageIndex}
@@ -1526,6 +1553,22 @@ const ChatInterface = memo(
                           }`,
                     )}
                   >
+                    <AnimatePresence>
+                      {showScrollToBottom && messages.length > 0 && (
+                        <motion.button
+                          type="button"
+                          initial={{ opacity: 0, y: 8, scale: 0.9 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 8, scale: 0.9 }}
+                          transition={{ duration: 0.15 }}
+                          onClick={handleScrollToBottomClick}
+                          aria-label="Scroll to latest message"
+                          className="absolute -top-14 left-1/2 -translate-x-1/2 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background shadow-md hover:bg-accent transition-colors"
+                        >
+                          <ChevronDown className="h-4 w-4" />
+                        </motion.button>
+                      )}
+                    </AnimatePresence>
                     <FormComponent
                       chatId={chatId}
                       user={user!}
