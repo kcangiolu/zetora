@@ -6,6 +6,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import { Pencil, Wand2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TextShimmer } from '@/components/core/text-shimmer';
+import { ImageCompareSlider } from '@/components/image-compare-slider';
 
 const REVEAL_TRANSITION = { duration: 0.6, ease: [0.22, 1, 0.36, 1] as const };
 
@@ -66,17 +67,21 @@ export function GeneratedImageCard({ mode, state, prompt, size, sourceImageUrl, 
             onFadeOutComplete={() => setRevealed(true)}
           />
         )}
-        {imageUrl && (
-          <motion.img
-            ref={imgRef}
-            src={imageUrl}
-            alt={prompt || (mode === 'generate' ? 'Generated image' : 'Edited image')}
-            className={cn('block', revealed ? 'w-full h-auto' : 'absolute inset-0 w-full h-full object-cover')}
-            initial={skipAnimation ? false : { opacity: 0, filter: 'blur(20px)', scale: 1.04 }}
-            animate={skipAnimation || imageReady ? { opacity: 1, filter: 'blur(0px)', scale: 1 } : {}}
-            transition={prefersReducedMotion ? { duration: 0.2 } : REVEAL_TRANSITION}
-            onLoad={() => setImageReady(true)}
-          />
+        {imageUrl && mode === 'edit' && sourceImageUrl && (revealed || skipAnimation) ? (
+          <ImageCompareSlider beforeUrl={sourceImageUrl} afterUrl={imageUrl} beforeAlt="Image originale" afterAlt={prompt || 'Edited image'} />
+        ) : (
+          imageUrl && (
+            <motion.img
+              ref={imgRef}
+              src={imageUrl}
+              alt={prompt || (mode === 'generate' ? 'Generated image' : 'Edited image')}
+              className={cn('block', revealed ? 'w-full h-auto' : 'absolute inset-0 w-full h-full object-cover')}
+              initial={skipAnimation ? false : { opacity: 0, filter: 'blur(20px)', scale: 1.04 }}
+              animate={skipAnimation || imageReady ? { opacity: 1, filter: 'blur(0px)', scale: 1 } : {}}
+              transition={prefersReducedMotion ? { duration: 0.2 } : REVEAL_TRANSITION}
+              onLoad={() => setImageReady(true)}
+            />
+          )
         )}
       </div>
       {prompt && (
