@@ -361,10 +361,14 @@ export function useSyncedPreferences<T extends PreferenceValue>(
     const dbValue = dbPreferences.preferences[key];
     const isUserLogin = lastSyncedUserIdRef.current !== user.id;
 
-    // On login: always sync from DB (user expects their synced preferences)
+    // On login: sync from DB (user expects their synced preferences), but only
+    // write/broadcast if the value actually differs - every remount (e.g. page
+    // navigation re-mounting the sidebar) hits this branch since the ref resets,
+    // and without this check it would re-dispatch a global event on every nav,
+    // fanning out across every other mounted instance of the same key.
     if (isUserLogin) {
       lastSyncedUserIdRef.current = user.id;
-      if (dbValue !== undefined) {
+      if (dbValue !== undefined && dbValue !== localValueRef.current) {
         setLocalValue(dbValue as T);
         localStorage.setItem(key, JSON.stringify(dbValue));
         window.dispatchEvent(new CustomEvent('localStorage-change', { detail: { key, value: dbValue } }));
