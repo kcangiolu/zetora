@@ -736,43 +736,20 @@ export async function POST(req: Request) {
           ...getSearchProviderOptions(model, shouldUseXaiMultiAgent, effort),
           ...customReasoningProviderOptions,
         },
-        experimental_context: (() => {
-          // Extract images and files from the last user message's attachments
-          const lastUserMessage = [...hydratedMessages].reverse().find((m) => m.role === 'user');
-          const attachments = (lastUserMessage?.parts as (TextPart | ImagePart | FilePart)[]) ?? [];
-          const images = attachments
-            .filter((att): att is FilePart => att.type === 'file' && (att as any).mediaType?.startsWith('image/'))
-            .map((att) => ({
-              url: (att as any).url,
-              contentType: (att as any).mediaType,
-              name: (att as any).name,
-            }));
-          // Extract document files (PDF, CSV, DOCX, XLSX)
-          const files = attachments
-            .filter((att): att is FilePart => {
-              if (att.type !== 'file') return false;
-              const mediaType = (att as any).mediaType || '';
-              return (
-                mediaType === 'application/pdf' ||
-                mediaType === 'text/csv' ||
-                mediaType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-                mediaType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-                mediaType === 'application/vnd.ms-excel'
-              );
-            })
-            .map((att) => ({
-              url: (att as any).url,
-              contentType: (att as any).mediaType,
-              name: (att as any).name,
-            }));
-          return {
-            images,
-            files,
-            userPreferences: userPreferencesResult?.preferences ?? {},
-            userId: lightweightUser?.userId,
-            chatId: id,
-          };
-        })(),
+        experimental_context: {
+          // contextImages/contextFiles (collectAttachments, above) already scan
+          // every message in the conversation — not just the last one — and
+          // contextImages also includes images produced by generate_image/
+          // edit_image. Tools that default to "the most recent image/file when
+          // none is specified" (edit_image) must resolve against the whole
+          // conversation, or the fallback silently misses anything beyond the
+          // latest user turn.
+          images: contextImages,
+          files: contextFiles,
+          userPreferences: userPreferencesResult?.preferences ?? {},
+          userId: lightweightUser?.userId,
+          chatId: id,
+        },
         experimental_download: async (requestedDownloads) => {
           type DownloadResult = { data: Uint8Array; mediaType: string | undefined } | null;
 
