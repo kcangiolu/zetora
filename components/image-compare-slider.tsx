@@ -75,7 +75,7 @@ export function ImageCompareSlider({ beforeUrl, afterUrl, beforeAlt, afterAlt, c
       onPointerCancel={stopDragging}
       onKeyDown={handleKeyDown}
       className={cn(
-        'group/compare relative flex w-full touch-none items-center select-none outline-none cursor-ew-resize',
+        'group/compare relative flex w-full touch-pan-y items-center select-none outline-none cursor-ew-resize',
         className,
       )}
     >
