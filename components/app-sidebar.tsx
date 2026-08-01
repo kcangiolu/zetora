@@ -464,10 +464,15 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
   const { state, isMobile, setOpenMobile } = useSidebar();
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = React.useState(false);
 
-  // Close mobile sidebar when navigating
+  // Close mobile sidebar when navigating. Deferred a frame: these onClick
+  // handlers fire on the same Link that triggers the route navigation, so
+  // closing synchronously tears down the Sheet (portal unmount + close
+  // animation) in the same tick as the new route mounting - two full
+  // component-tree transitions colliding head-on floods the main thread
+  // (measured: ~16s/23k tasks freezing mobile Settings navigation).
   const closeMobileSidebar = React.useCallback(() => {
     if (isMobile) {
-      setOpenMobile(false);
+      requestAnimationFrame(() => setOpenMobile(false));
     }
   }, [isMobile, setOpenMobile]);
 

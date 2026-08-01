@@ -206,6 +206,14 @@ function getStoredValue<T>(key: string, defaultValue: T): T {
   }
 }
 
+// `!==` is a reference check - useless for the array/object-typed preference
+// keys (dbValue is always a fresh JSON.parse, never === the ref'd local
+// value even when identical). Compare serialized form instead so remounts
+// of unchanged array/object prefs don't re-broadcast every time.
+function hasChanged(a: PreferenceValue, b: PreferenceValue): boolean {
+  return JSON.stringify(a) !== JSON.stringify(b);
+}
+
 // Check if preferences have been migrated for this user
 function hasMigratedPreferences(userId: string): boolean {
   if (typeof window === 'undefined') return false;
@@ -374,7 +382,7 @@ export function useSyncedPreferences<T extends PreferenceValue>(
     // fanning out across every other mounted instance of the same key.
     if (isUserLogin) {
       lastSyncedUserIdRef.current = user.id;
-      if (dbValue !== undefined && dbValue !== localValueRef.current) {
+      if (dbValue !== undefined && hasChanged(dbValue, localValueRef.current)) {
         setLocalValue(dbValue as T);
         localStorage.setItem(key, JSON.stringify(dbValue));
         window.dispatchEvent(new CustomEvent('localStorage-change', { detail: { key, value: dbValue } }));
@@ -384,7 +392,7 @@ export function useSyncedPreferences<T extends PreferenceValue>(
 
     // After login: only sync if no pending save (don't overwrite user's current changes)
     if (pendingSaveCountRef.current > 0) return;
-    if (dbValue !== undefined && dbValue !== localValueRef.current) {
+    if (dbValue !== undefined && hasChanged(dbValue, localValueRef.current)) {
       setLocalValue(dbValue as T);
       localStorage.setItem(key, JSON.stringify(dbValue));
       window.dispatchEvent(new CustomEvent('localStorage-change', { detail: { key, value: dbValue } }));
