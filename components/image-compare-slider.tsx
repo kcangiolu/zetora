@@ -1,8 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 'use client';
 
-import { useState } from 'react';
-import * as SliderPrimitive from '@radix-ui/react-slider';
+import { useCallback, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -14,17 +13,71 @@ export type ImageCompareSliderProps = {
   className?: string;
 };
 
+const STEP = 2;
+
+// Custom drag handling instead of @radix-ui/react-slider: the value only
+// ever comes from clientX, deliberately ignoring clientY, so dragging up/down
+// can never nudge the compare position — the axis-mixing users perceived
+// when dragging diagonally with the generic Slider is now impossible by
+// construction.
 export function ImageCompareSlider({ beforeUrl, afterUrl, beforeAlt, afterAlt, className }: ImageCompareSliderProps) {
   const [position, setPosition] = useState(50);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const draggingRef = useRef(false);
+
+  const updateFromClientX = useCallback((clientX: number) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect || rect.width === 0) return;
+    const pct = ((clientX - rect.left) / rect.width) * 100;
+    setPosition(Math.min(100, Math.max(0, pct)));
+  }, []);
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    draggingRef.current = true;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    updateFromClientX(event.clientX);
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!draggingRef.current) return;
+    updateFromClientX(event.clientX);
+  };
+
+  const stopDragging = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'ArrowLeft') setPosition((p) => Math.max(0, p - STEP));
+    else if (event.key === 'ArrowRight') setPosition((p) => Math.min(100, p + STEP));
+    else if (event.key === 'Home') setPosition(0);
+    else if (event.key === 'End') setPosition(100);
+    else return;
+    event.preventDefault();
+  };
 
   return (
-    <SliderPrimitive.Root
-      value={[position]}
-      onValueChange={(vals) => setPosition(vals[0])}
-      min={0}
-      max={100}
-      step={0.1}
-      className={cn('group/compare relative flex w-full touch-none items-center select-none', className)}
+    <div
+      ref={containerRef}
+      role="slider"
+      tabIndex={0}
+      aria-label="Comparer avant/après"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(position)}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={stopDragging}
+      onPointerCancel={stopDragging}
+      onKeyDown={handleKeyDown}
+      className={cn(
+        'group/compare relative flex w-full touch-none items-center select-none outline-none cursor-ew-resize',
+        className,
+      )}
     >
       <img src={afterUrl} alt={afterAlt || 'After'} className="block w-full h-auto pointer-events-none" draggable={false} />
       <div
@@ -43,15 +96,13 @@ export function ImageCompareSlider({ beforeUrl, afterUrl, beforeAlt, afterAlt, c
       <span className="pointer-events-none absolute right-2 top-2 rounded-md bg-background/70 px-2 py-0.5 text-xs font-medium text-foreground opacity-0 backdrop-blur-sm transition-opacity group-hover/compare:opacity-100">
         Après
       </span>
-      <SliderPrimitive.Thumb
-        className="relative flex h-0 w-0 items-center justify-center focus-visible:outline-none"
-        aria-label="Comparer avant/après"
+      <div
+        className="pointer-events-none absolute flex size-8 items-center justify-center rounded-full border border-border bg-background shadow-md"
+        style={{ left: `${position}%`, top: '50%', transform: 'translate(-50%, -50%)' }}
       >
-        <div className="absolute flex size-8 items-center justify-center rounded-full border border-border bg-background shadow-md cursor-ew-resize">
-          <ChevronLeft className="size-3 -mr-1 text-muted-foreground" />
-          <ChevronRight className="size-3 -ml-1 text-muted-foreground" />
-        </div>
-      </SliderPrimitive.Thumb>
-    </SliderPrimitive.Root>
+        <ChevronLeft className="size-3 -mr-1 text-muted-foreground" />
+        <ChevronRight className="size-3 -ml-1 text-muted-foreground" />
+      </div>
+    </div>
   );
 }
