@@ -3034,7 +3034,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                 mode="edit"
                 state={toImageCardState(part.state)}
                 prompt={part.input?.prompt}
-                sourceImageUrl={part.input?.image_url}
+                sourceImageUrl={(part.state === 'output-available' && part.output.success ? part.output.originalUrl : undefined) ?? part.input?.image_url}
                 imageUrl={part.state === 'output-available' && part.output.success ? part.output.imageUrl : undefined}
                 error={
                   part.state === 'output-available' && !part.output.success
