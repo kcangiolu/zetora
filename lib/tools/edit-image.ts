@@ -22,7 +22,7 @@ interface ToolContext {
 
 export const editImageTool = tool({
   description:
-    'Edit an existing image — change colors, add/remove objects, inpaint, or modify specific elements (Max subscribers only). Use the URL of an image already shown in the conversation (generated or uploaded).',
+    'Edit an existing image — change colors, add/remove objects, inpaint, or modify specific elements. Use the URL of an image already shown in the conversation (generated or uploaded).',
   inputSchema: z.object({
     image_url: z
       .string()

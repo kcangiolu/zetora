@@ -3,9 +3,9 @@ import { z } from 'zod';
 import { getAllSkills, getSkill } from '@/lib/skills/registry';
 import type { SkillId } from '@/lib/utils';
 
-// Built from the caller's server-computed (auth/Pro-checked) enabled set, not
-// a static constant — this is the enforcement point that keeps a disabled or
-// gated skill from ever being offered to the model in the first place.
+// Built from the caller's server-computed enabled set (auth + per-user
+// disabled-skills prefs), not a static constant — this is the enforcement
+// point that keeps a disabled skill from ever being offered to the model.
 export function createSkillTool(enabledSkillIds: SkillId[], userPreferences?: Record<string, unknown>) {
   const ids = enabledSkillIds.length > 0 ? enabledSkillIds : (getAllSkills().map((s) => s.id) as SkillId[]);
   const idSet = new Set(ids);
