@@ -385,11 +385,18 @@ export const SOURCE_CATALOG_IDS = [
 // sections below. The default (built-in) instructions are always applied
 // server-side — this only edits the text appended on top of them — so we
 // surface them read-only here, auto-expanded while no custom prompt is set.
+//
+// Presets bundle the model name together with the custom instructions text,
+// but picking one from the dropdown only stages it — nothing is written to
+// the live systemPrompt/model fields until "Apply" is clicked, so there's no
+// ambiguity about whether a preset actually took effect.
 export function ImagePromptPresetEditor({
   skillLabel,
   defaultInstructions,
   systemPrompt,
   setSystemPrompt,
+  model,
+  setModel,
   presets,
   setPresets,
   selectedPresetId,
@@ -401,6 +408,8 @@ export function ImagePromptPresetEditor({
   defaultInstructions: string;
   systemPrompt: string;
   setSystemPrompt: (value: string) => void;
+  model: string;
+  setModel: (value: string) => void;
   presets: ImageGenPromptPreset[];
   setPresets: (value: ImageGenPromptPreset[]) => void;
   selectedPresetId: string;
@@ -408,6 +417,13 @@ export function ImagePromptPresetEditor({
   newPresetName: string;
   setNewPresetName: (value: string) => void;
 }) {
+  const selectedPreset = presets.find((p) => p.id === selectedPresetId);
+  // Purely visual confirmation that the click landed and the fields were
+  // written — setSystemPrompt/setModel are synchronous, so there's nothing
+  // to actually wait on, but a static "Apply" label gives no feedback that
+  // anything happened, which read as "the button doesn't do anything".
+  const [justApplied, setJustApplied] = useState(false);
+
   return (
     <div className="space-y-1.5 col-span-2 pt-1">
       <div className="flex items-center justify-between gap-2">
@@ -433,7 +449,7 @@ export function ImagePromptPresetEditor({
           'e.g. "This model is SDXL-based. Prefer natural-language prompts over booru tags. Always append: masterpiece, high detail. Avoid text or watermarks."'
         }
         rows={5}
-        className="text-xs rounded-md resize-y min-h-20"
+        className="text-xs rounded-md resize-y min-h-20 max-h-56 overflow-y-auto"
       />
       <details key={systemPrompt ? 'has-custom' : 'no-custom'} open={!systemPrompt}>
         <summary className="cursor-pointer text-[10px] text-muted-foreground/60 hover:text-foreground select-none">
@@ -444,14 +460,7 @@ export function ImagePromptPresetEditor({
         </pre>
       </details>
       <div className="flex items-center gap-1.5 pt-0.5">
-        <Select
-          value={selectedPresetId}
-          onValueChange={(id) => {
-            setSelectedPresetId(id);
-            const preset = presets.find((p) => p.id === id);
-            if (preset) setSystemPrompt(preset.prompt);
-          }}
-        >
+        <Select value={selectedPresetId} onValueChange={setSelectedPresetId}>
           <SelectTrigger className="h-7 text-xs rounded-md flex-1">
             <SelectValue placeholder="Load a preset…" />
           </SelectTrigger>
@@ -467,6 +476,29 @@ export function ImagePromptPresetEditor({
             )}
           </SelectContent>
         </Select>
+        <Button
+          type="button"
+          variant="default"
+          size="sm"
+          className="h-7 text-xs shrink-0"
+          disabled={!selectedPreset}
+          onClick={() => {
+            if (!selectedPreset) return;
+            setSystemPrompt(selectedPreset.prompt);
+            setModel(selectedPreset.model ?? '');
+            setJustApplied(true);
+            setTimeout(() => setJustApplied(false), 1500);
+          }}
+        >
+          {justApplied ? (
+            <>
+              <Check className="size-3 mr-1" />
+              Applied
+            </>
+          ) : (
+            'Apply'
+          )}
+        </Button>
         {selectedPresetId && (
           <Button
             type="button"
@@ -482,6 +514,12 @@ export function ImagePromptPresetEditor({
           </Button>
         )}
       </div>
+      {selectedPreset && (
+        <p className="text-[10px] text-muted-foreground/60 -mt-1">
+          Model: <span className="font-mono">{selectedPreset.model || '(none set)'}</span> — click Apply to load this
+          preset&apos;s instructions and model.
+        </p>
+      )}
       <div className="flex items-center gap-1.5">
         <Input
           value={newPresetName}
@@ -494,17 +532,17 @@ export function ImagePromptPresetEditor({
           variant="outline"
           size="sm"
           className="h-7 text-xs shrink-0"
-          disabled={!newPresetName.trim() || !systemPrompt.trim()}
+          disabled={!newPresetName.trim() || (!systemPrompt.trim() && !model.trim())}
           onClick={() => {
             const name = newPresetName.trim();
             if (!name) return;
             const existing = presets.find((p) => p.name === name);
             if (existing) {
-              setPresets(presets.map((p) => (p.id === existing.id ? { ...p, prompt: systemPrompt } : p)));
+              setPresets(presets.map((p) => (p.id === existing.id ? { ...p, prompt: systemPrompt, model } : p)));
               setSelectedPresetId(existing.id);
             } else {
               const id = crypto.randomUUID();
-              setPresets([...presets, { id, name, prompt: systemPrompt }]);
+              setPresets([...presets, { id, name, prompt: systemPrompt, model }]);
               setSelectedPresetId(id);
             }
             setNewPresetName('');

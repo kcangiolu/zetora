@@ -160,12 +160,12 @@ export async function upsertUserPreferences({
     'zetora-image-gen-model'?: string;
     'zetora-image-gen-request-body'?: string;
     'zetora-image-gen-system-prompt'?: string;
-    'zetora-image-gen-prompt-presets'?: Array<{ id: string; name: string; prompt: string }>;
+    'zetora-image-gen-prompt-presets'?: Array<{ id: string; name: string; prompt: string; model?: string }>;
     'zetora-image-edit-custom-provider-id'?: string;
     'zetora-image-edit-model'?: string;
     'zetora-image-edit-request-body'?: string;
     'zetora-image-edit-system-prompt'?: string;
-    'zetora-image-edit-prompt-presets'?: Array<{ id: string; name: string; prompt: string }>;
+    'zetora-image-edit-prompt-presets'?: Array<{ id: string; name: string; prompt: string; model?: string }>;
   }>;
 }) {
   try {

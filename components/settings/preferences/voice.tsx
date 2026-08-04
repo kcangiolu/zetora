@@ -335,6 +335,8 @@ export function VoiceTab({ customProviders }: { customProviders: CustomProviderC
                 defaultInstructions={IMAGE_GENERATION_DEFAULT_INSTRUCTIONS}
                 systemPrompt={imageGenSystemPrompt}
                 setSystemPrompt={setImageGenSystemPrompt}
+                model={imageGenModel}
+                setModel={setImageGenModel}
                 presets={imageGenPromptPresets}
                 setPresets={setImageGenPromptPresets}
                 selectedPresetId={selectedImageGenPresetId}
@@ -406,6 +408,8 @@ export function VoiceTab({ customProviders }: { customProviders: CustomProviderC
                 defaultInstructions={IMAGE_EDITING_DEFAULT_INSTRUCTIONS}
                 systemPrompt={imageEditSystemPrompt}
                 setSystemPrompt={setImageEditSystemPrompt}
+                model={imageEditModel}
+                setModel={setImageEditModel}
                 presets={imageEditPromptPresets}
                 setPresets={setImageEditPromptPresets}
                 selectedPresetId={selectedImageEditPresetId}
