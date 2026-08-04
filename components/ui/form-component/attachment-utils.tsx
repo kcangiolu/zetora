@@ -38,12 +38,29 @@ export const StopIcon = ({ size = 16 }: { size?: number }) => {
 };
 
 export const MAX_FILES = 4;
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB for images
+// Source-selection ceiling for images — generous because large photos are
+// auto-compressed client-side before upload (see image-compression.ts).
+// This is just a sanity cap so picking a 500MB file doesn't hang the tab.
+const MAX_IMAGE_SIZE = 50 * 1024 * 1024;
 const MAX_DOCUMENT_SIZE = 50 * 1024 * 1024; // 50MB for documents
 export const MAX_INPUT_CHARS = 50000;
 
+// Hard ceiling on what actually reaches R2/the model *after* compression.
+// Some models (Anthropic, Google/Gemini) download and inline images as
+// base64 into the request context (see experimental_download in
+// app/api/search), which is what this stays aligned with — the upload API
+// enforces the same number server-side (app/api/upload/route.ts).
+export const MAX_UPLOADED_IMAGE_SIZE = 5 * 1024 * 1024;
+
 const isImageFile = (file: File): boolean => file.type.startsWith('image/');
 export const getMaxSizeForFile = (file: File): number => (isImageFile(file) ? MAX_IMAGE_SIZE : MAX_DOCUMENT_SIZE);
+
+// Explains why a file was rejected outright, before any compression is even
+// attempted (i.e. it blew past the sanity ceiling above).
+export const getOversizedFileReason = (file: File): string =>
+  isImageFile(file)
+    ? `Images must be under ${MAX_IMAGE_SIZE / (1024 * 1024)}MB. Large photos are compressed automatically before upload, but this file is too large even to attempt that.`
+    : `Files must be under ${MAX_DOCUMENT_SIZE / (1024 * 1024)}MB.`;
 
 const truncateFilename = (filename: string, maxLength: number = 20) => {
   if (filename.length <= maxLength) return filename;

@@ -11,6 +11,8 @@ import { sileo } from 'sileo';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { checkImageModeration } from '@/app/actions';
+import { getOversizedFileReason, MAX_UPLOADED_IMAGE_SIZE } from '@/components/ui/form-component/attachment-utils';
+import { compressImageForUpload } from '@/components/ui/form-component/image-compression';
 import {
   ChevronDown,
   ChevronLeft,
@@ -421,15 +423,24 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
 
   const uploadFile = useCallback(async (file: File): Promise<Attachment> => {
     try {
+      const isImage = file.type.startsWith('image/');
+      const fileToUpload = isImage ? await compressImageForUpload(file) : file;
+
+      if (isImage && fileToUpload.size > MAX_UPLOADED_IMAGE_SIZE) {
+        throw new Error(
+          `Still over ${MAX_UPLOADED_IMAGE_SIZE / (1024 * 1024)}MB after compression — try a smaller or simpler image, or an animated GIF/HEIC photo that can't be auto-compressed.`,
+        );
+      }
+
       const presignResponse = await fetch('/api/upload', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          filename: file.name,
-          contentType: file.type,
-          size: file.size,
+          filename: fileToUpload.name,
+          contentType: fileToUpload.type,
+          size: fileToUpload.size,
         }),
       });
 
@@ -442,9 +453,9 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
 
       const uploadResponse = await fetch(presignedUrl, {
         method: 'PUT',
-        body: file,
+        body: fileToUpload,
         headers: {
-          'Content-Type': file.type,
+          'Content-Type': fileToUpload.type,
         },
       });
 
@@ -453,8 +464,8 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
       }
 
       return {
-        name: file.name,
-        contentType: file.type,
+        name: fileToUpload.name,
+        contentType: fileToUpload.type,
         url,
       };
     } catch (error) {
@@ -497,7 +508,9 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
       });
 
       if (oversizedFiles.length > 0) {
-        sileo.error({ title: `Some files exceed the size limit: ${oversizedFiles.map((f) => f.name).join(', ')}` });
+        oversizedFiles.forEach((file) => {
+          sileo.error({ title: `${file.name} is too large`, description: getOversizedFileReason(file) });
+        });
       }
 
       const validFiles: File[] = [...imageFiles, ...documentFiles, ...pdfFiles, ...textFiles];
