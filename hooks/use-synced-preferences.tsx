@@ -141,7 +141,7 @@ type AutoRouterConfig = {
 
 type GraphitiProvider = { id: string; name: string; baseURL: string; apiKey?: string };
 
-export type ImageGenPromptPreset = { id: string; name: string; prompt: string };
+export type ImageGenPromptPreset = { id: string; name: string; prompt: string; model?: string };
 
 type PreferenceValue =
   | string
@@ -315,8 +315,36 @@ export function useSyncedPreferences<T extends PreferenceValue>(
   // Counter (not boolean) so concurrent saves don't accidentally clear each other's flag
   const pendingSaveCountRef = useRef<number>(0);
 
-  // Initialize with localStorage value immediately
-  const [localValue, setLocalValue] = useState<T>(() => getStoredValue(key, defaultValue));
+  // Must start from `defaultValue`, not localStorage: the lazy initializer runs
+  // during the client's hydration render too (window is defined then), so
+  // reading localStorage here would diverge from the server-rendered markup
+  // whenever a returning user's stored value differs from the default —
+  // exactly the branch-on-`typeof window` hydration mismatch React warns
+  // about. The real stored value is instead applied client-only, post-mount,
+  // in the effect below.
+  const [localValue, setLocalValue] = useState<T>(defaultValue);
+  const didHydrateFromStorageRef = useRef(false);
+
+  // Apply the localStorage value once, after the hydration render has already
+  // committed and matched the server — safe to diverge from `defaultValue`
+  // here since this only ever runs on the client.
+  useEffect(() => {
+    if (didHydrateFromStorageRef.current) return;
+    didHydrateFromStorageRef.current = true;
+
+    const stored = getStoredValue(key, defaultValue);
+    if (hasChanged(stored, defaultValue)) {
+      // Intentional: this is the client-only sync from an external system
+      // (localStorage) the hydration-mismatch fix above requires — not a
+      // derived-state anti-pattern.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLocalValue(stored);
+    }
+    // Runs once per mount (per preference key) — intentionally not re-run when
+    // `defaultValue` changes, since callers often pass a fresh array/object
+    // literal each render and re-running would fight the debounced DB sync.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
 
   // Fetch preferences from DB
   const { data: dbPreferences, isFetched: dbPreferencesFetched } = useQuery({
