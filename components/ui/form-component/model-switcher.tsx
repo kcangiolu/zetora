@@ -38,7 +38,6 @@ import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { CaretDownIcon } from '@phosphor-icons/react/dist/ssr';
 import { useWebHaptics } from 'web-haptics/react';
-import type { Attachment } from './attachment-utils';
 
 type SvgIconComponent = React.ComponentType<React.SVGProps<SVGSVGElement>>;
 type HugeiconsIconProp = React.ComponentProps<typeof HugeiconsIcon>['icon'];
@@ -343,8 +342,6 @@ interface ModelSwitcherProps {
   selectedModel: string;
   setSelectedModel: (value: string) => void;
   className?: string;
-  attachments: Array<Attachment>;
-  messages: Array<ChatMessage>;
   status: UseChatHelpers<ChatMessage>['status'];
   onModelSelect?: (model: (typeof models)[0]) => void;
   user?: ComprehensiveUserData | null;
@@ -358,8 +355,6 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
     selectedModel,
     setSelectedModel,
     className,
-    attachments,
-    messages,
     onModelSelect,
     user,
     selectedGroup,
@@ -573,28 +568,6 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       [searchQuery, escapeHtml, escapeRegExp],
     );
 
-    const isFilePart = useCallback((p: unknown): p is { type: 'file'; mediaType?: string } => {
-      return (
-        typeof p === 'object' &&
-        p !== null &&
-        'type' in (p as Record<string, unknown>) &&
-        (p as { type: unknown }).type === 'file'
-      );
-    }, []);
-
-    const hasImageAttachments = useMemo(() => {
-      const attachmentHasImage = attachments.some((att) => {
-        const ct = att.contentType || att.mediaType || '';
-        return ct.startsWith('image/');
-      });
-      const messagesHaveImage = messages.some((msg) =>
-        (msg.parts || []).some(
-          (part) => isFilePart(part) && typeof part.mediaType === 'string' && part.mediaType.startsWith('image/'),
-        ),
-      );
-      return attachmentHasImage || messagesHaveImage;
-    }, [attachments, messages, isFilePart]);
-
     const filteredModels = useMemo(() => {
       let filtered = availableModels;
 
@@ -605,17 +578,13 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
         filtered = filtered.filter((model) => preferredSet.has(model.value));
       }
 
-      // Filter by attachment types
       // Note: PDF filtering removed - PDFs are processed via file_query_search tool which works with any model
-      // Custom-provider models are exempt: the API route hardcodes `vision: false`
-      // for all of them (no capability data exists for arbitrary Ollama/vLLM/
-      // llama.cpp endpoints), so applying this filter to them would always hide
-      // every custom model whenever an image is attached. The in-chat Vision
-      // toggle (default off, manually enabled by the user) is what actually
-      // gates whether the image bytes are sent to a custom model.
-      if (hasImageAttachments) {
-        filtered = filtered.filter((model) => model.vision || model.provider === 'custom');
-      }
+      // Note: no vision filtering on attachment types - non-vision models can still
+      // act on an attached image via the edit_image tool without "seeing" it (see
+      // ai/models/helpers.ts getAcceptedFileTypes and lib/search/message-attachments.ts
+      // buildImageInstruction). The in-chat Vision toggle (default off for non-vision
+      // models, manually enabled by the user) is what actually gates whether the image
+      // bytes are sent to the model.
 
       // Filter by extreme mode
       const isExtremeMode = selectedGroup === 'extreme';
@@ -650,7 +619,6 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
     }, [
       availableModels,
       preferredModels,
-      hasImageAttachments,
       selectedGroup,
       selectedProvider,
       selectedModel,

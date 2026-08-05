@@ -3287,8 +3287,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
                   <ModelSwitcher
                     selectedModel={selectedModel}
                     setSelectedModel={setSelectedModel}
-                    attachments={attachments}
-                    messages={messages}
                     status={status}
                     onModelSelect={(model) => {
                       setSelectedModel(model.value);
