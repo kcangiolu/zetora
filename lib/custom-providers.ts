@@ -211,7 +211,7 @@ async function probeBackendKind(root: string): Promise<CustomBackendKind> {
 // list has no capability fields at all. Never throws: any probe failure
 // (unsupported backend, unreachable, malformed body) just means "unknown",
 // reported as false rather than breaking the model list.
-export async function detectModelVision(
+async function detectModelVision(
   root: string,
   backendKind: CustomBackendKind | undefined,
   providerId: string,
