@@ -123,7 +123,7 @@ export const emailProviders = [
   { value: 'smtp', label: 'SMTP' },
 ] as const;
 
-export type CustomBackendKind = 'ollama' | 'vllm' | 'llamacpp' | 'unknown';
+export type CustomBackendKind = 'ollama' | 'vllm' | 'llamacpp' | 'openai' | 'unknown';
 
 export type CustomProviderConfig = {
   id: string;

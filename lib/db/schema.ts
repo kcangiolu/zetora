@@ -283,7 +283,7 @@ export const userPreferences = pgTable('user_preferences', {
         apiKey?: string;
         disableAutoDetect?: boolean;
         anonymize?: boolean;
-        backendKind?: 'ollama' | 'vllm' | 'llamacpp' | 'unknown';
+        backendKind?: 'ollama' | 'vllm' | 'llamacpp' | 'openai' | 'unknown';
       }>;
       'zetora-anonymization-enabled'?: boolean;
       'zetora-anonymization-custom-terms'?: string[];

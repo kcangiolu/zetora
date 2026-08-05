@@ -26,7 +26,7 @@ export interface CustomProviderConfig {
   backendKind?: CustomBackendKind;
 }
 
-export type CustomBackendKind = 'ollama' | 'vllm' | 'llamacpp' | 'unknown';
+export type CustomBackendKind = 'ollama' | 'vllm' | 'llamacpp' | 'openai' | 'unknown';
 
 export interface CustomModelInfo {
   id: string;
@@ -34,11 +34,15 @@ export interface CustomModelInfo {
   providerName: string;
   modelName: string;
   label: string;
+  vision: boolean;
 }
 
 // In-memory cache for detected models keyed by baseURL
 const modelsCache = new Map<string, { models: string[]; expiresAt: number }>();
 const MODELS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+// In-memory cache for per-model vision capability, keyed by providerId::modelName
+const visionCache = new Map<string, { vision: boolean; expiresAt: number }>();
 
 // `userId` lets server-to-server callers (e.g. the voice s2s LLM stage, which
 // authenticates via a Bearer token instead of a browser session cookie) pass
@@ -202,6 +206,51 @@ async function probeBackendKind(root: string): Promise<CustomBackendKind> {
   return 'unknown';
 }
 
+// Best-effort per-model vision capability, using each backend's native
+// (non-OpenAI-compatible) metadata route — the OpenAI-compatible /v1/models
+// list has no capability fields at all. Never throws: any probe failure
+// (unsupported backend, unreachable, malformed body) just means "unknown",
+// reported as false rather than breaking the model list.
+export async function detectModelVision(
+  root: string,
+  backendKind: CustomBackendKind | undefined,
+  providerId: string,
+  modelName: string,
+): Promise<boolean> {
+  const cacheKey = `${providerId}::${modelName}`;
+  const cached = visionCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.vision;
+  }
+
+  let vision = false;
+  try {
+    if (backendKind === 'ollama') {
+      const res = await fetch(`${root}/api/show`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: modelName }),
+        signal: AbortSignal.timeout(3000),
+      });
+      if (res.ok) {
+        const body = await res.json().catch(() => null);
+        vision = Array.isArray(body?.capabilities) && body.capabilities.includes('vision');
+      }
+    } else if (backendKind === 'llamacpp') {
+      const res = await fetch(`${root}/props`, { signal: AbortSignal.timeout(3000) });
+      if (res.ok) {
+        const body = await res.json().catch(() => null);
+        vision = body?.modalities?.vision === true;
+      }
+    }
+  } catch {
+    // Unreachable or unsupported — leave vision false.
+  }
+
+  visionCache.set(cacheKey, { vision, expiresAt: Date.now() + MODELS_CACHE_TTL_MS });
+  return vision;
+}
+
 export async function getCustomModels(userId?: string): Promise<CustomModelInfo[]> {
   const providers = await getCustomProviders(userId);
   const results: CustomModelInfo[] = [];
@@ -212,15 +261,20 @@ export async function getCustomModels(userId?: string): Promise<CustomModelInfo[
       .map(async (provider) => {
         try {
           const modelNames = await detectModels(provider.baseURL, provider.apiKey);
-          for (const modelName of modelNames) {
-            results.push({
-              id: `custom-${provider.id}-${modelName}`,
-              providerId: provider.id,
-              providerName: provider.name,
-              modelName,
-              label: `${modelName} (${provider.name})`,
-            });
-          }
+          const root = deriveRootURL(provider.baseURL);
+          await Promise.allSettled(
+            modelNames.map(async (modelName) => {
+              const vision = await detectModelVision(root, provider.backendKind, provider.id, modelName);
+              results.push({
+                id: `custom-${provider.id}-${modelName}`,
+                providerId: provider.id,
+                providerName: provider.name,
+                modelName,
+                label: `${modelName} (${provider.name})`,
+                vision,
+              });
+            }),
+          );
         } catch (err) {
           log.warn(`[custom-providers] Could not detect models for provider ${provider.id}:`, err);
         }

@@ -55,7 +55,8 @@ export function getReasoningCapability(
 ): ReasoningCapability {
   if (modelId.startsWith('custom-')) {
     const backend = resolveCustomBackend(modelId, customProviders);
-    return backend?.backendKind === 'vllm' || backend?.backendKind === 'llamacpp' ? 'full' : 'mask-only';
+    const kind = backend?.backendKind;
+    return kind === 'vllm' || kind === 'llamacpp' || kind === 'ollama' || kind === 'openai' ? 'full' : 'mask-only';
   }
   return getModelConfig(modelId)?.reasoning ? 'full' : null;
 }
@@ -90,10 +91,12 @@ export function getCustomReasoningOverrides(
     };
   }
 
-  if (backend.backendKind === 'vllm') {
+  if (backend.backendKind === 'vllm' || backend.backendKind === 'ollama' || backend.backendKind === 'openai') {
     if (tier === 'off') {
-      // No universal "disable" for vLLM's passthrough reasoning_effort —
-      // fall back to masking the output instead of guessing a template kwarg.
+      // No universal "disable" value is safe to send across these backends
+      // (e.g. Ollama can error on reasoning_effort: 'none'/false for some
+      // models — ollama/ollama#12004) — fall back to masking the output
+      // instead of guessing a value that might get rejected.
       return { providerOptions: {}, applyMaskMiddleware: true };
     }
     return {
@@ -102,7 +105,7 @@ export function getCustomReasoningOverrides(
     };
   }
 
-  // Ollama / unknown: no real control available, only hide the output.
+  // unknown: no real control available, only hide the output.
   return { providerOptions: {}, applyMaskMiddleware: tier === 'off' };
 }
 

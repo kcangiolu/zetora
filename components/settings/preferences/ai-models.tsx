@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { ModelSelectorDialog } from '@/components/ui/model-selector';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 import { type Model } from '@/ai/models';
 import { sileo } from 'sileo';
@@ -26,8 +27,20 @@ const BACKEND_KIND_LABEL: Record<CustomBackendKind, string> = {
   llamacpp: 'llama.cpp',
   vllm: 'vLLM',
   ollama: 'Ollama',
+  openai: 'OpenAI-compatible',
   unknown: 'Unknown backend',
 };
+
+// Options for the manual backend-kind selector — 'auto' isn't a real
+// CustomBackendKind, it means "let the /props /api/version /health probe
+// decide" (existing behavior, still the default).
+const BACKEND_KIND_OPTIONS: Array<{ value: CustomBackendKind | 'auto'; label: string }> = [
+  { value: 'auto', label: 'Auto-detect' },
+  { value: 'openai', label: 'OpenAI-compatible' },
+  { value: 'ollama', label: 'Ollama' },
+  { value: 'llamacpp', label: 'llama.cpp' },
+  { value: 'vllm', label: 'vLLM' },
+];
 
 export function AiModelsTab({
   user,
@@ -53,7 +66,12 @@ export function AiModelsTab({
   const queryClient = useQueryClient();
 
   const [showCustomProviderForm, setShowCustomProviderForm] = useState(false);
-  const [newProvider, setNewProvider] = useState({ name: '', baseURL: '', apiKey: '' });
+  const [newProvider, setNewProvider] = useState<{
+    name: string;
+    baseURL: string;
+    apiKey: string;
+    backendKind: CustomBackendKind | 'auto';
+  }>({ name: '', baseURL: '', apiKey: '', backendKind: 'auto' });
   const [detectingModels, setDetectingModels] = useState(false);
   const [detectedModels, setDetectedModels] = useState<string[]>([]);
   const [detectedBackendKind, setDetectedBackendKind] = useState<CustomBackendKind | null>(null);
@@ -87,9 +105,11 @@ export function AiModelsTab({
     setIsSavingProvider(true);
     try {
       const id = newProvider.name.toLowerCase().replace(/\s+/g, '-');
+      const { backendKind: manualBackendKind, ...providerFields } = newProvider;
+      const finalBackendKind = manualBackendKind === 'auto' ? (detectedBackendKind ?? undefined) : manualBackendKind;
       const updated = [
         ...customProviders.filter((p) => p.id !== id),
-        { id, ...newProvider, backendKind: detectedBackendKind ?? undefined },
+        { id, ...providerFields, backendKind: finalBackendKind },
       ];
       const res = await fetch('/api/custom-providers', {
         method: 'POST',
@@ -98,7 +118,7 @@ export function AiModelsTab({
       });
       if (!res.ok) throw new Error('Save failed');
       setCustomProviders(updated);
-      setNewProvider({ name: '', baseURL: '', apiKey: '' });
+      setNewProvider({ name: '', baseURL: '', apiKey: '', backendKind: 'auto' });
       setDetectedModels([]);
       setDetectedBackendKind(null);
       setShowCustomProviderForm(false);
@@ -169,6 +189,21 @@ export function AiModelsTab({
 
   const handleToggleAnonymize = async (id: string) => {
     const updated = customProviders.map((p) => (p.id === id ? { ...p, anonymize: !p.anonymize } : p));
+    try {
+      await fetch('/api/custom-providers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ providers: updated }),
+      });
+      setCustomProviders(updated);
+      queryClient.invalidateQueries({ queryKey: ['customModels'] });
+    } catch {
+      sileo.error({ title: 'Failed to update provider' });
+    }
+  };
+
+  const handleSetBackendKind = async (id: string, backendKind: CustomBackendKind) => {
+    const updated = customProviders.map((p) => (p.id === id ? { ...p, backendKind } : p));
     try {
       await fetch('/api/custom-providers', {
         method: 'POST',
@@ -337,16 +372,24 @@ export function AiModelsTab({
                     <div className="min-w-0">
                       <p className="text-xs font-medium truncate">{p.name}</p>
                       <p className="text-[11px] text-muted-foreground/60 truncate">{p.baseURL}</p>
-                      <p
-                        className="text-[10px] text-muted-foreground/50 truncate"
-                        title={
-                          p.backendKind === 'vllm' || p.backendKind === 'llamacpp'
-                            ? 'Reasoning-effort toggle sends real control parameters to this backend'
-                            : "Backend doesn't support reasoning-effort control — the toggle can only hide thinking output"
-                        }
+                      <Select
+                        value={p.backendKind ?? 'unknown'}
+                        onValueChange={(value) => handleSetBackendKind(p.id, value as CustomBackendKind)}
                       >
-                        {p.backendKind ? BACKEND_KIND_LABEL[p.backendKind] : 'Backend not detected'}
-                      </p>
+                        <SelectTrigger
+                          className="h-5 text-[10px] px-1.5 gap-1 border-none bg-transparent text-muted-foreground/50 shadow-none w-fit"
+                          title="Backend kind — governs whether the reasoning-effort toggle can send real control parameters or can only hide thinking output"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(Object.keys(BACKEND_KIND_LABEL) as CustomBackendKind[]).map((kind) => (
+                            <SelectItem key={kind} value={kind} className="text-xs">
+                              {BACKEND_KIND_LABEL[kind]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
@@ -429,6 +472,23 @@ export function AiModelsTab({
                 onChange={(e) => setNewProvider((v) => ({ ...v, apiKey: e.target.value }))}
                 className="h-8 text-xs rounded-lg"
               />
+              <Select
+                value={newProvider.backendKind}
+                onValueChange={(value) =>
+                  setNewProvider((v) => ({ ...v, backendKind: value as CustomBackendKind | 'auto' }))
+                }
+              >
+                <SelectTrigger className="h-8 text-xs rounded-lg w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {BACKEND_KIND_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <div className="flex items-center gap-2">
                 <Button
                   type="button"

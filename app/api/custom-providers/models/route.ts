@@ -8,7 +8,7 @@ export const GET = withAuth(async () => {
     value: m.id,
     label: m.label,
     description: `Custom model via ${m.providerId}`,
-    vision: false,
+    vision: m.vision,
     reasoning: false,
     experimental: false,
     category: 'Free',
