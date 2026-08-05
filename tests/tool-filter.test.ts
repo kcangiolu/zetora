@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { filterActiveTools, getEnabledSkillIds } from '@/lib/search/tool-filter';
 import { getAllSkillIds } from '@/lib/skills/registry';
+import { tools as autoTools } from '@/lib/search/groups/auto';
 
 const baseTools = [
   'web_search',
@@ -84,6 +85,54 @@ describe('filterActiveTools', () => {
     const tools = [...baseTools];
     filterActiveTools({ ...base, tools });
     expect(tools).toEqual(baseTools);
+  });
+});
+
+describe('filterActiveTools - skill-owned tools', () => {
+  it('drops a tool owned solely by a disabled skill', () => {
+    const active = filterActiveTools({
+      tools: autoTools,
+      specialMode: undefined,
+      preferences: { 'zetora-disabled-skills': ['image-editing'] },
+      sessionEnabledSources: undefined,
+    });
+    expect(active).not.toContain('edit_image');
+    // Sibling skill's tool must survive - each image tool is gated independently.
+    expect(active).toContain('generate_image');
+  });
+
+  it('keeps a source-gated tool available even if its skill is disabled', () => {
+    // stock_chart is source-gated via toolGroupMap ('stocks'), so market-intel
+    // being disabled must not remove it - the Sources toggle already owns that.
+    const active = filterActiveTools({
+      tools: autoTools,
+      specialMode: undefined,
+      preferences: { 'zetora-disabled-skills': ['market-intel'] },
+      sessionEnabledSources: undefined,
+    });
+    expect(active).toContain('stock_chart');
+  });
+
+  it('keeps a tool shared by several skills even if one owner is disabled', () => {
+    const active = filterActiveTools({
+      tools: autoTools,
+      specialMode: undefined,
+      preferences: { 'zetora-disabled-skills': ['local-guide'] },
+      sessionEnabledSources: undefined,
+    });
+    expect(active).toContain('web_search');
+    // But a tool solely owned by local-guide, and not source-gated, is dropped.
+    expect(active).not.toContain('get_weather_data');
+  });
+
+  it('applies skill gating even under a special mode', () => {
+    const active = filterActiveTools({
+      tools: autoTools,
+      specialMode: 'canvas',
+      preferences: { 'zetora-disabled-skills': ['image-editing'] },
+      sessionEnabledSources: undefined,
+    });
+    expect(active).not.toContain('edit_image');
   });
 });
 
