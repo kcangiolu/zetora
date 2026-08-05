@@ -119,6 +119,11 @@ export async function detectModels(baseURL: string, apiKey?: string): Promise<st
   const url = `${baseURL.replace(/\/$/, '')}/models`;
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${apiKey ?? 'not-needed'}` },
+    // Unreachable LAN devices (asleep/off) don't always answer with an
+    // immediate RST — without a bound this can hang for the OS's TCP
+    // connect timeout (minutes), stalling every page that mounts the
+    // model switcher. Mirrors probeBackendKind()'s per-probe timeout below.
+    signal: AbortSignal.timeout(5000),
   });
 
   if (!response.ok) {
