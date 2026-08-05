@@ -473,6 +473,22 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
   const closeMobileSidebar = React.useCallback(() => {
     if (isMobile) {
       requestAnimationFrame(() => setOpenMobile(false));
+      // Radix's Sheet (built on Dialog) locks document.body (pointer-events:
+      // none, to make everything but the sheet inert) while open, and only
+      // restores it once its own close animation finishes. A route change
+      // fired right after setOpenMobile(false) can unmount the Sheet mid
+      // -animation, so that restore effect never runs and the whole page is
+      // left permanently unclickable (0% CPU, no console activity - it's
+      // not hung, nothing can reach it) until a hard refresh. Confirmed via
+      // a live repro: document.body.style.pointerEvents was stuck at 'none'.
+      // This is a fallback, not the primary fix: it forces the lock off
+      // well after any real close transition should have finished, but
+      // only if Radix's own cleanup didn't already do it first.
+      setTimeout(() => {
+        if (document.body.style.pointerEvents === 'none') {
+          document.body.style.pointerEvents = '';
+        }
+      }, 400);
     }
   }, [isMobile, setOpenMobile]);
 

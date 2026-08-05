@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useUser } from '@/contexts/user-context';
 
 export type PreferenceKey =
@@ -226,6 +226,34 @@ function markPreferencesMigrated(userId: string): void {
   localStorage.setItem(`${MIGRATION_KEY_PREFIX}${userId}`, 'true');
 }
 
+// Every useSyncedPreferences instance (one per preference key) independently
+// runs a "migrate on first load" effect gated on this same per-user
+// localStorage flag. Navigating somewhere that mounts many keys at once
+// (e.g. Settings, which touches dozens) fires all those effects in the same
+// React commit, before any of them has had a chance to write the flag — so
+// every instance sees "not migrated yet" and each independently POSTs +
+// invalidates the shared preferences query, and each invalidation re-renders
+// every other instance, which repeats the same race. This module-level
+// promise cache collapses that fan-out to one migration per user no matter
+// how many hook instances mount simultaneously.
+const migrationInFlight = new Map<string, Promise<void>>();
+
+function migrateOnce(userId: string, queryClient: QueryClient): void {
+  if (hasMigratedPreferences(userId) || migrationInFlight.has(userId)) return;
+
+  const localPrefs = collectLocalStoragePreferences();
+  const promise = (Object.keys(localPrefs).length === 0 ? Promise.resolve() : persistUserPreferences(localPrefs))
+    .catch((error) => {
+      console.error('Failed to migrate preferences:', error);
+    })
+    .then(() => {
+      markPreferencesMigrated(userId);
+      queryClient.invalidateQueries({ queryKey: ['userPreferences', userId] });
+      migrationInFlight.delete(userId);
+    });
+  migrationInFlight.set(userId, promise);
+}
+
 // Collect all localStorage preferences
 function collectLocalStoragePreferences(): Partial<Record<PreferenceKey, PreferenceValue>> {
   if (typeof window === 'undefined') return {};
@@ -362,27 +390,11 @@ export function useSyncedPreferences<T extends PreferenceValue>(
   // must wait for this instead of trusting the first (possibly stale-default) render.
   const isResolved = !user?.id || dbPreferencesFetched;
 
-  // Migrate localStorage to DB on first load
+  // Migrate localStorage to DB on first load (see migrateOnce for why this
+  // must be deduped across the many simultaneously-mounting hook instances).
   useEffect(() => {
-    if (!user?.id || hasMigratedPreferences(user.id)) return;
-
-    const localPrefs = collectLocalStoragePreferences();
-    if (Object.keys(localPrefs).length === 0) {
-      markPreferencesMigrated(user.id);
-      return;
-    }
-
-    // Migrate to DB
-    persistUserPreferences(localPrefs)
-      .then(() => {
-        markPreferencesMigrated(user.id);
-        queryClient.invalidateQueries({ queryKey: ['userPreferences', user.id] });
-      })
-      .catch((error) => {
-        console.error('Failed to migrate preferences:', error);
-        // Still mark as migrated to avoid retrying constantly
-        markPreferencesMigrated(user.id);
-      });
+    if (!user?.id) return;
+    migrateOnce(user.id, queryClient);
   }, [user?.id, queryClient]);
 
   // Track the last user ID to detect login

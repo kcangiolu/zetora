@@ -58,6 +58,13 @@ video/node_modules
 /minio-data/
 # Local-only compose override (WSL libcuda fix, machine-specific)
 docker-compose.override.yml
+# Local-only: runs zetora-app directly on 127.0.0.1:3334, no reverse proxy,
+# for testing prod-build-only bugs that don't reproduce under `pnpm dev`.
+# See DOC.md.
+docker-compose.local-test.yml
+
+# Local scratch notes (not for the repo, see .gitignore entry rationale above)
+DOC.md
 
 # Generated from public/privacy-policy.template.html by scripts/generate-static-pages.mjs
 /public/privacy-policy.html
