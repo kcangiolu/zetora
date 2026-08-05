@@ -169,16 +169,38 @@ const ChatInterface = memo(
     // per-task recommended defaults live in Settings instead — see
     // ai/tertiary.ts's TASK_RECOMMENDED_EFFORT for the tertiary equivalent).
     const [reasoningEffort, setReasoningEffort] = useLocalStorage<ReasoningEffort>('zetora-reasoning-effort', 'auto');
-    // Whether images are injected into the model's context (vs. hosted +
-    // handed to it as a URL only). Defaults from the model's catalog `vision`
-    // flag; custom providers aren't in the catalog so hasVisionSupport
-    // already returns false for them. The user can override per-message —
-    // switching models recomputes the default (see effect below) but doesn't
-    // otherwise touch this state.
-    const [visionEnabled, setVisionEnabled] = useState(() => hasVisionSupport(selectedModel));
+    // Custom-provider models aren't in the static catalog hasVisionSupport
+    // reads from, so their vision flag (auto-detected server-side from
+    // Ollama's /api/show capabilities or llama.cpp's /props modalities) is
+    // fetched separately here, keyed by model id.
+    const [customModelsVision, setCustomModelsVision] = useState<Record<string, boolean>>({});
     useEffect(() => {
-      setVisionEnabled(hasVisionSupport(selectedModel));
-    }, [selectedModel]);
+      let mounted = true;
+      fetch('/api/custom-providers/models')
+        .then((r) => r.json())
+        .then((d) => {
+          if (!mounted || !Array.isArray(d.models)) return;
+          setCustomModelsVision(Object.fromEntries(d.models.map((m: { value: string; vision: boolean }) => [m.value, m.vision])));
+        })
+        .catch(() => {});
+      return () => {
+        mounted = false;
+      };
+    }, []);
+    const resolveVisionSupport = useCallback(
+      (modelValue: string) =>
+        modelValue.startsWith('custom-') ? (customModelsVision[modelValue] ?? false) : hasVisionSupport(modelValue),
+      [customModelsVision],
+    );
+    // Whether images are injected into the model's context (vs. hosted +
+    // handed to it as a URL only). Defaults from the model's vision
+    // capability (catalog flag, or the fetched custom-provider flag above).
+    // The user can override per-message — switching models recomputes the
+    // default (see effect below) but doesn't otherwise touch this state.
+    const [visionEnabled, setVisionEnabled] = useState(() => resolveVisionSupport(selectedModel));
+    useEffect(() => {
+      setVisionEnabled(resolveVisionSupport(selectedModel));
+    }, [selectedModel, resolveVisionSupport]);
     const [defaultGroupPreference] = useSyncedPreferences<SearchGroupId>(
       'zetora-default-group',
       'auto' as SearchGroupId,

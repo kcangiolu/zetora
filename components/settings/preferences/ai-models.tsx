@@ -377,7 +377,8 @@ export function AiModelsTab({
                         onValueChange={(value) => handleSetBackendKind(p.id, value as CustomBackendKind)}
                       >
                         <SelectTrigger
-                          className="h-5 text-[10px] px-1.5 gap-1 border-none bg-transparent text-muted-foreground/50 shadow-none w-fit"
+                          size="sm"
+                          className="h-6 mt-1 text-[11px] px-2 gap-1 rounded-md border border-border/50 bg-muted/40 hover:bg-muted/70 text-foreground/70 shadow-none w-fit"
                           title="Backend kind — governs whether the reasoning-effort toggle can send real control parameters or can only hide thinking output"
                         >
                           <SelectValue />
