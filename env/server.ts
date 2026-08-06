@@ -20,6 +20,13 @@ export const serverEnv = createEnv({
     S3_REGION: z.string().optional(),
     S3_FORCE_PATH_STYLE: z.string().optional(),
     DOCKER_SANDBOX_URL: z.string().url().default('http://localhost:8000'),
+    // Caps how many code-interpreter executions can hit the Docker sandbox at
+    // once; the image itself has no built-in concurrency limit (verified by
+    // reading its source), so a burst of users would otherwise spawn unbounded
+    // `docker run` processes on the host. Extra calls queue FIFO and time out
+    // rather than hang the chat turn indefinitely — see lib/sandbox/concurrency-limiter.ts.
+    SANDBOX_MAX_CONCURRENT: z.coerce.number().int().positive().default(3),
+    SANDBOX_QUEUE_TIMEOUT_MS: z.coerce.number().int().positive().default(60_000),
     DATABASE_URL: z.string().min(1),
     BETTER_AUTH_SECRET: z.string().min(1),
     GITHUB_CLIENT_ID: z.string().optional(),

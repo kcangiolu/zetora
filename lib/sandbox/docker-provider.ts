@@ -1,12 +1,39 @@
+import { serverEnv } from '@/env/server';
+import { createLogger } from '@/lib/logger';
+import { ConcurrencyLimiter } from './concurrency-limiter';
 import type { SandboxProvider, SandboxResult } from './types';
 import { wrapCodeForFileCapture, parseFileMarker } from './file-capture';
 
 const CHART_MARKER = '__CHART__:';
+const log = createLogger('docker-provider');
+
+// Module-level singleton: lib/sandbox/factory.ts creates a new
+// DockerSandboxProvider per call, so the limit has to live outside the class
+// to actually be shared across every code-interpreter/extreme-search call.
+const limiter = new ConcurrencyLimiter(serverEnv.SANDBOX_MAX_CONCURRENT, serverEnv.SANDBOX_QUEUE_TIMEOUT_MS);
 
 export class DockerSandboxProvider implements SandboxProvider {
   constructor(private baseUrl: string) {}
 
   async execute(code: string, timeoutMs = 30000): Promise<SandboxResult> {
+    const { active, queued } = limiter.stats;
+    if (active >= serverEnv.SANDBOX_MAX_CONCURRENT) {
+      log.debug('Sandbox queue: waiting for slot', { active, queued });
+    }
+    try {
+      return await limiter.run(() => this.executeInternal(code, timeoutMs));
+    } catch (err) {
+      return {
+        stdout: '',
+        stderr: err instanceof Error ? err.message : 'Sandbox queue error',
+        exitCode: 1,
+        timedOut: false,
+        durationMs: 0,
+      };
+    }
+  }
+
+  private async executeInternal(code: string, timeoutMs: number): Promise<SandboxResult> {
     const wrappedCode = wrapCodeForFileCapture(this.wrapCodeForCharts(code));
 
     const res = await fetch(`${this.baseUrl}/v1/execute`, {
