@@ -246,10 +246,9 @@ Use this when the user asks to humanize, de-AI-ify, or rewrite text that reads a
 
 **Phase 1 — Plan**: Identify the title, sections, and content. Research first if needed via web_search.
 
-**Phase 2 — Generate via code_interpreter**: Use python-docx. ALWAYS pip install first.
+**Phase 2 — Generate via code_interpreter**: Use python-docx — it is preinstalled in the sandbox. Never call \`pip install\`: the sandbox has no network access, and any pip invocation (Jupyter \`!\` shell-escape or \`subprocess\`) will fail.
 
 \`\`\`python
-!pip install python-docx -q
 from docx import Document
 from docx.shared import Inches, Pt, Cm, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -291,10 +290,9 @@ zetora_save_file('/tmp/output.docx', 'report.docx')
 
 **Phase 1 — Plan the deck**: Number of slides (6-12), content per slide. Research first if needed.
 
-**Phase 2 — Generate via code_interpreter**: Use python-pptx.
+**Phase 2 — Generate via code_interpreter**: Use python-pptx — it is preinstalled in the sandbox. Never call \`pip install\`: the sandbox has no network access, and any pip invocation (Jupyter \`!\` shell-escape or \`subprocess\`) will fail.
 
 \`\`\`python
-!pip install python-pptx -q
 from pptx import Presentation
 from pptx.util import Inches, Pt, Emu
 from pptx.dml.color import RGBColor
@@ -430,10 +428,9 @@ zetora_save_file('/tmp/output.pdf', 'report.pdf')
 
 **Phase 1 — Plan**: Sheets, columns, formulas, charts. Research data first if needed.
 
-**Phase 2 — Generate via code_interpreter**: Use openpyxl. ALWAYS use Excel formulas (not hardcoded values).
+**Phase 2 — Generate via code_interpreter**: Use openpyxl — it is preinstalled in the sandbox. Never call \`pip install\`: the sandbox has no network access, and any pip invocation (Jupyter \`!\` shell-escape or \`subprocess\`) will fail. ALWAYS use Excel formulas (not hardcoded values).
 
 \`\`\`python
-!pip install openpyxl -q
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side, NamedStyle
 from openpyxl.utils import get_column_letter
