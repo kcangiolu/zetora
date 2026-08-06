@@ -77,5 +77,12 @@ ON lookout(last_run_at DESC) WHERE last_run_at IS NOT NULL;
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_message_role_created
 ON message(role, created_at DESC);
 
+-- 27. MESSAGE SEARCH VECTOR - Full-text search on message content (Search Library)
+-- Run this AFTER backfilling message.search_vector for existing rows
+-- (UPDATE message SET search_vector = to_tsvector('english', message_search_text(parts)) WHERE search_vector IS NULL;)
+-- so the index build reads the fully-populated column once.
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_message_search_vector
+ON message USING gin (search_vector);
+
 -- Optional: Clean up old usage data to improve performance
 -- DELETE FROM message_usage WHERE date < NOW() - INTERVAL '7 days';

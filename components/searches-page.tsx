@@ -93,19 +93,25 @@ type SortOrder = 'newest' | 'oldest';
 
 const ITEMS_PER_PAGE = 25;
 
-function fuzzySearch(query: string, text: string): boolean {
-  if (!query) return true;
-  const queryLower = query.toLowerCase();
-  const textLower = text.toLowerCase();
-  if (textLower.includes(queryLower)) return true;
-  let queryIndex = 0;
-  for (let i = 0; i < textLower.length && queryIndex < queryLower.length; i++) {
-    if (textLower[i] === queryLower[queryIndex]) queryIndex++;
+const SEARCH_PREFIXES = ['public:', 'private:', 'today:', 'week:', 'month:'] as const;
+
+// Strips a leading public:/private:/today:/week:/month: filter-prefix from the raw
+// search box value, returning the free-text remainder that should be sent to the
+// server for title/content matching. The prefix itself only ever contributes an
+// extra client-side visibility/date constraint (see passesClientFilters below).
+function stripSearchPrefix(query: string): string {
+  for (const prefix of SEARCH_PREFIXES) {
+    if (query.startsWith(prefix)) return query.slice(prefix.length);
   }
-  return queryIndex === queryLower.length;
+  return query;
 }
 
-function advancedSearch(
+// Applies the client-only visibility/date dropdown filters, plus the extra
+// visibility/date constraint implied by a query prefix. Text relevance (title OR
+// message content) is fully decided server-side by searchChatsByTitle /
+// getAllChatsWithPreview — a chat reaching this function already matched the
+// search text, so it must never be dropped here for text reasons.
+function passesClientFilters(
   chat: Chat,
   query: string,
   visibilityFilter: VisibilityFilter,
@@ -135,19 +141,16 @@ function advancedSearch(
 
   if (!query) return true;
 
-  if (query.startsWith('public:')) return chat.visibility === 'public' && fuzzySearch(query.slice(7), chat.title);
-  if (query.startsWith('private:')) return chat.visibility === 'private' && fuzzySearch(query.slice(8), chat.title);
-  if (query.startsWith('today:'))
-    return isToday(new Date(chat.updatedAt || chat.createdAt)) && fuzzySearch(query.slice(6), chat.title);
+  if (query.startsWith('public:')) return chat.visibility === 'public';
+  if (query.startsWith('private:')) return chat.visibility === 'private';
+  if (query.startsWith('today:')) return isToday(new Date(chat.updatedAt || chat.createdAt));
   if (query.startsWith('week:')) {
-    const chatDate = new Date(chat.updatedAt || chat.createdAt);
-    const daysDiff = differenceInDays(new Date(), chatDate);
-    return daysDiff >= 0 && daysDiff <= 7 && fuzzySearch(query.slice(5), chat.title);
+    const daysDiff = differenceInDays(new Date(), new Date(chat.updatedAt || chat.createdAt));
+    return daysDiff >= 0 && daysDiff <= 7;
   }
-  if (query.startsWith('month:'))
-    return isThisMonth(new Date(chat.updatedAt || chat.createdAt)) && fuzzySearch(query.slice(6), chat.title);
+  if (query.startsWith('month:')) return isThisMonth(new Date(chat.updatedAt || chat.createdAt));
 
-  return fuzzySearch(query, chat.title);
+  return true;
 }
 
 type TimeGroup = 'pinned' | 'today' | 'yesterday' | 'this_week' | 'this_month' | 'earlier';
@@ -205,17 +208,19 @@ export function SearchesPage({ userId }: SearchesPageProps) {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  const searchText = useMemo(() => stripSearchPrefix(debouncedQuery).trim(), [debouncedQuery]);
+
   const { data, isLoading, error, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
-    queryKey: ['searches', userId, debouncedQuery],
+    queryKey: ['searches', userId, searchText],
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
       const offset = pageParam * ITEMS_PER_PAGE;
-      if (debouncedQuery.trim().length === 0) {
+      if (searchText.length === 0) {
         const result = await getAllChatsWithPreview(ITEMS_PER_PAGE, offset);
         if ('error' in result) throw new Error(result.error);
         return result.chats as Chat[];
       }
-      const result = await searchChatsByTitle(debouncedQuery, ITEMS_PER_PAGE, offset);
+      const result = await searchChatsByTitle(searchText, ITEMS_PER_PAGE, offset);
       if ('error' in result) throw new Error(result.error);
       return result.chats as Chat[];
     },
@@ -228,7 +233,7 @@ export function SearchesPage({ userId }: SearchesPageProps) {
   const allChats = useMemo(() => (data?.pages ?? []).flat(), [data]);
 
   const displayedChats = useMemo(() => {
-    const filtered = allChats.filter((chat) => advancedSearch(chat, debouncedQuery, visibilityFilter, dateFilter));
+    const filtered = allChats.filter((chat) => passesClientFilters(chat, debouncedQuery, visibilityFilter, dateFilter));
     if (sortOrder === 'oldest') {
       return [...filtered].sort((a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime());
     }

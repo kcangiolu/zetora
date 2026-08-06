@@ -1,0 +1,1 @@
+ALTER TABLE "message" ADD COLUMN "search_vector" "tsvector";

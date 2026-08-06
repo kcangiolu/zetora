@@ -21,7 +21,7 @@ import {
 } from '@/lib/db/queries';
 import { db } from '@/lib/db';
 import { chat, message, buildSession } from '@/lib/db/schema';
-import { eq, desc, ilike, and, asc, inArray, notExists } from 'drizzle-orm';
+import { eq, desc, ilike, and, or, asc, inArray, notExists, exists, sql } from 'drizzle-orm';
 import { GroqProviderOptions, groq } from '@ai-sdk/groq';
 import {
   createBullMqSchedule,
@@ -310,6 +310,7 @@ export async function forkChat(
       outputTokens: messageItem.outputTokens ?? null,
       totalTokens: messageItem.totalTokens ?? null,
       completionTime: messageItem.completionTime ?? null,
+      searchVector: null,
     }));
 
     await all(
@@ -378,6 +379,7 @@ export async function branchOutChat({
         outputTokens: null,
         totalTokens: null,
         completionTime: null,
+        searchVector: null,
       },
       {
         chatId: newChatId,
@@ -391,6 +393,7 @@ export async function branchOutChat({
         outputTokens: (assistantMessage as any).metadata?.outputTokens ?? null,
         totalTokens: (assistantMessage as any).metadata?.totalTokens ?? null,
         completionTime: (assistantMessage as any).metadata?.completionTime ?? null,
+        searchVector: null,
       },
     ];
 
@@ -545,7 +548,7 @@ export async function getAllChatsWithPreview(limit: number = 25, offset: number 
   }
 }
 
-// Search chats by title (paginated)
+// Search chats by title or message content (paginated)
 export async function searchChatsByTitle(query: string, limit: number = 25, offset: number = 0) {
   'use server';
 
@@ -562,11 +565,23 @@ export async function searchChatsByTitle(query: string, limit: number = 25, offs
       db.select({ id: buildSession.id }).from(buildSession).where(eq(buildSession.chatId, chat.id)),
     );
 
+    // A chat matches on content if any of its messages' search_vector matches the
+    // query. plainto_tsquery (not to_tsquery) treats raw user input as plain text
+    // and never throws on stray operator characters (&, |, !, (, ), :).
+    const matchesContent = exists(
+      db
+        .select({ id: message.id })
+        .from(message)
+        .where(
+          and(eq(message.chatId, chat.id), sql`${message.searchVector} @@ plainto_tsquery('english', ${trimmedQuery})`),
+        ),
+    );
+
     const chats = await db.query.chat.findMany({
       where:
         trimmedQuery.length === 0
           ? and(eq(chat.userId, user.id), excludeBuildChats)
-          : and(eq(chat.userId, user.id), ilike(chat.title, `%${trimmedQuery}%`), excludeBuildChats),
+          : and(eq(chat.userId, user.id), or(ilike(chat.title, `%${trimmedQuery}%`), matchesContent), excludeBuildChats),
       orderBy: [desc(chat.isPinned), desc(chat.updatedAt), desc(chat.id)],
       limit,
       offset,

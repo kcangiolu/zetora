@@ -1027,6 +1027,7 @@ export async function POST(req: Request) {
             inputTokens: message.metadata?.inputTokens ?? finalUsageMetadata.inputTokens,
             outputTokens: message.metadata?.outputTokens ?? finalUsageMetadata.outputTokens,
             totalTokens: message.metadata?.totalTokens ?? finalUsageMetadata.totalTokens,
+            searchVector: null,
           };
         }),
       });

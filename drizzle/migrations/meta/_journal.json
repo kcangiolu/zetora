@@ -106,6 +106,20 @@
       "when": 1784733942321,
       "tag": "0014_narrow_cargill",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1786017170728,
+      "tag": "0015_gray_penance",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1786017178180,
+      "tag": "0016_message_search_vector_trigger",
+      "breakpoints": true
     }
   ]
 }

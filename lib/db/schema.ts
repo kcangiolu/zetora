@@ -12,6 +12,7 @@ import {
   index,
   uniqueIndex,
   primaryKey,
+  customType,
 } from 'drizzle-orm/pg-core';
 import { generateId } from 'ai';
 import { InferSelectModel } from 'drizzle-orm';
@@ -129,6 +130,15 @@ export const chat = pgTable(
   ],
 );
 
+// tsvector has no first-class Drizzle column builder. Populated exclusively by a
+// DB trigger (see drizzle/migrations/*_message_search_vector_trigger.sql) — Drizzle
+// never writes to it directly.
+const tsvector = customType<{ data: string }>({
+  dataType() {
+    return 'tsvector';
+  },
+});
+
 export const message = pgTable(
   'message',
   {
@@ -148,10 +158,17 @@ export const message = pgTable(
     outputTokens: integer('output_tokens'),
     totalTokens: integer('total_tokens'),
     completionTime: real('completion_time'),
+    // Populated by a BEFORE INSERT OR UPDATE OF parts trigger, not by the app.
+    // Nullable: existing rows are NULL until the one-time backfill runs; every row
+    // inserted after the trigger migration gets it set automatically.
+    searchVector: tsvector('search_vector'),
   },
   (table) => [
     index('message_chatId_idx').on(table.chatId),
     index('message_chatId_createdAt_idx').on(table.chatId, table.createdAt),
+    // NOTE: the GIN index on search_vector is intentionally NOT declared here.
+    // It's created by hand via CREATE INDEX CONCURRENTLY (see create_indexes.sql)
+    // to avoid locking this hot table during migration.
   ],
 );
 
