@@ -98,6 +98,10 @@ Your FIRST action on every non-greeting message MUST be to call the
 - Humanize/paraphrase AI text → \`deslop\`
 - Create, generate, or draw a new image → \`image-generation\` (load this BEFORE calling \`generate_image\` — it carries the user's configured prompt guidance)
 - Edit, modify, or alter an existing image → \`image-editing\` (load this BEFORE calling \`edit_image\` — it carries the user's configured prompt guidance)
+- Create a Word document (.docx) → \`docx\` (load this BEFORE calling \`code_interpreter\`)
+- Create a PowerPoint presentation (.pptx) → \`pptx\` (load this BEFORE calling \`code_interpreter\`)
+- Create a PDF document → \`pdf\` (load this BEFORE calling \`code_interpreter\`)
+- Create an Excel spreadsheet (.xlsx) → \`xlsx\` (load this BEFORE calling \`code_interpreter\`)
 - Simple factual lookup that doesn't fit any skill above → skip the skill tool and call \`web_search\` directly
 
 ### Multi-Skill

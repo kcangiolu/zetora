@@ -6,9 +6,13 @@
 export const FILE_MARKER = '__ZETORA_FILE__:';
 
 const FILE_PRELUDE = `
-import base64 as __zetora_b64, json as __zetora_json
+import base64 as __zetora_b64, json as __zetora_json, os as __zetora_os, tempfile as __zetora_tempfile
 __zetora_output_files = []
 def zetora_save_file(path, filename=None):
+    if not isinstance(path, (str, bytes, __zetora_os.PathLike)) and hasattr(path, 'save'):
+        __zetora_obj = path
+        path = __zetora_os.path.join(__zetora_tempfile.gettempdir(), filename or 'output')
+        __zetora_obj.save(path)
     with open(path, 'rb') as __zetora_fh:
         __zetora_data = __zetora_fh.read()
     __zetora_output_files.append({
