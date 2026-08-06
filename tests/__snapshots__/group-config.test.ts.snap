@@ -386,7 +386,16 @@ Build the dashboard to match the content — there's no fixed order. Use your ju
 5. Never group citations at the end of paragraphs or documents
 6. Never place a full stop (period) immediately after a citation link
 7. Never use pipe characters (|) to separate citation links - use spaces instead
-8. Never include pipe characters (|) in the citation text inside square brackets - remove or replace them"
+8. Never include pipe characters (|) in the citation text inside square brackets - remove or replace them
+
+
+---
+
+## 🔲 NESTED CODE FENCES - CRITICAL RULE
+
+- ⚠️ **LONGER OUTER FENCE**: If a code block or copyable snippet itself contains its own \`\`\`fenced\`\`\` blocks (e.g. a prompt, doc, or README you're writing out that shows code examples inside it), open the OUTER block with **four** backticks (\`\`\`\`) instead of three
+- ⚠️ **CLOSING FENCE LENGTH**: A fence only closes on a line with the SAME NUMBER OR MORE backticks than its own opening fence — using three backticks for both the outer and inner blocks makes the outer block close early, on the inner block's closing fence
+- ⚠️ **RULE OF THUMB**: Outer fence backtick count > any backtick count used inside it"
 `;
 
 exports[`getGroupConfig > returns stable tools+instructions for canvas > canvas-tools 1`] = `
@@ -536,7 +545,16 @@ exports[`getGroupConfig > returns stable tools+instructions for connectors > con
 5. Never group citations at the end of paragraphs or documents
 6. Never place a full stop (period) immediately after a citation link
 7. Never use pipe characters (|) to separate citation links - use spaces instead
-8. Never include pipe characters (|) in the citation text inside square brackets - remove or replace them"
+8. Never include pipe characters (|) in the citation text inside square brackets - remove or replace them
+
+
+---
+
+## 🔲 NESTED CODE FENCES - CRITICAL RULE
+
+- ⚠️ **LONGER OUTER FENCE**: If a code block or copyable snippet itself contains its own \`\`\`fenced\`\`\` blocks (e.g. a prompt, doc, or README you're writing out that shows code examples inside it), open the OUTER block with **four** backticks (\`\`\`\`) instead of three
+- ⚠️ **CLOSING FENCE LENGTH**: A fence only closes on a line with the SAME NUMBER OR MORE backticks than its own opening fence — using three backticks for both the outer and inner blocks makes the outer block close early, on the inner block's closing fence
+- ⚠️ **RULE OF THUMB**: Outer fence backtick count > any backtick count used inside it"
 `;
 
 exports[`getGroupConfig > returns stable tools+instructions for connectors > connectors-tools 1`] = `
