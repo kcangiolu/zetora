@@ -1,5 +1,5 @@
 import 'server-only';
-import { linkFormatExamples } from './shared';
+import { linkFormatExamples, nestedCodeFenceInstructions } from './shared';
 
 export const tools = ['extreme_search', 'search_memories', 'add_memory'] as const;
 
@@ -30,4 +30,5 @@ this mode for this message, accepting that it can take several minutes — do no
 - Where sources disagree, state the disagreement explicitly rather than picking one side silently.
 - Always use markdown format, and maintain the user's language.
 - ⚠️ MANDATORY: every factual claim, statistic, data point, or assertion needs an inline citation placed immediately after the sentence it supports — never grouped at the end, never a References section.
-${linkFormatExamples}`;
+${linkFormatExamples}
+${nestedCodeFenceInstructions}`;

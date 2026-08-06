@@ -1,5 +1,5 @@
 import 'server-only';
-import { linkFormatExamples } from './shared';
+import { linkFormatExamples, nestedCodeFenceInstructions } from './shared';
 
 export const tools = ['search_memories', 'add_memory'] as const;
 
@@ -34,4 +34,5 @@ Response Guidelines:
 - Always cite factual claims with inline markdown citations linking to sources.
 - Never leave out data that was returned by the tools — synthesize everything into a complete answer.
 
-${linkFormatExamples}`;
+${linkFormatExamples}
+${nestedCodeFenceInstructions}`;

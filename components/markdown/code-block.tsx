@@ -519,19 +519,30 @@ export const useProcessedContent = (content: string) => {
       // This prevents the issue where single backticks match parts of already-protected content
       const allCodeMatches: Array<{ match: string; index: number; length: number }> = [];
 
-      // First, find all triple-backtick code blocks
-      const tripleBacktickPattern = /```[\s\S]*?```/g;
-      let match;
-      while ((match = tripleBacktickPattern.exec(modifiedContent)) !== null) {
-        allCodeMatches.push({
-          match: match[0],
-          index: match.index,
-          length: match[0].length,
-        });
+      // First, find all fenced code blocks. A fence only closes on a line whose
+      // backtick run is >= the opening fence's length (CommonMark nesting rule),
+      // so an outer ```` block can safely contain inner ``` blocks.
+      const fenceLineRegex = /^([ \t]*)(`{3,})[^\n]*\n?/gm;
+      let fenceLineMatch;
+      let openFence: { index: number; tickLength: number } | null = null;
+      while ((fenceLineMatch = fenceLineRegex.exec(modifiedContent)) !== null) {
+        const tickLength = fenceLineMatch[2].length;
+        if (!openFence) {
+          openFence = { index: fenceLineMatch.index, tickLength };
+        } else if (tickLength >= openFence.tickLength) {
+          const end = fenceLineMatch.index + fenceLineMatch[0].length;
+          allCodeMatches.push({
+            match: modifiedContent.slice(openFence.index, end),
+            index: openFence.index,
+            length: end - openFence.index,
+          });
+          openFence = null;
+        }
       }
 
-      // Then, find all inline code (single backticks) that don't overlap with triple-backtick blocks
+      // Then, find all inline code (single backticks) that don't overlap with fenced blocks
       const inlineCodePattern = /`[^`\n]+`/g;
+      let match;
       while ((match = inlineCodePattern.exec(modifiedContent)) !== null) {
         const matchStart = match.index;
         const matchEnd = match.index + match[0].length;

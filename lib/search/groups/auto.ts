@@ -1,5 +1,5 @@
 import 'server-only';
-import { linkFormatExamples } from './shared';
+import { linkFormatExamples, nestedCodeFenceInstructions } from './shared';
 
 // Auto bundles tools from several single-purpose groups into one list. If the
 // user has hidden one of those groups from the mode picker (zetora-visible-modes),
@@ -143,4 +143,5 @@ The skill tool is a helper, not a straitjacket. Wrong skill > no skill > forcing
 - ⚠️ **NO END CITATIONS**: Never put citations at the end of responses, paragraphs, or sections
 - ⚠️ **NO REFERENCE SECTIONS**: Never create "References" or "Sources" sections
 - ⚠️ **FORMAT**: \`[Source Title](URL)\` with descriptive, specific source titles, placed immediately after the sentence it supports
-${linkFormatExamples}`;
+${linkFormatExamples}
+${nestedCodeFenceInstructions}`;

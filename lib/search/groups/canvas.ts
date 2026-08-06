@@ -1,5 +1,5 @@
 import 'server-only';
-import { linkFormatExamples } from './shared';
+import { linkFormatExamples, nestedCodeFenceInstructions } from './shared';
 import { canvasCatalog } from '@/lib/canvas/catalog';
 
 export const tools = ['extreme_search', 'search_memories', 'add_memory'] as const;
@@ -189,4 +189,5 @@ Build the dashboard to match the content — there's no fixed order. Use your ju
 {"op":"add","path":"/elements/sources/children","value":{"key":"src1","type":"SourceCard","props":{"url":"https://techcrunch.com/company-overview","title":"Company raises Series B","description":"Latest funding round details and growth metrics."}}}
 {"op":"add","path":"/elements/sources/children","value":{"key":"src2","type":"SourceCard","props":{"url":"https://company.com/blog/q1-results","title":"Q1 2026 Results","description":"Record quarter with 120M monthly active users."}}}
 \`\`\`
-${linkFormatExamples}`;
+${linkFormatExamples}
+${nestedCodeFenceInstructions}`;

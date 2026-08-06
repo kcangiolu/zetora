@@ -1,5 +1,5 @@
 import 'server-only';
-import { linkFormatExamples } from './shared';
+import { linkFormatExamples, nestedCodeFenceInstructions } from './shared';
 
 export const tools = ['connectors_search', 'datetime', 'file_query_search', 'search_memories', 'add_memory'] as const;
 
@@ -99,4 +99,5 @@ export const instructions = `
   - Block: $$E = mc^2$$
   - Currency: 100 USD (not $100)
   - Custom operators: $\\operatorname{softmax}(x)$ or $\\operatorname{argmax}(x)$
-${linkFormatExamples}`;
+${linkFormatExamples}
+${nestedCodeFenceInstructions}`;
