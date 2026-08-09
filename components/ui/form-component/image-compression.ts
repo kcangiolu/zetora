@@ -14,6 +14,14 @@ export function isCompressibleImageType(type: string): boolean {
   return type === 'image/jpeg' || type === 'image/png' || type === 'image/webp' || type === 'image/avif';
 }
 
+// Our local llama.cpp vision backend decodes images via stb_image, which
+// doesn't understand WebP/AVIF at all (silent decode failure, not just a
+// size issue) — unlike PNG/JPEG, these must always be re-encoded to JPEG
+// regardless of file size so vision actually sees them.
+function needsFormatConversion(type: string): boolean {
+  return type === 'image/webp' || type === 'image/avif';
+}
+
 function canvasToBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob | null> {
   return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
 }
@@ -23,7 +31,11 @@ function canvasToBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob 
 // or if compression doesn't actually shrink it. Callers must still enforce
 // a hard size ceiling afterwards — this function does not guarantee a size.
 export async function compressImageForUpload(file: File): Promise<File> {
-  if (file.size <= TARGET_BYTES || !isCompressibleImageType(file.type)) {
+  if (!isCompressibleImageType(file.type)) {
+    return file;
+  }
+  const mustConvert = needsFormatConversion(file.type);
+  if (file.size <= TARGET_BYTES && !mustConvert) {
     return file;
   }
 
@@ -53,7 +65,10 @@ export async function compressImageForUpload(file: File): Promise<File> {
       blob = await canvasToBlob(canvas, quality);
     }
 
-    if (!blob || blob.size >= file.size) return file;
+    if (!blob) return file;
+    // A format conversion must go through even if the JPEG re-encode is
+    // larger than the source — an undecodable-but-smaller WebP is useless.
+    if (!mustConvert && blob.size >= file.size) return file;
 
     const newName = `${file.name.replace(/\.[^./]+$/, '')}.jpg`;
     return new File([blob], newName, { type: 'image/jpeg' });
