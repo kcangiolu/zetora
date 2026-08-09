@@ -6,6 +6,7 @@ import { EnhancedErrorDisplay } from '@/components/message';
 import { MessagePartRenderer } from '@/components/message-parts';
 import { StreamingIndicator } from '@/components/streaming-indicator';
 import { deleteTrailingMessages } from '@/app/actions';
+import { sileo } from 'sileo';
 import { Attachment, ChatMessage, CustomUIDataTypes } from '@/lib/types';
 import { UseChatHelpers } from '@ai-sdk/react';
 import { ComprehensiveUserData } from '@/lib/user-data-server';
@@ -212,6 +213,39 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     }
   }, [messages, user, setMessages, setSuggestedQuestions, regenerate, stop, skipCacheRef]);
 
+  // Memoize the delete handler - same as retry but without regenerating,
+  // for when the user just wants to remove an orphaned/empty last turn
+  // (e.g. after manually stopping generation before any content arrived).
+  const handleDelete = useCallback(async () => {
+    try {
+      const lastUserMessage = messages.findLast((m) => m.role === 'user');
+      if (!lastUserMessage) return;
+
+      // Step 1: Stop any in-flight stream first to prevent the old response's
+      // onFinish from saving stale messages to DB after we delete them
+      await stop();
+
+      // Step 2: Small delay to allow the abort to propagate and any in-flight
+      // server-side onFinish to complete before we delete
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Step 3: Delete trailing messages if user is authenticated
+      if (user && lastUserMessage.id) {
+        await deleteTrailingMessages({
+          id: lastUserMessage.id,
+        });
+      }
+
+      // Step 4: Update local state to remove the user message and anything after it
+      const lastUserMessageIndex = messages.findIndex((m) => m.id === lastUserMessage.id);
+      setMessages(messages.slice(0, lastUserMessageIndex));
+      setSuggestedQuestions([]);
+    } catch (error) {
+      console.error('Error in delete:', error);
+      sileo.error({ title: 'Failed to delete message' });
+    }
+  }, [messages, user, setMessages, setSuggestedQuestions, stop]);
+
   // Handle rendering of message parts - using the new MessagePartRenderer component
   const renderPart = useCallback(
     (
@@ -400,6 +434,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
             error={error}
             isMissingAssistantResponse={index === missingAssistantResponseIndex}
             handleRetry={handleRetry}
+            handleDelete={handleDelete}
             isOwner={isOwner}
             onHighlight={onHighlight}
             attachmentsRenderer={attachmentsRenderer}
@@ -439,6 +474,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
       error,
       missingAssistantResponseIndex,
       handleRetry,
+      handleDelete,
       isOwner,
       onHighlight,
       attachmentsRenderer,

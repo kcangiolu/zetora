@@ -31,6 +31,8 @@ import {
   CornerDownRight,
   Upload,
   CheckCircle2,
+  Trash2,
+  Loader2,
 } from 'lucide-react';
 import { UIMessagePart } from 'ai';
 import { deleteTrailingMessages } from '@/app/actions';
@@ -237,12 +239,19 @@ export { EnhancedErrorDisplay };
 function MissingAssistantResponseNotice({
   user,
   selectedVisibilityType,
+  isOwner = true,
   handleRetry,
+  handleDelete,
 }: {
   user?: ComprehensiveUserData | null;
   selectedVisibilityType?: 'public' | 'private';
+  isOwner?: boolean;
   handleRetry?: () => Promise<void>;
+  handleDelete?: () => Promise<void>;
 }) {
+  const [isDeleting, setIsDeleting] = useState(false);
+  const canAct = (user && isOwner) || (!user && selectedVisibilityType === 'private');
+
   return (
     <div className="flex items-start mt-4">
       <div className="w-full">
@@ -265,17 +274,41 @@ function MissingAssistantResponseNotice({
             <p className="text-muted-foreground dark:text-muted-foreground text-xs">
               {!user && selectedVisibilityType === 'public'
                 ? 'Please sign in to retry or try a different prompt'
-                : 'Try regenerating the response or rephrase your question'}
+                : 'Try regenerating the response, delete it, or rephrase your question'}
             </p>
-            {(user || selectedVisibilityType === 'private') && (
-              <Button
-                onClick={handleRetry}
-                className="bg-secondary hover:bg-secondary/90 text-secondary-foreground"
-                size="sm"
-              >
-                <RefreshCw className="mr-2 h-3.5 w-3.5" />
-                Generate Response
-              </Button>
+            {canAct && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={isDeleting}
+                  onClick={async () => {
+                    if (isDeleting || !handleDelete) return;
+                    try {
+                      setIsDeleting(true);
+                      await handleDelete();
+                    } finally {
+                      setIsDeleting(false);
+                    }
+                  }}
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  {isDeleting ? (
+                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="mr-2 h-3.5 w-3.5" />
+                  )}
+                  Delete
+                </Button>
+                <Button
+                  onClick={handleRetry}
+                  className="bg-secondary hover:bg-secondary/90 text-secondary-foreground"
+                  size="sm"
+                >
+                  <RefreshCw className="mr-2 h-3.5 w-3.5" />
+                  Generate Response
+                </Button>
+              </div>
             )}
           </div>
         </div>
@@ -308,6 +341,7 @@ interface MessageProps {
   error?: any;
   isMissingAssistantResponse?: boolean;
   handleRetry?: () => Promise<void>;
+  handleDelete?: () => Promise<void>;
   isOwner?: boolean;
   onHighlight?: (text: string) => void;
   shouldReduceHeight?: boolean;
@@ -877,6 +911,7 @@ export const Message: React.FC<MessageProps> = ({
   error,
   isMissingAssistantResponse,
   handleRetry,
+  handleDelete,
   isOwner = true,
   onHighlight,
   shouldReduceHeight = false,
@@ -1080,7 +1115,9 @@ export const Message: React.FC<MessageProps> = ({
               <MissingAssistantResponseNotice
                 user={user}
                 selectedVisibilityType={selectedVisibilityType}
+                isOwner={isOwner}
                 handleRetry={handleRetry}
+                handleDelete={handleDelete}
               />
             )}
           </div>
@@ -1127,7 +1164,9 @@ export const Message: React.FC<MessageProps> = ({
           <MissingAssistantResponseNotice
             user={user}
             selectedVisibilityType={selectedVisibilityType}
+            isOwner={isOwner}
             handleRetry={handleRetry}
+            handleDelete={handleDelete}
           />
         )}
 
