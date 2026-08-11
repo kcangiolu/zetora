@@ -17,9 +17,12 @@ existing custom-provider baseURLs pointing at this host:port keep working.
 """
 
 import asyncio
+import gc
 import logging
 import os
 import tempfile
+import threading
+import time
 
 import numpy as np
 import torch
@@ -32,8 +35,16 @@ logger = logging.getLogger("stt-service")
 
 MODEL_ID = os.getenv("MODEL_ID", "nvidia/parakeet-tdt-0.6b-v3")
 
+# GPU is shared with other services on the box (Ollama, ComfyUI, ...) and
+# stays scarce even at idle — unload the model after 5 minutes of inactivity
+# instead of holding VRAM hostage between requests.
+IDLE_UNLOAD_TIMEOUT_S = 300
+
 asr_pipeline = None
 device_label = "unknown"
+_last_used = time.monotonic()
+_active_requests = 0
+_load_lock = asyncio.Lock()
 
 
 def _load_model() -> None:
@@ -60,17 +71,57 @@ def _load_model() -> None:
     logger.info("Parakeet TDT (%s) loaded on CPU", MODEL_ID)
 
 
+def _unload_model() -> None:
+    global asr_pipeline
+    # Never unload out from under an in-flight transcription — this runs on
+    # a plain background thread, not serialized with request handling like
+    # tts-service's dedicated CUDA-thread executor.
+    if asr_pipeline is None or _active_requests > 0:
+        return
+    logger.info("Idle for %ds — unloading Parakeet model to free VRAM", IDLE_UNLOAD_TIMEOUT_S)
+    asr_pipeline = None
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    gc.collect()
+    logger.info("STT model unloaded, GPU memory freed")
+
+
+def _idle_checker() -> None:
+    while True:
+        time.sleep(30)
+        if (
+            asr_pipeline is not None
+            and _active_requests == 0
+            and (time.monotonic() - _last_used) >= IDLE_UNLOAD_TIMEOUT_S
+        ):
+            _unload_model()
+
+
+async def _ensure_loaded(loop: asyncio.AbstractEventLoop) -> None:
+    if asr_pipeline is not None:
+        return
+    async with _load_lock:
+        if asr_pipeline is None:  # re-check: another request may have loaded it while we waited
+            await loop.run_in_executor(None, _load_model)
+
+
 app = FastAPI(title="Zetora STT (Parakeet TDT)")
 
 
 @app.on_event("startup")
 async def _startup() -> None:
     await asyncio.get_event_loop().run_in_executor(None, _load_model)
+    threading.Thread(target=_idle_checker, daemon=True, name="stt-idle-checker").start()
 
 
 @app.get("/health")
 async def health():
-    return JSONResponse({"status": "ok", "model": MODEL_ID, "device": device_label})
+    return JSONResponse({
+        "status": "ok",
+        "model": MODEL_ID,
+        "model_loaded": asr_pipeline is not None,
+        "device": device_label,
+    })
 
 
 @app.post("/v1/audio/transcriptions")
@@ -79,10 +130,20 @@ async def transcribe(file: UploadFile = File(...), model: str = Form(None)):
     if not data:
         return JSONResponse({"text": ""})
 
-    suffix = os.path.splitext(file.filename or "")[1] or ".wav"
-    with tempfile.NamedTemporaryFile(suffix=suffix) as tmp:
-        tmp.write(data)
-        tmp.flush()
-        result = await asyncio.get_event_loop().run_in_executor(None, asr_pipeline, tmp.name)
+    global _last_used, _active_requests
+    loop = asyncio.get_event_loop()
+    _last_used = time.monotonic()
+    _active_requests += 1
+    try:
+        await _ensure_loaded(loop)
+
+        suffix = os.path.splitext(file.filename or "")[1] or ".wav"
+        with tempfile.NamedTemporaryFile(suffix=suffix) as tmp:
+            tmp.write(data)
+            tmp.flush()
+            result = await loop.run_in_executor(None, asr_pipeline, tmp.name)
+    finally:
+        _active_requests -= 1
+        _last_used = time.monotonic()
 
     return JSONResponse({"text": (result.get("text") or "").strip()})

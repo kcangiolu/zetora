@@ -1,4 +1,5 @@
 import asyncio
+import gc
 import os
 from collections import OrderedDict
 from contextlib import asynccontextmanager
@@ -29,6 +30,11 @@ PROMPT_CACHE_DIR = Path(os.getenv("PROMPT_CACHE_DIR", "/data/prompt_cache"))
 SAVE_OUTPUT = os.getenv("SAVE_OUTPUT", "false").lower() == "true"
 OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "/data/output"))
 
+# GPU is shared with other services on the box (Ollama, ComfyUI, ...) and
+# stays scarce even at idle — unload the model after 5 minutes of inactivity
+# instead of holding VRAM hostage between requests.
+IDLE_UNLOAD_TIMEOUT_S = 300
+
 torch.set_float32_matmul_precision("high")
 torch.backends.cuda.matmul.allow_tf32 = True
 
@@ -38,6 +44,7 @@ _cuda_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="cuda-tts"
 
 model = None
 warmup_prompt = None
+_last_used = time.monotonic()
 # LRU-bounded prompt cache: prompts hold GPU tensors, so cap how many voices
 # stay resident. key: (name, x_vector_only) -> prompt
 VOICE_PROMPT_CACHE_SIZE = int(os.getenv("VOICE_PROMPT_CACHE_SIZE", "8"))
@@ -205,9 +212,9 @@ def _save_wav(voice: str, pcm_chunks: list, sample_rate: int) -> None:
         logger.error("Failed to save output: %s", e)
 
 
-# ── Startup (inside the CUDA thread) ───────────────────────────
+# ── Model load / unload (inside the CUDA thread) ────────────────
 
-def _do_startup():
+def _load_model():
     global model, warmup_prompt, HAS_FLASH_ATTN
     from qwen_tts import Qwen3TTSModel
 
@@ -244,16 +251,54 @@ def _do_startup():
     logger.info("Server ready. GPU: %s", torch.cuda.get_device_name(0))
 
 
+def _reload_if_needed():
+    """Runs on the CUDA thread; safe to call from multiple concurrent
+    requests since _cuda_executor serializes them (FIFO, 1 worker)."""
+    if model is None:
+        _load_model()
+
+
+def _unload_model():
+    """Runs on the CUDA thread. Voice prompts also hold GPU tensors
+    (ref_spk_embedding etc.) so they're dropped too, not just the model."""
+    global model, warmup_prompt
+    if model is None:
+        return
+    logger.info("Idle for %ds — unloading TTS model to free VRAM", IDLE_UNLOAD_TIMEOUT_S)
+    model = None
+    warmup_prompt = None
+    voice_prompts.clear()
+    torch.cuda.empty_cache()
+    gc.collect()
+    logger.info("TTS model unloaded, GPU memory freed")
+
+
+def _maybe_unload():
+    if model is not None and (time.monotonic() - _last_used) >= IDLE_UNLOAD_TIMEOUT_S:
+        _unload_model()
+
+
+def _idle_checker():
+    while True:
+        time.sleep(30)
+        if model is not None and (time.monotonic() - _last_used) >= IDLE_UNLOAD_TIMEOUT_S:
+            # Submitted to the same single-worker executor as generation,
+            # so this can never run mid-stream — it just queues behind
+            # whatever's in flight and re-checks staleness once it runs.
+            _cuda_executor.submit(_maybe_unload)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Fail fast: if the model can't load, exit instead of serving 503s
     # forever — the container's restart policy handles retries.
     loop = asyncio.get_event_loop()
     try:
-        await loop.run_in_executor(_cuda_executor, _do_startup)
+        await loop.run_in_executor(_cuda_executor, _load_model)
     except Exception:
         logger.critical("Model startup failed — exiting so the container restarts", exc_info=True)
         raise
+    threading.Thread(target=_idle_checker, daemon=True, name="tts-idle-checker").start()
     yield
 
 
@@ -271,6 +316,7 @@ async def health():
     return {
         "status": "ok",
         "model": MODEL_ID,
+        "model_loaded": model is not None,
         "default_language": LANG_CODE,
         "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "none",
         "attn_backend": "flash_attention_2" if HAS_FLASH_ATTN else "sdpa",
@@ -335,8 +381,16 @@ def _try_get(q: stdlib_queue.Queue):
 
 @app.post("/v1/audio/speech")
 async def speech(request: Request, req: SpeechRequest):
+    global _last_used
+    _last_used = time.monotonic()
+    loop = asyncio.get_running_loop()
     if model is None:
-        raise HTTPException(503, "Model not loaded yet")
+        try:
+            # _get_voice_prompt() below also touches `model` directly, so it
+            # must be reloaded before we ever reach it.
+            await loop.run_in_executor(_cuda_executor, _reload_if_needed)
+        except Exception as e:
+            raise HTTPException(503, f"Model failed to reload: {e}")
 
     gen_lang_code = (req.language or LANG_CODE).lower()
     language = LANG_MAP.get(gen_lang_code, "English")
@@ -344,7 +398,6 @@ async def speech(request: Request, req: SpeechRequest):
     prompt = _get_voice_prompt(req.voice, x_vector_only)
     fmt = req.response_format.lower()
     t0 = time.monotonic()
-    loop = asyncio.get_running_loop()
 
     sentences = _split_sentences(req.input)
     chunk_q: stdlib_queue.Queue = stdlib_queue.Queue(maxsize=3)
@@ -360,6 +413,7 @@ async def speech(request: Request, req: SpeechRequest):
         return False
 
     def _cuda_gen():
+        global _last_used
         try:
             header_sent = False
             n_total = 0
@@ -429,6 +483,7 @@ async def speech(request: Request, req: SpeechRequest):
             except stdlib_queue.Full:
                 pass
         finally:
+            _last_used = time.monotonic()
             for _ in range(40):
                 try:
                     chunk_q.put(None, block=False)
