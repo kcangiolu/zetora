@@ -290,14 +290,9 @@ def _idle_checker():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Fail fast: if the model can't load, exit instead of serving 503s
-    # forever — the container's restart policy handles retries.
-    loop = asyncio.get_event_loop()
-    try:
-        await loop.run_in_executor(_cuda_executor, _load_model)
-    except Exception:
-        logger.critical("Model startup failed — exiting so the container restarts", exc_info=True)
-        raise
+    # Lazy load: the model loads on the first request instead of at
+    # container start, so simply starting the container no longer claims
+    # VRAM — matches the on-demand `--profile tts` intent above.
     threading.Thread(target=_idle_checker, daemon=True, name="tts-idle-checker").start()
     yield
 
