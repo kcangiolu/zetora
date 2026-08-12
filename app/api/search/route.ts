@@ -38,6 +38,7 @@ import {
   saveUserTurnMessage,
   incrementMessageUsage,
   updateChatTitleById,
+  getHiddenContextImageUrlsByChatId,
 } from '@/lib/db/queries';
 import { ChatSDKError } from '@/lib/errors';
 import { after } from 'next/server';
@@ -359,8 +360,10 @@ export async function POST(req: Request) {
 
   // Collect every attached file across the conversation: documents for
   // file_query_search, images (vision / edit_image), and other files that
-  // are decoded as text below.
-  const { contextFiles, contextImages, contextGeneratedImages, otherFileParts } = collectAttachments(hydratedMessages);
+  // are decoded as text below. Temporary chats have no persisted chat/message
+  // rows to key an exclusion on, and nothing persists across turns anyway.
+  const hiddenImageUrls = isTemporaryChat ? new Set<string>() : new Set(await getHiddenContextImageUrlsByChatId({ chatId: id }));
+  const { contextFiles, contextImages, contextGeneratedImages, otherFileParts } = collectAttachments(hydratedMessages, hiddenImageUrls);
 
   // Falls back to the model's catalog vision flag if the client didn't send
   // the toggle (older client) — same default the toggle itself starts from.
@@ -382,7 +385,7 @@ export async function POST(req: Request) {
   // object" (edit_image) whether or not Vision is on; this is what actually
   // makes the model see the pixels when Vision is on.
   if (effectiveVisionEnabled && contextGeneratedImages.length > 0) {
-    appendGeneratedImagePartsToLastUserMessage(processedMessages, contextGeneratedImages);
+    appendGeneratedImagePartsToLastUserMessage(processedMessages, contextGeneratedImages, userMessageCount);
   }
 
   if (otherFileParts.length > 0) {

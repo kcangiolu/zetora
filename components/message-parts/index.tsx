@@ -181,6 +181,8 @@ interface MessagePartRendererProps {
   isOwner?: boolean;
   selectedVisibilityType?: 'public' | 'private';
   chatId?: string;
+  hiddenImageUrls?: Set<string>;
+  onToggleImageHidden?: (imageUrl: string, hidden: boolean) => void;
   onVisibilityChange?: (visibility: 'public' | 'private') => void;
   setMessages: UseChatHelpers<ChatMessage>['setMessages'];
   setSuggestedQuestions: (questions: string[]) => void;
@@ -209,6 +211,8 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
     isOwner,
     selectedVisibilityType,
     chatId,
+    hiddenImageUrls,
+    onToggleImageHidden,
     onVisibilityChange,
     setMessages,
     setSuggestedQuestions,
@@ -3008,7 +3012,8 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
             );
           }
 
-          case 'tool-generate_image':
+          case 'tool-generate_image': {
+            const generatedImageUrl = part.state === 'output-available' && part.output.success ? part.output.imageUrl : undefined;
             return (
               <GeneratedImageCard
                 key={`${messageIndex}-${partIndex}-tool`}
@@ -3016,7 +3021,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                 state={toImageCardState(part.state)}
                 prompt={part.input?.prompt}
                 size={part.input?.size}
-                imageUrl={part.state === 'output-available' && part.output.success ? part.output.imageUrl : undefined}
+                imageUrl={generatedImageUrl}
                 error={
                   part.state === 'output-available' && !part.output.success
                     ? part.output.error
@@ -3024,10 +3029,19 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                       ? part.errorText
                       : undefined
                 }
+                isHidden={generatedImageUrl ? hiddenImageUrls?.has(generatedImageUrl) : undefined}
+                canToggleHidden={chatId ? (user && isOwner) || (!user && selectedVisibilityType === 'private') : false}
+                onToggleHidden={
+                  generatedImageUrl && chatId
+                    ? (hidden: boolean) => onToggleImageHidden?.(generatedImageUrl, hidden)
+                    : undefined
+                }
               />
             );
+          }
 
-          case 'tool-edit_image':
+          case 'tool-edit_image': {
+            const editedImageUrl = part.state === 'output-available' && part.output.success ? part.output.imageUrl : undefined;
             return (
               <GeneratedImageCard
                 key={`${messageIndex}-${partIndex}-tool`}
@@ -3035,7 +3049,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                 state={toImageCardState(part.state)}
                 prompt={part.input?.prompt}
                 sourceImageUrl={(part.state === 'output-available' && part.output.success ? part.output.originalUrl : undefined) ?? part.input?.image_url}
-                imageUrl={part.state === 'output-available' && part.output.success ? part.output.imageUrl : undefined}
+                imageUrl={editedImageUrl}
                 error={
                   part.state === 'output-available' && !part.output.success
                     ? part.output.error
@@ -3043,8 +3057,14 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                       ? part.errorText
                       : undefined
                 }
+                isHidden={editedImageUrl ? hiddenImageUrls?.has(editedImageUrl) : undefined}
+                canToggleHidden={chatId ? (user && isOwner) || (!user && selectedVisibilityType === 'private') : false}
+                onToggleHidden={
+                  editedImageUrl && chatId ? (hidden: boolean) => onToggleImageHidden?.(editedImageUrl, hidden) : undefined
+                }
               />
             );
+          }
 
           default:
             return <DynamicToolInvocationCard part={part} compact={true} />;
@@ -3088,6 +3108,11 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
       prevProps.isOwner === nextProps.isOwner &&
       prevProps.selectedVisibilityType === nextProps.selectedVisibilityType &&
       prevProps.chatId === nextProps.chatId &&
+      // fast-deep-equal doesn't special-case Set (Object.keys(set) is always
+      // []), so two different-content Sets would compare equal — reference
+      // equality is correct here since hiddenImageUrls is always replaced
+      // with a new Set instance on change (see chat-interface.tsx).
+      prevProps.hiddenImageUrls === nextProps.hiddenImageUrls &&
       isEqual(prevProps.annotations, nextProps.annotations);
 
     // Debug logging (can be removed in production)

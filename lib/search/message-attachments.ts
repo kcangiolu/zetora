@@ -2,6 +2,18 @@ import { ModelMessage } from 'ai';
 
 export type AttachmentRef = { url: string; contentType: string; name?: string };
 
+// Extra identity carried only for generate_image/edit_image outputs, so each
+// one can be labeled distinctly when several end up in the same request
+// (see appendGeneratedImagePartsToLastUserMessage) instead of arriving as
+// unlabeled sibling image parts the model has no way to tell apart.
+export type GeneratedImageRef = AttachmentRef & {
+  turnIndex: number;
+  sourceMessageId: string;
+  toolCallId?: string;
+  prompt?: string;
+  seed?: number;
+};
+
 export const DOCUMENT_MIME_TYPES = [
   'application/pdf',
   'text/csv',
@@ -22,21 +34,30 @@ export const DOCUMENT_MIME_TYPES = [
 // carries their bytes/URL as a model content part, so stripFilePartsForModel
 // has nothing to keep for them; the caller must inject a fresh image part
 // (see appendGeneratedImagePartsToLastUserMessage) to make them visible.
-export function collectAttachments(messages: Array<{ parts?: unknown }>): {
+export function collectAttachments(
+  messages: Array<{ id?: string; role?: string; parts?: unknown }>,
+  hiddenImageUrls?: Set<string>,
+): {
   contextFiles: AttachmentRef[];
   contextImages: AttachmentRef[];
-  contextGeneratedImages: AttachmentRef[];
+  contextGeneratedImages: GeneratedImageRef[];
   otherFileParts: AttachmentRef[];
 } {
   const contextFiles: AttachmentRef[] = [];
   const contextImages: AttachmentRef[] = [];
-  const contextGeneratedImages: AttachmentRef[] = [];
+  const contextGeneratedImages: GeneratedImageRef[] = [];
   const otherFileParts: AttachmentRef[] = [];
   const seenUrls = new Set<string>();
   const seenImageUrls = new Set<string>();
   const seenOtherUrls = new Set<string>();
 
+  // Counts user turns as they're walked, so a tool part reached right after
+  // the Nth user message is stamped turnIndex=N — the same numbering as
+  // userMessageCount at the route.ts call site, which appendGeneratedImagePartsToLastUserMessage
+  // uses as "current turn" to compute each image's recency label.
+  let turnIndex = 0;
   for (const msg of messages) {
+    if (msg.role === 'user') turnIndex++;
     const parts = (msg.parts as any[]) ?? [];
     for (const part of parts) {
       if (part.type === 'file') {
@@ -62,10 +83,18 @@ export function collectAttachments(messages: Array<{ parts?: unknown }>): {
         const toolPart = part as any;
         if (toolPart.state !== 'output-available' || !toolPart.output?.success) continue;
         const url = toolPart.output.imageUrl || '';
-        if (!url) continue;
+        if (!url || hiddenImageUrls?.has(url)) continue;
         if (!seenImageUrls.has(url)) {
           seenImageUrls.add(url);
-          const ref = { url, contentType: 'image/png' };
+          const ref: GeneratedImageRef = {
+            url,
+            contentType: 'image/png',
+            turnIndex,
+            sourceMessageId: msg.id ?? '',
+            toolCallId: toolPart.toolCallId,
+            prompt: toolPart.output.prompt,
+            seed: toolPart.output.seed,
+          };
           contextImages.push(ref);
           contextGeneratedImages.push(ref);
         }
@@ -109,20 +138,37 @@ export function stripFilePartsForModel(messages: ModelMessage[], visionEnabled: 
 // this when Vision is on; the URL-only text instruction from
 // buildImageInstruction is what carries the "treat it as an object" ability
 // (pass the URL to edit_image) in every case, vision on or off.
-export function appendGeneratedImagePartsToLastUserMessage(messages: ModelMessage[], images: AttachmentRef[]): void {
+export function appendGeneratedImagePartsToLastUserMessage(
+  messages: ModelMessage[],
+  images: GeneratedImageRef[],
+  currentTurnIndex: number,
+): void {
   if (images.length === 0) return;
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i] as any;
     if (msg.role !== 'user') continue;
-    const imageParts = images.map((img) => ({ type: 'image', image: img.url, mediaType: img.contentType }));
+    const labeledParts = images.flatMap((img, idx) => [
+      { type: 'text', text: buildGeneratedImageLabel(img, idx, images.length, currentTurnIndex) },
+      { type: 'image', image: img.url, mediaType: img.contentType },
+    ]);
     if (Array.isArray(msg.content)) {
-      msg.content.push(...imageParts);
+      msg.content.push(...labeledParts);
     } else {
       const textContent = typeof msg.content === 'string' ? msg.content : '';
-      msg.content = [{ type: 'text', text: textContent }, ...imageParts];
+      msg.content = [{ type: 'text', text: textContent }, ...labeledParts];
     }
     return;
   }
+}
+
+// Gives each image an explicit ordinal + recency + prompt so a model shown
+// several at once (e.g. "critique the most recent one") has textual grounding
+// to keep them distinct instead of a bare unlabeled sibling-image array.
+function buildGeneratedImageLabel(img: GeneratedImageRef, idx: number, total: number, currentTurnIndex: number): string {
+  const turnsAgo = currentTurnIndex - img.turnIndex;
+  const recency = turnsAgo <= 0 ? 'most recent, generated just now' : `generated ${turnsAgo} turn${turnsAgo === 1 ? '' : 's'} ago`;
+  const promptPart = img.prompt ? `, prompt: "${img.prompt}"` : '';
+  return `\n\n[Image ${idx + 1} of ${total} — ${recency}${promptPart}. When discussing this image, refer to it as "Image ${idx + 1}".]`;
 }
 
 export function buildFileInstruction(contextFiles: AttachmentRef[]): string {

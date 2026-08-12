@@ -50,6 +50,8 @@ interface MessagesProps {
   onVisibilityChange?: (visibility: 'public' | 'private') => void; // Add visibility change handler
   initialMessages?: any[]; // Add initial messages prop to detect existing chat
   isOwner?: boolean; // Add ownership prop
+  hiddenImageUrls?: Set<string>;
+  onToggleImageHidden?: (imageUrl: string, hidden: boolean) => void;
   onHighlight?: (text: string) => void; // Add highlight handler
   attachmentsRenderer?: (attachments: Attachment[]) => React.ReactNode;
   hasSubmitted?: boolean;
@@ -85,6 +87,8 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     onVisibilityChange,
     initialMessages,
     isOwner,
+    hiddenImageUrls,
+    onToggleImageHidden,
     onHighlight,
     attachmentsRenderer,
     sendMessage,
@@ -278,6 +282,8 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
           isOwner={isOwner}
           selectedVisibilityType={selectedVisibilityType}
           chatId={chatId}
+          hiddenImageUrls={hiddenImageUrls}
+          onToggleImageHidden={onToggleImageHidden}
           onVisibilityChange={onVisibilityChange}
           setMessages={setMessages}
           setSuggestedQuestions={setSuggestedQuestions}
@@ -297,6 +303,8 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
       isOwner,
       selectedVisibilityType,
       chatId,
+      hiddenImageUrls,
+      onToggleImageHidden,
       onVisibilityChange,
       setMessages,
       setSuggestedQuestions,

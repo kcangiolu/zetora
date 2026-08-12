@@ -68,8 +68,8 @@ describe('collectAttachments', () => {
       },
     ]);
     expect(contextGeneratedImages).toEqual([
-      { url: 'https://x/gen.png', contentType: 'image/png' },
-      { url: 'https://x/edit.png', contentType: 'image/png' },
+      { url: 'https://x/gen.png', contentType: 'image/png', turnIndex: 0, sourceMessageId: '' },
+      { url: 'https://x/edit.png', contentType: 'image/png', turnIndex: 0, sourceMessageId: '' },
     ]);
     expect(contextImages).toEqual(contextGeneratedImages);
   });
@@ -93,6 +93,56 @@ describe('collectAttachments', () => {
       { parts: [{ type: 'tool-generate_image', state: 'output-available', output: { success: true, imageUrl: 'https://x/same.png' } }] },
     ]);
     expect(contextImages).toHaveLength(1);
+    expect(contextGeneratedImages).toHaveLength(0);
+  });
+
+  it('stamps each generated image with the turn it was produced in and carries prompt/seed/toolCallId', () => {
+    const { contextGeneratedImages } = collectAttachments([
+      { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'draw a cat' }] },
+      {
+        id: 'a1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-generate_image',
+            toolCallId: 'call-1',
+            state: 'output-available',
+            output: { success: true, imageUrl: 'https://x/cat.png', prompt: 'a cat', seed: 42 },
+          },
+        ],
+      },
+      { id: 'u2', role: 'user', parts: [{ type: 'text', text: 'draw a dog' }] },
+      {
+        id: 'a2',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-generate_image',
+            toolCallId: 'call-2',
+            state: 'output-available',
+            output: { success: true, imageUrl: 'https://x/dog.png', prompt: 'a dog', seed: 7 },
+          },
+        ],
+      },
+    ]);
+    expect(contextGeneratedImages).toEqual([
+      { url: 'https://x/cat.png', contentType: 'image/png', turnIndex: 1, sourceMessageId: 'a1', toolCallId: 'call-1', prompt: 'a cat', seed: 42 },
+      { url: 'https://x/dog.png', contentType: 'image/png', turnIndex: 2, sourceMessageId: 'a2', toolCallId: 'call-2', prompt: 'a dog', seed: 7 },
+    ]);
+  });
+
+  it('excludes generated images whose URL is in hiddenImageUrls', () => {
+    const { contextImages, contextGeneratedImages } = collectAttachments(
+      [
+        { role: 'user', parts: [{ type: 'text', text: 'draw a cat' }] },
+        {
+          role: 'assistant',
+          parts: [{ type: 'tool-generate_image', state: 'output-available', output: { success: true, imageUrl: 'https://x/cat.png' } }],
+        },
+      ],
+      new Set(['https://x/cat.png']),
+    );
+    expect(contextImages).toHaveLength(0);
     expect(contextGeneratedImages).toHaveLength(0);
   });
 });
@@ -129,37 +179,53 @@ describe('stripFilePartsForModel', () => {
 });
 
 describe('appendGeneratedImagePartsToLastUserMessage', () => {
-  const images = [{ url: 'https://x/gen.png', contentType: 'image/png' }];
+  const images = [{ url: 'https://x/gen.png', contentType: 'image/png', turnIndex: 1, sourceMessageId: 'a1' }];
+  const singleImageLabel = '\n\n[Image 1 of 1 — generated 1 turn ago. When discussing this image, refer to it as "Image 1".]';
 
-  it('appends image content parts to the last user message', () => {
+  it('interleaves a text label immediately before each image content part on the last user message', () => {
     const messages = [
       { role: 'user', content: [{ type: 'text', text: 'draw a cat' }] },
       { role: 'assistant', content: [{ type: 'tool-result', toolCallId: '1' }] },
     ] as any;
-    appendGeneratedImagePartsToLastUserMessage(messages, images);
+    appendGeneratedImagePartsToLastUserMessage(messages, images, 2);
     expect(messages[0].content).toEqual([
       { type: 'text', text: 'draw a cat' },
+      { type: 'text', text: singleImageLabel },
       { type: 'image', image: 'https://x/gen.png', mediaType: 'image/png' },
     ]);
     expect(messages[1].content).toEqual([{ type: 'tool-result', toolCallId: '1' }]);
   });
 
+  it('labels the most recent image differently and includes the prompt when present', () => {
+    const messages = [{ role: 'user', content: [{ type: 'text', text: 'draw a cat' }] }] as any;
+    appendGeneratedImagePartsToLastUserMessage(
+      messages,
+      [{ url: 'https://x/gen.png', contentType: 'image/png', turnIndex: 3, sourceMessageId: 'a1', prompt: 'a golden retriever' }],
+      3,
+    );
+    expect(messages[0].content[1]).toEqual({
+      type: 'text',
+      text: '\n\n[Image 1 of 1 — most recent, generated just now, prompt: "a golden retriever". When discussing this image, refer to it as "Image 1".]',
+    });
+  });
+
   it('wraps a string content message into an array before appending', () => {
     const messages = [{ role: 'user', content: 'draw a cat' }] as any;
-    appendGeneratedImagePartsToLastUserMessage(messages, images);
+    appendGeneratedImagePartsToLastUserMessage(messages, images, 2);
     expect(messages[0].content).toEqual([
       { type: 'text', text: 'draw a cat' },
+      { type: 'text', text: singleImageLabel },
       { type: 'image', image: 'https://x/gen.png', mediaType: 'image/png' },
     ]);
   });
 
   it('is a no-op when there are no images or no user message', () => {
     const messages = [{ role: 'assistant', content: [{ type: 'text', text: 'hi' }] }] as any;
-    appendGeneratedImagePartsToLastUserMessage(messages, images);
+    appendGeneratedImagePartsToLastUserMessage(messages, images, 2);
     expect(messages[0].content).toEqual([{ type: 'text', text: 'hi' }]);
 
     const userMessages = [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }] as any;
-    appendGeneratedImagePartsToLastUserMessage(userMessages, []);
+    appendGeneratedImagePartsToLastUserMessage(userMessages, [], 2);
     expect(userMessages[0].content).toEqual([{ type: 'text', text: 'hi' }]);
   });
 });

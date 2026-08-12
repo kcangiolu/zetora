@@ -1,7 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { ChatInterface } from '@/components/chat-interface';
 import { getUser } from '@/lib/auth-utils';
-import { getChatWithUserAndInitialMessages } from '@/lib/db/queries';
+import { getChatWithUserAndInitialMessages, getHiddenContextImageUrlsByChatId } from '@/lib/db/queries';
 import { maindb } from '@/lib/db';
 import { getChatById } from '@/lib/db/queries';
 import { chat as chatTable, message as messageTable, Message, type Chat, type User } from '@/lib/db/schema';
@@ -124,7 +124,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
   console.log('🔍 [PAGE] Starting optimized chat page load for:', id);
   const pageStartTime = Date.now();
 
-  const { user, chatBundle, primaryFallback } = await all(
+  const { user, chatBundle, primaryFallback, hiddenImageUrls } = await all(
     {
       user: async function () {
         return getUser();
@@ -138,6 +138,9 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
         const { chat, messages } = await this.$.chatBundle;
         if (chat && messages.length > 0) return null;
         return getChatWithMessagesFromPrimaryWithBackoff(id);
+      },
+      hiddenImageUrls: async function () {
+        return getHiddenContextImageUrlsByChatId({ chatId: id });
       },
     },
     getBetterAllOptions(),
@@ -194,6 +197,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
       initialVisibility={chat.visibility as 'public' | 'private'}
       isOwner={isOwner}
       chatTitle={chat.title}
+      initialHiddenImageUrls={hiddenImageUrls}
     />
   );
 }

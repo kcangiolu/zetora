@@ -13,3 +13,4 @@ export * from './mcp';
 export * from './lookouts';
 export * from './pii-alias';
 export * from './generated-files';
+export * from './context-image-visibility';

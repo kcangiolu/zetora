@@ -40,7 +40,7 @@ import {
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
-import { deleteChat, updateChatTitle } from '@/app/actions';
+import { deleteChat, updateChatTitle, setImageContextVisibility } from '@/app/actions';
 import { getExtensionRequestSettings } from '@/lib/extension-modes-client';
 import { ButtonGroup } from '@/components/ui/button-group';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -90,6 +90,7 @@ interface ChatInterfaceProps {
   initialVisibility?: 'public' | 'private';
   isOwner?: boolean;
   chatTitle?: string;
+  initialHiddenImageUrls?: string[];
 }
 
 interface AutoRouterConfig {
@@ -109,6 +110,7 @@ const ChatInterface = memo(
     initialVisibility = 'private',
     isOwner = true,
     chatTitle,
+    initialHiddenImageUrls,
   }: ChatInterfaceProps): React.JSX.Element => {
     const router = useRouter();
     const pathname = usePathname();
@@ -119,6 +121,7 @@ const ChatInterface = memo(
     const [groupParam] = useQueryState('group', parseAsString.withDefault(''));
     const [input, setInput] = useLocalStorage<string>('zetora-draft-input', '');
     const [localChatTitle, setLocalChatTitle] = useState<string>(chatTitle || (initialChatId ? 'Chat' : 'New Chat'));
+    const [hiddenImageUrls, setHiddenImageUrls] = useState<Set<string>>(() => new Set(initialHiddenImageUrls ?? []));
     const [isEditingTitle, setIsEditingTitle] = useState(false); // legacy inline edit (to be removed)
     const [titleInput, setTitleInput] = useState(localChatTitle);
     const [isSavingTitle, setIsSavingTitle] = useState(false);
@@ -760,6 +763,27 @@ const ChatInterface = memo(
     useEffect(() => {
       if (status !== 'streaming') setIsManuallyStopping(false);
     }, [status]);
+
+    const handleToggleImageHidden = useCallback(
+      async (imageUrl: string, hidden: boolean) => {
+        const effectiveChatIdForToggle = initialChatId || (messages.length > 0 ? chatId : undefined);
+        if (!effectiveChatIdForToggle) return;
+        try {
+          await setImageContextVisibility({ chatId: effectiveChatIdForToggle, imageUrl, hidden });
+          setHiddenImageUrls((prev) => {
+            const next = new Set(prev);
+            if (hidden) next.add(imageUrl);
+            else next.delete(imageUrl);
+            return next;
+          });
+        } catch (error) {
+          sileo.error({
+            title: `Failed to ${hidden ? 'hide' : 'show'} image: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          });
+        }
+      },
+      [initialChatId, messages.length, chatId],
+    );
 
     useEffect(() => {
       if (!existingChatId) {
@@ -1551,6 +1575,8 @@ const ChatInterface = memo(
                     onVisibilityChange={handleVisibilityChange}
                     initialMessages={initialMessages}
                     isOwner={isOwner}
+                    hiddenImageUrls={hiddenImageUrls}
+                    onToggleImageHidden={handleToggleImageHidden}
                     onHighlight={handleHighlight}
                     hasSubmitted={chatState.hasSubmitted}
                     isTransitioning={isTransitioning}

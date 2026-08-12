@@ -610,6 +610,42 @@ export const generatedFileRelations = relations(generatedFile, ({ one }) => ({
   }),
 }));
 
+// Per-image opt-out from being resent to the model in future turns. Keyed by
+// the image's own URL (globally unique, see lib/generated-file-storage.ts)
+// rather than joining against generatedFile, since that table is written
+// best-effort and can be missing a row for an image that's still in
+// message.parts and still gets sent to the model.
+export const hiddenContextImage = pgTable(
+  'hidden_context_image',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => generateId()),
+    chatId: text('chat_id')
+      .notNull()
+      .references(() => chat.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    imageUrl: text('image_url').notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('hiddenContextImage_chatId_imageUrl_idx').on(table.chatId, table.imageUrl)],
+);
+
+export const hiddenContextImageRelations = relations(hiddenContextImage, ({ one }) => ({
+  chat: one(chat, {
+    fields: [hiddenContextImage.chatId],
+    references: [chat.id],
+  }),
+  user: one(user, {
+    fields: [hiddenContextImage.userId],
+    references: [user.id],
+  }),
+}));
+
+export type HiddenContextImage = InferSelectModel<typeof hiddenContextImage>;
+
 export const buildSession = pgTable(
   'build_session',
   {

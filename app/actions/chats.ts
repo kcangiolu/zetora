@@ -18,6 +18,8 @@ import {
   deleteMessagesByChatIdAfterTimestamp,
   updateChatTitleById,
   updateChatPinnedById,
+  hideContextImage,
+  unhideContextImage,
 } from '@/lib/db/queries';
 import { db } from '@/lib/db';
 import { chat, message, buildSession } from '@/lib/db/schema';
@@ -253,6 +255,30 @@ export async function deleteTrailingMessages({ id }: { id: string }) {
   } catch (error) {
     log.error(`Error deleting trailing messages: ${error}`);
     throw error; // Re-throw to allow caller to handle
+  }
+}
+
+export async function setImageContextVisibility({ chatId, imageUrl, hidden }: { chatId: string; imageUrl: string; hidden: boolean }) {
+  'use server';
+  try {
+    const user = await getUser();
+    if (!user) {
+      throw new Error('Unauthorized');
+    }
+
+    const owningChat = await getChatByIdForValidation({ id: chatId });
+    if (!owningChat || owningChat.userId !== user.id) {
+      throw new Error('Unauthorized');
+    }
+
+    if (hidden) {
+      await hideContextImage({ chatId, userId: user.id, imageUrl });
+    } else {
+      await unhideContextImage({ chatId, imageUrl });
+    }
+  } catch (error) {
+    log.error(`Error setting image context visibility: ${error}`);
+    throw error;
   }
 }
 

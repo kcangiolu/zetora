@@ -3,10 +3,11 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import { Pencil, Wand2 } from 'lucide-react';
+import { Eye, EyeOff, Pencil, Wand2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TextShimmer } from '@/components/core/text-shimmer';
 import { ImageCompareSlider } from '@/components/image-compare-slider';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 const REVEAL_TRANSITION = { duration: 0.6, ease: [0.22, 1, 0.36, 1] as const };
 
@@ -24,11 +25,26 @@ export type GeneratedImageCardProps = {
   sourceImageUrl?: string;
   imageUrl?: string;
   error?: string;
+  isHidden?: boolean;
+  canToggleHidden?: boolean;
+  onToggleHidden?: (hidden: boolean) => void | Promise<void>;
 };
 
-export function GeneratedImageCard({ mode, state, prompt, size, sourceImageUrl, imageUrl, error }: GeneratedImageCardProps) {
+export function GeneratedImageCard({
+  mode,
+  state,
+  prompt,
+  size,
+  sourceImageUrl,
+  imageUrl,
+  error,
+  isHidden,
+  canToggleHidden,
+  onToggleHidden,
+}: GeneratedImageCardProps) {
   const prefersReducedMotion = useReducedMotion();
   const hasError = state === 'output-error' || (state === 'output-available' && !imageUrl);
+  const [isToggling, setIsToggling] = useState(false);
 
   // History-replay guard: an already-finished image (old chat reload) renders statically, no animation.
   const [skipAnimation] = useState(() => state === 'output-available' && !!imageUrl);
@@ -53,9 +69,39 @@ export function GeneratedImageCard({ mode, state, prompt, size, sourceImageUrl, 
 
   const showPlaceholder = !skipAnimation && !revealed;
 
+  const handleToggleHidden = async () => {
+    if (!onToggleHidden || isToggling) return;
+    setIsToggling(true);
+    try {
+      await onToggleHidden(!isHidden);
+    } finally {
+      setIsToggling(false);
+    }
+  };
+
   return (
     <div className="w-full my-4 rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
       <div className="relative w-full bg-muted" style={showPlaceholder ? { aspectRatio } : undefined}>
+        {imageUrl && !hasError && canToggleHidden && onToggleHidden && (
+          <div className="absolute top-2 right-2 z-10">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={handleToggleHidden}
+                  disabled={isToggling}
+                  className="p-1.5 rounded-full bg-background/70 backdrop-blur-sm hover:bg-accent/80 text-muted-foreground/60 hover:text-muted-foreground transition-colors disabled:opacity-50"
+                  aria-label={isHidden ? 'Show image to model' : 'Hide image from model'}
+                >
+                  {isHidden ? <EyeOff className="size-[18px]" /> : <Eye className="size-[18px]" />}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{isHidden ? 'Hidden from model — click to show' : 'Hide from model context'}</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        )}
         {showPlaceholder && (
           <DiffusionPlaceholder
             icon={Icon}
