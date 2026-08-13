@@ -271,7 +271,15 @@ export async function POST(req: Request) {
   // free to call again here even though configPromise already resolved above
   // using the pre-guard specialMode.
   const config = specialMode ? rawConfig : getBaseConfig();
-  const { instructions } = config;
+  // Auto mode only: a user-defined prompt (Settings → General → System Prompt)
+  // fully replaces the built-in instructions, including the tool-calling
+  // protocol and citation rules. Special modes (canvas, deep-research, …)
+  // always keep their own dedicated instructions.
+  const systemPromptOverride = userPreferencesResult?.preferences?.['zetora-system-prompt-override'];
+  const instructions =
+    !specialMode && typeof systemPromptOverride === 'string' && systemPromptOverride.trim()
+      ? systemPromptOverride
+      : config.instructions;
   recordTiming('await_parallel_setup', opStart);
 
   const activeTools = filterActiveTools({

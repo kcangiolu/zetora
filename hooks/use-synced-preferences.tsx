@@ -129,7 +129,9 @@ export type PreferenceKey =
   | 'zetora-tertiary-agent-worker-effort'
   | 'zetora-tertiary-agent-guard-model'
   | 'zetora-tertiary-agent-guard-provider'
-  | 'zetora-tertiary-agent-guard-effort';
+  | 'zetora-tertiary-agent-guard-effort'
+  | 'zetora-system-prompt-override'
+  | 'zetora-system-prompt-presets';
 
 type AutoRouterConfig = {
   routes: Array<{
@@ -143,6 +145,8 @@ type GraphitiProvider = { id: string; name: string; baseURL: string; apiKey?: st
 
 export type ImageGenPromptPreset = { id: string; name: string; prompt: string; model?: string };
 
+export type SystemPromptPreset = { id: string; name: string; prompt: string };
+
 type PreferenceValue =
   | string
   | string[]
@@ -151,6 +155,7 @@ type PreferenceValue =
   | AutoRouterConfig
   | GraphitiProvider[]
   | ImageGenPromptPreset[]
+  | SystemPromptPreset[]
   | Record<string, string>
   | undefined;
 

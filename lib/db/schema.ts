@@ -386,6 +386,9 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-tertiary-agent-guard-model'?: string;
       'zetora-tertiary-agent-guard-provider'?: string;
       'zetora-tertiary-agent-guard-effort'?: 'auto' | 'low' | 'medium' | 'high' | 'off';
+      /** Full replacement for Auto mode's built-in system prompt; empty/absent = use the default (lib/search/groups/auto.ts). */
+      'zetora-system-prompt-override'?: string;
+      'zetora-system-prompt-presets'?: Array<{ id: string; name: string; prompt: string }>;
     }>()
     .notNull()
     .default({}),

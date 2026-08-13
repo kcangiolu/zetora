@@ -1,6 +1,7 @@
 'use client';
 
 import type { SettingsUser } from '../shared';
+import { SystemPromptSection } from './system-prompt';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -349,6 +350,8 @@ export function GeneralTab({
           />
         </div>
       </div>
+
+      <SystemPromptSection />
     </div>
   );
 }

@@ -38,8 +38,18 @@ import { saveChat, saveMessages } from '@/lib/db/queries';
 import { all, allSettled } from 'better-all';
 
 import { createLogger } from '@/lib/logger';
+import { instructions as defaultSystemPromptInstructions } from '@/lib/search/groups/auto';
 
 const log = createLogger('actions-preferences');
+
+// Auto mode's built-in system prompt (lib/search/groups/auto.ts). Exposed to
+// the client for reference/reset purposes only — `auto.ts` is `server-only`
+// and can't be imported directly from the Settings UI.
+export async function getDefaultSystemPrompt() {
+  'use server';
+
+  return defaultSystemPromptInstructions;
+}
 
 // Custom Instructions Server Actions
 export async function getCustomInstructions(providedUser?: User | null) {
