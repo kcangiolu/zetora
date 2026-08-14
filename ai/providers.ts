@@ -294,10 +294,10 @@ export const zetora = customProvider({
 
     ...(_groq
       ? {
-          'zetora-nano': _groq('llama-3.3-70b-versatile'),
+          'zetora-llama-3.3-70b': _groq('llama-3.3-70b-versatile'),
           'zetora-enhance': _groq('openai/gpt-oss-120b'),
-          'zetora-qwen-32b': wrapLanguageModel({ model: _groq('qwen/qwen3.6-27b'), middleware }),
-          'zetora-qwen-32b-thinking': wrapLanguageModel({ model: _groq('qwen/qwen3.6-27b'), middleware }),
+          'zetora-qwen-3.6-27b': wrapLanguageModel({ model: _groq('qwen/qwen3.6-27b'), middleware }),
+          'zetora-qwen-3.6-27b-thinking': wrapLanguageModel({ model: _groq('qwen/qwen3.6-27b'), middleware }),
           'zetora-gpt-oss-20': wrapLanguageModel({ model: _groq('openai/gpt-oss-20b'), middleware }),
           'zetora-kimi-k2-v2': gateway('moonshotai/kimi-k2-instruct-0905'),
         }
@@ -411,11 +411,6 @@ export const zetora = customProvider({
           'zetora-qwen-4b-thinking': wrapLanguageModel({
             model: huggingface.chatModel('Qwen/Qwen3-4B-Thinking-2507:nscale'),
             middleware: [middlewareWithStartWithReasoning],
-          }),
-          'zetora-qwen-30': huggingface.chatModel('Qwen/Qwen3-30B-A3B-Instruct-2507:nebius'),
-          'zetora-qwen-30-think': wrapLanguageModel({
-            model: huggingface.chatModel('Qwen/Qwen3-30B-A3B-Thinking-2507:nebius'),
-            middleware,
           }),
           'zetora-qwen-3-next': huggingface.chatModel('Qwen/Qwen3-Next-80B-A3B-Instruct:hyperbolic'),
           'zetora-qwen-3-next-think': wrapLanguageModel({

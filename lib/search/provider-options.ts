@@ -122,7 +122,7 @@ export function getSearchProviderOptions(
             order: ['streamlake'],
           }
         : {}),
-      ...(model === 'zetora-glm-4.7' || model === 'zetora-glm-4.7-flash'
+      ...(model === 'zetora-glm-4.7'
         ? {
             order: ['zai'],
           }
@@ -282,7 +282,7 @@ export function getSearchProviderOptions(
             reasoningFormat: 'hidden',
           }
         : {}),
-      ...(model === 'zetora-qwen-32b'
+      ...(model === 'zetora-qwen-3.6-27b'
         ? {
             reasoningEffort: effort !== 'auto' ? OPENAI_STYLE_EFFORT_MAP[effort] : 'none',
           }
@@ -320,10 +320,7 @@ export function getSearchProviderOptions(
         : {}),
     } satisfies CohereChatModelOptions,
     zai: {
-      ...(model === 'zetora-glm-4.7' ||
-      model === 'zetora-glm-4.7-flash' ||
-      model === 'zetora-glm-5' ||
-      model === 'zetora-pony-alpha-2'
+      ...(model === 'zetora-glm-4.7' || model === 'zetora-glm-5'
         ? {
             thinking: {
               type: 'disabled',
