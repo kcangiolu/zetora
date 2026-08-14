@@ -81,6 +81,11 @@ export interface Model {
   requiresAuth: boolean;
   freeUnlimited: boolean;
   maxOutputTokens: number;
+  // Real input+output context window, when known. Falls back to
+  // DEFAULT_CONTEXT_WINDOW via getContextWindow() when absent — most hosted
+  // providers in 2026 sit at 128k+, so leaving this unset is a safe default
+  // rather than an error.
+  contextWindow?: number;
   extreme?: boolean;
   fast?: boolean;
   isNew?: boolean;

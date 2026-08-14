@@ -1,5 +1,5 @@
 // Accessors over the model catalog — client-safe.
-import { models } from './data';
+import { models, DEFAULT_CONTEXT_WINDOW } from './data';
 import type { Model, ModelParameters, ModelProvider } from './types';
 
 // Helper functions for model access checks
@@ -26,6 +26,14 @@ export function hasPdfSupport(modelValue: string): boolean {
 export function getMaxOutputTokens(modelValue: string): number {
   const model = getModelConfig(modelValue);
   return model?.maxOutputTokens || 8000;
+}
+
+// Real input+output context window for a catalog model. Custom (llama.cpp/
+// Ollama/vLLM) models don't go through this — see resolveContextWindow() in
+// lib/context-window.ts, which probes their backend directly.
+export function getContextWindow(modelValue: string): number {
+  const model = getModelConfig(modelValue);
+  return model?.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
 }
 
 export function getModelParameters(modelValue: string): ModelParameters {

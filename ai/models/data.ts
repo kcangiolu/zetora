@@ -3,6 +3,11 @@
 // (guarded by the model-order snapshot in tests/models.test.ts).
 import type { Model } from './types';
 
+// Fallback context window for catalog entries with no explicit
+// `contextWindow` — most hosted frontier models in 2026 support at least
+// this much, so it's a safe default rather than a per-model requirement.
+export const DEFAULT_CONTEXT_WINDOW = 128_000;
+
 export const models: Model[] = [
   {
     value: 'zetora-auto',

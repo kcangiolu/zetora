@@ -145,7 +145,7 @@ export async function detectModels(baseURL: string, apiKey?: string): Promise<st
 // and shape as the model-list cache above.
 const backendKindCache = new Map<string, { kind: CustomBackendKind; expiresAt: number }>();
 
-function deriveRootURL(baseURL: string): string {
+export function deriveRootURL(baseURL: string): string {
   return baseURL.replace(/\/$/, '').replace(/\/v1$/, '');
 }
 

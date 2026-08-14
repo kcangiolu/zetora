@@ -19,6 +19,8 @@ export default defineConfig({
         'lib/rate-limit.ts',
         'lib/lookout-auth.ts',
         'lib/custom-providers.ts',
+        'lib/context-window.ts',
+        'lib/search/context-budget.ts',
         'lib/errors.ts',
         'lib/chat-messages.ts',
         'lib/mcp/crypto.ts',

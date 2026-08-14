@@ -75,6 +75,14 @@ import {
   appendGeneratedImagePartsToLastUserMessage,
 } from '@/lib/search/message-attachments';
 import { getSearchProviderOptions, getStreamTextStaticSettings } from '@/lib/search/provider-options';
+import {
+  estimateTokenCount,
+  computeContextBudget,
+  pruneToContextBudget,
+  isContextLengthError,
+} from '@/lib/search/context-budget';
+import { resolveContextWindow } from '@/lib/context-window';
+import { getMaxOutputTokens } from '@/ai/models';
 
 const log = createLogger('search');
 
@@ -370,8 +378,13 @@ export async function POST(req: Request) {
   // file_query_search, images (vision / edit_image), and other files that
   // are decoded as text below. Temporary chats have no persisted chat/message
   // rows to key an exclusion on, and nothing persists across turns anyway.
-  const hiddenImageUrls = isTemporaryChat ? new Set<string>() : new Set(await getHiddenContextImageUrlsByChatId({ chatId: id }));
-  const { contextFiles, contextImages, contextGeneratedImages, otherFileParts } = collectAttachments(hydratedMessages, hiddenImageUrls);
+  const hiddenImageUrls = isTemporaryChat
+    ? new Set<string>()
+    : new Set(await getHiddenContextImageUrlsByChatId({ chatId: id }));
+  const { contextFiles, contextImages, contextGeneratedImages, otherFileParts } = collectAttachments(
+    hydratedMessages,
+    hiddenImageUrls,
+  );
 
   // Falls back to the model's catalog vision flag if the client didn't send
   // the toggle (older client) — same default the toggle itself starts from.
@@ -476,6 +489,12 @@ export async function POST(req: Request) {
       autoRouteName = 'other';
     }
   }
+
+  // Kicked off early so the (possibly network-bound, for custom providers)
+  // context-window probe overlaps with the rest of request setup instead of
+  // adding latency right before streamText. Must run after auto-routing:
+  // `model` isn't final until here.
+  const contextWindowPromise = resolveContextWindow(model, lightweightUser?.userId);
 
   const abortController = new AbortController();
   // Belt-and-suspenders: abortController otherwise only trips on client
@@ -729,9 +748,25 @@ export async function POST(req: Request) {
         shouldUseXaiMultiAgent,
         isXmlParsedCustomModel,
       });
+
+      const contextWindow = await contextWindowPromise;
+      const outputReserve = staticSettings.maxOutputTokens ?? getMaxOutputTokens(model);
+      const contextBudget = computeContextBudget(contextWindow, outputReserve);
+      const systemTokens = estimateTokenCount(baseSystem);
+      const { messages: budgetedMessages, turnsRemoved } = pruneToContextBudget(
+        processedMessages,
+        contextBudget,
+        systemTokens,
+      );
+      if (turnsRemoved > 0) {
+        log.info(
+          `✂️ Context-budget pruning: removed ${turnsRemoved} oldest turn(s) (contextWindow=${contextWindow}, budget=${contextBudget})`,
+        );
+      }
+
       const result = streamText({
         model: resolvedModel,
-        messages: processedMessages,
+        messages: budgetedMessages,
         ...getModelParameters(shouldUseXaiMultiAgent ? 'grok-4.20-multi-agent' : model),
         stopWhen: stepCountIs(staticSettings.stopWhenStepCount),
         ...(staticSettings.maxOutputTokens !== undefined ? { maxOutputTokens: staticSettings.maxOutputTokens } : {}),
@@ -954,6 +989,9 @@ export async function POST(req: Request) {
       log.error('Stream error:', error);
       if (error instanceof Error && error.message.includes('Rate Limit')) {
         return 'Oops, you have reached the rate limit! Please try again later.';
+      }
+      if (isContextLengthError(error)) {
+        return 'Oops, this conversation is too long for this model\'s context window! Start a new conversation or switch to a model with a larger context window.';
       }
       return 'Oops, an error occurred!';
     },
