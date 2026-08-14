@@ -6,7 +6,7 @@ import { useSyncedPreferences, type PreferenceKey, type ImageGenPromptPreset } f
 import { testEmailDelivery } from '@/app/actions';
 import { Check, X, Trash2, Save } from 'lucide-react';
 import { useState } from 'react';
-import { getModelProvider, type Model } from '@/ai/models';
+import { getModelConfig, getModelProvider, type Model } from '@/ai/models';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -259,7 +259,11 @@ export function TertiaryModelRow({
 
   const handleSelect = (modelValue: string) => {
     setModel(modelValue);
-    const provider = modelValue.startsWith('custom-') ? 'custom' : String(getModelProvider(modelValue));
+    const explicitProvider =
+      getModelConfig(modelValue)?.provider ?? additionalModels.find((m) => m.value === modelValue)?.provider;
+    const provider = modelValue.startsWith('custom-')
+      ? 'custom'
+      : (explicitProvider ?? String(getModelProvider(modelValue)));
     setProvider(provider);
   };
 

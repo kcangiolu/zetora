@@ -294,8 +294,10 @@ export const zetora = customProvider({
 
     ...(_groq
       ? {
+          'zetora-llama-3.1-8b': _groq('llama-3.1-8b-instant'),
           'zetora-llama-3.3-70b': _groq('llama-3.3-70b-versatile'),
           'zetora-enhance': _groq('openai/gpt-oss-120b'),
+          'zetora-gpt-oss-120-groq': _groq('openai/gpt-oss-120b'),
           'zetora-qwen-3.6-27b': wrapLanguageModel({ model: _groq('qwen/qwen3.6-27b'), middleware }),
           'zetora-qwen-3.6-27b-thinking': wrapLanguageModel({ model: _groq('qwen/qwen3.6-27b'), middleware }),
           'zetora-gpt-oss-20': wrapLanguageModel({ model: _groq('openai/gpt-oss-20b'), middleware }),
