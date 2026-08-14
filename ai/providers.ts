@@ -295,11 +295,11 @@ export const zetora = customProvider({
     ...(_groq
       ? {
           'zetora-nano': _groq('llama-3.3-70b-versatile'),
-          'zetora-enhance': _groq('moonshotai/kimi-k2-instruct-0905'),
-          'zetora-qwen-32b': wrapLanguageModel({ model: _groq('qwen/qwen3-32b'), middleware }),
-          'zetora-qwen-32b-thinking': wrapLanguageModel({ model: _groq('qwen/qwen3-32b'), middleware }),
+          'zetora-enhance': _groq('openai/gpt-oss-120b'),
+          'zetora-qwen-32b': wrapLanguageModel({ model: _groq('qwen/qwen3.6-27b'), middleware }),
+          'zetora-qwen-32b-thinking': wrapLanguageModel({ model: _groq('qwen/qwen3.6-27b'), middleware }),
           'zetora-gpt-oss-20': wrapLanguageModel({ model: _groq('openai/gpt-oss-20b'), middleware }),
-          'zetora-kimi-k2-v2': _groq('moonshotai/kimi-k2-instruct-0905'),
+          'zetora-kimi-k2-v2': gateway('moonshotai/kimi-k2-instruct-0905'),
         }
       : {}),
 

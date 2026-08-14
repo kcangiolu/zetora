@@ -24,7 +24,6 @@ import {
 import { db } from '@/lib/db';
 import { chat, message, buildSession } from '@/lib/db/schema';
 import { eq, desc, ilike, and, or, asc, inArray, notExists, exists, sql } from 'drizzle-orm';
-import { GroqProviderOptions, groq } from '@ai-sdk/groq';
 import {
   createBullMqSchedule,
   scheduleBullMqOnce,

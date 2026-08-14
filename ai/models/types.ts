@@ -21,6 +21,7 @@ export type ModelProvider =
   | 'alibaba'
   | 'mistral'
   | 'deepseek'
+  | 'groq'
   | 'zhipu'
   | 'cohere'
   | 'moonshot'
@@ -53,7 +54,8 @@ export const PROVIDERS: Record<ModelProvider, ProviderInfo> = {
   alibaba: { id: 'alibaba', name: 'Alibaba', icon: 'alibaba', hasNew: true },
   zhipu: { id: 'zhipu', name: 'Zhipu AI', icon: 'zhipu' },
   minimax: { id: 'minimax', name: 'Minimax', icon: 'minimax', hasNew: true },
-  deepseek: { id: 'deepseek', name: 'DeepSeek', icon: 'deepseek' },
+  deepseek: { id: 'deepseek', name: 'DeepSeek', icon: 'deepseek', hasNew: true },
+  groq: { id: 'groq', name: 'Groq', icon: 'groq', hasNew: true },
   moonshot: { id: 'moonshot', name: 'MoonShot', icon: 'moonshot' },
   cohere: { id: 'cohere', name: 'Cohere', icon: 'cohere' },
   bytedance: { id: 'bytedance', name: 'ByteDance', icon: 'bytedance', hasNew: true },

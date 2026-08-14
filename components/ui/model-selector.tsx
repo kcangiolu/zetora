@@ -239,6 +239,12 @@ const ProviderIcon = ({
       );
     case 'nvidia':
       return <NVIDIA {...iconProps} />;
+    case 'groq':
+      return (
+        <svg {...iconProps} viewBox="0 0 33 33" fill="currentColor">
+          <path d="m18.445 4.406-9.468 13.74 7.341.665-1.69 9.578 9.469-13.74-7.342-.664 1.69-9.579Z" />
+        </svg>
+      );
     case 'custom':
       return <Puzzle {...iconProps} />;
     default:

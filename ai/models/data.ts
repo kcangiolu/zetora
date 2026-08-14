@@ -293,7 +293,7 @@ export const models: Model[] = [
   },
   {
     value: 'zetora-qwen-32b',
-    label: 'Qwen 3 32B',
+    label: 'Qwen 3.6 27B',
     description: "Alibaba's base LLM",
     vision: false,
     reasoning: false,
@@ -309,11 +309,11 @@ export const models: Model[] = [
       topK: 20,
       minP: 0,
     },
-    provider: 'alibaba',
+    provider: 'groq',
   },
   {
     value: 'zetora-qwen-32b-thinking',
-    label: 'Qwen 3 32B Thinking',
+    label: 'Qwen 3.6 27B Thinking',
     description: "Alibaba's base reasoning LLM",
     vision: false,
     reasoning: true,
@@ -329,7 +329,7 @@ export const models: Model[] = [
       topK: 20,
       minP: 0,
     },
-    provider: 'alibaba',
+    provider: 'groq',
   },
   {
     value: 'zetora-nemotron-3-super',
@@ -408,7 +408,7 @@ export const models: Model[] = [
     freeUnlimited: false,
     maxOutputTokens: 16000,
     fast: true,
-    provider: 'openai',
+    provider: 'groq',
   },
   {
     value: 'zetora-gpt5-nano',
