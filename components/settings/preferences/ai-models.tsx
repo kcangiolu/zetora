@@ -9,7 +9,6 @@ import { ModelSelectorDialog } from '@/components/ui/model-selector';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 import { type Model } from '@/ai/models';
-import { TERTIARY_RECOMMENDED_MODELS } from '@/ai/models/tertiary-recommended';
 import { sileo } from 'sileo';
 import { useQueryClient } from '@tanstack/react-query';
 import { TrashIcon, FloppyDiskIcon } from '@phosphor-icons/react';
@@ -578,7 +577,7 @@ export function AiModelsTab({
               label="Chat Title"
               description="Generates titles for new chats"
               defaultModelLabel="Gemini 3.1 Flash Lite"
-              additionalModels={[...TERTIARY_RECOMMENDED_MODELS['chat-title'], ...customModelsList]}
+              additionalModels={customModelsList}
               user={user}
             />
             <TertiaryModelRow
@@ -589,7 +588,7 @@ export function AiModelsTab({
               label="Follow-up Questions"
               description="Generates questions after each response"
               defaultModelLabel="Gemini 3.1 Flash Lite"
-              additionalModels={[...TERTIARY_RECOMMENDED_MODELS['followup'], ...customModelsList]}
+              additionalModels={customModelsList}
               user={user}
             />
             <TertiaryModelRow
@@ -611,7 +610,7 @@ export function AiModelsTab({
               label="Tool Call Repair"
               description="Fixes malformed tool call arguments"
               defaultModelLabel="Grok 4.1 Fast"
-              additionalModels={[...TERTIARY_RECOMMENDED_MODELS['tool-repair'], ...customModelsList]}
+              additionalModels={customModelsList}
               user={user}
             />
             <TertiaryModelRow
@@ -655,7 +654,7 @@ export function AiModelsTab({
               label="Language Detection"
               description="Detects language of input text"
               defaultModelLabel="Grok 4.1 Fast"
-              additionalModels={[...TERTIARY_RECOMMENDED_MODELS['lang-detect'], ...customModelsList]}
+              additionalModels={customModelsList}
               user={user}
             />
             <TertiaryModelRow
