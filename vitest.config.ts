@@ -33,6 +33,7 @@ export default defineConfig({
         'lib/vector/qdrant-filters.ts',
         'lib/vector/archive-merge.ts',
         'lib/tools/graphiti-memory.ts',
+        'lib/graphiti/write-coordinator.ts',
         'lib/anonymizer/pseudonymize.ts',
       ],
     },

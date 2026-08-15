@@ -1,6 +1,7 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import { graphitiClient } from '@/lib/graphiti/client';
+import { withMemoryWriteLock, isDuplicateOfRecentWrite, recordRecentWrite } from '@/lib/graphiti/write-coordinator';
 
 // graphiti-core doesn't return a similarity score from client.search(), so
 // results can't be filtered by threshold — keep the count small instead and
@@ -23,12 +24,21 @@ export function createGraphitiMemoryTools(userId: string) {
     }),
     execute: async ({ memory }: { memory: string }) => {
       try {
-        const result = await client.addEpisode({
-          name: `zetora-memory-${Date.now()}`,
-          episodeBody: memory,
-          groupId: userId,
+        // Locked so this never races the background curator (or another
+        // add_memory call) for the same user against the single-slot local
+        // LLM extraction pipeline — see write-coordinator.ts.
+        return await withMemoryWriteLock(userId, async () => {
+          if (await isDuplicateOfRecentWrite(userId, memory)) {
+            return { success: true, skipped: true, note: 'Skipped — near-duplicate of a memory saved moments ago.' };
+          }
+          const result = await client.addEpisode({
+            name: `zetora-memory-${Date.now()}`,
+            episodeBody: memory,
+            groupId: userId,
+          });
+          await recordRecentWrite(userId, memory);
+          return { success: true, result };
         });
-        return { success: true, result };
       } catch (error) {
         return {
           success: false,
