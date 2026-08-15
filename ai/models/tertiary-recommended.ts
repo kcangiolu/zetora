@@ -52,10 +52,17 @@ const gptOss120Groq: Model = {
 // zetora-qwen-3.6-27b (recommended for translate-text/translate-vision) is
 // already in the main catalog (data.ts), so it's already selectable in every
 // picker via the base model list — no synthetic entry needed here for it.
+//
+// All three Groq speed models are offered on every task below rather than
+// one-per-task — there's no reason chat-title can only pick the 8B while
+// followup can only pick the 70B, they're all valid choices for any of these
+// fast/non-reasoning background tasks.
+const GROQ_SPEED_MODELS = [llama31_8b, llama33_70b, gptOss120Groq];
+
 export const TERTIARY_RECOMMENDED_MODELS: Record<'chat-title' | 'followup' | 'tool-repair' | 'lang-detect', Model[]> =
   {
-    'chat-title': [llama31_8b],
-    followup: [llama33_70b],
-    'tool-repair': [gptOss120Groq],
-    'lang-detect': [llama31_8b],
+    'chat-title': GROQ_SPEED_MODELS,
+    followup: GROQ_SPEED_MODELS,
+    'tool-repair': GROQ_SPEED_MODELS,
+    'lang-detect': GROQ_SPEED_MODELS,
   };
