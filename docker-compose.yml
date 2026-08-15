@@ -540,7 +540,10 @@ services:
       - '127.0.0.1:6380:6379'
       - '127.0.0.1:3002:3002'
     volumes:
-      - ${DATA_DIR}/falkordb:/data
+      # FalkorDB actually persists to /var/lib/falkordb/data (confirmed via
+      # `redis-cli config get dir`), not /data — mounting /data here was a
+      # no-op that silently lost all graph data on every container recreate.
+      - ${DATA_DIR}/falkordb:/var/lib/falkordb/data
     healthcheck:
       test: ['CMD', 'redis-cli', '-p', '6379', 'ping']
       interval: 10s
