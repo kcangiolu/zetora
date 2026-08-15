@@ -305,6 +305,7 @@ export function SearchTab({
                   onModelSelect={handleEmbeddingModelSelect}
                   user={user}
                   additionalModels={customModelsList}
+                  onlyAdditionalModels
                   className="w-[180px] h-8"
                   compact
                 />
@@ -416,6 +417,7 @@ export function SearchTab({
                   onModelSelect={handleEmbeddingModelSelect}
                   user={user}
                   additionalModels={customModelsList}
+                  onlyAdditionalModels
                   className="w-[180px] h-8"
                   compact
                 />
