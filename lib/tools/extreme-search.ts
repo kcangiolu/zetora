@@ -41,6 +41,7 @@ import { scrapeWebpageWithNotte } from '@/lib/notte';
 import {
   SelfHostedContentStrategy,
   scrapeWithFastCrwForBrowsePage,
+  BROWSE_PAGE_CONTENT_MAX_CHARS,
   type ContentExtractionStrategy,
   type SearchResult,
 } from './self-hosted-content';
@@ -1555,6 +1556,7 @@ ${JSON.stringify(plan)}
                     content,
                     publishedDate: '',
                     favicon,
+                    fullContent: true,
                   });
 
                   return { url, title, content, favicon };
@@ -1942,7 +1944,13 @@ ${JSON.stringify(plan)}
     // text,
     toolResults,
     sources: Array.from(
-      new Map(allSources.map((s) => [s.url, { ...s, content: s.content.slice(0, 3000) + '...' }])).values(),
+      new Map(
+        allSources.map((s) => {
+          const maxChars = s.fullContent ? BROWSE_PAGE_CONTENT_MAX_CHARS : 3000;
+          const truncated = s.content.length > maxChars;
+          return [s.url, { ...s, content: s.content.slice(0, maxChars) + (truncated ? '...' : '') }];
+        }),
+      ).values(),
     ),
     charts,
   };

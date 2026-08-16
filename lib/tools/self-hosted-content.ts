@@ -8,6 +8,12 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger('selfhosted-content');
 
+// Regular search results are capped low to keep multi-source context bounded.
+// browsePage is an explicit "give me the full page" request (max 5 URLs), so it gets a much
+// higher cap instead of reusing the search cap.
+const SEARCH_CONTENT_MAX_CHARS = 3000;
+export const BROWSE_PAGE_CONTENT_MAX_CHARS = 20000;
+
 export interface ContentExtractionStrategy {
   getContents(links: string[]): Promise<SearchResult[]>;
 }
@@ -24,6 +30,7 @@ export interface SearchResult {
   finalUrl?: string;
   siteName?: string | null;
   image?: string;
+  fullContent?: boolean;
 }
 
 interface MetadataResponse {
@@ -63,7 +70,11 @@ function inferTitleFromMarkdown(markdown: string, fallback: string) {
   return title || fallback;
 }
 
-async function scrapeWithFastCrw(url: string, fastcrwUrl: string): Promise<SearchResult | null> {
+async function scrapeWithFastCrw(
+  url: string,
+  fastcrwUrl: string,
+  maxContentChars: number = SEARCH_CONTENT_MAX_CHARS,
+): Promise<SearchResult | null> {
   try {
     const response = await fetch(`${fastcrwUrl.replace(/\/$/, '')}/v1/scrape`, {
       method: 'POST',
@@ -89,7 +100,7 @@ async function scrapeWithFastCrw(url: string, fastcrwUrl: string): Promise<Searc
     return {
       title: title.slice(0, 200),
       url,
-      content: markdown.slice(0, 3000),
+      content: markdown.slice(0, maxContentChars),
       publishedDate: data?.data?.metadata?.publishedDate || data?.metadata?.publishedDate || '',
       favicon: `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`,
     };
@@ -120,7 +131,7 @@ async function scrapeWithNotte(url: string): Promise<SearchResult | null> {
     return {
       title,
       url,
-      content: result.markdown.slice(0, 3000),
+      content: result.markdown.slice(0, SEARCH_CONTENT_MAX_CHARS),
       publishedDate: '',
       favicon: `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`,
     };
@@ -143,7 +154,10 @@ async function scrapeWithMetadata(url: string): Promise<SearchResult | null> {
     const data = (await response.json()) as MetadataResponse;
     const hostname = getHostnameForUrl(url);
     const title = (data.title || '').trim() || hostname;
-    const content = [title, (data.description || '').trim()].filter(Boolean).join('\n\n').slice(0, 3000);
+    const content = [title, (data.description || '').trim()]
+      .filter(Boolean)
+      .join('\n\n')
+      .slice(0, SEARCH_CONTENT_MAX_CHARS);
 
     return {
       title,
@@ -262,5 +276,5 @@ export async function scrapeWithFastCrwForBrowsePage(
 ): Promise<{ title: string; content: string; favicon: string } | null> {
   const baseUrl = fastcrwUrl || serverEnv.FASTCRW_URL || '';
   if (!baseUrl) return null;
-  return scrapeWithFastCrw(url, baseUrl);
+  return scrapeWithFastCrw(url, baseUrl, BROWSE_PAGE_CONTENT_MAX_CHARS);
 }
