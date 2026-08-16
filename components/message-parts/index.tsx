@@ -477,9 +477,11 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
       // Determine if this is the last assistant message
       const isLastAssistantMessage = messageIndex === messages.length - 1 && message.role === 'assistant';
       // Show action buttons when:
-      // 1. Status is ready (no streaming happening), OR
+      // 1. Status is ready or error (no streaming happening), OR
       // 2. This is NOT the last assistant message (previous messages keep their buttons)
-      const shouldShowActionButtons = status === 'ready' || !isLastAssistantMessage;
+      // 'error' is included so a response interrupted by a stream failure (not a clean
+      // manual stop) still lets the user delete/retry instead of getting stuck on Edit-only.
+      const shouldShowActionButtons = status === 'ready' || status === 'error' || !isLastAssistantMessage;
 
       // Clean the text by removing box markers and special tokens
       const cleanText = part.text

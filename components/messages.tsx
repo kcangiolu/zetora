@@ -157,14 +157,25 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     }
 
     // Case 2: Last message is assistant but lacks visible content
-    if (lastMessage?.role === 'assistant' && status === 'ready' && !error) {
+    // Also covers status === 'error': a stream that fails outright (not a clean manual
+    // stop) still leaves an assistant message behind, which should get the same
+    // "missing response" fallback (and its Delete button) instead of being stuck with
+    // only an Edit button on the preceding user message.
+    if (lastMessage?.role === 'assistant' && (status === 'ready' || status === 'error')) {
       const parts = lastMessage.parts || [];
 
       const hasVisibleText = parts.some(
         (part: ChatMessage['parts'][number]) => part.type === 'text' && part.text && part.text.trim() !== '',
       );
-      const hasToolInvocations = parts.some((part: ChatMessage['parts'][number]) => isToolUIPart(part));
-      const hasVisibleContent = hasVisibleText || hasToolInvocations;
+      // A tool call only counts as visible content once it actually resolved
+      // (output-available/output-error). One left in input-streaming/input-available
+      // because the stream got interrupted never rendered anything and shouldn't block
+      // the missing-response fallback from showing.
+      const hasResolvedToolInvocations = parts.some(
+        (part: ChatMessage['parts'][number]) =>
+          isToolUIPart(part) && (part.state === 'output-available' || part.state === 'output-error'),
+      );
+      const hasVisibleContent = hasVisibleText || hasResolvedToolInvocations;
 
       // If there is no visible content at all, consider the response missing
       if (!hasVisibleContent) {
@@ -513,15 +524,27 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
           <EnhancedErrorDisplay
             error={error}
             user={user ?? undefined}
+            isOwner={isOwner}
             selectedVisibilityType={selectedVisibilityType}
             handleRetry={handleRetry}
+            handleDelete={handleDelete}
           />
         )}
 
         <div ref={messagesEndRef} />
       </>
     );
-  }, [shouldShowLoading, shouldReserveLoaderMinHeight, error, memoizedMessages, user, selectedVisibilityType, handleRetry]);
+  }, [
+    shouldShowLoading,
+    shouldReserveLoaderMinHeight,
+    error,
+    memoizedMessages,
+    user,
+    isOwner,
+    selectedVisibilityType,
+    handleRetry,
+    handleDelete,
+  ]);
 
   if (memoizedMessages.length === 0) {
     return null;

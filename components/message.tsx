@@ -49,16 +49,22 @@ import { cn } from '@/lib/utils';
 interface EnhancedErrorDisplayProps {
   error: any;
   handleRetry?: () => Promise<void>;
+  handleDelete?: () => Promise<void>;
   user?: any;
+  isOwner?: boolean;
   selectedVisibilityType?: 'public' | 'private';
 }
 
 const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
   error,
   handleRetry,
+  handleDelete,
   user,
+  isOwner = true,
   selectedVisibilityType,
 }) => {
+  const [isDeleting, setIsDeleting] = useState(false);
+  const canDelete = handleDelete && ((user && isOwner) || (!user && selectedVisibilityType === 'private'));
   let parsedError: any = null;
   let isChatSDKError = false;
 
@@ -208,6 +214,30 @@ const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
                 : 'You can retry your request or try a different approach'}
             </p>
             <div className="flex gap-2">
+              {canDelete && (
+                <Button
+                  onClick={async () => {
+                    if (isDeleting || !handleDelete) return;
+                    try {
+                      setIsDeleting(true);
+                      await handleDelete();
+                    } finally {
+                      setIsDeleting(false);
+                    }
+                  }}
+                  disabled={isDeleting}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs text-muted-foreground hover:text-destructive"
+                >
+                  {isDeleting ? (
+                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="mr-2 h-3.5 w-3.5" />
+                  )}
+                  Delete
+                </Button>
+              )}
               {actions.secondary && canPerformAction(actions.secondary.action) && (
                 <Button
                   onClick={() => handleAction(actions.secondary!.action)}
@@ -1170,12 +1200,14 @@ export const Message: React.FC<MessageProps> = ({
           />
         )}
 
-        {/* Display error message with retry button */}
+        {/* Display error message with retry/delete buttons */}
         {error && (
           <EnhancedErrorDisplay
             error={error}
             handleRetry={handleRetry}
+            handleDelete={handleDelete}
             user={user}
+            isOwner={isOwner}
             selectedVisibilityType={selectedVisibilityType}
           />
         )}
