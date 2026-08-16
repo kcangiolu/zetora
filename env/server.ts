@@ -31,6 +31,11 @@ export const serverEnv = createEnv({
     BETTER_AUTH_SECRET: z.string().min(1),
     GITHUB_CLIENT_ID: z.string().optional(),
     GITHUB_CLIENT_SECRET: z.string().optional(),
+    // Personal access token for api.github.com repo metadata enrichment in
+    // github_search (stars/language/last-push). Unauthenticated is capped at
+    // 60 req/h per IP; a token raises that to 5000 req/h. No scopes needed
+    // for public repos.
+    GITHUB_TOKEN: z.string().optional(),
     GOOGLE_CLIENT_ID: z.string().optional(),
     GOOGLE_CLIENT_SECRET: z.string().optional(),
     TWITTER_CLIENT_ID: z.string().optional(),

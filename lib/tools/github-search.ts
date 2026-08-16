@@ -9,43 +9,11 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
 import { createLogger } from '@/lib/logger';
+import { FASTCRW_SEARCH_TIMEOUT_MS, GITHUB_API_TIMEOUT_MS } from '@/lib/timeouts';
 
 const log = createLogger('github-search');
 
 const firecrawl = new Firecrawl({ apiKey: serverEnv.FIRECRAWL_API_KEY });
-
-const githubRepoJsonSchema: Record<string, unknown> = {
-  type: 'object',
-  additionalProperties: true,
-  properties: {
-    fullName: { type: 'string', description: 'owner/repo' },
-    owner: { type: 'string' },
-    repo: { type: 'string' },
-    description: { type: 'string' },
-    stars: { type: 'number' },
-    forks: { type: 'number' },
-    watchers: { type: 'number' },
-    primaryLanguage: { type: 'string' },
-    topics: { type: 'array', items: { type: 'string' } },
-    license: { type: 'string' },
-    homepage: { type: 'string' },
-    lastUpdated: { type: 'string', description: 'ISO timestamp when possible' },
-  },
-};
-
-function parseCount(value: unknown): number | undefined {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (typeof value !== 'string') return undefined;
-
-  const cleaned = value.trim().replace(/,/g, '');
-  if (!cleaned) return undefined;
-
-  const kMatch = cleaned.match(/^(\d+(?:\.\d+)?)\s*[kK]$/);
-  if (kMatch) return Math.round(parseFloat(kMatch[1]) * 1000);
-
-  const n = Number(cleaned);
-  return Number.isFinite(n) ? n : undefined;
-}
 
 function getGitHubResultUrl(result: unknown): string {
   const r = result as any;
@@ -100,6 +68,111 @@ function isGitHubRepoUrl(rawUrl: string): boolean {
   }
 }
 
+interface GithubRepoApiResponse {
+  description: string | null;
+  stargazers_count: number;
+  language: string | null;
+  pushed_at: string | null;
+  updated_at: string | null;
+  owner?: { login?: string };
+}
+
+async function fetchGithubRepoMetadata(owner: string, repo: string): Promise<GithubRepoApiResponse | null> {
+  try {
+    const headers: Record<string, string> = {
+      Accept: 'application/vnd.github+json',
+      'User-Agent': 'zetora-app',
+    };
+    if (serverEnv.GITHUB_TOKEN) headers.Authorization = `Bearer ${serverEnv.GITHUB_TOKEN}`;
+
+    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+      headers,
+      signal: AbortSignal.timeout(GITHUB_API_TIMEOUT_MS),
+    });
+
+    if (!response.ok) return null;
+    return (await response.json()) as GithubRepoApiResponse;
+  } catch (error) {
+    log.error(`GitHub API metadata fetch failed for ${owner}/${repo}:`, error);
+    return null;
+  }
+}
+
+// Enriches search results (from either Firecrawl or the fastCRW fallback) with
+// authoritative repo metadata straight from the GitHub REST API, since neither
+// search backend's scraped/snippet content reliably carries exact star counts,
+// language, or last-push date.
+async function enrichGithubResultsWithApi(results: GitHubResult[]): Promise<GitHubResult[]> {
+  const repoKeys = new Set<string>();
+  for (const result of results) {
+    const match = result.url.match(/github\.com\/([^/]+)\/([^/]+)/);
+    if (match) repoKeys.add(`${match[1]}/${match[2]}`);
+  }
+
+  const entries = await Promise.all(
+    Array.from(repoKeys).map(async (key) => {
+      const [owner, repo] = key.split('/');
+      return [key, await fetchGithubRepoMetadata(owner, repo)] as const;
+    }),
+  );
+  const metaByRepo = new Map(entries);
+
+  return results.map((result) => {
+    const match = result.url.match(/github\.com\/([^/]+)\/([^/]+)/);
+    const meta = match ? metaByRepo.get(`${match[1]}/${match[2]}`) : undefined;
+    if (!meta) return result;
+
+    const out: GitHubResult = { ...result };
+    if (typeof meta.stargazers_count === 'number') out.stars = meta.stargazers_count;
+    if (meta.language) out.language = meta.language;
+    if (meta.description) out.description = meta.description;
+    const publishedDate = meta.pushed_at || meta.updated_at;
+    if (publishedDate) out.publishedDate = publishedDate;
+    if (meta.owner?.login) out.author = meta.owner.login;
+    return out;
+  });
+}
+
+interface FastCrwSearchApiResponse {
+  success: boolean;
+  data: Array<{
+    url: string;
+    title: string;
+    snippet: string;
+    description: string;
+    score: number;
+    category: string;
+  }>;
+}
+
+async function searchGithubWithFastCrw(baseUrl: string, query: string, limit: number): Promise<GitHubResult[]> {
+  const response = await fetch(`${baseUrl}/v1/search`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: `${query} site:github.com`, limit }),
+    signal: AbortSignal.timeout(FASTCRW_SEARCH_TIMEOUT_MS),
+  });
+
+  if (!response.ok) {
+    throw new Error(`fastCRW returned ${response.status}`);
+  }
+
+  const data: FastCrwSearchApiResponse = await response.json();
+
+  return (data.data || [])
+    .filter((r) => isGitHubRepoUrl(r.url))
+    .map((r) => {
+      const authorMatch = r.url.match(/github\.com\/([^/]+)/);
+      const out: GitHubResult = {
+        url: r.url,
+        title: r.title || r.url,
+        content: r.snippet || r.description || '',
+      };
+      if (authorMatch) out.author = authorMatch[1];
+      return out;
+    });
+}
+
 export type GitHubResult = {
   url: string;
   title: string;
@@ -111,7 +184,6 @@ export type GitHubResult = {
   stars?: number;
   language?: string;
   description?: string;
-  json?: unknown;
 };
 
 export function githubSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>) {
@@ -168,88 +240,69 @@ export function githubSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>
             },
           });
 
-          const { processedResults } = await all(
-            {
-              firecrawlResults: async function () {
-                return firecrawl.search(query, {
-                  categories: ['github'],
-                  limit: currentMaxResults,
-                  scrapeOptions: {
-                    formats: [
-                      'markdown',
-                      {
-                        type: 'json',
-                        schema: githubRepoJsonSchema,
-                        prompt:
-                          'Extract GitHub repository metadata from this page. If the page is not a GitHub repository, return an empty object. ' +
-                          'Return numeric counts as numbers (no "k" suffixes).',
-                      },
-                    ],
-                    storeInCache: true,
-                    proxy: 'auto',
-                  },
-                });
+          let processedResults: GitHubResult[] = [];
+          try {
+            const firecrawlResults = await firecrawl.search(query, {
+              categories: ['github'],
+              limit: currentMaxResults,
+              scrapeOptions: {
+                formats: ['markdown'],
+                storeInCache: true,
+                proxy: 'auto',
               },
-              processedResults: async function () {
-                const firecrawlResults = await this.$.firecrawlResults;
-                if (!firecrawlResults.web || !Array.isArray(firecrawlResults.web)) return [];
+            });
 
-                return firecrawlResults.web
-                  .map((result): GitHubResult | null => {
-                    const url = getGitHubResultUrl(result);
-                    if (!isGitHubRepoUrl(url)) return null;
+            if (firecrawlResults.web && Array.isArray(firecrawlResults.web)) {
+              processedResults = firecrawlResults.web
+                .map((result): GitHubResult | null => {
+                  const url = getGitHubResultUrl(result);
+                  if (!isGitHubRepoUrl(url)) return null;
 
-                    const r = result as any;
-                    const title =
-                      (typeof r?.title === 'string' ? r.title : undefined) ||
-                      (typeof r?.metadata?.title === 'string' ? r.metadata.title : undefined) ||
-                      url;
-                    const description =
-                      (typeof r?.description === 'string' ? r.description : undefined) ||
-                      (typeof r?.metadata?.description === 'string' ? r.metadata.description : undefined) ||
-                      '';
-                    const markdown = typeof r?.markdown === 'string' ? r.markdown : '';
-                    const json = r?.json;
-                    const extracted = json && typeof json === 'object' ? (json as any) : undefined;
+                  const r = result as any;
+                  const title =
+                    (typeof r?.title === 'string' ? r.title : undefined) ||
+                    (typeof r?.metadata?.title === 'string' ? r.metadata.title : undefined) ||
+                    url;
+                  const description =
+                    (typeof r?.description === 'string' ? r.description : undefined) ||
+                    (typeof r?.metadata?.description === 'string' ? r.metadata.description : undefined) ||
+                    '';
+                  const markdown = typeof r?.markdown === 'string' ? r.markdown : '';
 
-                    const authorMatch = url.match(/github\.com\/([^/]+)/);
-                    const author = authorMatch ? authorMatch[1] : undefined;
-                    const stars = parseCount(extracted?.stars);
-                    const language =
-                      (typeof extracted?.primaryLanguage === 'string' ? extracted.primaryLanguage : undefined) ||
-                      (typeof extracted?.language === 'string' ? extracted.language : undefined) ||
-                      (typeof r?.metadata?.language === 'string' ? r.metadata.language : undefined);
-                    const image = typeof r?.metadata?.ogImage === 'string' ? r.metadata.ogImage : undefined;
-                    const favicon = typeof r?.metadata?.favicon === 'string' ? r.metadata.favicon : undefined;
-                    const publishedDate =
-                      (typeof r?.metadata?.publishedTime === 'string' ? r.metadata.publishedTime : undefined) ||
-                      (typeof r?.metadata?.modifiedTime === 'string' ? r.metadata.modifiedTime : undefined) ||
-                      (typeof extracted?.lastUpdated === 'string' ? extracted.lastUpdated : undefined);
+                  const authorMatch = url.match(/github\.com\/([^/]+)/);
+                  const author = authorMatch ? authorMatch[1] : undefined;
+                  const image = typeof r?.metadata?.ogImage === 'string' ? r.metadata.ogImage : undefined;
+                  const favicon = typeof r?.metadata?.favicon === 'string' ? r.metadata.favicon : undefined;
 
-                    const out: GitHubResult = {
-                      url,
-                      title,
-                      content: description || markdown,
-                    };
-                    if (publishedDate) out.publishedDate = publishedDate;
-                    if (author) out.author = author;
-                    if (image) out.image = image;
-                    if (favicon) out.favicon = favicon;
-                    if (typeof stars === 'number') out.stars = stars;
-                    if (language) out.language = language;
-                    const extractedDescription =
-                      typeof extracted?.description === 'string' ? extracted.description : undefined;
-                    if (extractedDescription) out.description = extractedDescription;
-                    else if (description) out.description = description.substring(0, 300);
-                    if (json !== undefined) out.json = json;
+                  const out: GitHubResult = {
+                    url,
+                    title,
+                    content: description || markdown,
+                  };
+                  if (author) out.author = author;
+                  if (image) out.image = image;
+                  if (favicon) out.favicon = favicon;
+                  if (description) out.description = description.substring(0, 300);
 
-                    return out;
-                  })
-                  .filter((r): r is GitHubResult => r !== null);
-              },
-            },
-            getBetterAllOptions(),
-          );
+                  return out;
+                })
+                .filter((r): r is GitHubResult => r !== null);
+            }
+          } catch (firecrawlError) {
+            log.error(`GitHub search Firecrawl error for query "${query}":`, firecrawlError);
+          }
+
+          if (processedResults.length === 0 && serverEnv.FASTCRW_URL) {
+            try {
+              processedResults = await searchGithubWithFastCrw(serverEnv.FASTCRW_URL, query, currentMaxResults);
+            } catch (fastcrwError) {
+              log.error(`GitHub search fastCRW fallback error for query "${query}":`, fastcrwError);
+            }
+          }
+
+          if (processedResults.length > 0) {
+            processedResults = await enrichGithubResultsWithApi(processedResults);
+          }
 
           if (processedResults.length === 0) {
             dataStream?.write({

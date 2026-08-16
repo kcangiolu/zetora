@@ -9,10 +9,46 @@ import { getBetterAllOptions } from '@/lib/better-all';
 import Firecrawl, { SearchResultWeb } from '@mendable/firecrawl-js';
 
 import { createLogger } from '@/lib/logger';
+import { FASTCRW_SEARCH_TIMEOUT_MS } from '@/lib/timeouts';
 
 const log = createLogger('academic-search');
 
 const firecrawl = new Firecrawl({ apiKey: serverEnv.FIRECRAWL_API_KEY });
+
+interface FastCrwSearchApiResponse {
+  success: boolean;
+  data: Array<{
+    url: string;
+    title: string;
+    snippet: string;
+    description: string;
+    score: number;
+    category: string;
+  }>;
+}
+
+type AcademicResult = { url: string; title: string; summary: string };
+
+async function searchAcademicWithFastCrw(baseUrl: string, query: string, limit: number): Promise<AcademicResult[]> {
+  const response = await fetch(`${baseUrl}/v1/search`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, limit }),
+    signal: AbortSignal.timeout(FASTCRW_SEARCH_TIMEOUT_MS),
+  });
+
+  if (!response.ok) {
+    throw new Error(`fastCRW returned ${response.status}`);
+  }
+
+  const data: FastCrwSearchApiResponse = await response.json();
+
+  return (data.data || []).map((r) => ({
+    url: r.url,
+    title: r.title || '',
+    summary: r.snippet || r.description || '',
+  }));
+}
 
 export function academicSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>) {
   return tool({
@@ -50,29 +86,34 @@ export function academicSearchTool(dataStream?: UIMessageStreamWriter<ChatMessag
               },
             });
 
-            const { processedResults } = await all(
-              {
-                firecrawlResults: async function () {
-                  return firecrawl.search(query, {
-                    categories: ['research', 'pdf'],
-                    limit: currentMaxResults,
-                    scrapeOptions: {
-                      storeInCache: true,
-                    },
-                  });
+            let processedResults: AcademicResult[] = [];
+            try {
+              const firecrawlResults = await firecrawl.search(query, {
+                categories: ['research', 'pdf'],
+                limit: currentMaxResults,
+                scrapeOptions: {
+                  storeInCache: true,
                 },
-                processedResults: async function () {
-                  const firecrawlResults = await this.$.firecrawlResults;
-                  if (!firecrawlResults.web || !Array.isArray(firecrawlResults.web)) return [];
-                  return firecrawlResults.web.map((result) => ({
-                    url: (result as SearchResultWeb).url || '',
-                    title: (result as SearchResultWeb).title || '',
-                    summary: (result as SearchResultWeb).description || '',
-                  }));
-                },
-              },
-              getBetterAllOptions(),
-            );
+              });
+
+              if (firecrawlResults.web && Array.isArray(firecrawlResults.web)) {
+                processedResults = firecrawlResults.web.map((result) => ({
+                  url: (result as SearchResultWeb).url || '',
+                  title: (result as SearchResultWeb).title || '',
+                  summary: (result as SearchResultWeb).description || '',
+                }));
+              }
+            } catch (firecrawlError) {
+              log.error(`Academic search Firecrawl error for query "${query}":`, firecrawlError);
+            }
+
+            if (processedResults.length === 0 && serverEnv.FASTCRW_URL) {
+              try {
+                processedResults = await searchAcademicWithFastCrw(serverEnv.FASTCRW_URL, query, currentMaxResults);
+              } catch (fastcrwError) {
+                log.error(`Academic search fastCRW fallback error for query "${query}":`, fastcrwError);
+              }
+            }
 
             const resultsCount = processedResults.length;
 
