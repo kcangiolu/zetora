@@ -29,6 +29,9 @@ LANG_CODE = os.getenv("LANG_CODE", "french")
 PROMPT_CACHE_DIR = Path(os.getenv("PROMPT_CACHE_DIR", "/data/prompt_cache"))
 SAVE_OUTPUT = os.getenv("SAVE_OUTPUT", "false").lower() == "true"
 OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "/data/output"))
+# Default is lazy-load (model loads on first request). Set to reclaim the old
+# always-resident behavior, e.g. when the GPU is dedicated to this service.
+EAGER_LOAD = os.getenv("EAGER_LOAD", "false").lower() == "true"
 
 # GPU is shared with other services on the box (Ollama, ComfyUI, ...) and
 # stays scarce even at idle — unload the model after 5 minutes of inactivity
@@ -290,9 +293,12 @@ def _idle_checker():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Lazy load: the model loads on the first request instead of at
-    # container start, so simply starting the container no longer claims
-    # VRAM — matches the on-demand `--profile tts` intent above.
+    # Lazy load by default: the model loads on the first request instead of
+    # at container start, so simply starting the container no longer claims
+    # VRAM — matches the on-demand `--profile tts` intent above. Set
+    # EAGER_LOAD=true to restore the old always-resident-at-startup behavior.
+    if EAGER_LOAD:
+        await asyncio.get_running_loop().run_in_executor(_cuda_executor, _load_model)
     threading.Thread(target=_idle_checker, daemon=True, name="tts-idle-checker").start()
     yield
 

@@ -730,7 +730,9 @@ services:
     # GPU with llama.cpp, so keeping it resident starves the LLM of VRAM and
     # tanks decode speed. Start on demand with:
     #   docker compose --profile tts up -d qwen3-tts
-    # Or set COMPOSE_PROFILES=tts in .env to keep it resident like before.
+    # Or set COMPOSE_PROFILES=tts in .env to keep the container running.
+    # The model itself still lazy-loads on first request and unloads after
+    # 5min idle; set EAGER_LOAD=true below to load it at container start too.
     profiles: ['tts']
     image: ${ZETORA_TTS_IMAGE:-zetora-tts:local}
     container_name: zetora-qwen3-tts
@@ -747,6 +749,7 @@ services:
       - PROMPT_CACHE_DIR=/data/prompt_cache
       - SAVE_OUTPUT=false
       - OUTPUT_DIR=/data/output
+      - EAGER_LOAD=false
     volumes:
       - ${DATA_DIR}/qwen3-tts/huggingface:/data/huggingface
       - ${DATA_DIR}/qwen3-tts/output:/data/output
