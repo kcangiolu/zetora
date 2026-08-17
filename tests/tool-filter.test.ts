@@ -60,15 +60,30 @@ describe('filterActiveTools', () => {
     expect(result).not.toContain('x_search');
   });
 
-  it('skips narrowing entirely when the session/global intersection is empty', () => {
-    // Matches the route's long-standing guard: an empty enabledSources list
-    // means "no narrowing", not "no tools".
+  it('drops every source-gated tool when the session/global intersection is empty', () => {
+    // The session override is explicit, so a non-overlapping intersection means
+    // "no sources enabled this session" (chat only), not "skip narrowing".
     const result = filterActiveTools({
       ...base,
       preferences: { 'zetora-enabled-sources': ['web'] },
       sessionEnabledSources: ['reddit'],
     });
-    expect(result).toEqual(baseTools);
+    expect(result).not.toContain('web_search');
+    expect(result).not.toContain('reddit_search');
+    // Tools without an owning group in toolGroupMap always survive.
+    expect(result).toContain('retrieve');
+    expect(result).toContain('datetime');
+    expect(result).toContain('extreme_search');
+  });
+
+  it('drops every source-gated tool when the user explicitly unchecks all sources', () => {
+    const result = filterActiveTools({ ...base, sessionEnabledSources: [] });
+    expect(result).not.toContain('web_search');
+    expect(result).not.toContain('reddit_search');
+    expect(result).not.toContain('x_search');
+    expect(result).toContain('retrieve');
+    expect(result).toContain('datetime');
+    expect(result).toContain('extreme_search');
   });
 
   it('skips source narrowing in special modes', () => {
