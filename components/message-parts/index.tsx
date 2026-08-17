@@ -438,30 +438,12 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
         return <div key={`${messageIndex}-${partIndex}-empty`}></div>;
       }
 
-      // Detect text sandwiched between step-start and tool/source-invocation
       const prevPart = parts[partIndex - 1];
-      const nextPart = parts[partIndex + 1];
-      if (
-        prevPart?.type === 'step-start' &&
-        nextPart &&
-        (isToolPartType(nextPart.type) || isSourcePartType(nextPart.type))
-      ) {
-        return null;
-      }
 
       if (
         part.type === 'text' &&
         isWithinXaiToolRun &&
         (!part.text || part.text.trim() === '' || part.text.trim() === '<|im_end|>')
-      ) {
-        return null;
-      }
-
-      // Detect text sandwiched between reasoning and tool/source-invocation
-      if (
-        prevPart?.type === 'reasoning' &&
-        nextPart &&
-        (isToolPartType(nextPart.type) || isSourcePartType(nextPart.type))
       ) {
         return null;
       }
