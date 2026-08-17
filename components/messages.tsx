@@ -39,6 +39,7 @@ interface MessagesProps {
   setMessages: UseChatHelpers<ChatMessage>['setMessages'];
   regenerate: UseChatHelpers<ChatMessage>['regenerate'];
   stop: UseChatHelpers<ChatMessage>['stop'];
+  onResume?: () => Promise<void>;
   sendMessage: UseChatHelpers<ChatMessage>['sendMessage'];
   suggestedQuestions: string[];
   setSuggestedQuestions: (questions: string[]) => void;
@@ -94,6 +95,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     sendMessage,
     regenerate,
     stop,
+    onResume,
     hasSubmitted,
     isTransitioning,
     onBeforeSubmit,
@@ -260,6 +262,18 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
       sileo.error({ title: 'Failed to delete message' });
     }
   }, [messages, user, setMessages, setSuggestedQuestions, stop]);
+
+  // Manually re-attempt reconnecting to an interrupted turn, without
+  // discarding it and starting a brand-new generation like handleRetry does.
+  const handleResume = useCallback(async () => {
+    if (!onResume) return;
+    try {
+      await onResume();
+    } catch (error) {
+      console.error('Error resuming stream:', error);
+      sileo.error({ title: 'Failed to resume' });
+    }
+  }, [onResume]);
 
   // Handle rendering of message parts - using the new MessagePartRenderer component
   const renderPart = useCallback(
@@ -454,6 +468,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
             isMissingAssistantResponse={index === missingAssistantResponseIndex}
             handleRetry={handleRetry}
             handleDelete={handleDelete}
+            handleResume={onResume ? handleResume : undefined}
             isOwner={isOwner}
             onHighlight={onHighlight}
             attachmentsRenderer={attachmentsRenderer}
@@ -494,6 +509,8 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
       missingAssistantResponseIndex,
       handleRetry,
       handleDelete,
+      handleResume,
+      onResume,
       isOwner,
       onHighlight,
       attachmentsRenderer,
@@ -528,6 +545,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
             selectedVisibilityType={selectedVisibilityType}
             handleRetry={handleRetry}
             handleDelete={handleDelete}
+            handleResume={onResume ? handleResume : undefined}
           />
         )}
 
@@ -544,6 +562,8 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     selectedVisibilityType,
     handleRetry,
     handleDelete,
+    handleResume,
+    onResume,
   ]);
 
   if (memoizedMessages.length === 0) {
