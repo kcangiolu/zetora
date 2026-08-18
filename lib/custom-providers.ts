@@ -24,6 +24,10 @@ export interface CustomProviderConfig {
   // toggle can send a real control parameter ('vllm'/'llamacpp') or can only
   // mask the <think> output ('ollama'/'unknown'). Set by detectBackendKind().
   backendKind?: CustomBackendKind;
+  // Static per-provider overrides merged into every request's native params
+  // (llama.cpp: mirostat/cache_prompt; vLLM: guided-decoding fields...). Keys
+  // are backend-specific — see ai/native-models/ and getCustomReasoningOverrides.
+  nativeParams?: Record<string, unknown>;
 }
 
 export type CustomBackendKind = 'ollama' | 'vllm' | 'llamacpp' | 'openai' | 'unknown';

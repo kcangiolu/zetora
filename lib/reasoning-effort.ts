@@ -91,12 +91,22 @@ export function getCustomReasoningOverrides(
     };
   }
 
-  if (backend.backendKind === 'vllm' || backend.backendKind === 'ollama' || backend.backendKind === 'openai') {
+  if (backend.backendKind === 'ollama') {
+    // Ollama's native /api/chat `think` boolean is a real, model-agnostic
+    // on/off switch — unlike reasoning_effort strings, it never gets
+    // rejected by a model that doesn't recognize the value (ollama/ollama#12004
+    // was specifically about guessing an unsupported reasoning_effort string).
+    return {
+      providerOptions: { [backend.providerId]: { think: tier !== 'off' } },
+      applyMaskMiddleware: false,
+    };
+  }
+
+  if (backend.backendKind === 'vllm' || backend.backendKind === 'openai') {
     if (tier === 'off') {
-      // No universal "disable" value is safe to send across these backends
-      // (e.g. Ollama can error on reasoning_effort: 'none'/false for some
-      // models — ollama/ollama#12004) — fall back to masking the output
-      // instead of guessing a value that might get rejected.
+      // No universal "disable" value is safe to send across these backends —
+      // fall back to masking the output instead of guessing a value that
+      // might get rejected.
       return { providerOptions: {}, applyMaskMiddleware: true };
     }
     return {
@@ -107,6 +117,34 @@ export function getCustomReasoningOverrides(
 
   // unknown: no real control available, only hide the output.
   return { providerOptions: {}, applyMaskMiddleware: tier === 'off' };
+}
+
+// Combines the reasoning-tier override above with each provider's static
+// nativeParams (mirostat/cache_prompt/guided-decoding field names...) into a
+// single providerOptions bag for the resolved custom provider — the one spot
+// app/api/search/route.ts needs to merge into streamText's providerOptions.
+// Unlike getCustomReasoningOverrides, nativeParams apply regardless of the
+// reasoning tier (including 'auto', where the reasoning half is a no-op).
+export function getCustomProviderOptions(
+  modelId: string,
+  effort: ReasoningEffort,
+  customProviders: CustomProviderConfig[],
+): { providerOptions: Record<string, unknown>; applyMaskMiddleware: boolean } {
+  const parsed = parseCustomModelId(modelId, customProviders);
+  if (!parsed) {
+    return getCustomReasoningOverrides(modelId, effort, customProviders);
+  }
+
+  const reasoning = getCustomReasoningOverrides(modelId, effort, customProviders);
+  const merged = {
+    ...parsed.provider.nativeParams,
+    ...(reasoning.providerOptions[parsed.provider.id] as Record<string, unknown> | undefined),
+  };
+
+  return {
+    providerOptions: Object.keys(merged).length > 0 ? { [parsed.provider.id]: merged } : {},
+    applyMaskMiddleware: reasoning.applyMaskMiddleware,
+  };
 }
 
 // Generic per-provider-family reasoning overrides for zetora-* (first-party)

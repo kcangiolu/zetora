@@ -6,6 +6,7 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { useDebouncer } from '@tanstack/react-pacer';
 import { Button } from '@/components/ui/button';
+import { parseStartWithCommand } from '@/lib/chat-commands';
 import { Textarea } from '@/components/ui/textarea';
 import {
   models,
@@ -1879,21 +1880,25 @@ const FormComponent: React.FC<FormComponentProps> = ({
       }
 
       // Send the message
-      sendMessage({
-        role: 'user',
-        parts: [
-          ...attachments.map((attachment) => ({
-            type: 'file' as const,
-            url: attachment.url,
-            name: attachment.name,
-            mediaType: attachment.contentType || attachment.mediaType || '',
-          })),
-          {
-            type: 'text',
-            text: input,
-          },
-        ],
-      });
+      const { text: startWithStrippedInput, startWith } = parseStartWithCommand(input);
+      sendMessage(
+        {
+          role: 'user',
+          parts: [
+            ...attachments.map((attachment) => ({
+              type: 'file' as const,
+              url: attachment.url,
+              name: attachment.name,
+              mediaType: attachment.contentType || attachment.mediaType || '',
+            })),
+            {
+              type: 'text',
+              text: startWith ? startWithStrippedInput : input,
+            },
+          ],
+        },
+        startWith ? { body: { startWith } } : undefined,
+      );
 
       setInput('');
       // Immediately reset textarea height to avoid jank from debounced resize

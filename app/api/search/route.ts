@@ -16,7 +16,9 @@ import {
   InferUIMessageChunk,
   AsyncIterableStream,
   wrapLanguageModel,
+  type LanguageModel,
 } from 'ai';
+import type { SharedV3ProviderOptions } from '@ai-sdk/provider';
 import { pipeJsonRender } from '@json-render/core';
 import { createLogger } from '@/lib/logger';
 import {
@@ -57,8 +59,9 @@ import { getLightweightUser } from '@/lib/search/server-helpers';
 import { getCachedCustomInstructionsByUserId, getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { resolveTertiaryModel } from '@/ai/tertiary';
 import { getCustomProviders } from '@/lib/custom-providers';
-import { getCustomReasoningOverrides, reasoningMaskMiddleware } from '@/lib/reasoning-effort';
+import { getCustomProviderOptions, reasoningMaskMiddleware } from '@/lib/reasoning-effort';
 import type { ReasoningEffort } from '@/lib/reasoning-effort-types';
+import { getStartWithStrategy } from '@/lib/chat-commands-server';
 import { loadConfiguredTools } from '@/lib/search/tool-loader';
 import { runMemoryCurator } from '@/lib/search/memory-curator';
 import { resolvePrepareStepOverride } from '@/lib/search/prepare-step';
@@ -117,6 +120,7 @@ export async function POST(req: Request) {
     autoRouterConfig,
     visionEnabled,
     reasoningEffort,
+    startWith,
   } = await req.json();
   recordTiming('parse_request_body', opStart);
 
@@ -490,6 +494,32 @@ export async function POST(req: Request) {
     }
   }
 
+  // /startwith only works where we can force a real prefill (a trailing
+  // assistant message the model actually continues) with reasoning forced
+  // off — otherwise the prefix either gets swallowed by a hidden <think>
+  // block or silently ignored as a stale previous turn. No system-prompt
+  // fallback: reject outright, before any generation work starts, rather
+  // than pretend it worked on an unsupported backend. Resolved here (not
+  // inside `execute` below) so the rejection can be a normal Response return
+  // — `model` isn't final until after auto-routing above.
+  let startWithProviderOptions: Record<string, unknown> | undefined;
+  let startWithAssistantMessageProviderOptions: SharedV3ProviderOptions | undefined;
+  let startWithModelOverride: LanguageModel | undefined;
+  if (startWith) {
+    const startWithCustomProviders = model.startsWith('custom-')
+      ? await getCustomProviders(lightweightUser?.userId)
+      : [];
+    const startWithStrategy = shouldUseXaiMultiAgent
+      ? { supported: false as const }
+      : getStartWithStrategy(model, startWithCustomProviders);
+    if (!startWithStrategy.supported) {
+      return new ChatSDKError('bad_request:model', 'startWith not supported by the resolved model').toResponse();
+    }
+    startWithProviderOptions = startWithStrategy.providerOptions;
+    startWithAssistantMessageProviderOptions = startWithStrategy.assistantMessageProviderOptions;
+    startWithModelOverride = startWithStrategy.modelOverride;
+  }
+
   // Kicked off early so the (possibly network-bound, for custom providers)
   // context-window probe overlaps with the rest of request setup instead of
   // adding latency right before streamText. Must run after auto-routing:
@@ -700,16 +730,22 @@ export async function POST(req: Request) {
       let resolvedModel = shouldUseXaiMultiAgent
         ? xai.responses('grok-4.20-multi-agent')
         : await resolveModel(model, userPreferencesResult?.preferences ?? {}, lightweightUser?.userId);
+      // DeepSeek's real prefill needs a distinct provider instance pointed at
+      // its /beta endpoint (see getDeepSeekStartWithModel) — swap it in only
+      // for this call, normal chat on the same model is unaffected.
+      if (startWithModelOverride) {
+        resolvedModel = startWithModelOverride;
+      }
 
       // Custom providers aren't covered by getSearchProviderOptions (that's
-      // zetora-* only) — resolve their reasoning override separately. vLLM/
-      // llama.cpp backends get a real control param merged into providerOptions
-      // below; Ollama/unknown backends can only have their <think> output
-      // hidden after the fact, via middleware.
+      // zetora-* only) — resolve their reasoning override and static native
+      // params separately. vLLM/llama.cpp/Ollama backends get real control
+      // params merged into providerOptions below; unknown backends can only
+      // have their <think> output hidden after the fact, via middleware.
       let customReasoningProviderOptions: Record<string, unknown> = {};
-      if (!shouldUseXaiMultiAgent && model.startsWith('custom-') && effort !== 'auto') {
+      if (!shouldUseXaiMultiAgent && model.startsWith('custom-')) {
         const customProviders = await getCustomProviders(lightweightUser?.userId);
-        const overrides = getCustomReasoningOverrides(model, effort, customProviders);
+        const overrides = getCustomProviderOptions(model, effort, customProviders);
         customReasoningProviderOptions = overrides.providerOptions;
         if (overrides.applyMaskMiddleware) {
           resolvedModel = wrapLanguageModel({
@@ -717,6 +753,9 @@ export async function POST(req: Request) {
             middleware: reasoningMaskMiddleware,
           });
         }
+      }
+      if (startWithProviderOptions) {
+        customReasoningProviderOptions = { ...customReasoningProviderOptions, ...startWithProviderOptions };
       }
       // Custom models parsed via the XML tool middleware need their tool
       // schemas present on every step: the middleware strips native tools into
@@ -764,19 +803,33 @@ export async function POST(req: Request) {
         );
       }
 
+      // /startwith forces a direct answer rather than an agentic turn: the
+      // prefill message below only makes sense as the immediate continuation
+      // of a single generation step, not as a lead-in to a tool-calling loop.
       const result = streamText({
         model: resolvedModel,
-        messages: budgetedMessages,
+        messages: startWith
+          ? [
+              ...budgetedMessages,
+              {
+                role: 'assistant' as const,
+                content: startWith,
+                ...(startWithAssistantMessageProviderOptions
+                  ? { providerOptions: startWithAssistantMessageProviderOptions }
+                  : {}),
+              },
+            ]
+          : budgetedMessages,
         ...getModelParameters(shouldUseXaiMultiAgent ? 'grok-4.20-multi-agent' : model),
-        stopWhen: stepCountIs(staticSettings.stopWhenStepCount),
+        stopWhen: startWith ? stepCountIs(1) : stepCountIs(staticSettings.stopWhenStepCount),
         ...(staticSettings.maxOutputTokens !== undefined ? { maxOutputTokens: staticSettings.maxOutputTokens } : {}),
         maxRetries: staticSettings.maxRetries,
         abortSignal: abortController.signal,
-        activeTools: shouldUseXaiMultiAgent ? ['xai_web_search', 'xai_x_search'] : streamActiveTools,
+        activeTools: startWith ? [] : shouldUseXaiMultiAgent ? ['xai_web_search', 'xai_x_search'] : streamActiveTools,
         experimental_transform: markdownJoinerTransform(),
         system: baseSystem,
         toolChoice: 'auto',
-        tools: streamTools,
+        tools: startWith ? {} : streamTools,
         ...(staticSettings.headers ? { headers: staticSettings.headers } : {}),
         providerOptions: {
           ...getSearchProviderOptions(model, shouldUseXaiMultiAgent, effort),

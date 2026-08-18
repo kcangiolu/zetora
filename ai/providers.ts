@@ -59,6 +59,36 @@ const deepseekDirect = hasKey(process.env.DEEPSEEK_API_KEY)
     })
   : null;
 
+// Separate instance, used only by /startwith on the two direct DeepSeek
+// models. DeepSeek's real prefill ("Chat Prefix Completion") needs the
+// /beta endpoint plus a `prefix: true` field on the trailing assistant
+// message — @ai-sdk/deepseek's hand-rolled message converter has no escape
+// hatch for that field, but the generic openai-compatible shim spreads
+// `message.providerOptions.openaiCompatible` verbatim onto the built
+// message (verified against its source), so it's the one that can actually
+// send `prefix`. Never used for normal chat — deepseekDirect above still
+// handles that — so the shim's known structured-output weakness (why
+// deepseekDirect exists instead of this same shim, see 566f7ca) never
+// applies: /startwith always forces tools:{} and a single plain-text step.
+const deepseekBetaDirect = hasKey(process.env.DEEPSEEK_API_KEY)
+  ? createOpenAICompatible({
+      name: 'deepseek-beta',
+      baseURL: 'https://api.deepseek.com/beta',
+      apiKey: process.env.DEEPSEEK_API_KEY,
+    })
+  : null;
+
+const DEEPSEEK_STARTWITH_MODEL_NAMES: Record<string, string> = {
+  'zetora-deepseek-v4-flash': 'deepseek-v4-flash',
+  'zetora-deepseek-v4-pro': 'deepseek-v4-pro',
+};
+
+export function getDeepSeekStartWithModel(modelId: string): LanguageModel | null {
+  const modelName = DEEPSEEK_STARTWITH_MODEL_NAMES[modelId];
+  if (!modelName || !deepseekBetaDirect) return null;
+  return deepseekBetaDirect.chatModel(modelName);
+}
+
 const middleware = extractReasoningMiddleware({
   tagName: 'think',
 });
@@ -610,7 +640,9 @@ export const zetora = customProvider({
 });
 
 import type { LanguageModel } from 'ai';
-import { getCustomProviders, getCustomModels } from '@/lib/custom-providers';
+import { getCustomProviders, getCustomModels, deriveRootURL, type CustomProviderConfig } from '@/lib/custom-providers';
+import { LlamaCppNativeLanguageModel } from './native-models/llamacpp-model';
+import { OllamaNativeLanguageModel } from './native-models/ollama-model';
 
 import { createLogger } from '@/lib/logger';
 
@@ -631,9 +663,45 @@ async function getOrCreateProvider(providerId: string, userId?: string) {
     name: config.id,
     baseURL: config.baseURL,
     apiKey: config.apiKey ?? 'not-needed',
+    // vLLM implements the OpenAI json_schema response format for real
+    // (unlike most other self-hosted backends, which silently ignore the
+    // schema and fall back to json_object) — only safe to advertise for it.
+    supportsStructuredOutputs: config.backendKind === 'vllm',
   });
   customProviderInstances.set(cacheKey, provider);
   return provider;
+}
+
+const llamaCppModelInstances = new Map<string, LlamaCppNativeLanguageModel>();
+
+function getOrCreateLlamaCppModel(config: CustomProviderConfig, modelName: string) {
+  const cacheKey = `${config.id}::${config.baseURL}::${config.apiKey ?? ''}::${modelName}`;
+  const cached = llamaCppModelInstances.get(cacheKey);
+  if (cached) return cached;
+
+  const model = new LlamaCppNativeLanguageModel(modelName, {
+    providerId: config.id,
+    rootURL: deriveRootURL(config.baseURL),
+    apiKey: config.apiKey,
+  });
+  llamaCppModelInstances.set(cacheKey, model);
+  return model;
+}
+
+const ollamaModelInstances = new Map<string, OllamaNativeLanguageModel>();
+
+function getOrCreateOllamaModel(config: CustomProviderConfig, modelName: string) {
+  const cacheKey = `${config.id}::${config.baseURL}::${config.apiKey ?? ''}::${modelName}`;
+  const cached = ollamaModelInstances.get(cacheKey);
+  if (cached) return cached;
+
+  const model = new OllamaNativeLanguageModel(modelName, {
+    providerId: config.id,
+    rootURL: deriveRootURL(config.baseURL),
+    apiKey: config.apiKey,
+  });
+  ollamaModelInstances.set(cacheKey, model);
+  return model;
 }
 
 // Returns the anonymization context for this (model, user) pair, or null if
@@ -674,6 +742,7 @@ export async function resolveModel(
   userId?: string,
 ): Promise<LanguageModel> {
   let resolved: LanguageModel;
+  let backendKind: CustomProviderConfig['backendKind'] | undefined;
 
   if (!modelId.startsWith('custom-')) {
     resolved = zetora.languageModel(modelId);
@@ -684,15 +753,28 @@ export async function resolveModel(
       log.warn(`Custom model ${modelId} not found, falling back to default`);
       resolved = zetora.languageModel('zetora-default');
     } else {
-      const provider = await getOrCreateProvider(model.providerId, userId);
-      resolved = provider.chatModel(model.modelName);
+      const providers = await getCustomProviders(userId);
+      const providerConfig = providers.find((p) => p.id === model.providerId);
+      backendKind = providerConfig?.backendKind;
+
+      if (providerConfig && backendKind === 'llamacpp') {
+        resolved = getOrCreateLlamaCppModel(providerConfig, model.modelName);
+      } else if (providerConfig && backendKind === 'ollama') {
+        resolved = getOrCreateOllamaModel(providerConfig, model.modelName);
+      } else {
+        resolved = (await getOrCreateProvider(model.providerId, userId)).chatModel(model.modelName);
+      }
     }
   }
 
   const xmlParsingEnabled = preferences?.['zetora-xml-tool-parsing-enabled'] === true;
   const isCustomModel = modelId.startsWith('custom-');
+  // llama.cpp's native /completion endpoint has no tool-calling protocol at
+  // all — without XML parsing forced on, tool calls would silently break
+  // instead of erroring, so this backend can't honor the toggle being off.
+  const forceXmlForNativeLlamaCpp = backendKind === 'llamacpp';
 
-  if (xmlParsingEnabled && isCustomModel) {
+  if ((xmlParsingEnabled || forceXmlForNativeLlamaCpp) && isCustomModel) {
     resolved = wrapLanguageModel({
       model: resolved,
       middleware: dynamicXmlToolMiddleware,

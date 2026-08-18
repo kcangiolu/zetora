@@ -89,6 +89,8 @@ export function getMessageByErrorCode(errorCode: ErrorCode): string {
 
     case 'unauthorized:model':
       return 'You need to sign in to access this AI model.';
+    case 'bad_request:model':
+      return "/startwith isn't supported by this model — try a llama.cpp/Ollama custom model, or an Anthropic model.";
 
     case 'forbidden:api':
       return 'Access denied';
