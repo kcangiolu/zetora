@@ -438,30 +438,12 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
         return <div key={`${messageIndex}-${partIndex}-empty`}></div>;
       }
 
-      // Detect text sandwiched between step-start and tool/source-invocation
       const prevPart = parts[partIndex - 1];
-      const nextPart = parts[partIndex + 1];
-      if (
-        prevPart?.type === 'step-start' &&
-        nextPart &&
-        (isToolPartType(nextPart.type) || isSourcePartType(nextPart.type))
-      ) {
-        return null;
-      }
 
       if (
         part.type === 'text' &&
         isWithinXaiToolRun &&
         (!part.text || part.text.trim() === '' || part.text.trim() === '<|im_end|>')
-      ) {
-        return null;
-      }
-
-      // Detect text sandwiched between reasoning and tool/source-invocation
-      if (
-        prevPart?.type === 'reasoning' &&
-        nextPart &&
-        (isToolPartType(nextPart.type) || isSourcePartType(nextPart.type))
       ) {
         return null;
       }
@@ -476,12 +458,20 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
 
       // Determine if this is the last assistant message
       const isLastAssistantMessage = messageIndex === messages.length - 1 && message.role === 'assistant';
+      // A multi-step tool loop (reasoning -> tool call -> reasoning -> answer)
+      // can legitimately produce several `text` parts within one assistant
+      // message — one per step. Action buttons belong on the message as a
+      // whole, not on every individual step, so only the last text part is
+      // eligible.
+      const lastTextIndex = parts.reduce((acc, p, idx) => (p.type === 'text' ? idx : acc), -1);
+      const isLastTextPart = partIndex === lastTextIndex;
       // Show action buttons when:
-      // 1. Status is ready or error (no streaming happening), OR
-      // 2. This is NOT the last assistant message (previous messages keep their buttons)
+      // 1. This is the last text part of the message, AND
+      // 2. Status is ready or error (no streaming happening), OR this is NOT
+      //    the last assistant message (previous messages keep their buttons)
       // 'error' is included so a response interrupted by a stream failure (not a clean
       // manual stop) still lets the user delete/retry instead of getting stuck on Edit-only.
-      const shouldShowActionButtons = status === 'ready' || status === 'error' || !isLastAssistantMessage;
+      const shouldShowActionButtons = isLastTextPart && (status === 'ready' || status === 'error' || !isLastAssistantMessage);
 
       // Clean the text by removing box markers and special tokens
       const cleanText = part.text
@@ -493,8 +483,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
         'h-8 w-8 rounded-sm border border-border bg-background/40 text-muted-foreground shadow-none backdrop-blur-sm transition-colors hover:bg-accent/60 hover:text-foreground supports-[backdrop-filter]:bg-background/30';
 
       // Check if the message has canvas spec data parts — only render after the LAST text part
-      const lastTextIndex = parts.reduce((acc, p, idx) => (p.type === 'text' ? idx : acc), -1);
-      const hasCanvasSpec = partIndex === lastTextIndex && parts.some((p) => p.type === SPEC_DATA_PART_TYPE);
+      const hasCanvasSpec = isLastTextPart && parts.some((p) => p.type === SPEC_DATA_PART_TYPE);
 
       // Images already shown by a generate_image/edit_image tool card in this
       // message — if the model echoes the same URL in its text (despite being

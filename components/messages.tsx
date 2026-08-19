@@ -1,6 +1,6 @@
 import React, { memo, useMemo, useState, useRef, useEffect, useCallback, useImperativeHandle } from 'react';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
-import { Message } from '@/components/message';
+import { Message, DELIVERABLE_TOOL_PART_TYPES } from '@/components/message';
 import { DataUIPart, isToolUIPart } from 'ai';
 import { EnhancedErrorDisplay } from '@/components/message';
 import { MessagePartRenderer } from '@/components/message-parts';
@@ -167,15 +167,19 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
       const hasVisibleText = parts.some(
         (part: ChatMessage['parts'][number]) => part.type === 'text' && part.text && part.text.trim() !== '',
       );
-      // A tool call only counts as visible content once it actually resolved
-      // (output-available/output-error). One left in input-streaming/input-available
-      // because the stream got interrupted never rendered anything and shouldn't block
-      // the missing-response fallback from showing.
-      const hasResolvedToolInvocations = parts.some(
-        (part: ChatMessage['parts'][number]) =>
-          isToolUIPart(part) && (part.state === 'output-available' || part.state === 'output-error'),
-      );
-      const hasVisibleContent = hasVisibleText || hasResolvedToolInvocations;
+      // Only a tool call whose output IS the deliverable (generated image,
+      // edited image, downloaded file) counts as a response on its own — an
+      // internal research/utility step (web_search, retrieve, code
+      // interpreter...) resolving successfully is not itself an answer to
+      // the user. Without this narrowing, a turn that reasons, calls
+      // web_search, then gets cut off before ever writing a reply reads as
+      // "has visible content" and never offers Delete/Retry/Resume.
+      const hasDeliverableToolOutput = parts.some((part: ChatMessage['parts'][number]) => {
+        if (!isToolUIPart(part) || !DELIVERABLE_TOOL_PART_TYPES.has(part.type)) return false;
+        const anyPart = part as unknown as { state?: string; output?: { success?: boolean } };
+        return anyPart.state === 'output-available' && anyPart.output?.success !== false;
+      });
+      const hasVisibleContent = hasVisibleText || hasDeliverableToolOutput;
 
       // If there is no visible content at all, consider the response missing
       if (!hasVisibleContent) {

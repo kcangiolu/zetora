@@ -905,7 +905,7 @@ const USER_MESSAGE_MAX_HEIGHT = 125;
 // Tool outputs that ARE the deliverable, not a research/reasoning step — kept
 // visible when "Zetora task complete" is collapsed, same as the final text
 // answer, regardless of whether the model also references them in its text.
-const DELIVERABLE_TOOL_PART_TYPES = new Set(['tool-generate_image', 'tool-edit_image', 'tool-download_file']);
+export const DELIVERABLE_TOOL_PART_TYPES = new Set(['tool-generate_image', 'tool-edit_image', 'tool-download_file']);
 
 function isDeliverablePart(part: ChatMessage['parts'][number]): boolean {
   if (part.type === 'text') return true;
