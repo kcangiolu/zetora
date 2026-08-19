@@ -393,21 +393,18 @@ const FormComponent: React.FC<FormComponentProps> = ({
   // for this browser session (all chats, this browser) without touching the
   // account-wide preference above, so it never shows as disabled in Customize
   // and never disappears for other sessions/devices.
-  // null = untouched this session (defer to the global preference); [] is a
-  // distinct, explicit "user unchecked everything" state, not "unset" - so
-  // clearing every source doesn't spring back to all-enabled on the next render.
-  const [sessionEnabledSources, setSessionEnabledSources] = useSessionPreference<string[] | null>(
+  const [sessionEnabledSources, setSessionEnabledSources] = useSessionPreference<string[]>(
     'zetora-session-enabled-sources',
-    null,
+    [],
   );
   const isSourceEnabled = useCallback(
-    (id: string) => isGloballyEnabled(id) && (sessionEnabledSources === null || sessionEnabledSources.includes(id)),
+    (id: string) => isGloballyEnabled(id) && (sessionEnabledSources.length === 0 || sessionEnabledSources.includes(id)),
     [isGloballyEnabled, sessionEnabledSources],
   );
   const toggleSource = useCallback(
     (id: string) => {
       const base =
-        sessionEnabledSources === null
+        sessionEnabledSources.length === 0
           ? SOURCE_CATALOG_IDS.filter((sourceId) => isGloballyEnabled(sourceId))
           : sessionEnabledSources;
       const next = base.includes(id) ? base.filter((s) => s !== id) : [...base, id];

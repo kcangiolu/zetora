@@ -27,7 +27,6 @@ import {
   AlignLeft,
   AlertCircle,
   RefreshCw,
-  PlayCircle,
   LogIn,
   CornerDownRight,
   Upload,
@@ -51,7 +50,6 @@ interface EnhancedErrorDisplayProps {
   error: any;
   handleRetry?: () => Promise<void>;
   handleDelete?: () => Promise<void>;
-  handleResume?: () => Promise<void>;
   user?: any;
   isOwner?: boolean;
   selectedVisibilityType?: 'public' | 'private';
@@ -61,15 +59,12 @@ const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
   error,
   handleRetry,
   handleDelete,
-  handleResume,
   user,
   isOwner = true,
   selectedVisibilityType,
 }) => {
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isResuming, setIsResuming] = useState(false);
   const canDelete = handleDelete && ((user && isOwner) || (!user && selectedVisibilityType === 'private'));
-  const canResume = handleResume && ((user && isOwner) || (!user && selectedVisibilityType === 'private'));
   let parsedError: any = null;
   let isChatSDKError = false;
 
@@ -243,30 +238,6 @@ const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
                   Delete
                 </Button>
               )}
-              {canResume && (
-                <Button
-                  onClick={async () => {
-                    if (isResuming || !handleResume) return;
-                    try {
-                      setIsResuming(true);
-                      await handleResume();
-                    } finally {
-                      setIsResuming(false);
-                    }
-                  }}
-                  disabled={isResuming}
-                  variant="outline"
-                  size="sm"
-                  className="text-xs"
-                >
-                  {isResuming ? (
-                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <PlayCircle className="mr-2 h-3.5 w-3.5" />
-                  )}
-                  Resume
-                </Button>
-              )}
               {actions.secondary && canPerformAction(actions.secondary.action) && (
                 <Button
                   onClick={() => handleAction(actions.secondary!.action)}
@@ -301,17 +272,14 @@ function MissingAssistantResponseNotice({
   isOwner = true,
   handleRetry,
   handleDelete,
-  handleResume,
 }: {
   user?: ComprehensiveUserData | null;
   selectedVisibilityType?: 'public' | 'private';
   isOwner?: boolean;
   handleRetry?: () => Promise<void>;
   handleDelete?: () => Promise<void>;
-  handleResume?: () => Promise<void>;
 }) {
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isResuming, setIsResuming] = useState(false);
   const canAct = (user && isOwner) || (!user && selectedVisibilityType === 'private');
 
   return (
@@ -362,29 +330,6 @@ function MissingAssistantResponseNotice({
                   )}
                   Delete
                 </Button>
-                {handleResume && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={isResuming}
-                    onClick={async () => {
-                      if (isResuming || !handleResume) return;
-                      try {
-                        setIsResuming(true);
-                        await handleResume();
-                      } finally {
-                        setIsResuming(false);
-                      }
-                    }}
-                  >
-                    {isResuming ? (
-                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <PlayCircle className="mr-2 h-3.5 w-3.5" />
-                    )}
-                    Resume
-                  </Button>
-                )}
                 <Button
                   onClick={handleRetry}
                   className="bg-secondary hover:bg-secondary/90 text-secondary-foreground"
@@ -427,7 +372,6 @@ interface MessageProps {
   isMissingAssistantResponse?: boolean;
   handleRetry?: () => Promise<void>;
   handleDelete?: () => Promise<void>;
-  handleResume?: () => Promise<void>;
   isOwner?: boolean;
   onHighlight?: (text: string) => void;
   shouldReduceHeight?: boolean;
@@ -998,7 +942,6 @@ export const Message: React.FC<MessageProps> = ({
   isMissingAssistantResponse,
   handleRetry,
   handleDelete,
-  handleResume,
   isOwner = true,
   onHighlight,
   shouldReduceHeight = false,
@@ -1205,7 +1148,6 @@ export const Message: React.FC<MessageProps> = ({
                 isOwner={isOwner}
                 handleRetry={handleRetry}
                 handleDelete={handleDelete}
-                handleResume={handleResume}
               />
             )}
           </div>
@@ -1255,7 +1197,6 @@ export const Message: React.FC<MessageProps> = ({
             isOwner={isOwner}
             handleRetry={handleRetry}
             handleDelete={handleDelete}
-            handleResume={handleResume}
           />
         )}
 
@@ -1265,7 +1206,6 @@ export const Message: React.FC<MessageProps> = ({
             error={error}
             handleRetry={handleRetry}
             handleDelete={handleDelete}
-            handleResume={handleResume}
             user={user}
             isOwner={isOwner}
             selectedVisibilityType={selectedVisibilityType}

@@ -280,7 +280,7 @@ const ChatInterface = memo(
     // Browser-session-only source overrides set from the chat picker (see
     // components/ui/form-component) — never persisted to the account-wide
     // zetora-enabled-sources preference, only sent along with this session's requests.
-    const [sessionEnabledSources] = useSessionPreference<string[] | null>('zetora-session-enabled-sources', null);
+    const [sessionEnabledSources] = useSessionPreference<string[]>('zetora-session-enabled-sources', []);
 
     // State for tracking the auto-routed model
     const [autoRoutedModel, setAutoRoutedModel] = useState<{ model: string; route: string } | null>(null);
@@ -753,27 +753,15 @@ const ChatInterface = memo(
     });
 
     const [isManuallyStopping, setIsManuallyStopping] = useState(false);
-    // 'submitted' covers a hung resume (reconnecting to a stream whose writer
-    // died mid-generation never resolves, so status never reaches 'streaming')
-    // just as much as 'streaming' does — without it, clicking Stop on that
-    // stuck state left uiStatus wedged at 'submitted' forever.
-    const uiStatus = isManuallyStopping && (status === 'streaming' || status === 'submitted') ? 'ready' : status;
+    const uiStatus = isManuallyStopping && status === 'streaming' ? 'ready' : status;
 
     const stop = useCallback(async () => {
       setIsManuallyStopping(true);
       await Promise.allSettled([stopStream(), fetch(`/api/search/${chatId}/stop`, { method: 'DELETE' })]);
     }, [stopStream, chatId]);
 
-    // Manually re-attempt reconnecting to an interrupted stream, distinct from
-    // the one-shot automatic attempt in useAutoResume (which only fires once
-    // on mount and silently gives up if it fails).
-    const handleResume = useCallback(async () => {
-      setIsManuallyStopping(false);
-      await resumeStream();
-    }, [resumeStream]);
-
     useEffect(() => {
-      if (status === 'ready' || status === 'error') setIsManuallyStopping(false);
+      if (status !== 'streaming') setIsManuallyStopping(false);
     }, [status]);
 
     const handleToggleImageHidden = useCallback(
@@ -1575,7 +1563,6 @@ const ChatInterface = memo(
                     sendMessage={sendMessageWithAutoRouting}
                     regenerate={regenerate}
                     stop={stop}
-                    onResume={handleResume}
                     suggestedQuestions={chatState.suggestedQuestions}
                     setSuggestedQuestions={(questions) =>
                       dispatch({ type: 'SET_SUGGESTED_QUESTIONS', payload: questions })

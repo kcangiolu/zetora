@@ -65,6 +65,7 @@ docker-compose.local-test.yml
 
 # Local scratch notes (not for the repo, see .gitignore entry rationale above)
 DOC.md
+CHAT-STREAM-BUGS.md
 
 # Generated from public/privacy-policy.template.html by scripts/generate-static-pages.mjs
 /public/privacy-policy.html

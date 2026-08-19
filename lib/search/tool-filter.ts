@@ -49,23 +49,17 @@ export function filterActiveTools({
       | undefined;
     // Session-only override sent by the client (see components/chat-interface.tsx):
     // never persisted, so it narrows this request's tools without touching the
-    // account-wide preference read above. `undefined`/non-array means "no
-    // override this session" (defer to the global preference); an array -
-    // including an explicit [] when the user unchecked every source - is a
-    // real override and must not be treated as "unset".
+    // account-wide preference read above.
     const sessionOverride = Array.isArray(sessionEnabledSources) ? (sessionEnabledSources as string[]) : undefined;
     let enabledSources = globalEnabledSources;
-    if (sessionOverride) {
+    if (sessionOverride && sessionOverride.length > 0) {
       const sessionSet = new Set(sessionOverride);
       enabledSources =
         globalEnabledSources && globalEnabledSources.length > 0
           ? globalEnabledSources.filter((id) => sessionSet.has(id))
           : sessionOverride;
     }
-    if (sessionOverride && enabledSources?.length === 0) {
-      // Explicit zero sources this session: chat only, drop every source-gated tool.
-      activeTools = activeTools.filter((toolName) => !toolGroupMap[toolName]);
-    } else if (enabledSources && enabledSources.length > 0) {
+    if (enabledSources && enabledSources.length > 0) {
       const enabledSet = new Set(enabledSources);
       activeTools = activeTools.filter((toolName) => {
         const owningGroup = toolGroupMap[toolName];
