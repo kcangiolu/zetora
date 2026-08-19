@@ -280,7 +280,7 @@ const ChatInterface = memo(
     // Browser-session-only source overrides set from the chat picker (see
     // components/ui/form-component) — never persisted to the account-wide
     // zetora-enabled-sources preference, only sent along with this session's requests.
-    const [sessionEnabledSources] = useSessionPreference<string[]>('zetora-session-enabled-sources', []);
+    const [sessionEnabledSources] = useSessionPreference<string[] | null>('zetora-session-enabled-sources', null);
 
     // State for tracking the auto-routed model
     const [autoRoutedModel, setAutoRoutedModel] = useState<{ model: string; route: string } | null>(null);
