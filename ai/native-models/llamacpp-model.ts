@@ -106,6 +106,11 @@ export class LlamaCppNativeLanguageModel implements LanguageModelV3 {
 
     const body: Record<string, unknown> = {
       prompt: promptText,
+      // renderLlamaCppPrompt already renders the chat template's own
+      // bos_token into promptText — without this, /completion's default
+      // tokenization adds a second BOS on top ("the prompt starts with 2 BOS
+      // tokens" server warning), corrupting the very first token the model sees.
+      add_special: false,
       temperature: options.temperature,
       top_p: options.topP,
       top_k: options.topK,
