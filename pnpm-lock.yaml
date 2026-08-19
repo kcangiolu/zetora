@@ -13,7 +13,7 @@ overrides:
   form-data: '>=4.0.6'
   hono: '>=4.12.25'
   undici: '>=6.27.0'
-  '@ai-sdk/provider-utils': '>=3.0.98'
+  '@ai-sdk/provider-utils': 4.0.27
   esbuild: '>=0.28.1'
   postcss: '>=8.5.10'
   uuid: '>=11.1.1'
@@ -4213,7 +4213,7 @@ packages:
     resolution: {integrity: sha512-2WnJyAclkVbSpRQiExtRtIJZz6b4ioDFg/3cwLMiU1cBXUPx6HjYBXZi3Y6L+Qu0oxjm7wovm/KAuYWu2ZYWdg==}
     peerDependencies:
       '@ai-sdk/provider': ^3.0.0
-      '@ai-sdk/provider-utils': '>=3.0.98'
+      '@ai-sdk/provider-utils': 4.0.27
       '@opentelemetry/api': ^1.9.0
       ai: 6.x
       zod: ^4.0.0
