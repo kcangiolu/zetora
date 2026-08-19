@@ -941,6 +941,14 @@ export async function POST(req: Request) {
             const { output: repairedArgs } = await generateText({
               model: await resolveTertiaryModel('tool-repair', cachePreferences, lightweightUser?.userId),
               output: Output.object({ schema: tool.inputSchema }),
+              // Groq's structured-output mode defaults to strict JSON Schema,
+              // which requires every property to be listed in `required` —
+              // Zod .optional() fields (most of web_search's params) get
+              // dropped from `required` by the schema converter instead, so
+              // Groq rejects the whole schema outright before the model ever
+              // sees it (AI_APICallError, no repair attempted at all). This
+              // provider option is a no-op for any other resolved provider.
+              providerOptions: { groq: { strictJsonSchema: false } },
               prompt: [
                 `The model tried to call the tool "${toolCall.toolName}"` + ` with the following arguments:`,
                 JSON.stringify(toolCall.input),
