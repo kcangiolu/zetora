@@ -640,7 +640,13 @@ export const zetora = customProvider({
 });
 
 import type { LanguageModel } from 'ai';
-import { getCustomProviders, getCustomModels, deriveRootURL, type CustomProviderConfig } from '@/lib/custom-providers';
+import {
+  getCustomProviders,
+  getCustomModels,
+  deriveRootURL,
+  shouldUseNativeCustomProvider,
+  type CustomProviderConfig,
+} from '@/lib/custom-providers';
 import { LlamaCppNativeLanguageModel } from './native-models/llamacpp-model';
 import { OllamaNativeLanguageModel } from './native-models/ollama-model';
 
@@ -740,9 +746,11 @@ export async function resolveModel(
   modelId: string,
   preferences?: Record<string, unknown> | null,
   userId?: string,
+  hasImages = false,
 ): Promise<LanguageModel> {
   let resolved: LanguageModel;
   let backendKind: CustomProviderConfig['backendKind'] | undefined;
+  let usingNativeModel = false;
 
   if (!modelId.startsWith('custom-')) {
     resolved = zetora.languageModel(modelId);
@@ -757,10 +765,23 @@ export async function resolveModel(
       const providerConfig = providers.find((p) => p.id === model.providerId);
       backendKind = providerConfig?.backendKind;
 
-      if (providerConfig && backendKind === 'llamacpp') {
-        resolved = getOrCreateLlamaCppModel(providerConfig, model.modelName);
-      } else if (providerConfig && backendKind === 'ollama') {
-        resolved = getOrCreateOllamaModel(providerConfig, model.modelName);
+      // The native llama.cpp (/completion) and Ollama (/api/chat) providers
+      // are text-only for now (see ai/native-models/*-prompt.ts's
+      // partsToText) — a vision-capable model still needs the
+      // OpenAI-compatible route for any turn that actually attaches an
+      // image, or the image silently vanishes even though detectModelVision
+      // correctly told the UI this model supports it. shouldUseNativeCustomProvider
+      // is the single shared decision — lib/reasoning-effort.ts and
+      // lib/chat-commands-server.ts must reach the same conclusion for the
+      // same provider/request, or the reasoning-override shape and
+      // /startwith support end up disagreeing with what actually got called.
+      if (providerConfig && shouldUseNativeCustomProvider(backendKind, providerConfig.enrichedShim, hasImages)) {
+        if (backendKind === 'llamacpp') {
+          resolved = getOrCreateLlamaCppModel(providerConfig, model.modelName);
+        } else {
+          resolved = getOrCreateOllamaModel(providerConfig, model.modelName);
+        }
+        usingNativeModel = true;
       } else {
         resolved = (await getOrCreateProvider(model.providerId, userId)).chatModel(model.modelName);
       }
@@ -772,7 +793,10 @@ export async function resolveModel(
   // llama.cpp's native /completion endpoint has no tool-calling protocol at
   // all — without XML parsing forced on, tool calls would silently break
   // instead of erroring, so this backend can't honor the toggle being off.
-  const forceXmlForNativeLlamaCpp = backendKind === 'llamacpp';
+  // Only applies when the native model is actually in use — the image
+  // fallback above routes through the OpenAI-compatible provider instead,
+  // which has its own real tool-calling protocol.
+  const forceXmlForNativeLlamaCpp = backendKind === 'llamacpp' && usingNativeModel;
 
   if ((xmlParsingEnabled || forceXmlForNativeLlamaCpp) && isCustomModel) {
     resolved = wrapLanguageModel({

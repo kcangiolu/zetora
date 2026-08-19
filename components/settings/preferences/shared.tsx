@@ -139,6 +139,10 @@ export type CustomProviderConfig = {
   // Governs whether the reasoning-effort toggle can send a real control
   // parameter ('vllm'/'llamacpp') or can only hide the <think> output.
   backendKind?: CustomBackendKind;
+  // Forces a llamacpp/ollama-classified provider back onto the
+  // OpenAI-compatible shim instead of the native provider — see
+  // shouldUseNativeCustomProvider in lib/custom-providers.ts.
+  enrichedShim?: boolean;
 };
 
 // Resolves a 'custom-<provider>-<model>' picker id back to its provider entry.

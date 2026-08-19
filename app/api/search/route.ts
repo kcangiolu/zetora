@@ -17,6 +17,7 @@ import {
   AsyncIterableStream,
   wrapLanguageModel,
   type LanguageModel,
+  type LanguageModelMiddleware,
 } from 'ai';
 import type { SharedV3ProviderOptions } from '@ai-sdk/provider';
 import { pipeJsonRender } from '@json-render/core';
@@ -58,9 +59,15 @@ import { filterActiveTools, getEnabledSkillIds } from '@/lib/search/tool-filter'
 import { getLightweightUser } from '@/lib/search/server-helpers';
 import { getCachedCustomInstructionsByUserId, getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { resolveTertiaryModel } from '@/ai/tertiary';
-import { getCustomProviders } from '@/lib/custom-providers';
-import { getCustomProviderOptions, reasoningMaskMiddleware, llamaCppReasoningMaskMiddleware } from '@/lib/reasoning-effort';
+import { getCustomProviders, parseCustomModelId, deriveRootURL } from '@/lib/custom-providers';
+import {
+  getCustomProviderOptions,
+  reasoningMaskMiddleware,
+  llamaCppReasoningMaskMiddleware,
+} from '@/lib/reasoning-effort';
 import type { ReasoningEffort } from '@/lib/reasoning-effort-types';
+import { detectReasoningDelimiters } from '@/ai/native-models/llamacpp-prompt';
+import { createReasoningDelimiterMiddleware } from '@/ai/native-models/reasoning-delimiter-middleware';
 import { getStartWithStrategy } from '@/lib/chat-commands-server';
 import { dropBenignTextPartErrors } from '@/lib/search/benign-stream-errors';
 import { loadConfiguredTools } from '@/lib/search/tool-loader';
@@ -512,7 +519,7 @@ export async function POST(req: Request) {
       : [];
     const startWithStrategy = shouldUseXaiMultiAgent
       ? { supported: false as const }
-      : getStartWithStrategy(model, startWithCustomProviders);
+      : getStartWithStrategy(model, startWithCustomProviders, hasImages);
     if (!startWithStrategy.supported) {
       return new ChatSDKError('bad_request:model', 'startWith not supported by the resolved model').toResponse();
     }
@@ -730,7 +737,7 @@ export async function POST(req: Request) {
 
       let resolvedModel = shouldUseXaiMultiAgent
         ? xai.responses('grok-4.20-multi-agent')
-        : await resolveModel(model, userPreferencesResult?.preferences ?? {}, lightweightUser?.userId);
+        : await resolveModel(model, userPreferencesResult?.preferences ?? {}, lightweightUser?.userId, hasImages);
       // DeepSeek's real prefill needs a distinct provider instance pointed at
       // its /beta endpoint (see getDeepSeekStartWithModel) — swap it in only
       // for this call, normal chat on the same model is unaffected.
@@ -746,17 +753,35 @@ export async function POST(req: Request) {
       let customReasoningProviderOptions: Record<string, unknown> = {};
       if (!shouldUseXaiMultiAgent && model.startsWith('custom-')) {
         const customProviders = await getCustomProviders(lightweightUser?.userId);
-        const overrides = getCustomProviderOptions(model, effort, customProviders);
+        const overrides = getCustomProviderOptions(model, effort, customProviders, hasImages);
         customReasoningProviderOptions = overrides.providerOptions;
         if (overrides.applyMaskMiddleware) {
           // llama.cpp's chat template prefills the opening <think> tag into the
           // rendered prompt (see lib/reasoning-effort.ts), so its completion
           // stream starts already inside reasoning — needs the
           // startWithReasoning variant or the closing </think> leaks straight
-          // through as visible text.
+          // through as visible text. Only applies when overrides.usingNative
+          // is true — a llamacpp provider demoted to the shim (enrichedShim,
+          // or an image turn) never gets this prompt shape, and gets the
+          // generic mask instead.
+          let middleware: LanguageModelMiddleware = reasoningMaskMiddleware;
+          if (overrides.usingNative && overrides.backendKind === 'llamacpp') {
+            // The native /completion endpoint never separates reasoning from
+            // the response the way llama.cpp's own chat-completions endpoint
+            // can — deriveReasoningDelimiters probes the model's own chat
+            // template to find its real reasoning-wrap syntax (whatever it
+            // is, per model) instead of assuming <think>/</think>. Falls
+            // back to the generic <think> mask when no delimiters are found
+            // (unrecognized template shape), same safe default as before.
+            const parsed = parseCustomModelId(model, customProviders);
+            const delimiters = parsed ? await detectReasoningDelimiters(deriveRootURL(parsed.provider.baseURL)) : null;
+            middleware = delimiters
+              ? createReasoningDelimiterMiddleware(delimiters.open, delimiters.close, delimiters.startsInReasoning)
+              : llamaCppReasoningMaskMiddleware;
+          }
           resolvedModel = wrapLanguageModel({
             model: resolvedModel as Extract<typeof resolvedModel, { specificationVersion: 'v3' }>,
-            middleware: overrides.backendKind === 'llamacpp' ? llamaCppReasoningMaskMiddleware : reasoningMaskMiddleware,
+            middleware,
           });
         }
       }
@@ -1060,7 +1085,7 @@ export async function POST(req: Request) {
         return 'Oops, you have reached the rate limit! Please try again later.';
       }
       if (isContextLengthError(error)) {
-        return 'Oops, this conversation is too long for this model\'s context window! Start a new conversation or switch to a model with a larger context window.';
+        return "Oops, this conversation is too long for this model's context window! Start a new conversation or switch to a model with a larger context window.";
       }
       return 'Oops, an error occurred!';
     },

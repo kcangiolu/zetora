@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { getCustomReasoningOverrides, getCustomProviderOptions, getReasoningCapability } from '@/lib/reasoning-effort';
-import type { CustomProviderConfig } from '@/lib/custom-providers';
+import { shouldUseNativeCustomProvider, type CustomProviderConfig } from '@/lib/custom-providers';
 
 const providers: CustomProviderConfig[] = [
   { id: 'llama', name: 'Llama', baseURL: 'https://llama.example/v1', backendKind: 'llamacpp' },
@@ -27,6 +27,7 @@ describe('getCustomReasoningOverrides', () => {
       providerOptions: {},
       applyMaskMiddleware: true,
       backendKind: 'llamacpp',
+      usingNative: true,
     });
 
     const result = getCustomReasoningOverrides('custom-llama-qwen3', 'high', providers);
@@ -40,6 +41,7 @@ describe('getCustomReasoningOverrides', () => {
       },
       applyMaskMiddleware: true,
       backendKind: 'llamacpp',
+      usingNative: true,
     });
 
     const off = getCustomReasoningOverrides('custom-llama-qwen3', 'off', providers);
@@ -52,11 +54,13 @@ describe('getCustomReasoningOverrides', () => {
       providerOptions: { olla: { think: true } },
       applyMaskMiddleware: false,
       backendKind: 'ollama',
+      usingNative: true,
     });
     expect(getCustomReasoningOverrides('custom-olla-qwen3', 'off', providers)).toEqual({
       providerOptions: { olla: { think: false } },
       applyMaskMiddleware: false,
       backendKind: 'ollama',
+      usingNative: true,
     });
   });
 
@@ -64,15 +68,20 @@ describe('getCustomReasoningOverrides', () => {
     expect(getCustomReasoningOverrides('custom-vllm-qwen3', 'low', providers)).toEqual({
       providerOptions: { vllm: { reasoning_effort: 'low' } },
       applyMaskMiddleware: false,
+      backendKind: 'vllm',
+      usingNative: false,
     });
     expect(getCustomReasoningOverrides('custom-vllm-qwen3', 'off', providers)).toEqual({
       providerOptions: {},
       applyMaskMiddleware: true,
       backendKind: 'vllm',
+      usingNative: false,
     });
     expect(getCustomReasoningOverrides('custom-oai-qwen3', 'high', providers)).toEqual({
       providerOptions: { oai: { reasoning_effort: 'high' } },
       applyMaskMiddleware: false,
+      backendKind: 'openai',
+      usingNative: false,
     });
   });
 
@@ -80,10 +89,14 @@ describe('getCustomReasoningOverrides', () => {
     expect(getCustomReasoningOverrides('custom-mystery-qwen3', 'high', providers)).toEqual({
       providerOptions: {},
       applyMaskMiddleware: false,
+      backendKind: 'unknown',
+      usingNative: false,
     });
     expect(getCustomReasoningOverrides('custom-mystery-qwen3', 'off', providers)).toEqual({
       providerOptions: {},
       applyMaskMiddleware: true,
+      backendKind: 'unknown',
+      usingNative: false,
     });
   });
 
@@ -91,7 +104,57 @@ describe('getCustomReasoningOverrides', () => {
     expect(getCustomReasoningOverrides('custom-ghost-qwen3', 'off', providers)).toEqual({
       providerOptions: {},
       applyMaskMiddleware: true,
+      usingNative: false,
     });
+  });
+
+  it('enrichedShim demotes llamacpp/ollama to the generic reasoning_effort shape, not the native one', () => {
+    const enrichedProviders: CustomProviderConfig[] = [
+      { id: 'llama', name: 'Llama', baseURL: 'https://llama.example/v1', backendKind: 'llamacpp', enrichedShim: true },
+      { id: 'olla', name: 'Ollama', baseURL: 'https://olla.example/v1', backendKind: 'ollama', enrichedShim: true },
+    ];
+    expect(getCustomReasoningOverrides('custom-llama-qwen3', 'high', enrichedProviders)).toEqual({
+      providerOptions: { llama: { reasoning_effort: 'high' } },
+      applyMaskMiddleware: false,
+      backendKind: 'llamacpp',
+      usingNative: false,
+    });
+    expect(getCustomReasoningOverrides('custom-olla-qwen3', 'high', enrichedProviders)).toEqual({
+      providerOptions: { olla: { reasoning_effort: 'high' } },
+      applyMaskMiddleware: false,
+      backendKind: 'ollama',
+      usingNative: false,
+    });
+  });
+
+  it('a turn with images demotes a native-eligible llamacpp provider the same way enrichedShim does', () => {
+    expect(getCustomReasoningOverrides('custom-llama-qwen3', 'high', providers, true)).toEqual({
+      providerOptions: { llama: { reasoning_effort: 'high' } },
+      applyMaskMiddleware: false,
+      backendKind: 'llamacpp',
+      usingNative: false,
+    });
+  });
+});
+
+describe('shouldUseNativeCustomProvider', () => {
+  it('is true only for llamacpp/ollama, with no enrichedShim and no images', () => {
+    expect(shouldUseNativeCustomProvider('llamacpp', undefined, false)).toBe(true);
+    expect(shouldUseNativeCustomProvider('ollama', undefined, false)).toBe(true);
+    expect(shouldUseNativeCustomProvider('vllm', undefined, false)).toBe(false);
+    expect(shouldUseNativeCustomProvider('openai', undefined, false)).toBe(false);
+    expect(shouldUseNativeCustomProvider('unknown', undefined, false)).toBe(false);
+    expect(shouldUseNativeCustomProvider(undefined, undefined, false)).toBe(false);
+  });
+
+  it('enrichedShim opts a llamacpp/ollama provider back out of native routing', () => {
+    expect(shouldUseNativeCustomProvider('llamacpp', true, false)).toBe(false);
+    expect(shouldUseNativeCustomProvider('ollama', true, false)).toBe(false);
+  });
+
+  it('an image-bearing turn always routes to the shim, regardless of enrichedShim', () => {
+    expect(shouldUseNativeCustomProvider('llamacpp', false, true)).toBe(false);
+    expect(shouldUseNativeCustomProvider('llamacpp', undefined, true)).toBe(false);
   });
 });
 
@@ -111,6 +174,7 @@ describe('getCustomProviderOptions', () => {
       providerOptions: { vllm: { guided_json: true, top_k: 40 } },
       applyMaskMiddleware: false,
       backendKind: 'vllm',
+      usingNative: false,
     });
   });
 
@@ -127,6 +191,8 @@ describe('getCustomProviderOptions', () => {
     expect(getCustomProviderOptions('custom-vllm-qwen3', 'high', collidingProviders)).toEqual({
       providerOptions: { vllm: { reasoning_effort: 'high', top_k: 40 } },
       applyMaskMiddleware: false,
+      backendKind: 'vllm',
+      usingNative: false,
     });
   });
 
@@ -135,6 +201,7 @@ describe('getCustomProviderOptions', () => {
       providerOptions: {},
       applyMaskMiddleware: false,
       backendKind: 'unknown',
+      usingNative: false,
     });
   });
 

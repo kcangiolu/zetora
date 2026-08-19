@@ -12,7 +12,7 @@ import { type Model } from '@/ai/models';
 import { sileo } from 'sileo';
 import { useQueryClient } from '@tanstack/react-query';
 import { TrashIcon, FloppyDiskIcon } from '@phosphor-icons/react';
-import { X, Loader2, Zap, ZapOff, Plus, Shield, ShieldOff, RefreshCw } from 'lucide-react';
+import { X, Loader2, Zap, ZapOff, Plus, Shield, ShieldOff, RefreshCw, Cloud, Cpu } from 'lucide-react';
 import { useState, useCallback, type Dispatch, type SetStateAction } from 'react';
 import {
   type CustomProviderConfig,
@@ -77,6 +77,7 @@ export function AiModelsTab({
   const [detectedBackendKind, setDetectedBackendKind] = useState<CustomBackendKind | null>(null);
   const [isSavingProvider, setIsSavingProvider] = useState(false);
   const [redetectingBackendId, setRedetectingBackendId] = useState<string | null>(null);
+  const [expandedEnrichedShimId, setExpandedEnrichedShimId] = useState<string | null>(null);
 
   const handleDetectModels = async () => {
     if (!newProvider.baseURL) return;
@@ -189,6 +190,21 @@ export function AiModelsTab({
 
   const handleToggleAnonymize = async (id: string) => {
     const updated = customProviders.map((p) => (p.id === id ? { ...p, anonymize: !p.anonymize } : p));
+    try {
+      await fetch('/api/custom-providers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ providers: updated }),
+      });
+      setCustomProviders(updated);
+      queryClient.invalidateQueries({ queryKey: ['customModels'] });
+    } catch {
+      sileo.error({ title: 'Failed to update provider' });
+    }
+  };
+
+  const handleToggleEnrichedShim = async (id: string) => {
+    const updated = customProviders.map((p) => (p.id === id ? { ...p, enrichedShim: !p.enrichedShim } : p));
     try {
       await fetch('/api/custom-providers', {
         method: 'POST',
@@ -366,87 +382,120 @@ export function AiModelsTab({
           {customProviders.length > 0 && (
             <div className="divide-y divide-border/40">
               {customProviders.map((p) => (
-                <div key={p.id} className="flex items-center justify-between px-4 py-2.5 gap-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="text-[10px] text-green-500">●</span>
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium truncate">{p.name}</p>
-                      <p className="text-[11px] text-muted-foreground/60 truncate">{p.baseURL}</p>
-                      <Select
-                        value={p.backendKind ?? 'unknown'}
-                        onValueChange={(value) => handleSetBackendKind(p.id, value as CustomBackendKind)}
-                      >
-                        <SelectTrigger
-                          size="sm"
-                          className="h-6 mt-1 text-[11px] px-2 gap-1 rounded-md border border-border/50 bg-muted/40 hover:bg-muted/70 text-foreground/70 shadow-none w-fit"
-                          title="Backend kind — governs whether the reasoning-effort toggle can send real control parameters or can only hide thinking output"
+                <div key={p.id}>
+                  <div className="flex items-center justify-between px-4 py-2.5 gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="text-[10px] text-green-500">●</span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium truncate">{p.name}</p>
+                        <p className="text-[11px] text-muted-foreground/60 truncate">{p.baseURL}</p>
+                        <Select
+                          value={p.backendKind ?? 'unknown'}
+                          onValueChange={(value) => handleSetBackendKind(p.id, value as CustomBackendKind)}
                         >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(Object.keys(BACKEND_KIND_LABEL) as CustomBackendKind[]).map((kind) => (
-                            <SelectItem key={kind} value={kind} className="text-xs">
-                              {BACKEND_KIND_LABEL[kind]}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                          <SelectTrigger
+                            size="sm"
+                            className="h-6 mt-1 text-[11px] px-2 gap-1 rounded-md border border-border/50 bg-muted/40 hover:bg-muted/70 text-foreground/70 shadow-none w-fit"
+                            title="Backend kind — governs whether the reasoning-effort toggle can send real control parameters or can only hide thinking output"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(Object.keys(BACKEND_KIND_LABEL) as CustomBackendKind[]).map((kind) => (
+                              <SelectItem key={kind} value={kind} className="text-xs">
+                                {BACKEND_KIND_LABEL[kind]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {(p.backendKind === 'llamacpp' || p.backendKind === 'ollama') && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                          title="Enriched compatibility mode settings"
+                          onClick={() => setExpandedEnrichedShimId((cur) => (cur === p.id ? null : p.id))}
+                        >
+                          {p.enrichedShim ? <Cloud className="h-3 w-3" /> : <Cpu className="h-3 w-3" />}
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                        title="Re-detect backend kind (Ollama / vLLM / llama.cpp)"
+                        disabled={redetectingBackendId === p.id}
+                        onClick={() => handleRedetectBackend(p)}
+                      >
+                        {redetectingBackendId === p.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-3 w-3" />
+                        )}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                        title={
+                          p.anonymize
+                            ? 'Anonymization on — PII is masked before requests reach this provider'
+                            : 'Anonymization off — click to enable if this provider is a cloud endpoint'
+                        }
+                        onClick={() => handleToggleAnonymize(p.id)}
+                      >
+                        {p.anonymize ? <Shield className="h-3 w-3" /> : <ShieldOff className="h-3 w-3" />}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                        title={
+                          p.disableAutoDetect
+                            ? 'Auto-detect disabled — click to enable'
+                            : 'Auto-detect enabled — click to disable'
+                        }
+                        onClick={() => handleToggleAutoDetect(p.id)}
+                      >
+                        {p.disableAutoDetect ? <ZapOff className="h-3 w-3" /> : <Zap className="h-3 w-3" />}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                        onClick={() => handleRemoveProvider(p.id)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                      title="Re-detect backend kind (Ollama / vLLM / llama.cpp)"
-                      disabled={redetectingBackendId === p.id}
-                      onClick={() => handleRedetectBackend(p)}
-                    >
-                      {redetectingBackendId === p.id ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <RefreshCw className="h-3 w-3" />
-                      )}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                      title={
-                        p.anonymize
-                          ? 'Anonymization on — PII is masked before requests reach this provider'
-                          : 'Anonymization off — click to enable if this provider is a cloud endpoint'
-                      }
-                      onClick={() => handleToggleAnonymize(p.id)}
-                    >
-                      {p.anonymize ? <Shield className="h-3 w-3" /> : <ShieldOff className="h-3 w-3" />}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                      title={
-                        p.disableAutoDetect
-                          ? 'Auto-detect disabled — click to enable'
-                          : 'Auto-detect enabled — click to disable'
-                      }
-                      onClick={() => handleToggleAutoDetect(p.id)}
-                    >
-                      {p.disableAutoDetect ? <ZapOff className="h-3 w-3" /> : <Zap className="h-3 w-3" />}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                      onClick={() => handleRemoveProvider(p.id)}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
+                  {expandedEnrichedShimId === p.id && (p.backendKind === 'llamacpp' || p.backendKind === 'ollama') && (
+                    <div className="flex items-center justify-between px-4 py-3 bg-muted/20 gap-6 border-t border-border/40">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium">Enriched compatibility mode</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          Route this provider&apos;s requests through the standard OpenAI-compatible API instead of
+                          talking to {p.backendKind === 'llamacpp' ? 'llama.cpp' : 'Ollama'} directly. Adds: image
+                          attachments, and the server&apos;s own chat-template rendering (fewer formatting quirks).
+                          Removes: real prompt prefill (/startwith), grammar constraints, mirostat and other native
+                          sampling controls.
+                        </p>
+                      </div>
+                      <Switch
+                        id={`enriched-shim-${p.id}`}
+                        checked={p.enrichedShim ?? false}
+                        onCheckedChange={() => handleToggleEnrichedShim(p.id)}
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

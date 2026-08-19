@@ -19,6 +19,7 @@ const SaveSchema = z.object({
       disableAutoDetect: z.boolean().optional(),
       anonymize: z.boolean().optional(),
       backendKind: z.enum(['ollama', 'vllm', 'llamacpp', 'openai', 'unknown']).optional(),
+      enrichedShim: z.boolean().optional(),
       hasApiKey: z.unknown().optional(),
     }),
   ),

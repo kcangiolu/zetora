@@ -28,9 +28,36 @@ export interface CustomProviderConfig {
   // (llama.cpp: mirostat/cache_prompt; vLLM: guided-decoding fields...). Keys
   // are backend-specific — see ai/native-models/ and getCustomReasoningOverrides.
   nativeParams?: Record<string, unknown>;
+  // Forces a llamacpp/ollama-classified provider back onto the
+  // OpenAI-compatible shim instead of the native /completion or /api/chat
+  // providers — reproduces the exact pre-native-provider behavior (see
+  // shouldUseNativeCustomProvider). Gains: image attachments without the
+  // per-turn hasImages routing bounce, the server rendering its own chat
+  // template (no client-side Jinja re-implementation to get subtly wrong per
+  // model), reasoning control via the generic reasoning_effort string.
+  // Loses: real prefill (/startwith), grammar, mirostat/native sampling
+  // knobs, direct cache_prompt control. No effect on 'vllm'/'openai'/
+  // 'unknown' providers, which already always use the shim.
+  enrichedShim?: boolean;
 }
 
 export type CustomBackendKind = 'ollama' | 'vllm' | 'llamacpp' | 'openai' | 'unknown';
+
+// Single source of truth for "does this custom-provider request use the
+// native llama.cpp/Ollama path, or the OpenAI-compatible shim?" — consumed by
+// resolveModel (actual routing), getCustomReasoningOverrides (reasoning
+// override shape), and getStartWithStrategy (prefill support). Must never be
+// computed inline anywhere else, or those call sites can disagree about which
+// path a request is actually taking.
+export function shouldUseNativeCustomProvider(
+  backendKind: CustomBackendKind | undefined,
+  enrichedShim: boolean | undefined,
+  hasImages: boolean,
+): boolean {
+  if (hasImages) return false; // native text-only providers never carry images
+  if (enrichedShim) return false; // explicit opt-out back to the old shim-routed behavior
+  return backendKind === 'llamacpp' || backendKind === 'ollama';
+}
 
 export interface CustomModelInfo {
   id: string;

@@ -1,7 +1,12 @@
 import 'server-only';
 import { extractReasoningMiddleware } from 'ai';
 import { getModelConfig, getModelProvider } from '@/ai/models';
-import { parseCustomModelId, type CustomProviderConfig, type CustomBackendKind } from '@/lib/custom-providers';
+import {
+  parseCustomModelId,
+  shouldUseNativeCustomProvider,
+  type CustomProviderConfig,
+  type CustomBackendKind,
+} from '@/lib/custom-providers';
 import type { ReasoningEffort, ReasoningCapability } from '@/lib/reasoning-effort-types';
 
 export type { ReasoningEffort, ReasoningCapability };
@@ -53,12 +58,19 @@ export const reasoningMaskMiddleware = extractReasoningMiddleware({ tagName: 'th
 // straight through. This variant starts already inside reasoning, matching
 // ai/providers.ts's middlewareWithStartWithReasoning for the same prefill
 // shape on other providers.
-export const llamaCppReasoningMaskMiddleware = extractReasoningMiddleware({ tagName: 'think', startWithReasoning: true });
+export const llamaCppReasoningMaskMiddleware = extractReasoningMiddleware({
+  tagName: 'think',
+  startWithReasoning: true,
+});
 
 function resolveCustomBackend(modelId: string, customProviders: CustomProviderConfig[]) {
   const parsed = parseCustomModelId(modelId, customProviders);
   if (!parsed) return null;
-  return { providerId: parsed.provider.id, backendKind: parsed.provider.backendKind };
+  return {
+    providerId: parsed.provider.id,
+    backendKind: parsed.provider.backendKind,
+    enrichedShim: parsed.provider.enrichedShim,
+  };
 }
 
 export function getReasoningCapability(
@@ -80,12 +92,24 @@ export function getCustomReasoningOverrides(
   modelId: string,
   effort: ReasoningEffort,
   customProviders: CustomProviderConfig[],
-): { providerOptions: Record<string, unknown>; applyMaskMiddleware: boolean; backendKind?: CustomBackendKind } {
+  hasImages = false,
+): {
+  providerOptions: Record<string, unknown>;
+  applyMaskMiddleware: boolean;
+  backendKind?: CustomBackendKind;
+  // Whether this request actually routes through the native llama.cpp/Ollama
+  // provider (see shouldUseNativeCustomProvider) — an enrichedShim opt-out or
+  // an image-bearing turn demotes a llamacpp/ollama provider to the shim, in
+  // which case it must NOT get the native-only providerOptions/mask shape
+  // below, even though backendKind itself still reports 'llamacpp'/'ollama'.
+  usingNative?: boolean;
+} {
   if (!modelId.startsWith('custom-')) {
     return { providerOptions: {}, applyMaskMiddleware: false };
   }
 
   const backend = resolveCustomBackend(modelId, customProviders);
+  const usingNative = shouldUseNativeCustomProvider(backend?.backendKind, backend?.enrichedShim, hasImages);
 
   // llama.cpp's native /completion endpoint (ai/native-models/llamacpp-model.ts)
   // never separates <think> output into its own field the way its
@@ -97,10 +121,13 @@ export function getCustomReasoningOverrides(
   // is sent at all and the model's own chat-template default decides whether
   // it thinks. extractReasoningMiddleware is a no-op passthrough when the
   // text never contains the tag, so masking unconditionally costs nothing on
-  // turns where the model doesn't actually reason.
-  if (backend?.backendKind === 'llamacpp') {
+  // turns where the model doesn't actually reason. Only applies when the
+  // native path is actually in use — enrichedShim/hasImages fall through to
+  // the generic reasoning_effort branch below instead, matching the exact
+  // pre-native-provider behavior for this backend.
+  if (usingNative && backend?.backendKind === 'llamacpp') {
     if (effort === 'auto') {
-      return { providerOptions: {}, applyMaskMiddleware: true, backendKind: backend.backendKind };
+      return { providerOptions: {}, applyMaskMiddleware: true, backendKind: backend.backendKind, usingNative };
     }
     const tier = effort as EffortTier;
     return {
@@ -117,45 +144,58 @@ export function getCustomReasoningOverrides(
       },
       applyMaskMiddleware: true,
       backendKind: backend.backendKind,
+      usingNative,
     };
   }
 
   if (effort === 'auto') {
-    return { providerOptions: {}, applyMaskMiddleware: false, backendKind: backend?.backendKind };
+    return { providerOptions: {}, applyMaskMiddleware: false, backendKind: backend?.backendKind, usingNative };
   }
   const tier = effort as EffortTier;
 
   if (!backend) {
-    return { providerOptions: {}, applyMaskMiddleware: tier === 'off' };
+    return { providerOptions: {}, applyMaskMiddleware: tier === 'off', usingNative };
   }
 
-  if (backend.backendKind === 'ollama') {
+  if (usingNative && backend.backendKind === 'ollama') {
     // Ollama's native /api/chat `think` boolean is a real, model-agnostic
     // on/off switch — unlike reasoning_effort strings, it never gets
     // rejected by a model that doesn't recognize the value (ollama/ollama#12004
     // was specifically about guessing an unsupported reasoning_effort string).
+    // Only applies when the native path is actually in use — before native
+    // providers existed, an ollama-classified provider always went through
+    // the generic reasoning_effort branch below; enrichedShim reproduces that.
     return {
       providerOptions: { [backend.providerId]: { think: tier !== 'off' } },
       applyMaskMiddleware: false,
       backendKind: backend.backendKind,
+      usingNative,
     };
   }
 
-  if (backend.backendKind === 'vllm' || backend.backendKind === 'openai') {
+  // vllm/openai always land here. A llamacpp/ollama provider also lands here
+  // whenever usingNative is false (enrichedShim opt-out, or an image turn
+  // bounced this request to the shim) — the same generic reasoning_effort
+  // string shape those backends have always used, matching the exact
+  // pre-native behavior for llamacpp/ollama providers.
+  const demotedToShim = (backend.backendKind === 'llamacpp' || backend.backendKind === 'ollama') && !usingNative;
+  if (backend.backendKind === 'vllm' || backend.backendKind === 'openai' || demotedToShim) {
     if (tier === 'off') {
       // No universal "disable" value is safe to send across these backends —
       // fall back to masking the output instead of guessing a value that
       // might get rejected.
-      return { providerOptions: {}, applyMaskMiddleware: true, backendKind: backend.backendKind };
+      return { providerOptions: {}, applyMaskMiddleware: true, backendKind: backend.backendKind, usingNative };
     }
     return {
       providerOptions: { [backend.providerId]: { reasoning_effort: OPENAI_STYLE_EFFORT_MAP[tier] } },
       applyMaskMiddleware: false,
+      backendKind: backend.backendKind,
+      usingNative,
     };
   }
 
   // unknown: no real control available, only hide the output.
-  return { providerOptions: {}, applyMaskMiddleware: tier === 'off' };
+  return { providerOptions: {}, applyMaskMiddleware: tier === 'off', backendKind: backend.backendKind, usingNative };
 }
 
 // Combines the reasoning-tier override above with each provider's static
@@ -168,13 +208,19 @@ export function getCustomProviderOptions(
   modelId: string,
   effort: ReasoningEffort,
   customProviders: CustomProviderConfig[],
-): { providerOptions: Record<string, unknown>; applyMaskMiddleware: boolean; backendKind?: CustomBackendKind } {
+  hasImages = false,
+): {
+  providerOptions: Record<string, unknown>;
+  applyMaskMiddleware: boolean;
+  backendKind?: CustomBackendKind;
+  usingNative?: boolean;
+} {
   const parsed = parseCustomModelId(modelId, customProviders);
   if (!parsed) {
-    return getCustomReasoningOverrides(modelId, effort, customProviders);
+    return getCustomReasoningOverrides(modelId, effort, customProviders, hasImages);
   }
 
-  const reasoning = getCustomReasoningOverrides(modelId, effort, customProviders);
+  const reasoning = getCustomReasoningOverrides(modelId, effort, customProviders, hasImages);
   const merged = {
     ...parsed.provider.nativeParams,
     ...(reasoning.providerOptions[parsed.provider.id] as Record<string, unknown> | undefined),
@@ -184,6 +230,7 @@ export function getCustomProviderOptions(
     providerOptions: Object.keys(merged).length > 0 ? { [parsed.provider.id]: merged } : {},
     applyMaskMiddleware: reasoning.applyMaskMiddleware,
     backendKind: reasoning.backendKind,
+    usingNative: reasoning.usingNative,
   };
 }
 

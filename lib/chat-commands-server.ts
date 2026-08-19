@@ -1,7 +1,7 @@
 import 'server-only';
 import type { LanguageModel } from 'ai';
 import type { SharedV3ProviderOptions } from '@ai-sdk/provider';
-import { parseCustomModelId, type CustomProviderConfig } from '@/lib/custom-providers';
+import { parseCustomModelId, shouldUseNativeCustomProvider, type CustomProviderConfig } from '@/lib/custom-providers';
 import { getModelProvider } from '@/ai/models';
 import { getDeepSeekStartWithModel } from '@/ai/providers';
 
@@ -31,15 +31,30 @@ export interface StartWithStrategy {
 // assistant message on a backend that doesn't support continuation is just
 // treated as a stale previous turn, which wouldn't reliably honor the prefix
 // either — callers should reject the request outright when unsupported.
-export function getStartWithStrategy(modelId: string, customProviders: CustomProviderConfig[]): StartWithStrategy {
+export function getStartWithStrategy(
+  modelId: string,
+  customProviders: CustomProviderConfig[],
+  hasImages = false,
+): StartWithStrategy {
   if (modelId.startsWith('custom-')) {
     const parsed = parseCustomModelId(modelId, customProviders);
     if (!parsed) return { supported: false };
 
-    if (parsed.provider.backendKind === 'llamacpp') {
+    // Real prefill only exists on the native path — an enrichedShim opt-out
+    // or an image-bearing turn routes this request through the
+    // OpenAI-compatible shim instead (see shouldUseNativeCustomProvider),
+    // where prefill isn't reliable, so it must fall through to the hard
+    // rejection below rather than claim support it can't deliver.
+    const usingNative = shouldUseNativeCustomProvider(
+      parsed.provider.backendKind,
+      parsed.provider.enrichedShim,
+      hasImages,
+    );
+
+    if (usingNative && parsed.provider.backendKind === 'llamacpp') {
       return { supported: true, providerOptions: { [parsed.provider.id]: { enable_thinking: false } } };
     }
-    if (parsed.provider.backendKind === 'ollama') {
+    if (usingNative && parsed.provider.backendKind === 'ollama') {
       return { supported: true, providerOptions: { [parsed.provider.id]: { think: false } } };
     }
     return { supported: false };
