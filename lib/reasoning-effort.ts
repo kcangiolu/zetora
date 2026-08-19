@@ -43,6 +43,18 @@ const LLAMACPP_THINKING_BUDGET_MAP: Record<EffortTier, number> = {
 // (custom Ollama/unknown backends, and any task's "off" effort on them).
 export const reasoningMaskMiddleware = extractReasoningMiddleware({ tagName: 'think' });
 
+// llama.cpp's chat template (ai/native-models/llamacpp-prompt.ts) injects the
+// opening <think>\n tag into the rendered PROMPT itself when enable_thinking
+// is on — that's how Qwen3-style templates force the model into thinking
+// mode. The model's own completion stream therefore never emits a literal
+// <think>, only the closing </think> — confirmed live. The default
+// startWithReasoning:false variant above scans for the opening tag first and
+// never finds it, so it stays in "plain text" mode and lets </think> leak
+// straight through. This variant starts already inside reasoning, matching
+// ai/providers.ts's middlewareWithStartWithReasoning for the same prefill
+// shape on other providers.
+export const llamaCppReasoningMaskMiddleware = extractReasoningMiddleware({ tagName: 'think', startWithReasoning: true });
+
 function resolveCustomBackend(modelId: string, customProviders: CustomProviderConfig[]) {
   const parsed = parseCustomModelId(modelId, customProviders);
   if (!parsed) return null;
@@ -68,27 +80,53 @@ export function getCustomReasoningOverrides(
   modelId: string,
   effort: ReasoningEffort,
   customProviders: CustomProviderConfig[],
-): { providerOptions: Record<string, unknown>; applyMaskMiddleware: boolean } {
-  if (effort === 'auto' || !modelId.startsWith('custom-')) {
+): { providerOptions: Record<string, unknown>; applyMaskMiddleware: boolean; backendKind?: CustomBackendKind } {
+  if (!modelId.startsWith('custom-')) {
     return { providerOptions: {}, applyMaskMiddleware: false };
   }
-  const tier = effort as EffortTier;
 
   const backend = resolveCustomBackend(modelId, customProviders);
-  if (!backend) {
-    return { providerOptions: {}, applyMaskMiddleware: tier === 'off' };
-  }
 
-  if (backend.backendKind === 'llamacpp') {
+  // llama.cpp's native /completion endpoint (ai/native-models/llamacpp-model.ts)
+  // never separates <think> output into its own field the way its
+  // OpenAI-compatible /v1/chat/completions endpoint can (--reasoning-format) —
+  // whatever the model emits streams straight through as one plain-text blob.
+  // enable_thinking only controls whether the model reasons at all, not
+  // whether the tags get stripped, so this backend must always be masked —
+  // including at the default 'auto' effort, where no enable_thinking override
+  // is sent at all and the model's own chat-template default decides whether
+  // it thinks. extractReasoningMiddleware is a no-op passthrough when the
+  // text never contains the tag, so masking unconditionally costs nothing on
+  // turns where the model doesn't actually reason.
+  if (backend?.backendKind === 'llamacpp') {
+    if (effort === 'auto') {
+      return { providerOptions: {}, applyMaskMiddleware: true, backendKind: backend.backendKind };
+    }
+    const tier = effort as EffortTier;
     return {
       providerOptions: {
+        // Top-level, not nested under chat_template_kwargs: /completion never
+        // applies chat templates server-side (the prompt is already fully
+        // rendered client-side by renderLlamaCppPrompt), so enable_thinking
+        // only does anything by being read directly off providerOptions —
+        // see ai/native-models/llamacpp-model.ts's nativeOptions.enable_thinking.
         [backend.providerId]: {
-          chat_template_kwargs: { enable_thinking: tier !== 'off' },
+          enable_thinking: tier !== 'off',
           thinking_budget_tokens: LLAMACPP_THINKING_BUDGET_MAP[tier],
         },
       },
-      applyMaskMiddleware: false,
+      applyMaskMiddleware: true,
+      backendKind: backend.backendKind,
     };
+  }
+
+  if (effort === 'auto') {
+    return { providerOptions: {}, applyMaskMiddleware: false, backendKind: backend?.backendKind };
+  }
+  const tier = effort as EffortTier;
+
+  if (!backend) {
+    return { providerOptions: {}, applyMaskMiddleware: tier === 'off' };
   }
 
   if (backend.backendKind === 'ollama') {
@@ -99,6 +137,7 @@ export function getCustomReasoningOverrides(
     return {
       providerOptions: { [backend.providerId]: { think: tier !== 'off' } },
       applyMaskMiddleware: false,
+      backendKind: backend.backendKind,
     };
   }
 
@@ -107,7 +146,7 @@ export function getCustomReasoningOverrides(
       // No universal "disable" value is safe to send across these backends —
       // fall back to masking the output instead of guessing a value that
       // might get rejected.
-      return { providerOptions: {}, applyMaskMiddleware: true };
+      return { providerOptions: {}, applyMaskMiddleware: true, backendKind: backend.backendKind };
     }
     return {
       providerOptions: { [backend.providerId]: { reasoning_effort: OPENAI_STYLE_EFFORT_MAP[tier] } },
@@ -129,7 +168,7 @@ export function getCustomProviderOptions(
   modelId: string,
   effort: ReasoningEffort,
   customProviders: CustomProviderConfig[],
-): { providerOptions: Record<string, unknown>; applyMaskMiddleware: boolean } {
+): { providerOptions: Record<string, unknown>; applyMaskMiddleware: boolean; backendKind?: CustomBackendKind } {
   const parsed = parseCustomModelId(modelId, customProviders);
   if (!parsed) {
     return getCustomReasoningOverrides(modelId, effort, customProviders);
@@ -144,6 +183,7 @@ export function getCustomProviderOptions(
   return {
     providerOptions: Object.keys(merged).length > 0 ? { [parsed.provider.id]: merged } : {},
     applyMaskMiddleware: reasoning.applyMaskMiddleware,
+    backendKind: reasoning.backendKind,
   };
 }
 

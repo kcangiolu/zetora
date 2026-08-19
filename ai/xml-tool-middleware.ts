@@ -1,5 +1,6 @@
 import 'server-only';
 import type { LanguageModelMiddleware } from 'ai';
+import type { LanguageModelV3StreamPart } from '@ai-sdk/provider';
 import {
   morphXmlToolMiddleware,
   morphXmlProtocol,
@@ -61,6 +62,61 @@ export function hoistSystemMessagesToFront(prompt: PromptMessage[]): PromptMessa
   return [...systemMessages, ...nonSystem];
 }
 
+// The 3-layer parserChain above re-wraps the same underlying text stream
+// three times, and each layer independently re-emits its own text-start/
+// text-end boundary around the content it passes through — so a single real
+// text run can surface as several redundant text-start/text-delta/text-end
+// triples with DIFFERENT random ids, all describing the same content.
+// Consumers stacked on top that track "the current open text id" as a single
+// slot (extractReasoningMiddleware's delayedTextStart, used by every
+// reasoning-mask middleware in lib/reasoning-effort.ts) get a second
+// text-start before the first was ever forwarded, silently drop the first
+// one, and later choke on its now-orphaned text-end — surfacing downstream
+// as `AI_UIMessageStreamError: Received text-end for missing text part`,
+// which crashes the whole response (confirmed live: "failed to pipe
+// response", 500). Force every text-start/text-delta/text-end through a
+// single canonical id per open run, so at most one text part is ever open at
+// a time and nothing downstream can lose track of it.
+export function normalizeTextBoundaries(
+  stream: ReadableStream<LanguageModelV3StreamPart>,
+): ReadableStream<LanguageModelV3StreamPart> {
+  let openId: string | null = null;
+  return stream.pipeThrough(
+    new TransformStream<LanguageModelV3StreamPart, LanguageModelV3StreamPart>({
+      transform(chunk, controller) {
+        if (chunk.type === 'text-start') {
+          // A text part is already open — this is a redundant boundary from
+          // the parser chain; keep using the one already open instead of
+          // starting a second, competing one.
+          if (openId !== null) return;
+          openId = chunk.id;
+          controller.enqueue(chunk);
+          return;
+        }
+        if (chunk.type === 'text-delta') {
+          if (openId === null) {
+            // Orphaned delta with no open text part — synthesize one instead
+            // of dropping real model output.
+            openId = chunk.id;
+            controller.enqueue({ type: 'text-start', id: openId });
+          }
+          controller.enqueue(openId === chunk.id ? chunk : { ...chunk, id: openId });
+          return;
+        }
+        if (chunk.type === 'text-end') {
+          // Nothing open to close — the redundant end this whole function
+          // exists to neutralize. Drop it.
+          if (openId === null) return;
+          controller.enqueue(openId === chunk.id ? chunk : { ...chunk, id: openId });
+          openId = null;
+          return;
+        }
+        controller.enqueue(chunk);
+      },
+    }),
+  );
+}
+
 export const dynamicXmlToolMiddleware: LanguageModelMiddleware = {
   specificationVersion: 'v3',
 
@@ -89,7 +145,8 @@ export const dynamicXmlToolMiddleware: LanguageModelMiddleware = {
       const doStream = next;
       next = () => middleware.wrapStream!({ ...args, doStream }) as ReturnType<WrapStreamArgs['doStream']>;
     }
-    return next();
+    const result = await next();
+    return { ...result, stream: normalizeTextBoundaries(result.stream) };
   },
 
   wrapGenerate: async (args: WrapGenerateArgs) => {

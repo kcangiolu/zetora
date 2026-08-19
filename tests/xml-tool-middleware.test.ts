@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import type { LanguageModelV3StreamPart } from '@ai-sdk/provider';
 import { morphXmlProtocol } from '@ai-sdk-tool/parser';
-import { hoistSystemMessagesToFront } from '@/ai/xml-tool-middleware';
+import { hoistSystemMessagesToFront, normalizeTextBoundaries } from '@/ai/xml-tool-middleware';
 
 const m = (role: string, tag = '') => ({ role, tag });
 
@@ -58,6 +59,130 @@ const webSearchTool = {
 } as any;
 
 const leakedText = `<web_search> <queries>offre reprise Tesla Model Y Grande Autonomie Propulsion 2026 France</queries> <queries>reprise Tesla occasion constructeur Model Y 2026 France prix</queries> <queries>prime reprise Tesla Model Y 2026 France offre</queries> <queries>estimation reprise Tesla Model Y Grande Autonomie 2026 Largus La Centrale</queries> <maxResults>8</maxResults> <maxResults>8</maxResults> <maxResults>8</maxResults> <maxResults>8</maxResults> <topics>general</topics> <topics>general</topics> <topics>general</topics> <topics>general</topics> <language>fr</language> <language>fr</language> <language>fr</language> <language>fr</language> <quality>best</quality> <quality>best</quality> <quality>best</quality> <quality>best</quality> <startDates></startDates> <startDates></startDates> <startDates></startDates> <startDates></startDates> </web_search>`;
+
+function partsStream(parts: LanguageModelV3StreamPart[]): ReadableStream<LanguageModelV3StreamPart> {
+  return new ReadableStream({
+    start(controller) {
+      for (const p of parts) controller.enqueue(p);
+      controller.close();
+    },
+  });
+}
+
+async function collect(stream: ReadableStream<LanguageModelV3StreamPart>): Promise<LanguageModelV3StreamPart[]> {
+  const reader = stream.getReader();
+  const out: LanguageModelV3StreamPart[] = [];
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    out.push(value);
+  }
+  return out;
+}
+
+// Regression test for a real production crash: the 3-layer parserChain in
+// dynamicXmlToolMiddleware re-emits redundant text-start/text-end boundaries
+// with different ids around the same content. Stacked on top,
+// extractReasoningMiddleware's single-slot delayedTextStart silently drops
+// the first text-start and later chokes on its orphaned text-end, which
+// surfaced live as `AI_UIMessageStreamError: Received text-end for missing
+// text part`, crashing the whole request with "failed to pipe response".
+describe('normalizeTextBoundaries', () => {
+  it('collapses a redundant text-start into the already-open text part', async () => {
+    const out = await collect(
+      normalizeTextBoundaries(
+        partsStream([
+          { type: 'text-start', id: 'a' },
+          { type: 'text-start', id: 'b' }, // redundant — must not open a second part
+          { type: 'text-delta', id: 'b', delta: 'hello' },
+          { type: 'text-end', id: 'b' },
+        ]),
+      ),
+    );
+    expect(out).toEqual([
+      { type: 'text-start', id: 'a' },
+      { type: 'text-delta', id: 'a', delta: 'hello' },
+      { type: 'text-end', id: 'a' },
+    ]);
+  });
+
+  it('drops an orphaned text-end with nothing open — the exact chunk that used to crash the response', async () => {
+    const out = await collect(
+      normalizeTextBoundaries(
+        partsStream([
+          { type: 'text-start', id: 'a' },
+          { type: 'text-end', id: 'a' },
+          { type: 'text-end', id: 'never-opened' }, // must be dropped, not forwarded
+        ]),
+      ),
+    );
+    expect(out).toEqual([
+      { type: 'text-start', id: 'a' },
+      { type: 'text-end', id: 'a' },
+    ]);
+  });
+
+  it('synthesizes a text-start for an orphaned delta instead of losing real model output', async () => {
+    const out = await collect(normalizeTextBoundaries(partsStream([{ type: 'text-delta', id: 'x', delta: 'salut' }])));
+    expect(out).toEqual([
+      { type: 'text-start', id: 'x' },
+      { type: 'text-delta', id: 'x', delta: 'salut' },
+    ]);
+  });
+
+  it('leaves a well-formed single text run untouched', async () => {
+    const parts: LanguageModelV3StreamPart[] = [
+      { type: 'text-start', id: 'a' },
+      { type: 'text-delta', id: 'a', delta: 'hi' },
+      { type: 'text-end', id: 'a' },
+    ];
+    expect(await collect(normalizeTextBoundaries(partsStream(parts)))).toEqual(parts);
+  });
+
+  it('passes non-text chunks through unchanged', async () => {
+    const parts: LanguageModelV3StreamPart[] = [
+      { type: 'reasoning-start', id: 'r' },
+      { type: 'tool-call', toolCallId: 't1', toolName: 'web_search', input: '{}' } as LanguageModelV3StreamPart,
+      { type: 'finish', finishReason: { unified: 'stop', raw: undefined }, usage: {} as never },
+    ];
+    expect(await collect(normalizeTextBoundaries(partsStream(parts)))).toEqual(parts);
+  });
+
+  it('handles the full pathological sequence: two full runs each preceded by a redundant text-start', async () => {
+    const out = await collect(
+      normalizeTextBoundaries(
+        partsStream([
+          { type: 'text-start', id: 'f99261206bbb4' },
+          { type: 'text-start', id: 'txt-0' }, // redundant, from a second parser layer
+          { type: 'text-delta', id: 'txt-0', delta: 'Bonjour' },
+          { type: 'text-end', id: 'txt-0' },
+          { type: 'text-end', id: 'de5de9feb9964' }, // orphaned, from a third layer
+          { type: 'text-start', id: 'b6229d3d47a84' },
+          { type: 'text-delta', id: 'b6229d3d47a84', delta: ' le monde' },
+          { type: 'text-end', id: 'b6229d3d47a84' },
+          { type: 'text-end', id: 'd947860d92db4' }, // orphaned again
+        ]),
+      ),
+    );
+    // Every text-end pairs with a text-start that was actually forwarded first.
+    let open: string | null = null;
+    for (const p of out) {
+      if (p.type === 'text-start') {
+        expect(open).toBeNull();
+        open = p.id;
+      } else if (p.type === 'text-end') {
+        expect(p.id).toBe(open);
+        open = null;
+      }
+    }
+    expect(open).toBeNull();
+    const text = out
+      .filter((p): p is Extract<LanguageModelV3StreamPart, { type: 'text-delta' }> => p.type === 'text-delta')
+      .map((p) => p.delta)
+      .join('');
+    expect(text).toBe('Bonjour le monde');
+  });
+});
 
 describe('morphXmlProtocol duplicate scalar tag handling', () => {
   it('leaks the raw XML by default when a scalar tag is duplicated (documents the bug)', () => {

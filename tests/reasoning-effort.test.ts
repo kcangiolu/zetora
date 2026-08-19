@@ -11,39 +11,52 @@ const providers: CustomProviderConfig[] = [
 ];
 
 describe('getCustomReasoningOverrides', () => {
-  it('is a no-op for auto effort or non-custom models', () => {
-    expect(getCustomReasoningOverrides('custom-llama-qwen3', 'auto', providers)).toEqual({
-      providerOptions: {},
-      applyMaskMiddleware: false,
-    });
+  it('is a no-op for non-custom models regardless of effort', () => {
     expect(getCustomReasoningOverrides('zetora-default', 'high', providers)).toEqual({
       providerOptions: {},
       applyMaskMiddleware: false,
     });
   });
 
-  it('llama.cpp: sends chat_template_kwargs + thinking_budget_tokens, never masks', () => {
+  it('llama.cpp: sends enable_thinking + thinking_budget_tokens at the top level, always masks', () => {
+    // /completion never separates <think> from the answer on its own (unlike
+    // the OpenAI-compatible endpoint's --reasoning-format) — masking must run
+    // whenever the model might reason, including at 'auto' where no
+    // enable_thinking override is sent at all.
+    expect(getCustomReasoningOverrides('custom-llama-qwen3', 'auto', providers)).toEqual({
+      providerOptions: {},
+      applyMaskMiddleware: true,
+      backendKind: 'llamacpp',
+    });
+
     const result = getCustomReasoningOverrides('custom-llama-qwen3', 'high', providers);
+    // Top level, not nested under chat_template_kwargs: /completion never
+    // applies chat templates server-side (the prompt is already rendered
+    // client-side), so enable_thinking only does anything read directly off
+    // providerOptions — see ai/native-models/llamacpp-model.ts.
     expect(result).toEqual({
       providerOptions: {
-        llama: { chat_template_kwargs: { enable_thinking: true }, thinking_budget_tokens: 4096 },
+        llama: { enable_thinking: true, thinking_budget_tokens: 4096 },
       },
-      applyMaskMiddleware: false,
+      applyMaskMiddleware: true,
+      backendKind: 'llamacpp',
     });
 
     const off = getCustomReasoningOverrides('custom-llama-qwen3', 'off', providers);
-    expect(off.providerOptions.llama).toMatchObject({ chat_template_kwargs: { enable_thinking: false } });
-    expect(off.applyMaskMiddleware).toBe(false);
+    expect(off.providerOptions.llama).toMatchObject({ enable_thinking: false });
+    expect(off.applyMaskMiddleware).toBe(true);
   });
 
   it('ollama: sends a real think boolean, never masks — even for off', () => {
     expect(getCustomReasoningOverrides('custom-olla-qwen3', 'medium', providers)).toEqual({
       providerOptions: { olla: { think: true } },
       applyMaskMiddleware: false,
+      backendKind: 'ollama',
     });
     expect(getCustomReasoningOverrides('custom-olla-qwen3', 'off', providers)).toEqual({
       providerOptions: { olla: { think: false } },
       applyMaskMiddleware: false,
+      backendKind: 'ollama',
     });
   });
 
@@ -55,6 +68,7 @@ describe('getCustomReasoningOverrides', () => {
     expect(getCustomReasoningOverrides('custom-vllm-qwen3', 'off', providers)).toEqual({
       providerOptions: {},
       applyMaskMiddleware: true,
+      backendKind: 'vllm',
     });
     expect(getCustomReasoningOverrides('custom-oai-qwen3', 'high', providers)).toEqual({
       providerOptions: { oai: { reasoning_effort: 'high' } },
@@ -96,6 +110,7 @@ describe('getCustomProviderOptions', () => {
     expect(getCustomProviderOptions('custom-vllm-qwen3', 'auto', providersWithNativeParams)).toEqual({
       providerOptions: { vllm: { guided_json: true, top_k: 40 } },
       applyMaskMiddleware: false,
+      backendKind: 'vllm',
     });
   });
 
@@ -119,6 +134,7 @@ describe('getCustomProviderOptions', () => {
     expect(getCustomProviderOptions('custom-mystery-qwen3', 'auto', providers)).toEqual({
       providerOptions: {},
       applyMaskMiddleware: false,
+      backendKind: 'unknown',
     });
   });
 

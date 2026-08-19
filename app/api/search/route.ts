@@ -59,9 +59,10 @@ import { getLightweightUser } from '@/lib/search/server-helpers';
 import { getCachedCustomInstructionsByUserId, getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { resolveTertiaryModel } from '@/ai/tertiary';
 import { getCustomProviders } from '@/lib/custom-providers';
-import { getCustomProviderOptions, reasoningMaskMiddleware } from '@/lib/reasoning-effort';
+import { getCustomProviderOptions, reasoningMaskMiddleware, llamaCppReasoningMaskMiddleware } from '@/lib/reasoning-effort';
 import type { ReasoningEffort } from '@/lib/reasoning-effort-types';
 import { getStartWithStrategy } from '@/lib/chat-commands-server';
+import { dropBenignTextPartErrors } from '@/lib/search/benign-stream-errors';
 import { loadConfiguredTools } from '@/lib/search/tool-loader';
 import { runMemoryCurator } from '@/lib/search/memory-curator';
 import { resolvePrepareStepOverride } from '@/lib/search/prepare-step';
@@ -748,9 +749,14 @@ export async function POST(req: Request) {
         const overrides = getCustomProviderOptions(model, effort, customProviders);
         customReasoningProviderOptions = overrides.providerOptions;
         if (overrides.applyMaskMiddleware) {
+          // llama.cpp's chat template prefills the opening <think> tag into the
+          // rendered prompt (see lib/reasoning-effort.ts), so its completion
+          // stream starts already inside reasoning — needs the
+          // startWithReasoning variant or the closing </think> leaks straight
+          // through as visible text.
           resolvedModel = wrapLanguageModel({
             model: resolvedModel as Extract<typeof resolvedModel, { specificationVersion: 'v3' }>,
-            middleware: reasoningMaskMiddleware,
+            middleware: overrides.backendKind === 'llamacpp' ? llamaCppReasoningMaskMiddleware : reasoningMaskMiddleware,
           });
         }
       }
@@ -1031,10 +1037,12 @@ export async function POST(req: Request) {
         },
       });
 
+      const filteredUiMessageStream = dropBenignTextPartErrors(uiMessageStream);
+
       dataStream.merge(
-        (specialMode === 'canvas' ? pipeJsonRender(uiMessageStream) : uiMessageStream) as AsyncIterableStream<
-          InferUIMessageChunk<ChatMessage>
-        >,
+        (specialMode === 'canvas'
+          ? pipeJsonRender(filteredUiMessageStream)
+          : filteredUiMessageStream) as AsyncIterableStream<InferUIMessageChunk<ChatMessage>>,
       );
     },
     onError(error) {
