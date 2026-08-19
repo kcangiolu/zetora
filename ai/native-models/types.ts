@@ -26,8 +26,6 @@ export const llamaCppErrorSchema = z.object({
   }),
 });
 
-export type LlamaCppError = z.infer<typeof llamaCppErrorSchema>;
-
 // Streaming chunks can be a normal generation chunk or an inline error —
 // llama.cpp emits the latter as a regular `data:` event, not an HTTP failure.
 export const llamaCppChunkSchema = z.union([llamaCppResponseSchema, llamaCppErrorSchema]);
@@ -39,7 +37,7 @@ export type LlamaCppChunk = z.infer<typeof llamaCppChunkSchema>;
 // non-streaming response (message holds the full text). `tool_calls` arrive
 // whole in a single chunk in every version observed so far — Ollama doesn't
 // stream partial function-call JSON the way OpenAI does.
-export const ollamaMessageSchema = z.object({
+const ollamaMessageSchema = z.object({
   role: z.string(),
   content: z.string().optional().default(''),
   thinking: z.string().optional(),
@@ -68,4 +66,3 @@ export const ollamaChatChunkSchema = z.object({
 export type OllamaChatChunk = z.infer<typeof ollamaChatChunkSchema>;
 
 export const ollamaErrorSchema = z.object({ error: z.string() });
-export type OllamaError = z.infer<typeof ollamaErrorSchema>;

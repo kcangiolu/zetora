@@ -16,7 +16,7 @@
 // leaves the client stuck showing "No response generated" while the model is
 // still actively working. Drop this one known-benign error before it reaches
 // the client rather than trying to fix either third-party package.
-export const BENIGN_PART_NOT_FOUND = /^(?:text|reasoning) part .+ not found$/;
+const BENIGN_PART_NOT_FOUND = /^(?:text|reasoning) part .+ not found$/;
 
 export function dropBenignTextPartErrors<T extends { type: string }>(stream: ReadableStream<T>): ReadableStream<T> {
   return stream.pipeThrough(
