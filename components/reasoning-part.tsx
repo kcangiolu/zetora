@@ -1,10 +1,12 @@
 import React, { useRef, useEffect, ReactNode } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Minimize2, Maximize2, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
+import { Minimize2, Maximize2, ChevronDown, ChevronUp, Sparkles, Pencil, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Marked from 'marked-react';
 import { ReasoningUIPart } from 'ai';
 import remend from 'remend';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 
 interface ReasoningPartViewProps {
   part: ReasoningUIPart;
@@ -16,6 +18,15 @@ interface ReasoningPartViewProps {
   isFullscreen: boolean;
   setIsFullscreen: (v: boolean) => void;
   setIsExpanded: (v: boolean) => void; // user override setter
+  // Edit-in-place — overwrites the stored reasoning text, no regenerate.
+  canEdit?: boolean;
+  isEditing?: boolean;
+  isSaving?: boolean;
+  editDraft?: string;
+  onEditDraftChange?: (v: string) => void;
+  onStartEdit?: () => void;
+  onCancelEdit?: () => void;
+  onSaveEdit?: () => void;
 }
 
 // Type definition for table flags
@@ -191,6 +202,14 @@ export const ReasoningPartView: React.FC<ReasoningPartViewProps> = React.memo(
     isFullscreen,
     setIsFullscreen,
     setIsExpanded,
+    canEdit = false,
+    isEditing = false,
+    isSaving = false,
+    editDraft = '',
+    onEditDraftChange,
+    onStartEdit,
+    onCancelEdit,
+    onSaveEdit,
   }) => {
     const scrollRef = useRef<HTMLDivElement>(null);
     // Stays expanded by default (even after the model finishes reasoning) — the
@@ -304,6 +323,19 @@ export const ReasoningPartView: React.FC<ReasoningPartViewProps> = React.memo(
                 </div>
               )}
 
+              {!isThinking && canEdit && !isEditing && hasNonEmptyReasoning && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onStartEdit?.();
+                  }}
+                  className="p-0.5 hover:bg-muted rounded text-muted-foreground transition-colors"
+                  aria-label="Edit reasoning"
+                >
+                  <Pencil className="size-3 text-muted-foreground" strokeWidth={2} />
+                </button>
+              )}
+
               {(isThinking || isExpanded) && (
                 <button
                   onClick={(e) => {
@@ -335,32 +367,72 @@ export const ReasoningPartView: React.FC<ReasoningPartViewProps> = React.memo(
               >
                 <div>
                   <div className="h-px w-full bg-border/80"></div>
-                  <div
-                    ref={scrollRef}
-                    className={cn(
-                      'overflow-y-auto bg-muted/20',
-                      'scrollbar-thin scrollbar-thumb-rounded-full scrollbar-thumb-border',
-                      'scrollbar-track-transparent',
-                      {
-                        'max-h-[180px] rounded-b-lg': !isFullscreen,
-                        'max-h-[60vh] rounded-b-lg': isFullscreen,
-                      },
-                    )}
-                  >
-                    <div className="px-2.5 py-2 text-xs leading-relaxed">
-                      <div className="text-muted-foreground prose prose-sm max-w-none">
-                        {hasNonEmptyReasoning ? (
-                          !isThinking ? (
-                            <MarkdownRenderer content={remend(part.text)} />
-                          ) : (
-                            <p className="text-muted-foreground whitespace-pre-wrap wrap-break-words">{part.text}</p>
-                          )
-                        ) : (
-                          <div className="text-xs text-muted-foreground/70">Thinking…</div>
-                        )}
+                  {isEditing ? (
+                    <div className="px-2.5 py-2">
+                      <Textarea
+                        autoFocus
+                        value={editDraft}
+                        onChange={(e) => onEditDraftChange?.(e.target.value)}
+                        className="w-full resize-none border-none shadow-none bg-transparent! p-0! outline-none
+                          focus-visible:ring-0 focus-visible:ring-offset-0 text-xs leading-relaxed text-foreground
+                          min-h-[120px] max-h-[40vh]"
+                      />
+                      <div className="flex items-center justify-end gap-2 mt-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onCancelEdit?.();
+                          }}
+                          disabled={isSaving}
+                          className="rounded-lg px-3 h-7 text-xs"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={isSaving || !editDraft.trim() || editDraft.trim() === part.text.trim()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSaveEdit?.();
+                          }}
+                          className="rounded-lg px-3 h-7 text-xs bg-primary hover:bg-primary/90"
+                        >
+                          {isSaving ? <Loader2 className="size-3 animate-spin" /> : 'Save'}
+                        </Button>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div
+                      ref={scrollRef}
+                      className={cn(
+                        'overflow-y-auto bg-muted/20',
+                        'scrollbar-thin scrollbar-thumb-rounded-full scrollbar-thumb-border',
+                        'scrollbar-track-transparent',
+                        {
+                          'max-h-[180px] rounded-b-lg': !isFullscreen,
+                          'max-h-[60vh] rounded-b-lg': isFullscreen,
+                        },
+                      )}
+                    >
+                      <div className="px-2.5 py-2 text-xs leading-relaxed">
+                        <div className="text-muted-foreground prose prose-sm max-w-none">
+                          {hasNonEmptyReasoning ? (
+                            !isThinking ? (
+                              <MarkdownRenderer content={remend(part.text)} />
+                            ) : (
+                              <p className="text-muted-foreground whitespace-pre-wrap wrap-break-words">{part.text}</p>
+                            )
+                          ) : (
+                            <div className="text-xs text-muted-foreground/70">Thinking…</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}

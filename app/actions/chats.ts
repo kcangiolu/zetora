@@ -16,13 +16,15 @@ import {
   getChatByIdForValidation,
   getMessageById,
   deleteMessagesByChatIdAfterTimestamp,
+  updateMessagePartsById,
   updateChatTitleById,
   updateChatPinnedById,
   hideContextImage,
   unhideContextImage,
 } from '@/lib/db/queries';
 import { db } from '@/lib/db';
-import { chat, message, buildSession } from '@/lib/db/schema';
+import { chat, message, buildSession, type Message } from '@/lib/db/schema';
+import type { ChatMessage } from '@/lib/types';
 import { eq, desc, ilike, and, or, asc, inArray, notExists, exists, sql } from 'drizzle-orm';
 import {
   createBullMqSchedule,
@@ -257,7 +259,48 @@ export async function deleteTrailingMessages({ id }: { id: string }) {
   }
 }
 
-export async function setImageContextVisibility({ chatId, imageUrl, hidden }: { chatId: string; imageUrl: string; hidden: boolean }) {
+// Overwrites a single assistant message's parts in place — no trailing
+// deletion, no regenerate. Used by the "edit response"/"edit reasoning"
+// buttons, which only correct what's already stored and must not touch
+// anything downstream (unlike editing a user message, which reopens the turn).
+export async function updateMessageParts({ id, parts }: { id: string; parts: ChatMessage['parts'] }) {
+  'use server';
+  try {
+    const user = await getUser();
+    if (!user) {
+      throw new Error('Unauthorized');
+    }
+
+    const [existingMessage] = await getMessageById({ id });
+    if (!existingMessage) {
+      throw new Error('Message not found');
+    }
+
+    if (existingMessage.role !== 'assistant') {
+      throw new Error('Only assistant messages can be edited in place');
+    }
+
+    const owningChat = await getChatByIdForValidation({ id: existingMessage.chatId });
+    if (!owningChat || owningChat.userId !== user.id) {
+      throw new Error('Unauthorized');
+    }
+
+    await updateMessagePartsById({ id, parts: parts as Message['parts'] });
+  } catch (error) {
+    log.error(`Error updating message parts: ${error}`);
+    throw error;
+  }
+}
+
+export async function setImageContextVisibility({
+  chatId,
+  imageUrl,
+  hidden,
+}: {
+  chatId: string;
+  imageUrl: string;
+  hidden: boolean;
+}) {
   'use server';
   try {
     const user = await getUser();
@@ -606,7 +649,11 @@ export async function searchChatsByTitle(query: string, limit: number = 25, offs
       where:
         trimmedQuery.length === 0
           ? and(eq(chat.userId, user.id), excludeBuildChats)
-          : and(eq(chat.userId, user.id), or(ilike(chat.title, `%${trimmedQuery}%`), matchesContent), excludeBuildChats),
+          : and(
+              eq(chat.userId, user.id),
+              or(ilike(chat.title, `%${trimmedQuery}%`), matchesContent),
+              excludeBuildChats,
+            ),
       orderBy: [desc(chat.isPinned), desc(chat.updatedAt), desc(chat.id)],
       limit,
       offset,

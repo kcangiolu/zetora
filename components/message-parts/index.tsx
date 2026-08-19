@@ -5,8 +5,9 @@ import { ReasoningPartView } from '@/components/reasoning-part';
 import { MarkdownRenderer } from '@/components/markdown';
 import { ChatTextHighlighter } from '@/components/chat-text-highlighter';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
-import { deleteTrailingMessages, branchOutChat } from '@/app/actions';
+import { deleteTrailingMessages, branchOutChat, updateMessageParts } from '@/app/actions';
 import { sileo } from 'sileo';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
@@ -57,6 +58,7 @@ import {
   Sparkles,
   Trash2,
   Download,
+  Pencil,
 } from 'lucide-react';
 import {
   ClockIcon as PhosphorClockIcon,
@@ -229,6 +231,25 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
     const [isRegenerating, setIsRegenerating] = useState(false);
     const [isBranchingOut, setIsBranchingOut] = useState(false);
     const [isDeletingMessage, setIsDeletingMessage] = useState(false);
+    // Edit-in-place (no regenerate) for a message's final text or reasoning —
+    // unlike MessageEditor (user messages), this never deletes trailing
+    // messages or calls regenerate, it only overwrites the stored part(s).
+    const [isEditingText, setIsEditingText] = useState(false);
+    const [textEditDraft, setTextEditDraft] = useState('');
+    const [isSavingTextEdit, setIsSavingTextEdit] = useState(false);
+    const [isEditingReasoning, setIsEditingReasoning] = useState(false);
+    const [reasoningEditDraft, setReasoningEditDraft] = useState('');
+    const [isSavingReasoningEdit, setIsSavingReasoningEdit] = useState(false);
+
+    const persistMessageParts = useCallback(
+      async (updatedParts: ChatMessage['parts']) => {
+        setMessages((current) => current.map((m) => (m.id === message.id ? { ...m, parts: updatedParts } : m)));
+        if (user && message.id) {
+          await updateMessageParts({ id: message.id, parts: updatedParts });
+        }
+      },
+      [message.id, setMessages, user],
+    );
     const { speak, stop: stopSpeech, isSpeaking, isLoading } = useSpeech();
     const [inlineElicitationVersion, setInlineElicitationVersion] = useState(0);
     const ignoredInlineElicitationIdsRef = useRef<Set<string>>(new Set());
@@ -471,7 +492,8 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
       //    the last assistant message (previous messages keep their buttons)
       // 'error' is included so a response interrupted by a stream failure (not a clean
       // manual stop) still lets the user delete/retry instead of getting stuck on Edit-only.
-      const shouldShowActionButtons = isLastTextPart && (status === 'ready' || status === 'error' || !isLastAssistantMessage);
+      const shouldShowActionButtons =
+        isLastTextPart && (status === 'ready' || status === 'error' || !isLastAssistantMessage);
 
       // Clean the text by removing box markers and special tokens
       const cleanText = part.text
@@ -500,22 +522,96 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
           .filter((url): url is string => Boolean(url)),
       );
 
+      const canEditResponse = (user && isOwner) || (!user && selectedVisibilityType === 'private');
+
       return (
         <div key={`${messageIndex}-${partIndex}-text`} className="mt-2">
-          <div>
-            <ChatTextHighlighter onHighlight={onHighlight} removeHighlightOnClick={true}>
-              <MarkdownRenderer content={cleanText} generatedImageUrls={generatedImageUrls} />
-            </ChatTextHighlighter>
-          </div>
+          {isEditingText ? (
+            <div className="w-full rounded-2xl border border-border bg-accent/80 px-4 py-3">
+              <Textarea
+                autoFocus
+                value={textEditDraft}
+                onChange={(e) => setTextEditDraft(e.target.value)}
+                className="prose prose-sm sm:prose-base prose-neutral dark:prose-invert font-sans font-normal max-w-none
+                  text-base! text-foreground dark:text-foreground w-full resize-none border-none shadow-none
+                  focus-visible:ring-0 focus-visible:ring-offset-0 p-0! outline-none min-h-[120px] bg-transparent!"
+              />
+              <div className="flex items-center justify-end gap-2 mt-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditingText(false)}
+                  disabled={isSavingTextEdit}
+                  className="rounded-lg px-4"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={isSavingTextEdit || !textEditDraft.trim() || textEditDraft.trim() === cleanText.trim()}
+                  onClick={async () => {
+                    try {
+                      setIsSavingTextEdit(true);
+                      const updatedParts = parts.map((p, i) =>
+                        i === partIndex ? ({ ...p, text: textEditDraft } as ChatMessage['parts'][number]) : p,
+                      );
+                      await persistMessageParts(updatedParts);
+                      setIsEditingText(false);
+                    } catch (error) {
+                      console.error('Error saving edited response:', error);
+                      sileo.error({ title: 'Failed to save edit' });
+                    } finally {
+                      setIsSavingTextEdit(false);
+                    }
+                  }}
+                  className="rounded-lg px-5 bg-primary hover:bg-primary/90"
+                >
+                  {isSavingTextEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <ChatTextHighlighter onHighlight={onHighlight} removeHighlightOnClick={true}>
+                <MarkdownRenderer content={cleanText} generatedImageUrls={generatedImageUrls} />
+              </ChatTextHighlighter>
+            </div>
+          )}
 
           {/* Canvas spec rendering (between text and action buttons) */}
-          {hasCanvasSpec && <CanvasSpecRenderer parts={parts} isStreaming={status === 'streaming'} />}
+          {!isEditingText && hasCanvasSpec && <CanvasSpecRenderer parts={parts} isStreaming={status === 'streaming'} />}
 
           {/* Action buttons below the text */}
-          {shouldShowActionButtons && (
+          {shouldShowActionButtons && !isEditingText && (
             <div className="flex items-center justify-between mt-3 mb-4">
               {/* Left side - Action buttons */}
               <div className="flex items-center gap-1.5">
+                {/* Edit button - overwrites this response's text in place, no regenerate. Available on any assistant message, not just the last. */}
+                {canEditResponse && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setTextEditDraft(cleanText);
+                            setIsEditingText(true);
+                          }}
+                          className={actionIconButtonClassName}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" sideOffset={4}>
+                        Edit response
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+
                 {/* Rewrite button - only for owners or unauthenticated users on private chats, and only on last assistant message */}
                 {((user && isOwner) || (!user && selectedVisibilityType === 'private')) && isLastAssistantMessage && (
                   <TooltipProvider>
@@ -1283,6 +1379,13 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
       const setIsExpanded = (v: boolean) => setReasoningVisibilityMap((prev) => ({ ...prev, [sectionKey]: v }));
       const setIsFullscreen = (v: boolean) => setReasoningFullscreenMap((prev) => ({ ...prev, [sectionKey]: v }));
 
+      // Edit-in-place: overwrites this reasoning block's stored text, no
+      // regenerate. Disabled while it's still streaming — nothing settled to edit yet.
+      const canEditReasoning =
+        ((user && isOwner) || (!user && selectedVisibilityType === 'private')) && mergedState !== 'streaming';
+      const editRangeStart = partIndex;
+      const editRangeEnd = nextIndex;
+
       return (
         <ReasoningPartView
           key={sectionKey}
@@ -1295,6 +1398,35 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
           isFullscreen={isFullscreen}
           setIsExpanded={setIsExpanded}
           setIsFullscreen={setIsFullscreen}
+          canEdit={canEditReasoning}
+          isEditing={isEditingReasoning}
+          isSaving={isSavingReasoningEdit}
+          editDraft={reasoningEditDraft}
+          onEditDraftChange={setReasoningEditDraft}
+          onStartEdit={() => {
+            setReasoningEditDraft(mergedText);
+            setIsEditingReasoning(true);
+            setIsExpanded(true);
+          }}
+          onCancelEdit={() => setIsEditingReasoning(false)}
+          onSaveEdit={async () => {
+            try {
+              setIsSavingReasoningEdit(true);
+              const updatedPart = {
+                ...(part as ReasoningUIPart),
+                text: reasoningEditDraft,
+                state: 'done',
+              } as ChatMessage['parts'][number];
+              const updatedParts = [...parts.slice(0, editRangeStart), updatedPart, ...parts.slice(editRangeEnd)];
+              await persistMessageParts(updatedParts);
+              setIsEditingReasoning(false);
+            } catch (error) {
+              console.error('Error saving edited reasoning:', error);
+              sileo.error({ title: 'Failed to save edit' });
+            } finally {
+              setIsSavingReasoningEdit(false);
+            }
+          }}
         />
       );
     }
@@ -3004,7 +3136,8 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
           }
 
           case 'tool-generate_image': {
-            const generatedImageUrl = part.state === 'output-available' && part.output.success ? part.output.imageUrl : undefined;
+            const generatedImageUrl =
+              part.state === 'output-available' && part.output.success ? part.output.imageUrl : undefined;
             return (
               <GeneratedImageCard
                 key={`${messageIndex}-${partIndex}-tool`}
@@ -3032,14 +3165,18 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
           }
 
           case 'tool-edit_image': {
-            const editedImageUrl = part.state === 'output-available' && part.output.success ? part.output.imageUrl : undefined;
+            const editedImageUrl =
+              part.state === 'output-available' && part.output.success ? part.output.imageUrl : undefined;
             return (
               <GeneratedImageCard
                 key={`${messageIndex}-${partIndex}-tool`}
                 mode="edit"
                 state={toImageCardState(part.state)}
                 prompt={part.input?.prompt}
-                sourceImageUrl={(part.state === 'output-available' && part.output.success ? part.output.originalUrl : undefined) ?? part.input?.image_url}
+                sourceImageUrl={
+                  (part.state === 'output-available' && part.output.success ? part.output.originalUrl : undefined) ??
+                  part.input?.image_url
+                }
                 imageUrl={editedImageUrl}
                 error={
                   part.state === 'output-available' && !part.output.success
@@ -3051,7 +3188,9 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                 isHidden={editedImageUrl ? hiddenImageUrls?.has(editedImageUrl) : undefined}
                 canToggleHidden={chatId ? (user && isOwner) || (!user && selectedVisibilityType === 'private') : false}
                 onToggleHidden={
-                  editedImageUrl && chatId ? (hidden: boolean) => onToggleImageHidden?.(editedImageUrl, hidden) : undefined
+                  editedImageUrl && chatId
+                    ? (hidden: boolean) => onToggleImageHidden?.(editedImageUrl, hidden)
+                    : undefined
                 }
               />
             );

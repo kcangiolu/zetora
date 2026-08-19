@@ -443,6 +443,14 @@ export async function getMessageById({ id }: { id: string }) {
   }
 }
 
+export async function updateMessagePartsById({ id, parts }: { id: string; parts: Message['parts'] }) {
+  try {
+    return await maindb.update(message).set({ parts }).where(eq(message.id, id));
+  } catch (error) {
+    throw new ChatSDKError('bad_request:database', 'Failed to update message parts');
+  }
+}
+
 export async function deleteMessagesByChatIdAfterTimestamp({ chatId, timestamp }: { chatId: string; timestamp: Date }) {
   try {
     // Direct delete without intermediate query - more efficient and atomic
