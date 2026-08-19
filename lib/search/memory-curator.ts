@@ -111,7 +111,14 @@ export function runMemoryCurator({
       const { model: curatorModelId } = getTertiaryModelConfig('memory-curator', prefs);
       const anonymizeContext = await getAnonymizeContext(curatorModelId, preferences, userId);
       const memoryTools = createMemoryTools(userId, anonymizeContext);
-      tools = { search_memories: memoryTools.searchMemories, add_memory: memoryTools.addMemory };
+      // @supermemory/tools is still on ai@5 internally (no ai@6-compatible
+      // release exists yet), so its tool objects carry a structurally
+      // identical but nominally distinct Tool<> from a duplicate ai-sdk
+      // instance — real AI SDK tools at runtime, just not the same type.
+      tools = {
+        search_memories: memoryTools.searchMemories,
+        add_memory: memoryTools.addMemory,
+      } as unknown as Record<string, Tool>;
     }
 
     const model = await resolveTertiaryModel('memory-curator', prefs, userId);
