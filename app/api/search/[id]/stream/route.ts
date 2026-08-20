@@ -83,7 +83,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
    * but the resumable stream has concluded at this point.
    */
   if (!stream) {
-    const messages = await getMessagesByChatId({ id: chatId });
+    const messages = await getMessagesByChatId({ id: chatId, mostRecent: true });
     log.debug('Messages: ', messages);
     const mostRecentMessage = messages.at(-1);
 

@@ -420,8 +420,27 @@ export async function saveMessages({ messages }: { messages: Array<Message> }) {
 
 // Cache message lookups for the duration of the request
 export const getMessagesByChatId = cache(
-  async ({ id, limit = 50, offset = 0 }: { id: string; limit?: number; offset?: number }) => {
+  async ({
+    id,
+    limit = 50,
+    offset = 0,
+    mostRecent = false,
+  }: { id: string; limit?: number; offset?: number; mostRecent?: boolean }) => {
     try {
+      if (mostRecent) {
+        // Fetch the newest `limit` rows, then flip back to chronological
+        // order — callers always get ascending order, same contract as the
+        // default branch below.
+        const rows = await maindb
+          .select()
+          .from(message)
+          .where(eq(message.chatId, id))
+          .orderBy(desc(message.createdAt), desc(message.id))
+          .limit(limit)
+          .offset(offset);
+        return rows.reverse();
+      }
+
       return await maindb
         .select()
         .from(message)

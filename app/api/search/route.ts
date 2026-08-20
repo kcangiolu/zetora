@@ -195,7 +195,9 @@ export async function POST(req: Request) {
   // Use lightweight validation query - only fetches id and userId
   const chatQueryPromise = isTemporaryChat ? Promise.resolve(null) : getChatByIdForValidation({ id });
   const persistedMessagesPromise =
-    isTemporaryChat || incomingMessages.length > 1 ? Promise.resolve<ChatMessage[]>([]) : getMessagesByChatId({ id });
+    isTemporaryChat || incomingMessages.length > 1
+      ? Promise.resolve<ChatMessage[]>([])
+      : getMessagesByChatId({ id, mostRecent: true });
   recordTiming('start_parallel_operations', opStart);
 
   // Wait for lightweight user first (needed for early exit checks)
