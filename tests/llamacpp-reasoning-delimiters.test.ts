@@ -368,9 +368,13 @@ const CHATML_TEMPLATE_NO_REASONING =
 describe('deriveReasoningDelimiters — real Gemma4 "G4-MeroMero-v2" template', () => {
   it('derives the <|channel>thought / <channel|> wrap, not prefilled at generation time', () => {
     const result = deriveReasoningDelimiters(GEMMA_CHANNEL_TEMPLATE);
+    // Trimmed to the bare control-token core — matches this template's own
+    // strip_thinking() macro, which splits on '<channel|>'/'<|channel>' with
+    // no surrounding whitespace requirement. Untrimmed ("\n<channel|>")
+    // would miss real generations where the model doesn't emit the newline.
     expect(result).toEqual({
-      open: '<|channel>thought\n',
-      close: '\n<channel|>',
+      open: '<|channel>thought',
+      close: '<channel|>',
       startsInReasoning: false,
     });
   });

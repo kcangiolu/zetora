@@ -273,9 +273,24 @@ export function deriveReasoningDelimiters(
   }
   if (insertionPoint === -1) return null; // not a single localized insertion — bail rather than guess
 
-  const open = renderB.slice(insertionPoint, sentinelIdx);
-  const close = renderB.slice(sentinelIdx + REASONING_PROBE_SENTINEL.length, insertionPoint + insertedLength);
-  if (open.trim().length === 0 || close.trim().length === 0) return null;
+  // Trim incidental whitespace (the template's own dedent/newline
+  // conventions around the tag) off the captured span, keeping only the
+  // control-token core. Confirmed against this exact template's own
+  // strip_thinking() Jinja macro — the one piece of ground truth for "what
+  // the model's reasoning wrap really is" — which matches on the bare
+  // '<channel|>'/'<|channel>' tokens with no surrounding whitespace
+  // requirement at all. Untrimmed, live generations that omit the newline
+  // (common — the model doesn't always reproduce the exact formatting a
+  // static template render happens to produce) never match `close`, so the
+  // stream never leaves reasoning mode and the entire real answer after it
+  // gets misclassified as reasoning and hidden from the user (confirmed live
+  // against the running server: empty text-delta output, full answer stuck
+  // in reasoning-delta). Trimming is a strict widening of what matches, so
+  // it can only fix missed matches, never introduce new ones on delimiters
+  // that were already whitespace-free.
+  const open = renderB.slice(insertionPoint, sentinelIdx).trim();
+  const close = renderB.slice(sentinelIdx + REASONING_PROBE_SENTINEL.length, insertionPoint + insertedLength).trim();
+  if (open.length === 0 || close.length === 0) return null;
 
   return { open, close, startsInReasoning: deriveStartsInReasoning(template, bosToken, eosToken, open) };
 }
@@ -299,7 +314,11 @@ function deriveStartsInReasoning(
       eos_token: eosToken ?? '',
       enable_thinking: true,
     });
-    return rendered.endsWith(open);
+    // `open` is now trimmed (see deriveReasoningDelimiters), but a template
+    // that prefills the tag (e.g. Qwen3-style `<think>\n`) may still leave
+    // trailing whitespace after it in the rendered prompt — trimEnd here so
+    // that whitespace doesn't make an otherwise-exact suffix match fail.
+    return rendered.trimEnd().endsWith(open);
   } catch {
     return false; // safe default — never claim the prompt starts inside reasoning if we can't confirm it
   }
