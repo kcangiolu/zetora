@@ -14,12 +14,21 @@ export const SYNTHESIS_NUDGE =
   "the user's message, citing the sources already retrieved. Only call a tool again " +
   'if the previous tool call errored or returned zero results.';
 
+// Image tools are terminal deliverables, not research steps: once one
+// resolves, keeping tools armed with no synthesis signal (the normal 'auto'
+// behavior) leaves the model re-invoked on the tool result with nothing
+// telling it this is a continuation, not a fresh turn — it then writes a
+// whole new unprompted reply. Force the same synthesis-forcing path the
+// non-auto modes use instead.
+const IMAGE_TOOL_NAMES = new Set(['generate_image', 'edit_image']);
+
 export interface PrepareStepInput {
   group: string;
   shouldUseXaiMultiAgent: boolean;
   isXmlParsedCustomModel: boolean;
   model: string;
   latestStepHasToolRoundTrip: boolean;
+  latestStepToolNames: string[];
   streamActiveTools: string[];
   baseSystem: string;
   // Set by the caller when `group` is a registered extension mode
@@ -40,10 +49,13 @@ export function resolvePrepareStepOverride({
   isXmlParsedCustomModel,
   model,
   latestStepHasToolRoundTrip,
+  latestStepToolNames,
   streamActiveTools,
   baseSystem,
   keepToolsArmed,
 }: PrepareStepInput): PrepareStepOverride | undefined {
+  const latestStepHasImageToolRoundTrip =
+    latestStepHasToolRoundTrip && latestStepToolNames.some((name) => IMAGE_TOOL_NAMES.has(name));
   // MCP mode and xAI multi-agent mode: keep tools available across steps.
   if (group === 'mcp' || shouldUseXaiMultiAgent) {
     return shouldUseXaiMultiAgent
@@ -58,7 +70,7 @@ export function resolvePrepareStepOverride({
   // loads a skill/tool via a tool call and then keeps researching with it —
   // never drain activeTools mid-run like the single-tool-round-then-
   // synthesize modes below.
-  if (group === 'auto' || keepToolsArmed) {
+  if ((group === 'auto' || keepToolsArmed) && !latestStepHasImageToolRoundTrip) {
     return {
       toolChoice: 'auto' as const,
       activeTools: streamActiveTools,

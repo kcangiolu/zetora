@@ -926,6 +926,7 @@ export async function POST(req: Request) {
           const latestStep = steps[steps.length - 1];
           const latestStepHasToolRoundTrip =
             Boolean(latestStep) && latestStep.toolCalls.length > 0 && latestStep.toolResults.length > 0;
+          const latestStepToolNames = latestStep?.toolCalls.map((call) => call.toolName) ?? [];
 
           return resolvePrepareStepOverride({
             // No exclusive special mode means the base Sources+Skills path,
@@ -937,6 +938,7 @@ export async function POST(req: Request) {
             isXmlParsedCustomModel,
             model,
             latestStepHasToolRoundTrip,
+            latestStepToolNames,
             streamActiveTools,
             baseSystem,
             keepToolsArmed: (await getExtensionMode(specialMode))?.keepToolsArmed,
