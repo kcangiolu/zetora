@@ -749,7 +749,8 @@ services:
       - PROMPT_CACHE_DIR=/data/prompt_cache
       - SAVE_OUTPUT=false
       - OUTPUT_DIR=/data/output
-      - EAGER_LOAD=false
+      - EAGER_LOAD=${TTS_EAGER_LOAD:-false}
+      - DISABLE_IDLE_UNLOAD=${TTS_DISABLE_IDLE_UNLOAD:-false}
     volumes:
       - ${DATA_DIR}/qwen3-tts/huggingface:/data/huggingface
       - ${DATA_DIR}/qwen3-tts/output:/data/output
@@ -785,6 +786,8 @@ services:
   # wheels already verified working on both the RTX 3090 and RTX 5060 Ti for
   # qwen3-tts. Multilingual with automatic language detection (25 European
   # languages incl. French, ~5% WER) and smaller than Whisper medium.
+  # The model itself lazy-loads on first request and unloads after 5min
+  # idle; set EAGER_LOAD=true below to load it at container start instead.
   # ---------------------------------------------------------------------------
   stt-service:
     image: ${ZETORA_STT_IMAGE:-zetora-stt:local}
@@ -795,6 +798,8 @@ services:
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - EAGER_LOAD=${STT_EAGER_LOAD:-false}
+      - DISABLE_IDLE_UNLOAD=${STT_DISABLE_IDLE_UNLOAD:-false}
     volumes:
       # Legacy directory name from the previous whisper-stt service — it's
       # just the HF cache dir, no need to migrate an existing deployment.

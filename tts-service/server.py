@@ -32,6 +32,10 @@ OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "/data/output"))
 # Default is lazy-load (model loads on first request). Set to reclaim the old
 # always-resident behavior, e.g. when the GPU is dedicated to this service.
 EAGER_LOAD = os.getenv("EAGER_LOAD", "false").lower() == "true"
+# EAGER_LOAD only affects *when* the model first loads — the 5min idle-unload
+# below still applies regardless. Set this to keep the model resident forever
+# once loaded (e.g. GPU fully dedicated to this service, no VRAM to reclaim).
+DISABLE_IDLE_UNLOAD = os.getenv("DISABLE_IDLE_UNLOAD", "false").lower() == "true"
 
 # GPU is shared with other services on the box (Ollama, ComfyUI, ...) and
 # stays scarce even at idle — unload the model after 5 minutes of inactivity
@@ -299,7 +303,8 @@ async def lifespan(app: FastAPI):
     # EAGER_LOAD=true to restore the old always-resident-at-startup behavior.
     if EAGER_LOAD:
         await asyncio.get_running_loop().run_in_executor(_cuda_executor, _load_model)
-    threading.Thread(target=_idle_checker, daemon=True, name="tts-idle-checker").start()
+    if not DISABLE_IDLE_UNLOAD:
+        threading.Thread(target=_idle_checker, daemon=True, name="tts-idle-checker").start()
     yield
 
 

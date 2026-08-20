@@ -40,6 +40,14 @@ MODEL_ID = os.getenv("MODEL_ID", "nvidia/parakeet-tdt-0.6b-v3")
 # instead of holding VRAM hostage between requests.
 IDLE_UNLOAD_TIMEOUT_S = 300
 
+# Default is lazy-load (model loads on first request). Set to reclaim the old
+# always-resident behavior, e.g. when the GPU is dedicated to this service.
+EAGER_LOAD = os.getenv("EAGER_LOAD", "false").lower() == "true"
+# EAGER_LOAD only affects *when* the model first loads — the 5min idle-unload
+# below still applies regardless. Set this to keep the model resident forever
+# once loaded (e.g. GPU fully dedicated to this service, no VRAM to reclaim).
+DISABLE_IDLE_UNLOAD = os.getenv("DISABLE_IDLE_UNLOAD", "false").lower() == "true"
+
 asr_pipeline = None
 device_label = "unknown"
 _last_used = time.monotonic()
@@ -110,8 +118,10 @@ app = FastAPI(title="Zetora STT (Parakeet TDT)")
 
 @app.on_event("startup")
 async def _startup() -> None:
-    await asyncio.get_event_loop().run_in_executor(None, _load_model)
-    threading.Thread(target=_idle_checker, daemon=True, name="stt-idle-checker").start()
+    if EAGER_LOAD:
+        await asyncio.get_event_loop().run_in_executor(None, _load_model)
+    if not DISABLE_IDLE_UNLOAD:
+        threading.Thread(target=_idle_checker, daemon=True, name="stt-idle-checker").start()
 
 
 @app.get("/health")
