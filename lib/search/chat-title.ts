@@ -24,6 +24,10 @@ export async function generateTitleFromUserMessage({ message }: { message: UIMes
   const titlePrefs = titleUser ? await getCachedUserPreferencesByUserId(titleUser.id).catch(() => null) : null;
   const titlePrefsMap = (titlePrefs?.preferences ?? {}) as Record<string, string>;
 
+  if (titlePrefs?.preferences?.['zetora-tertiary-chat-title-enabled'] === false) {
+    return 'New Chat';
+  }
+
   const { text: rawTitle } = await generateText({
     model: await resolveTertiaryModel('chat-title', titlePrefsMap, titleUser?.id),
     system: `You are an expert title generator. You are given a message and you need to generate a short title based on it.

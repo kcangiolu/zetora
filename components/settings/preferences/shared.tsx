@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useSyncedPreferences, type PreferenceKey, type ImageGenPromptPreset } from '@/hooks/use-synced-preferences';
 import { testEmailDelivery } from '@/app/actions';
-import { Check, X, Trash2, Save } from 'lucide-react';
+import { Check, X, Trash2, Save, Power, PowerOff } from 'lucide-react';
 import { useState } from 'react';
 import { getModelConfig, getModelProvider, type Model } from '@/ai/models';
 import { cn } from '@/lib/utils';
@@ -235,6 +235,7 @@ export function TertiaryModelRow({
   modelKey,
   providerKey,
   effortKey,
+  enabledKey,
   recommendedEffort = 'auto',
   label,
   description,
@@ -246,6 +247,10 @@ export function TertiaryModelRow({
   modelKey: TertiaryModelPrefKey;
   providerKey: TertiaryProviderPrefKey;
   effortKey: PreferenceKey;
+  // When set, renders an on/off toggle that lets the user disable this
+  // background task entirely (e.g. chat title / follow-up questions
+  // generation) instead of only picking which model runs it.
+  enabledKey?: PreferenceKey;
   recommendedEffort?: ReasoningEffort;
   label: string;
   description: string;
@@ -278,50 +283,141 @@ export function TertiaryModelRow({
         <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
       </div>
       <div className="flex items-center gap-1.5 shrink-0">
-        {!model && (
-          <span
-            className="text-[11px] text-muted-foreground/70 shrink-0 max-w-[160px] truncate"
-            title={`Default : ${defaultModelLabel}`}
-          >
-            Default : {defaultModelLabel}
-          </span>
-        )}
-        <ModelSelectorDialog
-          selectedModel={model}
-          onModelSelect={handleSelect}
-          user={user}
-          additionalModels={additionalModels}
-          className="w-[180px] h-8"
-          compact
-        />
-        {/* Capability for the system default model isn't known here (no
-            model id, just a display label) — only show once the user has
-            picked a specific model for this task. */}
-        {model && !hideReasoningEffort && (
-          <ReasoningEffortToggle
-            selectedModel={model}
-            value={effort ?? recommendedEffort}
-            onChange={setEffort}
-            customModels={additionalModels}
+        {enabledKey ? (
+          <TertiaryTaskToggle enabledKey={enabledKey}>
+            <TertiaryModelControls
+              model={model}
+              defaultModelLabel={defaultModelLabel}
+              handleSelect={handleSelect}
+              user={user}
+              additionalModels={additionalModels}
+              hideReasoningEffort={hideReasoningEffort}
+              effort={effort}
+              recommendedEffort={recommendedEffort}
+              setEffort={setEffort}
+              setModel={setModel}
+              setProvider={setProvider}
+            />
+          </TertiaryTaskToggle>
+        ) : (
+          <TertiaryModelControls
+            model={model}
+            defaultModelLabel={defaultModelLabel}
+            handleSelect={handleSelect}
+            user={user}
+            additionalModels={additionalModels}
+            hideReasoningEffort={hideReasoningEffort}
+            effort={effort}
+            recommendedEffort={recommendedEffort}
+            setEffort={setEffort}
+            setModel={setModel}
+            setProvider={setProvider}
           />
-        )}
-        {model && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
-            title="Reset to default"
-            onClick={() => {
-              setModel('');
-              setProvider('');
-            }}
-          >
-            <X className="h-3 w-3" />
-          </Button>
         )}
       </div>
     </div>
+  );
+}
+
+// Owns the enabled/disabled preference for a background task (only mounted
+// for rows that pass `enabledKey`) and dims its children when disabled,
+// instead of letting TertiaryModelRow itself hold a hook bound to a key that
+// may not exist for every task.
+function TertiaryTaskToggle({ enabledKey, children }: { enabledKey: PreferenceKey; children: React.ReactNode }) {
+  const [enabled, setEnabled] = useSyncedPreferences<boolean>(enabledKey, true);
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className={cn(
+          'h-8 w-8 shrink-0',
+          enabled ? 'text-muted-foreground hover:text-foreground' : 'text-destructive hover:text-destructive',
+        )}
+        title={enabled ? 'Enabled — click to disable' : 'Disabled — click to enable'}
+        onClick={() => setEnabled(!enabled)}
+      >
+        {enabled ? <Power className="h-3.5 w-3.5" /> : <PowerOff className="h-3.5 w-3.5" />}
+      </Button>
+      <div className={cn('flex items-center gap-1.5 shrink-0', !enabled && 'opacity-40 pointer-events-none')}>
+        {children}
+      </div>
+    </>
+  );
+}
+
+function TertiaryModelControls({
+  model,
+  defaultModelLabel,
+  handleSelect,
+  user,
+  additionalModels,
+  hideReasoningEffort,
+  effort,
+  recommendedEffort,
+  setEffort,
+  setModel,
+  setProvider,
+}: {
+  model: string;
+  defaultModelLabel: string;
+  handleSelect: (modelValue: string) => void;
+  user: SettingsUser;
+  additionalModels: Model[];
+  hideReasoningEffort: boolean;
+  effort: ReasoningEffort;
+  recommendedEffort: ReasoningEffort;
+  setEffort: (value: ReasoningEffort | ((val: ReasoningEffort) => ReasoningEffort)) => void;
+  setModel: (value: string | ((val: string) => string)) => void;
+  setProvider: (value: string | ((val: string) => string)) => void;
+}) {
+  return (
+    <>
+      {!model && (
+        <span
+          className="text-[11px] text-muted-foreground/70 shrink-0 max-w-[160px] truncate"
+          title={`Default : ${defaultModelLabel}`}
+        >
+          Default : {defaultModelLabel}
+        </span>
+      )}
+      <ModelSelectorDialog
+        selectedModel={model}
+        onModelSelect={handleSelect}
+        user={user}
+        additionalModels={additionalModels}
+        className="w-[180px] h-8"
+        compact
+      />
+      {/* Capability for the system default model isn't known here (no
+          model id, just a display label) — only show once the user has
+          picked a specific model for this task. */}
+      {model && !hideReasoningEffort && (
+        <ReasoningEffortToggle
+          selectedModel={model}
+          value={effort ?? recommendedEffort}
+          onChange={setEffort}
+          customModels={additionalModels}
+        />
+      )}
+      {model && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+          title="Reset to default"
+          onClick={() => {
+            setModel('');
+            setProvider('');
+          }}
+        >
+          <X className="h-3 w-3" />
+        </Button>
+      )}
+    </>
   );
 }
 

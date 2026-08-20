@@ -75,6 +75,10 @@ export async function suggestQuestions(history: any[]) {
   const suggestPrefs = suggestUser ? await getCachedUserPreferencesByUserId(suggestUser.id).catch(() => null) : null;
   const suggestPrefsMap = (suggestPrefs?.preferences ?? {}) as Record<string, string>;
 
+  if (suggestPrefs?.preferences?.['zetora-tertiary-followup-enabled'] === false) {
+    return { questions: [] };
+  }
+
   // Plain-text generation + JSON extraction (not the AI SDK's Output.object/
   // structured-outputs path): the 'followup' tertiary task can resolve to a
   // custom/local provider (e.g. Ollama) that doesn't support response-format

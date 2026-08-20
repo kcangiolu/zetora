@@ -317,9 +317,11 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-tertiary-chat-title-model'?: string;
       'zetora-tertiary-chat-title-provider'?: string;
       'zetora-tertiary-chat-title-effort'?: 'auto' | 'low' | 'medium' | 'high' | 'off';
+      'zetora-tertiary-chat-title-enabled'?: boolean;
       'zetora-tertiary-followup-model'?: string;
       'zetora-tertiary-followup-provider'?: string;
       'zetora-tertiary-followup-effort'?: 'auto' | 'low' | 'medium' | 'high' | 'off';
+      'zetora-tertiary-followup-enabled'?: boolean;
       'zetora-tertiary-enhance-model'?: string;
       'zetora-tertiary-enhance-provider'?: string;
       'zetora-tertiary-enhance-effort'?: 'auto' | 'low' | 'medium' | 'high' | 'off';
