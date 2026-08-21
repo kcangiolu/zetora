@@ -2,6 +2,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { graphitiClient } from '@/lib/graphiti/client';
 import { withMemoryWriteLock, isDuplicateOfRecentWrite, recordRecentWrite } from '@/lib/graphiti/write-coordinator';
+import { getUserById } from '@/lib/db/queries/users';
 
 // graphiti-core doesn't return a similarity score from client.search(), so
 // results can't be filtered by threshold — keep the count small instead and
@@ -31,9 +32,17 @@ export function createGraphitiMemoryTools(userId: string) {
           if (await isDuplicateOfRecentWrite(userId, memory)) {
             return { success: true, skipped: true, note: 'Skipped — near-duplicate of a memory saved moments ago.' };
           }
+          // graphiti-core's default extraction prompt bans pronouns ("I/me/moi/je")
+          // from being extracted as entities, and an edge's source must be a name
+          // from that entity list. A first-person memory with no other named entity
+          // ("J'adore la mangue") then has no valid subject to attach the fact to —
+          // it gets silently dropped and never becomes searchable. Prefixing with
+          // the user's real name gives extraction a concrete anchor to resolve to.
+          const dbUser = await getUserById(userId);
+          const episodeBody = dbUser?.name ? `${dbUser.name}: ${memory}` : memory;
           const result = await client.addEpisode({
             name: `zetora-memory-${Date.now()}`,
-            episodeBody: memory,
+            episodeBody,
             groupId: userId,
           });
           await recordRecentWrite(userId, memory);

@@ -5,7 +5,7 @@ import { GRAPHITI_BASE_URL } from '@/lib/graphiti/config';
 
 const LinkSchema = z.object({
   providerId: z.string(),
-  target: z.enum(['llm', 'embedding']),
+  target: z.enum(['llm', 'embedding', 'small_llm']),
   modelName: z.string().optional(),
 });
 
@@ -23,14 +23,19 @@ export const POST = withAuth(async (req, { user }) => {
   }
 
   const baseUrl = GRAPHITI_BASE_URL;
+  // small_llm intentionally omits api_key/base_url: graphiti_core's LLMConfig
+  // has a single client (one api_key/base_url) with two model names on it, so
+  // the small model must live on the same provider already linked as 'llm'.
   const payload =
     target === 'llm'
       ? { llm_model: modelName ?? null, llm_api_key: provider.apiKey || null, llm_base_url: provider.baseURL || null }
-      : {
-          embedding_model: modelName ?? null,
-          embedding_api_key: provider.apiKey || null,
-          embedding_base_url: provider.baseURL || null,
-        };
+      : target === 'small_llm'
+        ? { small_llm_model: modelName ?? null }
+        : {
+            embedding_model: modelName ?? null,
+            embedding_api_key: provider.apiKey || null,
+            embedding_base_url: provider.baseURL || null,
+          };
 
   try {
     const res = await fetch(`${baseUrl}/config`, {

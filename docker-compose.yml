@@ -569,6 +569,7 @@ services:
       - PORT=8001
       - GRAPH_DB_URL=bolt://falkordb:6379
       - LLM_MODEL=${GRAPHITI_LLM_MODEL:-gpt-4o-mini}
+      - SMALL_LLM_MODEL=${GRAPHITI_LLM_SMALL_MODEL:-}
       - LLM_API_KEY=${GRAPHITI_LLM_API_KEY}
       - LLM_BASE_URL=${GRAPHITI_LLM_BASE_URL:-https://api.openai.com/v1}
       - EMBEDDING_MODEL=${GRAPHITI_EMBEDDING_MODEL:-text-embedding-3-small}
@@ -609,6 +610,7 @@ services:
       - PORT=8002
       - GRAPH_DB_URL=bolt://falkordb:6379
       - LLM_MODEL=${GRAPHITI_LLM_MODEL:-gpt-4o-mini}
+      - SMALL_LLM_MODEL=${GRAPHITI_LLM_SMALL_MODEL:-}
       - LLM_API_KEY=${GRAPHITI_LLM_API_KEY}
       - LLM_BASE_URL=${GRAPHITI_LLM_BASE_URL:-https://api.openai.com/v1}
       - EMBEDDING_MODEL=${GRAPHITI_EMBEDDING_MODEL:-text-embedding-3-small}

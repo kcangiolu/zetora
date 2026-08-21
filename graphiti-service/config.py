@@ -18,6 +18,7 @@ CONFIG_FILE = os.environ.get("GRAPHITI_CONFIG_PATH", "/data/graphiti_config.json
 
 class LlmConfig(BaseModel):
     llm_model: str | None = None
+    small_llm_model: str | None = None
     llm_api_key: str | None = None
     llm_base_url: str | None = None
     embedding_model: str | None = None
@@ -29,6 +30,7 @@ _ENV_BY_FIELD = {
     "llm_api_key": "OPENAI_API_KEY",
     "llm_base_url": "OPENAI_BASE_URL",
     "llm_model": "LLM_MODEL",
+    "small_llm_model": "SMALL_LLM_MODEL",
     "embedding_model": "EMBEDDING_MODEL",
     "embedding_api_key": "EMBEDDING_API_KEY",
     "embedding_base_url": "EMBEDDING_BASE_URL",

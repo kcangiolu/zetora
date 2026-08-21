@@ -9,7 +9,8 @@ from graphiti_core.cross_encoder.openai_reranker_client import OpenAIRerankerCli
 from graphiti_core.driver.falkordb_driver import FalkorDriver
 from graphiti_core.embedder.openai import OpenAIEmbedder, OpenAIEmbedderConfig
 from graphiti_core.llm_client.config import LLMConfig
-from graphiti_core.llm_client.openai_generic_client import OpenAIGenericClient
+
+from llm_client import SizeAwareOpenAIGenericClient
 
 logger = logging.getLogger("graphiti")
 
@@ -25,6 +26,7 @@ async def build_graphiti_client() -> Graphiti:
         api_key=os.environ.get("OPENAI_API_KEY") or "not-needed",
         base_url=os.environ.get("OPENAI_BASE_URL"),
         model=os.environ.get("LLM_MODEL", "gpt-4o-mini"),
+        small_model=os.environ.get("SMALL_LLM_MODEL"),
     )
     embedder = OpenAIEmbedder(
         config=OpenAIEmbedderConfig(
@@ -36,7 +38,7 @@ async def build_graphiti_client() -> Graphiti:
 
     client = Graphiti(
         graph_driver=driver,
-        llm_client=OpenAIGenericClient(config=llm_config),
+        llm_client=SizeAwareOpenAIGenericClient(config=llm_config),
         embedder=embedder,
         cross_encoder=OpenAIRerankerClient(config=llm_config),
     )

@@ -135,6 +135,8 @@ export async function upsertUserPreferences({
     'zetora-graphiti-llm-base-url'?: string;
     'zetora-graphiti-llm-api-key'?: string;
     'zetora-graphiti-active-provider'?: string;
+    'zetora-graphiti-small-llm-provider'?: string;
+    'zetora-graphiti-small-llm-model'?: string;
     'zetora-graphiti-embedding-provider'?: string;
     'zetora-graphiti-embedding-model'?: string;
     'zetora-embedding-enabled'?: boolean;

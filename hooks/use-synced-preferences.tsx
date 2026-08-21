@@ -75,6 +75,8 @@ export type PreferenceKey =
   | 'zetora-graphiti-llm-base-url'
   | 'zetora-graphiti-llm-api-key'
   | 'zetora-graphiti-active-provider'
+  | 'zetora-graphiti-small-llm-provider'
+  | 'zetora-graphiti-small-llm-model'
   | 'zetora-graphiti-embedding-provider'
   | 'zetora-graphiti-embedding-model'
   | 'zetora-embedding-enabled'

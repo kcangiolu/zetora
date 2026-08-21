@@ -57,6 +57,11 @@ export function IntegrationsTab({
   );
   const [graphitiLlmModel, setGraphitiLlmModel] = useSyncedPreferences<string>('zetora-graphiti-llm-model', '');
   const [, setGraphitiLlmBaseUrl] = useSyncedPreferences<string>('zetora-graphiti-llm-base-url', '');
+  const [selectedGraphitiSmallLlmProvider, setSelectedGraphitiSmallLlmProvider] = useSyncedPreferences<string>(
+    'zetora-graphiti-small-llm-provider',
+    '',
+  );
+  const [, setGraphitiSmallLlmModel] = useSyncedPreferences<string>('zetora-graphiti-small-llm-model', '');
   const [graphitiEmbeddingProvider, setGraphitiEmbeddingProvider] = useSyncedPreferences<string>(
     'zetora-graphiti-embedding-provider',
     '',
@@ -97,7 +102,11 @@ export function IntegrationsTab({
 
   // The provider's API key is decrypted server-side and forwarded straight to
   // Graphiti by /api/graphiti/link-provider — it never touches the browser.
-  const linkGraphitiProvider = async (providerId: string, target: 'llm' | 'embedding', modelName: string) => {
+  const linkGraphitiProvider = async (
+    providerId: string,
+    target: 'llm' | 'embedding' | 'small_llm',
+    modelName: string,
+  ) => {
     try {
       const res = await fetch('/api/graphiti/link-provider', {
         method: 'POST',
@@ -122,6 +131,19 @@ export function IntegrationsTab({
     } else {
       setGraphitiLlmModel('');
       setGraphitiLlmBaseUrl('');
+    }
+  };
+
+  const handleGraphitiSmallLlmSelect = async (modelId: string) => {
+    setSelectedGraphitiSmallLlmProvider(modelId);
+    if (modelId) {
+      const parsed = parseCustomModel(modelId, customProviders);
+      if (parsed) {
+        setGraphitiSmallLlmModel(parsed.modelName);
+        await linkGraphitiProvider(parsed.provider.id, 'small_llm', parsed.modelName);
+      }
+    } else {
+      setGraphitiSmallLlmModel('');
     }
   };
 
@@ -401,6 +423,41 @@ export function IntegrationsTab({
                   size="icon"
                   className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
                   onClick={() => handleGraphitiLlmSelect('')}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Small LLM Extractor */}
+          <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
+            <div className="min-w-0">
+              <p className="text-sm font-medium">Small LLM Extractor</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Fast model for classification/dedup steps — must be on the same provider as LLM Extractor above
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {!selectedGraphitiSmallLlmProvider && (
+                <span className="text-[11px] text-muted-foreground/70 shrink-0">Not set</span>
+              )}
+              <ModelSelectorDialog
+                selectedModel={selectedGraphitiSmallLlmProvider}
+                onModelSelect={handleGraphitiSmallLlmSelect}
+                user={user}
+                additionalModels={customModelsList}
+                onlyAdditionalModels
+                className="w-[180px] h-8"
+                compact
+              />
+              {selectedGraphitiSmallLlmProvider && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+                  onClick={() => handleGraphitiSmallLlmSelect('')}
                 >
                   <X className="h-3.5 w-3.5" />
                 </Button>
