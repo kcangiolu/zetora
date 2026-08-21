@@ -7,7 +7,6 @@ const base = {
   isXmlParsedCustomModel: false,
   model: 'zetora-default',
   latestStepHasToolRoundTrip: false,
-  latestStepToolNames: [] as string[],
   streamActiveTools: ['web_search', 'retrieve', 'datetime'],
   baseSystem: 'You are a search engine.',
 };
@@ -53,46 +52,6 @@ describe('resolvePrepareStepOverride', () => {
     expect(override).toEqual({
       toolChoice: 'auto',
       activeTools: base.streamActiveTools,
-    });
-  });
-
-  describe('auto mode (keeps tools armed across research steps)', () => {
-    const autoBase = { ...base, group: 'auto' };
-
-    it('keeps tools armed with no nudge after a non-image tool round', () => {
-      const override = resolvePrepareStepOverride({
-        ...autoBase,
-        latestStepHasToolRoundTrip: true,
-        latestStepToolNames: ['web_search'],
-      });
-      expect(override).toEqual({
-        toolChoice: 'auto',
-        activeTools: base.streamActiveTools,
-      });
-    });
-
-    it('forces synthesis after an image-generation tool round (no spurious follow-up turn)', () => {
-      const override = resolvePrepareStepOverride({
-        ...autoBase,
-        latestStepHasToolRoundTrip: true,
-        latestStepToolNames: ['generate_image'],
-      });
-      expect(override).toEqual({
-        toolChoice: 'auto',
-        activeTools: [],
-      });
-    });
-
-    it('forces synthesis after an edit_image tool round', () => {
-      const override = resolvePrepareStepOverride({
-        ...autoBase,
-        latestStepHasToolRoundTrip: true,
-        latestStepToolNames: ['edit_image'],
-      });
-      expect(override).toEqual({
-        toolChoice: 'auto',
-        activeTools: [],
-      });
     });
   });
 

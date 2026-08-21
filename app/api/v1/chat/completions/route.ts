@@ -114,7 +114,6 @@ export async function POST(req: NextRequest) {
       const latestStep = steps[steps.length - 1];
       const latestStepHasToolRoundTrip =
         Boolean(latestStep) && latestStep.toolCalls.length > 0 && latestStep.toolResults.length > 0;
-      const latestStepToolNames = latestStep?.toolCalls.map((call) => call.toolName) ?? [];
 
       return resolvePrepareStepOverride({
         group: 'web',
@@ -122,7 +121,6 @@ export async function POST(req: NextRequest) {
         isXmlParsedCustomModel,
         model: modelId,
         latestStepHasToolRoundTrip,
-        latestStepToolNames,
         streamActiveTools: VOICE_TOOL_NAMES,
         baseSystem,
       });
