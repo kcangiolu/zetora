@@ -1,12 +1,17 @@
 import { describe, it, expect, vi } from 'vitest';
 
-const { search, addEpisode } = vi.hoisted(() => ({
+const { search, addEpisode, getUserById } = vi.hoisted(() => ({
   search: vi.fn(),
   addEpisode: vi.fn(),
+  getUserById: vi.fn(),
 }));
 
 vi.mock('@/lib/graphiti/client', () => ({
   graphitiClient: { search, addEpisode },
+}));
+
+vi.mock('@/lib/db/queries/users', () => ({
+  getUserById,
 }));
 
 import { createGraphitiMemoryTools } from '@/lib/tools/graphiti-memory';
@@ -44,12 +49,25 @@ describe('createGraphitiMemoryTools', () => {
 
   it('scopes add_memory to the given userId as groupId', async () => {
     addEpisode.mockResolvedValue({ id: 'ep-1' });
+    getUserById.mockResolvedValue(null);
     const { addMemoryTool } = createGraphitiMemoryTools('user-1');
 
     await (addMemoryTool.execute as any)({ memory: 'likes hiking' }, {} as any);
 
     expect(addEpisode).toHaveBeenCalledWith(
       expect.objectContaining({ episodeBody: 'likes hiking', groupId: 'user-1' }),
+    );
+  });
+
+  it('anchors the memory to the user\'s real name so a pronoun-only fact has a subject to attach to', async () => {
+    addEpisode.mockResolvedValue({ id: 'ep-1' });
+    getUserById.mockResolvedValue({ name: 'Kenny' });
+    const { addMemoryTool } = createGraphitiMemoryTools('user-1');
+
+    await (addMemoryTool.execute as any)({ memory: "J'adore la mangue" }, {} as any);
+
+    expect(addEpisode).toHaveBeenCalledWith(
+      expect.objectContaining({ episodeBody: "Kenny: J'adore la mangue", groupId: 'user-1' }),
     );
   });
 });
