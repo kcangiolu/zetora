@@ -45,9 +45,9 @@ export function MemoriesSection() {
       return await getAllMemories(pageNumber);
     },
     initialPageParam: 1,
-    getNextPageParam: (lastPage) => {
+    getNextPageParam: (lastPage, allPages) => {
       const hasMore = lastPage.memories.length >= 20;
-      return hasMore ? Number(lastPage.memories[lastPage.memories.length - 1]?.id) : undefined;
+      return hasMore ? allPages.length + 1 : undefined;
     },
     staleTime: 1000 * 60 * 5,
   });
