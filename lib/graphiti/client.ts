@@ -148,11 +148,14 @@ class GraphitiClient {
     }
   }
 
-  async deleteEpisode(episodeUuid: string): Promise<void> {
-    const res = await fetch(`${this.baseUrl}/episodes/${episodeUuid}`, {
-      method: 'DELETE',
-      signal: AbortSignal.timeout(GRAPHITI_TIMEOUT_MS),
-    });
+  async deleteEpisode(episodeUuid: string, groupId: string): Promise<void> {
+    const res = await fetch(
+      `${this.baseUrl}/episodes/${episodeUuid}?group_id=${encodeURIComponent(groupId)}`,
+      {
+        method: 'DELETE',
+        signal: AbortSignal.timeout(GRAPHITI_TIMEOUT_MS),
+      },
+    );
 
     if (!res.ok) {
       const error = await res.text();

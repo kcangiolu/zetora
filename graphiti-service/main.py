@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from graphiti_core import Graphiti
 from graphiti_core.utils.maintenance.graph_data_operations import clear_data
 
-from client import build_graphiti_client
+from client import build_graphiti_client, scoped_client
 from config import LlmConfig, apply_llm_config, bootstrap_env, save_persisted_config
 from helpers import paginate_most_recent_first
 
@@ -94,7 +94,8 @@ async def add_episode(input: EpisodeInput):
         ref_time = (
             datetime.fromisoformat(input.reference_time) if input.reference_time else datetime.now(timezone.utc)
         )
-        result = await client.add_episode(
+        target = scoped_client(client, input.group_id) if input.group_id else client
+        result = await target.add_episode(
             name=input.name,
             episode_body=input.episode_body,
             reference_time=ref_time,
@@ -111,7 +112,8 @@ async def add_episode(input: EpisodeInput):
 async def search(input: SearchInput):
     client = require_client()
     try:
-        results = await client.search(
+        target = scoped_client(client, input.group_id) if input.group_id else client
+        results = await target.search(
             query=input.query,
             group_ids=[input.group_id] if input.group_id else None,
             num_results=input.num_results,
@@ -126,7 +128,7 @@ async def search(input: SearchInput):
 async def delete_group(input: DeleteInput):
     client = require_client()
     try:
-        await clear_data(client.driver, group_ids=[input.group_id])
+        await clear_data(client.driver.clone(database=input.group_id), group_ids=[input.group_id])
         return {"success": True}
     except Exception as e:
         logger.error("delete_group failed", exc_info=True)
@@ -138,7 +140,8 @@ async def list_episodes(group_id: str, limit: int = 50, offset: int = 0):
     """List episodes for a given group_id, most recent first, with pagination."""
     client = require_client()
     try:
-        episodes = await client.retrieve_episodes(
+        target = scoped_client(client, group_id)
+        episodes = await target.retrieve_episodes(
             reference_time=datetime.now(timezone.utc),
             last_n=limit + offset,
             group_ids=[group_id],
@@ -155,11 +158,12 @@ async def list_episodes(group_id: str, limit: int = 50, offset: int = 0):
 
 
 @app.delete("/episodes/{episode_uuid}")
-async def delete_episode(episode_uuid: str):
-    """Delete a single episode by its UUID."""
+async def delete_episode(episode_uuid: str, group_id: str):
+    """Delete a single episode by its UUID, scoped to its group's database."""
     client = require_client()
     try:
-        await client.remove_episode(episode_uuid)
+        target = scoped_client(client, group_id)
+        await target.remove_episode(episode_uuid)
         return {"success": True}
     except Exception as e:
         logger.error("delete_episode failed", exc_info=True)

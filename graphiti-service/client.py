@@ -45,3 +45,26 @@ async def build_graphiti_client() -> Graphiti:
     await client.build_indices_and_constraints()
     logger.info("Graphiti client initialized (graph db %s)", graph_db_url)
     return client
+
+
+def scoped_client(base: Graphiti, group_id: str) -> Graphiti:
+    """Per-request Graphiti view scoped to one group's FalkorDB database.
+
+    graphiti_core's FalkorDB add_episode mutates the *shared* client's
+    self.driver to the target database and leaves it there. Reads
+    (search/retrieve_episodes) only re-clone per group when called with more
+    than one group_id (@handle_multiple_group_ids) — with exactly one, they
+    silently run against whatever database the shared driver was last left
+    on. Since one Graphiti instance serves every request here, that means a
+    read can execute against a different user's database, or an empty one,
+    depending on request interleaving. Building an independent Graphiti view
+    per request — cloning the connection via driver.clone(), never touching
+    the shared instance's driver — sidesteps that entirely; FalkorDriver.clone
+    reuses the same underlying connection, so this is cheap.
+    """
+    return Graphiti(
+        graph_driver=base.driver.clone(database=group_id),
+        llm_client=base.llm_client,
+        embedder=base.embedder,
+        cross_encoder=base.cross_encoder,
+    )

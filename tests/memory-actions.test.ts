@@ -106,7 +106,7 @@ describe('addMemoryManual / updateMemory', () => {
 
       const result = await updateMemory('ep-old', 'User likes climbing now');
 
-      expect(deleteEpisode).toHaveBeenCalledWith('ep-old');
+      expect(deleteEpisode).toHaveBeenCalledWith('ep-old', 'user-1');
       expect(graphitiAddMemoryExecute).toHaveBeenCalledWith({ memory: 'User likes climbing now' }, expect.anything());
       expect(result).toEqual({ success: true });
     });

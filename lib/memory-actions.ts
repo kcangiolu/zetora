@@ -148,7 +148,7 @@ export async function deleteMemory(memoryId: string) {
   if (provider === 'graphiti') {
     try {
       const client = graphitiClient;
-      await client.deleteEpisode(memoryId);
+      await client.deleteEpisode(memoryId, user.id);
       return { success: true };
     } catch (error) {
       log.error('Error deleting Graphiti memory:', error);
@@ -212,7 +212,7 @@ export async function updateMemory(memoryId: string, content: string): Promise<{
 
   if (provider === 'graphiti') {
     try {
-      await graphitiClient.deleteEpisode(memoryId);
+      await graphitiClient.deleteEpisode(memoryId, user.id);
       const { addMemoryTool } = createGraphitiMemoryTools(user.id);
       const result = (await addMemoryTool.execute!({ memory }, {} as never)) as {
         success: boolean;
