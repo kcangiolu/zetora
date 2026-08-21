@@ -5,7 +5,7 @@ WORKDIR /app
 # for reproducible builds; regenerate it when bumping dependencies.
 COPY requirements.lock .
 RUN pip install --no-cache-dir -r requirements.lock
-COPY config.py client.py helpers.py mcp_server.py ./
+COPY config.py client.py helpers.py llm_client.py mcp_server.py ./
 
 # Deliberately kept root: /data is a host bind mount (${DATA_DIR}/graphiti)
 # whose ownership the image can't control (see Dockerfile).
