@@ -324,8 +324,6 @@ export const zetora = customProvider({
 
     ...(_groq
       ? {
-          'zetora-llama-3.1-8b': _groq('llama-3.1-8b-instant'),
-          'zetora-llama-3.3-70b': _groq('llama-3.3-70b-versatile'),
           'zetora-enhance': _groq('openai/gpt-oss-120b'),
           'zetora-gpt-oss-120-groq': _groq('openai/gpt-oss-120b'),
           'zetora-qwen-3.6-27b': wrapLanguageModel({ model: _groq('qwen/qwen3.6-27b'), middleware }),
@@ -604,6 +602,9 @@ export const zetora = customProvider({
       ? deepseekDirect('deepseek-v4-flash')
       : gateway('deepseek/deepseek-v4-flash'),
     'zetora-deepseek-v4-pro': deepseekDirect ? deepseekDirect('deepseek-v4-pro') : gateway('deepseek/deepseek-v4-pro'),
+    'zetora-deepseek-v4-flash-vision-exp': deepseekDirect
+      ? deepseekDirect('deepseek-v4-flash-vision-exp')
+      : gateway('deepseek/deepseek-v4-flash-vision-exp'),
     'zetora-v0-10': gateway('vercel/v0-1.0-md'),
     'zetora-v0-15': gateway('vercel/v0-1.5-md'),
     'zetora-qwen-coder-small': gateway('alibaba/qwen3-coder-30b-a3b'),
