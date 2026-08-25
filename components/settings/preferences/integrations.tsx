@@ -67,10 +67,6 @@ export function IntegrationsTab({
     '',
   );
   const [, setGraphitiEmbeddingModel] = useSyncedPreferences<string>('zetora-graphiti-embedding-model', '');
-  const [memoryCuratorEnabled, setMemoryCuratorEnabled] = useSyncedPreferences<boolean>(
-    'zetora-memory-curator-enabled',
-    true,
-  );
 
   const [xqlEnabled, setXqlEnabled] = useSyncedPreferences<boolean>('zetora-xql-enabled', true);
   const [lookoutEnabled, setLookoutEnabled] = useSyncedPreferences<boolean>('zetora-lookout-enabled', true);
@@ -283,21 +279,6 @@ export function IntegrationsTab({
                 ))}
               </SelectContent>
             </Select>
-          </div>
-
-          {/* Memory Curator */}
-          <div className="flex items-center justify-between py-3.5 border-t border-border/40 gap-6">
-            <div className="min-w-0">
-              <p className="text-sm font-medium">Memory Curator</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Background model that reviews finished chats and decides what to save to memory
-              </p>
-            </div>
-            <Switch
-              id="memory-curator-enabled"
-              checked={memoryCuratorEnabled}
-              onCheckedChange={setMemoryCuratorEnabled}
-            />
           </div>
         </div>
       </div>

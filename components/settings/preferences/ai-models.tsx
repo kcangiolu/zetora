@@ -746,6 +746,7 @@ export function AiModelsTab({
               modelKey="zetora-tertiary-memory-curator-model"
               providerKey="zetora-tertiary-memory-curator-provider"
               effortKey="zetora-tertiary-memory-curator-effort"
+              enabledKey="zetora-memory-curator-enabled"
               recommendedEffort="auto"
               label="Memory Curator"
               description="Reviews finished chats and decides what to save to memory"
