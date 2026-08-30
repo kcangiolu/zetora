@@ -5,7 +5,6 @@ import {
   deriveRootURL,
   getCustomProviders,
   parseCustomModelId,
-  type CustomBackendKind,
   type CustomProviderConfig,
 } from '@/lib/custom-providers';
 import { createLogger } from '@/lib/logger';
@@ -22,13 +21,11 @@ const contextWindowCache = new Map<string, { value: number; expiresAt: number }>
 
 // Best-effort, never throws — same guarantee as detectModelVision() in
 // lib/custom-providers.ts, which this mirrors.
-async function probeCustomContextWindow(
-  root: string,
-  backendKind: CustomBackendKind | undefined,
-  modelName: string,
-): Promise<number> {
+async function probeCustomContextWindow(provider: CustomProviderConfig, modelName: string): Promise<number> {
+  const { backendKind } = provider;
   try {
     if (backendKind === 'llamacpp') {
+      const root = deriveRootURL(provider.baseURL);
       const res = await fetch(`${root}/props`, { signal: AbortSignal.timeout(3000) });
       if (res.ok) {
         const body = await res.json().catch(() => null);
@@ -38,6 +35,7 @@ async function probeCustomContextWindow(
         if (typeof n === 'number' && n > 0) return n;
       }
     } else if (backendKind === 'ollama') {
+      const root = deriveRootURL(provider.baseURL);
       const res = await fetch(`${root}/api/show`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -55,6 +53,22 @@ async function probeCustomContextWindow(
           if (typeof n === 'number' && n > 0) return n;
         }
       }
+    } else {
+      // vllm/openai/unknown: no native metadata route to probe, but some
+      // OpenAI-compatible servers (OpenRouter, some vLLM builds) enrich the
+      // standard /models list with a context-length field — same endpoint
+      // detectModels() already calls for the model picker.
+      const url = `${provider.baseURL.replace(/\/$/, '')}/models`;
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${provider.apiKey ?? 'not-needed'}` },
+        signal: AbortSignal.timeout(3000),
+      });
+      if (res.ok) {
+        const body = await res.json().catch(() => null);
+        const entry = Array.isArray(body?.data) ? body.data.find((m: { id?: string }) => m.id === modelName) : null;
+        const n = entry?.context_length ?? entry?.top_provider?.context_length ?? entry?.max_model_len;
+        if (typeof n === 'number' && n > 0) return n;
+      }
     }
   } catch (err) {
     log.warn(`[context-window] Probe failed for ${modelName} (${backendKind ?? 'unknown'}):`, err);
@@ -69,8 +83,7 @@ async function getCustomContextWindowCached(provider: CustomProviderConfig, mode
     return cached.value;
   }
 
-  const root = deriveRootURL(provider.baseURL);
-  const value = await probeCustomContextWindow(root, provider.backendKind, modelName);
+  const value = await probeCustomContextWindow(provider, modelName);
   contextWindowCache.set(cacheKey, { value, expiresAt: Date.now() + CONTEXT_WINDOW_CACHE_TTL_MS });
   return value;
 }

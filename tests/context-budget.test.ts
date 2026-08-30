@@ -52,11 +52,27 @@ describe('estimateTokenCount', () => {
 
 describe('computeContextBudget', () => {
   it('reserves 20% headroom on top of the output reserve', () => {
+    // outputReserve (8_000) is under half of contextWindow (128_000), so the
+    // clamp is a no-op here — full reserve counts as-is.
     expect(computeContextBudget(128_000, 8_000)).toBe(Math.floor((128_000 - 8_000) * 0.8));
   });
 
-  it('never goes negative when the output reserve exceeds the context window', () => {
-    expect(computeContextBudget(4_096, 8_000)).toBe(0);
+  it('never goes negative even after the output reserve is clamped', () => {
+    // effectiveReserve = min(8_000, floor(4_096 * 0.5)) = 2_048
+    expect(computeContextBudget(4_096, 8_000)).toBe(Math.floor((4_096 - 2_048) * 0.8));
+  });
+
+  it('still floors at 0 when the clamped reserve alone exceeds the context window', () => {
+    expect(computeContextBudget(0, 8_000)).toBe(0);
+  });
+
+  it('caps the output reserve at half the context window instead of letting it eat the whole budget', () => {
+    // Real-world regression case: a custom OpenAI-compatible provider (e.g.
+    // OpenRouter) with an undetected context window (8_192 default) and the
+    // generic 8_000-token maxOutputTokens fallback used to collapse the
+    // budget to ~153 tokens. The reserve is now capped at 8_192 * 0.5 = 4_096.
+    expect(computeContextBudget(8_192, 8_000)).toBe(Math.floor((8_192 - 4_096) * 0.8));
+    expect(computeContextBudget(8_192, 8_000)).toBeGreaterThan(3_000);
   });
 });
 

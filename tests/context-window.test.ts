@@ -77,15 +77,53 @@ describe('resolveContextWindow (custom providers)', () => {
     expect(window).toBe(32768);
   });
 
-  it('falls back to the default for vLLM backends without a network call', async () => {
+  it('reads context_length from /models for OpenAI-compatible backends (e.g. OpenRouter)', async () => {
+    mockGetCustomProviders.mockResolvedValue([
+      { id: 'openrouter', name: 'OpenRouter', baseURL: 'https://openrouter.ai/api/v1', backendKind: 'openai' },
+    ]);
+    stubFetchOnce({
+      ok: true,
+      json: async () => ({
+        data: [
+          { id: 'other-model', context_length: 32_768 },
+          { id: 'anthropic/claude-sonnet', context_length: 200_000, top_provider: { context_length: 200_000 } },
+        ],
+      }),
+    });
+
+    const window = await resolveContextWindow('custom-openrouter-anthropic/claude-sonnet', 'user-1');
+    expect(window).toBe(200_000);
+  });
+
+  it('falls back to top_provider.context_length or max_model_len when the top-level field is absent', async () => {
     mockGetCustomProviders.mockResolvedValue([
       { id: 'vllm-box', name: 'vLLM box', baseURL: 'http://localhost:8000/v1', backendKind: 'vllm' },
     ]);
-    const fetchMock = stubFetchOnce({ ok: true, json: async () => ({}) });
+    stubFetchOnce({ ok: true, json: async () => ({ data: [{ id: 'mixtral-a', max_model_len: 32_768 }] }) });
 
-    const window = await resolveContextWindow('custom-vllm-box-mixtral', 'user-1');
+    const window = await resolveContextWindow('custom-vllm-box-mixtral-a', 'user-1');
+    expect(window).toBe(32_768);
+  });
+
+  it('falls back to the default for an unknown backend when /models has no context-length field', async () => {
+    mockGetCustomProviders.mockResolvedValue([
+      { id: 'vllm-box', name: 'vLLM box', baseURL: 'http://localhost:8000/v1', backendKind: 'vllm' },
+    ]);
+    const fetchMock = stubFetchOnce({ ok: true, json: async () => ({ data: [{ id: 'mixtral-b' }] }) });
+
+    const window = await resolveContextWindow('custom-vllm-box-mixtral-b', 'user-1');
     expect(window).toBe(DEFAULT_CUSTOM_CONTEXT_WINDOW);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalled();
+  });
+
+  it('falls back to the default for an unknown backend when the /models probe fails', async () => {
+    mockGetCustomProviders.mockResolvedValue([
+      { id: 'vllm-box', name: 'vLLM box', baseURL: 'http://localhost:8000/v1', backendKind: 'vllm' },
+    ]);
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNREFUSED')));
+
+    const window = await resolveContextWindow('custom-vllm-box-mixtral-c', 'user-1');
+    expect(window).toBe(DEFAULT_CUSTOM_CONTEXT_WINDOW);
   });
 
   it('never throws when the probe fails, falling back to the default', async () => {

@@ -3,6 +3,7 @@ import type { ModelMessage } from 'ai';
 const CHARS_PER_TOKEN = 4;
 const ESTIMATE_SAFETY_MARGIN = 1.2; // +20% — no real tokenizer, so we over-count on purpose
 const BUDGET_UTILIZATION = 0.8; // only target 80% of (contextWindow - outputReserve)
+const MAX_OUTPUT_RESERVE_FRACTION = 0.5; // never let the output reserve alone eat more than half the detected window
 
 function safeStringify(value: unknown): string {
   try {
@@ -23,7 +24,8 @@ export function estimateTokenCount(input: ModelMessage[] | string): number {
 }
 
 export function computeContextBudget(contextWindow: number, outputReserve: number): number {
-  return Math.max(0, Math.floor((contextWindow - outputReserve) * BUDGET_UTILIZATION));
+  const effectiveReserve = Math.min(outputReserve, Math.floor(contextWindow * MAX_OUTPUT_RESERVE_FRACTION));
+  return Math.max(0, Math.floor((contextWindow - effectiveReserve) * BUDGET_UTILIZATION));
 }
 
 export interface PruneResult {
