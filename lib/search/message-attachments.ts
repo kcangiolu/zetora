@@ -2,13 +2,24 @@ import { ModelMessage } from 'ai';
 
 export type AttachmentRef = { url: string; contentType: string; name?: string };
 
+// Shared identity for every image kept in context, uploaded or generated, so
+// both kinds can be labeled with a stable "Image N of M" anchor next to
+// their pixels (see labelUploadedImagesInPlace and
+// appendGeneratedImagePartsToLastUserMessage). Without this, an image just
+// sits in its turn with nothing tying it to an identity, so a model asked
+// about "the first image" or "the picture from before" has only raw
+// position to go on — which is what causes images to get mixed up once a
+// few pile up in one conversation.
+export type ContextImageRef = AttachmentRef & {
+  turnIndex: number;
+  sourceMessageId: string;
+};
+
 // Extra identity carried only for generate_image/edit_image outputs, so each
 // one can be labeled distinctly when several end up in the same request
 // (see appendGeneratedImagePartsToLastUserMessage) instead of arriving as
 // unlabeled sibling image parts the model has no way to tell apart.
-export type GeneratedImageRef = AttachmentRef & {
-  turnIndex: number;
-  sourceMessageId: string;
+export type GeneratedImageRef = ContextImageRef & {
   toolCallId?: string;
   prompt?: string;
   seed?: number;
@@ -39,12 +50,14 @@ export function collectAttachments(
   hiddenImageUrls?: Set<string>,
 ): {
   contextFiles: AttachmentRef[];
-  contextImages: AttachmentRef[];
+  contextImages: ContextImageRef[];
+  contextUploadedImages: ContextImageRef[];
   contextGeneratedImages: GeneratedImageRef[];
   otherFileParts: AttachmentRef[];
 } {
   const contextFiles: AttachmentRef[] = [];
-  const contextImages: AttachmentRef[] = [];
+  const contextImages: ContextImageRef[] = [];
+  const contextUploadedImages: ContextImageRef[] = [];
   const contextGeneratedImages: GeneratedImageRef[] = [];
   const otherFileParts: AttachmentRef[] = [];
   const seenUrls = new Set<string>();
@@ -73,7 +86,15 @@ export function collectAttachments(
         } else if (mediaType.startsWith('image/')) {
           if (!seenImageUrls.has(url)) {
             seenImageUrls.add(url);
-            contextImages.push({ url, contentType: mediaType, name: filePart.name });
+            const ref: ContextImageRef = {
+              url,
+              contentType: mediaType,
+              name: filePart.name,
+              turnIndex,
+              sourceMessageId: msg.id ?? '',
+            };
+            contextImages.push(ref);
+            contextUploadedImages.push(ref);
           }
         } else if (!seenOtherUrls.has(url)) {
           seenOtherUrls.add(url);
@@ -102,7 +123,7 @@ export function collectAttachments(
     }
   }
 
-  return { contextFiles, contextImages, contextGeneratedImages, otherFileParts };
+  return { contextFiles, contextImages, contextUploadedImages, contextGeneratedImages, otherFileParts };
 }
 
 function documentMime(mediaType: string): boolean {
@@ -171,6 +192,47 @@ function buildGeneratedImageLabel(img: GeneratedImageRef, idx: number, total: nu
   return `\n\n[Image ${idx + 1} of ${total} — ${recency}${promptPart}. When discussing this image, refer to it as "Image ${idx + 1}".]`;
 }
 
+// Same anchor generated images get above, but for images the user attached
+// directly — those otherwise have no per-image label at all, only a flat
+// URL list at the very end of the conversation (buildImageInstruction),
+// decoupled from wherever the pixels actually sit in history.
+function buildUploadedImageLabel(img: ContextImageRef, ordinal: number, total: number, currentTurnIndex: number): string {
+  const turnsAgo = currentTurnIndex - img.turnIndex;
+  const recency = turnsAgo <= 0 ? 'most recent, attached just now' : `attached ${turnsAgo} turn${turnsAgo === 1 ? '' : 's'} ago`;
+  return `\n\n[Uploaded image ${ordinal} of ${total} — ${recency}. When discussing this image, refer to it as "Uploaded image ${ordinal}".]`;
+}
+
+// Inserts that label immediately before each uploaded image's existing file
+// part, in place. Unlike generated images, an uploaded image already has a
+// content part carrying its pixels (kept in place by stripFilePartsForModel)
+// — there's nothing to append, just a label to slot in next to what's
+// already there. Only call this when Vision is on; with it off the file
+// parts have already been stripped, so this is a no-op anyway.
+export function labelUploadedImagesInPlace(
+  messages: ModelMessage[],
+  uploadedImages: ContextImageRef[],
+  currentTurnIndex: number,
+): void {
+  if (uploadedImages.length === 0) return;
+  const total = uploadedImages.length;
+  const ordinalByUrl = new Map(uploadedImages.map((img, idx) => [img.url, idx + 1]));
+
+  for (const msg of messages as any[]) {
+    if (msg.role !== 'user' || !Array.isArray(msg.content)) continue;
+    let touched = false;
+    const labeled: any[] = [];
+    for (const part of msg.content) {
+      if (part.type === 'file' && typeof part.url === 'string' && ordinalByUrl.has(part.url)) {
+        const ordinal = ordinalByUrl.get(part.url)!;
+        labeled.push({ type: 'text', text: buildUploadedImageLabel(uploadedImages[ordinal - 1], ordinal, total, currentTurnIndex) });
+        touched = true;
+      }
+      labeled.push(part);
+    }
+    if (touched) msg.content = labeled;
+  }
+}
+
 export function buildFileInstruction(contextFiles: AttachmentRef[]): string {
   const fileNames = contextFiles.map((f) => f.name || 'unnamed file').join(', ');
   return `\n\n[Attached files in conversation: ${fileNames}. Use the file_query_search tool to search and retrieve information from these files.]`;
@@ -178,12 +240,97 @@ export function buildFileInstruction(contextFiles: AttachmentRef[]): string {
 
 // Always tell the model the URL of any attached image — even when Vision is
 // on this doubles as the reference edit_image needs, and when Vision is off
-// it's the only way a non-vision model can act on the image at all.
-export function buildImageInstruction(contextImages: AttachmentRef[], visionEnabled: boolean): string {
-  const imageList = contextImages.map((f) => `${f.name || 'unnamed image'}: ${f.url}`).join('\n');
+// it's the only way a non-vision model can act on the image at all. Ordinals
+// here match labelUploadedImagesInPlace / appendGeneratedImagePartsToLastUserMessage
+// exactly (both are built from these same two arrays, in the same order), so
+// "Uploaded image 2" in this list is the same image labeled "Uploaded image
+// 2" next to its pixels earlier in the conversation — not just a same-named
+// but positionally decoupled reference.
+export function buildImageInstruction(
+  uploadedImages: ContextImageRef[],
+  generatedImages: GeneratedImageRef[],
+  visionEnabled: boolean,
+): string {
+  const uploadedLines = uploadedImages.map((f, i) => `Uploaded image ${i + 1} (${f.name || 'unnamed image'}): ${f.url}`);
+  const generatedLines = generatedImages.map(
+    (f, i) => `Generated image ${i + 1}${f.prompt ? ` (prompt: "${f.prompt}")` : ''}: ${f.url}`,
+  );
+  const imageList = [...uploadedLines, ...generatedLines].join('\n');
   return visionEnabled
-    ? `\n\n[Attached image URLs (also shown to you above):\n${imageList}\nPass one of these URLs to the edit_image tool if asked to modify it.]`
+    ? `\n\n[Attached image URLs (each one also shown to you above with a matching label):\n${imageList}\nPass one of these URLs to the edit_image tool if asked to modify it.]`
     : `\n\n[Attached images (Vision is off, you cannot see their contents):\n${imageList}\nPass one of these URLs to the edit_image tool if asked to modify one.]`;
+}
+
+// Fix-up pass for after pruneToContextBudget drops the oldest turns to fit
+// the model's context window. Two things can go stale when that happens:
+// the flat image list above still names every image from the whole
+// conversation, including ones whose turn just got dropped; and generated
+// images are appended fresh onto the last user message regardless of their
+// source turn, so — unlike uploaded images, whose label+pixels live
+// together in their own turn and vanish as one unit when that turn is
+// pruned — pruning the turn a generated image came from does NOT remove it.
+// Only call this when turnsRemoved > 0.
+export function reconcileImageReferencesAfterPruning({
+  messages,
+  turnsRemoved,
+  contextUploadedImages,
+  contextGeneratedImages,
+  visionEnabled,
+  previousImageInstruction,
+}: {
+  messages: ModelMessage[];
+  turnsRemoved: number;
+  contextUploadedImages: ContextImageRef[];
+  contextGeneratedImages: GeneratedImageRef[];
+  visionEnabled: boolean;
+  previousImageInstruction: string;
+}): void {
+  const survivingUploaded = contextUploadedImages.filter((img) => img.turnIndex > turnsRemoved);
+  const survivingGenerated = contextGeneratedImages.filter((img) => img.turnIndex > turnsRemoved);
+  const droppedGeneratedUrls = new Set(
+    contextGeneratedImages.filter((img) => img.turnIndex <= turnsRemoved).map((img) => img.url),
+  );
+  const newImageInstruction =
+    survivingUploaded.length + survivingGenerated.length > 0
+      ? buildImageInstruction(survivingUploaded, survivingGenerated, visionEnabled)
+      : '';
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i] as any;
+    if (msg.role !== 'user') continue;
+
+    if (Array.isArray(msg.content)) {
+      if (droppedGeneratedUrls.size > 0) {
+        const kept: any[] = [];
+        for (let idx = 0; idx < msg.content.length; idx++) {
+          const part = msg.content[idx];
+          const next = msg.content[idx + 1];
+          if (part.type === 'text' && next?.type === 'image' && droppedGeneratedUrls.has(next.image)) {
+            idx++; // also skip the paired image part
+            continue;
+          }
+          if (part.type === 'image' && droppedGeneratedUrls.has(part.image)) continue;
+          kept.push(part);
+        }
+        msg.content = kept;
+      }
+      // Not just "the last text part": once generated-image labels sit after
+      // it in the array, that would grab a label instead of the text part
+      // that actually holds the instruction blob.
+      const targetIndex = msg.content.findIndex(
+        (p: any) => p.type === 'text' && typeof p.text === 'string' && p.text.includes(previousImageInstruction),
+      );
+      if (targetIndex >= 0) {
+        msg.content[targetIndex] = {
+          ...msg.content[targetIndex],
+          text: msg.content[targetIndex].text.split(previousImageInstruction).join(newImageInstruction),
+        };
+      }
+    } else if (typeof msg.content === 'string') {
+      msg.content = msg.content.split(previousImageInstruction).join(newImageInstruction);
+    }
+    return;
+  }
 }
 
 // Whether an "other" attachment is actually text is only known once we try to

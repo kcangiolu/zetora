@@ -7,6 +7,8 @@ import {
   buildImageInstruction,
   fetchInlineableTextFiles,
   appendGeneratedImagePartsToLastUserMessage,
+  labelUploadedImagesInPlace,
+  reconcileImageReferencesAfterPruning,
 } from '@/lib/search/message-attachments';
 
 function fileMsg(parts: Array<{ mediaType?: string; url?: string; name?: string }>) {
@@ -25,7 +27,9 @@ describe('collectAttachments', () => {
       ]),
     ]);
     expect(contextFiles).toEqual([{ url: 'https://x/doc.pdf', contentType: 'application/pdf', name: 'doc.pdf' }]);
-    expect(contextImages).toEqual([{ url: 'https://x/pic.png', contentType: 'image/png', name: 'pic.png' }]);
+    expect(contextImages).toEqual([
+      { url: 'https://x/pic.png', contentType: 'image/png', name: 'pic.png', turnIndex: 0, sourceMessageId: '' },
+    ]);
     expect(otherFileParts).toEqual([{ url: 'https://x/script.py', contentType: 'text/x-python', name: 'script.py' }]);
   });
 
@@ -241,10 +245,113 @@ describe('instruction builders', () => {
   });
 
   it('switches image wording on the vision flag', () => {
-    const images = [{ url: 'https://x/pic.png', contentType: 'image/png', name: 'pic.png' }];
-    expect(buildImageInstruction(images, true)).toContain('also shown to you above');
-    expect(buildImageInstruction(images, false)).toContain('Vision is off');
-    expect(buildImageInstruction(images, false)).toContain('pic.png: https://x/pic.png');
+    const images = [{ url: 'https://x/pic.png', contentType: 'image/png', name: 'pic.png', turnIndex: 1, sourceMessageId: 'u1' }];
+    expect(buildImageInstruction(images, [], true)).toContain('also shown to you above');
+    expect(buildImageInstruction(images, [], false)).toContain('Vision is off');
+    expect(buildImageInstruction(images, [], false)).toContain('Uploaded image 1 (pic.png): https://x/pic.png');
+  });
+
+  it('numbers uploaded and generated images independently, each with their own prefix', () => {
+    const uploaded = [
+      { url: 'https://x/a.png', contentType: 'image/png', name: 'a.png', turnIndex: 1, sourceMessageId: 'u1' },
+      { url: 'https://x/b.png', contentType: 'image/png', name: 'b.png', turnIndex: 2, sourceMessageId: 'u2' },
+    ];
+    const generated = [
+      { url: 'https://x/gen.png', contentType: 'image/png', turnIndex: 3, sourceMessageId: 'a1', prompt: 'a cat' },
+    ];
+    const instruction = buildImageInstruction(uploaded, generated, true);
+    expect(instruction).toContain('Uploaded image 1 (a.png): https://x/a.png');
+    expect(instruction).toContain('Uploaded image 2 (b.png): https://x/b.png');
+    expect(instruction).toContain('Generated image 1 (prompt: "a cat"): https://x/gen.png');
+  });
+});
+
+describe('labelUploadedImagesInPlace', () => {
+  it('inserts a numbered label immediately before each matching file part', () => {
+    const messages = [
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'look' },
+          { type: 'file', mediaType: 'image/png', url: 'https://x/a.png' },
+        ],
+      },
+    ] as any;
+    const uploaded = [{ url: 'https://x/a.png', contentType: 'image/png', turnIndex: 1, sourceMessageId: 'u1' }];
+    labelUploadedImagesInPlace(messages, uploaded, 2);
+    expect(messages[0].content).toEqual([
+      { type: 'text', text: 'look' },
+      { type: 'text', text: '\n\n[Uploaded image 1 of 1 — attached 1 turn ago. When discussing this image, refer to it as "Uploaded image 1".]' },
+      { type: 'file', mediaType: 'image/png', url: 'https://x/a.png' },
+    ]);
+  });
+
+  it('is a no-op when there are no uploaded images', () => {
+    const messages = [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }] as any;
+    labelUploadedImagesInPlace(messages, [], 2);
+    expect(messages[0].content).toEqual([{ type: 'text', text: 'hi' }]);
+  });
+});
+
+describe('reconcileImageReferencesAfterPruning', () => {
+  it('drops generated-image pairs from a pruned turn and rewrites the trailing instruction', () => {
+    const uploaded = [{ url: 'https://x/a.png', contentType: 'image/png', name: 'a.png', turnIndex: 1, sourceMessageId: 'u1' }];
+    const generated = [
+      { url: 'https://x/gen1.png', contentType: 'image/png', turnIndex: 1, sourceMessageId: 'a1', prompt: 'old' },
+      { url: 'https://x/gen2.png', contentType: 'image/png', turnIndex: 2, sourceMessageId: 'a2', prompt: 'new' },
+    ];
+    const previousImageInstruction = buildImageInstruction(uploaded, generated, true);
+    const messages = [
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: `question${previousImageInstruction}` },
+          { type: 'text', text: '\n\n[Image 1 of 2 — generated 1 turn ago, prompt: "old". When discussing this image, refer to it as "Image 1".]' },
+          { type: 'image', image: 'https://x/gen1.png', mediaType: 'image/png' },
+          { type: 'text', text: '\n\n[Image 2 of 2 — most recent, generated just now, prompt: "new". When discussing this image, refer to it as "Image 2".]' },
+          { type: 'image', image: 'https://x/gen2.png', mediaType: 'image/png' },
+        ],
+      },
+    ] as any;
+
+    // Turn 1 (the uploaded image and the first generated image) was pruned.
+    reconcileImageReferencesAfterPruning({
+      messages,
+      turnsRemoved: 1,
+      contextUploadedImages: uploaded,
+      contextGeneratedImages: generated,
+      visionEnabled: true,
+      previousImageInstruction,
+    });
+
+    const content = messages[0].content;
+    expect(content.some((p: any) => p.type === 'image' && p.image === 'https://x/gen1.png')).toBe(false);
+    expect(content.some((p: any) => p.type === 'image' && p.image === 'https://x/gen2.png')).toBe(true);
+    const rewrittenText = content[0].text as string;
+    expect(rewrittenText).not.toContain('a.png');
+    expect(rewrittenText).toContain('Generated image 1 (prompt: "new"): https://x/gen2.png');
+  });
+
+  it('clears the instruction entirely when every image was in pruned turns', () => {
+    const generated = [{ url: 'https://x/gen.png', contentType: 'image/png', turnIndex: 1, sourceMessageId: 'a1' }];
+    const previousImageInstruction = buildImageInstruction([], generated, true);
+    const messages = [
+      {
+        role: 'user',
+        content: [{ type: 'text', text: `question${previousImageInstruction}` }],
+      },
+    ] as any;
+
+    reconcileImageReferencesAfterPruning({
+      messages,
+      turnsRemoved: 1,
+      contextUploadedImages: [],
+      contextGeneratedImages: generated,
+      visionEnabled: true,
+      previousImageInstruction,
+    });
+
+    expect(messages[0].content[0].text).toBe('question');
   });
 });
 

@@ -48,6 +48,24 @@ describe('estimateTokenCount', () => {
     expect(() => estimateTokenCount([circular])).not.toThrow();
     expect(estimateTokenCount([circular])).toBe(0);
   });
+
+  it('adds a flat per-image surcharge on top of the char-based estimate', () => {
+    // Images are stored as hosted URLs, not inlined base64 — so a bare
+    // char-count would treat this message as ~free even though it costs
+    // real vision tokens once sent to the model.
+    const withoutImage = [user('hi')];
+    const withImage: ModelMessage[] = [
+      { role: 'user', content: [{ type: 'image', image: 'https://x/pic.png', mediaType: 'image/png' }] } as any,
+    ];
+    expect(estimateTokenCount(withImage)).toBeGreaterThan(estimateTokenCount(withoutImage) + 1000);
+  });
+
+  it('counts an image file part the same as an image content part', () => {
+    const messages: ModelMessage[] = [
+      { role: 'user', content: [{ type: 'file', mediaType: 'image/png', url: 'https://x/pic.png' }] } as any,
+    ];
+    expect(estimateTokenCount(messages)).toBeGreaterThan(1000);
+  });
 });
 
 describe('computeContextBudget', () => {

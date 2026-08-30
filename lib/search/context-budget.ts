@@ -4,6 +4,13 @@ const CHARS_PER_TOKEN = 4;
 const ESTIMATE_SAFETY_MARGIN = 1.2; // +20% — no real tokenizer, so we over-count on purpose
 const BUDGET_UTILIZATION = 0.8; // only target 80% of (contextWindow - outputReserve)
 const MAX_OUTPUT_RESERVE_FRACTION = 0.5; // never let the output reserve alone eat more than half the detected window
+// Conservative ballpark for a single mid-resolution image across common
+// vision APIs. Images never appear inlined as base64 in these messages —
+// they're always a hosted URL (a few dozen chars) — so the char-based
+// estimate below sees them as nearly free, which lets image-heavy
+// conversations silently blow past a model's real context window (small
+// local context windows especially) instead of triggering pruneToContextBudget.
+const ESTIMATED_TOKENS_PER_IMAGE = 1100;
 
 function safeStringify(value: unknown): string {
   try {
@@ -13,14 +20,30 @@ function safeStringify(value: unknown): string {
   }
 }
 
+function countImageParts(messages: ModelMessage[]): number {
+  let count = 0;
+  for (const m of messages as any[]) {
+    if (!Array.isArray(m?.content)) continue;
+    for (const part of m.content) {
+      const mediaType = part?.mimeType || part?.mediaType || '';
+      if (part?.type === 'image' || (part?.type === 'file' && mediaType.startsWith('image/'))) count++;
+    }
+  }
+  return count;
+}
+
 // Heuristic token count: chars/4 with a 20% safety margin, no tokenizer
-// dependency. Accepts either a message array (JSON-stringified, so text,
-// tool calls/results, and reasoning all count) or a raw string (e.g. the
-// system prompt).
+// dependency, plus a flat per-image surcharge (see ESTIMATED_TOKENS_PER_IMAGE).
+// Accepts either a message array (JSON-stringified, so text, tool
+// calls/results, and reasoning all count) or a raw string (e.g. the system
+// prompt).
 export function estimateTokenCount(input: ModelMessage[] | string): number {
-  const charCount =
-    typeof input === 'string' ? input.length : input.reduce((sum, m) => sum + safeStringify(m).length, 0);
-  return Math.ceil((charCount / CHARS_PER_TOKEN) * ESTIMATE_SAFETY_MARGIN);
+  if (typeof input === 'string') {
+    return Math.ceil((input.length / CHARS_PER_TOKEN) * ESTIMATE_SAFETY_MARGIN);
+  }
+  const charCount = input.reduce((sum, m) => sum + safeStringify(m).length, 0);
+  const imageTokens = countImageParts(input) * ESTIMATED_TOKENS_PER_IMAGE;
+  return Math.ceil((charCount / CHARS_PER_TOKEN) * ESTIMATE_SAFETY_MARGIN) + imageTokens;
 }
 
 export function computeContextBudget(contextWindow: number, outputReserve: number): number {

@@ -84,6 +84,8 @@ import {
   buildImageInstruction,
   fetchInlineableTextFiles,
   appendGeneratedImagePartsToLastUserMessage,
+  labelUploadedImagesInPlace,
+  reconcileImageReferencesAfterPruning,
 } from '@/lib/search/message-attachments';
 import { getSearchProviderOptions, getStreamTextStaticSettings } from '@/lib/search/provider-options';
 import {
@@ -395,10 +397,8 @@ export async function POST(req: Request) {
   const hiddenImageUrls = isTemporaryChat
     ? new Set<string>()
     : new Set(await getHiddenContextImageUrlsByChatId({ chatId: id }));
-  const { contextFiles, contextImages, contextGeneratedImages, otherFileParts } = collectAttachments(
-    hydratedMessages,
-    hiddenImageUrls,
-  );
+  const { contextFiles, contextImages, contextUploadedImages, contextGeneratedImages, otherFileParts } =
+    collectAttachments(hydratedMessages, hiddenImageUrls);
 
   // Falls back to the model's catalog vision flag if the client didn't send
   // the toggle (older client) — same default the toggle itself starts from.
@@ -411,8 +411,18 @@ export async function POST(req: Request) {
     appendToLastUserMessage(processedMessages, buildFileInstruction(contextFiles));
   }
 
-  if (contextImages.length > 0) {
-    appendToLastUserMessage(processedMessages, buildImageInstruction(contextImages, effectiveVisionEnabled));
+  // Gives each uploaded image an inline "Uploaded image N of M" anchor next
+  // to its own pixels — otherwise the flat URL list below is the only
+  // per-image reference in the whole conversation, decoupled from wherever
+  // each image actually sits in history.
+  if (effectiveVisionEnabled && contextUploadedImages.length > 0) {
+    labelUploadedImagesInPlace(processedMessages, contextUploadedImages, userMessageCount);
+  }
+
+  let imageInstructionText: string | null = null;
+  if (contextUploadedImages.length > 0 || contextGeneratedImages.length > 0) {
+    imageInstructionText = buildImageInstruction(contextUploadedImages, contextGeneratedImages, effectiveVisionEnabled);
+    appendToLastUserMessage(processedMessages, imageInstructionText);
   }
 
   // Generated/edited images have no `file` part for stripFilePartsForModel
@@ -834,6 +844,22 @@ export async function POST(req: Request) {
         log.info(
           `✂️ Context-budget pruning: removed ${turnsRemoved} oldest turn(s) (contextWindow=${contextWindow}, budget=${contextBudget})`,
         );
+        // The last user message (never dropped by pruning) still carries the
+        // image instruction built from the full conversation, and any
+        // generated-image pairs appended regardless of their source turn —
+        // both can now reference images whose turn just got pruned. Rewrite
+        // them so the model isn't told an image is "shown above" when it
+        // no longer is.
+        if (imageInstructionText) {
+          reconcileImageReferencesAfterPruning({
+            messages: budgetedMessages,
+            turnsRemoved,
+            contextUploadedImages,
+            contextGeneratedImages,
+            visionEnabled: effectiveVisionEnabled,
+            previousImageInstruction: imageInstructionText,
+          });
+        }
       }
 
       // /startwith forces a direct answer rather than an agentic turn: the
