@@ -603,7 +603,7 @@ services:
     image: ${ZETORA_GRAPHITI_MCP_IMAGE:-zetora-graphiti-mcp:local}
     container_name: zetora-graphiti-mcp
     ports:
-      - '127.0.0.1:8002:8002'
+      - '8002:8002'
     volumes:
       - ${DATA_DIR}/graphiti:/data
     environment:
@@ -740,7 +740,7 @@ services:
     container_name: zetora-qwen3-tts
     runtime: nvidia
     ports:
-      - '127.0.0.1:8585:8080'
+      - '8585:8080'
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility

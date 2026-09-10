@@ -6,6 +6,7 @@ from typing import Any
 
 from mcp.server import Server
 from mcp.server.sse import SseServerTransport
+from mcp.types import TextContent, Tool
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -33,10 +34,10 @@ async def init_graphiti() -> None:
 @server.list_tools()
 async def list_tools():
     return [
-        {
-            "name": "add_memory",
-            "description": "Save a memory episode to the knowledge graph. Use this to remember facts, events, preferences, and relationships about the user.",
-            "inputSchema": {
+        Tool(
+            name="add_memory",
+            description="Save a memory episode to the knowledge graph. Use this to remember facts, events, preferences, and relationships about the user.",
+            inputSchema={
                 "type": "object",
                 "properties": {
                     "content": {"type": "string", "description": "The memory content to save"},
@@ -45,11 +46,11 @@ async def list_tools():
                 },
                 "required": ["content", "group_id"],
             },
-        },
-        {
-            "name": "search_memory",
-            "description": "Search the knowledge graph for memories relevant to a query. Returns entities, relationships, and facts.",
-            "inputSchema": {
+        ),
+        Tool(
+            name="search_memory",
+            description="Search the knowledge graph for memories relevant to a query. Returns entities, relationships, and facts.",
+            inputSchema={
                 "type": "object",
                 "properties": {
                     "query": {"type": "string", "description": "The search query"},
@@ -58,7 +59,7 @@ async def list_tools():
                 },
                 "required": ["query", "group_id"],
             },
-        },
+        ),
     ]
 
 
@@ -77,7 +78,7 @@ async def call_tool(name: str, arguments: dict[str, Any]):
             source_description=arguments.get("source", "Claude Code"),
             group_id=arguments.get("group_id"),
         )
-        return [{"type": "text", "text": json.dumps({"success": True, "episode_id": str(result)})}]
+        return [TextContent(type="text", text=json.dumps({"success": True, "episode_id": str(result)}))]
 
     elif name == "search_memory":
         group_id = arguments.get("group_id")
@@ -86,9 +87,9 @@ async def call_tool(name: str, arguments: dict[str, Any]):
             group_ids=[group_id] if group_id else None,
             num_results=arguments.get("limit", 10),
         )
-        return [{"type": "text", "text": json.dumps({"success": True, "results": [str(r) for r in results]})}]
+        return [TextContent(type="text", text=json.dumps({"success": True, "results": [str(r) for r in results]}))]
 
-    return [{"type": "text", "text": json.dumps({"error": f"Unknown tool: {name}"})}]
+    return [TextContent(type="text", text=json.dumps({"error": f"Unknown tool: {name}"}))]
 
 
 sse = SseServerTransport("/messages/")
