@@ -33,6 +33,29 @@ import {
   CheckCircle2,
   Trash2,
   Loader2,
+  Globe,
+  AtSign,
+  BookOpen,
+  MessageCircle,
+  Youtube,
+  Music,
+  Film,
+  MapPin,
+  CloudSun,
+  Languages,
+  Terminal,
+  Plane,
+  LineChart,
+  Puzzle,
+  Database,
+  TrendingUp,
+  DollarSign,
+  Coins,
+  Search,
+  Wrench,
+  Github,
+  Sparkles,
+  type LucideIcon,
 } from 'lucide-react';
 import { UIMessagePart } from 'ai';
 import { deleteTrailingMessages } from '@/app/actions';
@@ -905,7 +928,15 @@ const USER_MESSAGE_MAX_HEIGHT = 125;
 // Tool outputs that ARE the deliverable, not a research/reasoning step — kept
 // visible when "Zetora task complete" is collapsed, same as the final text
 // answer, regardless of whether the model also references them in its text.
-export const DELIVERABLE_TOOL_PART_TYPES = new Set(['tool-generate_image', 'tool-edit_image', 'tool-download_file']);
+// tool-datetime renders as the live clock widget (components/message-parts),
+// a small graphical result worth keeping on screen rather than reducing to
+// a badge like a plain research step.
+export const DELIVERABLE_TOOL_PART_TYPES = new Set([
+  'tool-generate_image',
+  'tool-edit_image',
+  'tool-download_file',
+  'tool-datetime',
+]);
 
 function isDeliverablePart(part: ChatMessage['parts'][number]): boolean {
   if (part.type === 'text') return true;
@@ -921,6 +952,86 @@ function isDeliverablePart(part: ChatMessage['parts'][number]): boolean {
   if (!DELIVERABLE_TOOL_PART_TYPES.has(part.type)) return false;
   const anyPart = part as unknown as { state?: string; output?: { success?: boolean } };
   return anyPart.state === 'output-available' && anyPart.output?.success !== false;
+}
+
+// Internal routing tools that aren't a user-meaningful "action" — never
+// worth a badge (skill: always the model's first move; greeting: pure text
+// formatting, no external effect).
+const TOOL_BADGE_SKIP = new Set<string>(['skill', 'greeting']);
+
+// Icon + label per tool, used to summarize a completed turn's tool calls
+// into small badges once "Zetora task complete" hides the raw steps. Tools
+// not listed here (e.g. MCP dynamic tools) fall back to a generic icon and
+// a humanized version of their name.
+const TOOL_BADGES: Partial<Record<keyof ChatTools, { label: string; Icon: LucideIcon }>> = {
+  web_search: { label: 'Web search', Icon: Globe },
+  xai_web_search: { label: 'Web search', Icon: Globe },
+  x_search: { label: 'X search', Icon: AtSign },
+  xai_x_search: { label: 'X search', Icon: AtSign },
+  academic_search: { label: 'Academic search', Icon: BookOpen },
+  youtube_search: { label: 'YouTube search', Icon: Youtube },
+  spotify_search: { label: 'Spotify search', Icon: Music },
+  reddit_search: { label: 'Reddit search', Icon: MessageCircle },
+  github_search: { label: 'GitHub search', Icon: Github },
+  prediction_search: { label: 'Prediction markets', Icon: LineChart },
+  retrieve: { label: 'Read page', Icon: FileText },
+  movie_or_tv_search: { label: 'Movies & TV', Icon: Film },
+  trending_movies: { label: 'Movies & TV', Icon: Film },
+  trending_tv: { label: 'Movies & TV', Icon: Film },
+  find_place_on_map: { label: 'Maps', Icon: MapPin },
+  nearby_places_search: { label: 'Maps', Icon: MapPin },
+  get_weather_data: { label: 'Weather', Icon: CloudSun },
+  text_translate: { label: 'Translation', Icon: Languages },
+  code_interpreter: { label: 'Code execution', Icon: Terminal },
+  track_flight: { label: 'Flight tracker', Icon: Plane },
+  extreme_search: { label: 'Deep research', Icon: Sparkles },
+  connectors_search: { label: 'Connector search', Icon: Puzzle },
+  search_memories: { label: 'Memory lookup', Icon: Database },
+  add_memory: { label: 'Memory saved', Icon: Database },
+  code_context: { label: 'Code search', Icon: Search },
+  file_query_search: { label: 'File search', Icon: FileText },
+  stock_chart: { label: 'Stock chart', Icon: TrendingUp },
+  currency_converter: { label: 'Currency', Icon: DollarSign },
+  coin_data: { label: 'Crypto data', Icon: Coins },
+  coin_data_by_contract: { label: 'Crypto data', Icon: Coins },
+  coin_ohlc: { label: 'Crypto data', Icon: Coins },
+};
+
+function humanizeToolName(name: string): string {
+  return name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+type ToolCallSummary = { key: string; label: string; Icon: LucideIcon; count: number };
+
+// Turns a finished turn's tool/dynamic-tool parts into a small, deduped list
+// of badges (one per distinct tool, with a ×N count for repeats) — the
+// persistent trace of what happened during the turn that "Zetora task
+// complete" otherwise hides entirely. Deliverables are excluded since they
+// already stay visible in their own right.
+function summarizeToolCalls(parts: ChatMessage['parts'] | undefined): ToolCallSummary[] {
+  const summaries = new Map<string, { label: string; Icon: LucideIcon; count: number }>();
+  for (const part of parts ?? []) {
+    if (isDeliverablePart(part)) continue;
+    let toolName: string | undefined;
+    if (part.type.startsWith('tool-')) {
+      toolName = part.type.slice('tool-'.length);
+    } else if (part.type === 'dynamic-tool') {
+      toolName = (part as { toolName?: string }).toolName;
+    }
+    if (!toolName || TOOL_BADGE_SKIP.has(toolName)) continue;
+    const badge = TOOL_BADGES[toolName as keyof ChatTools];
+    const existing = summaries.get(toolName);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      summaries.set(toolName, {
+        label: badge?.label ?? humanizeToolName(toolName),
+        Icon: badge?.Icon ?? Wrench,
+        count: 1,
+      });
+    }
+  }
+  return Array.from(summaries.entries()).map(([key, value]) => ({ key, ...value }));
 }
 
 export const Message: React.FC<MessageProps> = ({
@@ -1163,20 +1274,67 @@ export const Message: React.FC<MessageProps> = ({
     // are what "Zetora task complete" hides.
     const showAllSteps = isTurnStreaming || isTaskExpanded || !hasParts;
 
-    const partsList = message.parts?.map((part: ChatMessage['parts'][number], partIndex: number) => {
-      if (!showAllSteps && !isDeliverablePart(part)) return null;
-      const key = `${message.id || index}-part-${partIndex}-${part.type}`;
-      return (
-        <div key={key}>
-          {renderPart(part, index, partIndex, message.parts as ChatMessage['parts'][number][], message)}
-        </div>
-      );
-    });
+    // When collapsed, don't just drop hidden steps silently — replace each
+    // run of consecutive hidden parts (reasoning, tool calls) with a single
+    // small badge row right where it happened, e.g. between the two text
+    // blocks it separates. Expanding "Zetora task complete" swaps back to
+    // rendering every part in full, in place.
+    const partsList: React.ReactNode[] = [];
+    if (showAllSteps) {
+      message.parts?.forEach((part: ChatMessage['parts'][number], partIndex: number) => {
+        const key = `${message.id || index}-part-${partIndex}-${part.type}`;
+        partsList.push(
+          <div key={key}>
+            {renderPart(part, index, partIndex, message.parts as ChatMessage['parts'][number][], message)}
+          </div>,
+        );
+      });
+    } else {
+      let hiddenRun: ChatMessage['parts'][number][] = [];
+      const flushHiddenRun = (atIndex: number) => {
+        if (hiddenRun.length === 0) return;
+        const summaries = summarizeToolCalls(hiddenRun);
+        hiddenRun = [];
+        if (summaries.length === 0) return;
+        partsList.push(
+          <div key={`${message.id || index}-tool-trace-${atIndex}`} className="flex flex-wrap items-center gap-1 my-1.5">
+            {summaries.map(({ key, label, Icon, count }) => (
+              <Badge
+                key={key}
+                variant="outline"
+                className="h-5 px-1.5 gap-1 text-[10px] font-normal text-muted-foreground border-border/70 bg-transparent"
+              >
+                <Icon className="h-2.5 w-2.5" />
+                <span>{label}</span>
+                {count > 1 && <span className="opacity-70">×{count}</span>}
+              </Badge>
+            ))}
+          </div>,
+        );
+      };
+      message.parts?.forEach((part: ChatMessage['parts'][number], partIndex: number) => {
+        if (isDeliverablePart(part)) {
+          flushHiddenRun(partIndex);
+          const key = `${message.id || index}-part-${partIndex}-${part.type}`;
+          partsList.push(
+            <div key={key}>
+              {renderPart(part, index, partIndex, message.parts as ChatMessage['parts'][number][], message)}
+            </div>,
+          );
+        } else {
+          hiddenRun.push(part);
+        }
+      });
+      flushHiddenRun(message.parts?.length ?? 0);
+    }
 
     return (
       <div className={cn(shouldReduceHeight ? '' : 'min-h-[calc(100vh-18rem)]', '')}>
         {/* Collapses the reasoning/tool-call steps once streaming is done —
-            lets the user hide everything but the final answer at a glance. */}
+            lets the user hide everything but the final answer at a glance.
+            Each hidden run's tool badges (rendered inline in partsList,
+            right where the steps they replace happened) are the trace that
+            survives the collapse, so it's never just a bare text block. */}
         {!isTurnStreaming && hasParts && (
           <button
             onClick={() => setIsTaskExpanded((v) => !v)}
