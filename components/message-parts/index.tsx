@@ -777,41 +777,45 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                   </Tooltip>
                 </TooltipProvider>
 
-                {/* Read Aloud button */}
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          if (isSpeaking || isLoading) {
-                            stopSpeech();
-                          } else {
-                            const speakable = extractSpeakableText(cleanText);
-                            if (speakable) speak(speakable);
-                          }
-                        }}
-                        className={cn(
-                          actionIconButtonClassName,
-                          (isSpeaking || isLoading) &&
-                            'bg-primary/10 text-primary border-primary/20 hover:bg-primary/15',
-                        )}
-                      >
-                        {isLoading ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : isSpeaking ? (
-                          <Square className="h-4 w-4" />
-                        ) : (
-                          <Volume2 className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" sideOffset={4}>
-                      {isLoading ? 'Connecting…' : isSpeaking ? 'Stop' : 'Read Aloud'}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                {/* Read Aloud button - hits /api/tts/stream, which requires an
+                    authenticated session (lib/voice-session-token.ts); unlike
+                    Copy, an anonymous visitor's click would just 401 silently */}
+                {user && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            if (isSpeaking || isLoading) {
+                              stopSpeech();
+                            } else {
+                              const speakable = extractSpeakableText(cleanText);
+                              if (speakable) speak(speakable);
+                            }
+                          }}
+                          className={cn(
+                            actionIconButtonClassName,
+                            (isSpeaking || isLoading) &&
+                              'bg-primary/10 text-primary border-primary/20 hover:bg-primary/15',
+                          )}
+                        >
+                          {isLoading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : isSpeaking ? (
+                            <Square className="h-4 w-4" />
+                          ) : (
+                            <Volume2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" sideOffset={4}>
+                        {isLoading ? 'Connecting…' : isSpeaking ? 'Stop' : 'Read Aloud'}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
 
                 {/* Branch Out button - only for owners or unauthenticated users on private chats, and only on assistant messages */}
                 {((user && isOwner) || (!user && selectedVisibilityType === 'private')) &&
