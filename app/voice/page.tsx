@@ -274,7 +274,7 @@ export default function VoicePage() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => router.push('/chat')}
+                onClick={() => router.push('/')}
                 aria-label="Back to chat"
                 className="flex shrink-0 items-center justify-center rounded-full size-7 sm:size-8 text-muted-foreground hover:text-foreground hover:bg-card/60 transition-colors"
               >
