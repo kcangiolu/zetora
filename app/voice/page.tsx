@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
+  ArrowLeft,
   ArrowUp,
   Mic,
   MicOff,
@@ -271,6 +272,14 @@ export default function VoicePage() {
           {/* Top row: logo + title + status */}
           <div className="flex w-full items-center justify-between">
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => router.push('/chat')}
+                aria-label="Back to chat"
+                className="flex shrink-0 items-center justify-center rounded-full size-7 sm:size-8 text-muted-foreground hover:text-foreground hover:bg-card/60 transition-colors"
+              >
+                <ArrowLeft className="size-4 sm:size-5" />
+              </button>
               <ZetoraLogo className="shrink-0 size-7 sm:size-8" />
               <h1 className="font-pixel text-base sm:text-2xl text-foreground tracking-wider">Voice</h1>
             </div>
