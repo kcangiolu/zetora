@@ -715,19 +715,28 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       [availableModels, selectedModel],
     );
 
-    // Auto-switch away from region-restricted models when necessary
+    // Auto-switch away from region-restricted models when necessary, landing
+    // on the user's "Default Model" preference when they've set one instead
+    // of the hardcoded 'zetora-default' (mirrors resolveModel's server-side
+    // fallback in ai/providers.ts).
+    const [preferredDefaultModel, , preferredDefaultModelResolved] = useSyncedPreferences<string>(
+      'zetora-default-model',
+      '',
+    );
     useEffect(() => {
       if (user === undefined) return;
+      if (!preferredDefaultModelResolved) return;
 
+      const effectiveDefaultModel = preferredDefaultModel || 'zetora-default';
       const isCurrentModelRestricted = isModelRestrictedInRegion(selectedModel, countryCode || undefined);
 
-      if (isCurrentModelRestricted && selectedModel !== 'zetora-default') {
+      if (isCurrentModelRestricted && selectedModel !== effectiveDefaultModel) {
         console.log(
-          `Auto-switching from restricted model '${selectedModel}' to 'zetora-default' - model not available in region ${countryCode}`,
+          `Auto-switching from restricted model '${selectedModel}' to '${effectiveDefaultModel}' - model not available in region ${countryCode}`,
         );
-        setSelectedModel('zetora-default');
+        setSelectedModel(effectiveDefaultModel);
       }
-    }, [selectedModel, setSelectedModel, countryCode, user]);
+    }, [selectedModel, setSelectedModel, countryCode, user, preferredDefaultModel, preferredDefaultModelResolved]);
 
     const handleModelChange = useCallback(
       (value: string) => {

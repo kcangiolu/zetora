@@ -742,6 +742,24 @@ export async function getAnonymizeContext(
   };
 }
 
+// Resolves the user's configured "Default Model" preference (Settings →
+// Tertiary Models) to a model id usable as the chat fallback, verifying a
+// custom-model preference still exists before trusting it — otherwise falls
+// back to the hardcoded 'zetora-default'. This is the SAME preference
+// resolveTertiaryModel's 'default' task reads (ai/tertiary.ts's PREF_KEYS),
+// so the chat and background-task fallbacks stay consistent.
+async function resolveDefaultModelId(preferences?: Record<string, unknown> | null, userId?: string): Promise<string> {
+  const pref = preferences?.['zetora-default-model'];
+  if (typeof pref !== 'string' || !pref) return 'zetora-default';
+
+  if (pref.startsWith('custom-')) {
+    const models = await getCustomModels(userId);
+    return models.some((m) => m.id === pref) ? pref : 'zetora-default';
+  }
+
+  return pref;
+}
+
 export async function resolveModel(
   modelId: string,
   preferences?: Record<string, unknown> | null,
@@ -758,8 +776,13 @@ export async function resolveModel(
     const models = await getCustomModels(userId);
     const model = models.find((m) => m.id === modelId);
     if (!model) {
-      log.warn(`Custom model ${modelId} not found, falling back to default`);
-      resolved = zetora.languageModel('zetora-default');
+      const fallbackId = await resolveDefaultModelId(preferences, userId);
+      log.warn(`Custom model ${modelId} not found, falling back to default (${fallbackId})`);
+      // Recurse so the fallback model (built-in or custom) goes through the
+      // same resolution/wrapping path as if it had been selected directly —
+      // the xml-parsing/anonymization wrapping below is keyed off the
+      // original modelId, which would be wrong for a substituted model.
+      return resolveModel(fallbackId, preferences, userId, hasImages);
     } else {
       const providers = await getCustomProviders(userId);
       const providerConfig = providers.find((p) => p.id === model.providerId);

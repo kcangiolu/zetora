@@ -168,6 +168,21 @@ const ChatInterface = memo(
     }, [pathname, localChatTitle, headerMenuOpen, measureHeaderMenuAlignment]);
 
     const [selectedModel, setSelectedModel] = useLocalStorage('zetora-selected-model', 'zetora-default');
+    // On first visit (no 'zetora-selected-model' ever stored), pre-select the
+    // user's "Default Model" preference (Settings → Tertiary Models) instead
+    // of leaving the hardcoded 'zetora-default' — mirrors resolveModel's
+    // server-side fallback (ai/providers.ts's resolveDefaultModelId) so an
+    // explicit preference is honored everywhere, not just in the background.
+    const [defaultModelPreference, , defaultModelPreferenceResolved] = useSyncedPreferences<string>(
+      'zetora-default-model',
+      '',
+    );
+    useEffect(() => {
+      if (!defaultModelPreferenceResolved || !defaultModelPreference) return;
+      if (typeof window === 'undefined') return;
+      if (localStorage.getItem('zetora-selected-model') !== null) return;
+      setSelectedModel(defaultModelPreference);
+    }, [defaultModelPreferenceResolved, defaultModelPreference, setSelectedModel]);
     // Session-scoped like selectedModel, not a synced DB preference (the
     // per-task recommended defaults live in Settings instead — see
     // ai/tertiary.ts's TASK_RECOMMENDED_EFFORT for the tertiary equivalent).
