@@ -15,7 +15,7 @@ const log = createLogger('context-compaction');
 // path the way this one does.
 const COMPACTION_TIMEOUT_MS = 20_000;
 
-export const COMPACTION_SYSTEM_PROMPT = `You are a conversation summarizer for a chat assistant. You will be given: (1) an existing summary of earlier conversation, if any, and (2) additional conversation turns that need to be folded into that summary because the conversation is getting too long for the assistant's context window.
+const COMPACTION_SYSTEM_PROMPT = `You are a conversation summarizer for a chat assistant. You will be given: (1) an existing summary of earlier conversation, if any, and (2) additional conversation turns that need to be folded into that summary because the conversation is getting too long for the assistant's context window.
 
 Produce ONE updated, coherent summary that:
 - Preserves every fact, decision, instruction, and constraint from the existing summary — never drop or contradict anything already summarized.

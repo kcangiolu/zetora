@@ -66,6 +66,9 @@ interface MessagesProps {
   // this is the source of truth for "at bottom", since Virtuoso owns its own scroll
   // container and the outer page/window scroll doesn't move when it's virtualized.
   onAtBottomChange?: (atBottom: boolean) => void;
+  // When this ref is true (finger down / nested scroller active), Virtuoso's own
+  // followOutput must not re-trigger a scroll — otherwise it fights the user's touch.
+  skipAutoScrollRef?: React.RefObject<boolean>;
 }
 
 export interface MessagesHandle {
@@ -100,6 +103,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     skipCacheRef,
     bottomSpacerClassName = 'mb-38! sm:mb-42!',
     onAtBottomChange,
+    skipAutoScrollRef,
   },
   ref,
 ) {
@@ -561,7 +565,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
         style={{ height: '100%', overflowX: 'hidden' }}
         data={memoizedMessages}
         computeItemKey={(index, message) => message.id ?? index}
-        followOutput={(isAtBottom) => (isAtBottom ? 'smooth' : false)}
+        followOutput={(isAtBottom) => (isAtBottom && !skipAutoScrollRef?.current ? 'smooth' : false)}
         atBottomStateChange={onAtBottomChange}
         atBottomThreshold={80}
         itemContent={renderMessageItem}

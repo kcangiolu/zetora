@@ -1617,6 +1617,7 @@ const ChatInterface = memo(
                   <Messages
                     ref={messagesRef}
                     onAtBottomChange={handleAtBottomChange}
+                    skipAutoScrollRef={skipAutoScrollRef}
                     skipCacheRef={skipCacheRef}
                     messages={messages as ChatMessage[]}
                     lastUserMessageIndex={lastUserMessageIndex}
