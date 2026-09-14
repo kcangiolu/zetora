@@ -27,6 +27,7 @@ import { useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-q
 import { Loader2, Search } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
+import { useMediaQuery } from '@/hooks/use-media-query';
 
 import { Select } from '@/components/ui/select';
 
@@ -59,6 +60,7 @@ function getFileCategory(mediaType: string | null, filename: string): 'image' | 
 }
 
 export function UploadsSection() {
+  const isMobile = useMediaQuery('(max-width: 768px)');
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -455,7 +457,12 @@ export function UploadsSection() {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div
+                      className={cn(
+                        'flex items-center gap-0.5 shrink-0 transition-opacity',
+                        isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+                      )}
+                    >
                       {file.chatId && (
                         <a
                           href={`/search/${file.chatId}`}
