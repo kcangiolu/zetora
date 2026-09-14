@@ -5,6 +5,7 @@ import {
   computeContextBudget,
   pruneToContextBudget,
   isContextLengthError,
+  groupIntoTurns,
 } from '@/lib/search/context-budget';
 
 function user(content: string): ModelMessage {
@@ -91,6 +92,41 @@ describe('computeContextBudget', () => {
     // budget to ~153 tokens. The reserve is now capped at 8_192 * 0.5 = 4_096.
     expect(computeContextBudget(8_192, 8_000)).toBe(Math.floor((8_192 - 4_096) * 0.8));
     expect(computeContextBudget(8_192, 8_000)).toBeGreaterThan(3_000);
+  });
+});
+
+describe('groupIntoTurns', () => {
+  it('puts everything before the first user message in pinnedPrefix, not a turn', () => {
+    const messages = [system('you are helpful'), user('hi'), assistant('hello')];
+    const { pinnedPrefix, turns } = groupIntoTurns(messages);
+    expect(pinnedPrefix).toEqual([messages[0]]);
+    expect(turns).toEqual([[messages[1], messages[2]]]);
+  });
+
+  it('groups a user message plus everything up to the next user message as one turn', () => {
+    const messages = [user('turn 1'), assistant('reply 1'), toolResult(), user('turn 2'), assistant('reply 2')];
+    const { pinnedPrefix, turns } = groupIntoTurns(messages);
+    expect(pinnedPrefix).toEqual([]);
+    expect(turns).toEqual([
+      [messages[0], messages[1], messages[2]],
+      [messages[3], messages[4]],
+    ]);
+  });
+
+  it('returns no turns and the whole array as pinnedPrefix when there is no user message', () => {
+    const messages = [system('you are helpful'), assistant('hello')];
+    const { pinnedPrefix, turns } = groupIntoTurns(messages);
+    expect(pinnedPrefix).toEqual(messages);
+    expect(turns).toEqual([]);
+  });
+
+  it('works generically on richer objects (e.g. ChatMessage-shaped with id/metadata)', () => {
+    const messages = [
+      { role: 'user', id: 'u1', metadata: { createdAt: 't1' } },
+      { role: 'assistant', id: 'a1', metadata: { createdAt: 't2' } },
+    ];
+    const { turns } = groupIntoTurns(messages);
+    expect(turns).toEqual([messages]);
   });
 });
 

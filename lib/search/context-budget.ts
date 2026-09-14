@@ -12,6 +12,41 @@ const MAX_OUTPUT_RESERVE_FRACTION = 0.5; // never let the output reserve alone e
 // local context windows especially) instead of triggering pruneToContextBudget.
 const ESTIMATED_TOKENS_PER_IMAGE = 1100;
 
+// Below this estimated-token floor, running pruneMessages() (strip old
+// reasoning/tool-call noise) isn't worth the pass — most conversations never
+// get here. Above it, stripping is unconditionally worth doing regardless of
+// how many *turns* produced the bulk — a single 'auto'-mode turn's tool-call
+// trace (skill/retrieve/web_search/... fan-out) can blow past this before a
+// 2nd user message is ever sent, which a turn-count-based gate would miss
+// entirely. Deliberately provider-agnostic and fixed rather than a fraction
+// of the real per-model budget: at the call site (app/api/search/route.ts,
+// before auto-routing resolves the final `model`) the real contextWindow
+// isn't known yet.
+export const PRUNE_TOKEN_THRESHOLD = 40_000;
+
+// Fraction of the per-turn context budget at which resolvePrepareStepOverride
+// (lib/search/prepare-step.ts) forces every keepToolsArmed mode (auto/mcp/
+// xai-multi-agent) to drain tools and synthesize, regardless of step count —
+// a hard safety net for the gap between the one-time pre-turn
+// pruneToContextBudget() call and stepCountIs() running out, during which a
+// single turn's own tool round-trips can otherwise accumulate unbounded
+// context.
+export const SOFT_STEP_BUDGET_FRACTION = 0.8;
+
+// Fraction of the per-turn context budget at which maybeCompactContext()
+// (lib/search/context-compaction.ts) summarizes the oldest turns instead of
+// letting pruneToContextBudget() drop them outright. Kept as its own named
+// constant rather than reusing SOFT_STEP_BUDGET_FRACTION even though both are
+// 0.8 today — they measure different things (this one: pre-turn history size
+// against the budget; that one: mid-turn cumulative step usage).
+export const COMPACTION_TRIGGER_FRACTION = 0.8;
+
+// How many of the most recent turns compaction always leaves raw/verbatim,
+// regardless of how far over COMPACTION_TRIGGER_FRACTION the conversation is —
+// only turns older than this (and not already covered by an existing summary)
+// are eligible to be folded in.
+export const COMPACTION_KEEP_RECENT_TURNS = 3;
+
 function safeStringify(value: unknown): string {
   try {
     return JSON.stringify(value) ?? '';
@@ -51,6 +86,37 @@ export function computeContextBudget(contextWindow: number, outputReserve: numbe
   return Math.max(0, Math.floor((contextWindow - effectiveReserve) * BUDGET_UTILIZATION));
 }
 
+export interface TurnGroups<T> {
+  pinnedPrefix: T[];
+  turns: T[][];
+}
+
+// Groups a message array into whole conversational turns (a 'user' message
+// plus everything that follows it up to the next 'user' message). Anything
+// before the first 'user' message (e.g. a leading system message) is
+// returned separately as pinnedPrefix, never part of a turn — callers that
+// drop/replace turns must never touch it. Generic over T so it works both on
+// the ModelMessage[] pruneToContextBudget() operates on and the richer
+// ChatMessage[] (with id/createdAt) maybeCompactContext()
+// (lib/search/context-compaction.ts) needs.
+export function groupIntoTurns<T extends { role: string }>(messages: T[]): TurnGroups<T> {
+  const firstUserIndex = messages.findIndex((m) => m.role === 'user');
+  if (firstUserIndex === -1) {
+    return { pinnedPrefix: messages, turns: [] };
+  }
+
+  const pinnedPrefix = messages.slice(0, firstUserIndex);
+  const turns: T[][] = [];
+  for (let i = firstUserIndex; i < messages.length; i++) {
+    if (messages[i].role === 'user') {
+      turns.push([messages[i]]);
+    } else {
+      turns[turns.length - 1].push(messages[i]);
+    }
+  }
+  return { pinnedPrefix, turns };
+}
+
 export interface PruneResult {
   messages: ModelMessage[];
   turnsRemoved: number;
@@ -58,13 +124,12 @@ export interface PruneResult {
   estimatedTokensAfter: number;
 }
 
-// Sliding window: drops the oldest whole turns (a 'user' message plus
-// everything that follows it up to the next 'user' message) until the
-// estimate fits the budget. Anything before the first 'user' message
-// (system prompt turns, if present in the array) is pinned and never
-// dropped. The most recent turn is always kept, even if the budget is
-// still exceeded afterward — the onError context-length safety net in
-// app/api/search/route.ts covers that residual case.
+// Sliding window: drops the oldest whole turns until the estimate fits the
+// budget. Anything before the first 'user' message (system prompt turns, if
+// present) is pinned and never dropped. The most recent turn is always kept,
+// even if the budget is still exceeded afterward — the onError
+// context-length safety net in app/api/search/route.ts covers that residual
+// case.
 export function pruneToContextBudget(messages: ModelMessage[], budgetTokens: number, reservedTokens = 0): PruneResult {
   const remainingBudget = budgetTokens - reservedTokens;
   const estimatedTokensBefore = estimateTokenCount(messages);
@@ -73,20 +138,10 @@ export function pruneToContextBudget(messages: ModelMessage[], budgetTokens: num
     return { messages, turnsRemoved: 0, estimatedTokensBefore, estimatedTokensAfter: estimatedTokensBefore };
   }
 
-  const firstUserIndex = messages.findIndex((m) => m.role === 'user');
-  if (firstUserIndex === -1) {
+  const { pinnedPrefix, turns } = groupIntoTurns(messages);
+  if (turns.length === 0) {
     // No 'user' message to anchor turns on — nothing safe to drop.
     return { messages, turnsRemoved: 0, estimatedTokensBefore, estimatedTokensAfter: estimatedTokensBefore };
-  }
-
-  const pinnedPrefix = messages.slice(0, firstUserIndex);
-  const turns: ModelMessage[][] = [];
-  for (let i = firstUserIndex; i < messages.length; i++) {
-    if (messages[i].role === 'user') {
-      turns.push([messages[i]]);
-    } else {
-      turns[turns.length - 1].push(messages[i]);
-    }
   }
 
   let turnsRemoved = 0;

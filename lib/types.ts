@@ -154,6 +154,14 @@ const messageMetadataSchema = z.object({
   inputTokens: z.number().nullable(),
   outputTokens: z.number().nullable(),
   totalTokens: z.number().nullable(),
+  // Marks the synthetic assistant message holding the automatic
+  // context-compaction summary (lib/search/context-compaction.ts). Optional:
+  // absent/false for every ordinary message.
+  isCompactionSummary: z.boolean().optional(),
+  // Display-only count of original messages the current summary text
+  // represents ("Summary of N earlier messages"). Null/absent for non-summary
+  // messages.
+  compactionReplacedCount: z.number().nullable().optional(),
 });
 
 type MessageMetadata = z.infer<typeof messageMetadataSchema>;
@@ -312,6 +320,22 @@ export type CustomUIDataTypes = {
     url?: string;
   };
   mcp_elicitation_done: { elicitationId: string };
+  // Live push of a newly-created/updated compaction-summary message so the
+  // client can optimistically insert/update it in `messages` state without
+  // waiting for a reload — mirrors how `chat_title` propagates its update.
+  compaction_summary: {
+    messageId: string;
+    text: string;
+    replacedCount: number;
+    createdAt: string;
+  };
+  // The compaction LLM call itself failed/timed out this turn — the request
+  // still completed via the pre-existing drop fallback (pruneToContextBudget).
+  context_compaction_warning: { message: string };
+  // pruneToContextBudget actually dropped messages this turn (compaction
+  // disabled, or a compaction attempt just failed) — makes the previously
+  // silent drop visible.
+  context_excluded_count: { count: number };
 };
 
 export type ChatMessage = UIMessage<MessageMetadata, CustomUIDataTypes, ChatTools>;

@@ -59,6 +59,8 @@ import {
   Trash2,
   Download,
   Pencil,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import {
   ClockIcon as PhosphorClockIcon,
@@ -240,6 +242,11 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
     const [isEditingReasoning, setIsEditingReasoning] = useState(false);
     const [reasoningEditDraft, setReasoningEditDraft] = useState('');
     const [isSavingReasoningEdit, setIsSavingReasoningEdit] = useState(false);
+    // Collapsed by default — a compaction-summary message's text part reuses
+    // isEditingText/textEditDraft/isSavingTextEdit above for its edit flow,
+    // this only controls whether the summary body is shown or just the
+    // "Summary of N earlier messages" header.
+    const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
 
     const persistMessageParts = useCallback(
       async (updatedParts: ChatMessage['parts']) => {
@@ -426,6 +433,107 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
       lastXaiToolIndex !== -1 &&
       partIndex >= firstXaiToolIndex &&
       partIndex <= lastXaiToolIndex;
+
+    // Automatic context-compaction summary (lib/search/context-compaction.ts):
+    // a synthetic assistant message with a single text part, flagged via
+    // message.metadata.isCompactionSummary. Rendered as a distinct
+    // collapsible/editable card instead of a normal assistant bubble — the
+    // edit flow reuses the exact same isEditingText/textEditDraft/
+    // isSavingTextEdit state and persistMessageParts() call as the plain
+    // "edit response text" flow below (updateMessageParts already restricts
+    // edits to assistant messages, which this is).
+    if (part.type === 'text' && message.metadata?.isCompactionSummary) {
+      const replacedCount = message.metadata.compactionReplacedCount ?? 0;
+      const canEditSummary = (user && isOwner) || (!user && selectedVisibilityType === 'private');
+
+      return (
+        <Card key={`${messageIndex}-${partIndex}-compaction-summary`} className="my-2 gap-0 border-dashed py-3">
+          <CardHeader
+            className="flex cursor-pointer flex-row items-center justify-between gap-2 px-4"
+            onClick={() => setIsSummaryExpanded((v) => !v)}
+          >
+            <p className="text-xs font-medium text-muted-foreground">
+              Summary of {replacedCount} earlier message{replacedCount === 1 ? '' : 's'}
+            </p>
+            <div className="flex items-center gap-1">
+              {canEditSummary && !isEditingText && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                  title="Edit summary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setTextEditDraft(part.text);
+                    setIsEditingText(true);
+                    setIsSummaryExpanded(true);
+                  }}
+                >
+                  <Pencil className="h-3 w-3" />
+                </Button>
+              )}
+              {isSummaryExpanded ? (
+                <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+              )}
+            </div>
+          </CardHeader>
+          {(isSummaryExpanded || isEditingText) && (
+            <CardContent className="px-4 pt-2">
+              {isEditingText ? (
+                <div>
+                  <Textarea
+                    autoFocus
+                    value={textEditDraft}
+                    onChange={(e) => setTextEditDraft(e.target.value)}
+                    className="min-h-[120px] w-full resize-none border-none bg-transparent! p-0! text-sm text-foreground shadow-none outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+                  <div className="mt-3 flex items-center justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsEditingText(false)}
+                      disabled={isSavingTextEdit}
+                      className="rounded-lg px-4"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={isSavingTextEdit || !textEditDraft.trim() || textEditDraft.trim() === part.text.trim()}
+                      onClick={async () => {
+                        try {
+                          setIsSavingTextEdit(true);
+                          const updatedParts = parts.map((p, i) =>
+                            i === partIndex ? ({ ...p, text: textEditDraft } as ChatMessage['parts'][number]) : p,
+                          );
+                          await persistMessageParts(updatedParts);
+                          setIsEditingText(false);
+                        } catch (error) {
+                          console.error('Error saving edited summary:', error);
+                          sileo.error({ title: 'Failed to save summary edit' });
+                        } finally {
+                          setIsSavingTextEdit(false);
+                        }
+                      }}
+                      className="rounded-lg px-5 bg-primary hover:bg-primary/90"
+                    >
+                      {isSavingTextEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="whitespace-pre-wrap text-sm text-muted-foreground">{part.text}</p>
+              )}
+            </CardContent>
+          )}
+        </Card>
+      );
+    }
 
     // Handle text parts
     if (part.type === 'text') {

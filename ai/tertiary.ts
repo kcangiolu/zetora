@@ -52,7 +52,8 @@ export type TertiaryTask =
   | 'voice'
   | 'memory-curator'
   | 'agent-worker'
-  | 'agent-guard';
+  | 'agent-guard'
+  | 'context-compaction';
 
 const TASK_DEFAULTS: Record<TertiaryTask, string> = {
   default: 'zetora-default',
@@ -80,6 +81,10 @@ const TASK_DEFAULTS: Record<TertiaryTask, string> = {
   // provider from agent-worker, so one provider outage can't take out both
   // the actor and its reviewer at once.
   'agent-guard': 'zetora-gemini-3-flash',
+  // Needs to comfortably read a long, possibly noisy conversation dump
+  // (raw tool-call traces included) and produce a coherent summary — a
+  // large-context, fast model, not necessarily a reasoning one.
+  'context-compaction': 'zetora-default',
 };
 
 // Recommended default reasoning effort per task, shown in Settings and used
@@ -107,6 +112,8 @@ const TASK_RECOMMENDED_EFFORT: Record<TertiaryTask, ReasoningEffort> = {
   // timeout is a fail-closed HUMAN_CHECK — reasoning tokens here buy latency,
   // not safety.
   'agent-guard': 'off',
+  // Fast/deterministic background task, same tier as chat-title/followup.
+  'context-compaction': 'off',
 };
 
 // Mirrors the `zetora-tertiary-<task>-model`/`-provider` naming above.
@@ -142,6 +149,10 @@ const PREF_KEYS: Record<TertiaryTask, { model: string; provider: string }> = {
   },
   'agent-worker': { model: 'zetora-tertiary-agent-worker-model', provider: 'zetora-tertiary-agent-worker-provider' },
   'agent-guard': { model: 'zetora-tertiary-agent-guard-model', provider: 'zetora-tertiary-agent-guard-provider' },
+  'context-compaction': {
+    model: 'zetora-tertiary-context-compaction-model',
+    provider: 'zetora-tertiary-context-compaction-provider',
+  },
 };
 
 export async function resolveTertiaryModel(

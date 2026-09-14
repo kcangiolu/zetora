@@ -162,6 +162,15 @@ export const message = pgTable(
     // Nullable: existing rows are NULL until the one-time backfill runs; every row
     // inserted after the trigger migration gets it set automatically.
     searchVector: tsvector('search_vector'),
+    // Marks the (at most one per chat) synthetic assistant message that holds
+    // the automatic context-compaction summary — see lib/search/context-compaction.ts.
+    // This message's own createdAt IS the compaction cutoff: any other message
+    // with createdAt <= this one's is considered represented by the summary and
+    // excluded from what's sent to the model. No separate cutoff column needed.
+    isCompactionSummary: boolean('is_compaction_summary').notNull().default(false),
+    // How many original messages the current summary text represents — display
+    // only ("Summary of N earlier messages"), null for every non-summary message.
+    compactionReplacedCount: integer('compaction_replaced_count'),
   },
   (table) => [
     index('message_chatId_idx').on(table.chatId),

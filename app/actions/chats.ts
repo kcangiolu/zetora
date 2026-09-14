@@ -379,6 +379,8 @@ export async function forkChat(
       totalTokens: messageItem.totalTokens ?? null,
       completionTime: messageItem.completionTime ?? null,
       searchVector: null,
+      isCompactionSummary: messageItem.isCompactionSummary,
+      compactionReplacedCount: messageItem.compactionReplacedCount ?? null,
     }));
 
     await all(
@@ -448,6 +450,8 @@ export async function branchOutChat({
         totalTokens: null,
         completionTime: null,
         searchVector: null,
+        isCompactionSummary: false,
+        compactionReplacedCount: null,
       },
       {
         chatId: newChatId,
@@ -462,6 +466,8 @@ export async function branchOutChat({
         totalTokens: (assistantMessage as any).metadata?.totalTokens ?? null,
         completionTime: (assistantMessage as any).metadata?.completionTime ?? null,
         searchVector: null,
+        isCompactionSummary: false,
+        compactionReplacedCount: null,
       },
     ];
 

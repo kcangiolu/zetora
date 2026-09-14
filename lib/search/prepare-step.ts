@@ -7,6 +7,7 @@
 // standard synthesis-forcing heuristic) therefore leaks raw <web_search> XML.
 // Instead, these models keep their tools armed and get a synthesis nudge
 // appended to the system prompt — the hard bound is the lowered stepCountIs.
+import { SOFT_STEP_BUDGET_FRACTION } from '@/lib/search/context-budget';
 
 export const SYNTHESIS_NUDGE =
   '\n\nIMPORTANT: You have already gathered search results in the previous steps. ' +
@@ -26,6 +27,14 @@ export interface PrepareStepInput {
   // (lib/search/extension-modes.ts) with keepToolsArmed: true — behaves
   // like the 'auto' branch below instead of draining after one tool round.
   keepToolsArmed?: boolean;
+  // Cumulative input+output tokens across every step already completed in
+  // this turn (sum of step.usage.totalTokens), and the context budget it's
+  // measured against (computeContextBudget() from context-budget.ts). Both
+  // optional — omitted, the budget safety net below is skipped, matching the
+  // pre-existing mode-only behavior (also keeps older call sites/tests valid
+  // without passing them).
+  cumulativeTokens?: number;
+  budgetTokens?: number;
 }
 
 export interface PrepareStepOverride {
@@ -43,7 +52,37 @@ export function resolvePrepareStepOverride({
   streamActiveTools,
   baseSystem,
   keepToolsArmed,
+  cumulativeTokens,
+  budgetTokens,
 }: PrepareStepInput): PrepareStepOverride | undefined {
+  // Hard safety net, checked before any mode branch below: once this turn's
+  // own tool round-trips have burned through SOFT_STEP_BUDGET_FRACTION of the
+  // context budget, force synthesis regardless of group/keepToolsArmed/
+  // stepCount. Every mode below that keeps tools armed across steps (mcp,
+  // auto, xai multi-agent) otherwise has no check between the one-time
+  // pre-turn pruneToContextBudget() call and stepCountIs() running out — a
+  // single turn's own fan-out (multiple search tools, each with several
+  // sub-queries, across up to 15-50 steps depending on mode) can accumulate
+  // far more context than the budget allows before that cap is reached.
+  if (
+    typeof cumulativeTokens === 'number' &&
+    typeof budgetTokens === 'number' &&
+    budgetTokens > 0 &&
+    cumulativeTokens >= budgetTokens * SOFT_STEP_BUDGET_FRACTION
+  ) {
+    return isXmlParsedCustomModel
+      ? {
+          toolChoice: 'auto' as const,
+          activeTools: streamActiveTools,
+          system: baseSystem + SYNTHESIS_NUDGE,
+        }
+      : {
+          toolChoice: 'auto' as const,
+          activeTools: [],
+          system: baseSystem + SYNTHESIS_NUDGE,
+        };
+  }
+
   // MCP mode and xAI multi-agent mode: keep tools available across steps.
   if (group === 'mcp' || shouldUseXaiMultiAgent) {
     return shouldUseXaiMultiAgent

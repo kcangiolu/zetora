@@ -18,6 +18,87 @@ describe('resolvePrepareStepOverride', () => {
     ).toBeUndefined();
   });
 
+  describe('budget safety net', () => {
+    it('is a no-op when cumulativeTokens/budgetTokens are omitted (backward compatible)', () => {
+      const override = resolvePrepareStepOverride({ ...base, group: 'auto' });
+      expect(override).toEqual({ toolChoice: 'auto', activeTools: base.streamActiveTools });
+    });
+
+    it('is a no-op below SOFT_STEP_BUDGET_FRACTION of the budget', () => {
+      const override = resolvePrepareStepOverride({
+        ...base,
+        group: 'auto',
+        cumulativeTokens: 79_000,
+        budgetTokens: 100_000,
+      });
+      expect(override).toEqual({ toolChoice: 'auto', activeTools: base.streamActiveTools });
+    });
+
+    it('forces drain + synthesis nudge in auto mode once the budget fraction is crossed', () => {
+      const override = resolvePrepareStepOverride({
+        ...base,
+        group: 'auto',
+        cumulativeTokens: 80_000,
+        budgetTokens: 100_000,
+      });
+      expect(override).toEqual({
+        toolChoice: 'auto',
+        activeTools: [],
+        system: base.baseSystem + SYNTHESIS_NUDGE,
+      });
+    });
+
+    it('overrides MCP mode too (otherwise-unbounded 50-step loop)', () => {
+      const override = resolvePrepareStepOverride({
+        ...base,
+        group: 'mcp',
+        cumulativeTokens: 90_000,
+        budgetTokens: 100_000,
+      });
+      expect(override).toEqual({
+        toolChoice: 'auto',
+        activeTools: [],
+        system: base.baseSystem + SYNTHESIS_NUDGE,
+      });
+    });
+
+    it('overrides xAI multi-agent mode too', () => {
+      const override = resolvePrepareStepOverride({
+        ...base,
+        shouldUseXaiMultiAgent: true,
+        cumulativeTokens: 90_000,
+        budgetTokens: 100_000,
+      });
+      expect(override).toEqual({
+        toolChoice: 'auto',
+        activeTools: [],
+        system: base.baseSystem + SYNTHESIS_NUDGE,
+      });
+    });
+
+    it('keeps schemas armed (with the nudge) for XML-parsed custom models, same raw-XML leak guard as the post-round-trip case', () => {
+      const override = resolvePrepareStepOverride({
+        ...base,
+        group: 'auto',
+        isXmlParsedCustomModel: true,
+        cumulativeTokens: 90_000,
+        budgetTokens: 100_000,
+      });
+      expect(override?.activeTools).toEqual(base.streamActiveTools);
+      expect(override?.system).toBe(base.baseSystem + SYNTHESIS_NUDGE);
+    });
+
+    it('ignores budgetTokens of 0 (context window/budget not resolved yet)', () => {
+      const override = resolvePrepareStepOverride({
+        ...base,
+        group: 'auto',
+        cumulativeTokens: 90_000,
+        budgetTokens: 0,
+      });
+      expect(override).toEqual({ toolChoice: 'auto', activeTools: base.streamActiveTools });
+    });
+  });
+
   it('pins the xAI tools in multi-agent mode', () => {
     const override = resolvePrepareStepOverride({ ...base, shouldUseXaiMultiAgent: true });
     expect(override).toEqual({

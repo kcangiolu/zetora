@@ -134,6 +134,10 @@ export type PreferenceKey =
   | 'zetora-tertiary-agent-guard-model'
   | 'zetora-tertiary-agent-guard-provider'
   | 'zetora-tertiary-agent-guard-effort'
+  | 'zetora-tertiary-context-compaction-enabled'
+  | 'zetora-tertiary-context-compaction-model'
+  | 'zetora-tertiary-context-compaction-provider'
+  | 'zetora-tertiary-context-compaction-effort'
   | 'zetora-system-prompt-override'
   | 'zetora-system-prompt-presets';
 

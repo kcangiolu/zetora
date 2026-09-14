@@ -18,6 +18,7 @@ import {
   wrapLanguageModel,
   type LanguageModel,
   type LanguageModelMiddleware,
+  type ModelMessage,
 } from 'ai';
 import type { SharedV3ProviderOptions } from '@ai-sdk/provider';
 import { pipeJsonRender } from '@json-render/core';
@@ -93,7 +94,10 @@ import {
   computeContextBudget,
   pruneToContextBudget,
   isContextLengthError,
+  PRUNE_TOKEN_THRESHOLD,
+  groupIntoTurns,
 } from '@/lib/search/context-budget';
+import { maybeCompactContext } from '@/lib/search/context-compaction';
 import { resolveContextWindow } from '@/lib/context-window';
 import { getMaxOutputTokens } from '@/ai/models';
 
@@ -335,12 +339,39 @@ export async function POST(req: Request) {
       inputTokens: message.inputTokens ?? null,
       outputTokens: message.outputTokens ?? null,
       totalTokens: message.totalTokens ?? null,
+      isCompactionSummary: message.isCompactionSummary,
+      compactionReplacedCount: message.compactionReplacedCount ?? null,
     },
   }));
-  const hydratedMessages =
+  const rawHydratedMessages =
     !isTemporaryChat && normalizedPersistedMessages.length > 0 && incomingMessages.length === 1
       ? [...normalizedPersistedMessages, ...newIncomingMessages]
       : incomingMessages;
+
+  // Phase 1 of context compaction (lib/search/context-compaction.ts): if this
+  // chat already has a compaction summary, every message it covers is
+  // redundant with it — filter them out of what even enters the rest of the
+  // pipeline (PRUNE_TOKEN_THRESHOLD gate, attachment collection, budget calc)
+  // rather than re-processing them on every request. The summary message's
+  // own createdAt IS the cutoff (see schema comment on message.isCompactionSummary).
+  // Cheap and unconditional — doesn't need contextBudget, which isn't known
+  // until after auto-routing further down. `initialMessageIds` below
+  // deliberately uses the unfiltered array: compacted-away messages are still
+  // visible client-side and must never be mistaken for "new" in onFinish.
+  const compactionSummaryMessage = rawHydratedMessages.find((m) => m.metadata?.isCompactionSummary);
+  const compactionCutoffTime = compactionSummaryMessage
+    ? new Date(compactionSummaryMessage.metadata!.createdAt).getTime()
+    : null;
+  const hydratedMessages = compactionSummaryMessage
+    ? rawHydratedMessages.filter(
+        (m) =>
+          m.id === compactionSummaryMessage.id ||
+          // No persisted createdAt yet (brand-new incoming message, not yet
+          // saved) — always after the cutoff, never filter it out.
+          !m.metadata?.createdAt ||
+          new Date(m.metadata.createdAt).getTime() > compactionCutoffTime!,
+      )
+    : rawHydratedMessages;
 
   // Save user message (chat is guaranteed to exist now) - await synchronously (no background)
   if (lightweightUser && !isTemporaryChat && newIncomingMessages.length > 0) {
@@ -365,30 +396,42 @@ export async function POST(req: Request) {
   }
 
   const streamStartTime = Date.now();
-  const initialMessageIds = new Set(hydratedMessages.map((message: any) => message.id));
+  const initialMessageIds = new Set(rawHydratedMessages.map((message: any) => message.id));
   const requestLastUserMessageId: string | null = requestLastUserMessage?.id ?? null;
 
   const userMessageCount = hydratedMessages.filter((message: any) => message.role === 'user').length;
-  const shouldPrune = userMessageCount > 10;
-
   const cachePreferences = (userPreferencesResult?.preferences ?? {}) as Record<string, string>;
 
+  // Converted once regardless of the pruning decision below.
+  const convertedMessages = await convertToModelMessages(hydratedMessages, {
+    ignoreIncompleteToolCalls: true,
+  });
+
+  // Trigger on estimated size, not turn count: a single 'auto'-mode turn's
+  // tool-call/reasoning trace (skill/retrieve/web_search/... fan-out) can
+  // already blow past any sane budget well before enough user turns pile up
+  // to trip a turn-count gate — the real per-model contextWindow isn't known
+  // yet here (resolveContextWindow() needs the post-auto-routing `model`,
+  // not final until contextWindowPromise below), so PRUNE_TOKEN_THRESHOLD is
+  // a fixed conservative floor; the precise per-model truncation still
+  // happens via pruneToContextBudget() right before streamText.
+  const estimatedHistoryTokens = estimateTokenCount(convertedMessages);
+  const shouldPrune = estimatedHistoryTokens > PRUNE_TOKEN_THRESHOLD;
+
   const prunedMessages = shouldPrune
-    ? await (async () => {
-        log.info(`🔧 Pruning messages: ${userMessageCount} user messages (${hydratedMessages.length} total messages)`);
+    ? (() => {
+        log.info(
+          `🔧 Pruning messages: ~${estimatedHistoryTokens} estimated tokens (${hydratedMessages.length} total messages)`,
+        );
         const pruned = pruneMessages({
           reasoning: 'all',
-          messages: await convertToModelMessages(hydratedMessages, {
-            ignoreIncompleteToolCalls: true,
-          }),
+          messages: convertedMessages,
           toolCalls: 'before-last-5-messages',
         });
         log.info(`✂️ Pruned to ${pruned.length} messages`);
         return pruned;
       })()
-    : await convertToModelMessages(hydratedMessages, {
-        ignoreIncompleteToolCalls: true,
-      });
+    : convertedMessages;
 
   // Collect every attached file across the conversation: documents for
   // file_query_search, images (vision / edit_image), and other files that
@@ -835,8 +878,59 @@ export async function POST(req: Request) {
       const outputReserve = staticSettings.maxOutputTokens ?? getMaxOutputTokens(model);
       const contextBudget = computeContextBudget(contextWindow, outputReserve);
       const systemTokens = estimateTokenCount(baseSystem);
+
+      // Context compaction, phase 2 (phase 1 — filtering out messages already
+      // covered by an existing summary — already happened when hydratedMessages
+      // was built): now that contextBudget is known, decide whether the oldest
+      // turns should be summarized instead of dropped. See
+      // lib/search/context-compaction.ts.
+      const compactionOutcome = isTemporaryChat
+        ? ({ ranCompaction: false } as const)
+        : await maybeCompactContext({
+            chatId: id,
+            hydratedMessages,
+            estimatedTokens: estimateTokenCount(processedMessages),
+            contextBudget,
+            preferences: userPreferencesResult?.preferences as Record<string, string> | undefined,
+            userId: lightweightUser?.userId,
+          });
+
+      let messagesForBudgetPruning = processedMessages;
+      let compactionFoldInTurnsCount = 0;
+      if (compactionOutcome.ranCompaction && !compactionOutcome.failed) {
+        // Turn count/order is preserved 1:1 between hydratedMessages and
+        // processedMessages (pruneMessages only ever strips reasoning/tool-call
+        // content, never a 'user' message), so the first N turns here are
+        // exactly the ones maybeCompactContext just folded into the summary —
+        // replace them with the fresh summary text so THIS turn (the one that
+        // crossed the threshold) already benefits, not just the next one.
+        const { turns: budgetTurns } = groupIntoTurns(messagesForBudgetPruning);
+        compactionFoldInTurnsCount = compactionOutcome.foldInTurnsCount;
+        const summaryModelMessage: ModelMessage = { role: 'assistant', content: compactionOutcome.text };
+        messagesForBudgetPruning = [summaryModelMessage, ...budgetTurns.slice(compactionFoldInTurnsCount).flat()];
+        log.info(
+          `📝 Context compaction: folded ${compactionOutcome.foldInTurnsCount} turn(s) into a ${compactionOutcome.replacedCount}-message summary`,
+        );
+        dataStream.write({
+          type: 'data-compaction_summary',
+          data: {
+            messageId: compactionOutcome.summaryMessageId,
+            text: compactionOutcome.text,
+            replacedCount: compactionOutcome.replacedCount,
+            createdAt: compactionOutcome.cutoffCreatedAt.toISOString(),
+          },
+          transient: true,
+        });
+      } else if (compactionOutcome.ranCompaction && compactionOutcome.failed) {
+        dataStream.write({
+          type: 'data-context_compaction_warning',
+          data: { message: 'Context compaction failed — falling back to trimming the oldest messages from this response.' },
+          transient: true,
+        });
+      }
+
       const { messages: budgetedMessages, turnsRemoved } = pruneToContextBudget(
-        processedMessages,
+        messagesForBudgetPruning,
         contextBudget,
         systemTokens,
       );
@@ -844,16 +938,23 @@ export async function POST(req: Request) {
         log.info(
           `✂️ Context-budget pruning: removed ${turnsRemoved} oldest turn(s) (contextWindow=${contextWindow}, budget=${contextBudget})`,
         );
-        // The last user message (never dropped by pruning) still carries the
-        // image instruction built from the full conversation, and any
+        dataStream.write({
+          type: 'data-context_excluded_count',
+          data: { count: messagesForBudgetPruning.length - budgetedMessages.length },
+          transient: true,
+        });
+      }
+      if (turnsRemoved > 0 || compactionFoldInTurnsCount > 0) {
+        // The last user message (never dropped/compacted away) still carries
+        // the image instruction built from the full conversation, and any
         // generated-image pairs appended regardless of their source turn —
-        // both can now reference images whose turn just got pruned. Rewrite
-        // them so the model isn't told an image is "shown above" when it
-        // no longer is.
+        // both can now reference images whose turn just got removed (dropped
+        // or folded into the summary). Rewrite them so the model isn't told
+        // an image is "shown above" when it no longer is.
         if (imageInstructionText) {
           reconcileImageReferencesAfterPruning({
             messages: budgetedMessages,
-            turnsRemoved,
+            turnsRemoved: turnsRemoved + compactionFoldInTurnsCount,
             contextUploadedImages,
             contextGeneratedImages,
             visionEnabled: effectiveVisionEnabled,
@@ -952,6 +1053,13 @@ export async function POST(req: Request) {
           const latestStep = steps[steps.length - 1];
           const latestStepHasToolRoundTrip =
             Boolean(latestStep) && latestStep.toolCalls.length > 0 && latestStep.toolResults.length > 0;
+          // Sum of every completed step's usage in THIS turn only — the
+          // pre-turn budget already accounted for prior-turn history via
+          // pruneToContextBudget() below; this tracks what the turn's own
+          // agentic loop has burned through since, so resolvePrepareStepOverride
+          // can force synthesis once it's eating into the budget regardless
+          // of how many steps stepCountIs() still allows.
+          const cumulativeTokens = steps.reduce((sum, step) => sum + (step.usage?.totalTokens ?? 0), 0);
 
           return resolvePrepareStepOverride({
             // No exclusive special mode means the base Sources+Skills path,
@@ -966,6 +1074,8 @@ export async function POST(req: Request) {
             streamActiveTools,
             baseSystem,
             keepToolsArmed: (await getExtensionMode(specialMode))?.keepToolsArmed,
+            cumulativeTokens,
+            budgetTokens: contextBudget,
           });
         },
 
@@ -1199,6 +1309,8 @@ export async function POST(req: Request) {
             outputTokens: message.metadata?.outputTokens ?? finalUsageMetadata.outputTokens,
             totalTokens: message.metadata?.totalTokens ?? finalUsageMetadata.totalTokens,
             searchVector: null,
+            isCompactionSummary: false,
+            compactionReplacedCount: null,
           };
         }),
       });

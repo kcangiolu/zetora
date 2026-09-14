@@ -701,6 +701,56 @@ const ChatInterface = memo(
             setTitleInput(titleData.title);
           }
         }
+        // Context compaction just ran (lib/search/context-compaction.ts) —
+        // optimistically insert/update the synthetic summary message so it
+        // renders immediately, without waiting for a reload. A page refresh
+        // fetches it from the DB in its real position; this is a best-effort
+        // approximation (prepended if new) for live UX.
+        if (dataPart.type === 'data-compaction_summary') {
+          const summaryData = dataPart.data;
+          if (summaryData?.messageId) {
+            setMessages((current) => {
+              const summaryMessage: ChatMessage = {
+                id: summaryData.messageId,
+                role: 'assistant',
+                parts: [{ type: 'text', text: summaryData.text }],
+                metadata: {
+                  createdAt: summaryData.createdAt,
+                  model: '',
+                  completionTime: null,
+                  inputTokens: null,
+                  outputTokens: null,
+                  totalTokens: null,
+                  isCompactionSummary: true,
+                  compactionReplacedCount: summaryData.replacedCount,
+                },
+              };
+              const exists = current.some((m) => m.id === summaryData.messageId);
+              return exists
+                ? current.map((m) => (m.id === summaryData.messageId ? summaryMessage : m))
+                : [summaryMessage, ...current];
+            });
+          }
+        }
+        // The compaction LLM call itself failed/timed out this turn — the
+        // request still completed via the pre-existing drop fallback.
+        if (dataPart.type === 'data-context_compaction_warning') {
+          if (dataPart.data?.message) {
+            sileo.error({ title: 'Context compaction failed', description: dataPart.data.message });
+          }
+        }
+        // pruneToContextBudget actually dropped messages this turn
+        // (compaction disabled, or a compaction attempt just failed) —
+        // makes the previously silent drop visible.
+        if (dataPart.type === 'data-context_excluded_count') {
+          const count = dataPart.data?.count;
+          if (count) {
+            sileo.info({
+              title: 'Some earlier messages were excluded',
+              description: `${count} message${count === 1 ? '' : 's'} were left out of this response due to length.`,
+            });
+          }
+        }
         setDataStream((ds) => (ds ? [...ds, dataPart] : []));
       },
       onFinish: async ({ message }) => {

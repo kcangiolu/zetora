@@ -470,6 +470,56 @@ export async function updateMessagePartsById({ id, parts }: { id: string; parts:
   }
 }
 
+// Inserts the chat's (at most one) compaction-summary message on first
+// compaction, or updates it in place on every later incremental re-compaction
+// (see lib/search/context-compaction.ts). The message's own createdAt is the
+// compaction cutoff — advancing it on update is what lets the summary "cover"
+// more of the conversation over time, so no separate cutoff column exists.
+export async function upsertCompactionSummaryMessage({
+  chatId,
+  existingMessageId,
+  text,
+  replacedCount,
+  cutoffCreatedAt,
+}: {
+  chatId: string;
+  existingMessageId?: string;
+  text: string;
+  replacedCount: number;
+  cutoffCreatedAt: Date;
+}) {
+  try {
+    if (existingMessageId) {
+      const [updated] = await maindb
+        .update(message)
+        .set({
+          parts: [{ type: 'text', text }],
+          compactionReplacedCount: replacedCount,
+          createdAt: cutoffCreatedAt,
+        })
+        .where(eq(message.id, existingMessageId))
+        .returning();
+      return updated;
+    }
+
+    const [inserted] = await maindb
+      .insert(message)
+      .values({
+        chatId,
+        role: 'assistant',
+        parts: [{ type: 'text', text }],
+        attachments: [],
+        isCompactionSummary: true,
+        compactionReplacedCount: replacedCount,
+        createdAt: cutoffCreatedAt,
+      })
+      .returning();
+    return inserted;
+  } catch (error) {
+    throw new ChatSDKError('bad_request:database', 'Failed to upsert compaction summary message');
+  }
+}
+
 export async function deleteMessagesByChatIdAfterTimestamp({ chatId, timestamp }: { chatId: string; timestamp: Date }) {
   try {
     // Direct delete without intermediate query - more efficient and atomic

@@ -766,6 +766,18 @@ export function AiModelsTab({
               user={user}
             />
             <TertiaryModelRow
+              modelKey="zetora-tertiary-context-compaction-model"
+              providerKey="zetora-tertiary-context-compaction-provider"
+              effortKey="zetora-tertiary-context-compaction-effort"
+              enabledKey="zetora-tertiary-context-compaction-enabled"
+              recommendedEffort="off"
+              label="Context Compaction"
+              description="Summarizes older messages when a chat nears its context limit, instead of silently dropping them"
+              defaultModelLabel="Grok 4.1 Fast"
+              additionalModels={customModelsList}
+              user={user}
+            />
+            <TertiaryModelRow
               modelKey="zetora-tertiary-agent-guard-model"
               providerKey="zetora-tertiary-agent-guard-provider"
               effortKey="zetora-tertiary-agent-guard-effort"
