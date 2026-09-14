@@ -1071,6 +1071,14 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const handleGroupSelect = useCallback(
     (group: SearchGroup) => {
       if (!isEnhancing && !isTypewriting) {
+        // Re-selecting the already-active mode clears it back to auto instead of no-op'ing
+        if (group.id === selectedGroup && group.id !== 'auto') {
+          setSelectedGroup('auto');
+          setIsMultiAgentModeEnabled?.(false);
+          inputRef.current?.focus();
+          return;
+        }
+
         setSelectedGroup(group.id);
         setIsMultiAgentModeEnabled?.(group.id === 'multi-agent');
 
@@ -1117,6 +1125,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
     },
     [
       setSelectedGroup,
+      selectedGroup,
       inputRef,
       isEnhancing,
       isTypewriting,
@@ -3114,7 +3123,12 @@ const FormComponent: React.FC<FormComponentProps> = ({
                             <div
                               className="group relative flex items-center gap-1.5 px-2.5 h-8 rounded-full bg-primary/8! text-primary/80 border border-primary/15 text-[12px] font-medium hover:bg-primary/12 hover:text-primary transition-colors cursor-pointer"
                               onClick={() => {
-                                haptics.trigger('light');
+                                haptics.trigger('selection');
+                                if (isMobile) {
+                                  setSelectedGroup('auto');
+                                  setIsMultiAgentModeEnabled?.(false);
+                                  return;
+                                }
                                 setPlusMenuOpen(true);
                               }}
                             >
@@ -3159,7 +3173,11 @@ const FormComponent: React.FC<FormComponentProps> = ({
                           <div
                             className="group relative flex items-center gap-1.5 px-2.5 h-8 rounded-full bg-primary/8! text-primary/80 border border-primary/15 text-[12px] font-medium hover:bg-primary/12 hover:text-primary transition-colors cursor-pointer"
                             onClick={() => {
-                              haptics.trigger('light');
+                              haptics.trigger('selection');
+                              if (isMobile) {
+                                setSelectedGroup('auto');
+                                return;
+                              }
                               setPlusMenuOpen(true);
                             }}
                           >
