@@ -236,7 +236,7 @@ services:
   # MinIO (S3-compatible file storage — STORAGE_PROVIDER=minio)
   # ---------------------------------------------------------------------------
   minio:
-    image: minio/minio:latest
+    image: quay.io/minio/minio:latest
     container_name: zetora-minio
     ports:
       # API port is NOT loopback-restricted like the other internal
@@ -275,7 +275,7 @@ services:
     restart: unless-stopped
 
   minio-create-bucket:
-    image: minio/mc:latest
+    image: quay.io/minio/mc:latest
     container_name: zetora-minio-create-bucket
     depends_on:
       - minio
