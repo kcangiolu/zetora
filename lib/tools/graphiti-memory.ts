@@ -24,36 +24,32 @@ export function createGraphitiMemoryTools(userId: string) {
       memory: z.string().describe('The information to save to memory'),
     }),
     execute: async ({ memory }: { memory: string }) => {
-      try {
-        // Locked so this never races the background curator (or another
-        // add_memory call) for the same user against the single-slot local
-        // LLM extraction pipeline — see write-coordinator.ts.
-        return await withMemoryWriteLock(userId, async () => {
-          if (await isDuplicateOfRecentWrite(userId, memory)) {
-            return { success: true, skipped: true, note: 'Skipped — near-duplicate of a memory saved moments ago.' };
-          }
-          // graphiti-core's default extraction prompt bans pronouns ("I/me/moi/je")
-          // from being extracted as entities, and an edge's source must be a name
-          // from that entity list. A first-person memory with no other named entity
-          // ("J'adore la mangue") then has no valid subject to attach the fact to —
-          // it gets silently dropped and never becomes searchable. Prefixing with
-          // the user's real name gives extraction a concrete anchor to resolve to.
-          const dbUser = await getUserById(userId);
-          const episodeBody = dbUser?.name ? `${dbUser.name}: ${memory}` : memory;
-          const result = await client.addEpisode({
-            name: `zetora-memory-${Date.now()}`,
-            episodeBody,
-            groupId: userId,
-          });
-          await recordRecentWrite(userId, memory);
-          return { success: true, result };
+      // TEMPORARY: fire-and-forget so a slow Graphiti extraction (up to ~2min)
+      // doesn't block the chat response. Means failures are only visible in
+      // server logs, not to the model or user. Needs a real fix as part of the
+      // long-term memory audit — see write-coordinator.ts for the locking this
+      // still relies on.
+      void withMemoryWriteLock(userId, async () => {
+        if (await isDuplicateOfRecentWrite(userId, memory)) return;
+        // graphiti-core's default extraction prompt bans pronouns ("I/me/moi/je")
+        // from being extracted as entities, and an edge's source must be a name
+        // from that entity list. A first-person memory with no other named entity
+        // ("J'adore la mangue") then has no valid subject to attach the fact to —
+        // it gets silently dropped and never becomes searchable. Prefixing with
+        // the user's real name gives extraction a concrete anchor to resolve to.
+        const dbUser = await getUserById(userId);
+        const episodeBody = dbUser?.name ? `${dbUser.name}: ${memory}` : memory;
+        await client.addEpisode({
+          name: `zetora-memory-${Date.now()}`,
+          episodeBody,
+          groupId: userId,
         });
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : 'Failed to save memory',
-        };
-      }
+        await recordRecentWrite(userId, memory);
+      }).catch((error) => {
+        console.error('[graphiti-memory] background add_memory failed:', error);
+      });
+
+      return { success: true, queued: true, note: 'Memory save queued in the background.' };
     },
   });
 

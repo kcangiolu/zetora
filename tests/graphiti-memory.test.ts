@@ -52,10 +52,15 @@ describe('createGraphitiMemoryTools', () => {
     getUserById.mockResolvedValue(null);
     const { addMemoryTool } = createGraphitiMemoryTools('user-1');
 
-    await (addMemoryTool.execute as any)({ memory: 'likes hiking' }, {} as any);
+    const result = await (addMemoryTool.execute as any)({ memory: 'likes hiking' }, {} as any);
 
-    expect(addEpisode).toHaveBeenCalledWith(
-      expect.objectContaining({ episodeBody: 'likes hiking', groupId: 'user-1' }),
+    // The write is fire-and-forget (see graphiti-memory.ts) so execute()
+    // resolves before addEpisode is actually called — wait for it here.
+    expect(result).toEqual({ success: true, queued: true, note: expect.any(String) });
+    await vi.waitFor(() =>
+      expect(addEpisode).toHaveBeenCalledWith(
+        expect.objectContaining({ episodeBody: 'likes hiking', groupId: 'user-1' }),
+      ),
     );
   });
 
@@ -66,8 +71,10 @@ describe('createGraphitiMemoryTools', () => {
 
     await (addMemoryTool.execute as any)({ memory: "J'adore la mangue" }, {} as any);
 
-    expect(addEpisode).toHaveBeenCalledWith(
-      expect.objectContaining({ episodeBody: "Kenny: J'adore la mangue", groupId: 'user-1' }),
+    await vi.waitFor(() =>
+      expect(addEpisode).toHaveBeenCalledWith(
+        expect.objectContaining({ episodeBody: "Kenny: J'adore la mangue", groupId: 'user-1' }),
+      ),
     );
   });
 });
