@@ -264,7 +264,7 @@ export function getSearchProviderOptions(
     },
     deepseek: {
       parallelToolCalls: false,
-      ...(model === 'zetora-deepseek-v4-flash' || model === 'zetora-deepseek-v4-pro'
+      ...(model === 'zetora-deepseek-v4.1-flash'
         ? effort === 'off'
           ? { thinking: { type: 'disabled' } }
           : {

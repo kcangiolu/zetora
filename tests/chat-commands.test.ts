@@ -6,10 +6,9 @@ import type { CustomProviderConfig } from '@/lib/custom-providers';
 // ai/providers.ts instantiates every provider SDK at import time (gated by
 // env keys) — mock it rather than pull that whole graph into a unit test for
 // chat-commands-server.ts. Mirrors DEEPSEEK_STARTWITH_MODEL_NAMES in
-// ai/providers.ts: only the two direct-API DeepSeek models resolve.
+// ai/providers.ts: only the direct-API DeepSeek model resolves.
 vi.mock('@/ai/providers', () => ({
-  getDeepSeekStartWithModel: (modelId: string) =>
-    modelId === 'zetora-deepseek-v4-flash' || modelId === 'zetora-deepseek-v4-pro' ? { mocked: modelId } : null,
+  getDeepSeekStartWithModel: (modelId: string) => (modelId === 'zetora-deepseek-v4.1-flash' ? { mocked: modelId } : null),
 }));
 
 describe('parseStartWithCommand', () => {
@@ -60,14 +59,13 @@ describe('getStartWithStrategy', () => {
     });
   });
 
-  it('deepseek direct models: supported, swaps to the beta model, no call-level providerOptions', () => {
-    for (const modelId of ['zetora-deepseek-v4-flash', 'zetora-deepseek-v4-pro']) {
-      expect(getStartWithStrategy(modelId, providers)).toEqual({
-        supported: true,
-        modelOverride: { mocked: modelId },
-        assistantMessageProviderOptions: { openaiCompatible: { prefix: true } },
-      });
-    }
+  it('deepseek direct model: supported, swaps to the beta model, no call-level providerOptions', () => {
+    const modelId = 'zetora-deepseek-v4.1-flash';
+    expect(getStartWithStrategy(modelId, providers)).toEqual({
+      supported: true,
+      modelOverride: { mocked: modelId },
+      assistantMessageProviderOptions: { openaiCompatible: { prefix: true } },
+    });
   });
 
   it('unsupported: vLLM custom backend, unresolvable custom model, gateway-routed deepseek, and other non-anthropic zetora models', () => {
