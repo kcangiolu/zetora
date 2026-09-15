@@ -107,7 +107,7 @@ export function getSearchProviderOptions(
             order: ['moonshotai'],
           }
         : {}),
-      ...(model === 'zetora-qwen-coder' || model === 'zetora-deepseek-v3' || model === 'zetora-qwen-235'
+      ...(model === 'zetora-qwen-coder' || model === 'zetora-qwen-235'
         ? {
             order: ['baseten'],
           }
@@ -264,7 +264,7 @@ export function getSearchProviderOptions(
     },
     deepseek: {
       parallelToolCalls: false,
-      ...(model === 'zetora-deepseek-v4.1-flash'
+      ...(model === 'zetora-deepseek-v4.1-flash' || model === 'zetora-deepseek-v4-pro'
         ? effort === 'off'
           ? { thinking: { type: 'disabled' } }
           : {

@@ -106,7 +106,7 @@ describe('getSearchProviderOptions', () => {
     expect(getSearchProviderOptions('zetora-kimi-k2-v2-thinking', false).gateway).toMatchObject({
       order: ['moonshotai'],
     });
-    for (const model of ['zetora-qwen-coder', 'zetora-deepseek-v3', 'zetora-qwen-235']) {
+    for (const model of ['zetora-qwen-coder', 'zetora-qwen-235']) {
       expect(getSearchProviderOptions(model, false).gateway).toMatchObject({ order: ['baseten'] });
     }
     expect(getSearchProviderOptions('zetora-nova-2-lite', false).gateway).toMatchObject({ order: ['bedrock'] });

@@ -80,6 +80,7 @@ const deepseekBetaDirect = hasKey(process.env.DEEPSEEK_API_KEY)
 
 const DEEPSEEK_STARTWITH_MODEL_NAMES: Record<string, string> = {
   'zetora-deepseek-v4.1-flash': 'deepseek-flash',
+  'zetora-deepseek-v4-pro': 'deepseek-v4-pro',
 };
 
 export function getDeepSeekStartWithModel(modelId: string): LanguageModel | null {
@@ -474,7 +475,6 @@ export const zetora = customProvider({
             model: _baseten('openai/gpt-oss-120b'),
             middleware,
           }),
-          'zetora-deepseek-v3': _baseten('deepseek-ai/DeepSeek-V3-0324'),
           'zetora-qwen-coder': _baseten('Qwen/Qwen3-Coder-480B-A35B-Instruct'),
           'zetora-kimi-k2.5': createRetryable({
             model: _baseten.chatModel('moonshotai/Kimi-K2.5'),
@@ -597,13 +597,15 @@ export const zetora = customProvider({
     // (see lib/search/provider-options.ts / lib/reasoning-effort.ts), not a separate
     // model id. The gateway fallback's 'thinking' variant slug isn't needed since the
     // gateway forwards providerOptions.deepseek through to the same underlying toggle.
-    // deepseek-v4-flash, deepseek-v4-pro and deepseek-v4-flash-vision-exp are retired —
-    // DeepSeek now serves 'deepseek-flash' (DeepSeek-V4.1-Flash, native vision) as the
-    // sole flash-tier model; the old names are aliased server-side but we route to the
-    // canonical id directly. See memory deepseek-v4.1-catalog-update.
+    // deepseek-v4-flash and deepseek-v4-flash-vision-exp are retired — DeepSeek now
+    // serves 'deepseek-flash' (DeepSeek-V4.1-Flash, native vision) as the sole flash-tier
+    // model; the old names are aliased server-side but we route to the canonical id
+    // directly. deepseek-v4-pro stays a distinct, non-aliased model. See memory
+    // deepseek-v4.1-catalog-update.
     'zetora-deepseek-v4.1-flash': deepseekDirect
       ? deepseekDirect('deepseek-flash')
       : gateway('deepseek/deepseek-v4.1-flash'),
+    'zetora-deepseek-v4-pro': deepseekDirect ? deepseekDirect('deepseek-v4-pro') : gateway('deepseek/deepseek-v4-pro'),
     'zetora-v0-10': gateway('vercel/v0-1.0-md'),
     'zetora-v0-15': gateway('vercel/v0-1.5-md'),
     'zetora-qwen-coder-small': gateway('alibaba/qwen3-coder-30b-a3b'),
