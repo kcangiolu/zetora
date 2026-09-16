@@ -110,10 +110,6 @@ export const retrieveProviders = searchProviders.filter((p) =>
   ),
 );
 
-// Extreme Search's search role: same compatible set as Academic (Parallel AI
-// has no query-based search endpoint usable here).
-export const extremeSearchProviders = academicSearchProviders;
-
 // Extreme Search's content-extraction role: Exa, Firecrawl, fastCRW, Parallel
 // AI can all fetch a given URL's full content; Notte adds real headless-browser
 // rendering. SearXNG is excluded — it's a metasearch aggregator, it never

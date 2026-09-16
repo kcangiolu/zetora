@@ -13,9 +13,11 @@ import {
   searchProviders,
   githubSearchProviders,
   academicSearchProviders,
+  // Extreme Search's search role uses the same compatible provider set as
+  // Academic (Parallel AI has no query-based search endpoint usable here).
+  academicSearchProviders as extremeSearchProviders,
   retrieveProviders,
   redditSearchProviders,
-  extremeSearchProviders,
   extremeContentProviders,
   type CustomProviderConfig,
   parseCustomModel,
