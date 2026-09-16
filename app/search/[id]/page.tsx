@@ -80,14 +80,17 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   }
 
   const title = chat.title;
+  const appOrigin = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || 'http://localhost:3000';
+  const siteName = new URL(appOrigin).hostname;
+
   return {
     title: title,
-    description: 'A search in zetora.ai',
+    description: `A search in ${siteName}`,
     openGraph: {
       title: title,
       url: `/search/${id}`,
-      description: 'A search in zetora.ai',
-      siteName: 'zetora.ai',
+      description: `A search in ${siteName}`,
+      siteName,
       images: [
         {
           url: `/api/og/chat/${id}`,
@@ -100,8 +103,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       card: 'summary_large_image',
       title: title,
       url: `/search/${id}`,
-      description: 'A search in zetora.ai',
-      siteName: 'zetora.ai',
+      description: `A search in ${siteName}`,
+      siteName,
       creator: '@zetoraai',
       images: [
         {

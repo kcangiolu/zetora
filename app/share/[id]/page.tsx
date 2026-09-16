@@ -17,14 +17,17 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     return { title: 'Zetora Chat' };
   }
 
+  const appOrigin = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || 'http://localhost:3000';
+  const siteName = new URL(appOrigin).hostname;
+
   return {
     title: chat.title,
-    description: 'A shared chat on zetora.ai',
+    description: `A shared chat on ${siteName}`,
     openGraph: {
       title: chat.title,
       url: `/share/${id}`,
-      description: 'A shared chat on zetora.ai',
-      siteName: 'zetora.ai',
+      description: `A shared chat on ${siteName}`,
+      siteName,
       images: [
         {
           url: `/api/og/chat/${id}`,
@@ -37,8 +40,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       card: 'summary_large_image',
       title: chat.title,
       url: `/share/${id}`,
-      description: 'A shared chat on zetora.ai',
-      siteName: 'zetora.ai',
+      description: `A shared chat on ${siteName}`,
+      siteName,
       creator: '@zetoraai',
       images: [
         {

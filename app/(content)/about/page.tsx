@@ -49,6 +49,7 @@ import { ElevenLabsLogo } from '@/components/logos/elevenlabs-logo';
 
 import { ThemeSwitcher } from '@/components/theme-switcher';
 import { ZetoraLogo } from '@/components/logos/zetora-logo';
+import { ZetoraWordmark } from '@/components/logos/zetora-wordmark';
 import { getSearchGroups } from '@/lib/utils';
 
 const AppCircle = React.forwardRef<HTMLDivElement, { favicon: string; label: string; className?: string }>(
@@ -296,9 +297,8 @@ export default function AboutPage() {
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-between h-14 px-6">
-            <Link href="/" className="flex items-center gap-2.5 group">
-              <ZetoraLogo className="size-6 transition-transform duration-300 group-hover:scale-110" />
-              <span className="text-xl font-light tracking-tighter font-be-vietnam-pro">zetora</span>
+            <Link href="/" className="flex items-center group">
+              <ZetoraWordmark height={26} className="transition-transform duration-300 group-hover:scale-110" />
             </Link>
 
             <nav className="hidden md:flex items-center gap-6">

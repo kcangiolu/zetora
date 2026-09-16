@@ -116,7 +116,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
             fontFamily: 'Geist',
           }}
         >
-          <ZetoraLogo width={72} height={72} color={colors.foreground} animated={false} />
+          <ZetoraLogo width={72} height={72} color={colors.foreground} />
           <div
             style={{
               fontSize: 48,
@@ -169,7 +169,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
       >
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <ZetoraLogo width={56} height={56} color={colors.foreground} animated={false} />
+          <ZetoraLogo width={56} height={56} color={colors.foreground} />
           <div
             style={{
               fontSize: 40,

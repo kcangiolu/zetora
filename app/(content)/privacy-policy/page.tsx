@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowLeft, Clock, Shield, ArrowUpRight } from 'lucide-react';
 import { ZetoraLogo } from '@/components/logos/zetora-logo';
+import { ZetoraWordmark } from '@/components/logos/zetora-wordmark';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
@@ -34,9 +35,8 @@ export default function PrivacyPage() {
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between h-14 px-6">
-            <Link href="/" className="flex items-center gap-2.5 group">
-              <ZetoraLogo className="size-5 transition-transform duration-300 group-hover:scale-110" />
-              <span className="text-lg font-light tracking-tighter font-be-vietnam-pro">zetora</span>
+            <Link href="/" className="flex items-center group">
+              <ZetoraWordmark height={22} className="transition-transform duration-300 group-hover:scale-110" />
             </Link>
             <div className="flex items-center gap-4">
               <Link

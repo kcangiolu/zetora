@@ -1,27 +1,23 @@
-// "Dérive" mark: four crossed orbits, each drifting at its own speed (two
-// clockwise, two counter-clockwise) around a pupil that glances about.
-// Animation classes are defined in app/globals.css (.zetora-orbit / .zetora-pupil);
-// non-browser renderers (Satori OG images) should pass animated={false}.
+// "Z" mark: traced from the approved reference artwork (7 vertices per bar,
+// 6 for the diagonal), scaled into a 0-100 viewBox. Satori (next/og) can
+// render this fine since it's a single filled path with no <mask>.
 
-const ORBITS = [
-  { angle: 0, duration: 45, reverse: false },
-  { angle: 45, duration: 65, reverse: true },
-  { angle: 90, duration: 80, reverse: false },
-  { angle: 135, duration: 100, reverse: true },
-];
+// Also used by ZetoraWordmark (zetora-wordmark.tsx) so the icon and the
+// logotype always share the exact same Z.
+export const Z_PATH =
+  'M 16.83,3.0 L 69.19,3.0 L 45.57,26.62 L 22.73,26.46 L 13.1,36.25 L 3.0,26.15 L 3.0,16.98 Z M 71.67,4.55 L 84.1,16.67 L 84.1,25.68 L 14.96,94.82 L 3.0,82.86 L 3.0,73.54 Z M 73.85,63.6 L 84.1,73.54 L 84.1,82.86 L 69.97,97.0 L 16.98,97.0 L 40.29,73.54 L 63.91,73.54 Z';
+export const Z_WIDTH = 84.1;
 
 export function ZetoraLogo({
   className,
   width,
   height,
   color = 'currentColor',
-  animated = true,
 }: {
   className?: string;
   width?: number;
   height?: number;
   color?: string;
-  animated?: boolean;
 }) {
   return (
     <svg
@@ -34,25 +30,7 @@ export function ZetoraLogo({
       color={color}
       style={{ display: 'block', overflow: 'visible' }}
     >
-      {ORBITS.map(({ angle, duration, reverse }) => (
-        <g key={angle} transform={`rotate(${angle} 50 50)`}>
-          <ellipse
-            cx="50"
-            cy="50"
-            rx="42"
-            ry="16"
-            stroke={color}
-            strokeWidth="4"
-            className={animated ? 'zetora-orbit' : undefined}
-            style={
-              animated
-                ? { animationDuration: `${duration}s`, animationDirection: reverse ? 'reverse' : 'normal' }
-                : undefined
-            }
-          />
-        </g>
-      ))}
-      <circle cx="50" cy="50" r="9" fill={color} className={animated ? 'zetora-pupil' : undefined} />
+      <path d={Z_PATH} fill={color} />
     </svg>
   );
 }

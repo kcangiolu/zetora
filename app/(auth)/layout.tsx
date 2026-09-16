@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ZetoraLogo } from '@/components/logos/zetora-logo';
+import { ZetoraWordmark } from '@/components/logos/zetora-wordmark';
 import { Brain, Search, Eye, Mic, Blocks } from 'lucide-react';
 
 const features = [
@@ -25,9 +25,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="relative flex-1 flex flex-col items-center justify-center px-12 xl:px-20">
           <div className="w-full max-w-md">
             {/* Logo */}
-            <Link href="/" className="inline-flex items-center gap-3 mb-12 group">
-              <ZetoraLogo className="size-10 transition-transform duration-300 group-hover:scale-110" />
-              <span className="text-4xl font-light tracking-tighter font-be-vietnam-pro text-foreground">zetora</span>
+            <Link href="/" className="inline-flex items-center mb-12 group">
+              <ZetoraWordmark height={40} className="text-primary transition-transform duration-300 group-hover:scale-110" />
             </Link>
 
             {/* Tagline */}
@@ -62,9 +61,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="flex-1 lg:w-[55%] xl:w-[50%] flex flex-col bg-background lg:border-l lg:border-border/50">
         {/* Mobile Header */}
         <header className="lg:hidden flex items-center h-16 border-b border-border/50 px-6">
-          <Link href="/" className="flex items-center gap-2.5">
-            <ZetoraLogo className="size-6" />
-            <span className="text-2xl font-light tracking-tighter font-be-vietnam-pro">zetora</span>
+          <Link href="/" className="flex items-center">
+            <ZetoraWordmark height={26} className="text-primary" />
           </Link>
         </header>
 

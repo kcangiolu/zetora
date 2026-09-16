@@ -740,7 +740,7 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
                   className="inline-flex items-center gap-1 w-fit group-data-[collapsible=icon]:mx-auto"
                 >
                   <div className="flex items-center justify-center size-6 shrink-0 transition-opacity duration-200 group-data-[collapsible=icon]:group-hover:opacity-0">
-                    <ZetoraLogo className="size-6" />
+                    <ZetoraLogo className="size-6 text-primary" />
                   </div>
                   <div className="flex flex-row items-center gap-2 leading-none group-data-[collapsible=icon]:hidden">
                     <span className="font-be-vietnam-pro font-light tracking-tighter text-xl">zetora</span>
