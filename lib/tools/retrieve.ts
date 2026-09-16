@@ -216,18 +216,148 @@ const exa = new Exa(serverEnv.EXA_API_KEY as string);
 const parallel = new Parallel({ apiKey: serverEnv.PARALLEL_API_KEY });
 const firecrawl = new FirecrawlApp({ apiKey: serverEnv.FIRECRAWL_API_KEY });
 
+type RetrieveProvider = 'fastcrw' | 'exa' | 'parallel' | 'firecrawl';
+
+function normalizeRetrieveProvider(value: unknown): RetrieveProvider {
+  if (value === 'fastcrw' || value === 'exa' || value === 'parallel' || value === 'firecrawl') return value;
+  return 'exa';
+}
+
+type RetrieveContent = {
+  url: string;
+  content: string;
+  title: string;
+  description: string;
+  author?: string;
+  publishedDate?: string;
+  image?: string;
+  favicon?: string;
+  language: string;
+};
+
+// Self-hosted stacks configure FASTCRW_URL instead of paying for Exa — worth
+// trying first if selected, so retrieve doesn't silently depend on a paid API.
+async function retrieveWithFastCrw(url: string): Promise<RetrieveContent | null> {
+  if (!serverEnv.FASTCRW_URL) {
+    log.warn('fastCRW selected for retrieve but FASTCRW_URL is not configured');
+    return null;
+  }
+  const fastcrwResult = await scrapeWithFastCrwForBrowsePage(url);
+  if (!fastcrwResult?.content?.trim()) return null;
+
+  return {
+    url,
+    content: fastcrwResult.content,
+    title: fastcrwResult.title || url.split('/').pop() || 'Retrieved Content',
+    description: `Content retrieved from ${url}`,
+    favicon: fastcrwResult.favicon,
+    language: 'en',
+  };
+}
+
+async function retrieveWithExa(
+  url: string,
+  include_summary: boolean,
+  live_crawl: 'never' | 'auto' | 'preferred',
+): Promise<RetrieveContent | null> {
+  const result = await exa.getContents([url], {
+    text: true,
+    summary: include_summary ? true : undefined,
+    livecrawl: live_crawl,
+  });
+
+  if (!result.results || result.results.length === 0 || !result.results[0].text) return null;
+
+  const typedItem = result.results[0] as any;
+  return {
+    url: result.results[0].url,
+    content: typedItem.text || typedItem.summary || '',
+    title: typedItem.title || result.results[0].url.split('/').pop() || 'Retrieved Content',
+    description: typedItem.summary || `Content retrieved from ${result.results[0].url}`,
+    author: typedItem.author || undefined,
+    publishedDate: typedItem.publishedDate || undefined,
+    image: typedItem.image || undefined,
+    favicon: typedItem.favicon || undefined,
+    language: 'en',
+  };
+}
+
+async function retrieveWithParallel(url: string): Promise<RetrieveContent | null> {
+  const parallelResult = await parallel.beta.extract({
+    urls: [url],
+    excerpts: false,
+    full_content: true,
+    betas: ['search-extract-2025-10-10'],
+  });
+
+  const extractResult = parallelResult.results?.[0];
+  if (!extractResult?.full_content) return null;
+
+  return {
+    url,
+    content: extractResult.full_content,
+    title: extractResult.title || url.split('/').pop() || 'Retrieved Content',
+    description: extractResult.full_content.slice(0, 200) + '...',
+    publishedDate: extractResult.publish_date || undefined,
+    favicon: `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=128`,
+    language: 'en',
+  };
+}
+
+async function retrieveWithFirecrawl(url: string): Promise<RetrieveContent | null> {
+  const urlWithoutHttps = url.replace(/^https?:\/\//, '');
+  const scrapeResponse = await firecrawl.scrape(urlWithoutHttps, {
+    parsers: ['pdf'],
+    proxy: 'auto',
+    storeInCache: true,
+  });
+
+  if (!scrapeResponse) return null;
+
+  return {
+    url,
+    content: scrapeResponse.markdown || scrapeResponse.html || '',
+    title: scrapeResponse.metadata?.title || url.split('/').pop() || 'Retrieved Content',
+    description: scrapeResponse.metadata?.description || `Content retrieved from ${url}`,
+    author: typeof scrapeResponse.metadata?.author === 'string' ? scrapeResponse.metadata.author : undefined,
+    publishedDate:
+      typeof scrapeResponse.metadata?.publishedDate === 'string' ? scrapeResponse.metadata.publishedDate : undefined,
+    image:
+      (typeof scrapeResponse.metadata?.image === 'string' ? scrapeResponse.metadata.image : undefined) ||
+      (typeof scrapeResponse.metadata?.ogImage === 'string' ? scrapeResponse.metadata.ogImage : undefined),
+    favicon: `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=128`,
+    language: scrapeResponse.metadata?.language || 'en',
+  };
+}
+
+async function runRetrieveProvider(
+  provider: RetrieveProvider,
+  url: string,
+  include_summary: boolean,
+  live_crawl: 'never' | 'auto' | 'preferred',
+): Promise<{ result: RetrieveContent; source: RetrieveProvider } | null> {
+  const content =
+    provider === 'fastcrw'
+      ? await retrieveWithFastCrw(url)
+      : provider === 'parallel'
+        ? await retrieveWithParallel(url)
+        : provider === 'firecrawl'
+          ? await retrieveWithFirecrawl(url)
+          : await retrieveWithExa(url, include_summary, live_crawl);
+
+  return content ? { result: content, source: provider } : null;
+}
+
 // Helper function to retrieve content from a single URL
 async function retrieveSingleUrl(
   url: string,
   content_type?: 'general' | 'twitter' | 'youtube' | 'tiktok' | 'instagram',
   include_summary: boolean = true,
   live_crawl: 'never' | 'auto' | 'preferred' = 'preferred',
-  fallbackOptions: {
-    parallelEnabled?: boolean;
-    firecrawlEnabled?: boolean;
-    fastcrwEnabled?: boolean;
-    exaEnabled?: boolean;
-  } = {},
+  providerOptions: { provider: RetrieveProvider; fallbackProvider: RetrieveProvider | null } = {
+    provider: 'exa',
+    fallbackProvider: 'fastcrw',
+  },
 ): Promise<{
   url: string;
   result: any;
@@ -422,207 +552,42 @@ async function retrieveSingleUrl(
       }
     }
 
-    const fastcrwEnabled = fallbackOptions.fastcrwEnabled !== false;
-    const exaEnabled = fallbackOptions.exaEnabled !== false;
-    const parallelEnabled = fallbackOptions.parallelEnabled !== false;
-    const firecrawlEnabled = fallbackOptions.firecrawlEnabled !== false;
+    const { provider, fallbackProvider } = providerOptions;
 
-    // Self-hosted stacks configure FASTCRW_URL instead of paying for Exa —
-    // try it first so retrieve doesn't silently depend on a paid API.
-    if (fastcrwEnabled && serverEnv.FASTCRW_URL) {
+    try {
+      const primary = await runRetrieveProvider(provider, url, include_summary, live_crawl);
+      if (primary) {
+        log.debug(`${provider} successfully retrieved ${url}`);
+        return { url, result: primary.result, source: primary.source, response_time: (Date.now() - start) / 1000 };
+      }
+      log.debug(`${provider} returned no content for ${url}`);
+    } catch (primaryError) {
+      log.error(`retrieve ${provider} error for ${url}:`, primaryError);
+    }
+
+    if (fallbackProvider && fallbackProvider !== provider) {
       try {
-        const fastcrwResult = await scrapeWithFastCrwForBrowsePage(url);
-        if (fastcrwResult?.content?.trim()) {
-          log.debug(`fastCRW successfully scraped ${url}`);
+        log.debug(`Falling back to ${fallbackProvider} for ${url}`);
+        const fallback = await runRetrieveProvider(fallbackProvider, url, include_summary, live_crawl);
+        if (fallback) {
+          log.debug(`${fallbackProvider} successfully retrieved ${url}`);
           return {
             url,
-            result: {
-              url,
-              content: fastcrwResult.content,
-              title: fastcrwResult.title || url.split('/').pop() || 'Retrieved Content',
-              description: `Content retrieved from ${url}`,
-              author: undefined,
-              publishedDate: undefined,
-              image: undefined,
-              favicon: fastcrwResult.favicon,
-              language: 'en',
-            },
-            source: 'fastcrw',
+            result: fallback.result,
+            source: fallback.source,
             response_time: (Date.now() - start) / 1000,
           };
         }
-        log.debug(
-          exaEnabled
-            ? 'fastCRW returned no content, falling back to Exa/Parallel/Firecrawl'
-            : 'fastCRW returned no content, Exa disabled by preference',
-        );
-      } catch (fastcrwError) {
-        log.error('fastCRW error:', fastcrwError);
-        log.debug(exaEnabled ? 'Falling back to Exa/Parallel/Firecrawl' : 'Exa disabled by preference');
+      } catch (fallbackError) {
+        log.error(`retrieve ${fallbackProvider} fallback error for ${url}:`, fallbackError);
       }
     }
 
-    let result;
-    let usingParallel = false;
-    let usingFirecrawl = false;
-    let source = 'exa';
-
-    if (!exaEnabled) {
-      log.debug('Exa disabled by preference, skipping to Parallel/Firecrawl');
-      usingParallel = parallelEnabled;
-      if (!parallelEnabled) usingFirecrawl = firecrawlEnabled;
-    } else {
-      // General web scraping with Exa/Parallel/Firecrawl
-      log.debug(`Retrieving content from ${url} with Exa AI, summary: ${include_summary}, livecrawl: ${live_crawl}`);
-
-      try {
-        result = await exa.getContents([url], {
-          text: true,
-          summary: include_summary ? true : undefined,
-          livecrawl: live_crawl,
-        });
-
-        if (!result.results || result.results.length === 0 || !result.results[0].text) {
-          log.debug(
-            parallelEnabled
-              ? 'Exa AI returned no content, falling back to Parallel'
-              : `Exa AI returned no content, Parallel fallback disabled — ${firecrawlEnabled ? 'falling back to Firecrawl' : 'no fallback enabled'}`,
-          );
-          usingParallel = parallelEnabled;
-          if (!parallelEnabled) usingFirecrawl = firecrawlEnabled;
-        }
-      } catch (exaError) {
-        log.error('Exa AI error:', exaError);
-        log.debug(
-          parallelEnabled
-            ? 'Falling back to Parallel'
-            : `Parallel fallback disabled — ${firecrawlEnabled ? 'falling back to Firecrawl' : 'no fallback enabled'}`,
-        );
-        usingParallel = parallelEnabled;
-        if (!parallelEnabled) usingFirecrawl = firecrawlEnabled;
-      }
-    }
-
-    if (usingParallel) {
-      try {
-        log.debug(`Trying Parallel extract for ${url}`);
-        const parallelResult = await parallel.beta.extract({
-          urls: [url],
-          excerpts: false,
-          full_content: true,
-          betas: ['search-extract-2025-10-10'],
-        });
-
-        if (parallelResult.results && parallelResult.results.length > 0) {
-          const extractResult = parallelResult.results[0];
-          if (extractResult.full_content) {
-            log.debug(`Parallel successfully extracted ${url}`);
-            source = 'parallel';
-            return {
-              url,
-              result: {
-                url: url,
-                content: extractResult.full_content,
-                title: extractResult.title || url.split('/').pop() || 'Retrieved Content',
-                description: extractResult.full_content.slice(0, 200) + '...',
-                author: undefined,
-                publishedDate: extractResult.publish_date || undefined,
-                image: undefined,
-                favicon: `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=128`,
-                language: 'en',
-              },
-              source,
-              response_time: (Date.now() - start) / 1000,
-            };
-          }
-        }
-
-        log.debug(
-          firecrawlEnabled
-            ? 'Parallel returned no content, falling back to Firecrawl'
-            : 'Parallel returned no content, Firecrawl fallback disabled',
-        );
-        usingFirecrawl = firecrawlEnabled;
-      } catch (parallelError) {
-        log.error('Parallel error:', parallelError);
-        log.debug(firecrawlEnabled ? 'Falling back to Firecrawl' : 'Firecrawl fallback disabled');
-        usingFirecrawl = firecrawlEnabled;
-      }
-    }
-
-    if (usingFirecrawl) {
-      const urlWithoutHttps = url.replace(/^https?:\/\//, '');
-      try {
-        const scrapeResponse = await firecrawl.scrape(urlWithoutHttps, {
-          parsers: ['pdf'],
-          proxy: 'auto',
-          storeInCache: true,
-        });
-
-        if (!scrapeResponse) {
-          throw new Error(`Firecrawl failed: ${scrapeResponse}`);
-        }
-
-        log.debug(`Firecrawl successfully scraped ${url}`);
-        source = 'firecrawl';
-        return {
-          url,
-          result: {
-            url: url,
-            content: scrapeResponse.markdown || scrapeResponse.html || '',
-            title: scrapeResponse.metadata?.title || url.split('/').pop() || 'Retrieved Content',
-            description: scrapeResponse.metadata?.description || `Content retrieved from ${url}`,
-            author: scrapeResponse.metadata?.author || undefined,
-            publishedDate: scrapeResponse.metadata?.publishedDate || undefined,
-            image: scrapeResponse.metadata?.image || scrapeResponse.metadata?.ogImage || undefined,
-            favicon: `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=128`,
-            language: scrapeResponse.metadata?.language || 'en',
-          },
-          source,
-          response_time: (Date.now() - start) / 1000,
-        };
-      } catch (firecrawlError) {
-        log.error('Firecrawl error:', firecrawlError);
-        return {
-          url,
-          result: null,
-          error: 'All scraping methods failed to retrieve content',
-          source: 'error',
-          response_time: (Date.now() - start) / 1000,
-        };
-      }
-    }
-
-    // Fell through without a successful result from any enabled method (e.g.
-    // Exa returned no content and the Parallel/Firecrawl fallbacks that would
-    // normally cover that are disabled or also failed) — don't assume Exa's
-    // (possibly empty) result is usable.
-    if (!result || !result.results || result.results.length === 0 || !result.results[0].text) {
-      return {
-        url,
-        result: null,
-        error: 'All scraping methods failed to retrieve content',
-        source: 'error',
-        response_time: (Date.now() - start) / 1000,
-      };
-    }
-
-    // Return Exa results if successful
-    const typedItem = result.results[0] as any;
     return {
       url,
-      result: {
-        url: result.results[0].url,
-        content: typedItem.text || typedItem.summary || '',
-        title: typedItem.title || result.results[0].url.split('/').pop() || 'Retrieved Content',
-        description: typedItem.summary || `Content retrieved from ${result.results[0].url}`,
-        author: typedItem.author || undefined,
-        publishedDate: typedItem.publishedDate || undefined,
-        image: typedItem.image || undefined,
-        favicon: typedItem.favicon || undefined,
-        language: 'en',
-      },
-      source,
+      result: null,
+      error: 'All scraping methods failed to retrieve content',
+      source: 'error',
       response_time: (Date.now() - start) / 1000,
     };
   } catch (error) {
@@ -639,7 +604,7 @@ async function retrieveSingleUrl(
 
 export const retrieveTool = tool({
   description:
-    'Extract detailed content from one or multiple specific URLs that the user explicitly provides. ONLY use when user shares/pastes actual URLs. NEVER use for discovery, finding information, or after web_search. Automatically detects and fetches metadata and transcripts for YouTube videos, Twitter/X posts, TikTok videos, and Instagram posts using Supadata. For general URLs, uses Exa AI with Parallel and Firecrawl as fallbacks. Valid: user provides "https://example.com". Invalid: "latest news", "what\'s on website.com", or retrieving web_search results.',
+    'Extract detailed content from one or multiple specific URLs that the user explicitly provides. ONLY use when user shares/pastes actual URLs. NEVER use for discovery, finding information, or after web_search. Automatically detects and fetches metadata and transcripts for YouTube videos, Twitter/X posts, TikTok videos, and Instagram posts using Supadata. For general URLs, uses the configured primary content-extraction provider (default Exa) with an optional fallback provider. Valid: user provides "https://example.com". Invalid: "latest news", "what\'s on website.com", or retrieving web_search results.',
   inputSchema: z.object({
     url: z.array(z.string()).describe('Array of URLs to retrieve information from.'),
     content_type: z
@@ -678,12 +643,12 @@ export const retrieveTool = tool({
     const startTime = Date.now();
     const prefs =
       (experimental_context as { userPreferences?: Record<string, unknown> } | undefined)?.userPreferences ?? {};
-    const fallbackOptions = {
-      parallelEnabled: prefs['zetora-fallback-retrieve-parallel'] !== false,
-      firecrawlEnabled: prefs['zetora-fallback-retrieve-firecrawl'] !== false,
-      fastcrwEnabled: prefs['zetora-fallback-retrieve-fastcrw'] !== false,
-      exaEnabled: prefs['zetora-fallback-retrieve-exa'] !== false,
-    };
+    const provider = normalizeRetrieveProvider(prefs['zetora-retrieve-provider']);
+    const fallbackEnabled = prefs['zetora-retrieve-fallback-enabled'] !== false;
+    const fallbackProvider = fallbackEnabled
+      ? normalizeRetrieveProvider(prefs['zetora-retrieve-fallback-provider'] ?? 'fastcrw')
+      : null;
+    const providerOptions = { provider, fallbackProvider };
 
     try {
       const urlCount = url.length;
@@ -714,7 +679,7 @@ export const retrieveTool = tool({
           content_types[index],
           include_summaries[index],
           live_crawls[index],
-          fallbackOptions,
+          providerOptions,
         ),
       );
 

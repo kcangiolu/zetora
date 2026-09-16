@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ReasoningEffortToggle } from '@/components/ui/form-component/reasoning-effort-toggle';
 import type { ReasoningEffort } from '@/lib/reasoning-effort-types';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
-import { GlobalSearchIcon, Rocket01Icon } from '@hugeicons/core-free-icons';
+import { GlobalSearchIcon, Rocket01Icon, Cursor02Icon } from '@hugeicons/core-free-icons';
 import { Loader2, Search, CheckCircle2, XCircle, Mail } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ModelSelectorDialog } from '@/components/ui/model-selector';
@@ -42,6 +42,10 @@ const SearXNGIcon = ({ className }: { className?: string }) => (
 
 const FastCrwIcon = ({ className }: { className?: string }) => (
   <HugeiconsIcon icon={Rocket01Icon} size={16} className={className} />
+);
+
+const NotteIcon = ({ className }: { className?: string }) => (
+  <HugeiconsIcon icon={Cursor02Icon} size={16} className={className} />
 );
 
 // Search Provider Options
@@ -82,6 +86,57 @@ export const searchProviders = [
     default: false,
   },
 ] as const;
+
+// GitHub search only has code/repo-relevant providers: Exa and Parallel AI
+// have no "github"/code category in their APIs (verified against exa-js's
+// and parallel-web's own type definitions), so they're excluded here.
+export const githubSearchProviders = searchProviders.filter((p) =>
+  (['firecrawl', 'searxng', 'fastcrw'] as const).includes(p.value as 'firecrawl' | 'searxng' | 'fastcrw'),
+);
+
+// Academic search excludes Parallel AI — it has no academic/PDF category,
+// only free-text objective + domain allow-listing.
+export const academicSearchProviders = searchProviders.filter((p) =>
+  (['exa', 'firecrawl', 'searxng', 'fastcrw'] as const).includes(
+    p.value as 'exa' | 'firecrawl' | 'searxng' | 'fastcrw',
+  ),
+);
+
+// Retrieve extracts content from a single URL, not a search — SearXNG (a
+// metasearch engine) has no role here, so it's excluded.
+export const retrieveProviders = searchProviders.filter((p) =>
+  (['fastcrw', 'exa', 'parallel', 'firecrawl'] as const).includes(
+    p.value as 'fastcrw' | 'exa' | 'parallel' | 'firecrawl',
+  ),
+);
+
+// Extreme Search's search role: same compatible set as Academic (Parallel AI
+// has no query-based search endpoint usable here).
+export const extremeSearchProviders = academicSearchProviders;
+
+// Extreme Search's content-extraction role: Exa, Firecrawl, fastCRW, Parallel
+// AI can all fetch a given URL's full content; Notte adds real headless-browser
+// rendering. SearXNG is excluded — it's a metasearch aggregator, it never
+// fetches a page's actual content.
+export const extremeContentProviders = [
+  ...searchProviders.filter((p) => (['exa', 'firecrawl', 'parallel', 'fastcrw'] as const).includes(p.value as any)),
+  {
+    value: 'notte' as const,
+    label: 'Notte',
+    description: 'Real headless-browser rendering for JavaScript-heavy pages',
+    icon: NotteIcon,
+    default: false,
+  },
+];
+
+// Reddit search excludes Exa — verified live that its index carries
+// essentially no reddit.com content (0 results even with no domain
+// restriction at all), so it's not a usable choice in practice.
+export const redditSearchProviders = searchProviders.filter((p) =>
+  (['parallel', 'firecrawl', 'searxng', 'fastcrw'] as const).includes(
+    p.value as 'parallel' | 'firecrawl' | 'searxng' | 'fastcrw',
+  ),
+);
 
 export const storageProviders = [
   {

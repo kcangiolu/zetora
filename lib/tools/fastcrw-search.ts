@@ -13,21 +13,24 @@ export interface FastCrwSearchResult {
 
 interface FastCrwApiResponse {
   success: boolean;
-  data: Array<{
-    url: string;
-    title: string;
-    snippet: string;
-    description: string;
-    score: number;
-    category: string;
-  }>;
+  // Verified live: fastCRW's top-level `data` field is `{ results: [...] }`,
+  // not the array itself, despite the Firecrawl-compatible framing.
+  data: {
+    results: Array<{
+      url: string;
+      title: string;
+      snippet: string;
+      description: string;
+      score: number;
+      category: string;
+    }>;
+  };
 }
 
 export enum SearchCategory {
   NEWS = 'news',
   COMPANY = 'company',
   RESEARCH_PAPER = 'research paper',
-  GITHUB = 'github',
   FINANCIAL_REPORT = 'financial report',
 }
 
@@ -78,7 +81,7 @@ export class FastCrwSearchStrategy implements SearchProviderStrategy {
 
       const data = (await response.json()) as FastCrwApiResponse;
 
-      const mappedResults = (data.data || []).map((r) => ({
+      const mappedResults = (data.data?.results || []).map((r) => ({
         title: r.title || '',
         url: r.url,
         content: r.snippet || r.description || '',

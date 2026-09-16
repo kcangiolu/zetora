@@ -28,7 +28,12 @@ export type PreferenceKey =
   | 'zetora-extension-connectors'
   | 'zetora-default-group'
   | 'zetora-sandbox-provider'
+  | 'zetora-extreme-search-provider'
+  | 'zetora-extreme-search-fallback-enabled'
+  | 'zetora-extreme-search-fallback-provider'
   | 'zetora-extreme-content-provider'
+  | 'zetora-extreme-content-fallback-enabled'
+  | 'zetora-extreme-content-fallback-provider'
   | 'zetora-search-stack'
   | 'zetora-embedding-provider'
   | 'zetora-embedding-model'
@@ -92,16 +97,22 @@ export type PreferenceKey =
   | 'zetora-connectors-enabled'
   | 'zetora-canvas-enabled'
   | 'zetora-agent-enabled'
-  | 'zetora-fallback-firecrawl-content'
   | 'zetora-fallback-metadata'
   | 'zetora-fallback-notte'
-  | 'zetora-fallback-exa-browse'
   | 'zetora-fallback-search-firecrawl'
-  | 'zetora-fallback-retrieve-parallel'
-  | 'zetora-fallback-retrieve-firecrawl'
-  | 'zetora-fallback-retrieve-fastcrw'
-  | 'zetora-fallback-retrieve-exa'
+  | 'zetora-retrieve-provider'
+  | 'zetora-retrieve-fallback-enabled'
+  | 'zetora-retrieve-fallback-provider'
+  | 'zetora-reddit-search-provider'
+  | 'zetora-reddit-search-fallback-enabled'
+  | 'zetora-reddit-search-fallback-provider'
   | 'zetora-search-fallback-provider'
+  | 'zetora-github-search-provider'
+  | 'zetora-github-search-fallback-enabled'
+  | 'zetora-github-search-fallback-provider'
+  | 'zetora-academic-search-provider'
+  | 'zetora-academic-search-fallback-enabled'
+  | 'zetora-academic-search-fallback-provider'
   | 'zetora-tts-provider'
   | 'zetora-tts-custom-provider-id'
   | 'zetora-tts-openai-model'
@@ -319,15 +330,9 @@ function collectLocalStoragePreferences(): Partial<Record<PreferenceKey, Prefere
     'zetora-default-model',
     'zetora-default-provider',
     'zetora-lockout-provider',
-    'zetora-fallback-firecrawl-content',
     'zetora-fallback-metadata',
     'zetora-fallback-notte',
-    'zetora-fallback-exa-browse',
     'zetora-fallback-search-firecrawl',
-    'zetora-fallback-retrieve-parallel',
-    'zetora-fallback-retrieve-firecrawl',
-    'zetora-fallback-retrieve-fastcrw',
-    'zetora-fallback-retrieve-exa',
     'zetora-search-fallback-provider',
   ];
 

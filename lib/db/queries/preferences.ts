@@ -98,7 +98,7 @@ export async function upsertUserPreferences({
   preferences: Partial<{
     'zetora-search-provider'?: 'exa' | 'parallel' | 'firecrawl' | 'searxng' | 'fastcrw';
     'zetora-storage-provider'?: 'cloudflare-r2' | 'minio';
-    'zetora-extreme-content-provider'?: 'exa-firecrawl' | 'searxng-fastcrw' | 'notte-only';
+    'zetora-extreme-content-provider'?: 'exa' | 'firecrawl' | 'fastcrw' | 'notte' | 'parallel';
     'zetora-email-provider'?: 'resend' | 'smtp';
     'zetora-group-order'?: string[];
     'zetora-model-order-global'?: string[];

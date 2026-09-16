@@ -7,33 +7,45 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
 import Firecrawl, { SearchResultWeb } from '@mendable/firecrawl-js';
+import Exa from 'exa-js';
 
 import { createLogger } from '@/lib/logger';
-import { FASTCRW_SEARCH_TIMEOUT_MS } from '@/lib/timeouts';
+import { FASTCRW_SEARCH_TIMEOUT_MS, SEARXNG_TIMEOUT_MS } from '@/lib/timeouts';
 
 const log = createLogger('academic-search');
 
 const firecrawl = new Firecrawl({ apiKey: serverEnv.FIRECRAWL_API_KEY });
+const exa = new Exa(serverEnv.EXA_API_KEY);
 
 interface FastCrwSearchApiResponse {
   success: boolean;
-  data: Array<{
-    url: string;
-    title: string;
-    snippet: string;
-    description: string;
-    score: number;
-    category: string;
-  }>;
+  // Verified live: fastCRW's top-level `data` field is `{ results: [...] }`,
+  // not the array itself, despite the Firecrawl-compatible framing.
+  data: {
+    results: Array<{
+      url: string;
+      title: string;
+      snippet: string;
+      description: string;
+      score: number;
+      category: string;
+    }>;
+  };
 }
 
 type AcademicResult = { url: string; title: string; summary: string };
+
+// fastCRW's own backend isn't in this repo (external ghcr.io/us/crw image) and
+// its /v1/search doesn't expose an academic/PDF category, so the only lever
+// we have is enriching the query itself — the same trick already used for
+// GitHub (`site:github.com`) — steering results toward known paper hosts.
+const ACADEMIC_QUERY_HINT = '(site:arxiv.org OR site:ncbi.nlm.nih.gov OR site:scholar.google.com OR filetype:pdf)';
 
 async function searchAcademicWithFastCrw(baseUrl: string, query: string, limit: number): Promise<AcademicResult[]> {
   const response = await fetch(`${baseUrl}/v1/search`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query, limit }),
+    body: JSON.stringify({ query: `${query} ${ACADEMIC_QUERY_HINT}`, limit }),
     signal: AbortSignal.timeout(FASTCRW_SEARCH_TIMEOUT_MS),
   });
 
@@ -43,14 +55,111 @@ async function searchAcademicWithFastCrw(baseUrl: string, query: string, limit: 
 
   const data: FastCrwSearchApiResponse = await response.json();
 
-  return (data.data || []).map((r) => ({
+  return (data.data?.results || []).map((r) => ({
     url: r.url,
     title: r.title || '',
     summary: r.snippet || r.description || '',
   }));
 }
 
-export function academicSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>) {
+async function searchAcademicWithSearxng(baseUrl: string, query: string, limit: number): Promise<AcademicResult[]> {
+  const params = new URLSearchParams({
+    q: query,
+    categories: 'science',
+    format: 'json',
+    safesearch: '1',
+  });
+
+  const response = await fetch(`${baseUrl.replace(/\/$/, '')}/search?${params.toString()}`, {
+    signal: AbortSignal.timeout(SEARXNG_TIMEOUT_MS),
+  });
+
+  if (!response.ok) {
+    throw new Error(`SearXNG returned ${response.status}`);
+  }
+
+  const data: { results?: Array<{ url: string; title: string; content: string }> } = await response.json();
+
+  return (data.results || []).slice(0, limit).map((r) => ({
+    url: r.url,
+    title: r.title || '',
+    summary: r.content || '',
+  }));
+}
+
+async function searchAcademicWithExa(query: string, limit: number): Promise<AcademicResult[]> {
+  const { results } = await exa.search(query, {
+    numResults: limit,
+    type: 'auto',
+    category: 'research paper',
+  });
+
+  return results.map((r) => ({
+    url: r.url,
+    title: r.title || '',
+    summary: '',
+  }));
+}
+
+type AcademicSearchProvider = 'exa' | 'firecrawl' | 'searxng' | 'fastcrw';
+
+function normalizeAcademicProvider(value: unknown): AcademicSearchProvider {
+  if (value === 'exa' || value === 'firecrawl' || value === 'searxng' || value === 'fastcrw') return value;
+  return 'firecrawl';
+}
+
+async function runAcademicProvider(
+  provider: AcademicSearchProvider,
+  query: string,
+  limit: number,
+): Promise<AcademicResult[]> {
+  if (provider === 'exa') {
+    return searchAcademicWithExa(query, limit);
+  }
+
+  if (provider === 'searxng') {
+    if (!serverEnv.SEARXNG_URL) {
+      log.warn('SearXNG provider selected for academic search but SEARXNG_URL is not configured');
+      return [];
+    }
+    return searchAcademicWithSearxng(serverEnv.SEARXNG_URL, query, limit);
+  }
+
+  if (provider === 'fastcrw') {
+    if (!serverEnv.FASTCRW_URL) {
+      log.warn('fastCRW provider selected for academic search but FASTCRW_URL is not configured');
+      return [];
+    }
+    return searchAcademicWithFastCrw(serverEnv.FASTCRW_URL, query, limit);
+  }
+
+  const firecrawlResults = await firecrawl.search(query, {
+    categories: ['research', 'pdf'],
+    limit,
+    scrapeOptions: {
+      storeInCache: true,
+    },
+  });
+
+  if (!firecrawlResults.web || !Array.isArray(firecrawlResults.web)) return [];
+
+  return firecrawlResults.web.map((result) => ({
+    url: (result as SearchResultWeb).url || '',
+    title: (result as SearchResultWeb).title || '',
+    summary: (result as SearchResultWeb).description || '',
+  }));
+}
+
+export function academicSearchTool(
+  dataStream?: UIMessageStreamWriter<ChatMessage>,
+  preferences?: Record<string, unknown>,
+) {
+  const provider = normalizeAcademicProvider(preferences?.['zetora-academic-search-provider']);
+  const fallbackEnabled = preferences?.['zetora-academic-search-fallback-enabled'] !== false;
+  const fallbackProvider = fallbackEnabled
+    ? normalizeAcademicProvider(preferences?.['zetora-academic-search-fallback-provider'] ?? 'fastcrw')
+    : null;
+
   return tool({
     description: 'Search academic papers and research with multiple queries.',
     inputSchema: z.object({
@@ -88,30 +197,17 @@ export function academicSearchTool(dataStream?: UIMessageStreamWriter<ChatMessag
 
             let processedResults: AcademicResult[] = [];
             try {
-              const firecrawlResults = await firecrawl.search(query, {
-                categories: ['research', 'pdf'],
-                limit: currentMaxResults,
-                scrapeOptions: {
-                  storeInCache: true,
-                },
-              });
-
-              if (firecrawlResults.web && Array.isArray(firecrawlResults.web)) {
-                processedResults = firecrawlResults.web.map((result) => ({
-                  url: (result as SearchResultWeb).url || '',
-                  title: (result as SearchResultWeb).title || '',
-                  summary: (result as SearchResultWeb).description || '',
-                }));
-              }
-            } catch (firecrawlError) {
-              log.error(`Academic search Firecrawl error for query "${query}":`, firecrawlError);
+              processedResults = await runAcademicProvider(provider, query, currentMaxResults);
+            } catch (primaryError) {
+              log.error(`Academic search ${provider} error for query "${query}":`, primaryError);
             }
 
-            if (processedResults.length === 0 && serverEnv.FASTCRW_URL) {
+            if (processedResults.length === 0 && fallbackProvider && fallbackProvider !== provider) {
               try {
-                processedResults = await searchAcademicWithFastCrw(serverEnv.FASTCRW_URL, query, currentMaxResults);
-              } catch (fastcrwError) {
-                log.error(`Academic search fastCRW fallback error for query "${query}":`, fastcrwError);
+                log.debug(`Academic search: ${provider} returned no results, falling back to ${fallbackProvider}`);
+                processedResults = await runAcademicProvider(fallbackProvider, query, currentMaxResults);
+              } catch (fallbackError) {
+                log.error(`Academic search ${fallbackProvider} fallback error for query "${query}":`, fallbackError);
               }
             }
 

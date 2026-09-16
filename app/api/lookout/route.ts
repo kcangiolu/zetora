@@ -223,8 +223,14 @@ const STATIC_TOOLS: Record<string, any> = {
   text_translate: textTranslateTool,
 };
 
-// Tool factories that need dataStream parameter
-const DATASTREAM_TOOL_FACTORIES: Record<string, (dataStream: UIMessageStreamWriter<ChatMessage>) => any> = {
+// Tool factories that need dataStream parameter. `preferences` is threaded
+// through too — academic/reddit/github search all read their configured
+// provider/fallback from it (lib/tools/{academic,reddit,github}-search.ts);
+// omitting it here silently ignored those settings for every Lookout run.
+const DATASTREAM_TOOL_FACTORIES: Record<
+  string,
+  (dataStream: UIMessageStreamWriter<ChatMessage>, preferences?: Record<string, unknown>) => any
+> = {
   extreme_search: (dataStream) => extremeSearchTool(dataStream), // overridden in getToolsForSearchMode when modelId is available
   academic_search: academicSearchTool,
   reddit_search: redditSearchTool,
@@ -278,7 +284,7 @@ function getToolsForSearchMode(
     } else if (toolName === 'web_search') {
       tools[toolName] = webSearchTool(dataStream, searchProvider, userPreferences, userId);
     } else if (toolName in DATASTREAM_TOOL_FACTORIES) {
-      tools[toolName] = DATASTREAM_TOOL_FACTORIES[toolName](dataStream);
+      tools[toolName] = DATASTREAM_TOOL_FACTORIES[toolName](dataStream, userPreferences);
     } else if (toolName in STATIC_TOOLS) {
       // Static tool - use directly
       tools[toolName] = STATIC_TOOLS[toolName];

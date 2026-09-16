@@ -440,6 +440,9 @@ services:
       - ${DATA_DIR}/fastcrw-app:/app
     environment:
       - CRW_NO_AUTH=true
+      # Without this, /v1/search always returns {"success":false,"errorCode":"search_disabled"} —
+      # fastCRW proxies search to a SearXNG instance rather than implementing it itself.
+      - CRW_SEARCH__SEARXNG_URL=http://searxng:8080
     cap_drop:
       - ALL
     cap_add:

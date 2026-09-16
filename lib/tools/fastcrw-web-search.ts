@@ -18,7 +18,9 @@ interface FastCrwApiResult {
 
 interface FastCrwApiResponse {
   success: boolean;
-  data: FastCrwApiResult[];
+  // Verified live: fastCRW's top-level `data` field is `{ results: [...] }`,
+  // not the array itself, despite the Firecrawl-compatible framing.
+  data: { results: FastCrwApiResult[] };
 }
 
 export class FastCrwWebSearchStrategy implements SearchStrategy {
@@ -72,7 +74,7 @@ export class FastCrwWebSearchStrategy implements SearchStrategy {
 
           const data = (await response.json()) as FastCrwApiResponse;
 
-          const results = (data.data || []).slice(0, maxResults).map((r) => ({
+          const results = (data.data?.results || []).slice(0, maxResults).map((r) => ({
             url: r.url,
             title: r.title || '',
             content: r.snippet || r.description || '',

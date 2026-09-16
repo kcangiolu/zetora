@@ -4,12 +4,17 @@ import { UIMessageStreamWriter } from 'ai';
 import { ChatMessage } from '@/lib/types';
 import { serverEnv } from '@/env/server';
 import Parallel from 'parallel-web';
+import Firecrawl from '@mendable/firecrawl-js';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
 import { createLogger } from '@/lib/logger';
+import { FASTCRW_SEARCH_TIMEOUT_MS, SEARXNG_TIMEOUT_MS } from '@/lib/timeouts';
 
 const log = createLogger('reddit-search');
+
+const parallel = new Parallel({ apiKey: serverEnv.PARALLEL_API_KEY });
+const firecrawl = new Firecrawl({ apiKey: serverEnv.FIRECRAWL_API_KEY });
 
 interface ParallelSearchResult {
   url?: string;
@@ -20,6 +25,25 @@ interface ParallelSearchResult {
 
 interface ParallelSearchResponse {
   results: ParallelSearchResult[];
+}
+
+type RedditResult = {
+  url: string | undefined;
+  title: string | undefined;
+  content: string;
+  published_date?: string;
+  subreddit: string;
+  isRedditPost: boolean;
+  comments: string[];
+};
+
+// Shared across every provider — none of them return structured subreddit
+// metadata except Parallel, so it's parsed from the URL itself.
+function parseRedditUrl(url: string | undefined): { subreddit: string; isRedditPost: boolean } {
+  const subredditMatch = typeof url === 'string' ? url.match(/reddit\.com\/r\/([^/]+)/i) : null;
+  const subreddit = subredditMatch ? subredditMatch[1] : 'unknown';
+  const isRedditPost = typeof url === 'string' ? /reddit\.com\/r\/[^/]+\/comments\//i.test(url) : false;
+  return { subreddit, isRedditPost };
 }
 
 type TimeRange = 'day' | 'week' | 'month' | 'year';
@@ -46,22 +70,193 @@ function getTimeRangeAtIndex(timeRanges: TimeRange[] | undefined, index: number)
   return timeRanges[index] ?? timeRanges[0];
 }
 
-async function parallelSearch(parallel: Parallel, params: { query: string; maxResults: number; afterDate?: string }) {
-  return (await parallel.beta.search({
-    objective: params.query,
-    search_queries: [params.query],
+async function searchRedditWithParallel(query: string, maxResults: number, afterDate?: string): Promise<RedditResult[]> {
+  const response = (await parallel.beta.search({
+    objective: query,
+    search_queries: [query],
     mode: 'fast' as any,
-    max_results: params.maxResults < 10 ? 10 : params.maxResults,
+    max_results: maxResults < 10 ? 10 : maxResults,
     source_policy: {
       include_domains: ['reddit.com'],
-      ...(params.afterDate ? { after_date: params.afterDate } : {}),
+      ...(afterDate ? { after_date: afterDate } : {}),
     },
   })) as ParallelSearchResponse;
+
+  return response.results.map((result) => {
+    const { subreddit, isRedditPost } = parseRedditUrl(result.url);
+
+    const rawExcerpts = result.excerpts as unknown;
+    let excerptsArray: string[] = [];
+    if (Array.isArray(rawExcerpts)) {
+      excerptsArray = (rawExcerpts as unknown[]).filter(
+        (excerpt): excerpt is string => typeof excerpt === 'string' && excerpt.length > 0,
+      );
+    } else if (typeof rawExcerpts === 'string' && rawExcerpts.length > 0) {
+      excerptsArray = [rawExcerpts];
+    }
+
+    return {
+      url: result.url,
+      title: result.title ?? result.url,
+      content: excerptsArray.join('\n\n'),
+      published_date: result.publish_date ?? undefined,
+      subreddit,
+      isRedditPost,
+      comments: excerptsArray,
+    };
+  });
 }
 
-export function redditSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>) {
+async function searchRedditWithFirecrawl(query: string, maxResults: number): Promise<RedditResult[]> {
+  const firecrawlResults = await firecrawl.search(`${query} site:reddit.com`, {
+    limit: maxResults,
+    scrapeOptions: { storeInCache: true },
+  });
+
+  if (!firecrawlResults.web || !Array.isArray(firecrawlResults.web)) return [];
+
+  return firecrawlResults.web.map((result) => {
+    const r = result as any;
+    const url = typeof r?.url === 'string' ? r.url : undefined;
+    const { subreddit, isRedditPost } = parseRedditUrl(url);
+    const content = typeof r?.description === 'string' ? r.description : '';
+    return {
+      url,
+      title: typeof r?.title === 'string' ? r.title : url,
+      content,
+      subreddit,
+      isRedditPost,
+      comments: content ? [content] : [],
+    };
+  });
+}
+
+interface SearxngResult {
+  url: string;
+  title: string;
+  content: string;
+}
+
+async function searchRedditWithSearxng(baseUrl: string, query: string, maxResults: number): Promise<RedditResult[]> {
+  const params = new URLSearchParams({
+    q: `${query} site:reddit.com`,
+    format: 'json',
+    safesearch: '1',
+  });
+
+  const response = await fetch(`${baseUrl.replace(/\/$/, '')}/search?${params.toString()}`, {
+    signal: AbortSignal.timeout(SEARXNG_TIMEOUT_MS),
+  });
+
+  if (!response.ok) {
+    throw new Error(`SearXNG returned ${response.status}`);
+  }
+
+  const data: { results?: SearxngResult[] } = await response.json();
+
+  return (data.results || []).slice(0, maxResults).map((r) => {
+    const { subreddit, isRedditPost } = parseRedditUrl(r.url);
+    return {
+      url: r.url,
+      title: r.title || r.url,
+      content: r.content || '',
+      subreddit,
+      isRedditPost,
+      comments: r.content ? [r.content] : [],
+    };
+  });
+}
+
+interface FastCrwSearchApiResponse {
+  success: boolean;
+  data: {
+    results: Array<{
+      url: string;
+      title: string;
+      snippet: string;
+      description: string;
+      score: number;
+      category: string;
+    }>;
+  };
+}
+
+async function searchRedditWithFastCrw(baseUrl: string, query: string, maxResults: number): Promise<RedditResult[]> {
+  const response = await fetch(`${baseUrl}/v1/search`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: `${query} site:reddit.com`, limit: maxResults }),
+    signal: AbortSignal.timeout(FASTCRW_SEARCH_TIMEOUT_MS),
+  });
+
+  if (!response.ok) {
+    throw new Error(`fastCRW returned ${response.status}`);
+  }
+
+  const data: FastCrwSearchApiResponse = await response.json();
+
+  return (data.data?.results || []).map((r) => {
+    const { subreddit, isRedditPost } = parseRedditUrl(r.url);
+    const content = r.snippet || r.description || '';
+    return {
+      url: r.url,
+      title: r.title || r.url,
+      content,
+      subreddit,
+      isRedditPost,
+      comments: content ? [content] : [],
+    };
+  });
+}
+
+type RedditSearchProvider = 'parallel' | 'firecrawl' | 'searxng' | 'fastcrw';
+
+function normalizeRedditProvider(value: unknown): RedditSearchProvider {
+  if (value === 'parallel' || value === 'firecrawl' || value === 'searxng' || value === 'fastcrw') {
+    return value;
+  }
+  return 'parallel';
+}
+
+async function runRedditProvider(
+  provider: RedditSearchProvider,
+  query: string,
+  maxResults: number,
+  afterDate: string | undefined,
+): Promise<RedditResult[]> {
+  if (provider === 'firecrawl') return searchRedditWithFirecrawl(query, maxResults);
+
+  if (provider === 'searxng') {
+    if (!serverEnv.SEARXNG_URL) {
+      log.warn('SearXNG provider selected for Reddit search but SEARXNG_URL is not configured');
+      return [];
+    }
+    return searchRedditWithSearxng(serverEnv.SEARXNG_URL, query, maxResults);
+  }
+
+  if (provider === 'fastcrw') {
+    if (!serverEnv.FASTCRW_URL) {
+      log.warn('fastCRW provider selected for Reddit search but FASTCRW_URL is not configured');
+      return [];
+    }
+    return searchRedditWithFastCrw(serverEnv.FASTCRW_URL, query, maxResults);
+  }
+
+  return searchRedditWithParallel(query, maxResults, afterDate);
+}
+
+export function redditSearchTool(
+  dataStream?: UIMessageStreamWriter<ChatMessage>,
+  preferences?: Record<string, unknown>,
+) {
+  const provider = normalizeRedditProvider(preferences?.['zetora-reddit-search-provider']);
+  const fallbackEnabled = preferences?.['zetora-reddit-search-fallback-enabled'] !== false;
+  const fallbackProvider = fallbackEnabled
+    ? normalizeRedditProvider(preferences?.['zetora-reddit-search-fallback-provider'] ?? 'searxng')
+    : null;
+
   return tool({
-    description: 'Search Reddit content using the Parallel API with multiple queries.',
+    description: 'Search Reddit content using the configured search provider, with multiple queries.',
     inputSchema: z.object({
       queries: z
         .array(z.string().max(200))
@@ -90,7 +285,6 @@ export function redditSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>
       log.debug('Max results:', maxResults);
       log.debug('Time ranges:', timeRange);
 
-      const parallel = new Parallel({ apiKey: serverEnv.PARALLEL_API_KEY });
       const searchPromises = queries.map(async (query, index) => {
         const currentMaxResults = maxResults?.[index] || maxResults?.[0] || 20;
         const currentTimeRange = getTimeRangeAtIndex(timeRange, index);
@@ -110,45 +304,21 @@ export function redditSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>
             },
           });
 
-          const { processedResults } = await all(
-            {
-              data: async function () {
-                return parallelSearch(parallel, { query, maxResults: currentMaxResults, afterDate });
-              },
-              processedResults: async function () {
-                const data = await this.$.data;
-                return data.results.map((result) => {
-                  const subredditMatch =
-                    typeof result.url === 'string' ? result.url.match(/reddit\.com\/r\/([^/]+)/i) : null;
-                  const subreddit = subredditMatch ? subredditMatch[1] : 'unknown';
-                  const isRedditPost =
-                    typeof result.url === 'string' ? /reddit\.com\/r\/[^/]+\/comments\//i.test(result.url) : false;
+          let processedResults: RedditResult[] = [];
+          try {
+            processedResults = await runRedditProvider(provider, query, currentMaxResults, afterDate);
+          } catch (primaryError) {
+            log.error(`Reddit search ${provider} error for query "${query}":`, primaryError);
+          }
 
-                  const rawExcerpts = result.excerpts as unknown;
-                  let excerptsArray: string[] = [];
-
-                  if (Array.isArray(rawExcerpts)) {
-                    excerptsArray = (rawExcerpts as unknown[]).filter(
-                      (excerpt): excerpt is string => typeof excerpt === 'string' && excerpt.length > 0,
-                    );
-                  } else if (typeof rawExcerpts === 'string' && rawExcerpts.length > 0) {
-                    excerptsArray = [rawExcerpts];
-                  }
-
-                  return {
-                    url: result.url,
-                    title: result.title ?? result.url,
-                    content: excerptsArray.join('\n\n'),
-                    published_date: result.publish_date ?? undefined,
-                    subreddit,
-                    isRedditPost,
-                    comments: excerptsArray,
-                  };
-                });
-              },
-            },
-            getBetterAllOptions(),
-          );
+          if (processedResults.length === 0 && fallbackProvider && fallbackProvider !== provider) {
+            try {
+              log.debug(`Reddit search: ${provider} returned no results, falling back to ${fallbackProvider}`);
+              processedResults = await runRedditProvider(fallbackProvider, query, currentMaxResults, afterDate);
+            } catch (fallbackError) {
+              log.error(`Reddit search ${fallbackProvider} fallback error for query "${query}":`, fallbackError);
+            }
+          }
 
           const resultsCount = processedResults.length;
 

@@ -37,15 +37,15 @@ import { OpenAIResponsesProviderOptions } from '@ai-sdk/openai';
 import { AnthropicProviderOptions } from '@ai-sdk/anthropic';
 import { gateway, GatewayProviderOptions } from '@ai-sdk/gateway';
 import { GoogleGenerativeAIProviderOptions, GoogleLanguageModelOptions } from '@ai-sdk/google';
-import { scrapeWebpageWithNotte } from '@/lib/notte';
+import Parallel from 'parallel-web';
 import {
-  SelfHostedContentStrategy,
-  scrapeWithFastCrwForBrowsePage,
+  FastCrwContentStrategy,
+  NotteContentStrategy,
   BROWSE_PAGE_CONTENT_MAX_CHARS,
   type ContentExtractionStrategy,
   type SearchResult,
 } from './self-hosted-content';
-import { type SearchProviderStrategy, SearchCategory } from './fastcrw-search';
+import { type SearchProviderStrategy, SearchCategory, FastCrwSearchStrategy } from './fastcrw-search';
 
 const log = createLogger('extreme-search');
 
@@ -260,16 +260,6 @@ function getHostnameForUrl(url: string) {
   }
 }
 
-function inferTitleFromMarkdown(markdown: string, fallback: string) {
-  const lines = markdown
-    .split('\n')
-    .map((line) => line.replace(/^#+\s*/, '').trim())
-    .filter(Boolean);
-
-  const title = lines.find((line) => line.length > 3 && line.length <= 140);
-  return title || fallback;
-}
-
 async function getMetadataFallbackResults(urls: string[], logPrefix: string): Promise<SearchResult[]> {
   const uniqueUrls = Array.from(new Set(urls)).filter(isHttpUrl);
   if (uniqueUrls.length === 0) return [];
@@ -337,114 +327,117 @@ async function getMetadataFallbackResults(urls: string[], logPrefix: string): Pr
   return results;
 }
 
-// Exa content extraction strategy
-class ExaContentStrategy implements ContentExtractionStrategy {
+// Single-provider content strategies — each returns only what it actually
+// extracted for the given links, no internal chaining to another provider.
+// Fallback and metadata fallback are orchestrated by runExtremeContentExtraction
+// below, so the same set of strategies serves both webSearch's content step
+// and browsePage.
+export class ExaContentStrategy implements ContentExtractionStrategy {
   constructor(
     private exa: Exa,
-    private firecrawl: FirecrawlApp,
-    private firecrawlEnabled = true,
-    private metadataEnabled = true,
+    private maxContentChars = 3000,
   ) {}
 
   async getContents(links: string[]): Promise<SearchResult[]> {
-    log.debug(`[Exa] getContents called with ${links.length} URLs:`, links);
-    const results: SearchResult[] = [];
-    const failedUrls: string[] = [];
-
-    // First, try Exa for all URLs
     try {
       const result = await this.exa.getContents(links, {
-        text: {
-          maxCharacters: 3000,
-          includeHtmlTags: false,
-        },
+        text: { maxCharacters: this.maxContentChars, includeHtmlTags: false },
         livecrawl: 'preferred',
       });
-      log.info(`[Exa] getContents received ${result.results.length} results from Exa API`);
 
-      // Process Exa results
-      for (const r of result.results) {
-        if (r.text && r.text.trim()) {
-          results.push({
-            title: r.title || r.url.split('/').pop() || 'Retrieved Content',
-            url: r.url,
-            content: r.text,
-            publishedDate: r.publishedDate || '',
-            favicon: r.favicon || `https://www.google.com/s2/favicons?domain=${new URL(r.url).hostname}&sz=128`,
-          });
-        } else {
-          // Add URLs with no content to failed list for Firecrawl fallback
-          failedUrls.push(r.url);
-        }
-      }
-
-      // Add any URLs that weren't returned by Exa to the failed list
-      const exaUrls = result.results.map((r) => r.url);
-      const missingUrls = links.filter((url) => !exaUrls.includes(url));
-      failedUrls.push(...missingUrls);
+      return result.results
+        .filter((r) => r.text && r.text.trim())
+        .map((r) => ({
+          title: r.title || r.url.split('/').pop() || 'Retrieved Content',
+          url: r.url,
+          content: r.text!,
+          publishedDate: r.publishedDate || '',
+          favicon: r.favicon || `https://www.google.com/s2/favicons?domain=${new URL(r.url).hostname}&sz=128`,
+        }));
     } catch (error) {
-      log.error('[Exa] API error:', error);
-      log.info('[Exa] Adding all URLs to Firecrawl fallback list');
-      failedUrls.push(...links);
+      log.error('[Exa] getContents error:', error);
+      return [];
     }
+  }
+}
 
-    // Use Firecrawl as fallback for failed URLs - parallelize scraping
-    if (failedUrls.length > 0 && this.firecrawlEnabled) {
-      log.debug(`[Exa] Using Firecrawl fallback for ${failedUrls.length} URLs:`, failedUrls);
+export class FirecrawlContentStrategy implements ContentExtractionStrategy {
+  constructor(
+    private firecrawl: FirecrawlApp,
+    private maxContentChars = 3000,
+  ) {}
 
-      const firecrawlResults = await all(
-        Object.fromEntries(
-          failedUrls.map((url, index) => [
-            `fc:${index}`,
-            async () => {
-              try {
-                const scrapeResponse = await this.firecrawl.scrape(url, {
-                  formats: ['markdown'],
-                  proxy: 'auto',
-                  storeInCache: true,
-                  parsers: ['pdf'],
-                });
+  async getContents(links: string[]): Promise<SearchResult[]> {
+    const firecrawlResults = await all(
+      Object.fromEntries(
+        links.map((url, index) => [
+          `fc:${index}`,
+          async () => {
+            try {
+              const scrapeResponse = await this.firecrawl.scrape(url, {
+                formats: ['markdown'],
+                proxy: 'auto',
+                storeInCache: true,
+                parsers: ['pdf'],
+              });
 
-                if (scrapeResponse.markdown) {
-                  log.info(`[Exa] Firecrawl successfully scraped ${url}`);
-                  return {
-                    title: scrapeResponse.metadata?.title || url.split('/').pop() || 'Retrieved Content',
-                    url: url,
-                    content: scrapeResponse.markdown.slice(0, 3000),
-                    publishedDate: (scrapeResponse.metadata?.publishedDate as string) || '',
-                    favicon: `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=128`,
-                  };
-                }
-                log.error(`[Exa] Firecrawl failed for ${url}:`, scrapeResponse);
-                return null;
-              } catch (firecrawlError) {
-                log.error(`[Exa] Firecrawl error for ${url}:`, firecrawlError);
-                return null;
+              if (scrapeResponse.markdown) {
+                return {
+                  title: scrapeResponse.metadata?.title || url.split('/').pop() || 'Retrieved Content',
+                  url,
+                  content: scrapeResponse.markdown.slice(0, this.maxContentChars),
+                  publishedDate: (scrapeResponse.metadata?.publishedDate as string) || '',
+                  favicon: `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=128`,
+                };
               }
-            },
-          ]),
-        ),
-        getBetterAllOptions(),
-      );
+              return null;
+            } catch (firecrawlError) {
+              log.error(`[Firecrawl] getContents error for ${url}:`, firecrawlError);
+              return null;
+            }
+          },
+        ]),
+      ),
+      getBetterAllOptions(),
+    );
 
-      // Collect successful results
-      for (const key of Object.keys(firecrawlResults)) {
-        const result = firecrawlResults[key];
-        if (result) {
-          results.push(result);
-        }
-      }
+    const results: SearchResult[] = [];
+    for (const key of Object.keys(firecrawlResults)) {
+      const result = firecrawlResults[key];
+      if (result) results.push(result);
     }
-
-    const resolvedUrls = new Set(results.map((r) => r.url));
-    const missingUrls = links.filter((url) => !resolvedUrls.has(url));
-    if (missingUrls.length > 0 && this.metadataEnabled) {
-      const metadataFallback = await getMetadataFallbackResults(missingUrls, 'Exa');
-      results.push(...metadataFallback);
-    }
-
-    log.info(`[Exa] getContents returning ${results.length} total results`);
     return results;
+  }
+}
+
+export class ParallelContentStrategy implements ContentExtractionStrategy {
+  constructor(
+    private parallel: Parallel,
+    private maxContentChars = 3000,
+  ) {}
+
+  async getContents(links: string[]): Promise<SearchResult[]> {
+    try {
+      const response = await this.parallel.beta.extract({
+        urls: links,
+        excerpts: false,
+        full_content: true,
+        betas: ['search-extract-2025-10-10'],
+      });
+
+      return (response.results || [])
+        .filter((r: any) => r.full_content)
+        .map((r: any) => ({
+          title: r.title || r.url.split('/').pop() || 'Retrieved Content',
+          url: r.url,
+          content: String(r.full_content).slice(0, this.maxContentChars),
+          publishedDate: r.publish_date || '',
+          favicon: `https://www.google.com/s2/favicons?domain=${new URL(r.url).hostname}&sz=128`,
+        }));
+    } catch (error) {
+      log.error('[Parallel] getContents error:', error);
+      return [];
+    }
   }
 }
 
@@ -571,6 +564,165 @@ class SearXNGSearchStrategy implements SearchProviderStrategy {
   }
 }
 
+export class FirecrawlSearchStrategy implements SearchProviderStrategy {
+  constructor(private firecrawl: FirecrawlApp) {}
+
+  async search(
+    query: string,
+    _category?: SearchCategory,
+    include_domains?: string[],
+    _startDate?: string,
+  ): Promise<SearchResult[]> {
+    try {
+      const siteFilter = include_domains?.length
+        ? ' ' + include_domains.map((domain) => `site:${domain}`).join(' OR ')
+        : '';
+
+      const firecrawlResults = await this.firecrawl.search(`${query}${siteFilter}`, {
+        limit: 8,
+        scrapeOptions: { storeInCache: true },
+      });
+
+      if (!firecrawlResults.web || !Array.isArray(firecrawlResults.web)) return [];
+
+      return firecrawlResults.web.map((r: any) => ({
+        title: r.title || r.url,
+        url: r.url,
+        content: '',
+        publishedDate: '',
+        favicon: `https://www.google.com/s2/favicons?domain=${new URL(r.url).hostname}&sz=128`,
+      }));
+    } catch (error) {
+      log.error('[Firecrawl] search error:', error);
+      return [];
+    }
+  }
+}
+
+export type ExtremeSearchProvider = 'exa' | 'firecrawl' | 'searxng' | 'fastcrw';
+export type ExtremeContentProvider = 'exa' | 'firecrawl' | 'fastcrw' | 'notte' | 'parallel';
+
+export interface ExtremeProviderClients {
+  exa: Exa;
+  firecrawl: FirecrawlApp;
+  parallel: Parallel;
+}
+
+export function normalizeExtremeSearchProvider(value: unknown): ExtremeSearchProvider {
+  if (value === 'exa' || value === 'firecrawl' || value === 'searxng' || value === 'fastcrw') return value;
+  return 'exa';
+}
+
+export function normalizeExtremeContentProvider(value: unknown): ExtremeContentProvider {
+  if (value === 'exa' || value === 'firecrawl' || value === 'fastcrw' || value === 'notte' || value === 'parallel') {
+    return value;
+  }
+  return 'exa';
+}
+
+export async function runExtremeSearchProvider(
+  provider: ExtremeSearchProvider,
+  clients: ExtremeProviderClients,
+  query: string,
+  category?: SearchCategory,
+  include_domains?: string[],
+  startDate?: string,
+): Promise<SearchResult[]> {
+  if (provider === 'firecrawl') {
+    return new FirecrawlSearchStrategy(clients.firecrawl).search(query, category, include_domains, startDate);
+  }
+  if (provider === 'searxng') {
+    if (!serverEnv.SEARXNG_URL) {
+      log.warn('SearXNG selected for extreme search but SEARXNG_URL is not configured');
+      return [];
+    }
+    return new SearXNGSearchStrategy(serverEnv.SEARXNG_URL.replace(/\/$/, '')).search(
+      query,
+      category,
+      include_domains,
+      startDate,
+    );
+  }
+  if (provider === 'fastcrw') {
+    if (!serverEnv.FASTCRW_URL) {
+      log.warn('fastCRW selected for extreme search but FASTCRW_URL is not configured');
+      return [];
+    }
+    return new FastCrwSearchStrategy(serverEnv.FASTCRW_URL).search(query, category, include_domains, startDate);
+  }
+  return new ExaSearchStrategy(clients.exa).search(query, category, include_domains, startDate);
+}
+
+function buildExtremeContentStrategy(
+  provider: ExtremeContentProvider,
+  clients: ExtremeProviderClients,
+  maxContentChars: number,
+): ContentExtractionStrategy | null {
+  if (provider === 'firecrawl') return new FirecrawlContentStrategy(clients.firecrawl, maxContentChars);
+  if (provider === 'parallel') return new ParallelContentStrategy(clients.parallel, maxContentChars);
+  if (provider === 'fastcrw') {
+    if (!serverEnv.FASTCRW_URL) {
+      log.warn('fastCRW selected for extreme content extraction but FASTCRW_URL is not configured');
+      return null;
+    }
+    return new FastCrwContentStrategy(serverEnv.FASTCRW_URL, maxContentChars);
+  }
+  if (provider === 'notte') return new NotteContentStrategy(maxContentChars);
+  return new ExaContentStrategy(clients.exa, maxContentChars);
+}
+
+// Content extraction fallback is per-URL, not per-batch: the primary strategy
+// is tried for every link, only the links it couldn't resolve move on to the
+// fallback strategy, and whatever's still missing gets the metadata-only
+// fallback. This preserves the original ExaContentStrategy's per-URL
+// behavior instead of re-fetching links that already succeeded.
+export async function runExtremeContentExtraction(
+  links: string[],
+  provider: ExtremeContentProvider,
+  fallbackProvider: ExtremeContentProvider | null,
+  metadataEnabled: boolean,
+  clients: ExtremeProviderClients,
+  maxContentChars: number = 3000,
+): Promise<SearchResult[]> {
+  if (links.length === 0) return [];
+
+  const results: SearchResult[] = [];
+  let remaining = Array.from(new Set(links));
+
+  const primaryStrategy = buildExtremeContentStrategy(provider, clients, maxContentChars);
+  if (primaryStrategy) {
+    try {
+      const primaryResults = await primaryStrategy.getContents(remaining);
+      results.push(...primaryResults);
+      const resolved = new Set(primaryResults.map((r) => r.url));
+      remaining = remaining.filter((url) => !resolved.has(url));
+    } catch (error) {
+      log.error(`[ExtremeContent] ${provider} error:`, error);
+    }
+  }
+
+  if (remaining.length > 0 && fallbackProvider && fallbackProvider !== provider) {
+    const fallbackStrategy = buildExtremeContentStrategy(fallbackProvider, clients, maxContentChars);
+    if (fallbackStrategy) {
+      try {
+        const fallbackResults = await fallbackStrategy.getContents(remaining);
+        results.push(...fallbackResults);
+        const resolved = new Set(fallbackResults.map((r) => r.url));
+        remaining = remaining.filter((url) => !resolved.has(url));
+      } catch (error) {
+        log.error(`[ExtremeContent] ${fallbackProvider} fallback error:`, error);
+      }
+    }
+  }
+
+  if (remaining.length > 0 && metadataEnabled) {
+    const metadataResults = await getMetadataFallbackResults(remaining, provider);
+    results.push(...metadataResults);
+  }
+
+  return results;
+}
+
 interface FileContext {
   url: string;
   contentType: string;
@@ -591,33 +743,28 @@ async function extremeSearch(
   // Initialize clients
   const exa = new Exa(serverEnv.EXA_API_KEY);
   const firecrawl = new FirecrawlApp({ apiKey: serverEnv.FIRECRAWL_API_KEY });
-
-  const fastcrwUrl = serverEnv.FASTCRW_URL;
-  const searxngUrl = serverEnv.SEARXNG_URL;
-  const extremeContentProvider = preferences?.['zetora-extreme-content-provider'];
+  const parallel = new Parallel({ apiKey: serverEnv.PARALLEL_API_KEY });
 
   const prefs = preferences as Record<string, unknown> | null;
-  const notteEnabled = prefs?.['zetora-fallback-notte'] !== false;
   const metadataEnabled = prefs?.['zetora-fallback-metadata'] !== false;
-  const firecrawlContentEnabled = prefs?.['zetora-fallback-firecrawl-content'] !== false;
-  const exaBrowseEnabled = prefs?.['zetora-fallback-exa-browse'] !== false;
 
-  let searchStrategy: SearchProviderStrategy;
-  let contentStrategy: ContentExtractionStrategy;
+  const searchProvider = normalizeExtremeSearchProvider(prefs?.['zetora-extreme-search-provider']);
+  const searchFallbackEnabled = prefs?.['zetora-extreme-search-fallback-enabled'] !== false;
+  const searchFallbackProvider = searchFallbackEnabled
+    ? normalizeExtremeSearchProvider(prefs?.['zetora-extreme-search-fallback-provider'] ?? 'firecrawl')
+    : null;
 
-  if (extremeContentProvider === 'searxng-fastcrw' && searxngUrl && fastcrwUrl) {
-    searchStrategy = new SearXNGSearchStrategy(searxngUrl.replace(/\/$/, ''));
-    contentStrategy = new SelfHostedContentStrategy({ fastcrwUrl, notteEnabled, metadataEnabled });
-    log.info('SearXNG + fastCRW stack');
-  } else if (extremeContentProvider === 'notte-only' && searxngUrl) {
-    searchStrategy = new SearXNGSearchStrategy(searxngUrl.replace(/\/$/, ''));
-    contentStrategy = new SelfHostedContentStrategy({ notteEnabled, metadataEnabled });
-    log.info('SearXNG + Notte only stack');
-  } else {
-    searchStrategy = new ExaSearchStrategy(exa);
-    contentStrategy = new ExaContentStrategy(exa, firecrawl, firecrawlContentEnabled, metadataEnabled);
-    log.info('Exa + Firecrawl stack');
-  }
+  const contentProvider = normalizeExtremeContentProvider(prefs?.['zetora-extreme-content-provider']);
+  const contentFallbackEnabled = prefs?.['zetora-extreme-content-fallback-enabled'] !== false;
+  const contentFallbackProvider = contentFallbackEnabled
+    ? normalizeExtremeContentProvider(prefs?.['zetora-extreme-content-fallback-provider'] ?? 'firecrawl')
+    : null;
+
+  const extremeClients: ExtremeProviderClients = { exa, firecrawl, parallel };
+
+  log.info(
+    `Extreme search stack — search: ${searchProvider} (fallback: ${searchFallbackProvider ?? 'none'}), content: ${contentProvider} (fallback: ${contentFallbackProvider ?? 'none'})`,
+  );
 
   // Filter supported files early for planner and later file indexing
   const supportedFiles = files.filter((f) => isSupportedMimeType(f.contentType));
@@ -788,7 +935,7 @@ For searching:
 - Use startDate parameter (YYYY-MM-DD format) to filter results by publication date — always anchor to today's date when searching for current info, prices, versions, or events
 - If a topic is time-sensitive (prices, news, software versions, company info, etc.), always set startDate to a recent date to avoid stale results
 - Vary your search approaches: broad overview → specific details → recent developments → expert opinions
-- Use different categories strategically: news, research papers, company info, financial reports, github
+- Use different categories strategically: news, research papers, company info, financial reports
 - Use X search for real-time discussions, public opinion, breaking news, and social media trends
 - Follow up initial searches with more targeted queries based on what you learn
 - Cross-verify information by searching for the same topic from different angles
@@ -1297,7 +1444,25 @@ ${JSON.stringify(plan)}
               });
             }
 
-            let results = await searchStrategy.search(query, category, includeDomains, startDate);
+            let results = await runExtremeSearchProvider(
+              searchProvider,
+              extremeClients,
+              query,
+              category,
+              includeDomains,
+              startDate,
+            );
+            if (results.length === 0 && searchFallbackProvider && searchFallbackProvider !== searchProvider) {
+              log.debug(`Extreme search: ${searchProvider} returned no results, falling back to ${searchFallbackProvider}`);
+              results = await runExtremeSearchProvider(
+                searchFallbackProvider,
+                extremeClients,
+                query,
+                category,
+                includeDomains,
+                startDate,
+              );
+            }
             log.info(`Found ${results.length} results for query "${query}"`);
 
             allSources.push(...results);
@@ -1336,7 +1501,13 @@ ${JSON.stringify(plan)}
                 }
 
                 const urls = results.map((r) => r.url);
-                const contentsResults = await contentStrategy.getContents(urls);
+                const contentsResults = await runExtremeContentExtraction(
+                  urls,
+                  contentProvider,
+                  contentFallbackProvider,
+                  metadataEnabled,
+                  extremeClients,
+                );
 
                 if (contentsResults && contentsResults.length > 0) {
                   if (dataStream) {
@@ -1466,88 +1637,24 @@ ${JSON.stringify(plan)}
                   const hostname = getHostnameForUrl(url);
                   const favicon = `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`;
 
-                  let title = hostname;
-                  let content = '';
-                  const isPdf = /\.pdf(\?.*)?$/i.test(url);
+                  // Same primary/content-fallback/metadata-fallback settings as
+                  // webSearch's content step — browsePage is just a single-URL,
+                  // higher-char-cap call into the same mechanism, so it always
+                  // respects whatever the user configured (no more toggles that
+                  // only show up for some Extreme Content Provider modes).
+                  const [browseResult] = await runExtremeContentExtraction(
+                    [url],
+                    contentProvider,
+                    contentFallbackProvider,
+                    metadataEnabled,
+                    extremeClients,
+                    BROWSE_PAGE_CONTENT_MAX_CHARS,
+                  );
 
-                  // Phase 0: fastCRW (when configured)
-                  if (!content && fastcrwUrl) {
-                    try {
-                      const fcResult = await scrapeWithFastCrwForBrowsePage(url, fastcrwUrl);
-                      if (fcResult) {
-                        title = fcResult.title;
-                        content = fcResult.content;
-                        log.info(`[BrowsePage][${url}] fastCRW scrape succeeded, length: ${content.length}`);
-                      }
-                    } catch (fcErr) {
-                      log.error(`[BrowsePage][${url}] fastCRW scrape failed:`, fcErr);
-                    }
-                  }
-
-                  if (
-                    !content &&
-                    notteEnabled &&
-                    serverEnv.NOTTE_API_KEY &&
-                    serverEnv.NOTTE_API_KEY !== 'placeholder'
-                  ) {
-                    try {
-                      const notteResult = await scrapeWebpageWithNotte({
-                        url,
-                        headless: true,
-                        maxDurationMinutes: 3,
-                        idleTimeoutMinutes: 3,
-                        browserType: 'chromium',
-                        screenshotType: 'last_action',
-                        scrapeLinks: true,
-                        scrapeImages: false,
-                        onlyMainContent: false,
-                      });
-
-                      if (notteResult.markdown?.trim()) {
-                        content = notteResult.markdown.trim();
-                        title = inferTitleFromMarkdown(content, hostname);
-                        log.info(`[BrowsePage][${url}] Notte scrape succeeded, length: ${content.length}`);
-                      }
-                    } catch (notteError) {
-                      log.error(`[BrowsePage][${url}] Notte scrape failed:`, notteError);
-                    }
-                  }
-
-                  if (!content && !isPdf && exaBrowseEnabled) {
-                    log.info(`[BrowsePage][${url}] trying Exa fallback`);
-                    try {
-                      const exaResult = await exa.getContents([url], {
-                        text: { maxCharacters: 10000, includeHtmlTags: false },
-                        livecrawl: 'preferred',
-                      });
-                      const exaContent = exaResult.results?.[0];
-                      if (exaContent?.text?.trim()) {
-                        title = exaContent.title || title;
-                        content = exaContent.text.trim();
-                        log.info(`[BrowsePage][${url}] Exa fallback succeeded, length: ${content.length}`);
-                      }
-                    } catch (exaErr) {
-                      log.error(`[BrowsePage][${url}] Exa fallback failed:`, exaErr);
-                    }
-                  }
-
-                  if (!content && firecrawlContentEnabled) {
-                    log.info(`[BrowsePage][${url}] trying Firecrawl scrape fallback`);
-                    try {
-                      const scrapeResult = await firecrawl.scrape(url, {
-                        formats: ['markdown'],
-                        proxy: 'auto',
-                        waitFor: 2000,
-                        parsers: ['pdf'],
-                      });
-                      if (scrapeResult.markdown?.trim()) {
-                        title = scrapeResult.metadata?.title || title;
-                        content = scrapeResult.markdown.trim();
-                        log.info(`[BrowsePage][${url}] Firecrawl scrape fallback succeeded, length: ${content.length}`);
-                      }
-                    } catch (fcErr) {
-                      log.error(`[BrowsePage][${url}] Firecrawl scrape fallback failed:`, fcErr);
-                    }
+                  const title = browseResult?.title || hostname;
+                  const content = browseResult?.content || '';
+                  if (content) {
+                    log.info(`[BrowsePage][${url}] resolved via ${contentProvider}, length: ${content.length}`);
                   }
 
                   allSources.push({

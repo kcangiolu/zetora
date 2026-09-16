@@ -33,17 +33,6 @@ export interface SearchResult {
   fullContent?: boolean;
 }
 
-interface MetadataResponse {
-  title?: string;
-  description?: string;
-  canonical?: string;
-  ogUrl?: string;
-  favicon?: string;
-  finalUrl?: string;
-  siteName?: string | null;
-  image?: string;
-}
-
 function isHttpUrl(url: string) {
   try {
     const parsed = new URL(url);
@@ -110,7 +99,7 @@ async function scrapeWithFastCrw(
   }
 }
 
-async function scrapeWithNotte(url: string): Promise<SearchResult | null> {
+async function scrapeWithNotte(url: string, maxContentChars: number = SEARCH_CONTENT_MAX_CHARS): Promise<SearchResult | null> {
   try {
     const result = await scrapeWebpageWithNotte({
       url,
@@ -131,7 +120,7 @@ async function scrapeWithNotte(url: string): Promise<SearchResult | null> {
     return {
       title,
       url,
-      content: result.markdown.slice(0, SEARCH_CONTENT_MAX_CHARS),
+      content: result.markdown.slice(0, maxContentChars),
       publishedDate: '',
       favicon: `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`,
     };
@@ -139,6 +128,17 @@ async function scrapeWithNotte(url: string): Promise<SearchResult | null> {
     log.error(`[SelfHostedContent] Notte error for ${url}:`, error);
     return null;
   }
+}
+
+interface MetadataResponse {
+  title?: string;
+  description?: string;
+  canonical?: string;
+  ogUrl?: string;
+  favicon?: string;
+  finalUrl?: string;
+  siteName?: string | null;
+  image?: string;
 }
 
 async function scrapeWithMetadata(url: string): Promise<SearchResult | null> {
@@ -183,13 +183,17 @@ interface SelfHostedContentOptions {
   metadataEnabled?: boolean;
 }
 
+// Used by web_search's "quality: best" content enrichment (lib/tools/web-search.ts)
+// — a separate feature from Extreme Search's content extraction, kept as its
+// original chained fastCRW -> Notte -> metadata strategy since that's still
+// the correct behavior there.
 export class SelfHostedContentStrategy implements ContentExtractionStrategy {
   private fastcrwUrl: string;
   private notteEnabled: boolean;
   private metadataEnabled: boolean;
 
   constructor(options: SelfHostedContentOptions = {}) {
-    this.fastcrwUrl = options.fastcrwUrl || serverEnv.FASTCRW_URL || '';
+    this.fastcrwUrl = options.fastcrwUrl ?? serverEnv.FASTCRW_URL ?? '';
     this.notteEnabled = options.notteEnabled ?? true;
     this.metadataEnabled = options.metadataEnabled ?? true;
   }
@@ -198,12 +202,9 @@ export class SelfHostedContentStrategy implements ContentExtractionStrategy {
     const uniqueUrls = Array.from(new Set(links)).filter(isHttpUrl);
     if (uniqueUrls.length === 0) return [];
 
-    log.debug(`[SelfHostedContent] getContents called with ${uniqueUrls.length} URLs`);
-
     const results: SearchResult[] = [];
     let remaining = [...uniqueUrls];
 
-    // Phase 1: fastCRW (when configured)
     if (this.fastcrwUrl) {
       const fastcrwResults = await all(
         Object.fromEntries(
@@ -225,14 +226,12 @@ export class SelfHostedContentStrategy implements ContentExtractionStrategy {
       remaining = failed;
     }
 
-    // Phase 2: Notte fallback (only if API key is configured and not disabled)
     if (
       remaining.length > 0 &&
       this.notteEnabled &&
       serverEnv.NOTTE_API_KEY &&
       serverEnv.NOTTE_API_KEY !== 'placeholder'
     ) {
-      log.debug(`[SelfHostedContent] ${remaining.length} URLs remaining, trying Notte`);
       const notteResults = await all(
         Object.fromEntries(remaining.map((url, i) => [`nt:${i}`, async () => scrapeWithNotte(url)])),
         getBetterAllOptions(),
@@ -251,9 +250,7 @@ export class SelfHostedContentStrategy implements ContentExtractionStrategy {
       remaining = stillRemaining;
     }
 
-    // Phase 3: Metadata fallback (only if not disabled)
     if (remaining.length > 0 && this.metadataEnabled) {
-      log.debug(`[SelfHostedContent] ${remaining.length} URLs remaining, trying metadata fallback`);
       const metaResults = await all(
         Object.fromEntries(remaining.map((url, i) => [`md:${i}`, async () => scrapeWithMetadata(url)])),
         getBetterAllOptions(),
@@ -265,7 +262,58 @@ export class SelfHostedContentStrategy implements ContentExtractionStrategy {
       }
     }
 
-    log.debug(`[SelfHostedContent] getContents returning ${results.length} total results`);
+    return results;
+  }
+}
+
+// Single-provider content strategies — each returns only what it actually
+// extracted, no internal chaining to another provider. Fallback and metadata
+// fallback are orchestrated by the caller (runExtremeContentExtraction in
+// extreme-search.ts) so the same two strategies serve both webSearch's
+// content step and browsePage.
+export class FastCrwContentStrategy implements ContentExtractionStrategy {
+  constructor(
+    private fastcrwUrl: string,
+    private maxContentChars: number = SEARCH_CONTENT_MAX_CHARS,
+  ) {}
+
+  async getContents(links: string[]): Promise<SearchResult[]> {
+    const uniqueUrls = Array.from(new Set(links)).filter(isHttpUrl);
+    if (uniqueUrls.length === 0 || !this.fastcrwUrl) return [];
+
+    const fastcrwResults = await all(
+      Object.fromEntries(
+        uniqueUrls.map((url, i) => [`fc:${i}`, async () => scrapeWithFastCrw(url, this.fastcrwUrl, this.maxContentChars)]),
+      ),
+      getBetterAllOptions(),
+    );
+
+    const results: SearchResult[] = [];
+    for (const key of Object.keys(fastcrwResults)) {
+      const result = fastcrwResults[key];
+      if (result) results.push(result);
+    }
+    return results;
+  }
+}
+
+export class NotteContentStrategy implements ContentExtractionStrategy {
+  constructor(private maxContentChars: number = SEARCH_CONTENT_MAX_CHARS) {}
+
+  async getContents(links: string[]): Promise<SearchResult[]> {
+    const uniqueUrls = Array.from(new Set(links)).filter(isHttpUrl);
+    if (uniqueUrls.length === 0 || !serverEnv.NOTTE_API_KEY || serverEnv.NOTTE_API_KEY === 'placeholder') return [];
+
+    const notteResults = await all(
+      Object.fromEntries(uniqueUrls.map((url, i) => [`nt:${i}`, async () => scrapeWithNotte(url, this.maxContentChars)])),
+      getBetterAllOptions(),
+    );
+
+    const results: SearchResult[] = [];
+    for (const key of Object.keys(notteResults)) {
+      const result = notteResults[key];
+      if (result) results.push(result);
+    }
     return results;
   }
 }

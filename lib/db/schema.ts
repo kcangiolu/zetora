@@ -248,9 +248,20 @@ export const userPreferences = pgTable('user_preferences', {
   preferences: json('preferences')
     .$type<{
       'zetora-search-provider'?: 'exa' | 'parallel' | 'firecrawl' | 'searxng' | 'fastcrw';
+      'zetora-github-search-provider'?: 'firecrawl' | 'searxng' | 'fastcrw';
+      'zetora-github-search-fallback-enabled'?: boolean;
+      'zetora-github-search-fallback-provider'?: 'firecrawl' | 'searxng' | 'fastcrw';
+      'zetora-academic-search-provider'?: 'exa' | 'firecrawl' | 'searxng' | 'fastcrw';
+      'zetora-academic-search-fallback-enabled'?: boolean;
+      'zetora-academic-search-fallback-provider'?: 'exa' | 'firecrawl' | 'searxng' | 'fastcrw';
       'zetora-storage-provider'?: 'cloudflare-r2' | 'minio';
       'zetora-email-provider'?: 'resend' | 'smtp';
-      'zetora-extreme-content-provider'?: 'exa-firecrawl' | 'searxng-fastcrw' | 'notte-only';
+      'zetora-extreme-search-provider'?: 'exa' | 'firecrawl' | 'searxng' | 'fastcrw';
+      'zetora-extreme-search-fallback-enabled'?: boolean;
+      'zetora-extreme-search-fallback-provider'?: 'exa' | 'firecrawl' | 'searxng' | 'fastcrw';
+      'zetora-extreme-content-provider'?: 'exa' | 'firecrawl' | 'fastcrw' | 'notte' | 'parallel';
+      'zetora-extreme-content-fallback-enabled'?: boolean;
+      'zetora-extreme-content-fallback-provider'?: 'exa' | 'firecrawl' | 'fastcrw' | 'notte' | 'parallel';
       'zetora-tertiary-extreme-agent-model'?: string;
       'zetora-tertiary-extreme-agent-provider'?: string;
       'zetora-tertiary-extreme-agent-effort'?: 'auto' | 'low' | 'medium' | 'high' | 'off';
@@ -367,15 +378,15 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-graphiti-embedding-model'?: string;
       'zetora-embedding-enabled'?: boolean;
       'zetora-xml-tool-parsing-enabled'?: boolean;
-      'zetora-fallback-firecrawl-content'?: boolean;
       'zetora-fallback-metadata'?: boolean;
       'zetora-fallback-notte'?: boolean;
-      'zetora-fallback-exa-browse'?: boolean;
       'zetora-fallback-search-firecrawl'?: boolean;
-      'zetora-fallback-retrieve-parallel'?: boolean;
-      'zetora-fallback-retrieve-firecrawl'?: boolean;
-      'zetora-fallback-retrieve-fastcrw'?: boolean;
-      'zetora-fallback-retrieve-exa'?: boolean;
+      'zetora-retrieve-provider'?: 'fastcrw' | 'exa' | 'parallel' | 'firecrawl';
+      'zetora-retrieve-fallback-enabled'?: boolean;
+      'zetora-retrieve-fallback-provider'?: 'fastcrw' | 'exa' | 'parallel' | 'firecrawl';
+      'zetora-reddit-search-provider'?: 'parallel' | 'firecrawl' | 'searxng' | 'fastcrw';
+      'zetora-reddit-search-fallback-enabled'?: boolean;
+      'zetora-reddit-search-fallback-provider'?: 'parallel' | 'firecrawl' | 'searxng' | 'fastcrw';
       'zetora-search-fallback-provider'?: 'firecrawl' | 'exa' | 'parallel' | 'searxng' | 'fastcrw' | 'none';
       'zetora-tts-provider'?: 'elevenlabs' | 'openai-compatible';
       'zetora-tts-custom-provider-id'?: string;

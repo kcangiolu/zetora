@@ -91,7 +91,7 @@ export async function loadConfiguredTools({
         }
         case 'academic_search': {
           const { academicSearchTool } = await import('@/lib/tools/academic-search');
-          tools.academic_search = academicSearchTool(dataStream);
+          tools.academic_search = academicSearchTool(dataStream, userPreferences);
           return;
         }
         case 'youtube_search': {
@@ -106,12 +106,12 @@ export async function loadConfiguredTools({
         }
         case 'reddit_search': {
           const { redditSearchTool } = await import('@/lib/tools/reddit-search');
-          tools.reddit_search = redditSearchTool(dataStream);
+          tools.reddit_search = redditSearchTool(dataStream, userPreferences);
           return;
         }
         case 'github_search': {
           const { githubSearchTool } = await import('@/lib/tools/github-search');
-          tools.github_search = githubSearchTool(dataStream);
+          tools.github_search = githubSearchTool(dataStream, userPreferences);
           return;
         }
         case 'prediction_search': {
