@@ -27,7 +27,9 @@ const BINARY_CAPABILITY_TOOLTIP: Record<'binary-guaranteed' | 'best-effort' | 'm
   'binary-guaranteed': (hidden) =>
     `Reasoning ${hidden ? 'off' : 'on'} — this provider has a real on/off switch, but no distinct effort levels for this backend.`,
   'best-effort': (hidden) =>
-    `Reasoning ${hidden ? 'off (best effort)' : 'on'} — a real disable signal is sent, but whether it's honored depends on the model's own chat template, so it isn't guaranteed.`,
+    hidden
+      ? "Reasoning off (best effort) — a real disable signal is sent, but whether it's honored depends on the model's own chat template, so it isn't guaranteed."
+      : "Reasoning on — no distinct effort levels are guaranteed for this backend, and turning this off is a best-effort attempt, not a guarantee.",
   'mask-only': (hidden) =>
     `Reasoning ${hidden ? 'hidden' : 'shown'} — this provider doesn't support reasoning-effort control, this toggle only shows or hides the model's thinking output.`,
 };
@@ -92,7 +94,7 @@ export function ReasoningEffortToggle({
             size="icon"
             className={cn(
               'rounded-full size-8! text-muted-foreground hover:text-foreground transition-colors',
-              hidden && 'text-primary hover:text-primary',
+              !hidden && 'text-primary hover:text-primary',
             )}
             onClick={(event) => {
               event.preventDefault();
@@ -100,7 +102,7 @@ export function ReasoningEffortToggle({
               onChange(hidden ? 'auto' : 'off');
             }}
           >
-            <Brain size={16} weight={hidden ? 'fill' : 'regular'} />
+            <Brain size={16} weight={hidden ? 'regular' : 'fill'} />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom" sideOffset={6} className="max-w-[220px]">
