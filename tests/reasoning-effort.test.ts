@@ -72,7 +72,7 @@ describe('getCustomReasoningOverrides', () => {
       usingNative: false,
     });
     expect(getCustomReasoningOverrides('custom-vllm-qwen3', 'off', providers)).toEqual({
-      providerOptions: {},
+      providerOptions: { vllm: { chat_template_kwargs: { enable_thinking: false } } },
       applyMaskMiddleware: true,
       backendKind: 'vllm',
       usingNative: false,
@@ -205,21 +205,39 @@ describe('getCustomProviderOptions', () => {
     });
   });
 
-  it('still masks off-tier reasoning for backends with no real control, alongside nativeParams', () => {
+  it('still masks off-tier reasoning for vLLM alongside nativeParams, on top of the real disable switch', () => {
     const result = getCustomProviderOptions('custom-vllm-qwen3', 'off', providersWithNativeParams);
     expect(result.applyMaskMiddleware).toBe(true);
-    expect(result.providerOptions).toEqual({ vllm: { guided_json: true, top_k: 40 } });
+    expect(result.providerOptions).toEqual({
+      vllm: { guided_json: true, top_k: 40, chat_template_kwargs: { enable_thinking: false } },
+    });
   });
 });
 
 describe('getReasoningCapability', () => {
-  it('reports full control for llamacpp/ollama/vllm/openai custom backends', () => {
-    for (const id of ['custom-llama-qwen3', 'custom-olla-qwen3', 'custom-vllm-qwen3', 'custom-oai-qwen3']) {
-      expect(getReasoningCapability(id, providers)).toBe('full');
-    }
+  it('reports full control only for the openai backend kind', () => {
+    expect(getReasoningCapability('custom-oai-qwen3', providers)).toBe('full');
   });
 
-  it('reports mask-only for unknown custom backends', () => {
+  it('reports binary-guaranteed for native llama.cpp/Ollama — real on/off, no real levels', () => {
+    expect(getReasoningCapability('custom-llama-qwen3', providers)).toBe('binary-guaranteed');
+    expect(getReasoningCapability('custom-olla-qwen3', providers)).toBe('binary-guaranteed');
+  });
+
+  it('reports best-effort for vLLM (always shim) and llama.cpp demoted to the shim', () => {
+    expect(getReasoningCapability('custom-vllm-qwen3', providers)).toBe('best-effort');
+
+    const shimmedProviders: CustomProviderConfig[] = providers.map((p) =>
+      p.id === 'llama' ? { ...p, enrichedShim: true } : p,
+    );
+    expect(getReasoningCapability('custom-llama-qwen3', shimmedProviders)).toBe('best-effort');
+  });
+
+  it('reports mask-only for Ollama demoted to the shim and for unknown custom backends', () => {
+    const shimmedProviders: CustomProviderConfig[] = providers.map((p) =>
+      p.id === 'olla' ? { ...p, enrichedShim: true } : p,
+    );
+    expect(getReasoningCapability('custom-olla-qwen3', shimmedProviders)).toBe('mask-only');
     expect(getReasoningCapability('custom-mystery-qwen3', providers)).toBe('mask-only');
   });
 });

@@ -65,6 +65,7 @@ import {
   getCustomProviderOptions,
   reasoningMaskMiddleware,
   llamaCppReasoningMaskMiddleware,
+  dropReasoningPartsMiddleware,
 } from '@/lib/reasoning-effort';
 import type { ReasoningEffort } from '@/lib/reasoning-effort-types';
 import { detectReasoningDelimiters } from '@/ai/native-models/llamacpp-prompt';
@@ -834,9 +835,20 @@ export async function POST(req: Request) {
               ? createReasoningDelimiterMiddleware(delimiters.open, delimiters.close, delimiters.startsInReasoning)
               : llamaCppReasoningMaskMiddleware;
           }
+          const middlewares: LanguageModelMiddleware[] = [middleware];
+          if (effort === 'off') {
+            // Structured reasoning_content (parsed into reasoning-start/-delta/
+            // -end parts by @ai-sdk/openai-compatible before any middleware
+            // above runs) sails straight through extractReasoningMiddleware,
+            // which only intercepts plain text-delta chunks — see
+            // dropReasoningPartsMiddleware's comment in lib/reasoning-effort.ts.
+            // Only applied for an explicit 'off': auto/low/medium/high still
+            // want real reasoning parts shown, not dropped.
+            middlewares.push(dropReasoningPartsMiddleware);
+          }
           resolvedModel = wrapLanguageModel({
             model: resolvedModel as Extract<typeof resolvedModel, { specificationVersion: 'v3' }>,
-            middleware,
+            middleware: middlewares,
           });
         }
       }

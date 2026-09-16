@@ -1,5 +1,6 @@
 import 'server-only';
-import { extractReasoningMiddleware } from 'ai';
+import { extractReasoningMiddleware, type LanguageModelMiddleware } from 'ai';
+import type { LanguageModelV3StreamPart } from '@ai-sdk/provider';
 import { getModelConfig, getModelProvider } from '@/ai/models';
 import {
   parseCustomModelId,
@@ -63,6 +64,42 @@ export const llamaCppReasoningMaskMiddleware = extractReasoningMiddleware({
   startWithReasoning: true,
 });
 
+// Backstop for OpenAI-compatible backends that split reasoning into its own
+// structured field (reasoning_content) instead of inline <think> tags — e.g.
+// llama.cpp's --reasoning-format or vLLM's --reasoning-parser. The @ai-sdk/
+// openai-compatible provider already parses that field into proper
+// reasoning-start/-delta/-end stream parts before any middleware runs, and
+// extractReasoningMiddleware only intercepts plain text-delta chunks
+// (node_modules/ai/src/middleware/extract-reasoning-middleware.ts), so it lets
+// those parts through untouched — confirmed live: "thinking off" had no
+// effect on a llama.cpp provider demoted to the OpenAI-compat shim. This
+// middleware drops reasoning parts outright instead of trying to re-parse
+// them as text. Only wire this in when the user explicitly chose 'off' —
+// 'auto'/low/medium/high still want real reasoning parts shown, not dropped.
+export const dropReasoningPartsMiddleware: LanguageModelMiddleware = {
+  specificationVersion: 'v3',
+  wrapGenerate: async ({ doGenerate }) => {
+    const { content, ...rest } = await doGenerate();
+    return { content: content.filter(part => part.type !== 'reasoning'), ...rest };
+  },
+  wrapStream: async ({ doStream }) => {
+    const { stream, ...rest } = await doStream();
+    return {
+      stream: stream.pipeThrough(
+        new TransformStream<LanguageModelV3StreamPart, LanguageModelV3StreamPart>({
+          transform(chunk, controller) {
+            if (chunk.type === 'reasoning-start' || chunk.type === 'reasoning-delta' || chunk.type === 'reasoning-end') {
+              return;
+            }
+            controller.enqueue(chunk);
+          },
+        }),
+      ),
+      ...rest,
+    };
+  },
+};
+
 function resolveCustomBackend(modelId: string, customProviders: CustomProviderConfig[]) {
   const parsed = parseCustomModelId(modelId, customProviders);
   if (!parsed) return null;
@@ -79,8 +116,48 @@ export function getReasoningCapability(
 ): ReasoningCapability {
   if (modelId.startsWith('custom-')) {
     const backend = resolveCustomBackend(modelId, customProviders);
-    const kind = backend?.backendKind;
-    return kind === 'vllm' || kind === 'llamacpp' || kind === 'ollama' || kind === 'openai' ? 'full' : 'mask-only';
+    if (!backend) return 'mask-only';
+
+    // 'openai' is the one backend kind whose whole premise is following the
+    // OpenAI reasoning_effort convention, low/medium/high included — a
+    // compliant server is expected to honor it, so it keeps 'full'. The
+    // other three backend kinds have each been checked against their actual
+    // wire behavior (see getCustomReasoningOverrides) and none of them give
+    // low/medium/high any real, distinct effect, so they never report 'full'.
+    if (backend.backendKind === 'openai') return 'full';
+
+    // No per-turn hasImages signal is available here (this drives a static
+    // per-provider badge, not a per-message one) — computed as if this turn
+    // has no image, i.e. the best case. An image attached to a specific turn
+    // still silently demotes llamacpp/ollama to the shim server-side
+    // (shouldUseNativeCustomProvider), which this badge won't reflect.
+    const usingNative = shouldUseNativeCustomProvider(backend.backendKind, backend.enrichedShim, false);
+
+    if (backend.backendKind === 'llamacpp') {
+      // Native: enable_thinking is really injected into the rendered prompt.
+      // Shim: chat_template_kwargs.enable_thinking is sent, but only works if
+      // the model's own template reads that variable. Either way,
+      // thinking_budget_tokens/reasoning_effort levels are decorative (see
+      // getCustomReasoningOverrides) — only on/off is ever exposed.
+      return usingNative ? 'binary-guaranteed' : 'best-effort';
+    }
+
+    if (backend.backendKind === 'vllm') {
+      // Always shim (no native path exists for vLLM) — same
+      // chat_template_kwargs.enable_thinking caveat as llama.cpp's shim.
+      return 'best-effort';
+    }
+
+    if (backend.backendKind === 'ollama') {
+      // Native: `think` is a real, model-agnostic boolean — guaranteed, but
+      // Ollama's native API has no graduated effort levels at all. Shim: no
+      // disable parameter is sent at all (Ollama's OpenAI-compat surface
+      // isn't Jinja-based the same way), so it's mask-only, same as an
+      // unknown backend.
+      return usingNative ? 'binary-guaranteed' : 'mask-only';
+    }
+
+    return 'mask-only';
   }
   return getModelConfig(modelId)?.reasoning ? 'full' : null;
 }
@@ -181,10 +258,27 @@ export function getCustomReasoningOverrides(
   const demotedToShim = (backend.backendKind === 'llamacpp' || backend.backendKind === 'ollama') && !usingNative;
   if (backend.backendKind === 'vllm' || backend.backendKind === 'openai' || demotedToShim) {
     if (tier === 'off') {
-      // No universal "disable" value is safe to send across these backends —
-      // fall back to masking the output instead of guessing a value that
-      // might get rejected.
-      return { providerOptions: {}, applyMaskMiddleware: true, backendKind: backend.backendKind, usingNative };
+      // No universal "disable" value is safe to send across every backend
+      // here — a genuine unknown 'openai'-kind remote API can 400 on an
+      // unrecognized field — so this still leans on masking as the fallback
+      // (now closed for structured reasoning_content too, see
+      // dropReasoningPartsMiddleware). But vLLM and llama.cpp both forward
+      // arbitrary chat_template_kwargs straight into their Jinja template
+      // context — unsupported keys are just unused template variables, never
+      // rejected — the same mechanism already proven in production for the
+      // workersai.chat provider (lib/search/provider-options.ts). So for
+      // those two, also send the real disable switch instead of guessing
+      // nothing. Ollama's shim isn't Jinja-based the same way, so it's left
+      // on masking-only, same as a genuine unknown backend.
+      const supportsTemplateKwargs = backend.backendKind === 'vllm' || (demotedToShim && backend.backendKind === 'llamacpp');
+      return {
+        providerOptions: supportsTemplateKwargs
+          ? { [backend.providerId]: { chat_template_kwargs: { enable_thinking: false } } }
+          : {},
+        applyMaskMiddleware: true,
+        backendKind: backend.backendKind,
+        usingNative,
+      };
     }
     return {
       providerOptions: { [backend.providerId]: { reasoning_effort: OPENAI_STYLE_EFFORT_MAP[tier] } },

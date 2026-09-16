@@ -21,6 +21,17 @@ const EFFORT_LABEL: Record<ReasoningEffort, string> = {
   off: 'Off',
 };
 
+// The three non-'full' capabilities all render the same binary show/hide
+// button — they differ only in how honestly they can describe what it does.
+const BINARY_CAPABILITY_TOOLTIP: Record<'binary-guaranteed' | 'best-effort' | 'mask-only', (hidden: boolean) => string> = {
+  'binary-guaranteed': (hidden) =>
+    `Reasoning ${hidden ? 'off' : 'on'} — this provider has a real on/off switch, but no distinct effort levels for this backend.`,
+  'best-effort': (hidden) =>
+    `Reasoning ${hidden ? 'off (best effort)' : 'on'} — a real disable signal is sent, but whether it's honored depends on the model's own chat template, so it isn't guaranteed.`,
+  'mask-only': (hidden) =>
+    `Reasoning ${hidden ? 'hidden' : 'shown'} — this provider doesn't support reasoning-effort control, this toggle only shows or hides the model's thinking output.`,
+};
+
 // Shown next to the model picker: a full effort selector when the current
 // model/provider accepts a real control parameter, or a plain show/hide
 // switch when it can only mask the <think> output after the fact. Hidden
@@ -70,7 +81,7 @@ export function ReasoningEffortToggle({
 
   if (!capability) return null;
 
-  if (capability === 'mask-only') {
+  if (capability === 'binary-guaranteed' || capability === 'best-effort' || capability === 'mask-only') {
     const hidden = value === 'off';
     return (
       <Tooltip delayDuration={300}>
@@ -93,10 +104,7 @@ export function ReasoningEffortToggle({
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom" sideOffset={6} className="max-w-[220px]">
-          <span className="font-medium text-[11px]">
-            {hidden ? 'Reasoning hidden' : 'Reasoning shown'} — this provider doesn&apos;t support reasoning-effort
-            control, this toggle only shows or hides the model&apos;s thinking output.
-          </span>
+          <span className="font-medium text-[11px]">{BINARY_CAPABILITY_TOOLTIP[capability](hidden)}</span>
         </TooltipContent>
       </Tooltip>
     );

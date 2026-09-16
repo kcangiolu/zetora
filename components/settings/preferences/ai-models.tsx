@@ -483,7 +483,8 @@ export function AiModelsTab({
                         <p className="text-xs font-medium">Enriched compatibility mode</p>
                         <p className="text-[11px] text-muted-foreground mt-0.5">
                           Route this provider&apos;s requests through the standard OpenAI-compatible API instead of
-                          talking to {p.backendKind === 'llamacpp' ? 'llama.cpp' : 'Ollama'} directly. Adds: image
+                          talking to {p.backendKind === 'llamacpp' ? 'llama.cpp' : 'Ollama'}{' '}
+                          directly. Adds: image
                           attachments, and the server&apos;s own chat-template rendering (fewer formatting quirks).
                           Removes: real prompt prefill (/startwith), grammar constraints, mirostat and other native
                           sampling controls.
