@@ -42,6 +42,9 @@ export function GeneralTab({
   const [anonymizationCustomTermsInput, setAnonymizationCustomTermsInput] = useState(
     anonymizationCustomTerms.join(', '),
   );
+  useEffect(() => {
+    setAnonymizationCustomTermsInput(anonymizationCustomTerms.join(', '));
+  }, [anonymizationCustomTerms]);
   const [anonymizationFailOpen, setAnonymizationFailOpen] = useSyncedPreferences<boolean>(
     'zetora-anonymization-fail-open',
     false,
