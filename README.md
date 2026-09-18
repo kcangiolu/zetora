@@ -166,7 +166,7 @@ If you'd rather not run the bundled services, Zetora can run entirely against ma
 | ------------------- | --------------------------------- | -------------------------------------------------------------------------------- |
 | Postgres            | Vercel Postgres / Neon / Supabase | `DATABASE_URL` (+ optional `READ_DB_1`/`READ_DB_2` read replicas)                |
 | Redis               | Upstash Redis                     | `REDIS_URL`                                                                      |
-| MinIO               | Cloudflare R2 / Vercel Blob       | `STORAGE_PROVIDER=cloudflare-r2` (default) with R2 credentials                   |
+| MinIO               | Cloudflare R2 / Vercel Blob       | `STORAGE_PROVIDER=cloudflare-r2` (default) with R2 credentials — also live in Settings as a per-user "Storage provider" toggle |
 | Qdrant              | — (disabled)                      | leave `QDRANT_URL` unset to disable the vector cache                             |
 | SearXNG             | Tavily / Exa                      | `TAVILY_API_KEY`, `EXA_API_KEY` (used automatically when `SEARXNG_URL` is unset) |
 | fastCRW             | Firecrawl                         | `FIRECRAWL_API_KEY` (used automatically when `FASTCRW_URL` is unset)             |
