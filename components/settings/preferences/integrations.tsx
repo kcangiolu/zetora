@@ -1,7 +1,6 @@
 'use client';
 
 import type { SettingsUser } from '../shared';
-import { ExtensionSlot } from '@/components/extension-slot';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -75,7 +74,6 @@ export function IntegrationsTab({
   const [swarmEnabled, setSwarmEnabled] = useSyncedPreferences<boolean>('zetora-swarm-enabled', true);
   const [connectorsEnabled, setConnectorsEnabled] = useSyncedPreferences<boolean>('zetora-connectors-enabled', true);
   const [canvasEnabled, setCanvasEnabled] = useSyncedPreferences<boolean>('zetora-canvas-enabled', true);
-  const [agentEnabled, setAgentEnabled] = useSyncedPreferences<boolean>('zetora-agent-enabled', true);
 
   const handleStorageProviderChange = (newProvider: 'cloudflare-r2' | 'minio') => {
     setStorageProvider(newProvider);
@@ -349,25 +347,7 @@ export function IntegrationsTab({
             </div>
             <Switch id="canvas-enabled" checked={canvasEnabled} onCheckedChange={setCanvasEnabled} />
           </div>
-
-          <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
-            <div className="min-w-0">
-              <p className="text-sm font-medium">Agent</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Show the personal Agent mode in the + menu</p>
-            </div>
-            <Switch id="agent-enabled" checked={agentEnabled} onCheckedChange={setAgentEnabled} />
-          </div>
         </div>
-
-        {/* An extension may render its own per-connector settings here (e.g.
-            the agent overlay's off/read-only/full toggles, C4) — nothing
-            renders when no overlay is checked out. */}
-        <ExtensionSlot name="settings-connectors" />
-
-        {/* Same as above — a separate slot (not folded into settings-connectors)
-            so the agent overlay's SSH host CRUD ships without touching the
-            older connector toggles it doesn't replace yet. */}
-        <ExtensionSlot name="settings-ssh-hosts" />
 
         {/* Graphiti Services */}
         <div className="rounded-xl border border-border/60 mt-4 overflow-hidden">

@@ -170,52 +170,6 @@ export function startLookoutWorker(): Worker<LookoutJobData> {
   return worker;
 }
 
-// Extensions job registry — a separate queue from lookout-scheduler above,
-// so a private overlay (see AGENT.md §2.3) can run its own background jobs
-// without this worker ever being modified by non-public code. The overlay
-// registers handlers by job name via its extensions.ts loader at boot,
-// before startExtensionsWorker() runs; this file has zero knowledge of what
-// any handler actually does.
-const EXTENSIONS_QUEUE_NAME = 'extensions-tasks';
-const jobHandlers = new Map<string, (job: Job) => Promise<void>>();
-
-export function registerJobHandler(name: string, handler: (job: Job) => Promise<void>): void {
-  jobHandlers.set(name, handler);
-}
-
-let _extensionsQueue: Queue | null = null;
-export function getExtensionsQueue(): Queue {
-  if (!_extensionsQueue) {
-    _extensionsQueue = new Queue(EXTENSIONS_QUEUE_NAME, { connection: getConnectionOpts() });
-  }
-  return _extensionsQueue;
-}
-
-// No-op (returns null) if nothing registered a handler — an idle worker
-// polling Redis for a queue no extension uses isn't worth running.
-export function startExtensionsWorker(): Worker | null {
-  if (jobHandlers.size === 0) return null;
-
-  const worker = new Worker(
-    EXTENSIONS_QUEUE_NAME,
-    async (job: Job) => {
-      const handler = jobHandlers.get(job.name);
-      if (!handler) {
-        log.warn(`[BullMQ] No handler registered for extensions job "${job.name}"`);
-        return;
-      }
-      await handler(job);
-    },
-    { connection: getConnectionOpts() },
-  );
-
-  worker.on('failed', (job, err) => {
-    log.error(`[BullMQ] Extensions job ${job?.id} (${job?.name}) failed:`, err.message);
-  });
-
-  return worker;
-}
-
 function isBullMqEnabled(): boolean {
   return process.env.BULLMQ_ENABLED === 'true';
 }

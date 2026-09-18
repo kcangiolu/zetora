@@ -19,18 +19,7 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"],
-      // Always the no-op, unlike next.config.ts's runtime fs.existsSync alias
-      // (which does pick the real overlay module when present) — Next's SWC
-      // tsconfig loader hard-crashes on a paths entry with >1 candidate
-      // unless the key contains a wildcard ("assertion left == right
-      // failed... should be an array with one element"). agent/register.ts
-      // and agent/register-client.ts still get fully typechecked on their
-      // own via tsconfig's normal **/*.ts include when the overlay is
-      // present; only these two call sites' argument types aren't
-      // cross-checked against them.
-      "@extensions/register": ["./lib/extensions-noop.ts"],
-      "@extensions/register-client": ["./lib/extensions-noop.ts"]
+      "@/*": ["./*"]
     },
     "types": ["node", "google.maps"]
   },

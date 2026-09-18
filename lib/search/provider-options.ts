@@ -1,6 +1,5 @@
 import { getMaxOutputTokens } from '@/ai/models';
 import type { SpecialModeId } from '@/lib/utils';
-import { getExtensionMode } from '@/lib/search/extension-modes';
 import { GroqProviderOptions } from '@ai-sdk/groq';
 import { OpenAIResponsesProviderOptions } from '@ai-sdk/openai';
 import { AnthropicProviderOptions } from '@ai-sdk/anthropic';
@@ -29,22 +28,19 @@ export async function getStreamTextStaticSettings({
   maxOutputTokens?: number;
   headers?: Record<string, string>;
 }> {
-  const extensionMode = await getExtensionMode(specialMode);
   return {
     // XML-parsed local models keep their tools armed on every step (see
     // prepareStep), so the step count is their only hard bound against
     // search-after-search looping: 1 tool round + 1 slack + synthesis.
     stopWhenStepCount: shouldUseXaiMultiAgent
       ? 5
-      : extensionMode
-        ? (extensionMode.stepCount ?? 25)
-        : specialMode === 'mcp'
-          ? 50
-          : !specialMode
-            ? 15
-            : isXmlParsedCustomModel
-              ? 3
-              : 5,
+      : specialMode === 'mcp'
+        ? 50
+        : !specialMode
+          ? 15
+          : isXmlParsedCustomModel
+            ? 3
+            : 5,
     // Local llama.cpp serves one slot: 10 retries on 10-25k-token prompts
     // stack minutes of dead time, so custom models get a tight budget.
     maxRetries: isXmlParsedCustomModel ? 2 : 10,

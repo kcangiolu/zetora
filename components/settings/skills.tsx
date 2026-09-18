@@ -7,7 +7,6 @@ import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
-import { ExtensionSlot } from '@/components/extension-slot';
 
 import { SKILL_CATALOG } from '@/lib/skills/catalog';
 
@@ -123,11 +122,6 @@ export function SkillsSection() {
       <p className="text-[11px] text-muted-foreground/50 text-center pt-1">
         Changes sync automatically and take effect on your next message.
       </p>
-
-      {/* An extension may render its own additional skills tier here (e.g.
-          the agent overlay's custom / agent-authored SKILL.md skills, C5) —
-          nothing renders when no overlay is checked out. */}
-      <ExtensionSlot name="settings-skills-extra" />
     </div>
   );
 }

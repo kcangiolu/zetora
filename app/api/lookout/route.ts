@@ -27,7 +27,6 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { verifyLookoutRequest } from '@/lib/lookout-auth';
-import { getExtensionMode } from '@/lib/search/extension-modes';
 import type { SearchProvider } from '@/lib/utils';
 
 // Import search tools
@@ -539,9 +538,7 @@ You are an advanced research assistant focused on deep analysis and comprehensiv
   return basePrompt + linkFormatRules + (modeInstructions[searchMode] || modeInstructions.extreme);
 }
 
-// Shared by the normal streamText onFinish path and the runHeadless
-// delegation branch below — both need the exact same "what's next for this
-// lookout row" bookkeeping once a run has happened.
+// "What's next for this lookout row" bookkeeping once a run has happened.
 async function scheduleNextLookoutRun(lookout: { frequency: string; cronSchedule: string; timezone: string }, lookoutId: string): Promise<void> {
   if (lookout.frequency !== 'once' && lookout.cronSchedule) {
     try {
@@ -700,30 +697,6 @@ export async function POST(req: Request) {
     const searchMode = lookout.searchMode || 'extreme';
     log.info('🔍 Using search mode:', searchMode);
 
-    // A mode may fully own its scheduled runs instead of going through the
-    // streamText loop below (P6, agent overlay: 'agent' mode delegates to
-    // agent/schedules.ts's runHeadless, which starts an OpenCode session).
-    // The chat/message rows above still exist so the existing /lookout UI
-    // has something to link to — no assistant reply ever lands in that
-    // chat, which is a known, harmless cosmetic gap (the real result lives
-    // wherever the mode surfaces it, e.g. the agent dashboard).
-    const extensionMode = await getExtensionMode(searchMode);
-    if (extensionMode?.runHeadless) {
-      await extensionMode.runHeadless({ userId: userResult.id, lookoutId, prompt, chatId });
-
-      runDuration = Date.now() - requestStartTime;
-      await updateLookoutLastRun({
-        id: lookoutId,
-        lastRunAt: new Date(),
-        lastRunChatId: chatId,
-        runStatus: 'success',
-        duration: runDuration,
-      });
-      await scheduleNextLookoutRun(lookout, lookoutId);
-
-      return Response.json({ ok: true, delegated: true });
-    }
-
     // Create data stream with execute function
     const abortController = new AbortController();
 
@@ -823,7 +796,7 @@ export async function POST(req: Request) {
                 });
 
                 // Calculate next run time for recurring lookouts (or pause a
-                // one-time one) — shared with the runHeadless branch above.
+                // one-time one).
                 await scheduleNextLookoutRun(lookout, lookoutId);
 
                 // Send completion email to user

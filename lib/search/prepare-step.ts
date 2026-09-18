@@ -23,9 +23,9 @@ export interface PrepareStepInput {
   latestStepHasToolRoundTrip: boolean;
   streamActiveTools: string[];
   baseSystem: string;
-  // Set by the caller when `group` is a registered extension mode
-  // (lib/search/extension-modes.ts) with keepToolsArmed: true — behaves
-  // like the 'auto' branch below instead of draining after one tool round.
+  // Set by the caller for a mode that should behave like the 'auto' branch
+  // below instead of draining after one tool round. Currently unset by every
+  // caller — reserved for a future mode that needs it.
   keepToolsArmed?: boolean;
   // Cumulative input+output tokens across every step already completed in
   // this turn (sum of step.usage.totalTokens), and the context budget it's

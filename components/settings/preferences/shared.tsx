@@ -262,8 +262,6 @@ type TertiaryModelPrefKey =
   | 'zetora-tertiary-extreme-agent-model'
   | 'zetora-tertiary-voice-model'
   | 'zetora-tertiary-memory-curator-model'
-  | 'zetora-tertiary-agent-worker-model'
-  | 'zetora-tertiary-agent-guard-model'
   | 'zetora-tertiary-context-compaction-model';
 
 type TertiaryProviderPrefKey =
@@ -280,8 +278,6 @@ type TertiaryProviderPrefKey =
   | 'zetora-tertiary-extreme-agent-provider'
   | 'zetora-tertiary-voice-provider'
   | 'zetora-tertiary-memory-curator-provider'
-  | 'zetora-tertiary-agent-worker-provider'
-  | 'zetora-tertiary-agent-guard-provider'
   | 'zetora-tertiary-context-compaction-provider';
 
 export function TertiaryModelRow({

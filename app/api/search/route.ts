@@ -54,7 +54,6 @@ import { getBetterAllOptions } from '@/lib/better-all';
 import { markdownJoinerTransform } from '@/lib/parser';
 import { ChatMessage } from '@/lib/types';
 import { getGroupConfig, getBaseConfig } from '@/lib/search/group-config';
-import { getExtensionMode, getExtensionModeIds } from '@/lib/search/extension-modes';
 import type { SpecialModeId } from '@/lib/utils';
 import { filterActiveTools, getEnabledSkillIds } from '@/lib/search/tool-filter';
 import { getLightweightUser } from '@/lib/search/server-helpers';
@@ -128,7 +127,6 @@ export async function POST(req: Request) {
     searchProvider,
     selectedConnectors,
     sessionEnabledSources,
-    extensionSettings,
     isTemporaryChat,
     isAutoRouted,
     autoRouterEnabled,
@@ -145,16 +143,11 @@ export async function POST(req: Request) {
   // purpose modes, 'auto', or absent) falls through to the base Sources+
   // Skills path.
   const SPECIAL_MODE_IDS = new Set(['connectors', 'mcp', 'multi-agent', 'canvas', 'deep-research', 'extreme-search']);
-  // Extension-registered modes (lib/search/extension-modes.ts) are exclusive
-  // in the same sense as the hardcoded ids above — populated by loadExtensions()
-  // at boot (instrumentation.ts), empty when no overlay is checked out.
   // `let` because deep-research/extreme-search get re-validated against
   // zetora-disabled-skills once preferences are available below and
   // downgraded back to undefined if the requester disabled that skill.
   let specialMode: SpecialModeId | string | undefined =
-    typeof group === 'string' && (SPECIAL_MODE_IDS.has(group) || (await getExtensionModeIds()).includes(group))
-      ? group
-      : undefined;
+    typeof group === 'string' && SPECIAL_MODE_IDS.has(group) ? group : undefined;
 
   if (!Array.isArray(requestMessages) || requestMessages.length === 0) {
     return new ChatSDKError('bad_request:api', 'Messages array is required and cannot be empty').toResponse();
@@ -643,22 +636,6 @@ export async function POST(req: Request) {
         }
       }
 
-      // A registered extension mode (see lib/search/extension-modes.ts) may
-      // contribute its own dynamically-resolved tools — e.g. the private
-      // agent overlay's coordinator connecting to internal infra MCP
-      // servers. Generic here: the core has no idea what these tools are.
-      const resolveDynamicTools = (await getExtensionMode(specialMode))?.resolveDynamicTools;
-      if (resolveDynamicTools && lightweightUser) {
-        const resolved = await resolveDynamicTools({
-          userId: lightweightUser.userId,
-          dataStream,
-          extensionSettings,
-        });
-        Object.assign(mcpDynamicTools, resolved.tools);
-        dynamicToolNames = [...dynamicToolNames, ...resolved.toolNames];
-        closeDynamicToolsFns.push(resolved.closeAll);
-      }
-
       const configuredActiveTools = [...activeTools, ...dynamicToolNames];
       const streamActiveTools =
         model === 'zetora-qwen-coder-plus' || model === 'zetora-qwen-3-vl' || model === 'zetora-qwen-3-vl-thinking'
@@ -1109,7 +1086,6 @@ export async function POST(req: Request) {
             latestStepHasToolRoundTrip,
             streamActiveTools,
             baseSystem,
-            keepToolsArmed: (await getExtensionMode(specialMode))?.keepToolsArmed,
             cumulativeTokens,
             budgetTokens: contextBudget,
           });
