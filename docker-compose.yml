@@ -41,27 +41,38 @@
 #        # Optional: drop {voice}.wav + {voice}.lang into qwen3-tts/voices/
 #
 #   4. docker compose pull && docker compose up -d
-#      qwen3-tts is opt-in (profile "tts") — it shares the GPU with local LLM
-#      inference and is NOT started by the command above. Start it on demand:
-#        docker compose --profile tts up -d qwen3-tts
-#      Or set COMPOSE_PROFILES=tts in .env to keep it always resident.
-#      Graphiti (falkordb + graphiti-api + graphiti-mcp) is opt-in too
-#      (profile "graphiti") — the app works fine without it (memory falls
-#      back to Supermemory, the default provider) and the extraction quality
-#      depends heavily on the LLM you point it at, so it's not started by
-#      default on a lightweight self-host. Start it with:
-#        docker compose --profile graphiti up -d
-#      Or set COMPOSE_PROFILES=graphiti in .env to keep it always resident.
-#      Qdrant (profile "qdrant") is also opt-in — hybrid search already
-#      falls back to SearXNG-only results if it's absent or unreachable
-#      (lib/vector/hybrid-search.ts). Presidio (profile "presidio") is also
-#      opt-in — it's PII detection for the anonymization layer, which is a
-#      user preference that defaults to off, so nothing calls it unless
-#      someone actually turns anonymization on. Same pattern as Graphiti:
-#        docker compose --profile qdrant --profile presidio up -d
-#      Combine profiles as needed (e.g. `--profile graphiti --profile
-#      qdrant --profile presidio --profile tts` for the full stack), or set
-#      COMPOSE_PROFILES to a comma-separated list in .env.
+#      By default this starts only the services Zetora actually needs to
+#      boot — Postgres, Redis, BullMQ Redis, and zetora.app itself. Every
+#      other bundled service is a self-hosted ALTERNATIVE to a cloud
+#      provider the app already defaults to, gated behind its own profile,
+#      and off unless you opt in:
+#
+#        profile      service(s)                        cloud default instead
+#        ----------   -------------------------------    ----------------------
+#        minio        minio, minio-create-bucket          Cloudflare R2
+#        searxng      searxng, searxng-redis               Exa / Firecrawl
+#        fastcrw      fastcrw, chrome                      Exa / Firecrawl
+#        sandbox      sandbox                              Daytona
+#        bullmq       bullmq-redis, bullboard              Upstash QStash
+#        graphiti     falkordb, graphiti-api, graphiti-mcp  Supermemory
+#        qdrant       qdrant                                (hybrid search just skipped)
+#        presidio     presidio-api                          (anonymization stays off)
+#        tts          qwen3-tts                             (no cloud equivalent; GPU-bound)
+#
+#      Each one degrades gracefully in the app itself if left off — this
+#      isn't "delete the block to disable," the app already prefers its
+#      cloud default whenever a self-hosted service isn't configured or
+#      isn't reachable (see README's "All-Cloud Configuration" section for
+#      the full picture, and each service's own comment below for the
+#      specific fallback it was verified to hit).
+#
+#      Start any subset with:
+#        docker compose --profile minio --profile graphiti up -d
+#      Or set COMPOSE_PROFILES to a comma-separated list in .env to keep a
+#      chosen set always resident. Full self-hosted stack:
+#        docker compose --profile minio --profile searxng --profile fastcrw \
+#          --profile sandbox --profile bullmq --profile graphiti \
+#          --profile qdrant --profile presidio --profile tts up -d
 #
 # All services share the `zetora-network` network and resolve each other by
 # service name (e.g. the app reaches Postgres at `postgres:5432`).
@@ -71,15 +82,6 @@
 # reverse proxy in front of zetora.app (port 3333) for your domain, and use
 # an SSH tunnel if you need direct access to an admin UI (MinIO console,
 # Bullboard, SearXNG, Qdrant dashboard, FalkorDB browser).
-#
-# Graphiti (falkordb, graphiti-api, graphiti-mcp), Qdrant, and Presidio are
-# each behind their own profile (see the usage note above) — none of them
-# are started by default, no need to edit this file to skip them.
-#
-# To drop any other optional service (minio, searxng, sandbox, bullmq),
-# remove its block below along with the matching env vars on zetora.app —
-# the app falls back to its defaults (Cloudflare R2, Tavily search, Daytona
-# sandbox, QStash).
 # =============================================================================
 
 services:
@@ -132,7 +134,7 @@ services:
       #     do NOT set these in .env, they would be overridden anyway) ---
       - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/zetora
       - REDIS_URL=redis://redis:6379
-      - STORAGE_PROVIDER=minio
+      - STORAGE_PROVIDER=${STORAGE_PROVIDER:-minio}
       - S3_ENDPOINT=http://minio:9000
       - S3_ACCESS_KEY_ID=${MINIO_ROOT_USER:-minioadmin}
       - S3_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD}
@@ -147,7 +149,12 @@ services:
       - GRAPHITI_API_URL=http://graphiti-api:8001
       - ANONYMIZER_API_URL=http://presidio-api:8000
       - S2S_SERVICE_URL=http://s2s-service:8080
-      - BULLMQ_ENABLED=true
+      # Defaults to unset/false, not true: BULLMQ_REDIS is behind the
+      # "bullmq" profile now (off by default), and getLockoutProvider()
+      # (lib/services/bullmq.ts) already falls back to QStash whenever this
+      # isn't exactly 'true' — matching every other service's cloud-first
+      # default instead of trying to reach a container that isn't running.
+      - BULLMQ_ENABLED=${BULLMQ_ENABLED:-false}
       - BULLMQ_REDIS_URL=redis://bullmq-redis:6381
       - BULLMQ_REDIS_PASSWORD=${BULLMQ_REDIS_PASSWORD:-}
       # Public WS URL of s2s-service (local voice backend) the browser
@@ -162,18 +169,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      bullmq-redis:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-      searxng:
-        condition: service_healthy
-      fastcrw:
-        condition: service_healthy
-      sandbox:
-        condition: service_healthy
-      minio-create-bucket:
-        condition: service_completed_successfully
     healthcheck:
       test:
         [
@@ -251,6 +246,7 @@ services:
   # MinIO (S3-compatible file storage — STORAGE_PROVIDER=minio)
   # ---------------------------------------------------------------------------
   minio:
+    profiles: ['minio']
     image: quay.io/minio/minio:latest
     container_name: zetora-minio
     ports:
@@ -290,6 +286,7 @@ services:
     restart: unless-stopped
 
   minio-create-bucket:
+    profiles: ['minio']
     image: quay.io/minio/mc:latest
     container_name: zetora-minio-create-bucket
     depends_on:
@@ -347,6 +344,7 @@ services:
   # SearXNG (self-hosted metasearch engine)
   # ---------------------------------------------------------------------------
   searxng:
+    profiles: ['searxng']
     image: searxng/searxng:latest
     container_name: zetora-searxng
     ports:
@@ -383,6 +381,7 @@ services:
     restart: unless-stopped
 
   searxng-redis:
+    profiles: ['searxng']
     image: redis:alpine
     container_name: zetora-searxng-redis
     healthcheck:
@@ -414,6 +413,7 @@ services:
   # pages that crash LightPanda's JS engine (heavy SPA hydration).
   # ---------------------------------------------------------------------------
   fastcrw:
+    profiles: ['fastcrw']
     image: ghcr.io/us/crw:latest
     container_name: zetora-fastcrw
     # The image serves its HTTP API on port 3000 and ignores CRW_PORT, so map
@@ -490,6 +490,7 @@ services:
   # Vanilla CDP on 9222, no wrapper API; internal-only, no host port.
   # ---------------------------------------------------------------------------
   chrome:
+    profiles: ['fastcrw']
     # Image's own entrypoint already runs headless-shell with --no-sandbox on
     # a loopback-only debugging port, bridged to 0.0.0.0:9222 via socat — do
     # not pass --remote-debugging-port ourselves, it overrides the internal
@@ -523,6 +524,7 @@ services:
   # Requires access to the host's Docker socket.
   # ---------------------------------------------------------------------------
   sandbox:
+    profiles: ['sandbox']
     image: onyxdotapp/code-interpreter
     container_name: zetora-sandbox
     user: root
@@ -692,6 +694,7 @@ services:
   # BullMQ (self-hosted Lookouts scheduling)
   # ---------------------------------------------------------------------------
   bullmq-redis:
+    profiles: ['bullmq']
     image: redis:7-alpine
     container_name: zetora-bullmq-redis
     ports:
@@ -725,6 +728,7 @@ services:
     restart: unless-stopped
 
   bullboard:
+    profiles: ['bullmq']
     image: nauverse/bull-board:latest
     container_name: zetora-bullboard
     ports:
