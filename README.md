@@ -274,12 +274,16 @@ Use this to deploy the full stack (app + Postgres, Redis, MinIO, Qdrant, SearXNG
 
    Database migrations run automatically: the `db-migrate` container applies Drizzle migrations and performance indexes, and `zetora.app` waits for it to complete before starting — no manual `drizzle-kit migrate` needed.
 
-   Every bundled service starts on the `zetora-network`, except `qwen3-tts` (GPU text-to-speech), which is opt-in — it shares the GPU with local LLM inference, so it's off by default. Start it on demand with `docker compose --profile tts up -d qwen3-tts`, or set `COMPOSE_PROFILES=tts` in `.env` to keep it always resident.
+   Every bundled service starts on the `zetora-network` by default, except four opt-in profiles — combine as needed, e.g. `docker compose --profile graphiti --profile qdrant --profile presidio --profile tts up -d`, or set `COMPOSE_PROFILES` to a comma-separated list in `.env`:
+   - `qwen3-tts` (`tts`, GPU text-to-speech) — shares the GPU with local LLM inference.
+   - `falkordb` + `graphiti-api` + `graphiti-mcp` (`graphiti`, self-hosted knowledge-graph memory) — off by default so a lightweight self-host doesn't have to run a graph DB it isn't using; memory falls back to Supermemory (the default provider) until you enable it. Extraction quality also depends heavily on the LLM you point Graphiti at, so it's worth trying with a capable model before relying on it.
+   - `qdrant` (`qdrant`, vector cache for hybrid search) — search falls back to SearXNG-only results if it's off.
+   - `presidio-api` (`presidio`, PII detection) — only used if you turn on the anonymization preference in Settings, so it's safe to leave off otherwise.
 
 4. Put a reverse proxy with TLS in front of `zetora.app` (port 3333) for your domain. Also put one in front of MinIO's API port (`:9010`) and point `S3_PUBLIC_URL` at it — generated images/files are served straight from that URL to the browser, no app-side proxy. For the local voice backend, expose `s2s-service`'s WebSocket port and point `VOICE_S2S_URL` at it. Every other service (Postgres, Redis, MinIO's console, Qdrant, SearXNG, fastCRW, sandbox, FalkorDB, Graphiti, Presidio, BullMQ) is bound to `127.0.0.1` only — use an SSH tunnel if you need direct access to an admin UI (MinIO console on `:9001`, Bull Board on `:3001`, Qdrant dashboard on `:6333`, SearXNG on `:8090`, FalkorDB browser on `:3002`).
 5. Visit your domain — Zetora should be up and running. The Diagnostics tab in Settings shows the health of each bundled service.
 
-To drop an optional service (MinIO, Qdrant, SearXNG, fastCRW, sandbox, Graphiti, Presidio, the voice services, BullMQ), remove its block from `docker-compose.yml` along with the matching environment variables on `zetora.app`; the app falls back to its cloud defaults as described in [All-Cloud Configuration](#all-cloud-configuration).
+Graphiti, Qdrant, and Presidio are each behind their own profile (see step 3) — not started by default, nothing to edit. To drop any other optional service (MinIO, SearXNG, fastCRW, sandbox, the voice services, BullMQ), remove its block from `docker-compose.yml` along with the matching environment variables on `zetora.app`; the app falls back to its cloud defaults as described in [All-Cloud Configuration](#all-cloud-configuration).
 
 # License
 

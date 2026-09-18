@@ -45,6 +45,23 @@
 #      inference and is NOT started by the command above. Start it on demand:
 #        docker compose --profile tts up -d qwen3-tts
 #      Or set COMPOSE_PROFILES=tts in .env to keep it always resident.
+#      Graphiti (falkordb + graphiti-api + graphiti-mcp) is opt-in too
+#      (profile "graphiti") — the app works fine without it (memory falls
+#      back to Supermemory, the default provider) and the extraction quality
+#      depends heavily on the LLM you point it at, so it's not started by
+#      default on a lightweight self-host. Start it with:
+#        docker compose --profile graphiti up -d
+#      Or set COMPOSE_PROFILES=graphiti in .env to keep it always resident.
+#      Qdrant (profile "qdrant") is also opt-in — hybrid search already
+#      falls back to SearXNG-only results if it's absent or unreachable
+#      (lib/vector/hybrid-search.ts). Presidio (profile "presidio") is also
+#      opt-in — it's PII detection for the anonymization layer, which is a
+#      user preference that defaults to off, so nothing calls it unless
+#      someone actually turns anonymization on. Same pattern as Graphiti:
+#        docker compose --profile qdrant --profile presidio up -d
+#      Combine profiles as needed (e.g. `--profile graphiti --profile
+#      qdrant --profile presidio --profile tts` for the full stack), or set
+#      COMPOSE_PROFILES to a comma-separated list in .env.
 #
 # All services share the `zetora-network` network and resolve each other by
 # service name (e.g. the app reaches Postgres at `postgres:5432`).
@@ -55,10 +72,14 @@
 # an SSH tunnel if you need direct access to an admin UI (MinIO console,
 # Bullboard, SearXNG, Qdrant dashboard, FalkorDB browser).
 #
-# To drop an optional service (minio, qdrant, searxng, sandbox, graphiti,
-# bullmq), remove its block below along with the matching env vars on
-# zetora.app — the app falls back to its defaults (Cloudflare R2, no vector
-# cache, Tavily search, Daytona sandbox, no knowledge graph, QStash).
+# Graphiti (falkordb, graphiti-api, graphiti-mcp), Qdrant, and Presidio are
+# each behind their own profile (see the usage note above) — none of them
+# are started by default, no need to edit this file to skip them.
+#
+# To drop any other optional service (minio, searxng, sandbox, bullmq),
+# remove its block below along with the matching env vars on zetora.app —
+# the app falls back to its defaults (Cloudflare R2, Tavily search, Daytona
+# sandbox, QStash).
 # =============================================================================
 
 services:
@@ -145,17 +166,11 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
-      qdrant:
-        condition: service_healthy
       searxng:
         condition: service_healthy
       fastcrw:
         condition: service_healthy
       sandbox:
-        condition: service_healthy
-      graphiti-api:
-        condition: service_healthy
-      presidio-api:
         condition: service_healthy
       minio-create-bucket:
         condition: service_completed_successfully
@@ -301,6 +316,7 @@ services:
   # Qdrant (vector cache for search / hybrid search)
   # ---------------------------------------------------------------------------
   qdrant:
+    profiles: ['qdrant']
     image: qdrant/qdrant:latest
     container_name: zetora-qdrant
     ports:
@@ -537,6 +553,7 @@ services:
   # Graphiti (knowledge graph memory)
   # ---------------------------------------------------------------------------
   falkordb:
+    profiles: ['graphiti']
     image: falkordb/falkordb:latest
     container_name: zetora-falkordb
     ports:
@@ -562,6 +579,7 @@ services:
     restart: unless-stopped
 
   graphiti-api:
+    profiles: ['graphiti']
     image: ${ZETORA_GRAPHITI_API_IMAGE:-zetora-graphiti-api:local}
     container_name: zetora-graphiti-api
     ports:
@@ -603,6 +621,7 @@ services:
     restart: unless-stopped
 
   graphiti-mcp:
+    profiles: ['graphiti']
     image: ${ZETORA_GRAPHITI_MCP_IMAGE:-zetora-graphiti-mcp:local}
     container_name: zetora-graphiti-mcp
     ports:
@@ -641,6 +660,7 @@ services:
   # Anonymizer (PII detection for the activatable anonymization layer)
   # ---------------------------------------------------------------------------
   presidio-api:
+    profiles: ['presidio']
     image: ${ZETORA_PRESIDIO_API_IMAGE:-zetora-presidio-api:local}
     container_name: zetora-presidio-api
     ports:
