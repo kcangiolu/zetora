@@ -1,15 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": [
-    "lib/extensions.ts",
-    "lib/extensions-noop.ts",
-    "components/extension-slot.tsx",
-    "lib/services/bullmq.ts",
-    "lib/search/extension-modes.ts",
-    "lib/extension-modes-client.ts",
-    "components/mode-accent.tsx",
-    "components/dynamic-tool-renderer.tsx"
-  ],
+  "entry": ["components/dynamic-tool-renderer.tsx"],
   "ignore": [
     "public/pcm-processor-worklet.js",
     "scripts/migrate.js",
@@ -17,8 +8,6 @@
   ],
   "ignoreBinaries": ["vc"],
   "ignoreDependencies": [
-    "postcss-load-config",
-    "shell-quote",
-    "@types/shell-quote"
+    "postcss-load-config"
   ]
 }

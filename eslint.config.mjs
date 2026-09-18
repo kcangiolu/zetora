@@ -12,14 +12,6 @@ const eslintConfig = [
       'next-env.d.ts',
       'tsconfig.tsbuildinfo',
       'coverage/**',
-      // Private overlay paths (AGENT.md §2.3) — untracked here, but may be
-      // present on disk on a dev machine that has the overlay checked out.
-      // They get their own lint pass in the combined overlay CI.
-      'agent/**',
-      'app/api/agent/**',
-      'components/agent/**',
-      'mcp-servers/**',
-      'drizzle-agent/**',
     ],
   },
   ...coreWebVitals,
