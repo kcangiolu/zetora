@@ -64,7 +64,6 @@ import { UserIcon } from '@phosphor-icons/react';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { Copy01Icon, PencilEdit02Icon } from '@hugeicons/core-free-icons';
 import { Attachment, ChatMessage, ChatTools, CustomUIDataTypes } from '@/lib/types';
-import { hasDynamicToolRenderer } from '@/components/dynamic-tool-renderer';
 import { UseChatHelpers } from '@ai-sdk/react';
 import { ComprehensiveUserData } from '@/lib/user-data-server';
 import { cn } from '@/lib/utils';
@@ -940,15 +939,6 @@ export const DELIVERABLE_TOOL_PART_TYPES = new Set([
 
 function isDeliverablePart(part: ChatMessage['parts'][number]): boolean {
   if (part.type === 'text') return true;
-  // A dynamic-tool part with a registered renderer (components/dynamic-tool-renderer.tsx)
-  // is by definition an interactive deliverable, not an internal reasoning
-  // step — e.g. the agent overlay's propose_plan/ask_user cards, which the
-  // user still needs to act on (or reference the outcome of) after the turn
-  // finishes streaming. The core has no idea what these tools are, only
-  // that a renderer was registered for one.
-  if (part.type === 'dynamic-tool') {
-    return hasDynamicToolRenderer((part as { toolName?: string }).toolName ?? '');
-  }
   if (!DELIVERABLE_TOOL_PART_TYPES.has(part.type)) return false;
   const anyPart = part as unknown as { state?: string; output?: { success?: boolean } };
   return anyPart.state === 'output-available' && anyPart.output?.success !== false;
