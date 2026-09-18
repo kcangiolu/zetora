@@ -6,7 +6,14 @@ import { nanoid } from 'nanoid';
 import { and, eq, sql } from 'drizzle-orm';
 
 import { auth } from '@/lib/auth';
-import { storageClient, storagePresignClient, STORAGE_BUCKET_NAME, STORAGE_PUBLIC_URL } from '@/lib/storage';
+import { getStorageClient } from '@/lib/storage';
+
+const {
+  client: storageClient,
+  presignClient: storagePresignClient,
+  bucketName: STORAGE_BUCKET_NAME,
+  publicUrl: STORAGE_PUBLIC_URL,
+} = getStorageClient();
 import { db } from '@/lib/db';
 import { chat, message } from '@/lib/db/schema';
 import { all } from 'better-all';

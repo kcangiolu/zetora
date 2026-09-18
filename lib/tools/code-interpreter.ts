@@ -4,7 +4,7 @@ import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { nanoid } from 'nanoid';
 import { getSandboxProvider } from '@/lib/sandbox';
 import type { SandboxProviderType } from '@/lib/sandbox';
-import { storageClient, STORAGE_BUCKET_NAME, STORAGE_PUBLIC_URL } from '@/lib/storage';
+import { getStorageClient, type StorageProvider } from '@/lib/storage';
 import { persistGeneratedFile } from '@/lib/generated-file-storage';
 import { validateFileBuffer } from '@/lib/file-integrity';
 
@@ -15,6 +15,7 @@ const log = createLogger('code-interpreter');
 interface CodeInterpreterContext {
   userPreferences?: {
     'zetora-sandbox-provider'?: SandboxProviderType;
+    'zetora-storage-provider'?: StorageProvider;
   };
   userId?: string;
   chatId?: string;
@@ -41,6 +42,8 @@ async function uploadBuffer(
   context: CodeInterpreterContext | undefined,
   toolName: string,
 ): Promise<string> {
+  const storageProvider = context?.userPreferences?.['zetora-storage-provider'];
+
   if (context?.userId) {
     const { url } = await persistGeneratedFile({
       userId: context.userId,
@@ -50,11 +53,14 @@ async function uploadBuffer(
       mediaType,
       kind: mediaType === 'image/png' ? 'image' : 'document',
       toolName,
+      storageProvider,
     });
     return url;
   }
 
   const key = `zetora/${mediaType === 'image/png' ? 'charts' : 'downloads'}/${nanoid()}-${filename}`;
+  const { client: storageClient, bucketName: STORAGE_BUCKET_NAME, publicUrl: STORAGE_PUBLIC_URL } =
+    getStorageClient(storageProvider);
   await storageClient.send(
     new PutObjectCommand({
       Bucket: STORAGE_BUCKET_NAME,

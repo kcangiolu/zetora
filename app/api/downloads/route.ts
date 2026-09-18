@@ -3,7 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { auth } from '@/lib/auth';
-import { storageClient, STORAGE_BUCKET_NAME } from '@/lib/storage';
+import { getStorageClient } from '@/lib/storage';
+
+const { client: storageClient, bucketName: STORAGE_BUCKET_NAME } = getStorageClient();
 import { getGeneratedFilesByUserId, deleteGeneratedFileById } from '@/lib/db/queries';
 
 import { createLogger } from '@/lib/logger';

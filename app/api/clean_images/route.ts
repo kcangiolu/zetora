@@ -2,7 +2,9 @@ import { serverEnv } from '@/env/server';
 import { ListObjectsV2Command, DeleteObjectsCommand } from '@aws-sdk/client-s3';
 import { NextRequest, NextResponse } from 'next/server';
 
-import { storageClient, STORAGE_BUCKET_NAME } from '@/lib/storage';
+import { getStorageClient } from '@/lib/storage';
+
+const { client: storageClient, bucketName: STORAGE_BUCKET_NAME } = getStorageClient();
 
 import { createLogger } from '@/lib/logger';
 

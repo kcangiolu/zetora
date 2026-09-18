@@ -1,10 +1,16 @@
 import { S3Client } from '@aws-sdk/client-s3';
+import { serverEnv } from '@/env/server';
 
-type StorageProvider = 'cloudflare-r2' | 'minio';
+export type StorageProvider = 'cloudflare-r2' | 'minio';
 
-function getStorageConfig() {
-  const provider = (process.env.STORAGE_PROVIDER || 'cloudflare-r2') as StorageProvider;
+export interface StorageClients {
+  client: S3Client;
+  presignClient: S3Client;
+  bucketName: string;
+  publicUrl: string;
+}
 
+function buildStorageConfig(provider: StorageProvider) {
   if (provider === 'minio') {
     return {
       region: process.env.S3_REGION || 'us-east-1',
@@ -43,24 +49,42 @@ function getStorageConfig() {
   };
 }
 
-const storageConfig = getStorageConfig();
+// Keyed by resolved provider (not "first call wins") so a mixed deployment —
+// some users on MinIO, some on R2 via the zetora-storage-provider preference
+// — gets a correct, live client for each, not whichever provider happened
+// to initialize first. S3Client construction is cheap; this cache just
+// avoids re-building one per request for the common case of everyone using
+// the same provider.
+const clientCache = new Map<StorageProvider, StorageClients>();
 
-export const storageClient = new S3Client({
-  region: storageConfig.region,
-  endpoint: storageConfig.endpoint,
-  credentials: storageConfig.credentials,
-  forcePathStyle: storageConfig.forcePathStyle,
-});
+export function getStorageClient(preferredProvider?: StorageProvider): StorageClients {
+  const provider = preferredProvider ?? (serverEnv.STORAGE_PROVIDER as StorageProvider);
 
-// Used only to sign URLs handed to the browser (upload PUT). Kept separate
-// from storageClient because the two can point at different hosts — see
-// presignEndpoint above.
-export const storagePresignClient = new S3Client({
-  region: storageConfig.region,
-  endpoint: storageConfig.presignEndpoint,
-  credentials: storageConfig.credentials,
-  forcePathStyle: storageConfig.forcePathStyle,
-});
+  const cached = clientCache.get(provider);
+  if (cached) return cached;
 
-export const STORAGE_BUCKET_NAME = storageConfig.bucketName;
-export const STORAGE_PUBLIC_URL = storageConfig.publicUrl;
+  const config = buildStorageConfig(provider);
+
+  const clients: StorageClients = {
+    client: new S3Client({
+      region: config.region,
+      endpoint: config.endpoint,
+      credentials: config.credentials,
+      forcePathStyle: config.forcePathStyle,
+    }),
+    // Used only to sign URLs handed to the browser (upload PUT). Kept
+    // separate from `client` because the two can point at different hosts
+    // — see presignEndpoint above.
+    presignClient: new S3Client({
+      region: config.region,
+      endpoint: config.presignEndpoint,
+      credentials: config.credentials,
+      forcePathStyle: config.forcePathStyle,
+    }),
+    bucketName: config.bucketName,
+    publicUrl: config.publicUrl,
+  };
+
+  clientCache.set(provider, clients);
+  return clients;
+}

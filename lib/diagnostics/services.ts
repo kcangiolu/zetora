@@ -4,7 +4,9 @@ import { sql } from 'drizzle-orm';
 import { HeadBucketCommand } from '@aws-sdk/client-s3';
 import Redis from 'ioredis';
 import { db } from '@/lib/db';
-import { storageClient, STORAGE_BUCKET_NAME } from '@/lib/storage';
+import { getStorageClient } from '@/lib/storage';
+
+const { client: storageClient, bucketName: STORAGE_BUCKET_NAME } = getStorageClient();
 import { serverEnv } from '@/env/server';
 
 interface ServiceCheckResult {

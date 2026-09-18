@@ -23,7 +23,7 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { xai } from '@ai-sdk/xai';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
-import { storageClient, STORAGE_BUCKET_NAME, STORAGE_PUBLIC_URL } from '@/lib/storage';
+import { getStorageClient, type StorageProvider } from '@/lib/storage';
 import { nanoid } from 'nanoid';
 import { VectorStoreIndex, BaseRetriever } from '@vectorstores/core';
 import { PDFReader } from '@vectorstores/readers/pdf';
@@ -738,6 +738,7 @@ async function extremeSearch(
 ): Promise<Research> {
   const modelId = preferences?.['zetora-tertiary-extreme-agent-model'] || 'zetora-ext-1';
   const sandboxPreference = preferences?.['zetora-sandbox-provider'] as SandboxProviderType | undefined;
+  const storagePreference = preferences?.['zetora-storage-provider'] as StorageProvider | undefined;
   const allSources: SearchResult[] = [];
 
   // Initialize clients
@@ -1355,6 +1356,11 @@ ${JSON.stringify(plan)}
                     const buffer = Buffer.from(base64Data, 'base64');
                     const chartId = nanoid();
                     const key = `zetora/charts/${chartId}.png`;
+                    const {
+                      client: storageClient,
+                      bucketName: STORAGE_BUCKET_NAME,
+                      publicUrl: STORAGE_PUBLIC_URL,
+                    } = getStorageClient(storagePreference);
 
                     await storageClient.send(
                       new PutObjectCommand({
