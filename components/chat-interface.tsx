@@ -37,10 +37,11 @@ import {
   Check,
   AlertCircle,
   ExternalLink,
+  FoldVertical,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
-import { deleteChat, updateChatTitle, setImageContextVisibility } from '@/app/actions';
+import { deleteChat, updateChatTitle, setImageContextVisibility, manualCompactChat } from '@/app/actions';
 import { ButtonGroup } from '@/components/ui/button-group';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
@@ -861,6 +862,63 @@ const ChatInterface = memo(
       [initialChatId, messages.length, chatId],
     );
 
+    const [isCompacting, setIsCompacting] = useState(false);
+
+    const handleManualCompact = useCallback(async () => {
+      const currentChatId = initialChatId || (messages.length > 0 ? chatId : undefined);
+      if (!currentChatId || isTemporaryChat) return;
+
+      setIsCompacting(true);
+      try {
+        const result = await manualCompactChat({ chatId: currentChatId, model: effectiveSelectedModel });
+        if (result.success) {
+          setMessages((current) => {
+            const summaryMessage: ChatMessage = {
+              id: result.messageId,
+              role: 'assistant',
+              parts: [{ type: 'text', text: result.text }],
+              metadata: {
+                createdAt: result.createdAt,
+                model: '',
+                completionTime: null,
+                inputTokens: null,
+                outputTokens: null,
+                totalTokens: null,
+                isCompactionSummary: true,
+                compactionReplacedCount: result.replacedCount,
+              },
+            } as ChatMessage;
+            const exists = current.some((m) => m.id === result.messageId);
+            return exists
+              ? current.map((m) => (m.id === result.messageId ? summaryMessage : m))
+              : [summaryMessage, ...current];
+          });
+          sileo.success({
+            title: 'Conversation compacted',
+            description: `${result.replacedCount} message(s) folded into a summary`,
+            icon: <FoldVertical className="h-4 w-4" />,
+          });
+        } else {
+          sileo.error({
+            title: 'Compaction failed',
+            description:
+              result.reason === 'not-enough-history'
+                ? 'Not enough conversation history to compact yet'
+                : 'The summarizer model failed — please try again',
+            icon: <X className="h-4 w-4" />,
+          });
+        }
+      } catch (error) {
+        sileo.error({
+          title: 'Compaction failed',
+          description: error instanceof Error ? error.message : 'Unknown error',
+          icon: <X className="h-4 w-4" />,
+        });
+      } finally {
+        setIsCompacting(false);
+      }
+    }, [initialChatId, messages.length, chatId, isTemporaryChat, effectiveSelectedModel, setMessages]);
+
     useEffect(() => {
       if (!existingChatId) {
         openChatAutoScrolledRef.current = null;
@@ -1526,6 +1584,15 @@ const ChatInterface = memo(
                             >
                               <ShareIcon className="h-4 w-4" /> Share
                             </DropdownMenuItem>
+                            {!isTemporaryChat && (
+                              <DropdownMenuItem
+                                className="rounded-md"
+                                onClick={handleManualCompact}
+                                disabled={uiStatus === 'submitted' || uiStatus === 'streaming' || isCompacting}
+                              >
+                                <FoldVertical className="h-4 w-4" /> {isCompacting ? 'Compacting…' : 'Compact conversation'}
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={handleOpenDelete}
