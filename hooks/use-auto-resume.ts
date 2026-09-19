@@ -2,24 +2,31 @@
 
 import type { UseChatHelpers } from '@ai-sdk/react';
 import { useEffect, useRef } from 'react';
-import { useDataStream } from '@/components/data-stream-provider';
 import type { ChatMessage } from '@/lib/types';
 
 export type UseAutoResumeParams = {
   autoResume: boolean;
   initialMessages: ChatMessage[];
+  status: UseChatHelpers<ChatMessage>['status'];
   resumeStream: UseChatHelpers<ChatMessage>['resumeStream'];
-  setMessages: UseChatHelpers<ChatMessage>['setMessages'];
+  clearError: UseChatHelpers<ChatMessage>['clearError'];
 };
 
-export function useAutoResume({ autoResume, initialMessages, resumeStream, setMessages }: UseAutoResumeParams) {
-  const { dataStream } = useDataStream();
-  const hasAttemptedAutoResumeRef = useRef(false);
+export function useAutoResume({ autoResume, initialMessages, status, resumeStream, clearError }: UseAutoResumeParams) {
+  const hasAttemptedInitialResumeRef = useRef(false);
+  const statusRef = useRef(status);
+  const isReattachingRef = useRef(false);
 
   useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+
+  // Resume once on mount, for the case where the page was loaded (or reloaded)
+  // while a generation was still in flight server-side.
+  useEffect(() => {
     if (!autoResume) return;
-    if (hasAttemptedAutoResumeRef.current) return;
-    hasAttemptedAutoResumeRef.current = true;
+    if (hasAttemptedInitialResumeRef.current) return;
+    hasAttemptedInitialResumeRef.current = true;
 
     const mostRecentMessage = initialMessages.at(-1);
 
@@ -28,19 +35,34 @@ export function useAutoResume({ autoResume, initialMessages, resumeStream, setMe
     }
   }, [autoResume, initialMessages, resumeStream]);
 
+  // Re-attach whenever the tab comes back to the foreground. Mobile browsers
+  // (iOS Safari in particular) kill the in-flight SSE connection while the
+  // page is backgrounded, which surfaces client-side as a stream "error"
+  // even though the generation kept running server-side. Without this, the
+  // user is stuck looking at a false failure until they manually reload.
   useEffect(() => {
-    if (!dataStream) {
-      return;
-    }
-    if (dataStream.length === 0) {
-      return;
-    }
+    if (!autoResume) return;
 
-    const dataPart = dataStream[0];
+    const tryReattach = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (isReattachingRef.current) return;
+      if (statusRef.current !== 'error') return;
 
-    if (dataPart.type === 'data-appendMessage') {
-      const message = JSON.parse(dataPart.data);
-      setMessages([...initialMessages, message]);
-    }
-  }, [dataStream, initialMessages, setMessages]);
+      isReattachingRef.current = true;
+      clearError();
+      void resumeStream().finally(() => {
+        isReattachingRef.current = false;
+      });
+    };
+
+    document.addEventListener('visibilitychange', tryReattach);
+    window.addEventListener('pageshow', tryReattach);
+    window.addEventListener('online', tryReattach);
+
+    return () => {
+      document.removeEventListener('visibilitychange', tryReattach);
+      window.removeEventListener('pageshow', tryReattach);
+      window.removeEventListener('online', tryReattach);
+    };
+  }, [autoResume, resumeStream, clearError]);
 }

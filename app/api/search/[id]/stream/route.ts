@@ -6,7 +6,6 @@ import type { ChatMessage } from '@/lib/types';
 import { createUIMessageStream, JsonToSseTransformStream } from 'ai';
 import { createResumableUIMessageStream } from 'ai-resumable-stream';
 import { getResumableStreamClients } from '@/lib/redis';
-import { differenceInSeconds } from 'date-fns';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
@@ -18,7 +17,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const { id: chatId } = await params;
 
   const clients = getResumableStreamClients();
-  const resumeRequestedAt = new Date();
 
   if (!clients) {
     return new Response(null, { status: 204 });
@@ -94,13 +92,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
     if (mostRecentMessage.role !== 'assistant') {
       log.debug('Most recent message is not an assistant message');
-      return new Response(emptyDataStream.pipeThrough(new JsonToSseTransformStream()), { status: 200 });
-    }
-
-    const messageCreatedAt = new Date(mostRecentMessage.createdAt);
-
-    if (differenceInSeconds(resumeRequestedAt, messageCreatedAt) > 15) {
-      log.debug('Most recent message is too old');
       return new Response(emptyDataStream.pipeThrough(new JsonToSseTransformStream()), { status: 200 });
     }
 

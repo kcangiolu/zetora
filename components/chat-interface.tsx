@@ -634,6 +634,7 @@ const ChatInterface = memo(
       status,
       error,
       resumeStream,
+      clearError,
     } = useChat<ChatMessage>({
       id: chatId,
       // resume: true,
@@ -763,6 +764,18 @@ const ChatInterface = memo(
               description: `${count} message${count === 1 ? '' : 's'} were left out of this response due to length.`,
             });
           }
+        }
+        // A resumed/replayed stream (see hooks/use-auto-resume.ts) delivers the
+        // missed assistant message as a single transient data part rather than
+        // token-by-token deltas. Upsert it live instead of relying on a
+        // one-shot read of the accumulated dataStream, so this keeps working
+        // no matter how many times a resume happens during the session.
+        if (dataPart.type === 'data-appendMessage') {
+          const message = JSON.parse(dataPart.data) as ChatMessage;
+          setMessages((current) => {
+            const exists = current.some((m) => m.id === message.id);
+            return exists ? current.map((m) => (m.id === message.id ? message : m)) : [...current, message];
+          });
         }
         setDataStream((ds) => (ds ? [...ds, dataPart] : []));
       },
@@ -980,8 +993,9 @@ const ChatInterface = memo(
     useAutoResume({
       autoResume: !isManuallyStopping,
       initialMessages: initialMessages || [],
+      status,
       resumeStream,
-      setMessages,
+      clearError,
     });
 
     useEffect(() => {
