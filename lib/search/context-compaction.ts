@@ -3,7 +3,12 @@ import 'server-only';
 import { generateText, convertToModelMessages, type ModelMessage } from 'ai';
 import type { ChatMessage } from '@/lib/types';
 import { resolveTertiaryModel } from '@/ai/tertiary';
-import { groupIntoTurns, COMPACTION_TRIGGER_FRACTION, COMPACTION_KEEP_RECENT_TURNS } from '@/lib/search/context-budget';
+import {
+  groupIntoTurns,
+  estimateTokenCount,
+  COMPACTION_TRIGGER_FRACTION,
+  COMPACTION_KEEP_RECENT_TURNS,
+} from '@/lib/search/context-budget';
 import { upsertCompactionSummaryMessage } from '@/lib/db/queries/chat';
 import { createLogger } from '@/lib/logger';
 
@@ -12,8 +17,13 @@ const log = createLogger('context-compaction');
 // Synchronous by design (see app/api/search/route.ts) — must not hang the
 // request it's blocking. No existing tertiary task (chat-title, followup,
 // memory-curator) times out today since none of them sit in the critical
-// path the way this one does.
-const COMPACTION_TIMEOUT_MS = 20_000;
+// path the way this one does. Bumped from 20s to 30s plus one retry
+// (COMPACTION_MAX_ATTEMPTS) after three back-to-back TimeoutErrors in
+// production on a fold-in well within the tertiary model's demonstrated
+// (much faster) real-world latency — root cause unconfirmed, so absorb one
+// transient blip instead of immediately giving up on every summary.
+const COMPACTION_TIMEOUT_MS = 30_000;
+const COMPACTION_MAX_ATTEMPTS = 2;
 
 const COMPACTION_SYSTEM_PROMPT = `You are a conversation summarizer for a chat assistant. You will be given: (1) an existing summary of earlier conversation, if any, and (2) additional conversation turns that need to be folded into that summary because the conversation is getting too long for the assistant's context window.
 
@@ -102,12 +112,36 @@ export async function maybeCompactContext({
       { role: 'user' as const, content: 'Now produce the single updated summary, per your instructions.' },
     ];
 
-    const { text } = await generateText({
-      model: await resolveTertiaryModel('context-compaction', (preferences as Record<string, string>) ?? null, userId),
-      system: COMPACTION_SYSTEM_PROMPT,
-      messages: promptMessages,
-      abortSignal: AbortSignal.timeout(COMPACTION_TIMEOUT_MS),
-    });
+    const compactionModel = await resolveTertiaryModel(
+      'context-compaction',
+      (preferences as Record<string, string>) ?? null,
+      userId,
+    );
+    const foldInTokens = estimateTokenCount(promptMessages);
+    log.info(
+      `Compacting ${foldInTurns.length} turn(s) / ~${foldInTokens} estimated tokens (existing summary: ${existingSummaryText ? 'yes' : 'no'})`,
+    );
+
+    let text = '';
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= COMPACTION_MAX_ATTEMPTS; attempt++) {
+      try {
+        ({ text } = await generateText({
+          model: compactionModel,
+          system: COMPACTION_SYSTEM_PROMPT,
+          messages: promptMessages,
+          abortSignal: AbortSignal.timeout(COMPACTION_TIMEOUT_MS),
+        }));
+        lastError = undefined;
+        break;
+      } catch (error) {
+        lastError = error;
+        if (attempt < COMPACTION_MAX_ATTEMPTS) {
+          log.warn(`Compaction attempt ${attempt}/${COMPACTION_MAX_ATTEMPTS} failed, retrying:`, error);
+        }
+      }
+    }
+    if (lastError) throw lastError;
 
     const replacedCount = (existingSummary?.metadata?.compactionReplacedCount ?? 0) + foldInMessages.length;
 

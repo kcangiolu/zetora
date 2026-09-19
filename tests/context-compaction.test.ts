@@ -162,8 +162,21 @@ describe('maybeCompactContext', () => {
     expect(result).toMatchObject({ ranCompaction: true, failed: false, replacedCount: 8, foldInTurnsCount: 2 });
   });
 
-  it('falls back to a failed outcome instead of throwing when the LLM call errors', async () => {
-    generateText.mockRejectedValueOnce(new Error('model unreachable'));
+  it('retries once and recovers from a single transient LLM error', async () => {
+    generateText.mockRejectedValueOnce(new Error('timeout'));
+
+    const result = await maybeCompactContext({
+      ...baseArgs,
+      hydratedMessages: buildTurns(6),
+      estimatedTokens: 90_000,
+    });
+
+    expect(generateText).toHaveBeenCalledTimes(2);
+    expect(result).toMatchObject({ ranCompaction: true, failed: false, text: 'a fresh summary' });
+  });
+
+  it('falls back to a failed outcome instead of throwing when every attempt errors', async () => {
+    generateText.mockRejectedValue(new Error('model unreachable'));
 
     const result = await maybeCompactContext({
       ...baseArgs,
