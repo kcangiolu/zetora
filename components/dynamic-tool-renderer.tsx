@@ -1,22 +1,18 @@
 'use client';
 
 import { useSyncExternalStore, type ComponentType } from 'react';
-import { loadClientExtensions } from '@/lib/extension-modes-client';
 import type { UseChatHelpers } from '@ai-sdk/react';
 import type { ChatMessage } from '@/lib/types';
 
 // Registry for rendering a specific dynamic-tool part inline in the chat
-// timeline instead of the generic MCP tool-call card — e.g. the private
-// agent overlay's propose_plan/ask_user tools rendering as an inline
-// proposal/question card (AGENT.md, C1/C2) rather than a raw tool-call
-// chip. Deliberately keyed by tool NAME (not by mode or origin): the core
-// has no idea what these tools are, only that a renderer may exist for one.
+// timeline instead of the generic MCP tool-call card. Deliberately keyed by
+// tool NAME (not by mode or origin): the core has no idea what these tools
+// are, only that a renderer may exist for one. Nothing currently registers
+// into this — it's dormant infrastructure kept for a future dynamic tool.
 //
-// Same globalThis + useSyncExternalStore pattern as components/extension-slot.tsx
-// for the identical reason: this module is reachable both statically
-// (components/message-parts/index.tsx) and dynamically (register-client.ts's
-// `await import(...)`), and Turbopack can resolve those to separate module
-// instances — a plain module-scope Map would split the registry in two.
+// globalThis-backed rather than plain module-scope state: this module can be
+// reachable from more than one bundler-resolved module instance depending on
+// call-site shape, and a plain Map would then split the registry in two.
 declare global {
   var __zetoraDynamicToolRenderers: Map<string, ComponentType<DynamicToolRendererProps>> | undefined;
   var __zetoraDynamicToolListeners: Set<() => void> | undefined;
@@ -36,7 +32,6 @@ export function registerDynamicToolRenderer(toolName: string, component: Compone
 }
 
 function subscribe(onStoreChange: () => void): () => void {
-  loadClientExtensions();
   listeners.add(onStoreChange);
   return () => listeners.delete(onStoreChange);
 }

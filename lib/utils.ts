@@ -276,12 +276,16 @@ export function getSearchGroups(searchProvider: SearchProvider = 'exa') {
     },
     {
       id: 'hermes' as const,
-      name: 'Hermes',
+      name: 'Agent',
       description: "Talk to your own Hermes Agent (github.com/NousResearch/hermes-agent) through Zetora — see Settings > Hermes to connect it.",
       icon: MessengerIcon,
       // Always present in the build; only actually selectable once the user has an
       // enrolled connector — that per-user check happens where this list is rendered
-      // (components/ui/form-component/index.tsx), not here.
+      // (components/ui/form-component/index.tsx), not here. Labeled "Agent" (not
+      // "Hermes") in the plus menu — this is the one mode/button Kenny kept from the
+      // old Zetora Agent project, now backed by the Hermes relay instead of an
+      // in-house execution backend; the colored accent animation lives in
+      // components/mode-accent.tsx, scoped to this id only.
       show: true,
       requireAuth: true,
     },

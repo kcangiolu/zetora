@@ -51,8 +51,6 @@ export type TertiaryTask =
   | 'extreme-agent'
   | 'voice'
   | 'memory-curator'
-  | 'agent-worker'
-  | 'agent-guard'
   | 'context-compaction';
 
 const TASK_DEFAULTS: Record<TertiaryTask, string> = {
@@ -71,16 +69,6 @@ const TASK_DEFAULTS: Record<TertiaryTask, string> = {
   // Reviews finished turns and decides what to store — needs reliable tool
   // calling (search_memories/add_memory), not a fast summarizer model.
   'memory-curator': 'zetora-default',
-  // Drives the OpenCode session inside the sandbox (bash/edit/read loop) via
-  // the gateway at /api/agent/llm/v1 — needs strong, reliable tool calling
-  // over many steps, so a coding-grade model rather than a fast summarizer.
-  'agent-worker': 'zetora-anthropic-sonnet-5',
-  // L1 intent verification: re-reads the user's original request against each
-  // proposed action. Sits in the critical path of every high-risk tool call,
-  // so it must be fast and cheap — and deliberately defaults to a DIFFERENT
-  // provider from agent-worker, so one provider outage can't take out both
-  // the actor and its reviewer at once.
-  'agent-guard': 'zetora-gemini-3-flash',
   // Needs to comfortably read a long, possibly noisy conversation dump
   // (raw tool-call traces included) and produce a coherent summary — a
   // large-context, fast model, not necessarily a reasoning one.
@@ -107,11 +95,6 @@ const TASK_RECOMMENDED_EFFORT: Record<TertiaryTask, ReasoningEffort> = {
   'extreme-agent': 'auto',
   voice: 'off',
   'memory-curator': 'auto',
-  'agent-worker': 'auto',
-  // The guard returns a small structured verdict under a 12s timeout, and a
-  // timeout is a fail-closed HUMAN_CHECK — reasoning tokens here buy latency,
-  // not safety.
-  'agent-guard': 'off',
   // Fast/deterministic background task, same tier as chat-title/followup.
   'context-compaction': 'off',
 };
@@ -147,8 +130,6 @@ const PREF_KEYS: Record<TertiaryTask, { model: string; provider: string }> = {
     model: 'zetora-tertiary-memory-curator-model',
     provider: 'zetora-tertiary-memory-curator-provider',
   },
-  'agent-worker': { model: 'zetora-tertiary-agent-worker-model', provider: 'zetora-tertiary-agent-worker-provider' },
-  'agent-guard': { model: 'zetora-tertiary-agent-guard-model', provider: 'zetora-tertiary-agent-guard-provider' },
   'context-compaction': {
     model: 'zetora-tertiary-context-compaction-model',
     provider: 'zetora-tertiary-context-compaction-provider',
@@ -191,13 +172,7 @@ export async function resolveTertiaryModel(
     }
 
     const anonymizationEnabled = prefs?.['zetora-anonymization-enabled'] === true;
-    // agent-worker drives OpenCode's tool-call loop (bash/edit/read/...) via
-    // the gateway (app/api/agent/llm/v1/chat/completions/route.ts) — rewriting
-    // PII spans mid-argument would corrupt a tool call's JSON. That route's
-    // own "NO PSEUDONYMIZER ON THIS PATH" comment documents the intent; this
-    // is what actually enforces it, since resolveTertiaryModel is otherwise
-    // task-agnostic about anonymization.
-    if (userId && anonymizationEnabled && task !== 'agent-worker') {
+    if (userId && anonymizationEnabled) {
       const { createAnonymizationMiddleware } = await import('./anonymization-middleware');
       resolved = wrapLanguageModel({
         model: resolved,

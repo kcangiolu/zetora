@@ -286,13 +286,6 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-enabled-sources'?: string[];
       /** Skill ids explicitly turned off; empty/absent = all enabled. */
       'zetora-disabled-skills'?: string[];
-      /**
-       * Opaque per-extension connector modes (C4) — e.g. the agent overlay's
-       * off/read-only/full per-infra-server toggles. Keys and values are
-       * meaningless to the core; only the registering extension interprets
-       * them (agent/connector-modes.ts).
-       */
-      'zetora-extension-connectors'?: Record<string, string>;
       'zetora-default-group'?:
         | 'auto'
         | 'web'
@@ -404,12 +397,6 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-tertiary-memory-curator-model'?: string;
       'zetora-tertiary-memory-curator-provider'?: string;
       'zetora-tertiary-memory-curator-effort'?: 'auto' | 'low' | 'medium' | 'high' | 'off';
-      'zetora-tertiary-agent-worker-model'?: string;
-      'zetora-tertiary-agent-worker-provider'?: string;
-      'zetora-tertiary-agent-worker-effort'?: 'auto' | 'low' | 'medium' | 'high' | 'off';
-      'zetora-tertiary-agent-guard-model'?: string;
-      'zetora-tertiary-agent-guard-provider'?: string;
-      'zetora-tertiary-agent-guard-effort'?: 'auto' | 'low' | 'medium' | 'high' | 'off';
       /** Full replacement for Auto mode's built-in system prompt; empty/absent = use the default (lib/search/groups/auto.ts). */
       'zetora-system-prompt-override'?: string;
       'zetora-system-prompt-presets'?: Array<{ id: string; name: string; prompt: string }>;

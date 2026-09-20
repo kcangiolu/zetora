@@ -7,7 +7,6 @@ import { Be_Vietnam_Pro, Baumans, Geist, Instrument_Serif } from 'next/font/goog
 import { GeistPixelSquare, GeistPixelGrid } from 'geist/font/pixel';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import { Toaster } from '@/components/ui/sileo-toaster';
-import { ExtensionSlot } from '@/components/extension-slot';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { NewChatHotkey } from '@/components/new-chat-hotkey';
 import { ClientAnalytics } from '@/components/client-analytics';
@@ -152,8 +151,6 @@ export default async function RootLayout({
           <Providers>
             <SidebarProvider>
               <Toaster position="top-center" />
-              {/* Renders whatever a private overlay registers for "notifications" — nothing without one */}
-              <ExtensionSlot name="notifications" />
               <HapticsProvider />
               <NewChatHotkey />
               {children}

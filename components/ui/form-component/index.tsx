@@ -63,13 +63,6 @@ import { useWebHaptics } from 'web-haptics/react';
 import { ModelSwitcher, FlexibleIcon } from './model-switcher';
 import { ReasoningEffortToggle } from './reasoning-effort-toggle';
 import type { ReasoningEffort } from '@/lib/reasoning-effort-types';
-import { ExtensionSlot } from '@/components/extension-slot';
-import {
-  getExtensionModeUIs,
-  subscribeExtensionModeUIs,
-  loadClientExtensions,
-  type ExtensionModeUIDescriptor,
-} from '@/lib/extension-modes-client';
 import { useModeAccentStyle, ModeAccentSpread } from '@/components/mode-accent';
 import { ConnectorSelector } from './connector-selector';
 import { McpServerSelector } from './mcp-server-selector';
@@ -181,8 +174,6 @@ const SOURCE_CATALOG_IDS = [
   'spotify',
 ] as const;
 
-// Extension-registered modes (lib/extension-modes-client.ts) are added to
-// this set at runtime once loaded — see extensionModeUIs below.
 const BASE_VALID_SPECIAL_MODES = new Set<string>([
   'auto',
   'connectors',
@@ -246,7 +237,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const [swarmEnabledPref] = useSyncedPreferences<boolean>('zetora-swarm-enabled', true);
   const [connectorsEnabledPref] = useSyncedPreferences<boolean>('zetora-connectors-enabled', true);
   const [canvasEnabledPref] = useSyncedPreferences<boolean>('zetora-canvas-enabled', true);
-  const [agentEnabledPref] = useSyncedPreferences<boolean>('zetora-agent-enabled', true);
   // Gates the deep-research/extreme-search forced-mode entries below: a
   // disabled skill can no longer be forced, same list Settings > Skills
   // writes to (components/settings/skills.tsx).
@@ -332,48 +322,11 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
   const hasInteracted = useMemo(() => messages.length > 0, [messages.length]);
 
-  // Extension-registered chat modes (lib/extension-modes-client.ts) — empty
-  // until an overlay's registerClient() runs (or forever, with no overlay
-  // checked out). extensionModesReady gates the stale-localStorage cleanup
-  // effect below so it doesn't race the async @extensions/register import.
-  const [extensionModeUIs, setExtensionModeUIs] = useState<ExtensionModeUIDescriptor[]>(() => getExtensionModeUIs());
-  const [extensionModesReady, setExtensionModesReady] = useState(false);
   const modeAccentStyle = useModeAccentStyle(selectedGroup);
-  useEffect(() => {
-    let cancelled = false;
-    loadClientExtensions().then(() => {
-      if (!cancelled) setExtensionModesReady(true);
-    });
-    const unsubscribe = subscribeExtensionModeUIs(() => setExtensionModeUIs(getExtensionModeUIs()));
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
-  }, []);
 
   // Search groups for the plus menu
   const [searchProvider] = useSyncedPreferences<SearchProvider>('zetora-search-provider', 'exa');
-  const dynamicSearchGroups = useMemo(() => {
-    const base = getSearchGroups(searchProvider);
-    // Extension mode ids (lib/extension-modes-client.ts) aren't part of the
-    // closed SearchGroupId union — they're dynamically registered by an
-    // overlay the core knows nothing about at compile time. Cast so these
-    // entries slot into the same array/type as the hardcoded groups; every
-    // consumer here only reads id/name/description/icon/show/requireAuth,
-    // so the structural mismatch is safe.
-    const extensionGroups = extensionModeUIs.map(
-      (descriptor) =>
-        ({
-          id: descriptor.id as SearchGroupId,
-          name: descriptor.name,
-          description: descriptor.description,
-          icon: descriptor.icon,
-          show: true,
-          ...(descriptor.requireAuth ? { requireAuth: true as const } : {}),
-        }) as SearchGroup,
-    );
-    return [...base, ...extensionGroups] as SearchGroup[];
-  }, [searchProvider, extensionModeUIs]);
+  const dynamicSearchGroups = useMemo(() => getSearchGroups(searchProvider), [searchProvider]);
   const [visibleModesOuter] = useSyncedPreferences<string[]>('zetora-visible-modes', []);
   const [modeOrderOuter] = useSyncedPreferences<string[]>('zetora-group-order', []);
 
@@ -538,9 +491,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
   // hid via Preferences > Tools while it was active — it shouldn't stay
   // selected once its shortcut has disappeared from the + menu.
   useEffect(() => {
-    if (!extensionModesReady) return;
-    const isKnownMode =
-      BASE_VALID_SPECIAL_MODES.has(selectedGroup) || extensionModeUIs.some((d) => d.id === selectedGroup);
+    const isKnownMode = BASE_VALID_SPECIAL_MODES.has(selectedGroup);
     if (!isKnownMode) {
       setSelectedGroup('auto');
       return;
@@ -550,7 +501,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
       (selectedGroup === 'connectors' && !connectorsEnabledPref) ||
       (selectedGroup === 'canvas' && !canvasEnabled) ||
       (selectedGroup === 'mcp' && !mcpEnabled) ||
-      ((selectedGroup as string) === 'agent' && !agentEnabledPref) ||
       (selectedGroup === 'deep-research' && disabledSkillsPref.includes('deep-research')) ||
       (selectedGroup === 'extreme-search' && disabledSkillsPref.includes('extreme-search')) ||
       (selectedGroup === 'hermes' && !hermesEnabled);
@@ -558,14 +508,11 @@ const FormComponent: React.FC<FormComponentProps> = ({
   }, [
     selectedGroup,
     setSelectedGroup,
-    extensionModesReady,
-    extensionModeUIs,
     swarmEnabledPref,
     connectorsEnabledPref,
     canvasEnabled,
     mcpEnabled,
     hermesEnabled,
-    agentEnabledPref,
     disabledSkillsPref,
   ]);
 
@@ -1440,10 +1387,9 @@ const FormComponent: React.FC<FormComponentProps> = ({
     [user, onOpenSettings, handleGroupSelect, haptics],
   );
 
-  // Toggle one of the exclusive special modes (Memory/Connectors/Canvas, or
-  // any extension-registered mode — see extensionModeUIs) from the plus
-  // menu — click again to turn off and fall back to the base Sources+Skills
-  // path, mirroring the existing Swarm/Apps toggle rows.
+  // Toggle one of the exclusive special modes (Memory/Connectors/Canvas)
+  // from the plus menu — click again to turn off and fall back to the base
+  // Sources+Skills path, mirroring the existing Swarm/Apps toggle rows.
   const handleSpecialModeToggle = useCallback(
     async (modeId: string) => {
       const group = dynamicSearchGroups.find((g) => g.id === modeId);
@@ -2838,29 +2784,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
                               )}
                             </button>
                           )}
-                          {extensionModeUIs.map((descriptor) => {
-                            if (descriptor.requireAuth && !user) return null;
-                            if (descriptor.id === 'agent' && !agentEnabledPref) return null;
-                            const isActive = selectedGroup === descriptor.id;
-                            return (
-                              <button
-                                key={descriptor.id}
-                                className={cn(
-                                  'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors',
-                                  isActive && 'bg-accent',
-                                )}
-                                onClick={() => handleSpecialModeToggle(descriptor.id)}
-                              >
-                                <FlexibleIcon icon={descriptor.icon} size={16} color="currentColor" strokeWidth={1.5} />
-                                <span className="flex-1 text-[13px]">{descriptor.name}</span>
-                                {isActive && (
-                                  <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                    Active
-                                  </span>
-                                )}
-                              </button>
-                            );
-                          })}
                           {/* {(input.length > 0 || isEnhancing || isTypewriting) && (
                             <button className={cn('w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors', isEnhancementActive && 'bg-accent')} onClick={() => { if (!isEnhancing && !isTypewriting) handleEnhance(); setPlusMenuOpen(false); }} disabled={isEnhancing || isTypewriting || uploadQueue.length > 0 || status !== 'ready' || isLimitBlocked}>
                               {isEnhancementActive ? <GripIcon ref={gripIconRef} size={16} className="text-primary" /> : <Wand2 className="size-4 text-muted-foreground" />}
@@ -3114,40 +3037,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
                             </TooltipContent>
                           </Tooltip>
                         )}
-                        {extensionModeUIs.map((descriptor) => {
-                          if (descriptor.requireAuth && !user) return null;
-                          if (descriptor.id === 'agent' && !agentEnabledPref) return null;
-                          const isActive = selectedGroup === descriptor.id;
-                          return (
-                            <Tooltip key={descriptor.id} delayDuration={200}>
-                              <TooltipTrigger asChild>
-                                <button
-                                  className={cn(
-                                    'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors',
-                                    isActive && 'bg-accent',
-                                  )}
-                                  onClick={() => handleSpecialModeToggle(descriptor.id)}
-                                >
-                                  <FlexibleIcon
-                                    icon={descriptor.icon}
-                                    size={16}
-                                    color="currentColor"
-                                    strokeWidth={1.5}
-                                  />
-                                  <span className="flex-1 text-[13px]">{descriptor.name}</span>
-                                  {isActive && (
-                                    <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                      Active
-                                    </span>
-                                  )}
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
-                                <span className="text-[10px] leading-snug">{descriptor.description}</span>
-                              </TooltipContent>
-                            </Tooltip>
-                          );
-                        })}
                         {/* {(input.length > 0 || isEnhancing || isTypewriting) && (
                           <button className={cn('w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors', isEnhancementActive && 'bg-accent')} onClick={() => { if (!isEnhancing && !isTypewriting) handleEnhance(); setPlusMenuOpen(false); }} disabled={isEnhancing || isTypewriting || uploadQueue.length > 0 || status !== 'ready' || isLimitBlocked}>
                             {isEnhancementActive ? <GripIcon ref={gripIconRef} size={16} className="text-primary" /> : <Wand2 className="size-4 text-muted-foreground" />}
@@ -3366,12 +3255,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
                   {/* Inline MCP server selector when MCP mode is active */}
                   {selectedGroup === 'mcp' && <McpServerSelector user={user} />}
-
-                  {/* An extension may render its own inline toolbar control here,
-                      scoped to the currently selected mode (e.g. the agent
-                      overlay's per-connector off/read-only/full picker,
-                      C4) — nothing renders when no overlay is checked out. */}
-                  <ExtensionSlot name="form-toolbar" groupId={selectedGroup} />
                 </div>
 
                 {/* Right: Enhance, Model selector, voice/send */}

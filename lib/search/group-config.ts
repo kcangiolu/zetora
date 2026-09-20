@@ -1,7 +1,6 @@
 import 'server-only';
 
 import type { SpecialModeId } from '@/lib/utils';
-import { getExtensionMode } from './extension-modes';
 
 import * as autoGroup from './groups/auto';
 import * as connectorsGroup from './groups/connectors';
@@ -70,11 +69,6 @@ export function getBaseConfig() {
 export async function getGroupConfig(specialMode: SpecialModeId | string | undefined) {
   if (!specialMode) {
     return getBaseConfig();
-  }
-
-  const extensionMode = await getExtensionMode(specialMode);
-  if (extensionMode) {
-    return { tools: extensionMode.tools, instructions: extensionMode.instructions };
   }
 
   if (!(specialMode in specialGroups)) {

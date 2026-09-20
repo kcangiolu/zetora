@@ -145,8 +145,8 @@
     animation: none !important;
   }
 
-  /* Generic "mode accent" capability (components/mode-accent.tsx) — a
-     rotating multicolor border falls back to a static one, and the one-shot
+  /* Agent mode's colored border (components/mode-accent.tsx) — a rotating
+     multicolor border falls back to a static one, and the one-shot
      activation spread (purely decorative) is skipped outright. */
   .mode-accent-border::before {
     animation: none !important;
@@ -1485,13 +1485,11 @@ body {
   animation: pulse-subtle 3s ease-in-out infinite;
 }
 
-/* Generic "mode accent" capability (components/mode-accent.tsx): an
-   extension-registered chat mode can supply a --accent-c1..c5 palette to get
-   a rotating multicolor conic-gradient border (.mode-accent-border) plus a
-   one-shot activation pulse that spreads across the chat window
-   (.mode-accent-spread). Inert without a palette — the core ships the
-   mechanism, never a specific mode's colors. See the reduced-motion
-   fallback above for the static/no-op behavior. */
+/* Agent mode's colored border (components/mode-accent.tsx): a rotating
+   multicolor conic-gradient border (.mode-accent-border) plus a one-shot
+   activation pulse that spreads across the chat window (.mode-accent-spread)
+   the moment the mode is switched on. See the reduced-motion fallback above
+   for the static/no-op behavior. */
 @property --mode-accent-angle {
   syntax: '<angle>';
   initial-value: 0deg;

@@ -74,7 +74,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useTheme } from 'next-themes';
 import { Button } from './ui/button';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
-import { ExtensionSlot } from '@/components/extension-slot';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
@@ -925,14 +924,6 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
-
-          {/* An extension may render its own additional Tools entries here
-              (e.g. the agent overlay's "Agent" sidebar item) — nothing
-              renders when no overlay is checked out. Not included in the
-              "Tools" label condition above (accepted cosmetic edge case): if
-              all four core tools are toggled off but the extension item is
-              on, the label won't show. */}
-          <ExtensionSlot name="sidebar-tools-extra" />
 
           {/* Build */}
           {/* {user && (
