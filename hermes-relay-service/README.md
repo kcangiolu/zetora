@@ -56,12 +56,13 @@ connector -> gateway   : descriptor, inbound, outbound_result, interrupt_inbound
 - `hello {type, platform, botId}` — sent immediately by the gateway on connect; we reply
   `descriptor {type, descriptor}` (the `CapabilityDescriptor`). This is the entire Phase 0
   scope.
-- `outbound {type, requestId, action}` — the agent's send/edit/typing/prompt/etc. actions,
-  flowing gateway → connector (i.e. Hermes asks *us* to deliver to the real chat surface).
-  We must reply `outbound_result {type, requestId, result}`. **Not yet implemented** —
-  Phase 1.
+- `outbound {type, requestId, action}` — the agent's send/prompt actions, flowing gateway →
+  connector (i.e. Hermes asks *us* to deliver to the real chat surface). We reply
+  `outbound_result {type, requestId, result}`. `edit`/`typing`/etc. actions are not handled —
+  `supported_ops` in the descriptor only advertises `send`/`prompt`, so Hermes never sends
+  them.
 - `inbound {type, event, bufferId?}` — flows connector → gateway: how *we* push a Zetora
-  user's message (or a button click) to Hermes. **Not yet implemented** — Phase 1.
+  user's message (or a button click) to Hermes.
 
 The upgrade bearer token (`Authorization: Bearer <token>`) is
 `base64url(f"{gatewayId}:{exp}:{sig}")` where `exp` is a **unix-seconds** integer (0 =
@@ -80,3 +81,11 @@ npm run dev
 Requires `ZETORA_INTERNAL_URL` (default `http://zetora-app:3333`, override to
 `http://localhost:3333` outside Docker) and `HERMES_RELAY_INTERNAL_SECRET` (must match
 `zetora-app`'s env var of the same name) in the environment.
+
+## Deploy
+
+Built and pushed as `zetora-hermes-relay:latest`/`:<sha>` by the `hermes-relay` job in
+`.gitea/workflows/docker.yml`, path-filtered on this directory — same pattern as every other
+sidecar service (graphiti/tts/stt/s2s/presidio). `docker-compose.yml`'s own image reference
+defaults to a `:local` placeholder; the real registry tag is pinned in the deployment host's
+own `docker-compose.internal.yml` (not tracked here — see that file's header).
