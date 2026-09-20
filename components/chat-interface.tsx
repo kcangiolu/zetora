@@ -834,10 +834,12 @@ const ChatInterface = memo(
     // populates — only subscribed while a Hermes chat is active (see
     // hooks/use-hermes-stream.ts). The user's own message is appended optimistically by
     // FormComponent's Hermes submit branch, not here.
+    const [hermesTypingLabel, setHermesTypingLabel] = useState<string | null>(null);
     useHermesStream({
       chatId,
       enabled: effectiveSelectedGroup === 'hermes',
       setMessages,
+      onTyping: setHermesTypingLabel,
     });
 
     const [isManuallyStopping, setIsManuallyStopping] = useState(false);
@@ -1719,6 +1721,7 @@ const ChatInterface = memo(
                     sendMessage={sendMessageWithAutoRouting}
                     regenerate={regenerate}
                     isHermesMode={effectiveSelectedGroup === 'hermes'}
+                    hermesTypingLabel={hermesTypingLabel}
                     stop={stop}
                     suggestedQuestions={chatState.suggestedQuestions}
                     setSuggestedQuestions={(questions) =>

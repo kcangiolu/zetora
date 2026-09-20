@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { assertInternalHermesAuth } from '@/lib/hermes/internal-auth';
-import { getHermesConnectorByGatewayId, getHermesConversationByConnectorId, saveMessages } from '@/lib/db/queries';
+import {
+  getHermesConnectorByGatewayId,
+  getHermesConversationByConnectorId,
+  getMessageById,
+  updateMessagePartsById,
+  saveMessages,
+} from '@/lib/db/queries';
 import { publishHermesEvent, isHermesChatViewerActive } from '@/lib/hermes/realtime';
 import { sendPushToUser } from '@/lib/push/send-push';
 import { createLogger } from '@/lib/logger';
@@ -16,16 +22,17 @@ interface OutboundAction {
   prompt_kind?: string;
   prompt_id?: string;
   options?: Array<{ id: string; label: string; style?: string }>;
+  message_id?: string;
 }
 
 type MessagePart = { type: string; [key: string]: unknown };
 
 // Called by hermes-relay-service when the gateway sends an `outbound` frame (the agent's
 // send/edit/typing/prompt actions — verified against gateway/relay/adapter.py's RelayAdapter
-// directly, not the prose doc: `send` at RelayAdapter.send, `prompt` at
-// RelayAdapter._send_prompt). Handles `send` (Phase 1) and `prompt` (Phase 2, native
-// interactive buttons — approval/clarify/choice). Anything else fails cleanly so the relay
-// service can report a structured `outbound_result` back rather than hanging.
+// directly, not the prose doc: `send` at RelayAdapter.send, `edit` at .edit_message,
+// `typing` at .send_typing, `prompt` at ._send_prompt). follow_up/send_media/react/threads
+// are each a bigger, separately-scoped feature (proactive session_key routing, a media
+// re-host endpoint, and message reactions respectively) — not handled here.
 export async function POST(req: NextRequest) {
   const authError = assertInternalHermesAuth(req);
   if (authError) return authError;
@@ -42,32 +49,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'missing_fields' }, { status: 400 });
   }
 
-  let parts: MessagePart[];
-  if (action.op === 'send') {
-    if (!action.content) {
-      return NextResponse.json({ success: false, error: 'missing_content' });
-    }
-    parts = [{ type: 'text', text: action.content }];
-  } else if (action.op === 'prompt') {
-    if (!action.content || !action.prompt_id || !Array.isArray(action.options)) {
-      return NextResponse.json({ success: false, error: 'missing_content' });
-    }
-    parts = [
-      { type: 'text', text: action.content },
-      {
-        type: 'data-hermes_prompt',
-        data: {
-          promptId: action.prompt_id,
-          promptKind: action.prompt_kind ?? 'choice',
-          content: action.content,
-          options: action.options,
-        },
-      },
-    ];
-  } else {
-    return NextResponse.json({ success: false, error: 'op_not_supported' });
-  }
-
   try {
     const connector = await getHermesConnectorByGatewayId(gatewayId);
     if (!connector) {
@@ -77,6 +58,57 @@ export async function POST(req: NextRequest) {
     const conversation = await getHermesConversationByConnectorId(connector.id);
     if (!conversation) {
       return NextResponse.json({ success: false, error: 'no_conversation' });
+    }
+
+    if (action.op === 'typing') {
+      // Best-effort, ephemeral, never persisted — a heartbeat that repeats roughly every
+      // 2s for the life of a turn (adapter.py's _keep_typing loop). `content` carries the
+      // agent's current status phrase ("Finding answers…") when it has one.
+      await publishHermesEvent(conversation.chatId, { kind: 'typing', content: action.content ?? null });
+      return NextResponse.json({ success: true });
+    }
+
+    if (action.op === 'edit') {
+      if (!action.message_id || !action.content) {
+        return NextResponse.json({ success: false, error: 'missing_content' });
+      }
+      const [existing] = await getMessageById({ id: action.message_id });
+      // message_id here is exactly the id this route itself minted and returned in the
+      // `send` result that started this message — see the `send` branch below — so a
+      // direct id lookup is the correlation, no separate link table needed.
+      if (!existing || existing.chatId !== conversation.chatId) {
+        return NextResponse.json({ success: false, error: 'unknown_message' });
+      }
+      const parts: MessagePart[] = [{ type: 'text', text: action.content }];
+      await updateMessagePartsById({ id: action.message_id, parts });
+      await publishHermesEvent(conversation.chatId, { kind: 'edit', message: { id: action.message_id, parts } });
+      return NextResponse.json({ success: true });
+    }
+
+    let parts: MessagePart[];
+    if (action.op === 'send') {
+      if (!action.content) {
+        return NextResponse.json({ success: false, error: 'missing_content' });
+      }
+      parts = [{ type: 'text', text: action.content }];
+    } else if (action.op === 'prompt') {
+      if (!action.content || !action.prompt_id || !Array.isArray(action.options)) {
+        return NextResponse.json({ success: false, error: 'missing_content' });
+      }
+      parts = [
+        { type: 'text', text: action.content },
+        {
+          type: 'data-hermes_prompt',
+          data: {
+            promptId: action.prompt_id,
+            promptKind: action.prompt_kind ?? 'choice',
+            content: action.content,
+            options: action.options,
+          },
+        },
+      ];
+    } else {
+      return NextResponse.json({ success: false, error: 'op_not_supported' });
     }
 
     const messageId = crypto.randomUUID();

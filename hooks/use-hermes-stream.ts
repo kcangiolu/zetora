@@ -8,6 +8,8 @@ type HermesEvent =
   // mirrors exactly what app/api/internal/hermes/agent-event/route.ts persists and
   // publishes, which already includes non-text parts like `data-hermes_prompt`.
   | { kind: 'message'; message: { id: string; role: 'assistant'; parts: Array<Record<string, unknown>>; createdAt: string } }
+  | { kind: 'edit'; message: { id: string; parts: Array<Record<string, unknown>> } }
+  | { kind: 'typing'; content: string | null }
   | { kind: 'connection-status'; connected: boolean; error: string | null };
 
 // Subscribes to app/api/hermes/[chatId]/stream (plain SSE, native EventSource — see that
@@ -20,11 +22,17 @@ export function useHermesStream({
   enabled,
   setMessages,
   onConnectionStatus,
+  onTyping,
 }: {
   chatId: string;
   enabled: boolean;
   setMessages: (updater: (messages: ChatMessage[]) => ChatMessage[]) => void;
   onConnectionStatus?: (connected: boolean, error: string | null) => void;
+  // Fired on every `typing` heartbeat with a non-null string (the agent's current status
+  // phrase when it has one, a generic fallback otherwise), and called with null to clear
+  // whenever a real message/edit lands — the arriving content is itself proof the agent
+  // is done for now. The two cases are unambiguous: only the clear call ever passes null.
+  onTyping?: (content: string | null) => void;
 }) {
   useEffect(() => {
     if (!enabled || !chatId) return;
@@ -41,10 +49,23 @@ export function useHermesStream({
 
       if (payload.kind === 'message') {
         const { id, role, parts } = payload.message;
+        onTyping?.(null);
         setMessages((current) => {
           if (current.some((m) => m.id === id)) return current;
           return [...current, { id, role, parts } as ChatMessage];
         });
+        return;
+      }
+
+      if (payload.kind === 'edit') {
+        const { id, parts } = payload.message;
+        onTyping?.(null);
+        setMessages((current) => current.map((m) => (m.id === id ? ({ ...m, parts } as ChatMessage) : m)));
+        return;
+      }
+
+      if (payload.kind === 'typing') {
+        onTyping?.(payload.content || 'Working…');
         return;
       }
 
@@ -54,6 +75,6 @@ export function useHermesStream({
     };
 
     return () => source.close();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- setMessages/onConnectionStatus are stable callbacks from the caller
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setMessages/onConnectionStatus/onTyping are stable callbacks from the caller
   }, [chatId, enabled]);
 }

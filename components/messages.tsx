@@ -66,6 +66,10 @@ interface MessagesProps {
   // regenerate — Hermes already has its own native retry (the `/retry` slash
   // command, see lib/hermes/commands.ts).
   isHermesMode?: boolean;
+  // Current Hermes `typing` heartbeat's status phrase (or a generic fallback), null when
+  // none is active — drives the same loading indicator a streaming LLM turn shows, since
+  // Hermes has no LLM-turn status of its own to derive shouldShowLoading from.
+  hermesTypingLabel?: string | null;
   // Reserved space below the message list to clear whatever bottom bar sits over it.
   // Defaults to the height of the main chat composer; callers with a shorter bottom
   // bar (e.g. the read-only share page) should override it.
@@ -113,6 +117,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     onAtBottomChange,
     skipAutoScrollRef,
     isHermesMode = false,
+    hermesTypingLabel = null,
   },
   ref,
 ) {
@@ -362,6 +367,9 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
 
   // Check if we should show loading animation
   const shouldShowLoading = useMemo(() => {
+    // Hermes has no useChat status to derive this from (see isHermesMode's own comment) —
+    // the typing heartbeat is the only "agent is working" signal it gets.
+    if (isHermesMode) return Boolean(hermesTypingLabel);
     // Fire immediately via the onBeforeSubmit callback — before SDK status updates
     if (isTransitioning) return true;
     const lastMessage = memoizedMessages[memoizedMessages.length - 1];
@@ -377,7 +385,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
       }
     }
     return false;
-  }, [isTransitioning, status, memoizedMessages]);
+  }, [isTransitioning, status, memoizedMessages, isHermesMode, hermesTypingLabel]);
 
   // Compute index of the most recent assistant message; only that one should keep min-height
   const lastAssistantIndex = useMemo(() => {
@@ -546,7 +554,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
             className={`flex items-start ${shouldReserveLoaderMinHeight ? 'min-h-[calc(100vh-18rem)]' : ''} m-0! p-0!`}
           >
             <div className="w-full m-0! p-0!">
-              <StreamingIndicator />
+              <StreamingIndicator label={isHermesMode ? (hermesTypingLabel ?? undefined) : undefined} />
             </div>
           </div>
         )}
@@ -569,6 +577,8 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
   }, [
     shouldShowLoading,
     shouldReserveLoaderMinHeight,
+    isHermesMode,
+    hermesTypingLabel,
     error,
     memoizedMessages,
     user,
