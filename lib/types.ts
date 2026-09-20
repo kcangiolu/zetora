@@ -336,7 +336,18 @@ export type CustomUIDataTypes = {
   // disabled, or a compaction attempt just failed) — makes the previously
   // silent drop visible.
   context_excluded_count: { count: number };
+  // A Hermes Agent `prompt` action (approval/clarify/choice) rendered as native buttons —
+  // see components/message-parts/hermes-prompt.tsx. `promptId` is gateway-minted and
+  // opaque; echoed back verbatim in the button click's prompt_response.
+  hermes_prompt: {
+    promptId: string;
+    promptKind: 'approval' | 'clarify' | 'choice' | string;
+    content: string;
+    options: Array<{ id: string; label: string; style?: 'primary' | 'success' | 'danger' | 'secondary' }>;
+  };
 };
+
+export type HermesPromptData = CustomUIDataTypes['hermes_prompt'];
 
 export type ChatMessage = UIMessage<MessageMetadata, CustomUIDataTypes, ChatTools>;
 

@@ -531,6 +531,141 @@ export const userMcpServer = pgTable(
   ],
 );
 
+// One connector per user: a Hermes Agent gateway (github.com/NousResearch/hermes-agent)
+// the user runs themselves, linked to their Zetora account via the relay/connector
+// protocol (see hermes-relay-service). gatewaySecretEncrypted is reversible
+// (AES-256-GCM, lib/hermes/crypto.ts) rather than hashed: it's used as an HMAC key to
+// verify the gateway's WS-upgrade bearer token, which requires recomputing the MAC
+// from the raw secret — a one-way hash can't be used for that. enrollmentTokenHash is
+// the opposite case (a short-lived provisioning code, checked "hash and compare" only)
+// and is genuinely a one-way sha256 hash.
+export const hermesConnector = pgTable(
+  'hermes_connector',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => generateId()),
+    userId: text('user_id')
+      .notNull()
+      .unique()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    // Null until enrollment succeeds: the CLIENT (the user's `hermes gateway enroll`,
+    // via --gateway-id or its own gw-<hostname> default) chooses this id, not us — see
+    // hermes_cli/gateway_enroll.py. Postgres allows multiple NULLs under a unique
+    // constraint, so many still-pending connectors coexisting is fine.
+    gatewayId: text('gateway_id').unique(),
+    label: text('label'),
+    status: varchar('status', { enum: ['pending', 'enrolled', 'revoked'] })
+      .notNull()
+      .default('pending'),
+    enrollmentTokenHash: text('enrollment_token_hash'),
+    enrollmentTokenExpiresAt: timestamp('enrollment_token_expires_at'),
+    gatewaySecretEncrypted: text('gateway_secret_encrypted'),
+    gatewaySecretPrefix: text('gateway_secret_prefix'),
+    lastConnectedAt: timestamp('last_connected_at'),
+    lastDisconnectedAt: timestamp('last_disconnected_at'),
+    lastError: text('last_error'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('hermesConnector_userId_idx').on(table.userId),
+    index('hermesConnector_gatewayId_idx').on(table.gatewayId),
+  ],
+);
+
+// One row per Zetora chat that is bound to a Hermes connector. Kept separate from
+// hermesConnector (rather than a column on it) so a future multi-conversation Hermes
+// setup doesn't need a schema migration.
+export const hermesConversation = pgTable(
+  'hermes_conversation',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => generateId()),
+    chatId: text('chat_id')
+      .notNull()
+      .unique()
+      .references(() => chat.id, { onDelete: 'cascade' }),
+    connectorId: text('connector_id')
+      .notNull()
+      .references(() => hermesConnector.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [index('hermesConversation_connectorId_idx').on(table.connectorId)],
+);
+
+// Maps a Zetora message row to the message id Hermes assigned it, so a later `edit`
+// action frame (streamed redraft) can find the right row without adding Hermes-specific
+// columns to the shared `message` table.
+export const hermesMessageLink = pgTable(
+  'hermes_message_link',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => generateId()),
+    messageId: text('message_id')
+      .notNull()
+      .unique()
+      .references(() => message.id, { onDelete: 'cascade' }),
+    hermesMessageId: text('hermes_message_id').notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [index('hermesMessageLink_hermesMessageId_idx').on(table.hermesMessageId)],
+);
+
+export const pushSubscription = pgTable(
+  'push_subscription',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => generateId()),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    endpoint: text('endpoint').notNull().unique(),
+    p256dhKey: text('p256dh_key').notNull(),
+    authKey: text('auth_key').notNull(),
+    userAgent: text('user_agent'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    lastUsedAt: timestamp('last_used_at').notNull().defaultNow(),
+  },
+  (table) => [index('pushSubscription_userId_idx').on(table.userId)],
+);
+
+export const hermesConnectorRelations = relations(hermesConnector, ({ one, many }) => ({
+  user: one(user, {
+    fields: [hermesConnector.userId],
+    references: [user.id],
+  }),
+  conversations: many(hermesConversation),
+}));
+
+export const hermesConversationRelations = relations(hermesConversation, ({ one }) => ({
+  chat: one(chat, {
+    fields: [hermesConversation.chatId],
+    references: [chat.id],
+  }),
+  connector: one(hermesConnector, {
+    fields: [hermesConversation.connectorId],
+    references: [hermesConnector.id],
+  }),
+}));
+
+export const hermesMessageLinkRelations = relations(hermesMessageLink, ({ one }) => ({
+  message: one(message, {
+    fields: [hermesMessageLink.messageId],
+    references: [message.id],
+  }),
+}));
+
+export const pushSubscriptionRelations = relations(pushSubscription, ({ one }) => ({
+  user: one(user, {
+    fields: [pushSubscription.userId],
+    references: [user.id],
+  }),
+}));
+
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
@@ -542,6 +677,8 @@ export const userRelations = relations(user, ({ many }) => ({
   mcpServers: many(userMcpServer),
   piiAliases: many(piiAlias),
   generatedFiles: many(generatedFile),
+  hermesConnector: many(hermesConnector),
+  pushSubscriptions: many(pushSubscription),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({

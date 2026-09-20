@@ -854,6 +854,40 @@ services:
           memory: 2G
     restart: unless-stopped
 
+  # ---------------------------------------------------------------------------
+  # Connector for Hermes Agent (github.com/NousResearch/hermes-agent)'s relay
+  # protocol — lets any Zetora user connect their own, independently-run Hermes
+  # gateway to their account. See hermes-relay-service/README.md for the
+  # architecture rationale (why this is its own stateless service, holding no
+  # DB credentials, rather than code inside zetora-app).
+  # ---------------------------------------------------------------------------
+  hermes-relay-service:
+    image: ${ZETORA_HERMES_RELAY_IMAGE:-zetora-hermes-relay:local}
+    container_name: zetora-hermes-relay
+    ports:
+      # NOT loopback-restricted, same reasoning as minio/s2s-service above: this
+      # is the endpoint users' own Hermes gateways dial into from anywhere, so a
+      # reverse proxy in front of it (or this port directly) must be reachable
+      # from outside the Docker host.
+      - '8200:8200'
+    environment:
+      - HERMES_RELAY_PORT=8200
+      - ZETORA_INTERNAL_URL=http://zetora-app:3333
+      - HERMES_RELAY_INTERNAL_SECRET=${HERMES_RELAY_INTERNAL_SECRET}
+    # No depends_on: zetora.app, deliberately — matching every other sidecar
+    # here (s2s-service etc.): local dev runs the app via `next dev` on the
+    # host, not this container, so a hard startup dependency on it would break
+    # local testing. A call to ZETORA_INTERNAL_URL before the app is reachable
+    # just fails that one request; the gateway retries its own dial anyway.
+    networks:
+      - zetora-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+    restart: unless-stopped
+
 networks:
   zetora-network:
     name: zetora-network

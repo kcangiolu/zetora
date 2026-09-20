@@ -35,7 +35,7 @@ import { cn, SearchGroup, SearchGroupId, getSearchGroups, SearchProvider } from 
 import { track } from '@vercel/analytics';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ComprehensiveUserData } from '@/hooks/use-user-data';
-import { enhancePrompt, listUserConnectorsAction } from '@/app/actions';
+import { enhancePrompt, listUserConnectorsAction, getHermesConnectorStatusAction } from '@/app/actions';
 import { LockIcon, Eye, MagnifyingGlassIcon } from '@phosphor-icons/react';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { GlobalSearchIcon, DocumentAttachmentIcon } from '@hugeicons/core-free-icons';
@@ -54,8 +54,11 @@ import { useLocation } from '@/hooks/use-location';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 import { useSessionPreference } from '@/hooks/use-session-preference';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useHermesSend } from '@/hooks/use-hermes-send';
+import { filterHermesCommands, type HermesCommand } from '@/lib/hermes/commands';
+import { HermesCommandMenu } from './hermes-command-menu';
 import { type ConnectorProvider } from '@/lib/connectors';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useWebHaptics } from 'web-haptics/react';
 import { ModelSwitcher, FlexibleIcon } from './model-switcher';
 import { ReasoningEffortToggle } from './reasoning-effort-toggle';
@@ -103,6 +106,7 @@ export interface FormComponentProps {
   inputRef: React.RefObject<HTMLTextAreaElement>;
   stop: () => void;
   messages: Array<ChatMessage>;
+  setMessages: UseChatHelpers<ChatMessage>['setMessages'];
   sendMessage: UseChatHelpers<ChatMessage>['sendMessage'];
   selectedModel: string;
   setSelectedModel: (value: string) => void;
@@ -187,6 +191,7 @@ const BASE_VALID_SPECIAL_MODES = new Set<string>([
   'canvas',
   'deep-research',
   'extreme-search',
+  'hermes',
 ]);
 
 // Within the '/' trigger popup, these force an existing skill for a single
@@ -214,6 +219,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
   selectedGroup,
   setSelectedGroup,
   messages,
+  setMessages,
   status,
   setHasSubmitted,
   onOpenSettings,
@@ -247,6 +253,16 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const [disabledSkillsPref] = useSyncedPreferences<string[]>('zetora-disabled-skills', []);
   const mcpEnabled = mcpEnvEnabled && appsEnabledPref;
   const canvasEnabled = canvasEnvEnabled && canvasEnabledPref;
+  // Unlike the other modes above, this can't be a user preference toggle — it reflects
+  // real server-side enrollment state (Settings > Hermes), not a show/hide choice.
+  const { data: hermesConnectorStatus } = useQuery({
+    queryKey: ['hermesConnectorStatus', user?.id],
+    queryFn: () => getHermesConnectorStatusAction(),
+    enabled: !!user,
+    staleTime: 30_000,
+  });
+  const hermesEnabled = hermesConnectorStatus?.connector?.status === 'enrolled';
+  const sendHermesMessage = useHermesSend(chatId);
   const formQueryClient = useQueryClient();
   const isMounted = useRef(true);
   const isCompositionActive = useRef(false);
@@ -484,17 +500,19 @@ const FormComponent: React.FC<FormComponentProps> = ({
     if (connectorsEnabledPref) modeIds.add('connectors');
     if (canvasEnabled) modeIds.add('canvas');
     if (mcpEnabled) modeIds.add('mcp');
+    if (hermesEnabled) modeIds.add('hermes');
     const filtered = dynamicSearchGroups.filter((group) => {
       if (!group.show) return false;
       if ('requireAuth' in group && group.requireAuth && !user) return false;
       return modeIds.has(group.id);
     });
-    const order = ['deep-research', 'extreme-search', 'connectors', 'mcp', 'multi-agent', 'canvas'];
+    const order = ['deep-research', 'extreme-search', 'connectors', 'mcp', 'multi-agent', 'canvas', 'hermes'];
     return filtered.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
   }, [
     dynamicSearchGroups,
     canvasEnabled,
     mcpEnabled,
+    hermesEnabled,
     swarmEnabledPref,
     connectorsEnabledPref,
     disabledSkillsPref,
@@ -534,7 +552,8 @@ const FormComponent: React.FC<FormComponentProps> = ({
       (selectedGroup === 'mcp' && !mcpEnabled) ||
       ((selectedGroup as string) === 'agent' && !agentEnabledPref) ||
       (selectedGroup === 'deep-research' && disabledSkillsPref.includes('deep-research')) ||
-      (selectedGroup === 'extreme-search' && disabledSkillsPref.includes('extreme-search'));
+      (selectedGroup === 'extreme-search' && disabledSkillsPref.includes('extreme-search')) ||
+      (selectedGroup === 'hermes' && !hermesEnabled);
     if (isHiddenByPreference) setSelectedGroup('auto');
   }, [
     selectedGroup,
@@ -545,9 +564,21 @@ const FormComponent: React.FC<FormComponentProps> = ({
     connectorsEnabledPref,
     canvasEnabled,
     mcpEnabled,
+    hermesEnabled,
     agentEnabledPref,
     disabledSkillsPref,
   ]);
+
+  // Native Hermes commands (/new, /model, ...) replace the mode-switcher popup entirely
+  // while a Hermes chat is active — a command targets the already-active conversation,
+  // it doesn't switch pipelines, so it gets its own menu rather than being bent into
+  // SearchGroup's shape (no icon, no "Active" state).
+  const isHermesCommandMenu = triggerPopup === '/' && selectedGroup === 'hermes';
+
+  const hermesCommandItems = useMemo(
+    () => (isHermesCommandMenu ? filterHermesCommands(triggerFilter) : []),
+    [isHermesCommandMenu, triggerFilter],
+  );
 
   // Active group list based on which trigger is open
   const triggerBaseGroups = triggerPopup === '/' ? modeGroups : sourceGroups;
@@ -560,25 +591,26 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
   // Whether the temp/private toggle appears in the / trigger popup (only before chat starts)
   const showTempInTrigger = useMemo(() => {
-    if (triggerPopup !== '/') return false;
+    if (triggerPopup !== '/' || isHermesCommandMenu) return false;
     if (!user || hasInteracted) return false;
     if (!triggerFilter) return true;
     const lower = triggerFilter.toLowerCase();
     return 'temporary'.includes(lower) || 'private'.includes(lower);
-  }, [triggerPopup, user, hasInteracted, triggerFilter]);
+  }, [triggerPopup, isHermesCommandMenu, user, hasInteracted, triggerFilter]);
 
   const showMultiAgentInTrigger = useMemo(() => {
-    if (triggerPopup !== '/') return false;
+    if (triggerPopup !== '/' || isHermesCommandMenu) return false;
     if (!user || !setIsMultiAgentModeEnabled || !swarmEnabledPref) return false;
     const isAlreadyInModeGroups = filteredTriggerGroups.some((group) => group.id === 'multi-agent');
     if (isAlreadyInModeGroups) return false;
     if (!triggerFilter) return true;
     const lower = triggerFilter.toLowerCase();
     return 'multi-agent'.includes(lower) || 'multi agent'.includes(lower) || 'research'.includes(lower);
-  }, [triggerPopup, user, setIsMultiAgentModeEnabled, swarmEnabledPref, triggerFilter, filteredTriggerGroups]);
+  }, [triggerPopup, isHermesCommandMenu, user, setIsMultiAgentModeEnabled, swarmEnabledPref, triggerFilter, filteredTriggerGroups]);
 
-  const triggerTotalItems =
-    filteredTriggerGroups.length + (showMultiAgentInTrigger ? 1 : 0) + (showTempInTrigger ? 1 : 0);
+  const triggerTotalItems = isHermesCommandMenu
+    ? hermesCommandItems.length
+    : filteredTriggerGroups.length + (showMultiAgentInTrigger ? 1 : 0) + (showTempInTrigger ? 1 : 0);
 
   // Reset highlight when filter or trigger changes
   useEffect(() => {
@@ -1175,6 +1207,112 @@ const FormComponent: React.FC<FormComponentProps> = ({
       setTriggerFilter('');
     },
     [handleGroupSelect, inputRef, setInput, triggerPopup],
+  );
+
+  // '/' mixes two different kinds of entries: skills (deep-research, extreme-search)
+  // force an existing skill for one message, while modes (multi-agent, connectors, mcp,
+  // canvas) swap the whole pipeline for another agent. Label them separately so they
+  // don't read as equivalent. Extracted to a memo (rather than an inline IIFE in JSX) so
+  // it sits alongside the render's other trigger-popup content, swapped out for the
+  // Hermes command menu when isHermesCommandMenu is true.
+  const modeListItems = useMemo(() => {
+    // Skills always sort before modes (modeGroups's own `order`), so no running mutable
+    // flag is needed — just the first index of each kind.
+    const firstSkillIndex =
+      triggerPopup === '/' ? filteredTriggerGroups.findIndex((g) => SKILL_MODE_IDS.has(g.id)) : -1;
+    const firstModeIndex =
+      triggerPopup === '/' ? filteredTriggerGroups.findIndex((g) => !SKILL_MODE_IDS.has(g.id)) : -1;
+    return filteredTriggerGroups.map((group, index) => {
+      const isHighlighted = index === triggerHighlightIndex;
+      const isCurrentGroup =
+        group.id === 'multi-agent' ? isMultiAgentModeEnabled || selectedGroup === 'multi-agent' : selectedGroup === group.id;
+      const showSkillsHeader = index === firstSkillIndex;
+      const showModesHeader = index === firstModeIndex;
+      return (
+        <Fragment key={group.id}>
+          {showSkillsHeader && (
+            <p className="px-2 pt-1.5 pb-1 text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest">
+              Skills
+            </p>
+          )}
+          {showModesHeader && (
+            <>
+              {firstSkillIndex !== -1 && <div className="my-1 mx-2 border-t border-border/30" />}
+              <p className="px-2 pt-1.5 pb-1 text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest">
+                Modes
+              </p>
+            </>
+          )}
+          <button
+            data-at-index={index}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              handleTriggerSelect(group);
+            }}
+            onMouseEnter={() => setTriggerHighlightIndex(index)}
+            className={cn(
+              'flex items-center gap-2.5 w-full px-2 py-1.5 rounded-lg text-left transition-colors duration-100',
+              isHighlighted ? 'bg-accent/80' : 'bg-transparent',
+            )}
+          >
+            <div
+              className={cn(
+                'flex items-center justify-center size-7 rounded-md shrink-0',
+                isCurrentGroup ? 'bg-primary/10 text-primary' : 'bg-muted/80 text-muted-foreground',
+              )}
+            >
+              <FlexibleIcon icon={group.icon} size={16} color="currentColor" strokeWidth={1.8} />
+            </div>
+            <span className="flex-1 text-[13px] font-medium text-foreground truncate">{group.name}</span>
+            {isCurrentGroup && (
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-[10px] font-medium text-primary/70">Active</span>
+                <CheckIcon className="size-3 text-primary" />
+              </div>
+            )}
+          </button>
+        </Fragment>
+      );
+    });
+  }, [filteredTriggerGroups, triggerHighlightIndex, isMultiAgentModeEnabled, selectedGroup, triggerPopup, handleTriggerSelect]);
+
+  // Inserts `/name ` at the trigger position — unlike handleTriggerSelect, this never
+  // calls handleGroupSelect: a Hermes command targets the already-active conversation,
+  // it doesn't switch pipelines.
+  const handleHermesCommandSelect = useCallback(
+    (command: HermesCommand) => {
+      const textarea = inputRef.current;
+      if (textarea) {
+        const val = textarea.value;
+        const cursorPos = textarea.selectionStart ?? val.length;
+        let tPos = -1;
+        for (let i = cursorPos - 1; i >= 0; i--) {
+          if (val[i] === '/') {
+            tPos = i;
+            break;
+          }
+          if (val[i] === ' ' || val[i] === '\n') break;
+        }
+        if (tPos !== -1) {
+          const before = val.slice(0, tPos);
+          const after = val.slice(cursorPos);
+          const insertion = `/${command.name} `;
+          const newVal = before + insertion + after;
+          setInput(newVal);
+          requestAnimationFrame(() => {
+            if (inputRef.current) {
+              const newPos = tPos + insertion.length;
+              inputRef.current.setSelectionRange(newPos, newPos);
+              inputRef.current.focus();
+            }
+          });
+        }
+      }
+
+      setTriggerPopup(null);
+      setTriggerFilter('');
+    },
+    [inputRef, setInput],
   );
 
   // Handle temp/private toggle from / trigger popup
@@ -1854,6 +1992,42 @@ const FormComponent: React.FC<FormComponentProps> = ({
       return;
     }
 
+    if (selectedGroup === 'hermes') {
+      const text = input.trim();
+      if (!text) {
+        haptics.trigger('error');
+        sileo.error({ title: 'Please enter a message.' });
+        return;
+      }
+
+      haptics.trigger('medium');
+      onBeforeSubmit?.();
+      setHasSubmitted(true);
+      lastSubmittedQueryRef.current = text;
+      if (!isTemporaryChatEnabled) updateChatUrl(chatId);
+
+      // Never calls an LLM (see app/api/hermes/send/route.ts) — this bypasses
+      // useChat's sendMessage/{/api/search} entirely. The user's own bubble is appended
+      // optimistically here; the agent's reply arrives over the SSE channel
+      // (hooks/use-hermes-stream.ts), same as every other mode's assistant message.
+      setMessages((current) => [...current, { id: crypto.randomUUID(), role: 'user', parts: [{ type: 'text', text }] }]);
+      setInput('');
+      if (inputRef.current) {
+        inputRef.current.style.height = 'auto';
+        inputRef.current.style.overflowY = 'hidden';
+      }
+
+      sendHermesMessage(text).catch((error) => {
+        haptics.trigger('error');
+        sileo.error({
+          title: 'Failed to send to Hermes',
+          description: error instanceof Error ? error.message : 'Please try again',
+          icon: <AlertCircle className="h-4 w-4" />,
+        });
+      });
+      return;
+    }
+
     if (selectedGroup === 'mcp') {
       const mcpCache = formQueryClient.getQueryData<{
         servers: Array<{ isEnabled: boolean; authType: string; isOAuthConnected: boolean }>;
@@ -1962,6 +2136,8 @@ const FormComponent: React.FC<FormComponentProps> = ({
     isMultiAgentModeEnabled,
     onBeforeSubmit,
     selectedGroup,
+    setMessages,
+    sendHermesMessage,
   ]);
 
   const submitForm = useCallback(() => executeSubmit(), [executeSubmit]);
@@ -2043,7 +2219,11 @@ const FormComponent: React.FC<FormComponentProps> = ({
         }
         if (event.key === 'Enter' && !isCompositionActive.current) {
           event.preventDefault();
-          if (triggerHighlightIndex < filteredTriggerGroups.length) {
+          if (isHermesCommandMenu) {
+            if (hermesCommandItems[triggerHighlightIndex]) {
+              handleHermesCommandSelect(hermesCommandItems[triggerHighlightIndex]);
+            }
+          } else if (triggerHighlightIndex < filteredTriggerGroups.length) {
             handleTriggerSelect(filteredTriggerGroups[triggerHighlightIndex]);
           } else if (showMultiAgentInTrigger && triggerHighlightIndex === filteredTriggerGroups.length) {
             handleTriggerMultiAgentSelect();
@@ -2057,7 +2237,11 @@ const FormComponent: React.FC<FormComponentProps> = ({
         }
         if (event.key === 'Tab') {
           event.preventDefault();
-          if (triggerHighlightIndex < filteredTriggerGroups.length) {
+          if (isHermesCommandMenu) {
+            if (hermesCommandItems[triggerHighlightIndex]) {
+              handleHermesCommandSelect(hermesCommandItems[triggerHighlightIndex]);
+            }
+          } else if (triggerHighlightIndex < filteredTriggerGroups.length) {
             handleTriggerSelect(filteredTriggerGroups[triggerHighlightIndex]);
           } else if (showMultiAgentInTrigger && triggerHighlightIndex === filteredTriggerGroups.length) {
             handleTriggerMultiAgentSelect();
@@ -2109,6 +2293,9 @@ const FormComponent: React.FC<FormComponentProps> = ({
       handleTriggerSelect,
       handleTriggerTempSelect,
       handleTriggerMultiAgentSelect,
+      isHermesCommandMenu,
+      hermesCommandItems,
+      handleHermesCommandSelect,
       showSuggestions,
       suggestions,
       suggestionIndex,
@@ -2291,74 +2478,24 @@ const FormComponent: React.FC<FormComponentProps> = ({
                     </p>
                   </div>
                 )}
+                {isHermesCommandMenu && (
+                  <div className="px-3 pt-2.5 pb-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest">
+                      Commands
+                    </p>
+                  </div>
+                )}
                 <div ref={triggerPopupScrollRef} className="px-1 pb-1 max-h-[260px] overflow-y-auto scrollbar-thin">
-                  {(() => {
-                    // '/' mixes two different kinds of entries: skills (deep-research,
-                    // extreme-search) force an existing skill for one message, while modes
-                    // (multi-agent, connectors, mcp, canvas) swap the whole pipeline for
-                    // another agent. Label them separately so they don't read as equivalent.
-                    let renderedSkillsHeader = false;
-                    let renderedModesHeader = false;
-                    return filteredTriggerGroups.map((group, index) => {
-                      const isHighlighted = index === triggerHighlightIndex;
-                      const isCurrentGroup =
-                        group.id === 'multi-agent'
-                          ? isMultiAgentModeEnabled || selectedGroup === 'multi-agent'
-                          : selectedGroup === group.id;
-                      const isSkillGroup = triggerPopup === '/' && SKILL_MODE_IDS.has(group.id);
-                      const showSkillsHeader = isSkillGroup && !renderedSkillsHeader;
-                      const showModesHeader = triggerPopup === '/' && !isSkillGroup && !renderedModesHeader;
-                      if (showSkillsHeader) renderedSkillsHeader = true;
-                      if (showModesHeader) renderedModesHeader = true;
-                      return (
-                        <Fragment key={group.id}>
-                          {showSkillsHeader && (
-                            <p className="px-2 pt-1.5 pb-1 text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest">
-                              Skills
-                            </p>
-                          )}
-                          {showModesHeader && (
-                            <>
-                              {renderedSkillsHeader && <div className="my-1 mx-2 border-t border-border/30" />}
-                              <p className="px-2 pt-1.5 pb-1 text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest">
-                                Modes
-                              </p>
-                            </>
-                          )}
-                          <button
-                            data-at-index={index}
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              handleTriggerSelect(group);
-                            }}
-                            onMouseEnter={() => setTriggerHighlightIndex(index)}
-                            className={cn(
-                              'flex items-center gap-2.5 w-full px-2 py-1.5 rounded-lg text-left transition-colors duration-100',
-                              isHighlighted ? 'bg-accent/80' : 'bg-transparent',
-                            )}
-                          >
-                            <div
-                              className={cn(
-                                'flex items-center justify-center size-7 rounded-md shrink-0',
-                                isCurrentGroup ? 'bg-primary/10 text-primary' : 'bg-muted/80 text-muted-foreground',
-                              )}
-                            >
-                              <FlexibleIcon icon={group.icon} size={16} color="currentColor" strokeWidth={1.8} />
-                            </div>
-                            <span className="flex-1 text-[13px] font-medium text-foreground truncate">
-                              {group.name}
-                            </span>
-                            {isCurrentGroup && (
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <span className="text-[10px] font-medium text-primary/70">Active</span>
-                                <CheckIcon className="size-3 text-primary" />
-                              </div>
-                            )}
-                          </button>
-                        </Fragment>
-                      );
-                    });
-                  })()}
+                  {isHermesCommandMenu ? (
+                    <HermesCommandMenu
+                      commands={hermesCommandItems}
+                      highlightIndex={triggerHighlightIndex}
+                      onSelect={handleHermesCommandSelect}
+                      onHighlight={setTriggerHighlightIndex}
+                    />
+                  ) : (
+                    modeListItems
+                  )}
                   {(showTempInTrigger || showMultiAgentInTrigger) && (
                     <>
                       {showMultiAgentInTrigger && (

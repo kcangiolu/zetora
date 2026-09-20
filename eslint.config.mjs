@@ -20,6 +20,10 @@ const eslintConfig = [
       'components/agent/**',
       'mcp-servers/**',
       'drizzle-agent/**',
+      // Its own self-contained Node/TS project (own package.json, tsconfig, deps) —
+      // see hermes-relay-service/README.md. Lint it separately from within that
+      // directory, not against the root config/tsconfig.
+      'hermes-relay-service/**',
     ],
   },
   ...coreWebVitals,

@@ -19,6 +19,7 @@ import {
   CanvasIcon,
   SparklesIcon,
   BinocularsIcon,
+  MessengerIcon,
 } from '@hugeicons/core-free-icons';
 import { AgentNetworkIcon } from '@/components/icons/agent-network-icon';
 import { AppsIcon } from '@/components/icons/apps-icon';
@@ -67,7 +68,8 @@ export type SearchGroupId =
   | 'prediction'
   | 'canvas'
   | 'deep-research'
-  | 'extreme-search';
+  | 'extreme-search'
+  | 'hermes';
 
 // Research skills loadable via the 'skill' tool, available on every message
 // (subject to the zetora-disabled-skills preference).
@@ -98,7 +100,10 @@ export type SkillId =
 // extreme-search instead force a specific research methodology or tool
 // (bypassing the model's own skill-selection) for a single message — see
 // lib/search/groups/deep-research.ts and extreme-search.ts.
-export type SpecialModeId = 'connectors' | 'mcp' | 'multi-agent' | 'canvas' | 'deep-research' | 'extreme-search';
+// 'hermes' is exclusive for a different reason than the others: it doesn't call an LLM
+// at all (see app/api/hermes/send/route.ts) — a Hermes turn bypasses the whole
+// Sources/Skills/tool pipeline rather than forcing one methodology within it.
+export type SpecialModeId = 'connectors' | 'mcp' | 'multi-agent' | 'canvas' | 'deep-research' | 'extreme-search' | 'hermes';
 
 // Search provider information for dynamic descriptions
 const searchProviderInfo = {
@@ -266,6 +271,17 @@ export function getSearchGroups(searchProvider: SearchProvider = 'exa') {
       description:
         'Forces Extreme Search for this message — exhaustive multi-channel research on a single topic via a dedicated research agent; can take several minutes.',
       icon: AtomicPowerIcon,
+      show: true,
+      requireAuth: true,
+    },
+    {
+      id: 'hermes' as const,
+      name: 'Hermes',
+      description: "Talk to your own Hermes Agent (github.com/NousResearch/hermes-agent) through Zetora — see Settings > Hermes to connect it.",
+      icon: MessengerIcon,
+      // Always present in the build; only actually selectable once the user has an
+      // enrolled connector — that per-user check happens where this list is rendered
+      // (components/ui/form-component/index.tsx), not here.
       show: true,
       requireAuth: true,
     },

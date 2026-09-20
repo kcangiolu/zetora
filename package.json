@@ -179,6 +179,7 @@
     "valyu-js": "^2.7.2",
     "vaul": "^1.1.2",
     "web-haptics": "^0.0.6",
+    "web-push": "^3.6.7",
     "workers-ai-provider": "^3.1.4",
     "zod": "^4.3.6"
   },
@@ -197,6 +198,7 @@
     "@types/react-dom": "^19.2.3",
     "@types/react-syntax-highlighter": "^15.5.13",
     "@types/shell-quote": "^1.7.5",
+    "@types/web-push": "^3.6.4",
     "@typescript/native-preview": "^7.0.0-dev.20260320.1",
     "@vitest/coverage-v8": "^4.1.9",
     "babel-plugin-react-compiler": "^1.0.0",

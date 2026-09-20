@@ -7,3 +7,5 @@ export * from './chats';
 export * from './preferences';
 export * from './lookouts';
 export * from './connectors';
+export * from './hermes';
+export * from './push';

@@ -17,7 +17,7 @@ import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { CpuIcon, SplitIcon } from '@hugeicons/core-free-icons';
-import { ChatMessage, CustomUIDataTypes, DataQueryCompletionPart, DataExtremeSearchPart } from '@/lib/types';
+import { ChatMessage, CustomUIDataTypes, DataQueryCompletionPart, DataExtremeSearchPart, HermesPromptData } from '@/lib/types';
 import { SPEC_DATA_PART_TYPE } from '@json-render/core';
 import { useDynamicToolRenderer, hasDynamicToolRenderer } from '@/components/dynamic-tool-renderer';
 import { useSpeech } from '@/hooks/use-speech';
@@ -117,6 +117,7 @@ import {
   formatDynamicToolName,
 } from './shared';
 import { getPendingInlineElicitations, toImageCardState } from './mcp';
+import { HermesPromptCard } from './hermes-prompt';
 import { DynamicToolInvocationCard, DynamicToolStepper, CanvasSpecRenderer, CodeContextTool } from './tools';
 import type { McpTimelineEntry } from './tools';
 
@@ -1559,6 +1560,17 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
 
     if (part.type === 'source-url') {
       return null;
+    }
+
+    if (part.type === 'data-hermes_prompt') {
+      if (!chatId) return null;
+      return (
+        <HermesPromptCard
+          key={`${messageIndex}-${partIndex}-hermes-prompt`}
+          chatId={chatId}
+          prompt={(part as { data: HermesPromptData }).data}
+        />
+      );
     }
 
     if (part.type === 'dynamic-tool') {
