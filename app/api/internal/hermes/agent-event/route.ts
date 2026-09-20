@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { nanoid } from 'nanoid';
+import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { assertInternalHermesAuth } from '@/lib/hermes/internal-auth';
 import {
   getHermesConnectorByGatewayId,
@@ -10,9 +12,67 @@ import {
 } from '@/lib/db/queries';
 import { publishHermesEvent, isHermesChatViewerActive } from '@/lib/hermes/realtime';
 import { sendPushToUser } from '@/lib/push/send-push';
+import { getStorageClient } from '@/lib/storage';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('api-internal-hermes-agent-event');
+
+const { client: storageClient, bucketName: STORAGE_BUCKET_NAME, publicUrl: STORAGE_PUBLIC_URL } = getStorageClient();
+
+const MAX_MEDIA_BYTES = 25 * 1024 * 1024;
+const RELAY_MEDIA_ID_PATTERN = /\/relay\/media\/([^/?#]+)$/;
+
+function sanitizeExtension(raw: string | undefined): string {
+  const cleaned = (raw ?? '')
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .toLowerCase()
+    .slice(0, 10);
+  return cleaned || 'bin';
+}
+
+// A send_media action's source_url is either (a) our own relay-media reference — the id
+// IS the base64url of the real storage URL app/api/internal/hermes/media/route.ts already
+// wrote to, so resolving it needs no re-fetch or lookup table — or (b) a public http(s)
+// URL (e.g. a fal.media generation) we download and re-host ourselves, so the DB/UI never
+// cites a third-party URL directly (mirrors the contract's symmetric inbound-media
+// re-host treatment of expiring platform URLs).
+async function resolveMediaUrl(sourceUrl: string, ownerUserId: string): Promise<string | null> {
+  const relayMatch = sourceUrl.match(RELAY_MEDIA_ID_PATTERN);
+  if (relayMatch) {
+    try {
+      return Buffer.from(relayMatch[1], 'base64url').toString('utf8');
+    } catch {
+      return null;
+    }
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(sourceUrl);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+
+  let res: Response;
+  try {
+    res = await fetch(sourceUrl);
+  } catch {
+    return null;
+  }
+  if (!res.ok) return null;
+
+  const contentType = res.headers.get('content-type') || 'application/octet-stream';
+  const body = Buffer.from(await res.arrayBuffer());
+  if (body.length > MAX_MEDIA_BYTES) return null;
+
+  const ext = sanitizeExtension(parsed.pathname.split('.').pop());
+  const key = `zetora/hermes-media/${ownerUserId}/${nanoid()}.${ext}`;
+  await storageClient.send(
+    new PutObjectCommand({ Bucket: STORAGE_BUCKET_NAME, Key: key, Body: body, ContentType: contentType }),
+  );
+  return `${STORAGE_PUBLIC_URL}/${key}`;
+}
 
 interface OutboundAction {
   op?: string;
@@ -26,16 +86,20 @@ interface OutboundAction {
   message_id?: string;
   emoji?: string;
   remove?: boolean;
+  media_kind?: string;
+  source_url?: string;
+  filename?: string;
 }
 
 type MessagePart = { type: string; [key: string]: unknown };
 
 // Called by hermes-relay-service when the gateway sends an `outbound` frame (the agent's
-// send/edit/typing/prompt/react actions — verified against gateway/relay/adapter.py's
-// RelayAdapter directly, not the prose doc: `send` at RelayAdapter.send, `edit` at
-// .edit_message, `typing` at .send_typing, `prompt` at ._send_prompt, `react` at ._react).
-// follow_up/send_media/threads are each a bigger, separately-scoped feature (proactive
-// session_key routing and a media re-host endpoint respectively) — not handled here.
+// send/edit/typing/prompt/react/send_media actions — verified against
+// gateway/relay/adapter.py's RelayAdapter directly, not the prose doc: `send` at
+// RelayAdapter.send, `edit` at .edit_message, `typing` at .send_typing, `prompt` at
+// ._send_prompt, `react` at ._react, `send_media` at .send_media). `follow_up`/threads
+// are each a bigger, separately-scoped feature (proactive session_key routing) — not
+// handled here.
 export async function POST(req: NextRequest) {
   const authError = assertInternalHermesAuth(req);
   if (authError) return authError;
@@ -133,6 +197,27 @@ export async function POST(req: NextRequest) {
           },
         },
       ];
+    } else if (action.op === 'send_media') {
+      if (!action.media_kind || !action.source_url) {
+        return NextResponse.json({ success: false, error: 'missing_content' });
+      }
+      const mediaUrl = await resolveMediaUrl(action.source_url, connector.userId);
+      if (!mediaUrl) {
+        return NextResponse.json({ success: false, error: 'media_fetch_failed' });
+      }
+      parts = [
+        {
+          type: 'data-hermes_media',
+          data: {
+            mediaKind: action.media_kind,
+            url: mediaUrl,
+            filename: action.filename ?? null,
+            // adapter.py's _send_media always sends `content: caption or ""` — never
+            // omitted — so an empty string means "no caption", not a legitimate value.
+            caption: action.content || null,
+          },
+        },
+      ];
     } else {
       return NextResponse.json({ success: false, error: 'op_not_supported' });
     }
@@ -172,7 +257,8 @@ export async function POST(req: NextRequest) {
     // check: the preference is whether a subscription exists at all (Settings > Hermes).
     const hasActiveViewer = await isHermesChatViewerActive(conversation.chatId);
     if (!hasActiveViewer) {
-      const body = action.content!.length > 160 ? `${action.content!.slice(0, 157)}...` : action.content!;
+      const content = action.content || (action.op === 'send_media' ? `📎 ${action.media_kind}` : '');
+      const body = content.length > 160 ? `${content.slice(0, 157)}...` : content;
       await sendPushToUser(connector.userId, {
         title: 'Hermes',
         body,

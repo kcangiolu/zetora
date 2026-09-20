@@ -68,3 +68,29 @@ export function reportConnectionStatus(params: {
 }): Promise<{ success?: boolean; error?: string }> {
   return postInternal('/api/internal/hermes/connection-status', params);
 }
+
+// Forwards a gateway's `POST /relay/media` upload (raw bytes) to zetora-app's storage —
+// this service holds no storage credentials of its own, same posture as everything else
+// here. Unlike postInternal, the body is raw bytes with the gateway's own Content-Type,
+// not a JSON envelope.
+export async function uploadGatewayMedia(params: {
+  gatewayId: string;
+  contentType: string;
+  filename: string | null;
+  body: Buffer;
+}): Promise<{ id: string }> {
+  const res = await fetch(`${config.zetoraInternalUrl}/api/internal/hermes/media`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${config.internalSecret}`,
+      'Content-Type': params.contentType,
+      'X-Gateway-Id': params.gatewayId,
+      ...(params.filename ? { 'X-Media-Filename': encodeURIComponent(params.filename) } : {}),
+    },
+    body: params.body,
+  });
+  if (!res.ok) {
+    throw new Error(`zetora-app media upload failed: ${res.status}`);
+  }
+  return (await res.json()) as { id: string };
+}

@@ -23,12 +23,10 @@ export function buildDescriptorFrame() {
       // supported_ops fails open to a legacy set (send/edit/typing/follow_up) — but
       // listing anything here makes it the EXACT set, so this must name every op this
       // service actually implements (adapter.py's _send_prompt checks
-      // `supports_op("prompt")` before ever attempting one). "follow_up" and
-      // "send_media" are deliberately omitted: not yet handled (see index.ts) — proactive
-      // sends and media egress are each a bigger, separately-scoped feature (session_key
-      // routing and a media re-host endpoint, respectively), not a one-line addition like
-      // edit/typing/react were.
-      supported_ops: ['send', 'prompt', 'edit', 'typing', 'react'],
+      // `supports_op("prompt")` before ever attempting one). "follow_up" is deliberately
+      // omitted: not yet handled (see index.ts) — proactive sends need session_key
+      // routing, a separately-scoped feature, not a one-line addition like the others.
+      supported_ops: ['send', 'prompt', 'edit', 'typing', 'react', 'send_media'],
     },
   };
 }

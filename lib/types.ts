@@ -345,9 +345,20 @@ export type CustomUIDataTypes = {
     content: string;
     options: Array<{ id: string; label: string; style?: 'primary' | 'success' | 'danger' | 'secondary' }>;
   };
+  // A Hermes Agent `send_media` action (docs/relay-connector-contract.md §4) — see
+  // components/message-parts/hermes-media.tsx. `url` is always Zetora's own storage
+  // (re-hosted from the gateway's upload, or downloaded server-side from a public
+  // source_url), never a bare pass-through of whatever the gateway cited.
+  hermes_media: {
+    mediaKind: 'image' | 'voice' | 'audio' | 'video' | 'document';
+    url: string;
+    filename: string | null;
+    caption: string | null;
+  };
 };
 
 export type HermesPromptData = CustomUIDataTypes['hermes_prompt'];
+export type HermesMediaData = CustomUIDataTypes['hermes_media'];
 
 export type ChatMessage = UIMessage<MessageMetadata, CustomUIDataTypes, ChatTools>;
 

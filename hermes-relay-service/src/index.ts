@@ -1,18 +1,24 @@
 import { createServer, type IncomingMessage } from 'node:http';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { config } from './config.js';
-import { enrollGateway, reportAgentEvent, reportConnectionStatus, verifyGatewayAuth } from './internalClient.js';
+import {
+  enrollGateway,
+  reportAgentEvent,
+  reportConnectionStatus,
+  uploadGatewayMedia,
+  verifyGatewayAuth,
+} from './internalClient.js';
 import { parseGatewayBearerToken } from './adapter/auth.js';
 import { buildDescriptorFrame } from './adapter/capabilityDescriptor.js';
 import { parseFrames, sendFrame } from './adapter/frames.js';
 import { registerConnection, unregisterConnection, getConnection } from './connections.js';
 import { isAuthorizedInternalCaller } from './internalAuth.js';
 
-// Handshake (hello -> descriptor) + basic bidirectional text: `outbound` (agent replies,
-// gateway -> connector) and /control/deliver (Zetora user messages, connector -> gateway
-// as `inbound` frames). Edit/typing/prompt/media/threads are later phases — see
-// README.md's "not yet implemented" notes; frames for those are logged and dropped, never
-// crash the connection.
+// Handshake (hello -> descriptor) + bidirectional text/edit/typing/react/media:
+// `outbound` (agent replies, gateway -> connector), /control/deliver (Zetora user
+// messages, connector -> gateway as `inbound` frames), and /relay/media (gateway media
+// re-host uploads). follow_up/threads are still later phases — see README.md's "not yet
+// implemented" notes; frames for those are logged and dropped, never crash the connection.
 const wss = new WebSocketServer({ noServer: true });
 
 const server = createServer((req, res) => {
@@ -24,8 +30,77 @@ const server = createServer((req, res) => {
     void handleDeliver(req, res);
     return;
   }
+  if (req.method === 'POST' && req.url === '/relay/media') {
+    void handleMediaUpload(req, res);
+    return;
+  }
   res.writeHead(404).end();
 });
+
+// docs/relay-connector-contract.md §4 send_media: a gateway re-hosts media it wants to
+// send by POSTing the raw bytes here (auth = same per-gateway HMAC bearer as the WS
+// upgrade), then cites `{connector}/relay/media/{id}` back as the outbound action's
+// source_url. 25MB cap per the contract's `mediaStore.ts` MEDIA_MAX_BYTES convention.
+const MAX_MEDIA_BYTES = 25 * 1024 * 1024;
+
+class PayloadTooLargeError extends Error {}
+
+function readRawBody(req: IncomingMessage, maxBytes: number): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let total = 0;
+    req.on('data', (chunk: Buffer) => {
+      total += chunk.length;
+      if (total > maxBytes) {
+        req.destroy();
+        reject(new PayloadTooLargeError());
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
+async function handleMediaUpload(req: IncomingMessage, res: import('node:http').ServerResponse) {
+  const parsed = parseGatewayBearerToken(req.headers.authorization);
+  if (!parsed) {
+    res.writeHead(401, { 'Content-Type': 'application/json' }).end(JSON.stringify({ error: 'missing_or_malformed_token' }));
+    return;
+  }
+
+  const auth = await verifyGatewayAuth(parsed);
+  if (!auth.valid) {
+    res.writeHead(401, { 'Content-Type': 'application/json' }).end(JSON.stringify({ error: auth.reason ?? 'invalid' }));
+    return;
+  }
+
+  let body: Buffer;
+  try {
+    body = await readRawBody(req, MAX_MEDIA_BYTES);
+  } catch (error) {
+    if (error instanceof PayloadTooLargeError) {
+      res.writeHead(413, { 'Content-Type': 'application/json' }).end(JSON.stringify({ error: 'payload_too_large' }));
+      return;
+    }
+    console.error('[hermes-relay] media read failed', error);
+    res.writeHead(500, { 'Content-Type': 'application/json' }).end(JSON.stringify({ error: 'internal_error' }));
+    return;
+  }
+
+  const contentType = req.headers['content-type'] || 'application/octet-stream';
+  const filenameHeader = req.headers['x-media-filename'];
+  const filename = typeof filenameHeader === 'string' ? decodeURIComponent(filenameHeader) : null;
+
+  try {
+    const result = await uploadGatewayMedia({ gatewayId: parsed.gatewayId, contentType, filename, body });
+    res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ id: result.id, size: body.length }));
+  } catch (error) {
+    console.error('[hermes-relay] media upload failed', error);
+    res.writeHead(500, { 'Content-Type': 'application/json' }).end(JSON.stringify({ error: 'internal_error' }));
+  }
+}
 
 // Called by zetora-app: push a Zetora user's message (or button click) down the gateway's
 // live WS as an `inbound` frame. Gated the same way as the reverse direction
