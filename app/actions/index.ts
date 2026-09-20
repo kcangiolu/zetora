@@ -8,3 +8,5 @@ export * from './preferences';
 export * from './lookouts';
 export * from './connectors';
 export * from './compaction';
+export * from './hermes';
+export * from './push';

@@ -64,6 +64,7 @@ import {
 
 // Hook imports
 import { useAutoResume } from '@/hooks/use-auto-resume';
+import { useHermesStream } from '@/hooks/use-hermes-stream';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import type { ReasoningEffort } from '@/lib/reasoning-effort-types';
 import { useUser } from '@/contexts/user-context';
@@ -827,6 +828,16 @@ const ChatInterface = memo(
         console.error('Chat error:', error.cause, error.message);
       },
       messages: initialMessages || [],
+    });
+
+    // Merges Hermes agent replies into the same `messages` list the normal LLM path
+    // populates — only subscribed while a Hermes chat is active (see
+    // hooks/use-hermes-stream.ts). The user's own message is appended optimistically by
+    // FormComponent's Hermes submit branch, not here.
+    useHermesStream({
+      chatId,
+      enabled: effectiveSelectedGroup === 'hermes',
+      setMessages,
     });
 
     const [isManuallyStopping, setIsManuallyStopping] = useState(false);
@@ -1777,6 +1788,7 @@ const ChatInterface = memo(
                       inputRef={inputRef}
                       stop={stop}
                       messages={messages as ChatMessage[]}
+                      setMessages={setMessages}
                       sendMessage={sendMessageWithAutoRouting}
                       selectedModel={selectedModel}
                       setSelectedModel={handleModelChange}

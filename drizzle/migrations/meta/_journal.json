@@ -134,6 +134,13 @@
       "when": 1789376870561,
       "tag": "0018_peaceful_micromacro",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1789901198435,
+      "tag": "0019_mature_talisman",
+      "breakpoints": true
     }
   ]
 }

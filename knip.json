@@ -2,8 +2,10 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "ignore": [
     "public/pcm-processor-worklet.js",
+    "public/sw.js",
     "scripts/migrate.js",
-    "components/ui/**"
+    "components/ui/**",
+    "hermes-relay-service/**"
   ],
   "ignoreBinaries": ["vc"],
   "ignoreDependencies": [

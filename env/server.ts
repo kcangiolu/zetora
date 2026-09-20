@@ -77,6 +77,25 @@ export const serverEnv = createEnv({
     SPOTIFY_CLIENT_SECRET: z.string().optional().default('placeholder'),
     MCP_CREDENTIALS_ENCRYPTION_KEY: z.string().optional().default('placeholder'),
     MCP_OAUTH_CALLBACK_ORIGIN: z.string().optional().default('placeholder'),
+    HERMES_GATEWAY_SECRET_ENCRYPTION_KEY: z.string().optional().default('placeholder'),
+    // Shared secret gating the internal-only /api/internal/hermes/* routes, called by
+    // hermes-relay-service over the compose network. That network isn't itself a trust
+    // boundary (zetora-app's port is not loopback-restricted by default — see
+    // docker-compose.yml), so this header check is load-bearing, not decoration.
+    HERMES_RELAY_INTERNAL_SECRET: z.string().optional().default('placeholder'),
+    // Base URL hermes-relay-service listens on, used by zetora-app to reach its
+    // /control/deliver endpoint (outbound-to-Hermes path).
+    HERMES_RELAY_SERVICE_URL: z.string().url().optional().default('http://localhost:8200'),
+    // Public wss:// URL surfaced in the Settings > Hermes enrollment command — this is
+    // what a user's own `hermes gateway enroll` dials, so it must be reachable from
+    // their machine, not just from inside the compose network.
+    HERMES_RELAY_PUBLIC_URL: z.string().optional().default('placeholder'),
+    // Web Push (RFC 8030) credentials, generated once via `npx web-push generate-vapid-keys`.
+    // VAPID_PUBLIC_KEY is also read client-side as NEXT_PUBLIC_VAPID_PUBLIC_KEY (see
+    // hooks/use-push-subscription.ts) — the two must be set to the same value.
+    VAPID_PUBLIC_KEY: z.string().optional().default('placeholder'),
+    VAPID_PRIVATE_KEY: z.string().optional().default('placeholder'),
+    VAPID_SUBJECT: z.string().optional().default('mailto:admin@localhost'),
     ALLOWED_ORIGINS: z.string().optional().default('http://localhost:3000'),
     GITHUB_MCP_CLIENT_ID: z.string().optional().default('placeholder'),
     GITHUB_MCP_CLIENT_SECRET: z.string().optional().default('placeholder'),

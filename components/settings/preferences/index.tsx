@@ -12,6 +12,7 @@ import { VoiceTab } from './voice';
 import { SearchTab } from './search';
 import { IntegrationsTab } from './integrations';
 import { AiModelsTab } from './ai-models';
+import { HermesTab } from './hermes';
 
 export function PreferencesSection({
   user,
@@ -45,7 +46,7 @@ export function PreferencesSection({
   }, []);
 
   const [preferencesTab, setPreferencesTab] = useState<
-    'general' | 'search' | 'ai-models' | 'voice' | 'integrations' | 'customize'
+    'general' | 'search' | 'ai-models' | 'voice' | 'integrations' | 'customize' | 'hermes'
   >('general');
 
   return (
@@ -55,7 +56,9 @@ export function PreferencesSection({
           variant="segmented"
           value={preferencesTab}
           onValueChange={(v) =>
-            setPreferencesTab(v as 'general' | 'search' | 'ai-models' | 'voice' | 'integrations' | 'customize')
+            setPreferencesTab(
+              v as 'general' | 'search' | 'ai-models' | 'voice' | 'integrations' | 'customize' | 'hermes',
+            )
           }
           className="w-full [--color-kumo-tint:var(--accent)] [--color-kumo-base:var(--background)] [--color-kumo-recessed:var(--muted)] [--color-kumo-surface:var(--card)] [--text-color-kumo-default:var(--foreground)] [--text-color-kumo-strong:var(--muted-foreground)] [--text-color-kumo-subtle:var(--muted-foreground)] [--color-kumo-ring:var(--border)]"
           listClassName="w-full overflow-x-auto [&>button]:shrink-0 [&>button]:justify-center md:[&>button]:flex-1"
@@ -66,6 +69,7 @@ export function PreferencesSection({
             { value: 'voice', label: 'Voice & Media' },
             { value: 'integrations', label: 'Integrations' },
             { value: 'customize', label: 'Customize' },
+            { value: 'hermes', label: 'Hermes' },
           ]}
         />
 
@@ -103,6 +107,9 @@ export function PreferencesSection({
 
         {/* ── Customize tab ── */}
         {preferencesTab === 'customize' && <CustomizeTab />}
+
+        {/* ── Hermes tab ── */}
+        {preferencesTab === 'hermes' && <HermesTab user={user} />}
       </div>
     </div>
   );
