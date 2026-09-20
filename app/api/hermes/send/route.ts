@@ -5,6 +5,7 @@ import {
   getHermesConnectorByUserId,
   getHermesConversationByChatId,
   createHermesConversation,
+  saveChat,
   saveMessages,
 } from '@/lib/db/queries';
 import { deliverToGateway } from '@/lib/hermes/relay-client';
@@ -41,9 +42,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const chat = await getChatByIdForValidation({ id: chatId });
-  if (!chat || chat.userId !== session.user.id) {
+  // Unlike /api/search, this route is the ONLY thing that ever creates a chat row for a
+  // Hermes conversation — there's no separate LLM-turn machinery in front of it to do so
+  // for a brand-new chat, so the first message of a new Hermes chat must create it here.
+  const existingChat = await getChatByIdForValidation({ id: chatId });
+  if (existingChat && existingChat.userId !== session.user.id) {
     return NextResponse.json({ error: 'Chat not found' }, { status: 404 });
+  }
+  if (!existingChat) {
+    await saveChat({
+      id: chatId,
+      userId: session.user.id,
+      title: text.length > 80 ? `${text.slice(0, 77)}...` : text,
+      visibility: 'private',
+    });
   }
 
   const connector = await getHermesConnectorByUserId(session.user.id);
