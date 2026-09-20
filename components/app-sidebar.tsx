@@ -718,6 +718,7 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
   };
 
   return (
+    <>
     <Sidebar
       collapsible="icon"
       className="shadow-none! border-none! **:data-[slot=sidebar-inner]:light:bg-primary/10 **:data-[slot=sidebar-inner]:dark:bg-primary/4 **:data-[slot=sidebar-inner]:colourful:bg-primary/10 **:data-[slot=sidebar-inner]:text-sidebar-foreground **:data-[slot=sidebar-gap]:bg-transparent"
@@ -1463,8 +1464,9 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
         </>
       )}
 
-      <KeyboardShortcutsDialog open={keyboardShortcutsOpen} onOpenChange={setKeyboardShortcutsOpen} />
     </Sidebar>
+    <KeyboardShortcutsDialog open={keyboardShortcutsOpen} onOpenChange={setKeyboardShortcutsOpen} />
+    </>
   );
 });
 
