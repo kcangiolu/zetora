@@ -1,6 +1,6 @@
 'use client';
 
-import React, { memo, useMemo } from 'react';
+import React, { memo, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -517,6 +517,29 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
     gcTime: 1000 * 60 * 5,
     refetchOnReconnect: true,
   });
+
+  // Refetch when the tab/PWA comes back to the foreground. iOS Safari
+  // (standalone PWA in particular) suspends the page while backgrounded and
+  // never fires a reliable `focus` event on return, so `refetchOnWindowFocus`
+  // alone can't catch a chat created elsewhere while this device was away.
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const refetchOnForeground = () => {
+      if (document.visibilityState !== 'visible') return;
+      queryClient.refetchQueries({ queryKey: ['recent-chats', user.id] });
+    };
+
+    document.addEventListener('visibilitychange', refetchOnForeground);
+    window.addEventListener('pageshow', refetchOnForeground);
+    window.addEventListener('online', refetchOnForeground);
+
+    return () => {
+      document.removeEventListener('visibilitychange', refetchOnForeground);
+      window.removeEventListener('pageshow', refetchOnForeground);
+      window.removeEventListener('online', refetchOnForeground);
+    };
+  }, [user?.id, queryClient]);
 
   const recentChats = useMemo(() => chatsData?.chats || [], [chatsData?.chats]);
 
