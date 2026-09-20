@@ -953,6 +953,13 @@ export const DELIVERABLE_TOOL_PART_TYPES = new Set([
 
 function isDeliverablePart(part: ChatMessage['parts'][number]): boolean {
   if (part.type === 'text') return true;
+  // Hermes's own interactive/media parts are never a Zetora-native reasoning/tool-call
+  // step to collapse — they ARE the message. Without this, a Hermes reply that pairs
+  // text with a hermes_prompt/hermes_media part gets its second part swept into the
+  // same hidden-steps bucket as a native tool call, and since the "Zetora task
+  // complete" toggle that would un-collapse it is itself hidden in Hermes mode (see
+  // the `!isHermesMode` guard below), the card becomes permanently inaccessible.
+  if (part.type === 'data-hermes_prompt' || part.type === 'data-hermes_media') return true;
   if (!DELIVERABLE_TOOL_PART_TYPES.has(part.type)) return false;
   const anyPart = part as unknown as { state?: string; output?: { success?: boolean } };
   return anyPart.state === 'output-available' && anyPart.output?.success !== false;
@@ -1288,8 +1295,10 @@ export const Message: React.FC<MessageProps> = ({
     const hasParts = Boolean(message.parts && message.parts.length > 0);
     // Only the final answer and deliverables (generated images/files) stay
     // visible when collapsed — reasoning, tool calls, and other step parts
-    // are what "Zetora task complete" hides.
-    const showAllSteps = isTurnStreaming || isTaskExpanded || !hasParts;
+    // are what "Zetora task complete" hides. Meaningless for Hermes (see the
+    // header's own !isHermesMode guard below) — always show every part rather
+    // than relying solely on isDeliverablePart to allowlist each hermes_* type.
+    const showAllSteps = isTurnStreaming || isTaskExpanded || !hasParts || isHermesMode;
 
     // When collapsed, don't just drop hidden steps silently — replace each
     // run of consecutive hidden parts (reasoning, tool calls) with a single
