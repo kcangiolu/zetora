@@ -2784,6 +2784,28 @@ const FormComponent: React.FC<FormComponentProps> = ({
                               )}
                             </button>
                           )}
+                          {user && hermesEnabled && (
+                            <button
+                              className={cn(
+                                'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors',
+                                selectedGroup === 'hermes' && 'bg-accent',
+                              )}
+                              onClick={() => handleSpecialModeToggle('hermes')}
+                            >
+                              <FlexibleIcon
+                                icon={dynamicSearchGroups.find((g) => g.id === 'hermes')!.icon}
+                                size={16}
+                                color="currentColor"
+                                strokeWidth={1.5}
+                              />
+                              <span className="flex-1 text-[13px]">Agent</span>
+                              {selectedGroup === 'hermes' && (
+                                <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                  Active
+                                </span>
+                              )}
+                            </button>
+                          )}
                           {/* {(input.length > 0 || isEnhancing || isTypewriting) && (
                             <button className={cn('w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors', isEnhancementActive && 'bg-accent')} onClick={() => { if (!isEnhancing && !isTypewriting) handleEnhance(); setPlusMenuOpen(false); }} disabled={isEnhancing || isTypewriting || uploadQueue.length > 0 || status !== 'ready' || isLimitBlocked}>
                               {isEnhancementActive ? <GripIcon ref={gripIconRef} size={16} className="text-primary" /> : <Wand2 className="size-4 text-muted-foreground" />}
@@ -3034,6 +3056,35 @@ const FormComponent: React.FC<FormComponentProps> = ({
                               <span className="text-[10px] leading-snug">
                                 Research and generate interactive dashboards
                               </span>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                        {user && hermesEnabled && (
+                          <Tooltip delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <button
+                                className={cn(
+                                  'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors',
+                                  selectedGroup === 'hermes' && 'bg-accent',
+                                )}
+                                onClick={() => handleSpecialModeToggle('hermes')}
+                              >
+                                <FlexibleIcon
+                                  icon={dynamicSearchGroups.find((g) => g.id === 'hermes')!.icon}
+                                  size={16}
+                                  color="currentColor"
+                                  strokeWidth={1.5}
+                                />
+                                <span className="flex-1 text-[13px]">Agent</span>
+                                {selectedGroup === 'hermes' && (
+                                  <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                    Active
+                                  </span>
+                                )}
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
+                              <span className="text-[10px] leading-snug">Talk to your own Hermes Agent</span>
                             </TooltipContent>
                           </Tooltip>
                         )}
