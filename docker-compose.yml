@@ -892,8 +892,12 @@ services:
       # NOT loopback-restricted, same reasoning as minio/s2s-service above: this
       # is the endpoint users' own Hermes gateways dial into from anywhere, so a
       # reverse proxy in front of it (or this port directly) must be reachable
-      # from outside the Docker host.
-      - '8200:8200'
+      # from outside the Docker host. Host side is 8201, not 8200: some hosts
+      # already have something else bound to 8200 (e.g. a backup tool) — the
+      # container's own internal port stays 8200, only the host publish differs,
+      # so ZETORA_INTERNAL_URL/compose-network callers are unaffected. Override
+      # via ${ZETORA_HERMES_RELAY_HOST_PORT} if 8201 collides too.
+      - '${ZETORA_HERMES_RELAY_HOST_PORT:-8201}:8200'
     environment:
       - HERMES_RELAY_PORT=8200
       - ZETORA_INTERNAL_URL=http://zetora-app:3333
