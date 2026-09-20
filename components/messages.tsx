@@ -70,6 +70,9 @@ interface MessagesProps {
   // none is active — drives the same loading indicator a streaming LLM turn shows, since
   // Hermes has no LLM-turn status of its own to derive shouldShowLoading from.
   hermesTypingLabel?: string | null;
+  // Hermes's best-effort `react` acks (👀 seen → ✅/❌ done) on the user's own messages,
+  // keyed by message id — see chat-interface.tsx's onReaction wiring.
+  hermesReactions?: Record<string, string | null>;
   // Reserved space below the message list to clear whatever bottom bar sits over it.
   // Defaults to the height of the main chat composer; callers with a shorter bottom
   // bar (e.g. the read-only share page) should override it.
@@ -118,6 +121,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     skipAutoScrollRef,
     isHermesMode = false,
     hermesTypingLabel = null,
+    hermesReactions,
   },
   ref,
 ) {
@@ -484,6 +488,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
             sendMessage={sendMessage}
             regenerate={regenerate}
             isHermesMode={isHermesMode}
+            hermesReaction={hermesReactions?.[message.id] ?? null}
             setSuggestedQuestions={setSuggestedQuestions}
             suggestedQuestions={index === memoizedMessages.length - 1 ? suggestedQuestions : []}
             user={user ?? undefined}
@@ -526,6 +531,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
       sendMessage,
       regenerate,
       isHermesMode,
+      hermesReactions,
       setSuggestedQuestions,
       suggestedQuestions,
       user,

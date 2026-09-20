@@ -388,6 +388,8 @@ interface MessageProps {
   // See messages.tsx's own isHermesMode comment: regenerate() always targets
   // /api/search, which a Hermes-mode chat never uses.
   isHermesMode?: boolean;
+  // Hermes's best-effort `react` ack on THIS user message (👀 seen → ✅/❌ done), or null.
+  hermesReaction?: string | null;
   setSuggestedQuestions: (questions: string[]) => void;
   suggestedQuestions: string[];
   user?: ComprehensiveUserData | null;
@@ -1051,6 +1053,7 @@ export const Message: React.FC<MessageProps> = ({
   selectedVisibilityType = 'private',
   regenerate,
   isHermesMode = false,
+  hermesReaction = null,
   isLastMessage,
   error,
   isMissingAssistantResponse,
@@ -1241,6 +1244,16 @@ export const Message: React.FC<MessageProps> = ({
                       <div className="absolute bottom-0 left-0 right-0 h-16 bg-linear-to-t from-background via-background/80 to-transparent pointer-events-none" />
                     )}
                   </div>
+
+                  {/* Hermes's react ack (👀 seen → ✅/❌ done) on this message — see
+                      message.tsx's hermesReaction prop / agent-event/route.ts's `react`. */}
+                  {isHermesMode && hermesReaction && (
+                    <div className="flex justify-end mt-1">
+                      <span className="text-sm leading-none" aria-label={`Hermes reacted: ${hermesReaction}`}>
+                        {hermesReaction}
+                      </span>
+                    </div>
+                  )}
 
                   {exceedsMaxHeight && (
                     <button

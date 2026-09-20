@@ -10,6 +10,7 @@ type HermesEvent =
   | { kind: 'message'; message: { id: string; role: 'assistant'; parts: Array<Record<string, unknown>>; createdAt: string } }
   | { kind: 'edit'; message: { id: string; parts: Array<Record<string, unknown>> } }
   | { kind: 'typing'; content: string | null }
+  | { kind: 'reaction'; message: { id: string; emoji: string | null } }
   | { kind: 'connection-status'; connected: boolean; error: string | null };
 
 // Subscribes to app/api/hermes/[chatId]/stream (plain SSE, native EventSource — see that
@@ -23,6 +24,7 @@ export function useHermesStream({
   setMessages,
   onConnectionStatus,
   onTyping,
+  onReaction,
 }: {
   chatId: string;
   enabled: boolean;
@@ -33,6 +35,9 @@ export function useHermesStream({
   // whenever a real message/edit lands — the arriving content is itself proof the agent
   // is done for now. The two cases are unambiguous: only the clear call ever passes null.
   onTyping?: (content: string | null) => void;
+  // Fired whenever Hermes reacts to (or un-reacts from) one of the user's own messages —
+  // see agent-event/route.ts's `react` branch. null clears the reaction.
+  onReaction?: (messageId: string, emoji: string | null) => void;
 }) {
   useEffect(() => {
     if (!enabled || !chatId) return;
@@ -69,12 +74,17 @@ export function useHermesStream({
         return;
       }
 
+      if (payload.kind === 'reaction') {
+        onReaction?.(payload.message.id, payload.message.emoji);
+        return;
+      }
+
       if (payload.kind === 'connection-status') {
         onConnectionStatus?.(payload.connected, payload.error);
       }
     };
 
     return () => source.close();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- setMessages/onConnectionStatus/onTyping are stable callbacks from the caller
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setMessages/onConnectionStatus/onTyping/onReaction are stable callbacks from the caller
   }, [chatId, enabled]);
 }

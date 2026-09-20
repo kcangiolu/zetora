@@ -171,6 +171,13 @@ export const message = pgTable(
     // How many original messages the current summary text represents — display
     // only ("Summary of N earlier messages"), null for every non-summary message.
     compactionReplacedCount: integer('compaction_replaced_count'),
+    // Hermes's `react` op (docs/relay-connector-contract.md §4): the agent's own
+    // best-effort processing-lifecycle ack (👀 seen → ✅/❌ done) on a USER message it
+    // received — never on its own replies. Stores only the current emoji (each `react`
+    // call replaces it outright, matching the contract's own semantics — it isn't a
+    // multi-user reaction list); null when absent or explicitly removed
+    // (action.remove === true). Every non-Hermes message leaves this null forever.
+    hermesReaction: text('hermes_reaction'),
   },
   (table) => [
     index('message_chatId_idx').on(table.chatId),
@@ -582,25 +589,6 @@ export const hermesConversation = pgTable(
   (table) => [index('hermesConversation_connectorId_idx').on(table.connectorId)],
 );
 
-// Maps a Zetora message row to the message id Hermes assigned it, so a later `edit`
-// action frame (streamed redraft) can find the right row without adding Hermes-specific
-// columns to the shared `message` table.
-export const hermesMessageLink = pgTable(
-  'hermes_message_link',
-  {
-    id: text('id')
-      .primaryKey()
-      .$defaultFn(() => generateId()),
-    messageId: text('message_id')
-      .notNull()
-      .unique()
-      .references(() => message.id, { onDelete: 'cascade' }),
-    hermesMessageId: text('hermes_message_id').notNull(),
-    createdAt: timestamp('created_at').notNull().defaultNow(),
-  },
-  (table) => [index('hermesMessageLink_hermesMessageId_idx').on(table.hermesMessageId)],
-);
-
 export const pushSubscription = pgTable(
   'push_subscription',
   {
@@ -639,12 +627,6 @@ export const hermesConversationRelations = relations(hermesConversation, ({ one 
   }),
 }));
 
-export const hermesMessageLinkRelations = relations(hermesMessageLink, ({ one }) => ({
-  message: one(message, {
-    fields: [hermesMessageLink.messageId],
-    references: [message.id],
-  }),
-}));
 
 export const pushSubscriptionRelations = relations(pushSubscription, ({ one }) => ({
   user: one(user, {

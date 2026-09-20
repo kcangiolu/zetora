@@ -87,6 +87,7 @@ export async function POST(req: NextRequest) {
           searchVector: null,
           isCompactionSummary: false,
           compactionReplacedCount: null,
+          hermesReaction: null,
         },
       ],
     });

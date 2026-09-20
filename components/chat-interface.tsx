@@ -835,11 +835,13 @@ const ChatInterface = memo(
     // hooks/use-hermes-stream.ts). The user's own message is appended optimistically by
     // FormComponent's Hermes submit branch, not here.
     const [hermesTypingLabel, setHermesTypingLabel] = useState<string | null>(null);
+    const [hermesReactions, setHermesReactions] = useState<Record<string, string | null>>({});
     useHermesStream({
       chatId,
       enabled: effectiveSelectedGroup === 'hermes',
       setMessages,
       onTyping: setHermesTypingLabel,
+      onReaction: (messageId, emoji) => setHermesReactions((prev) => ({ ...prev, [messageId]: emoji })),
     });
 
     const [isManuallyStopping, setIsManuallyStopping] = useState(false);
@@ -1722,6 +1724,7 @@ const ChatInterface = memo(
                     regenerate={regenerate}
                     isHermesMode={effectiveSelectedGroup === 'hermes'}
                     hermesTypingLabel={hermesTypingLabel}
+                    hermesReactions={hermesReactions}
                     stop={stop}
                     suggestedQuestions={chatState.suggestedQuestions}
                     setSuggestedQuestions={(questions) =>

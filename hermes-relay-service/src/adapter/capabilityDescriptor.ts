@@ -27,8 +27,8 @@ export function buildDescriptorFrame() {
       // "send_media" are deliberately omitted: not yet handled (see index.ts) — proactive
       // sends and media egress are each a bigger, separately-scoped feature (session_key
       // routing and a media re-host endpoint, respectively), not a one-line addition like
-      // edit/typing were.
-      supported_ops: ['send', 'prompt', 'edit', 'typing'],
+      // edit/typing/react were.
+      supported_ops: ['send', 'prompt', 'edit', 'typing', 'react'],
     },
   };
 }

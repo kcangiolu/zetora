@@ -5,6 +5,7 @@ import {
   getHermesConversationByConnectorId,
   getMessageById,
   updateMessagePartsById,
+  updateMessageHermesReaction,
   saveMessages,
 } from '@/lib/db/queries';
 import { publishHermesEvent, isHermesChatViewerActive } from '@/lib/hermes/realtime';
@@ -23,16 +24,18 @@ interface OutboundAction {
   prompt_id?: string;
   options?: Array<{ id: string; label: string; style?: string }>;
   message_id?: string;
+  emoji?: string;
+  remove?: boolean;
 }
 
 type MessagePart = { type: string; [key: string]: unknown };
 
 // Called by hermes-relay-service when the gateway sends an `outbound` frame (the agent's
-// send/edit/typing/prompt actions — verified against gateway/relay/adapter.py's RelayAdapter
-// directly, not the prose doc: `send` at RelayAdapter.send, `edit` at .edit_message,
-// `typing` at .send_typing, `prompt` at ._send_prompt). follow_up/send_media/react/threads
-// are each a bigger, separately-scoped feature (proactive session_key routing, a media
-// re-host endpoint, and message reactions respectively) — not handled here.
+// send/edit/typing/prompt/react actions — verified against gateway/relay/adapter.py's
+// RelayAdapter directly, not the prose doc: `send` at RelayAdapter.send, `edit` at
+// .edit_message, `typing` at .send_typing, `prompt` at ._send_prompt, `react` at ._react).
+// follow_up/send_media/threads are each a bigger, separately-scoped feature (proactive
+// session_key routing and a media re-host endpoint respectively) — not handled here.
 export async function POST(req: NextRequest) {
   const authError = assertInternalHermesAuth(req);
   if (authError) return authError;
@@ -85,6 +88,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
+    if (action.op === 'react') {
+      // Targets a USER message (adapter.py's on_processing_start/on_processing_complete
+      // react on event.message_id / event.source.message_id — the id of the INBOUND
+      // message this route itself assigned in /api/hermes/send, echoed back here), never
+      // one of Hermes's own replies. Best-effort by contract: never surface a failure as
+      // anything but success:false, and a missing message is a normal race (deleted,
+      // wrong id) rather than an error worth 500ing over.
+      if (!action.message_id) {
+        return NextResponse.json({ success: false, error: 'missing_message_id' });
+      }
+      const [existing] = await getMessageById({ id: action.message_id });
+      if (!existing || existing.chatId !== conversation.chatId) {
+        return NextResponse.json({ success: false, error: 'unknown_message' });
+      }
+      const emoji = action.remove ? null : (action.emoji ?? null);
+      await updateMessageHermesReaction({ id: action.message_id, emoji });
+      await publishHermesEvent(conversation.chatId, {
+        kind: 'reaction',
+        message: { id: action.message_id, emoji },
+      });
+      return NextResponse.json({ success: true });
+    }
+
     let parts: MessagePart[];
     if (action.op === 'send') {
       if (!action.content) {
@@ -131,6 +157,7 @@ export async function POST(req: NextRequest) {
           searchVector: null,
           isCompactionSummary: false,
           compactionReplacedCount: null,
+          hermesReaction: null,
         },
       ],
     });

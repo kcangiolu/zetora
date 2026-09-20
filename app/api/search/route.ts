@@ -1323,6 +1323,7 @@ export async function POST(req: Request) {
             searchVector: null,
             isCompactionSummary: false,
             compactionReplacedCount: null,
+            hermesReaction: null,
           };
         }),
       });

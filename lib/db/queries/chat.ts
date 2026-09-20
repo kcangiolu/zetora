@@ -470,6 +470,16 @@ export async function updateMessagePartsById({ id, parts }: { id: string; parts:
   }
 }
 
+// Hermes's `react` op — see lib/db/schema.ts's hermesReaction comment. `emoji: null`
+// clears it (action.remove === true).
+export async function updateMessageHermesReaction({ id, emoji }: { id: string; emoji: string | null }) {
+  try {
+    return await maindb.update(message).set({ hermesReaction: emoji }).where(eq(message.id, id));
+  } catch (error) {
+    throw new ChatSDKError('bad_request:database', 'Failed to update message reaction');
+  }
+}
+
 // Inserts the chat's (at most one) compaction-summary message on first
 // compaction, or updates it in place on every later incremental re-compaction
 // (see lib/search/context-compaction.ts). The message's own createdAt is the

@@ -381,6 +381,7 @@ export async function forkChat(
       searchVector: null,
       isCompactionSummary: messageItem.isCompactionSummary,
       compactionReplacedCount: messageItem.compactionReplacedCount ?? null,
+      hermesReaction: null,
     }));
 
     await all(
@@ -452,6 +453,7 @@ export async function branchOutChat({
         searchVector: null,
         isCompactionSummary: false,
         compactionReplacedCount: null,
+        hermesReaction: null,
       },
       {
         chatId: newChatId,
@@ -468,6 +470,7 @@ export async function branchOutChat({
         searchVector: null,
         isCompactionSummary: false,
         compactionReplacedCount: null,
+        hermesReaction: null,
       },
     ];
 
