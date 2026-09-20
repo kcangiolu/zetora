@@ -9,7 +9,7 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
 import { createLogger } from '@/lib/logger';
-import { FASTCRW_SEARCH_TIMEOUT_MS, SEARXNG_TIMEOUT_MS } from '@/lib/timeouts';
+import { FASTCRW_SEARCH_TIMEOUT_MS, SEARXNG_TIMEOUT_MS, withAbort } from '@/lib/timeouts';
 
 const log = createLogger('reddit-search');
 
@@ -137,7 +137,12 @@ interface SearxngResult {
   content: string;
 }
 
-async function searchRedditWithSearxng(baseUrl: string, query: string, maxResults: number): Promise<RedditResult[]> {
+async function searchRedditWithSearxng(
+  baseUrl: string,
+  query: string,
+  maxResults: number,
+  abortSignal?: AbortSignal,
+): Promise<RedditResult[]> {
   const params = new URLSearchParams({
     q: `${query} site:reddit.com`,
     format: 'json',
@@ -145,7 +150,7 @@ async function searchRedditWithSearxng(baseUrl: string, query: string, maxResult
   });
 
   const response = await fetch(`${baseUrl.replace(/\/$/, '')}/search?${params.toString()}`, {
-    signal: AbortSignal.timeout(SEARXNG_TIMEOUT_MS),
+    signal: withAbort(abortSignal, SEARXNG_TIMEOUT_MS),
   });
 
   if (!response.ok) {
@@ -181,12 +186,17 @@ interface FastCrwSearchApiResponse {
   };
 }
 
-async function searchRedditWithFastCrw(baseUrl: string, query: string, maxResults: number): Promise<RedditResult[]> {
+async function searchRedditWithFastCrw(
+  baseUrl: string,
+  query: string,
+  maxResults: number,
+  abortSignal?: AbortSignal,
+): Promise<RedditResult[]> {
   const response = await fetch(`${baseUrl}/v1/search`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query: `${query} site:reddit.com`, limit: maxResults }),
-    signal: AbortSignal.timeout(FASTCRW_SEARCH_TIMEOUT_MS),
+    signal: withAbort(abortSignal, FASTCRW_SEARCH_TIMEOUT_MS),
   });
 
   if (!response.ok) {
@@ -223,6 +233,7 @@ async function runRedditProvider(
   query: string,
   maxResults: number,
   afterDate: string | undefined,
+  abortSignal?: AbortSignal,
 ): Promise<RedditResult[]> {
   if (provider === 'firecrawl') return searchRedditWithFirecrawl(query, maxResults);
 
@@ -231,7 +242,7 @@ async function runRedditProvider(
       log.warn('SearXNG provider selected for Reddit search but SEARXNG_URL is not configured');
       return [];
     }
-    return searchRedditWithSearxng(serverEnv.SEARXNG_URL, query, maxResults);
+    return searchRedditWithSearxng(serverEnv.SEARXNG_URL, query, maxResults, abortSignal);
   }
 
   if (provider === 'fastcrw') {
@@ -239,7 +250,7 @@ async function runRedditProvider(
       log.warn('fastCRW provider selected for Reddit search but FASTCRW_URL is not configured');
       return [];
     }
-    return searchRedditWithFastCrw(serverEnv.FASTCRW_URL, query, maxResults);
+    return searchRedditWithFastCrw(serverEnv.FASTCRW_URL, query, maxResults, abortSignal);
   }
 
   return searchRedditWithParallel(query, maxResults, afterDate);
@@ -272,15 +283,18 @@ export function redditSearchTool(
         .optional()
         .describe('Optional per-query time range. Used to set source_policy.after_date in the Parallel API.'),
     }),
-    execute: async ({
-      queries,
-      maxResults,
-      timeRange,
-    }: {
-      queries: string[];
-      maxResults?: number[];
-      timeRange?: TimeRange[];
-    }) => {
+    execute: async (
+      {
+        queries,
+        maxResults,
+        timeRange,
+      }: {
+        queries: string[];
+        maxResults?: number[];
+        timeRange?: TimeRange[];
+      },
+      { abortSignal }: { abortSignal?: AbortSignal },
+    ) => {
       log.debug('Reddit search queries:', queries);
       log.debug('Max results:', maxResults);
       log.debug('Time ranges:', timeRange);
@@ -306,7 +320,7 @@ export function redditSearchTool(
 
           let processedResults: RedditResult[] = [];
           try {
-            processedResults = await runRedditProvider(provider, query, currentMaxResults, afterDate);
+            processedResults = await runRedditProvider(provider, query, currentMaxResults, afterDate, abortSignal);
           } catch (primaryError) {
             log.error(`Reddit search ${provider} error for query "${query}":`, primaryError);
           }
@@ -314,7 +328,13 @@ export function redditSearchTool(
           if (processedResults.length === 0 && fallbackProvider && fallbackProvider !== provider) {
             try {
               log.debug(`Reddit search: ${provider} returned no results, falling back to ${fallbackProvider}`);
-              processedResults = await runRedditProvider(fallbackProvider, query, currentMaxResults, afterDate);
+              processedResults = await runRedditProvider(
+                fallbackProvider,
+                query,
+                currentMaxResults,
+                afterDate,
+                abortSignal,
+              );
             } catch (fallbackError) {
               log.error(`Reddit search ${fallbackProvider} fallback error for query "${query}":`, fallbackError);
             }

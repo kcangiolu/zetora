@@ -2,7 +2,7 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { serverEnv } from '@/env/server';
 import { scrapeWebpageWithNotte } from '@/lib/notte';
-import { FASTCRW_SCRAPE_TIMEOUT_MS, METADATA_TIMEOUT_MS } from '@/lib/timeouts';
+import { FASTCRW_SCRAPE_TIMEOUT_MS, METADATA_TIMEOUT_MS, withAbort } from '@/lib/timeouts';
 
 import { createLogger } from '@/lib/logger';
 
@@ -15,7 +15,7 @@ const SEARCH_CONTENT_MAX_CHARS = 3000;
 export const BROWSE_PAGE_CONTENT_MAX_CHARS = 20000;
 
 export interface ContentExtractionStrategy {
-  getContents(links: string[]): Promise<SearchResult[]>;
+  getContents(links: string[], abortSignal?: AbortSignal): Promise<SearchResult[]>;
 }
 
 export interface SearchResult {
@@ -63,6 +63,7 @@ async function scrapeWithFastCrw(
   url: string,
   fastcrwUrl: string,
   maxContentChars: number = SEARCH_CONTENT_MAX_CHARS,
+  abortSignal?: AbortSignal,
 ): Promise<SearchResult | null> {
   try {
     const response = await fetch(`${fastcrwUrl.replace(/\/$/, '')}/v1/scrape`, {
@@ -73,7 +74,7 @@ async function scrapeWithFastCrw(
         formats: ['markdown'],
         onlyMainContent: true,
       }),
-      signal: AbortSignal.timeout(FASTCRW_SCRAPE_TIMEOUT_MS),
+      signal: withAbort(abortSignal, FASTCRW_SCRAPE_TIMEOUT_MS),
     });
 
     if (!response.ok) return null;
@@ -141,13 +142,13 @@ interface MetadataResponse {
   image?: string;
 }
 
-async function scrapeWithMetadata(url: string): Promise<SearchResult | null> {
+async function scrapeWithMetadata(url: string, abortSignal?: AbortSignal): Promise<SearchResult | null> {
   try {
     const endpoint = new URL('https://metadata.zetora.app/');
     endpoint.searchParams.set('url', url);
     const response = await fetch(endpoint.toString(), {
       method: 'GET',
-      signal: AbortSignal.timeout(METADATA_TIMEOUT_MS),
+      signal: withAbort(abortSignal, METADATA_TIMEOUT_MS),
     });
     if (!response.ok) return null;
 
@@ -198,7 +199,7 @@ export class SelfHostedContentStrategy implements ContentExtractionStrategy {
     this.metadataEnabled = options.metadataEnabled ?? true;
   }
 
-  async getContents(links: string[]): Promise<SearchResult[]> {
+  async getContents(links: string[], abortSignal?: AbortSignal): Promise<SearchResult[]> {
     const uniqueUrls = Array.from(new Set(links)).filter(isHttpUrl);
     if (uniqueUrls.length === 0) return [];
 
@@ -208,7 +209,10 @@ export class SelfHostedContentStrategy implements ContentExtractionStrategy {
     if (this.fastcrwUrl) {
       const fastcrwResults = await all(
         Object.fromEntries(
-          uniqueUrls.map((url, i) => [`fc:${i}`, async () => scrapeWithFastCrw(url, this.fastcrwUrl)]),
+          uniqueUrls.map((url, i) => [
+            `fc:${i}`,
+            async () => scrapeWithFastCrw(url, this.fastcrwUrl, SEARCH_CONTENT_MAX_CHARS, abortSignal),
+          ]),
         ),
         getBetterAllOptions(),
       );
@@ -252,7 +256,7 @@ export class SelfHostedContentStrategy implements ContentExtractionStrategy {
 
     if (remaining.length > 0 && this.metadataEnabled) {
       const metaResults = await all(
-        Object.fromEntries(remaining.map((url, i) => [`md:${i}`, async () => scrapeWithMetadata(url)])),
+        Object.fromEntries(remaining.map((url, i) => [`md:${i}`, async () => scrapeWithMetadata(url, abortSignal)])),
         getBetterAllOptions(),
       );
 
@@ -277,13 +281,16 @@ export class FastCrwContentStrategy implements ContentExtractionStrategy {
     private maxContentChars: number = SEARCH_CONTENT_MAX_CHARS,
   ) {}
 
-  async getContents(links: string[]): Promise<SearchResult[]> {
+  async getContents(links: string[], abortSignal?: AbortSignal): Promise<SearchResult[]> {
     const uniqueUrls = Array.from(new Set(links)).filter(isHttpUrl);
     if (uniqueUrls.length === 0 || !this.fastcrwUrl) return [];
 
     const fastcrwResults = await all(
       Object.fromEntries(
-        uniqueUrls.map((url, i) => [`fc:${i}`, async () => scrapeWithFastCrw(url, this.fastcrwUrl, this.maxContentChars)]),
+        uniqueUrls.map((url, i) => [
+          `fc:${i}`,
+          async () => scrapeWithFastCrw(url, this.fastcrwUrl, this.maxContentChars, abortSignal),
+        ]),
       ),
       getBetterAllOptions(),
     );

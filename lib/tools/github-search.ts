@@ -9,7 +9,7 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
 import { createLogger } from '@/lib/logger';
-import { FASTCRW_SEARCH_TIMEOUT_MS, GITHUB_API_TIMEOUT_MS, SEARXNG_TIMEOUT_MS } from '@/lib/timeouts';
+import { FASTCRW_SEARCH_TIMEOUT_MS, GITHUB_API_TIMEOUT_MS, SEARXNG_TIMEOUT_MS, withAbort } from '@/lib/timeouts';
 
 const log = createLogger('github-search');
 
@@ -77,7 +77,11 @@ interface GithubRepoApiResponse {
   owner?: { login?: string };
 }
 
-async function fetchGithubRepoMetadata(owner: string, repo: string): Promise<GithubRepoApiResponse | null> {
+async function fetchGithubRepoMetadata(
+  owner: string,
+  repo: string,
+  abortSignal?: AbortSignal,
+): Promise<GithubRepoApiResponse | null> {
   try {
     const headers: Record<string, string> = {
       Accept: 'application/vnd.github+json',
@@ -87,7 +91,7 @@ async function fetchGithubRepoMetadata(owner: string, repo: string): Promise<Git
 
     const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
       headers,
-      signal: AbortSignal.timeout(GITHUB_API_TIMEOUT_MS),
+      signal: withAbort(abortSignal, GITHUB_API_TIMEOUT_MS),
     });
 
     if (!response.ok) return null;
@@ -102,7 +106,10 @@ async function fetchGithubRepoMetadata(owner: string, repo: string): Promise<Git
 // authoritative repo metadata straight from the GitHub REST API, since neither
 // search backend's scraped/snippet content reliably carries exact star counts,
 // language, or last-push date.
-async function enrichGithubResultsWithApi(results: GitHubResult[]): Promise<GitHubResult[]> {
+async function enrichGithubResultsWithApi(
+  results: GitHubResult[],
+  abortSignal?: AbortSignal,
+): Promise<GitHubResult[]> {
   const repoKeys = new Set<string>();
   for (const result of results) {
     const match = result.url.match(/github\.com\/([^/]+)\/([^/]+)/);
@@ -112,7 +119,7 @@ async function enrichGithubResultsWithApi(results: GitHubResult[]): Promise<GitH
   const entries = await Promise.all(
     Array.from(repoKeys).map(async (key) => {
       const [owner, repo] = key.split('/');
-      return [key, await fetchGithubRepoMetadata(owner, repo)] as const;
+      return [key, await fetchGithubRepoMetadata(owner, repo, abortSignal)] as const;
     }),
   );
   const metaByRepo = new Map(entries);
@@ -150,12 +157,17 @@ interface FastCrwSearchApiResponse {
   };
 }
 
-async function searchGithubWithFastCrw(baseUrl: string, query: string, limit: number): Promise<GitHubResult[]> {
+async function searchGithubWithFastCrw(
+  baseUrl: string,
+  query: string,
+  limit: number,
+  abortSignal?: AbortSignal,
+): Promise<GitHubResult[]> {
   const response = await fetch(`${baseUrl}/v1/search`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query: `${query} site:github.com`, limit }),
-    signal: AbortSignal.timeout(FASTCRW_SEARCH_TIMEOUT_MS),
+    signal: withAbort(abortSignal, FASTCRW_SEARCH_TIMEOUT_MS),
   });
 
   if (!response.ok) {
@@ -184,7 +196,12 @@ interface SearxngResult {
   content: string;
 }
 
-async function searchGithubWithSearxng(baseUrl: string, query: string, limit: number): Promise<GitHubResult[]> {
+async function searchGithubWithSearxng(
+  baseUrl: string,
+  query: string,
+  limit: number,
+  abortSignal?: AbortSignal,
+): Promise<GitHubResult[]> {
   const params = new URLSearchParams({
     q: query,
     engines: 'github',
@@ -193,7 +210,7 @@ async function searchGithubWithSearxng(baseUrl: string, query: string, limit: nu
   });
 
   const response = await fetch(`${baseUrl.replace(/\/$/, '')}/search?${params.toString()}`, {
-    signal: AbortSignal.timeout(SEARXNG_TIMEOUT_MS),
+    signal: withAbort(abortSignal, SEARXNG_TIMEOUT_MS),
   });
 
   if (!response.ok) {
@@ -228,13 +245,14 @@ async function runGithubProvider(
   provider: GithubSearchProvider,
   query: string,
   limit: number,
+  abortSignal?: AbortSignal,
 ): Promise<GitHubResult[]> {
   if (provider === 'searxng') {
     if (!serverEnv.SEARXNG_URL) {
       log.warn('SearXNG provider selected for GitHub search but SEARXNG_URL is not configured');
       return [];
     }
-    return searchGithubWithSearxng(serverEnv.SEARXNG_URL, query, limit);
+    return searchGithubWithSearxng(serverEnv.SEARXNG_URL, query, limit, abortSignal);
   }
 
   if (provider === 'fastcrw') {
@@ -242,7 +260,7 @@ async function runGithubProvider(
       log.warn('fastCRW provider selected for GitHub search but FASTCRW_URL is not configured');
       return [];
     }
-    return searchGithubWithFastCrw(serverEnv.FASTCRW_URL, query, limit);
+    return searchGithubWithFastCrw(serverEnv.FASTCRW_URL, query, limit, abortSignal);
   }
 
   const firecrawlResults = await firecrawl.search(query, {
@@ -334,17 +352,20 @@ export function githubSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>
         .optional()
         .describe('End date for filtering results in ISO format (e.g., 2025-12-31T23:59:59.999Z)'),
     }),
-    execute: async ({
-      queries,
-      maxResults,
-      startDate,
-      endDate,
-    }: {
-      queries: string[];
-      maxResults?: number[];
-      startDate?: string;
-      endDate?: string;
-    }) => {
+    execute: async (
+      {
+        queries,
+        maxResults,
+        startDate,
+        endDate,
+      }: {
+        queries: string[];
+        maxResults?: number[];
+        startDate?: string;
+        endDate?: string;
+      },
+      { abortSignal }: { abortSignal?: AbortSignal },
+    ) => {
       log.debug('GitHub search queries:', queries);
       log.debug('Max results:', maxResults);
       log.debug('Date range:', startDate, '-', endDate);
@@ -368,7 +389,7 @@ export function githubSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>
 
           let processedResults: GitHubResult[] = [];
           try {
-            processedResults = await runGithubProvider(provider, query, currentMaxResults);
+            processedResults = await runGithubProvider(provider, query, currentMaxResults, abortSignal);
           } catch (primaryError) {
             log.error(`GitHub search ${provider} error for query "${query}":`, primaryError);
           }
@@ -376,14 +397,14 @@ export function githubSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>
           if (processedResults.length === 0 && fallbackProvider && fallbackProvider !== provider) {
             try {
               log.debug(`GitHub search: ${provider} returned no results, falling back to ${fallbackProvider}`);
-              processedResults = await runGithubProvider(fallbackProvider, query, currentMaxResults);
+              processedResults = await runGithubProvider(fallbackProvider, query, currentMaxResults, abortSignal);
             } catch (fallbackError) {
               log.error(`GitHub search ${fallbackProvider} fallback error for query "${query}":`, fallbackError);
             }
           }
 
           if (processedResults.length > 0) {
-            processedResults = await enrichGithubResultsWithApi(processedResults);
+            processedResults = await enrichGithubResultsWithApi(processedResults, abortSignal);
           }
 
           if (processedResults.length === 0) {

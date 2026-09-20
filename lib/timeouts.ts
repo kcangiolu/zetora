@@ -35,5 +35,13 @@ export function isPastDeadline(deadlineMs: number, nowMs: number = Date.now()): 
   return nowMs > deadlineMs;
 }
 
+// A fixed timeout alone ignores the caller's own cancellation (e.g. the user
+// hitting Stop mid-search) and keeps the fetch running for up to `timeoutMs`
+// regardless. Combine both so either one can end the request.
+export function withAbort(externalSignal: AbortSignal | undefined, timeoutMs: number): AbortSignal {
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
+  return externalSignal ? AbortSignal.any([externalSignal, timeoutSignal]) : timeoutSignal;
+}
+
 // Exported for tests.
 export const _envMs = envMs;

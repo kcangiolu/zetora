@@ -10,7 +10,7 @@ import Firecrawl, { SearchResultWeb } from '@mendable/firecrawl-js';
 import Exa from 'exa-js';
 
 import { createLogger } from '@/lib/logger';
-import { FASTCRW_SEARCH_TIMEOUT_MS, SEARXNG_TIMEOUT_MS } from '@/lib/timeouts';
+import { FASTCRW_SEARCH_TIMEOUT_MS, SEARXNG_TIMEOUT_MS, withAbort } from '@/lib/timeouts';
 
 const log = createLogger('academic-search');
 
@@ -41,12 +41,17 @@ type AcademicResult = { url: string; title: string; summary: string };
 // GitHub (`site:github.com`) — steering results toward known paper hosts.
 const ACADEMIC_QUERY_HINT = '(site:arxiv.org OR site:ncbi.nlm.nih.gov OR site:scholar.google.com OR filetype:pdf)';
 
-async function searchAcademicWithFastCrw(baseUrl: string, query: string, limit: number): Promise<AcademicResult[]> {
+async function searchAcademicWithFastCrw(
+  baseUrl: string,
+  query: string,
+  limit: number,
+  abortSignal?: AbortSignal,
+): Promise<AcademicResult[]> {
   const response = await fetch(`${baseUrl}/v1/search`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query: `${query} ${ACADEMIC_QUERY_HINT}`, limit }),
-    signal: AbortSignal.timeout(FASTCRW_SEARCH_TIMEOUT_MS),
+    signal: withAbort(abortSignal, FASTCRW_SEARCH_TIMEOUT_MS),
   });
 
   if (!response.ok) {
@@ -62,7 +67,12 @@ async function searchAcademicWithFastCrw(baseUrl: string, query: string, limit: 
   }));
 }
 
-async function searchAcademicWithSearxng(baseUrl: string, query: string, limit: number): Promise<AcademicResult[]> {
+async function searchAcademicWithSearxng(
+  baseUrl: string,
+  query: string,
+  limit: number,
+  abortSignal?: AbortSignal,
+): Promise<AcademicResult[]> {
   const params = new URLSearchParams({
     q: query,
     categories: 'science',
@@ -71,7 +81,7 @@ async function searchAcademicWithSearxng(baseUrl: string, query: string, limit: 
   });
 
   const response = await fetch(`${baseUrl.replace(/\/$/, '')}/search?${params.toString()}`, {
-    signal: AbortSignal.timeout(SEARXNG_TIMEOUT_MS),
+    signal: withAbort(abortSignal, SEARXNG_TIMEOUT_MS),
   });
 
   if (!response.ok) {
@@ -112,6 +122,7 @@ async function runAcademicProvider(
   provider: AcademicSearchProvider,
   query: string,
   limit: number,
+  abortSignal?: AbortSignal,
 ): Promise<AcademicResult[]> {
   if (provider === 'exa') {
     return searchAcademicWithExa(query, limit);
@@ -122,7 +133,7 @@ async function runAcademicProvider(
       log.warn('SearXNG provider selected for academic search but SEARXNG_URL is not configured');
       return [];
     }
-    return searchAcademicWithSearxng(serverEnv.SEARXNG_URL, query, limit);
+    return searchAcademicWithSearxng(serverEnv.SEARXNG_URL, query, limit, abortSignal);
   }
 
   if (provider === 'fastcrw') {
@@ -130,7 +141,7 @@ async function runAcademicProvider(
       log.warn('fastCRW provider selected for academic search but FASTCRW_URL is not configured');
       return [];
     }
-    return searchAcademicWithFastCrw(serverEnv.FASTCRW_URL, query, limit);
+    return searchAcademicWithFastCrw(serverEnv.FASTCRW_URL, query, limit, abortSignal);
   }
 
   const firecrawlResults = await firecrawl.search(query, {
@@ -173,7 +184,10 @@ export function academicSearchTool(
         .optional()
         .describe('Array of maximum results per query. Default is 20 per query.'),
     }),
-    execute: async ({ queries, maxResults }: { queries: string[]; maxResults?: number[] }) => {
+    execute: async (
+      { queries, maxResults }: { queries: string[]; maxResults?: number[] },
+      { abortSignal }: { abortSignal?: AbortSignal },
+    ) => {
       try {
         log.debug('Academic search queries:', queries);
         log.debug('Max results:', maxResults);
@@ -197,7 +211,7 @@ export function academicSearchTool(
 
             let processedResults: AcademicResult[] = [];
             try {
-              processedResults = await runAcademicProvider(provider, query, currentMaxResults);
+              processedResults = await runAcademicProvider(provider, query, currentMaxResults, abortSignal);
             } catch (primaryError) {
               log.error(`Academic search ${provider} error for query "${query}":`, primaryError);
             }
@@ -205,7 +219,7 @@ export function academicSearchTool(
             if (processedResults.length === 0 && fallbackProvider && fallbackProvider !== provider) {
               try {
                 log.debug(`Academic search: ${provider} returned no results, falling back to ${fallbackProvider}`);
-                processedResults = await runAcademicProvider(fallbackProvider, query, currentMaxResults);
+                processedResults = await runAcademicProvider(fallbackProvider, query, currentMaxResults, abortSignal);
               } catch (fallbackError) {
                 log.error(`Academic search ${fallbackProvider} fallback error for query "${query}":`, fallbackError);
               }

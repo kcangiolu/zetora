@@ -1,7 +1,7 @@
 import type { UIMessageStreamWriter } from 'ai';
 import type { ChatMessage } from '../types';
 import type { SearchStrategy } from './web-search';
-import { FASTCRW_SEARCH_TIMEOUT_MS } from '@/lib/timeouts';
+import { FASTCRW_SEARCH_TIMEOUT_MS, withAbort } from '@/lib/timeouts';
 
 import { createLogger } from '@/lib/logger';
 
@@ -38,6 +38,7 @@ export class FastCrwWebSearchStrategy implements SearchStrategy {
       quality: ('default' | 'best')[];
       startDates?: (string | null)[];
       dataStream?: UIMessageStreamWriter<ChatMessage>;
+      abortSignal?: AbortSignal;
     },
   ): Promise<{ searches: Array<{ query: string; results: any[]; images: any[] }> }> {
     const searches = await Promise.all(
@@ -65,7 +66,7 @@ export class FastCrwWebSearchStrategy implements SearchStrategy {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
-            signal: AbortSignal.timeout(FASTCRW_SEARCH_TIMEOUT_MS),
+            signal: withAbort(options.abortSignal, FASTCRW_SEARCH_TIMEOUT_MS),
           });
 
           if (!response.ok) {

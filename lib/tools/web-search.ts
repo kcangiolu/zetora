@@ -122,6 +122,7 @@ export interface SearchStrategy {
       startDates?: (string | null)[];
       language?: string;
       dataStream?: UIMessageStreamWriter<ChatMessage>;
+      abortSignal?: AbortSignal;
     },
   ): Promise<{ searches: Array<{ query: string; results: any[]; images: any[] }> }>;
 }
@@ -746,21 +747,24 @@ export function webSearchTool(
         )
         .optional(),
     }),
-    execute: async ({
-      queries,
-      maxResults,
-      topics,
-      quality,
-      startDates,
-      language,
-    }: {
-      queries: string[];
-      maxResults?: (number | undefined)[];
-      topics?: ('general' | 'news' | undefined)[];
-      quality?: ('default' | 'best' | undefined)[];
-      startDates?: (string | null | undefined)[];
-      language?: string;
-    }) => {
+    execute: async (
+      {
+        queries,
+        maxResults,
+        topics,
+        quality,
+        startDates,
+        language,
+      }: {
+        queries: string[];
+        maxResults?: (number | undefined)[];
+        topics?: ('general' | 'news' | undefined)[];
+        quality?: ('default' | 'best' | undefined)[];
+        startDates?: (string | null | undefined)[];
+        language?: string;
+      },
+      { abortSignal }: { abortSignal?: AbortSignal },
+    ) => {
       // Use singleton clients (initialized at module level for reuse)
       const clients = getSearchClients();
 
@@ -792,6 +796,7 @@ export function webSearchTool(
         startDates: startDates as (string | null)[] | undefined,
         language: normalizedLanguage,
         dataStream,
+        abortSignal,
       };
       let result = await strategy.search(queries, searchOptions);
       const hasNoResults = result.searches.every((s) => s.results.length === 0);
@@ -819,7 +824,7 @@ export function webSearchTool(
         quality as ('default' | 'best')[],
         async (urls) => {
           const contentStrategy = new SelfHostedContentStrategy({ notteEnabled, metadataEnabled });
-          const contents = await contentStrategy.getContents(urls);
+          const contents = await contentStrategy.getContents(urls, abortSignal);
           return contents.map((c) => ({ url: c.url, content: c.content }));
         },
       );
