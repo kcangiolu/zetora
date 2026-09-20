@@ -164,8 +164,12 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     const lastIndex = memoizedMessages.length - 1;
     const lastMessage = memoizedMessages[lastIndex];
 
-    // Case 1: Last message is user and no assistant response yet
-    if (lastMessage?.role === 'user' && status === 'ready' && !error) {
+    // Case 1: Last message is user and no assistant response yet. Meaningless in Hermes
+    // mode: useChat's own status never leaves 'ready' for a Hermes turn (the outbound
+    // send is a plain fetch, not useChat's sendMessage — see hooks/use-hermes-send.ts),
+    // so this would fire the instant the user's message is appended, even though the
+    // agent's reply (arriving async over the SSE channel) just hasn't landed yet.
+    if (!isHermesMode && lastMessage?.role === 'user' && status === 'ready' && !error) {
       return lastIndex;
     }
 
@@ -201,7 +205,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     }
 
     return -1;
-  }, [memoizedMessages, status, error]);
+  }, [memoizedMessages, status, error, isHermesMode]);
 
   // Memoize the retry handler
   const handleRetry = useCallback(async () => {

@@ -26,11 +26,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
     return new ChatSDKError('unauthorized:chat').toResponse();
   }
 
+  // A brand-new Hermes chat has no `chat` row yet — /api/hermes/send is the only thing
+  // that creates one, and only on the FIRST message (see its own comment on why). The
+  // client opens this stream the moment Hermes mode is activated, before any message is
+  // necessarily sent, so a missing chat here is a legitimate "nothing to subscribe to
+  // yet" state, not an error — 404ing would make the browser's EventSource retry loop
+  // race the chat's creation and miss the very first agent reply. chatId is a private,
+  // client-generated random id never exposed before the owning session creates it, so
+  // there's no meaningful ownership check to perform for a chat that doesn't exist yet.
   const chat = await getChatByIdForValidation({ id: chatId });
-  if (!chat) {
-    return new ChatSDKError('not_found:chat').toResponse();
-  }
-  if (chat.userId !== session.user.id) {
+  if (chat && chat.userId !== session.user.id) {
     return new ChatSDKError('forbidden:chat').toResponse();
   }
 
