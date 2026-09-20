@@ -1339,7 +1339,11 @@ export const Message: React.FC<MessageProps> = ({
             Each hidden run's tool badges (rendered inline in partsList,
             right where the steps they replace happened) are the trace that
             survives the collapse, so it's never just a bare text block. */}
-        {!isTurnStreaming && hasParts && (
+        {/* Meaningless for a Hermes message: there are no Zetora-native tool-call parts
+            to collapse (Hermes messages are plain text, occasionally with its own
+            markdown code fences for a tool-use summary it chose to report) — the label
+            would misleadingly imply Zetora itself ran a tool-calling turn. */}
+        {!isTurnStreaming && hasParts && !isHermesMode && (
           <button
             onClick={() => setIsTaskExpanded((v) => !v)}
             className="flex items-center gap-1.5 mb-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"

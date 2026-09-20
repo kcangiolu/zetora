@@ -692,8 +692,13 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
           {/* Canvas spec rendering (between text and action buttons) */}
           {!isEditingText && hasCanvasSpec && <CanvasSpecRenderer parts={parts} isStreaming={status === 'streaming'} />}
 
-          {/* Action buttons below the text */}
-          {shouldShowActionButtons && !isEditingText && (
+          {/* Action buttons below the text — none of them are meaningful for a Hermes
+              message: Edit/Rewrite would silently do nothing (blocked, see the guard at
+              the top of this component), Branch Out would produce a chat with no real
+              hermesConversation link (a dead end masquerading as a continuation), and
+              Copy/TTS/Download exist for a native LLM turn's deliverable output, not a
+              relayed status update. Hidden wholesale rather than picked apart per-icon. */}
+          {shouldShowActionButtons && !isEditingText && !isHermesMode && (
             <div className="flex items-center justify-between mt-3 mb-4">
               {/* Left side - Action buttons */}
               <div className="flex items-center gap-1.5">
