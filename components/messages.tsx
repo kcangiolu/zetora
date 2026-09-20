@@ -58,6 +58,14 @@ interface MessagesProps {
   isTransitioning?: boolean;
   onBeforeSubmit?: () => void;
   skipCacheRef?: React.MutableRefObject<boolean>;
+  // Regenerate/retry (below) always calls useChat's own regenerate(), which
+  // always targets /api/search — there is no Hermes-aware variant of it. A
+  // Hermes-mode chat never goes through /api/search at all, so calling it
+  // there would silently run a real LLM turn instead of anything Hermes.
+  // Gate it off entirely rather than build a parallel "resend to Hermes"
+  // regenerate — Hermes already has its own native retry (the `/retry` slash
+  // command, see lib/hermes/commands.ts).
+  isHermesMode?: boolean;
   // Reserved space below the message list to clear whatever bottom bar sits over it.
   // Defaults to the height of the main chat composer; callers with a shorter bottom
   // bar (e.g. the read-only share page) should override it.
@@ -104,6 +112,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     bottomSpacerClassName = 'mb-38! sm:mb-42!',
     onAtBottomChange,
     skipAutoScrollRef,
+    isHermesMode = false,
   },
   ref,
 ) {
@@ -196,6 +205,13 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
 
   // Memoize the retry handler
   const handleRetry = useCallback(async () => {
+    if (isHermesMode) {
+      sileo.error({
+        title: 'Retry is not available here',
+        description: 'Use the /retry command in your Agent chat instead.',
+      });
+      return;
+    }
     try {
       const lastUserMessage = messages.findLast((m) => m.role === 'user');
       if (!lastUserMessage) return;
@@ -234,7 +250,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     } catch (error) {
       console.error('Error in retry:', error);
     }
-  }, [messages, user, setMessages, setSuggestedQuestions, regenerate, stop, skipCacheRef]);
+  }, [messages, user, setMessages, setSuggestedQuestions, regenerate, stop, skipCacheRef, isHermesMode]);
 
   // Memoize the delete handler - same as retry but without regenerating,
   // for when the user just wants to remove an orphaned/empty last turn
@@ -307,6 +323,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
           setMessages={setMessages}
           setSuggestedQuestions={setSuggestedQuestions}
           regenerate={regenerate}
+          isHermesMode={isHermesMode}
           stop={stop}
           sendMessage={sendMessage}
           onHighlight={onHighlight}
@@ -328,6 +345,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
       setMessages,
       setSuggestedQuestions,
       regenerate,
+      isHermesMode,
       stop,
       sendMessage,
       reasoningVisibilityMap,
@@ -453,6 +471,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
             setMessages={setMessages}
             sendMessage={sendMessage}
             regenerate={regenerate}
+            isHermesMode={isHermesMode}
             setSuggestedQuestions={setSuggestedQuestions}
             suggestedQuestions={index === memoizedMessages.length - 1 ? suggestedQuestions : []}
             user={user ?? undefined}
@@ -494,6 +513,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
       setMessages,
       sendMessage,
       regenerate,
+      isHermesMode,
       setSuggestedQuestions,
       suggestedQuestions,
       user,

@@ -385,6 +385,9 @@ interface MessageProps {
   setMessages: UseChatHelpers<ChatMessage>['setMessages'];
   sendMessage: UseChatHelpers<ChatMessage>['sendMessage'];
   regenerate: UseChatHelpers<ChatMessage>['regenerate'];
+  // See messages.tsx's own isHermesMode comment: regenerate() always targets
+  // /api/search, which a Hermes-mode chat never uses.
+  isHermesMode?: boolean;
   setSuggestedQuestions: (questions: string[]) => void;
   suggestedQuestions: string[];
   user?: ComprehensiveUserData | null;
@@ -407,6 +410,7 @@ interface MessageEditorProps {
   setMode: (mode: 'view' | 'edit') => void;
   setMessages: UseChatHelpers<ChatMessage>['setMessages'];
   regenerate: UseChatHelpers<ChatMessage>['regenerate'];
+  isHermesMode?: boolean;
   messages: ChatMessage[];
   setSuggestedQuestions: (questions: string[]) => void;
   user?: ComprehensiveUserData | null;
@@ -472,6 +476,7 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
   setMode,
   setMessages,
   regenerate,
+  isHermesMode = false,
   messages,
   setSuggestedQuestions,
   user,
@@ -740,6 +745,13 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
     e.preventDefault();
     if (!draftContent.trim()) {
       sileo.error({ title: 'Please enter a valid message.' });
+      return;
+    }
+    if (isHermesMode) {
+      sileo.error({
+        title: 'Editing is not available here',
+        description: 'Agent conversations are append-only — send a new message instead.',
+      });
       return;
     }
 
@@ -1038,6 +1050,7 @@ export const Message: React.FC<MessageProps> = ({
   user,
   selectedVisibilityType = 'private',
   regenerate,
+  isHermesMode = false,
   isLastMessage,
   error,
   isMissingAssistantResponse,
@@ -1151,6 +1164,7 @@ export const Message: React.FC<MessageProps> = ({
                 setMode={setMode}
                 setMessages={setMessages}
                 regenerate={regenerate}
+                isHermesMode={isHermesMode}
                 messages={messages}
                 setSuggestedQuestions={setSuggestedQuestions}
                 user={user}

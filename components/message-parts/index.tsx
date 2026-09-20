@@ -191,6 +191,9 @@ interface MessagePartRendererProps {
   setMessages: UseChatHelpers<ChatMessage>['setMessages'];
   setSuggestedQuestions: (questions: string[]) => void;
   regenerate: UseChatHelpers<ChatMessage>['regenerate'];
+  // See messages.tsx's own isHermesMode comment: regenerate() always targets
+  // /api/search, which a Hermes-mode chat never uses.
+  isHermesMode?: boolean;
   stop: UseChatHelpers<ChatMessage>['stop'];
   sendMessage: UseChatHelpers<ChatMessage>['sendMessage'];
   onHighlight?: (text: string) => void;
@@ -221,6 +224,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
     setMessages,
     setSuggestedQuestions,
     regenerate,
+    isHermesMode = false,
     stop,
     sendMessage,
     onHighlight,
@@ -728,6 +732,13 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                           disabled={isRegenerating}
                           onClick={async () => {
                             if (isRegenerating) return;
+                            if (isHermesMode) {
+                              sileo.error({
+                                title: 'Retry is not available here',
+                                description: 'Use the /retry command in your Agent chat instead.',
+                              });
+                              return;
+                            }
 
                             try {
                               setIsRegenerating(true);

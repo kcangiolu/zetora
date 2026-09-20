@@ -1718,6 +1718,7 @@ const ChatInterface = memo(
                     }}
                     sendMessage={sendMessageWithAutoRouting}
                     regenerate={regenerate}
+                    isHermesMode={effectiveSelectedGroup === 'hermes'}
                     stop={stop}
                     suggestedQuestions={chatState.suggestedQuestions}
                     setSuggestedQuestions={(questions) =>
