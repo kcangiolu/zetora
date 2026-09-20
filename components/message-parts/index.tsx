@@ -11,11 +11,11 @@ import { deleteTrailingMessages, branchOutChat, updateMessageParts } from '@/app
 import { sileo } from 'sileo';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
-import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { ShareButton } from '@/components/share';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CpuIcon, SplitIcon } from '@hugeicons/core-free-icons';
 import { ChatMessage, CustomUIDataTypes, DataQueryCompletionPart, DataExtremeSearchPart } from '@/lib/types';
 import { SPEC_DATA_PART_TYPE } from '@json-render/core';
@@ -1281,18 +1281,17 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                   ))}
 
                 {meta && (
-                  <HoverCard openDelay={0} closeDelay={100}>
-                    <HoverCardTrigger asChild>
+                  <Popover>
+                    <PopoverTrigger asChild>
                       <Button
                         variant="ghost"
                         size="icon"
                         className={cn(actionIconButtonClassName, 'touch-manipulation lg:pointer-events-auto')}
-                        onTouchStart={() => {}}
                       >
                         <Info className="h-4 w-4" />
                       </Button>
-                    </HoverCardTrigger>
-                    <HoverCardContent
+                    </PopoverTrigger>
+                    <PopoverContent
                       className="w-72 max-w-[calc(100vw-2rem)]"
                       side="top"
                       align="end"
@@ -1362,8 +1361,8 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                           </div>
                         )}
                       </div>
-                    </HoverCardContent>
-                  </HoverCard>
+                    </PopoverContent>
+                  </Popover>
                 )}
               </div>
             </div>
