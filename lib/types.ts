@@ -338,12 +338,16 @@ export type CustomUIDataTypes = {
   context_excluded_count: { count: number };
   // A Hermes Agent `prompt` action (approval/clarify/choice) rendered as native buttons —
   // see components/message-parts/hermes-prompt.tsx. `promptId` is gateway-minted and
-  // opaque; echoed back verbatim in the button click's prompt_response.
+  // opaque; echoed back verbatim in the button click's prompt_response. `expiresAt`
+  // (epoch ms) is computed server-side in agent-event/route.ts, never trust the client
+  // clock alone — absent/undefined on messages saved before this field existed, meaning
+  // "expiry unknown" (never render as expired), not "never expires".
   hermes_prompt: {
     promptId: string;
     promptKind: 'approval' | 'clarify' | 'choice' | string;
     content: string;
     options: Array<{ id: string; label: string; style?: 'primary' | 'success' | 'danger' | 'secondary' }>;
+    expiresAt?: number;
   };
   // A Hermes Agent `send_media` action (docs/relay-connector-contract.md §4) — see
   // components/message-parts/hermes-media.tsx. `url` is always Zetora's own storage

@@ -90,9 +90,22 @@ interface OutboundAction {
   media_kind?: string;
   source_url?: string;
   filename?: string;
+  timeout_s?: number;
 }
 
 type MessagePart = { type: string; [key: string]: unknown };
+
+// Hermes's own contract: `timeout_s` is advisory-only on the wire and, verified against
+// gateway/relay/adapter.py's _send_prompt, is simply never sent for the prompt kinds
+// currently in use here (slash-confirm's send_slash_confirm, exec approval's
+// send_exec_approval, clarify's send_clarify all omit it). This fallback matches
+// tools/slash_confirm.py's own DEFAULT_TIMEOUT_SECONDS — the shortest of the several
+// internal expiry mechanisms a prompt can be subject to Hermes-side (the relay's own
+// _pending_prompts registry defaults to a full hour) — so a stale button gets flagged
+// well before Hermes silently no-ops a press instead of running the action. Clicking
+// past this is never a dead end regardless: Hermes's slash-command text fallback
+// ("reply /approve, /always, or /cancel") always still works.
+const DEFAULT_PROMPT_TIMEOUT_S = 300;
 
 // Called by hermes-relay-service when the gateway sends an `outbound` frame (the agent's
 // send/edit/typing/prompt/react/send_media actions — verified against
@@ -199,6 +212,7 @@ export async function POST(req: NextRequest) {
       if (!action.content || !action.prompt_id || !Array.isArray(action.options)) {
         return NextResponse.json({ success: false, error: 'missing_content' });
       }
+      const timeoutS = typeof action.timeout_s === 'number' ? action.timeout_s : DEFAULT_PROMPT_TIMEOUT_S;
       parts = [
         { type: 'text', text: action.content },
         {
@@ -208,6 +222,7 @@ export async function POST(req: NextRequest) {
             promptKind: action.prompt_kind ?? 'choice',
             content: action.content,
             options: action.options,
+            expiresAt: Date.now() + timeoutS * 1000,
           },
         },
       ];

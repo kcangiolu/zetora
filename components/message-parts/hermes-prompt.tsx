@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Check, X, HelpCircle } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Check, Clock, X, HelpCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useHermesSend } from '@/hooks/use-hermes-send';
 import type { HermesPromptData } from '@/lib/types';
@@ -24,10 +24,27 @@ const STYLE_CLASSES: Record<string, string> = {
 export function HermesPromptCard({ chatId, prompt }: { chatId: string; prompt: HermesPromptData }) {
   const [answeredOptionId, setAnsweredOptionId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  // expiresAt is undefined for a message saved before this field existed — treat that as
+  // "expiry unknown", never expired, rather than guessing. See agent-event/route.ts's
+  // comment on where the deadline itself comes from (Hermes never sends timeout_s for any
+  // prompt kind currently in use, so this is our own conservative estimate, not a wire
+  // guarantee — a "no longer waiting" reply from Hermes past this point is still possible
+  // even before it fires, and clicking never dead-ends regardless: Hermes's own
+  // slash-command text fallback keeps working either way).
+  const [isExpired, setIsExpired] = useState(() => prompt.expiresAt != null && Date.now() >= prompt.expiresAt);
   const sendHermesMessage = useHermesSend(chatId);
 
+  useEffect(() => {
+    if (isExpired || answeredOptionId || prompt.expiresAt == null) return;
+    // Already-past deadlines still go through setTimeout (0ms clamp) rather than an
+    // immediate setState here — the lazy useState initializer above already covers the
+    // "expired before first render" case, so this only ever fires for a still-pending one.
+    const timer = setTimeout(() => setIsExpired(true), Math.max(0, prompt.expiresAt - Date.now()));
+    return () => clearTimeout(timer);
+  }, [prompt.expiresAt, isExpired, answeredOptionId]);
+
   const handleClick = async (option: HermesPromptOption) => {
-    if (answeredOptionId || sending) return;
+    if (answeredOptionId || sending || isExpired) return;
     setSending(true);
     try {
       await sendHermesMessage(`/${option.id}`, { promptId: prompt.promptId, optionId: option.id, label: option.label });
@@ -50,6 +67,11 @@ export function HermesPromptCard({ chatId, prompt }: { chatId: string; prompt: H
       {answeredOptionId ? (
         <div className="rounded-lg px-3 py-2 text-[11px] font-medium bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400">
           ✓ {prompt.options.find((o) => o.id === answeredOptionId)?.label ?? answeredOptionId}
+        </div>
+      ) : isExpired ? (
+        <div className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-[11px] font-medium bg-muted/40 border border-border/50 text-muted-foreground">
+          <Clock className="size-3.5 shrink-0" />
+          Expired — reply as a normal message instead
         </div>
       ) : (
         <div className="flex flex-wrap gap-2">
