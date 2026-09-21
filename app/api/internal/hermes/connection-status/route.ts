@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { assertInternalHermesAuth } from '@/lib/hermes/internal-auth';
+import { assertHermesEnabled } from '@/lib/hermes/feature-flag';
 import { getHermesConversationsByConnectorId, updateHermesConnectorConnectionStatus } from '@/lib/db/queries';
 import { publishHermesEvent } from '@/lib/hermes/realtime';
 import { createLogger } from '@/lib/logger';
@@ -10,6 +11,9 @@ const log = createLogger('api-internal-hermes-connection-status');
 // tab's status badge (and, once open, the chat's own live view) reflect reality without
 // polling.
 export async function POST(req: NextRequest) {
+  const disabled = assertHermesEnabled();
+  if (disabled) return disabled;
+
   const authError = assertInternalHermesAuth(req);
   if (authError) return authError;
 

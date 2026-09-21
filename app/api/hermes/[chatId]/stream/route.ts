@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth';
 import { getChatByIdForValidation } from '@/lib/db/queries';
 import { ChatSDKError } from '@/lib/errors';
 import { subscribeToHermesChat, markHermesChatViewerActive } from '@/lib/hermes/realtime';
+import { isHermesEnabled } from '@/lib/hermes/feature-flag';
 
 const ACTIVE_VIEWER_REFRESH_MS = 20_000;
 
@@ -16,6 +17,10 @@ const ACTIVE_VIEWER_REFRESH_MS = 20_000;
 // without that reader would mean hand-rolling a parser for protocol semantics this
 // endpoint doesn't need, for no benefit over plain SSE.
 export async function GET(req: Request, { params }: { params: Promise<{ chatId: string }> }) {
+  if (!isHermesEnabled()) {
+    return new ChatSDKError('not_found:api').toResponse();
+  }
+
   const { chatId } = await params;
   if (!chatId) {
     return new ChatSDKError('bad_request:api').toResponse();

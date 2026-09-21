@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { nanoid } from 'nanoid';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { assertInternalHermesAuth } from '@/lib/hermes/internal-auth';
+import { assertHermesEnabled } from '@/lib/hermes/feature-flag';
 import {
   getHermesConnectorByGatewayId,
   getHermesConversationByChatId,
@@ -101,6 +102,9 @@ type MessagePart = { type: string; [key: string]: unknown };
 // are each a bigger, separately-scoped feature (proactive session_key routing) — not
 // handled here.
 export async function POST(req: NextRequest) {
+  const disabled = assertHermesEnabled();
+  if (disabled) return disabled;
+
   const authError = assertInternalHermesAuth(req);
   if (authError) return authError;
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { assertInternalHermesAuth } from '@/lib/hermes/internal-auth';
+import { assertHermesEnabled } from '@/lib/hermes/feature-flag';
 import {
   getPendingHermesConnectorByEnrollmentTokenHash,
   markHermesConnectorEnrolled,
@@ -21,6 +22,9 @@ const log = createLogger('api-internal-hermes-enroll');
 // whatever it presents at redemption time, verified against source, not guessed from
 // the prose doc.
 export async function POST(req: NextRequest) {
+  const disabled = assertHermesEnabled();
+  if (disabled) return disabled;
+
   const authError = assertInternalHermesAuth(req);
   if (authError) return authError;
 

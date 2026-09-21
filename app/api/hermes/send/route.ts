@@ -10,6 +10,7 @@ import {
   saveMessages,
 } from '@/lib/db/queries';
 import { deliverToGateway } from '@/lib/hermes/relay-client';
+import { assertHermesEnabled } from '@/lib/hermes/feature-flag';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('api-hermes-send');
@@ -26,6 +27,9 @@ interface SendBody {
 // implementation plan's rationale). This route only ever talks to hermes-relay-service,
 // never to an LLM.
 export async function POST(req: NextRequest) {
+  const disabled = assertHermesEnabled();
+  if (disabled) return disabled;
+
   let body: SendBody;
   try {
     body = await req.json();

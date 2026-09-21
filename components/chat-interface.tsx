@@ -235,10 +235,14 @@ const ChatInterface = memo(
     // Which mode lane this chat is permanently committed to, decided by whichever mode
     // sent its FIRST message — see getHermesChatLock's own comment. null for a chat with
     // no messages yet (still free), so this only ever matters for an existing chat.
+    // hermesEnvEnabled mirrors form-component/index.tsx's own flag (see
+    // lib/hermes/feature-flag.ts) — skips the query entirely on a deployment where
+    // Hermes never ships, rather than asking a disabled server action for nothing.
+    const hermesEnvEnabled = process.env.NEXT_PUBLIC_HERMES_ENABLED !== 'false';
     const { data: hermesChatLockData } = useQuery({
       queryKey: ['hermesChatLock', initialChatId],
       queryFn: () => getHermesChatLockAction(initialChatId!),
-      enabled: !!initialChatId,
+      enabled: !!initialChatId && hermesEnvEnabled,
       staleTime: 30_000,
     });
     const hermesChatLock = hermesChatLockData?.lock ?? null;

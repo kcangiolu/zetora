@@ -5,6 +5,7 @@ import { getCurrentUser } from './user';
 import { createHermesConnector, getHermesConnectorByUserId, getHermesChatLock, revokeHermesConnector } from '@/lib/db/queries/hermes';
 import { getChatByIdForValidation } from '@/lib/db/queries/chat';
 import { hashEnrollmentToken } from '@/lib/hermes/crypto';
+import { isHermesEnabled } from '@/lib/hermes/feature-flag';
 import { serverEnv } from '@/env/server';
 import { createLogger } from '@/lib/logger';
 
@@ -18,6 +19,10 @@ const ENROLLMENT_TOKEN_TTL_MS = 15 * 60 * 1000;
 // createHermesConnector upserts on the unique userId.
 export async function createHermesEnrollmentAction() {
   'use server';
+
+  if (!isHermesEnabled()) {
+    return { success: false as const, error: 'Hermes is not enabled on this deployment' };
+  }
 
   try {
     const user = await getCurrentUser();
@@ -64,6 +69,10 @@ export async function createHermesEnrollmentAction() {
 export async function getHermesConnectorStatusAction() {
   'use server';
 
+  if (!isHermesEnabled()) {
+    return { success: true as const, connector: null };
+  }
+
   try {
     const user = await getCurrentUser();
     if (!user) {
@@ -99,6 +108,10 @@ export async function getHermesConnectorStatusAction() {
 export async function getHermesChatLockAction(chatId: string) {
   'use server';
 
+  if (!isHermesEnabled()) {
+    return { success: true as const, lock: null };
+  }
+
   try {
     const user = await getCurrentUser();
     if (!user) {
@@ -124,6 +137,10 @@ export async function getHermesChatLockAction(chatId: string) {
 
 export async function revokeHermesConnectorAction() {
   'use server';
+
+  if (!isHermesEnabled()) {
+    return { success: false as const, error: 'Hermes is not enabled on this deployment' };
+  }
 
   try {
     const user = await getCurrentUser();

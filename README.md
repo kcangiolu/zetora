@@ -136,9 +136,12 @@ This fork bundles a complete self-hosted stack in [`docker-compose.yml`](docker-
 | **Presidio**            | `presidio-api`                             | `presidio` | _(new — no Scira equivalent)_    | PII detection/anonymization for the activatable privacy layer                                                           |
 | **Voice pipeline**      | `s2s-service`, `stt-service`, `qwen3-tts`  | `tts`*     | ElevenLabs / xAI Realtime        | Local speech-to-speech backend: VAD orchestrator, NVIDIA Parakeet TDT STT, and opt-in GPU Qwen3 TTS (`--profile tts`)   |
 | **BullMQ**              | `bullmq-redis`, `bullboard`                | `bullmq`   | Upstash QStash                   | Self-hosted scheduler for Lookouts (recurring research agents), with a Bull Board admin UI                              |
+| **Hermes Agent relay**  | `hermes-relay-service`                     | `hermes`†  | _(new — no Scira equivalent)_    | Lets any user connect their own self-hosted Hermes Agent gateway as an Agent mode chat channel                         |
 | **DB migrations**       | `db-migrate`                               | _(core)_   | _(manual `drizzle-kit migrate`)_ | Runs Drizzle migrations + performance indexes automatically; `zetora.app` waits for it before starting                  |
 
 \* Only `qwen3-tts` is behind the `tts` profile — `s2s-service`/`stt-service` (CPU-only) start by default alongside the core services below.
+
+† Unlike every other row, Hermes doesn't degrade to a cloud equivalent when its profile is left off — the whole feature (Settings > Hermes, the Agent mode entry, every `/api/hermes*`/`/api/internal/hermes*` route) is gated by the `NEXT_PUBLIC_HERMES_ENABLED` build flag, which defaults to `true` since it already ships to real users on this fork. The Docker profile itself still needs explicit opt-in like any other (`--profile hermes` / `COMPOSE_PROFILES=hermes`) — the build flag only controls whether the *feature exists in the image at all*, not whether *this deployment's container starts*. Set `NEXT_PUBLIC_HERMES_ENABLED=false` to build an image with the feature hidden entirely.
 
 Every profiled service is off by default — `docker compose up -d` alone starts only the `_(core)_` rows plus `zetora.app`, running entirely against cloud providers out of the box. Start any subset with `docker compose --profile <name> up -d` (see [Self-hosted stack](#option-2--self-hosted-stack-docker-compose) below for the full command and what each one falls back to when left off).
 
@@ -280,11 +283,11 @@ Use this to deploy Zetora on a server. By default it runs against cloud provider
 
    Database migrations run automatically: the `db-migrate` container applies Drizzle migrations and performance indexes, and `zetora.app` waits for it to complete before starting — no manual `drizzle-kit migrate` needed.
 
-   Every service below the core three (Postgres, Redis, `zetora.app`) starts on the `zetora-network` only if you opt into its profile — combine as needed, e.g. `docker compose --profile minio --profile graphiti up -d`, or set `COMPOSE_PROFILES` to a comma-separated list in `.env`. Each one has a working cloud default already, so leaving it off degrades the corresponding feature to its cloud equivalent instead of breaking it — see the **Profile** column in the [Self-Hosted Stack](#self-hosted-stack) table above and [All-Cloud Configuration](#all-cloud-configuration) for exactly what each one falls back to. Full self-hosted stack:
+   Every service below the core three (Postgres, Redis, `zetora.app`) starts on the `zetora-network` only if you opt into its profile — combine as needed, e.g. `docker compose --profile minio --profile graphiti up -d`, or set `COMPOSE_PROFILES` to a comma-separated list in `.env`. Each one has a working cloud default already, so leaving it off degrades the corresponding feature to its cloud equivalent instead of breaking it — see the **Profile** column in the [Self-Hosted Stack](#self-hosted-stack) table above and [All-Cloud Configuration](#all-cloud-configuration) for exactly what each one falls back to. `hermes` is the one exception: it doesn't fall back to anything, it just disappears (see the † note above the table). Full self-hosted stack:
    ```bash
    docker compose --profile minio --profile searxng --profile fastcrw \
      --profile sandbox --profile bullmq --profile graphiti \
-     --profile qdrant --profile presidio --profile tts up -d
+     --profile qdrant --profile presidio --profile tts --profile hermes up -d
    ```
 
 4. Put a reverse proxy with TLS in front of `zetora.app` (port 3333) for your domain. If you enabled the `minio` profile, also put one in front of MinIO's API port (`:9010`) and point `S3_PUBLIC_URL` at it — generated images/files are served straight from that URL to the browser, no app-side proxy. For the local voice backend, expose `s2s-service`'s WebSocket port and point `VOICE_S2S_URL` at it. Every other service is bound to `127.0.0.1` only — use an SSH tunnel if you need direct access to an admin UI (MinIO console on `:9001`, Bull Board on `:3001`, Qdrant dashboard on `:6333`, SearXNG on `:8090`, FalkorDB browser on `:3002`).

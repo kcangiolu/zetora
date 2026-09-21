@@ -14,6 +14,11 @@ import { IntegrationsTab } from './integrations';
 import { AiModelsTab } from './ai-models';
 import { HermesTab } from './hermes';
 
+// Same master switch as components/ui/form-component/index.tsx's hermesEnvEnabled —
+// hides the whole tab (not just the connect flow inside it) when the deployment build
+// didn't enable Hermes. Inlined at build time, see lib/hermes/feature-flag.ts.
+const HERMES_ENV_ENABLED = process.env.NEXT_PUBLIC_HERMES_ENABLED !== 'false';
+
 export function PreferencesSection({
   user,
   isCustomInstructionsEnabled,
@@ -69,7 +74,7 @@ export function PreferencesSection({
             { value: 'voice', label: 'Voice & Media' },
             { value: 'integrations', label: 'Integrations' },
             { value: 'customize', label: 'Customize' },
-            { value: 'hermes', label: 'Hermes' },
+            ...(HERMES_ENV_ENABLED ? [{ value: 'hermes', label: 'Hermes' }] : []),
           ]}
         />
 
@@ -109,7 +114,7 @@ export function PreferencesSection({
         {preferencesTab === 'customize' && <CustomizeTab />}
 
         {/* ── Hermes tab ── */}
-        {preferencesTab === 'hermes' && <HermesTab user={user} />}
+        {HERMES_ENV_ENABLED && preferencesTab === 'hermes' && <HermesTab user={user} />}
       </div>
     </div>
   );

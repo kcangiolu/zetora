@@ -884,8 +884,20 @@ services:
   # gateway to their account. See hermes-relay-service/README.md for the
   # architecture rationale (why this is its own stateless service, holding no
   # DB credentials, rather than code inside zetora-app).
+  #
+  # Unlike every profile below this comment, `hermes` doesn't degrade to a
+  # cloud equivalent when left off — it's a whole feature, gated end to end:
+  # this container never starts, the zetora-app UI never shows it
+  # (NEXT_PUBLIC_HERMES_ENABLED, a build-time flag — see .gitea/workflows/
+  # docker.yml), and every /api/hermes*/internal/hermes* route 404s
+  # regardless (lib/hermes/feature-flag.ts). Both flags default to ON, the
+  # opposite of every other profile here: Hermes already ships to real
+  # users, so leaving `hermes` out of COMPOSE_PROFILES on an EXISTING
+  # deployment stops the running container — add it explicitly to keep
+  # Hermes working, don't just omit it expecting a safe no-op.
   # ---------------------------------------------------------------------------
   hermes-relay-service:
+    profiles: ['hermes']
     image: ${ZETORA_HERMES_RELAY_IMAGE:-zetora-hermes-relay:local}
     container_name: zetora-hermes-relay
     ports:

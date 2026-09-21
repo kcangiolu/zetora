@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { nanoid } from 'nanoid';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { assertInternalHermesAuth } from '@/lib/hermes/internal-auth';
+import { assertHermesEnabled } from '@/lib/hermes/feature-flag';
 import { getHermesConnectorByGatewayId } from '@/lib/db/queries';
 import { getStorageClient } from '@/lib/storage';
 import { createLogger } from '@/lib/logger';
@@ -27,6 +28,9 @@ function sanitizeExtension(raw: string | undefined): string {
 // `{connector}/relay/media/{id}` as the send_media action's source_url, and
 // agent-event/route.ts resolves it back to STORAGE_PUBLIC_URL below.
 export async function POST(req: NextRequest) {
+  const disabled = assertHermesEnabled();
+  if (disabled) return disabled;
+
   const authError = assertInternalHermesAuth(req);
   if (authError) return authError;
 

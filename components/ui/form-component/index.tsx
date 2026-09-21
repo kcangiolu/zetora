@@ -235,6 +235,10 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
   const canvasEnvEnabled = process.env.NEXT_PUBLIC_CANVAS_ENABLED === 'true';
   const mcpEnvEnabled = process.env.NEXT_PUBLIC_MCP_ENABLED === 'true';
+  // Unlike the other *_ENABLED flags above, this defaults ON (!== 'false', not ===
+  // 'true') — see lib/hermes/feature-flag.ts's isHermesEnabled for why: Hermes already
+  // ships to real users, so an unset build-arg must not silently regress it.
+  const hermesEnvEnabled = process.env.NEXT_PUBLIC_HERMES_ENABLED !== 'false';
   // "Show this mode in the chat's + menu" — separate from any env-level
   // availability gate above; both must hold for the mode to be offered.
   const [appsEnabledPref] = useSyncedPreferences<boolean>('zetora-apps-enabled', true);
@@ -252,10 +256,10 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const { data: hermesConnectorStatus } = useQuery({
     queryKey: ['hermesConnectorStatus', user?.id],
     queryFn: () => getHermesConnectorStatusAction(),
-    enabled: !!user,
+    enabled: !!user && hermesEnvEnabled,
     staleTime: 30_000,
   });
-  const hermesEnabled = hermesConnectorStatus?.connector?.status === 'enrolled';
+  const hermesEnabled = hermesEnvEnabled && hermesConnectorStatus?.connector?.status === 'enrolled';
   // Whether the CURRENT chat can still offer Agent mode as a choice — false once this
   // chat's first message already went through native Zetora search (see
   // getHermesChatLock's own comment for the full rule). Distinct from isHermesLocked

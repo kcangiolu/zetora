@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { assertInternalHermesAuth } from '@/lib/hermes/internal-auth';
+import { assertHermesEnabled } from '@/lib/hermes/feature-flag';
 import { getHermesConnectorByGatewayId } from '@/lib/db/queries/hermes';
 import { decryptGatewaySecret, verifyGatewayHmac } from '@/lib/hermes/crypto';
 import { createLogger } from '@/lib/logger';
@@ -12,6 +13,9 @@ const log = createLogger('api-internal-hermes-verify-gateway-auth');
 // docs/relay-connector-contract.md §6.1 on the Hermes side. hermes-relay-service decodes
 // the token and forwards its parts here rather than holding any gateway secret itself.
 export async function POST(req: NextRequest) {
+  const disabled = assertHermesEnabled();
+  if (disabled) return disabled;
+
   const authError = assertInternalHermesAuth(req);
   if (authError) return authError;
 

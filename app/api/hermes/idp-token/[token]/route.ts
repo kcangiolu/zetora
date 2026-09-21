@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPendingHermesConnectorByEnrollmentTokenHash } from '@/lib/db/queries/hermes';
 import { hashEnrollmentToken } from '@/lib/hermes/crypto';
+import { assertHermesEnabled } from '@/lib/hermes/feature-flag';
 
 // Deliberately public / unauthenticated — this is the "ambient token endpoint" mode of
 // Hermes's gateway.idp.token_url (gateway/relay/__init__.py's _resolve_relay_identity_token,
@@ -15,6 +16,9 @@ import { hashEnrollmentToken } from '@/lib/hermes/crypto';
 // enroll POST's body carries the same token explicitly, so this only needs to prove the
 // token is still a live, pending enrollment before the CLI bothers dialing the connector.
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+  const disabled = assertHermesEnabled();
+  if (disabled) return disabled;
+
   const { token } = await params;
 
   const connector = await getPendingHermesConnectorByEnrollmentTokenHash(hashEnrollmentToken(token));
