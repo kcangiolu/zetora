@@ -3,7 +3,7 @@ import { ChatSDKError } from '@/lib/errors';
 import { shouldBypassRateLimits } from '@/ai/providers';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
-import { createStreamId, saveNewChatWithStream } from '@/lib/db/queries';
+import { createStreamId, getHermesChatLock, saveNewChatWithStream } from '@/lib/db/queries';
 import { getMessageCountByUserIdAction } from '@/lib/search/server-helpers';
 import { ABUSE_DAILY_LIMIT } from '@/lib/constants';
 
@@ -111,9 +111,15 @@ export function initializeChatAndChecks({
   // Validate ownership once and get chat data
   const validatedChatPromise = withTiming(
     'chat_init.existingChat_wait',
-    chatQueryPromise.then((existingChat: any) => {
+    chatQueryPromise.then(async (existingChat: any) => {
       if (existingChat && existingChat.userId !== user.userId) {
         throw new ChatSDKError('forbidden:chat', 'This chat belongs to another user');
+      }
+      // A chat whose first message ever sent went through Agent mode is permanently a
+      // Hermes conversation (see getHermesChatLock's own comment) — a native search
+      // turn must never write into it, even if a stale client sends one anyway.
+      if (existingChat && (await getHermesChatLock(id)) === 'hermes') {
+        throw new ChatSDKError('bad_request:chat', 'This conversation is locked to Agent mode');
       }
       return existingChat;
     }),

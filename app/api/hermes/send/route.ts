@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import {
   getChatByIdForValidation,
+  getHermesChatLock,
   getHermesConnectorByUserId,
   getHermesConversationByChatId,
   createHermesConversation,
@@ -48,6 +49,12 @@ export async function POST(req: NextRequest) {
   const existingChat = await getChatByIdForValidation({ id: chatId });
   if (existingChat && existingChat.userId !== session.user.id) {
     return NextResponse.json({ error: 'Chat not found' }, { status: 404 });
+  }
+  // A chat whose first message ever sent went through a native Zetora search turn is
+  // permanently a search conversation — Agent mode can't retroactively claim it (see
+  // getHermesChatLock's own comment for the full rule).
+  if (existingChat && (await getHermesChatLock(chatId)) === 'search') {
+    return NextResponse.json({ error: 'This conversation is locked to Zetora search mode' }, { status: 409 });
   }
   if (!existingChat) {
     await saveChat({

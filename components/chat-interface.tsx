@@ -65,6 +65,7 @@ import {
 // Hook imports
 import { useAutoResume } from '@/hooks/use-auto-resume';
 import { useHermesStream } from '@/hooks/use-hermes-stream';
+import { getHermesChatLockAction } from '@/app/actions/hermes';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import type { ReasoningEffort } from '@/lib/reasoning-effort-types';
 import { useUser } from '@/contexts/user-context';
@@ -231,8 +232,27 @@ const ChatInterface = memo(
       'zetora-selected-group',
       initialGroupDefault,
     );
+    // Which mode lane this chat is permanently committed to, decided by whichever mode
+    // sent its FIRST message — see getHermesChatLock's own comment. null for a chat with
+    // no messages yet (still free), so this only ever matters for an existing chat.
+    const { data: hermesChatLockData } = useQuery({
+      queryKey: ['hermesChatLock', initialChatId],
+      queryFn: () => getHermesChatLockAction(initialChatId!),
+      enabled: !!initialChatId,
+      staleTime: 30_000,
+    });
+    const hermesChatLock = hermesChatLockData?.lock ?? null;
+    const rawSelectedGroup = (groupParam ? (groupParam as unknown as SearchGroupId) : selectedGroup) as SearchGroupId;
+    // The lock always wins over both the URL param and the stored preference: a
+    // hermes-locked chat can never render as anything else, and a search-locked chat can
+    // never render as Agent even if that's still the user's global/URL preference from a
+    // different chat (falls back to 'auto' rather than staying stuck on an unusable mode).
     const effectiveSelectedGroup = (
-      groupParam ? (groupParam as unknown as SearchGroupId) : selectedGroup
+      hermesChatLock === 'hermes'
+        ? 'hermes'
+        : hermesChatLock === 'search' && rawSelectedGroup === 'hermes'
+          ? 'auto'
+          : rawSelectedGroup
     ) as SearchGroupId;
     const [selectedConnectors, setSelectedConnectors] = useState<ConnectorProvider[]>([]);
     const [isMultiAgentModeEnabled, setIsMultiAgentModeEnabled] = useLocalStorage('zetora-multi-agent-enabled', false);
@@ -1807,6 +1827,7 @@ const ChatInterface = memo(
                       lastSubmittedQueryRef={lastSubmittedQueryRef}
                       selectedGroup={effectiveSelectedGroup}
                       setSelectedGroup={setSelectedGroup}
+                      hermesChatLock={hermesChatLock}
                       showExperimentalModels={messages.length === 0}
                       status={uiStatus}
                       setHasSubmitted={(hasSubmitted) => {

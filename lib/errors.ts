@@ -82,6 +82,8 @@ export function getMessageByErrorCode(errorCode: ErrorCode): string {
       return 'The requested chat was not found. Please check the chat ID and try again.';
     case 'forbidden:chat':
       return 'This chat belongs to another user. Please check the chat ID and try again.';
+    case 'bad_request:chat':
+      return "This conversation's mode is locked by its first message and can't be switched.";
     case 'unauthorized:chat':
       return 'You need to sign in to view this chat. Please sign in and try again.';
     case 'offline:chat':

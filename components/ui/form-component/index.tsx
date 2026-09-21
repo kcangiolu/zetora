@@ -109,6 +109,9 @@ export interface FormComponentProps {
   lastSubmittedQueryRef: React.RefObject<string>;
   selectedGroup: SearchGroupId;
   setSelectedGroup: React.Dispatch<React.SetStateAction<SearchGroupId>>;
+  // Which mode lane this chat is permanently committed to — see getHermesChatLock's own
+  // comment. null for a chat with no messages yet (still free to become either).
+  hermesChatLock?: 'hermes' | 'search' | null;
   showExperimentalModels: boolean;
   status: UseChatHelpers<ChatMessage>['status'];
   setHasSubmitted: React.Dispatch<React.SetStateAction<boolean>>;
@@ -209,6 +212,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
   lastSubmittedQueryRef,
   selectedGroup,
   setSelectedGroup,
+  hermesChatLock = null,
   messages,
   setMessages,
   status,
@@ -252,6 +256,14 @@ const FormComponent: React.FC<FormComponentProps> = ({
     staleTime: 30_000,
   });
   const hermesEnabled = hermesConnectorStatus?.connector?.status === 'enrolled';
+  // Whether the CURRENT chat can still offer Agent mode as a choice — false once this
+  // chat's first message already went through native Zetora search (see
+  // getHermesChatLock's own comment for the full rule). Distinct from isHermesLocked
+  // below: this chat could also be unlocked (brand new) or hermes-locked already.
+  const hermesSelectableForChat = hermesEnabled && hermesChatLock !== 'search';
+  // Whether this chat's first message already went through Agent mode — it can never
+  // leave Agent mode again, so the mode-switcher UI hides every affordance to do so.
+  const isHermesLocked = hermesChatLock === 'hermes';
   const sendHermesMessage = useHermesSend(chatId);
   const formQueryClient = useQueryClient();
   const isMounted = useRef(true);
@@ -453,7 +465,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
     if (connectorsEnabledPref) modeIds.add('connectors');
     if (canvasEnabled) modeIds.add('canvas');
     if (mcpEnabled) modeIds.add('mcp');
-    if (hermesEnabled) modeIds.add('hermes');
+    if (hermesSelectableForChat) modeIds.add('hermes');
     const filtered = dynamicSearchGroups.filter((group) => {
       if (!group.show) return false;
       if ('requireAuth' in group && group.requireAuth && !user) return false;
@@ -465,7 +477,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
     dynamicSearchGroups,
     canvasEnabled,
     mcpEnabled,
-    hermesEnabled,
+    hermesSelectableForChat,
     swarmEnabledPref,
     connectorsEnabledPref,
     disabledSkillsPref,
@@ -503,7 +515,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
       (selectedGroup === 'mcp' && !mcpEnabled) ||
       (selectedGroup === 'deep-research' && disabledSkillsPref.includes('deep-research')) ||
       (selectedGroup === 'extreme-search' && disabledSkillsPref.includes('extreme-search')) ||
-      (selectedGroup === 'hermes' && !hermesEnabled);
+      (selectedGroup === 'hermes' && !hermesSelectableForChat);
     if (isHiddenByPreference) setSelectedGroup('auto');
   }, [
     selectedGroup,
@@ -512,7 +524,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
     connectorsEnabledPref,
     canvasEnabled,
     mcpEnabled,
-    hermesEnabled,
+    hermesSelectableForChat,
     disabledSkillsPref,
   ]);
 
@@ -2784,7 +2796,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                               )}
                             </button>
                           )}
-                          {user && hermesEnabled && (
+                          {user && hermesSelectableForChat && (
                             <button
                               className={cn(
                                 'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors',
@@ -3059,7 +3071,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                             </TooltipContent>
                           </Tooltip>
                         )}
-                        {user && hermesEnabled && (
+                        {user && hermesSelectableForChat && (
                           <Tooltip delayDuration={200}>
                             <TooltipTrigger asChild>
                               <button
@@ -3244,12 +3256,19 @@ const FormComponent: React.FC<FormComponentProps> = ({
                         </Tooltip>
                       );
                     }
+                    // Once a chat's first message went through Agent mode, it can never
+                    // leave — no clear button, no click-to-switch (see getHermesChatLock's
+                    // own comment for the full rule).
                     return (
                       <Tooltip delayDuration={300}>
                         <TooltipTrigger asChild>
                           <div
-                            className="group relative flex items-center gap-1.5 px-2.5 h-8 rounded-full bg-primary/8! text-primary/80 border border-primary/15 text-[12px] font-medium hover:bg-primary/12 hover:text-primary transition-colors cursor-pointer"
+                            className={cn(
+                              'group relative flex items-center gap-1.5 px-2.5 h-8 rounded-full bg-primary/8! text-primary/80 border border-primary/15 text-[12px] font-medium hover:bg-primary/12 hover:text-primary transition-colors',
+                              isHermesLocked ? 'cursor-default' : 'cursor-pointer',
+                            )}
                             onClick={() => {
+                              if (isHermesLocked) return;
                               haptics.trigger('selection');
                               if (isMobile) {
                                 setSelectedGroup('auto');
@@ -3264,19 +3283,24 @@ const FormComponent: React.FC<FormComponentProps> = ({
                                 size={14}
                                 color="currentColor"
                                 strokeWidth={1.5}
-                                className="absolute inset-0 group-hover:opacity-0 transition-opacity"
+                                className={cn(
+                                  'absolute inset-0 transition-opacity',
+                                  !isHermesLocked && 'group-hover:opacity-0',
+                                )}
                               />
-                              <button
-                                className="absolute -inset-0.5 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 group-hover:bg-foreground/10 transition-all"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  haptics.trigger('selection');
-                                  setSelectedGroup('auto');
-                                }}
-                                aria-label="Clear mode"
-                              >
-                                <X className="size-3.5" strokeWidth={2} />
-                              </button>
+                              {!isHermesLocked && (
+                                <button
+                                  className="absolute -inset-0.5 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 group-hover:bg-foreground/10 transition-all"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    haptics.trigger('selection');
+                                    setSelectedGroup('auto');
+                                  }}
+                                  aria-label="Clear mode"
+                                >
+                                  <X className="size-3.5" strokeWidth={2} />
+                                </button>
+                              )}
                             </div>
                             <span>{activeGroup.name === 'Extreme' ? 'Extreme Agent' : activeGroup.name}</span>
                           </div>
@@ -3287,8 +3311,10 @@ const FormComponent: React.FC<FormComponentProps> = ({
                           className="border-0 backdrop-blur-xs py-2 px-3 shadow-none!"
                         >
                           <div className="flex flex-col gap-0.5">
-                            <span className="font-medium text-[11px]">Click to switch mode</span>
-                            <span className="text-[10px] text-background/50">Hover ✕ to clear</span>
+                            <span className="font-medium text-[11px]">
+                              {isHermesLocked ? 'Locked to this conversation' : 'Click to switch mode'}
+                            </span>
+                            {!isHermesLocked && <span className="text-[10px] text-background/50">Hover ✕ to clear</span>}
                           </div>
                         </TooltipContent>
                       </Tooltip>

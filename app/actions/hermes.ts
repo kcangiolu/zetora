@@ -2,7 +2,8 @@
 
 import { randomBytes } from 'node:crypto';
 import { getCurrentUser } from './user';
-import { createHermesConnector, getHermesConnectorByUserId, revokeHermesConnector } from '@/lib/db/queries/hermes';
+import { createHermesConnector, getHermesConnectorByUserId, getHermesChatLock, revokeHermesConnector } from '@/lib/db/queries/hermes';
+import { getChatByIdForValidation } from '@/lib/db/queries/chat';
 import { hashEnrollmentToken } from '@/lib/hermes/crypto';
 import { serverEnv } from '@/env/server';
 import { createLogger } from '@/lib/logger';
@@ -88,6 +89,36 @@ export async function getHermesConnectorStatusAction() {
   } catch (error) {
     log.error('Failed to fetch Hermes connector status:', error);
     return { success: false as const, error: 'Failed to fetch status', connector: null };
+  }
+}
+
+// Which mode lane `chatId` is permanently committed to — null for a chat that hasn't
+// received its first message yet (still free to become either). Drives
+// components/ui/form-component/index.tsx hiding the now-irrelevant mode option; the
+// actual enforcement is server-side in /api/search and /api/hermes/send, this is UI only.
+export async function getHermesChatLockAction(chatId: string) {
+  'use server';
+
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return { success: false as const, error: 'Authentication required', lock: null };
+    }
+
+    const chat = await getChatByIdForValidation({ id: chatId });
+    if (chat && chat.userId !== user.id) {
+      return { success: false as const, error: 'Chat not found', lock: null };
+    }
+    if (!chat) {
+      // Not persisted yet (a brand-new, unsent chat) — unlocked by definition.
+      return { success: true as const, lock: null };
+    }
+
+    const lock = await getHermesChatLock(chatId);
+    return { success: true as const, lock };
+  } catch (error) {
+    log.error('Failed to resolve Hermes chat lock:', error);
+    return { success: false as const, error: 'Failed to resolve chat lock', lock: null };
   }
 }
 
