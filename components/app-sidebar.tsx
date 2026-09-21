@@ -17,6 +17,7 @@ import {
 } from '@phosphor-icons/react';
 import { BinocularsIcon, FolderLibraryIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
+import { HermesModeDot } from '@/components/ui/hermes-mode-dot';
 import {
   RocketIcon as VercelIcon,
   Globe,
@@ -1103,6 +1104,7 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
                                       isCurrentChat && 'font-medium',
                                     )}
                                   >
+                                    {chat.isHermesChat && <HermesModeDot />}
                                     {isPublic && <Globe className="h-3.5 w-3.5 shrink-0 opacity-60" />}
                                     <span className="truncate flex-1 text-sm">{chat.title || 'Untitled Chat'}</span>
                                   </Link>
@@ -1201,6 +1203,7 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
                                       isCurrentChat && 'font-medium',
                                     )}
                                   >
+                                    {chat.isHermesChat && <HermesModeDot />}
                                     {isPublic && <Globe className="h-3.5 w-3.5 shrink-0 opacity-60" />}
                                     <span className="truncate flex-1 text-sm">{chat.title || 'Untitled Chat'}</span>
                                   </Link>

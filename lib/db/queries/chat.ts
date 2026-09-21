@@ -2,7 +2,7 @@ import 'server-only';
 
 import { cache } from 'react';
 import { and, asc, desc, eq, gt, gte, isNull, lt, or, sql, type SQL } from 'drizzle-orm';
-import { user, chat, message, type Message, stream, buildSession } from '../schema';
+import { user, chat, message, type Message, stream, buildSession, hermesConversation } from '../schema';
 import { ChatSDKError } from '../../errors';
 import { db, maindb } from '../index';
 import { all } from 'better-all';
@@ -96,8 +96,12 @@ export async function getChatsByUserId({
           updatedAt: chat.updatedAt,
           isPinned: chat.isPinned,
           visibility: chat.visibility,
+          // A chat permanently locked to Agent mode (getHermesChatLock's own comment) —
+          // the history list's rainbow-dot indicator.
+          isHermesChat: sql<boolean>`${hermesConversation.chatId} IS NOT NULL`,
         })
         .from(chat)
+        .leftJoin(hermesConversation, eq(hermesConversation.chatId, chat.id))
         .where(whereCondition ? and(whereCondition, eq(chat.userId, id)) : eq(chat.userId, id))
         .orderBy(desc(chat.isPinned), desc(chat.updatedAt), desc(chat.id))
         .limit(extendedLimit);
@@ -176,6 +180,7 @@ export async function getRecentChatsByUserId({ userId, limit = 8 }: { userId: st
     updatedAt: Date;
     isPinned: boolean;
     visibility: 'public' | 'private';
+    isHermesChat: boolean;
   }>;
   hasMore: boolean;
 }> {
@@ -190,9 +195,13 @@ export async function getRecentChatsByUserId({ userId, limit = 8 }: { userId: st
         updatedAt: chat.updatedAt,
         isPinned: chat.isPinned,
         visibility: chat.visibility,
+        // A chat permanently locked to Agent mode (getHermesChatLock's own comment) — the
+        // sidebar's rainbow-dot indicator.
+        isHermesChat: sql<boolean>`${hermesConversation.chatId} IS NOT NULL`,
       })
       .from(chat)
       .leftJoin(buildSession, eq(buildSession.chatId, chat.id))
+      .leftJoin(hermesConversation, eq(hermesConversation.chatId, chat.id))
       .where(and(eq(chat.userId, userId), isNull(buildSession.chatId)))
       .orderBy(desc(chat.isPinned), desc(chat.updatedAt), desc(chat.id))
       .limit(extendedLimit);

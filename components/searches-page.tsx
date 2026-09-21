@@ -31,6 +31,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { HermesModeDot } from '@/components/ui/hermes-mode-dot';
 import {
   Globe,
   MoreHorizontal,
@@ -81,6 +82,7 @@ interface Chat {
   visibility: 'public' | 'private';
   preview?: string | null;
   model?: string | null;
+  isHermesChat?: boolean;
 }
 
 interface SearchesPageProps {
@@ -422,6 +424,7 @@ export function SearchesPage({ userId }: SearchesPageProps) {
               </p>
               {chat.isPinned && <Pin className="size-3 shrink-0 text-muted-foreground/40 fill-muted-foreground/20" />}
               {chat.visibility === 'public' && <Globe className="size-3 shrink-0 text-muted-foreground/40" />}
+              {chat.isHermesChat && <HermesModeDot />}
             </div>
 
             {/* Preview — 2 lines */}

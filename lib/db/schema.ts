@@ -671,6 +671,10 @@ export const chatRelations = relations(chat, ({ one, many }) => ({
   }),
   messages: many(message),
   streams: many(stream),
+  hermesConversation: one(hermesConversation, {
+    fields: [chat.id],
+    references: [hermesConversation.chatId],
+  }),
 }));
 
 export const messageRelations = relations(message, ({ one }) => ({

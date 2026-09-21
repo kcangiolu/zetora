@@ -71,6 +71,7 @@ export async function getRecentChats(
     updatedAt: Date;
     isPinned: boolean;
     visibility: 'public' | 'private';
+    isHermesChat: boolean;
   }>;
   hasMore: boolean;
 }> {
@@ -609,13 +610,17 @@ export async function getAllChatsWithPreview(limit: number = 25, offset: number 
       orderBy: [desc(chat.isPinned), desc(chat.updatedAt), desc(chat.id)],
       limit,
       offset,
+      // Whether this chat is permanently locked to Agent mode (getHermesChatLock's own
+      // comment) — the history list's rainbow-dot indicator.
+      with: { hermesConversation: true },
     });
 
     const previewMap = await buildPreviewMap(chats.map((c) => c.id));
-    const chatsWithPreview = chats.map((c) => ({
+    const chatsWithPreview = chats.map(({ hermesConversation, ...c }) => ({
       ...c,
       preview: previewMap[c.id]?.preview ?? null,
       model: previewMap[c.id]?.model ?? null,
+      isHermesChat: Boolean(hermesConversation),
     }));
 
     return { chats: chatsWithPreview };
@@ -666,13 +671,15 @@ export async function searchChatsByTitle(query: string, limit: number = 25, offs
       orderBy: [desc(chat.isPinned), desc(chat.updatedAt), desc(chat.id)],
       limit,
       offset,
+      with: { hermesConversation: true },
     });
 
     const previewMap = await buildPreviewMap(chats.map((c) => c.id));
-    const chatsWithPreview = chats.map((c) => ({
+    const chatsWithPreview = chats.map(({ hermesConversation, ...c }) => ({
       ...c,
       preview: previewMap[c.id]?.preview ?? null,
       model: previewMap[c.id]?.model ?? null,
+      isHermesChat: Boolean(hermesConversation),
     }));
 
     return { chats: chatsWithPreview };

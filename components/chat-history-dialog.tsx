@@ -5,6 +5,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { redirect } from 'next/navigation';
 import { usePathname, useRouter } from 'next/navigation';
 import { CommandDialog, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
+import { HermesModeDot } from '@/components/ui/hermes-mode-dot';
 import {
   Trash,
   ArrowUpRight,
@@ -65,6 +66,7 @@ interface Chat {
   isPinned?: boolean;
   userId: string;
   visibility: 'public' | 'private';
+  isHermesChat?: boolean;
 }
 
 interface ChatHistoryDialogProps {
@@ -1011,16 +1013,19 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
                 maxLength={100}
               />
             ) : (
-              <span
-                className={cn(
-                  'truncate block transition-all duration-200',
-                  isCurrentChat && 'font-medium',
-                  isDeleting && 'text-red-700 dark:text-red-300 font-medium',
-                  isEditing && 'text-muted-foreground',
-                  isSelected && 'font-medium text-foreground',
-                )}
-              >
-                {isDeleting ? `Delete "${displayTitle}"?` : displayTitle}
+              <span className="flex items-center gap-1.5 min-w-0">
+                {chat.isHermesChat && <HermesModeDot />}
+                <span
+                  className={cn(
+                    'truncate block transition-all duration-200',
+                    isCurrentChat && 'font-medium',
+                    isDeleting && 'text-red-700 dark:text-red-300 font-medium',
+                    isEditing && 'text-muted-foreground',
+                    isSelected && 'font-medium text-foreground',
+                  )}
+                >
+                  {isDeleting ? `Delete "${displayTitle}"?` : displayTitle}
+                </span>
               </span>
             )}
           </div>
