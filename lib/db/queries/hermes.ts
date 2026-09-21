@@ -169,16 +169,15 @@ export async function createHermesConversation({ chatId, connectorId }: { chatId
   }
 }
 
-export async function getHermesConversationByConnectorId(connectorId: string) {
+// A connector can own MANY conversations — one per Zetora chat that has ever used Agent
+// mode (see createHermesConversation above) — so this is deliberately plural. A
+// connector-wide event (gateway connect/disconnect) is relevant to every chat that might
+// currently have it open, not just one.
+export async function getHermesConversationsByConnectorId(connectorId: string) {
   try {
-    const [conversation] = await maindb
-      .select()
-      .from(hermesConversation)
-      .where(eq(hermesConversation.connectorId, connectorId))
-      .limit(1);
-    return conversation ?? null;
+    return await maindb.select().from(hermesConversation).where(eq(hermesConversation.connectorId, connectorId));
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to fetch Hermes conversation');
+    throw new ChatSDKError('bad_request:database', 'Failed to fetch Hermes conversations');
   }
 }
 

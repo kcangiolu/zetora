@@ -3347,52 +3347,61 @@ const FormComponent: React.FC<FormComponentProps> = ({
                     </TooltipContent>
                   </Tooltip>
 
-                  <Tooltip delayDuration={300}>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className={cn(
-                          'rounded-full size-8! text-muted-foreground hover:text-foreground transition-colors',
-                          visionEnabled && 'text-primary hover:text-primary',
-                        )}
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          setVisionEnabled((prev) => !prev);
-                        }}
-                      >
-                        <Eye size={16} weight={visionEnabled ? 'fill' : 'regular'} />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" sideOffset={6}>
-                      <span className="font-medium text-[11px]">
-                        {visionEnabled
-                          ? 'Vision on — images are shown to the model'
-                          : 'Vision off — images are attached but not shown to the model'}
-                      </span>
-                    </TooltipContent>
-                  </Tooltip>
+                  {/* Vision/reasoning-effort/model are all Zetora-native LLM turn config —
+                      a Hermes turn never reaches /api/search, so none of them do anything
+                      in Agent mode (Hermes keeps its own independent model via /model). */}
+                  {selectedGroup !== 'hermes' && (
+                    <Tooltip delayDuration={300}>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={cn(
+                            'rounded-full size-8! text-muted-foreground hover:text-foreground transition-colors',
+                            visionEnabled && 'text-primary hover:text-primary',
+                          )}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            setVisionEnabled((prev) => !prev);
+                          }}
+                        >
+                          <Eye size={16} weight={visionEnabled ? 'fill' : 'regular'} />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" sideOffset={6}>
+                        <span className="font-medium text-[11px]">
+                          {visionEnabled
+                            ? 'Vision on — images are shown to the model'
+                            : 'Vision off — images are attached but not shown to the model'}
+                        </span>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
 
-                  <ReasoningEffortToggle
-                    selectedModel={selectedModel}
-                    value={reasoningEffort}
-                    onChange={setReasoningEffort}
-                  />
+                  {selectedGroup !== 'hermes' && (
+                    <ReasoningEffortToggle
+                      selectedModel={selectedModel}
+                      value={reasoningEffort}
+                      onChange={setReasoningEffort}
+                    />
+                  )}
 
-                  <ModelSwitcher
-                    selectedModel={selectedModel}
-                    setSelectedModel={setSelectedModel}
-                    status={status}
-                    onModelSelect={(model) => {
-                      setSelectedModel(model.value);
-                    }}
-                    user={user}
-                    selectedGroup={selectedGroup}
-                    autoRoutedModel={autoRoutedModel}
-                    inputRef={inputRef}
-                  />
+                  {selectedGroup !== 'hermes' && (
+                    <ModelSwitcher
+                      selectedModel={selectedModel}
+                      setSelectedModel={setSelectedModel}
+                      status={status}
+                      onModelSelect={(model) => {
+                        setSelectedModel(model.value);
+                      }}
+                      user={user}
+                      selectedGroup={selectedGroup}
+                      autoRoutedModel={autoRoutedModel}
+                      inputRef={inputRef}
+                    />
+                  )}
 
                   {/* Action button: Stop / Voice / Send */}
                   {isProcessing ? (

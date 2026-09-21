@@ -4,7 +4,7 @@ import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { assertInternalHermesAuth } from '@/lib/hermes/internal-auth';
 import {
   getHermesConnectorByGatewayId,
-  getHermesConversationByConnectorId,
+  getHermesConversationByChatId,
   getMessageById,
   updateMessagePartsById,
   updateMessageHermesReaction,
@@ -122,8 +122,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'unknown_gateway' });
     }
 
-    const conversation = await getHermesConversationByConnectorId(connector.id);
-    if (!conversation) {
+    // Resolved by action.chat_id, NOT by connectorId alone: a connector can own many
+    // hermesConversation rows (one per Zetora chat that ever used Agent mode — see
+    // /api/hermes/send/route.ts's createHermesConversation), so a connector-wide lookup
+    // picks an ARBITRARY one and silently misroutes every reply to whichever chat that
+    // happened to be, regardless of which chat this action is actually about. chat_id is
+    // present on every outbound op per the contract table, and echoes back verbatim the
+    // Zetora chatId this route itself sent as SessionSource.chat_id in /api/hermes/send.
+    if (!action.chat_id) {
+      return NextResponse.json({ success: false, error: 'missing_chat_id' });
+    }
+    const conversation = await getHermesConversationByChatId(action.chat_id);
+    if (!conversation || conversation.connectorId !== connector.id) {
       return NextResponse.json({ success: false, error: 'no_conversation' });
     }
 

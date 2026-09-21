@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { assertInternalHermesAuth } from '@/lib/hermes/internal-auth';
-import { getHermesConversationByConnectorId, updateHermesConnectorConnectionStatus } from '@/lib/db/queries';
+import { getHermesConversationsByConnectorId, updateHermesConnectorConnectionStatus } from '@/lib/db/queries';
 import { publishHermesEvent } from '@/lib/hermes/realtime';
 import { createLogger } from '@/lib/logger';
 
@@ -31,10 +31,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'unknown_gateway' }, { status: 404 });
     }
 
-    const conversation = await getHermesConversationByConnectorId(updated.id);
-    if (conversation) {
-      await publishHermesEvent(conversation.chatId, { kind: 'connection-status', connected, error: error ?? null });
-    }
+    const conversations = await getHermesConversationsByConnectorId(updated.id);
+    await Promise.all(
+      conversations.map((conversation) =>
+        publishHermesEvent(conversation.chatId, { kind: 'connection-status', connected, error: error ?? null }),
+      ),
+    );
 
     return NextResponse.json({ success: true });
   } catch (err) {
