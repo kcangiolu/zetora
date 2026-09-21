@@ -253,7 +253,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const canvasEnabled = canvasEnvEnabled && canvasEnabledPref;
   // Unlike the other modes above, this can't be a user preference toggle — it reflects
   // real server-side enrollment state (Settings > Hermes), not a show/hide choice.
-  const { data: hermesConnectorStatus } = useQuery({
+  const { data: hermesConnectorStatus, isLoading: isHermesConnectorStatusLoading } = useQuery({
     queryKey: ['hermesConnectorStatus', user?.id],
     queryFn: () => getHermesConnectorStatusAction(),
     enabled: !!user && hermesEnvEnabled,
@@ -519,7 +519,16 @@ const FormComponent: React.FC<FormComponentProps> = ({
       (selectedGroup === 'mcp' && !mcpEnabled) ||
       (selectedGroup === 'deep-research' && disabledSkillsPref.includes('deep-research')) ||
       (selectedGroup === 'extreme-search' && disabledSkillsPref.includes('extreme-search')) ||
-      (selectedGroup === 'hermes' && !hermesSelectableForChat);
+      // Real finding, live: on a fresh session the connector-status query hasn't
+      // resolved yet, so hermesEnabled reads false for a split second even for an
+      // already-enrolled user. Without the loading guard this fires right then,
+      // permanently writing 'auto' to localStorage — the reset outlives the query
+      // resolving (nothing ever sets it back to 'hermes' automatically), so a chat
+      // that WAS correctly in Agent mode gets silently, permanently kicked out of it
+      // on every fresh page load. Waiting for the query to settle before judging
+      // fixes that without weakening the other five checks, which read from
+      // synchronous local state and have no such race.
+      (selectedGroup === 'hermes' && !isHermesConnectorStatusLoading && !hermesSelectableForChat);
     if (isHiddenByPreference) setSelectedGroup('auto');
   }, [
     selectedGroup,
@@ -529,6 +538,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
     canvasEnabled,
     mcpEnabled,
     hermesSelectableForChat,
+    isHermesConnectorStatusLoading,
     disabledSkillsPref,
   ]);
 

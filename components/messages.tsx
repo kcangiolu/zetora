@@ -205,7 +205,17 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
         const anyPart = part as unknown as { state?: string; output?: { success?: boolean } };
         return anyPart.state === 'output-available' && anyPart.output?.success !== false;
       });
-      const hasVisibleContent = hasVisibleText || hasDeliverableToolOutput;
+      // A Hermes send_media action with no caption (agent-event/route.ts's `caption:
+      // action.content || null`) produces a message whose ONLY part is
+      // data-hermes_media — no sibling text part like every other Hermes action always
+      // includes. Confirmed against a real production message: a voice reply with no
+      // caption was flagged "missing" even though its player rendered fine right above
+      // the false banner. hermes_prompt already always ships a text part alongside it,
+      // so this is belt-and-suspenders for that one, load-bearing for media.
+      const hasHermesContent = parts.some(
+        (part: ChatMessage['parts'][number]) => part.type === 'data-hermes_media' || part.type === 'data-hermes_prompt',
+      );
+      const hasVisibleContent = hasVisibleText || hasDeliverableToolOutput || hasHermesContent;
 
       // If there is no visible content at all, consider the response missing
       if (!hasVisibleContent) {
