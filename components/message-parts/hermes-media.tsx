@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Download, FileText, Loader2, Pause, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -71,6 +71,51 @@ function HermesVoicePlayerInner({ url }: { url: string }) {
   );
 }
 
+// Same reasoning as HermesVoicePlayer above: native <video controls> renders its
+// scrubber/play button as an OS-level widget, not a styled DOM node — dropping `controls`
+// and driving play/pause through the ref instead avoids that compositing layer entirely.
+// No scrubber here (audio's AudioPlayerProgress isn't reused) — kept intentionally minimal;
+// tap-to-pause is enough for a chat-bubble clip.
+function HermesVideoPlayer({ url }: { url: string }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  const togglePlay = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) void video.play();
+    else video.pause();
+  };
+
+  return (
+    <div className="group relative max-w-full overflow-hidden rounded-lg">
+      <video
+        ref={videoRef}
+        src={url}
+        playsInline
+        className="block max-w-full rounded-lg"
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        onClick={togglePlay}
+      />
+      <button
+        type="button"
+        onClick={togglePlay}
+        aria-label={isPlaying ? 'Pause' : 'Play'}
+        className={
+          isPlaying
+            ? 'absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100'
+            : 'absolute inset-0 flex items-center justify-center bg-black/20 transition-opacity'
+        }
+      >
+        <span className="flex size-12 items-center justify-center rounded-full bg-background/90 text-foreground shadow-lg">
+          {isPlaying ? <Pause className="size-5" /> : <Play className="size-5 ml-0.5" />}
+        </span>
+      </button>
+    </div>
+  );
+}
+
 // Renders a Hermes `send_media` action (docs/relay-connector-contract.md §4). `url` is
 // always Zetora's own storage (see app/api/internal/hermes/media/route.ts) — never a
 // bare pass-through of whatever the gateway cited as source_url.
@@ -84,7 +129,7 @@ export function HermesMediaCard({ media }: { media: HermesMediaData }) {
         <img src={url} alt={caption ?? filename ?? 'Image from Hermes'} className="max-w-full rounded-lg" />
       )}
       {(mediaKind === 'voice' || mediaKind === 'audio') && <HermesVoicePlayer url={url} />}
-      {mediaKind === 'video' && <video controls src={url} className="max-w-full rounded-lg" />}
+      {mediaKind === 'video' && <HermesVideoPlayer url={url} />}
       {mediaKind === 'document' && (
         <a
           href={url}

@@ -617,7 +617,7 @@ export const CodeContextTool: React.FC<{ args: any; result: any }> = ({ args, re
   const previewText = shouldShowAccordion ? responseText.slice(0, 400) + '...' : responseText;
 
   return (
-    <div className="group my-2 rounded-md border border-neutral-200/60 dark:border-neutral-700/60 bg-white/50 dark:bg-neutral-900/50 backdrop-blur-sm hover:border-neutral-300 dark:hover:border-neutral-600 transition-all duration-200">
+    <div className="group my-2 rounded-md border border-neutral-200/60 dark:border-neutral-700/60 bg-white/80 dark:bg-neutral-900/80 hover:border-neutral-300 dark:hover:border-neutral-600 transition-all duration-200">
       <div className="p-3">
         <div className="flex items-start gap-3">
           <div className="mt-0.5 w-5 h-5 rounded-md bg-blue-600 flex items-center justify-center">

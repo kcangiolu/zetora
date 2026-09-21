@@ -153,8 +153,12 @@ type SourceMetadata = {
   favicon?: string;
 };
 
+// No backdrop-blur: it forces the browser to re-composite everything behind this pill
+// on every scroll frame — a well-documented mobile-scroll-jank source, worse the more
+// instances are on screen at once (one per message with sources). A flat, slightly more
+// opaque background reads the same without that cost.
 const sourceDialogTriggerClassName =
-  'h-8 rounded-full border border-border/60 bg-background/70 px-2.5 text-xs font-medium text-foreground shadow-none backdrop-blur-sm transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 supports-[backdrop-filter]:bg-background/50';
+  'h-8 rounded-full border border-border/60 bg-background/70 px-2.5 text-xs font-medium text-foreground shadow-none transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30';
 
 const sourceCardClassName =
   'group block overflow-hidden rounded-xl border border-border/60 bg-card/30 p-3 transition-colors hover:bg-accent/40 hover:border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30';
@@ -618,8 +622,12 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
         .replace(/<\|end_of_box\|>/g, '')
         .replace(/<\|im_end\|>/g, '');
 
+      // No backdrop-blur — up to 8 of these mount per assistant message, and each one
+      // forces a fresh re-composite of whatever scrolls behind it every frame. A flat,
+      // slightly more opaque background (bumped from /40 to compensate for losing the
+      // blur that used to soften it) reads the same without the scroll-jank cost.
       const actionIconButtonClassName =
-        'h-8 w-8 rounded-sm border border-border bg-background/40 text-muted-foreground shadow-none backdrop-blur-sm transition-colors hover:bg-accent/60 hover:text-foreground supports-[backdrop-filter]:bg-background/30';
+        'h-8 w-8 rounded-sm border border-border bg-background/60 text-muted-foreground shadow-none transition-colors hover:bg-accent/60 hover:text-foreground';
 
       // Check if the message has canvas spec data parts — only render after the LAST text part
       const hasCanvasSpec = isLastTextPart && parts.some((p) => p.type === SPEC_DATA_PART_TYPE);
@@ -3206,7 +3214,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                 return (
                   <div
                     key={`${messageIndex}-${partIndex}-tool`}
-                    className="group my-2 rounded-md border border-neutral-200/60 dark:border-neutral-700/60 bg-white/50 dark:bg-neutral-900/50 backdrop-blur-sm hover:border-neutral-300 dark:hover:border-neutral-600 transition-all duration-200"
+                    className="group my-2 rounded-md border border-neutral-200/60 dark:border-neutral-700/60 bg-white/80 dark:bg-neutral-900/80 hover:border-neutral-300 dark:hover:border-neutral-600 transition-all duration-200"
                   >
                     <div className="p-3">
                       <div className="flex items-start gap-3">
