@@ -287,7 +287,8 @@ services:
 
   minio-create-bucket:
     profiles: ['minio']
-    image: quay.io/minio/mc:latest
+    # The server image ships /usr/bin/mc, so bucket setup needs no separate client image.
+    image: quay.io/minio/minio:latest
     container_name: zetora-minio-create-bucket
     depends_on:
       - minio
