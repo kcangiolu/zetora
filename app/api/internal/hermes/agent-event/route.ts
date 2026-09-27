@@ -109,6 +109,22 @@ type MessagePart = { type: string; [key: string]: unknown };
 // ("reply /approve, /always, or /cancel") always still works.
 const DEFAULT_PROMPT_TIMEOUT_S = 300;
 
+// The agent's response time: from the user message this reply answers to the reply's
+// arrival. The gateway's reply_to is the inbound event's message_id, which is Zetora's own
+// user-message id (app/api/hermes/send/route.ts). A send with no reply_to — a scheduled
+// delivery, say — gets no response time rather than a misleading "since your last
+// message", and so does a reply_to that doesn't name a user message in this chat.
+async function secondsSinceTriggeringMessage(
+  replyTo: string | null | undefined,
+  chatId: string,
+  now: Date,
+): Promise<number | null> {
+  if (!replyTo) return null;
+  const [trigger] = await getMessageById({ id: replyTo });
+  if (!trigger || trigger.chatId !== chatId || trigger.role !== 'user') return null;
+  return (now.getTime() - trigger.createdAt.getTime()) / 1000;
+}
+
 // Called by hermes-relay-service when the gateway sends an `outbound` frame (the agent's
 // send/edit/typing/draft/prompt/react/send_media actions — verified against
 // gateway/relay/adapter.py's RelayAdapter directly, not the prose doc: `send` at
@@ -278,6 +294,7 @@ export async function POST(req: NextRequest) {
 
     const messageId = crypto.randomUUID();
     const createdAt = new Date();
+    const completionTime = await secondsSinceTriggeringMessage(action.reply_to, conversation.chatId, createdAt);
 
     await saveMessages({
       messages: [
@@ -292,18 +309,25 @@ export async function POST(req: NextRequest) {
           inputTokens: null,
           outputTokens: null,
           totalTokens: null,
-          completionTime: null,
+          completionTime,
           searchVector: null,
           isCompactionSummary: false,
           compactionReplacedCount: null,
           hermesReaction: null,
+          hermesGatewayId: connector.gatewayId,
         },
       ],
     });
 
     await publishHermesEvent(conversation.chatId, {
       kind: 'message',
-      message: { id: messageId, role: 'assistant', parts, createdAt },
+      message: {
+        id: messageId,
+        role: 'assistant',
+        parts,
+        createdAt,
+        metadata: { completionTime, hermesGatewayId: connector.gatewayId },
+      },
     });
 
     // Only push when no tab has this chat's SSE stream open — that's the whole signal

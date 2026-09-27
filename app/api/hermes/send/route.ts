@@ -135,6 +135,7 @@ export async function POST(req: NextRequest) {
           isCompactionSummary: false,
           compactionReplacedCount: null,
           hermesReaction: null,
+          hermesGatewayId: null,
         },
       ],
     });

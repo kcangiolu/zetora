@@ -16,7 +16,7 @@ import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CpuIcon, SplitIcon } from '@hugeicons/core-free-icons';
+import { CpuIcon, Robot01Icon, SplitIcon } from '@hugeicons/core-free-icons';
 import {
   ChatMessage,
   CustomUIDataTypes,
@@ -290,6 +290,17 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
     const tokenTotal = (meta?.totalTokens ?? (meta?.inputTokens ?? 0) + (meta?.outputTokens ?? 0)) || null;
     const inputCount = meta?.inputTokens ?? null;
     const outputCount = meta?.outputTokens ?? null;
+    const completionTime = meta?.completionTime ?? null;
+    // A Hermes reply carries no model or token data (the relay wire has none); what it
+    // has is provenance and timing, which is what its info popover shows instead.
+    const hermesGatewayId = meta?.hermesGatewayId ?? null;
+    const hermesReceivedAt =
+      hermesGatewayId && meta?.createdAt
+        ? new Date(meta.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+        : null;
+    const hasResponseInfo = Boolean(
+      modelLabel || completionTime !== null || inputCount !== null || outputCount !== null || hermesGatewayId,
+    );
     const sourceItems = useMemo(
       () =>
         parts.reduce<SourceItem[]>((acc, messagePart, sourceIndex) => {
@@ -1313,7 +1324,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                     </Dialog>
                   ))}
 
-                {meta && (
+                {hasResponseInfo && (
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
@@ -1339,6 +1350,28 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                           <h4 className="font-semibold text-sm">Response Info</h4>
                         </div>
 
+                        {hermesGatewayId && (
+                          <>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-muted-foreground">Agent</span>
+                              <div className="flex items-center gap-1 text-xs bg-primary text-primary-foreground rounded-lg px-2 py-1">
+                                <HugeiconsIcon icon={Robot01Icon} size={12} />
+                                Hermes Agent
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm text-muted-foreground">Gateway</span>
+                              <span className="text-xs font-mono truncate">{hermesGatewayId}</span>
+                            </div>
+                            {hermesReceivedAt && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm text-muted-foreground">Received</span>
+                                <span className="text-xs">{hermesReceivedAt}</span>
+                              </div>
+                            )}
+                          </>
+                        )}
+
                         {modelLabel && (
                           <div className="flex items-center justify-between">
                             <span className="text-sm text-muted-foreground">Model</span>
@@ -1349,12 +1382,16 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                           </div>
                         )}
 
-                        {typeof meta.completionTime === 'number' && (
+                        {completionTime !== null && (
                           <div className="flex items-center justify-between">
-                            <span className="text-sm text-muted-foreground">Generation Time</span>
+                            {/* For a Hermes reply this is wall-clock time from the user's message
+                                to the reply's arrival (agent-event/route.ts), not model time. */}
+                            <span className="text-sm text-muted-foreground">
+                              {hermesGatewayId ? 'Response Time' : 'Generation Time'}
+                            </span>
                             <div className="flex items-center gap-1 text-xs">
                               <Clock className="h-3 w-3" />
-                              {meta.completionTime.toFixed(1)}s
+                              {completionTime.toFixed(1)}s
                             </div>
                           </div>
                         )}

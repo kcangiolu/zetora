@@ -7,7 +7,16 @@ type HermesEvent =
   // `parts` is intentionally loose (Record-shaped, not the full ChatMessage union) — this
   // mirrors exactly what app/api/internal/hermes/agent-event/route.ts persists and
   // publishes, which already includes non-text parts like `data-hermes_prompt`.
-  | { kind: 'message'; message: { id: string; role: 'assistant'; parts: Array<Record<string, unknown>>; createdAt: string } }
+  | {
+      kind: 'message';
+      message: {
+        id: string;
+        role: 'assistant';
+        parts: Array<Record<string, unknown>>;
+        createdAt: string;
+        metadata: { completionTime: number | null; hermesGatewayId: string | null };
+      };
+    }
   | { kind: 'edit'; message: { id: string; parts: Array<Record<string, unknown>> } }
   | { kind: 'typing'; content: string | null }
   | { kind: 'draft'; draftId: number; content: string; final: boolean }
@@ -94,11 +103,27 @@ export function useHermesStream({
       }
 
       if (payload.kind === 'message') {
-        const { id, role, parts } = payload.message;
+        const { id, role, parts, createdAt, metadata } = payload.message;
         clearProgress();
         setMessages((current) => {
           if (current.some((m) => m.id === id)) return current;
-          return [...current, { id, role, parts } as ChatMessage];
+          // Same metadata shape lib/chat-messages.ts's convertToUIMessages gives this
+          // message after a reload, so the info popover reads identically either way.
+          const message = {
+            id,
+            role,
+            parts,
+            metadata: {
+              createdAt,
+              model: '',
+              completionTime: metadata.completionTime,
+              inputTokens: null,
+              outputTokens: null,
+              totalTokens: null,
+              hermesGatewayId: metadata.hermesGatewayId,
+            },
+          };
+          return [...current, message as ChatMessage];
         });
         return;
       }

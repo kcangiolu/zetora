@@ -162,6 +162,9 @@ const messageMetadataSchema = z.object({
   // represents ("Summary of N earlier messages"). Null/absent for non-summary
   // messages.
   compactionReplacedCount: z.number().nullable().optional(),
+  // The Hermes gateway that produced this message (lib/db/schema.ts's hermesGatewayId).
+  // Null/absent for every non-Hermes message.
+  hermesGatewayId: z.string().nullable().optional(),
 });
 
 type MessageMetadata = z.infer<typeof messageMetadataSchema>;

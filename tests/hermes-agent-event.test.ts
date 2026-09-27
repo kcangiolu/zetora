@@ -61,7 +61,7 @@ const savedParts = () => saveMessages.mock.calls.at(-1)![0].messages[0].parts;
 describe('POST /api/internal/hermes/agent-event', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getHermesConnectorByGatewayId.mockResolvedValue({ id: 'connector-1', userId: 'user-1' });
+    getHermesConnectorByGatewayId.mockResolvedValue({ id: 'connector-1', userId: 'user-1', gatewayId: 'gw-test' });
     getHermesConversationByChatId.mockResolvedValue({ chatId: CHAT_ID, connectorId: 'connector-1' });
     isHermesChatViewerActive.mockResolvedValue(true);
     saveMessages.mockResolvedValue(undefined);
@@ -106,11 +106,52 @@ describe('POST /api/internal/hermes/agent-event', () => {
       expect(sendPushToUser).toHaveBeenCalledWith('user-1', expect.objectContaining({ body: 'Bonjour' }));
 
       vi.clearAllMocks();
-      getHermesConnectorByGatewayId.mockResolvedValue({ id: 'connector-1', userId: 'user-1' });
+      getHermesConnectorByGatewayId.mockResolvedValue({ id: 'connector-1', userId: 'user-1', gatewayId: 'gw-test' });
       getHermesConversationByChatId.mockResolvedValue({ chatId: CHAT_ID, connectorId: 'connector-1' });
       isHermesChatViewerActive.mockResolvedValue(true);
       await post({ op: 'send', chat_id: CHAT_ID, content: 'Bonjour' });
       expect(sendPushToUser).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('provenance and response time', () => {
+    const savedMessage = () => saveMessages.mock.calls.at(-1)![0].messages[0];
+
+    it('records which gateway produced the reply', async () => {
+      await post({ op: 'send', chat_id: CHAT_ID, content: 'Bonjour' });
+      expect(savedMessage().hermesGatewayId).toBe('gw-test');
+    });
+
+    it('times the reply from the user message it answers', async () => {
+      const askedAt = new Date(Date.now() - 12_000);
+      getMessageById.mockResolvedValue([{ id: 'u1', chatId: CHAT_ID, role: 'user', createdAt: askedAt }]);
+      await post({ op: 'send', chat_id: CHAT_ID, content: 'Bonjour', reply_to: 'u1' });
+
+      expect(getMessageById).toHaveBeenCalledWith({ id: 'u1' });
+      const { completionTime, createdAt } = savedMessage();
+      expect(completionTime).toBeCloseTo((createdAt.getTime() - askedAt.getTime()) / 1000);
+      expect(publishHermesEvent).toHaveBeenCalledWith(
+        CHAT_ID,
+        expect.objectContaining({
+          message: expect.objectContaining({ metadata: { completionTime, hermesGatewayId: 'gw-test' } }),
+        }),
+      );
+    });
+
+    it('leaves a send with no reply_to untimed', async () => {
+      await post({ op: 'send', chat_id: CHAT_ID, content: 'Scheduled digest' });
+      expect(getMessageById).not.toHaveBeenCalled();
+      expect(savedMessage().completionTime).toBeNull();
+    });
+
+    it('ignores a reply_to that is not a user message in this chat', async () => {
+      getMessageById.mockResolvedValue([{ id: 'x', chatId: 'some-other-chat', role: 'user', createdAt: new Date() }]);
+      await post({ op: 'send', chat_id: CHAT_ID, content: 'Bonjour', reply_to: 'x' });
+      expect(savedMessage().completionTime).toBeNull();
+
+      getMessageById.mockResolvedValue([{ id: 'a', chatId: CHAT_ID, role: 'assistant', createdAt: new Date() }]);
+      await post({ op: 'send', chat_id: CHAT_ID, content: 'Bonjour', reply_to: 'a' });
+      expect(savedMessage().completionTime).toBeNull();
     });
   });
 

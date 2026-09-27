@@ -1324,6 +1324,7 @@ export async function POST(req: Request) {
             isCompactionSummary: false,
             compactionReplacedCount: null,
             hermesReaction: null,
+            hermesGatewayId: null,
           };
         }),
       });

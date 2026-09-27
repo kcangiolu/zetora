@@ -23,6 +23,7 @@ export function convertToUIMessages(messages: Message[]): ChatMessage[] {
         totalTokens: message.totalTokens,
         isCompactionSummary: message.isCompactionSummary,
         compactionReplacedCount: message.compactionReplacedCount,
+        hermesGatewayId: message.hermesGatewayId,
       },
     };
   });

@@ -178,6 +178,11 @@ export const message = pgTable(
     // multi-user reaction list); null when absent or explicitly removed
     // (action.remove === true). Every non-Hermes message leaves this null forever.
     hermesReaction: text('hermes_reaction'),
+    // The Hermes gateway (hermes_connector.gatewayId) that produced this assistant
+    // message — provenance for the message's info popover, captured at write time so a
+    // later re-enrollment from another machine can't rewrite who answered. Null for
+    // every non-Hermes message and for user messages.
+    hermesGatewayId: text('hermes_gateway_id'),
   },
   (table) => [
     index('message_chatId_idx').on(table.chatId),
