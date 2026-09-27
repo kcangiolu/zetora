@@ -856,12 +856,17 @@ const ChatInterface = memo(
     // rightly 403s anyone else — a non-owner viewing a public Agent chat would otherwise
     // open a stream only to have it rejected.
     const [hermesTypingLabel, setHermesTypingLabel] = useState<string | null>(null);
+    // The agent's reply as it is being written (Hermes's `draft` op). Transient by
+    // definition — never persisted, cleared the moment the real message lands — so it
+    // lives here rather than in `messages`.
+    const [hermesDraft, setHermesDraft] = useState<string | null>(null);
     const [hermesReactions, setHermesReactions] = useState<Record<string, string | null>>({});
     useHermesStream({
       chatId,
       enabled: isHermesChat && isOwner,
       setMessages,
       onTyping: setHermesTypingLabel,
+      onDraft: setHermesDraft,
       onReaction: (messageId, emoji) => setHermesReactions((prev) => ({ ...prev, [messageId]: emoji })),
     });
 
@@ -1757,6 +1762,7 @@ const ChatInterface = memo(
                     regenerate={regenerate}
                     isHermesChat={isHermesChat}
                     hermesTypingLabel={hermesTypingLabel}
+                    hermesDraft={hermesDraft}
                     hermesReactions={hermesReactions}
                     stop={stop}
                     suggestedQuestions={chatState.suggestedQuestions}

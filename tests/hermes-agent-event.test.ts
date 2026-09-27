@@ -244,4 +244,40 @@ describe('POST /api/internal/hermes/agent-event', () => {
       expect(saveMessages).not.toHaveBeenCalled();
     });
   });
+
+  describe('draft', () => {
+    it('publishes the partial text without persisting or notifying', async () => {
+      const res = await post({ op: 'draft', chat_id: CHAT_ID, draft_id: 42, content: 'Let me ch' });
+      expect(await res.json()).toEqual({ success: true });
+      expect(publishHermesEvent).toHaveBeenCalledWith(CHAT_ID, {
+        kind: 'draft',
+        draftId: 42,
+        content: 'Let me ch',
+        final: false,
+      });
+      // A draft is not a message: nothing is stored, and the push belongs to the `send`
+      // that eventually delivers the finished segment.
+      expect(saveMessages).not.toHaveBeenCalled();
+      expect(updateMessagePartsById).not.toHaveBeenCalled();
+      expect(sendPushToUser).not.toHaveBeenCalled();
+    });
+
+    it('forwards a sealing frame as final', async () => {
+      await post({ op: 'draft', chat_id: CHAT_ID, draft_id: 42, content: 'done', final: true });
+      expect(publishHermesEvent).toHaveBeenCalledWith(CHAT_ID, {
+        kind: 'draft',
+        draftId: 42,
+        content: 'done',
+        final: true,
+      });
+      expect(saveMessages).not.toHaveBeenCalled();
+    });
+
+    it('refuses a frame for a chat this connector does not own', async () => {
+      getHermesConversationByChatId.mockResolvedValue({ chatId: CHAT_ID, connectorId: 'other-connector' });
+      const res = await post({ op: 'draft', chat_id: CHAT_ID, draft_id: 42, content: 'nope' });
+      expect(await res.json()).toEqual({ success: false, error: 'no_conversation' });
+      expect(publishHermesEvent).not.toHaveBeenCalled();
+    });
+  });
 });

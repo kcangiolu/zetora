@@ -5,6 +5,11 @@ import { config } from '../config.js';
 // `supports_edit: true`: the gateway reads this at handshake to decide whether to stream
 // a reply as one `send` + progressive `edit`s, or as one-message-per-segment — now safe
 // to advertise since `edit` action-frame handling exists (see agent-event/route.ts).
+// `supports_draft_streaming: true` upgrades that to the draft lane: the progressive text
+// arrives as ephemeral `draft` frames (never persisted) and only the turn-final lands as a
+// real `send`. Both this flag AND the "draft" op below are required —
+// gateway/relay/adapter.py's supports_draft_streaming checks them together and, unlike the
+// legacy op set, refuses to fail open on either.
 export function buildDescriptorFrame() {
   return {
     type: 'descriptor',
@@ -13,7 +18,7 @@ export function buildDescriptorFrame() {
       platform: 'zetora',
       label: 'Zetora',
       max_message_length: 4096,
-      supports_draft_streaming: false,
+      supports_draft_streaming: true,
       supports_edit: true,
       supports_threads: false,
       markdown_dialect: 'markdown',
@@ -26,7 +31,7 @@ export function buildDescriptorFrame() {
       // `supports_op("prompt")` before ever attempting one). "follow_up" is deliberately
       // omitted: not yet handled (see index.ts) — proactive sends need session_key
       // routing, a separately-scoped feature, not a one-line addition like the others.
-      supported_ops: ['send', 'prompt', 'edit', 'typing', 'react', 'send_media'],
+      supported_ops: ['send', 'prompt', 'edit', 'typing', 'react', 'send_media', 'draft'],
     },
   };
 }

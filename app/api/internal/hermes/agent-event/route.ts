@@ -91,6 +91,8 @@ interface OutboundAction {
   source_url?: string;
   filename?: string;
   timeout_s?: number;
+  draft_id?: number;
+  final?: boolean;
 }
 
 type MessagePart = { type: string; [key: string]: unknown };
@@ -108,12 +110,15 @@ type MessagePart = { type: string; [key: string]: unknown };
 const DEFAULT_PROMPT_TIMEOUT_S = 300;
 
 // Called by hermes-relay-service when the gateway sends an `outbound` frame (the agent's
-// send/edit/typing/prompt/react/send_media actions — verified against
+// send/edit/typing/draft/prompt/react/send_media actions — verified against
 // gateway/relay/adapter.py's RelayAdapter directly, not the prose doc: `send` at
-// RelayAdapter.send, `edit` at .edit_message, `typing` at .send_typing, `prompt` at
-// ._send_prompt, `react` at ._react, `send_media` at .send_media). `follow_up`/threads
-// are each a bigger, separately-scoped feature (proactive session_key routing) — not
-// handled here.
+// RelayAdapter.send, `edit` at .edit_message, `typing` at .send_typing, `draft` at
+// .send_draft, `prompt` at ._send_prompt, `react` at ._react, `send_media` at
+// .send_media). `follow_up`/threads are each a bigger, separately-scoped feature
+// (proactive session_key routing) — not handled here. `task_card`/`task_card_stop` are
+// deliberately absent: the gateway only ever emits them when the turn's source platform
+// is Slack (run.py's _native_slack_task_cards gate), and a Zetora conversation arrives as
+// Platform.RELAY — advertising them would be an op nothing can send.
 export async function POST(req: NextRequest) {
   const disabled = assertHermesEnabled();
   if (disabled) return disabled;
@@ -159,6 +164,26 @@ export async function POST(req: NextRequest) {
       // 2s for the life of a turn (adapter.py's _keep_typing loop). `content` carries the
       // agent's current status phrase ("Finding answers…") when it has one.
       await publishHermesEvent(conversation.chatId, { kind: 'typing', content: action.content ?? null });
+      return NextResponse.json({ success: true });
+    }
+
+    if (action.op === 'draft') {
+      // The progressive-streaming lane (gateway/stream_consumer.py's _send_draft_frame).
+      // Ephemeral by contract, exactly like `typing`: a draft frame carries the reply's
+      // text SO FAR, is superseded by the next frame, and is NOT the message — the
+      // turn-final arrives separately as a real `send` (Hermes only converts the final
+      // into a sealing draft frame for stream-is-the-message platforms, which is
+      // Slack-only: adapter.py's draft_stream_is_message). So nothing here is persisted,
+      // and nothing here pushes a notification — the `send` that follows does both.
+      //
+      // The gateway BLOCKS on this response for every frame (ws_transport.py's
+      // _request_response), so this path must stay a single publish.
+      await publishHermesEvent(conversation.chatId, {
+        kind: 'draft',
+        draftId: action.draft_id ?? 0,
+        content: action.content ?? '',
+        final: Boolean(action.final),
+      });
       return NextResponse.json({ success: true });
     }
 

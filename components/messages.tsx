@@ -4,6 +4,7 @@ import { Message, DELIVERABLE_TOOL_PART_TYPES } from '@/components/message';
 import { DataUIPart, isToolUIPart } from 'ai';
 import { EnhancedErrorDisplay } from '@/components/message';
 import { MessagePartRenderer } from '@/components/message-parts';
+import { MarkdownRenderer } from '@/components/markdown';
 import { StreamingIndicator } from '@/components/streaming-indicator';
 import { deleteTrailingMessages } from '@/app/actions';
 import { sileo } from 'sileo';
@@ -70,6 +71,10 @@ interface MessagesProps {
   // none is active — drives the same loading indicator a streaming LLM turn shows, since
   // Hermes has no LLM-turn status of its own to derive shouldShowLoading from.
   hermesTypingLabel?: string | null;
+  // The agent's reply as it is being written (Hermes's `draft` op), null when no stream is
+  // open. Rendered in the Footer rather than as a message: it is never persisted, and the
+  // real message arrives separately once the segment is complete.
+  hermesDraft?: string | null;
   // Hermes's best-effort `react` acks (👀 seen → ✅/❌ done) on the user's own messages,
   // keyed by message id — see chat-interface.tsx's onReaction wiring.
   hermesReactions?: Record<string, string | null>;
@@ -121,6 +126,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     skipAutoScrollRef,
     isHermesChat = false,
     hermesTypingLabel = null,
+    hermesDraft = null,
     hermesReactions,
   },
   ref,
@@ -392,8 +398,9 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
   // Check if we should show loading animation
   const shouldShowLoading = useMemo(() => {
     // Hermes has no useChat status to derive this from (see isHermesChat's own comment) —
-    // the typing heartbeat is the only "agent is working" signal it gets.
-    if (isHermesChat) return Boolean(hermesTypingLabel);
+    // the typing heartbeat and the draft stream are the only "agent is working" signals it
+    // gets, and either one alone is enough: a draft frame can land between heartbeats.
+    if (isHermesChat) return Boolean(hermesTypingLabel || hermesDraft);
     // Fire immediately via the onBeforeSubmit callback — before SDK status updates
     if (isTransitioning) return true;
     const lastMessage = memoizedMessages[memoizedMessages.length - 1];
@@ -409,7 +416,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
       }
     }
     return false;
-  }, [isTransitioning, status, memoizedMessages, isHermesChat, hermesTypingLabel]);
+  }, [isTransitioning, status, memoizedMessages, isHermesChat, hermesTypingLabel, hermesDraft]);
 
   // Compute index of the most recent assistant message; only that one should keep min-height
   const lastAssistantIndex = useMemo(() => {
@@ -580,6 +587,17 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
   const Footer = useCallback(() => {
     return (
       <>
+        {/* The agent's reply while it is still being written (Hermes's `draft` op). It lives
+            here instead of in the message list because it is never persisted: the completed
+            segment arrives separately as its own message, and the draft is cleared the
+            moment it does. Same MarkdownRenderer as a real assistant text part, so the
+            handoff from draft to message is seamless rather than a visible reflow. */}
+        {isHermesChat && hermesDraft && (
+          <div className="mt-2">
+            <MarkdownRenderer content={hermesDraft} />
+          </div>
+        )}
+
         {/* Loading animation when status is submitted or streaming with minimal assistant content */}
         {shouldShowLoading && (
           <div
@@ -611,6 +629,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     shouldReserveLoaderMinHeight,
     isHermesChat,
     hermesTypingLabel,
+    hermesDraft,
     error,
     memoizedMessages,
     user,
