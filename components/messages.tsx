@@ -279,6 +279,16 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
   // for when the user just wants to remove an orphaned/empty last turn
   // (e.g. after manually stopping generation before any content arrived).
   const handleDelete = useCallback(async () => {
+    // Same append-only rule as handleRetry above, and the reason is stronger here: this
+    // deletes rows the agent still has in its own session history, so the two sides would
+    // silently disagree about what was said.
+    if (isHermesChat) {
+      sileo.error({
+        title: 'Deleting is not available here',
+        description: 'Agent conversations are append-only — use /undo in your Agent chat instead.',
+      });
+      return;
+    }
     try {
       const lastUserMessage = messages.findLast((m) => m.role === 'user');
       if (!lastUserMessage) return;
@@ -306,7 +316,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
       console.error('Error in delete:', error);
       sileo.error({ title: 'Failed to delete message' });
     }
-  }, [messages, user, setMessages, setSuggestedQuestions, stop]);
+  }, [messages, user, setMessages, setSuggestedQuestions, stop, isHermesChat]);
 
   // Handle rendering of message parts - using the new MessagePartRenderer component
   const renderPart = useCallback(

@@ -2733,24 +2733,30 @@ const FormComponent: React.FC<FormComponentProps> = ({
                           <DrawerTitle className="text-sm">Options</DrawerTitle>
                         </DrawerHeader>
                         <div className="px-1 pb-4 max-h-[calc(70vh-80px)] overflow-y-auto">
-                          <button
-                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors"
-                            onClick={() => {
-                              haptics.trigger('selection');
-                              setPlusMenuOpen(false);
-                              triggerFileInput();
-                            }}
-                          >
-                            <HugeiconsIcon
-                              icon={DocumentAttachmentIcon}
-                              size={16}
-                              color="currentColor"
-                              strokeWidth={1.5}
-                            />
-                            <span className="flex-1 text-[13px]">Upload files or images</span>
-                          </button>
+                          {/* Agent mode carries text only — /api/hermes/send's body is
+                              {chatId, text, promptResponse} and the stored message gets
+                              attachments: []. Offering the picker would upload the file to
+                              storage, show a preview, and never send it anywhere. */}
+                          {!isHermesChat && (
+                            <button
+                              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors"
+                              onClick={() => {
+                                haptics.trigger('selection');
+                                setPlusMenuOpen(false);
+                                triggerFileInput();
+                              }}
+                            >
+                              <HugeiconsIcon
+                                icon={DocumentAttachmentIcon}
+                                size={16}
+                                color="currentColor"
+                                strokeWidth={1.5}
+                              />
+                              <span className="flex-1 text-[13px]">Upload files or images</span>
+                            </button>
+                          )}
 
-                          {user && setIsMultiAgentModeEnabled && swarmEnabledPref && (
+                          {user && setIsMultiAgentModeEnabled && swarmEnabledPref && !isHermesChat && (
                             <button
                               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors"
                               onClick={() => {
@@ -2961,36 +2967,39 @@ const FormComponent: React.FC<FormComponentProps> = ({
                         side="bottom"
                         sideOffset={4}
                       >
-                        <Tooltip delayDuration={200}>
-                          <TooltipTrigger asChild>
-                            <button
-                              className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors"
-                              onClick={() => {
-                                haptics.trigger('selection');
-                                setPlusMenuOpen(false);
-                                triggerFileInput();
-                              }}
-                            >
-                              <HugeiconsIcon
-                                icon={DocumentAttachmentIcon}
-                                size={16}
-                                color="currentColor"
-                                strokeWidth={1.5}
-                              />
-                              <span className="flex-1 text-[13px]">Upload files or images</span>
-                              <Kbd className="text-[9px] h-4 min-w-4 px-1">⌘U</Kbd>
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
-                            <span className="text-[10px] leading-snug">
-                              {hasPdfSupport(selectedModel)
-                                ? 'Images, PDFs, CSV, Excel, Word'
-                                : 'Images, CSV, Excel, Word'}
-                            </span>
-                          </TooltipContent>
-                        </Tooltip>
+                        {/* Hidden in Agent mode for the same reason as the drawer copy above. */}
+                        {!isHermesChat && (
+                          <Tooltip delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <button
+                                className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors"
+                                onClick={() => {
+                                  haptics.trigger('selection');
+                                  setPlusMenuOpen(false);
+                                  triggerFileInput();
+                                }}
+                              >
+                                <HugeiconsIcon
+                                  icon={DocumentAttachmentIcon}
+                                  size={16}
+                                  color="currentColor"
+                                  strokeWidth={1.5}
+                                />
+                                <span className="flex-1 text-[13px]">Upload files or images</span>
+                                <Kbd className="text-[9px] h-4 min-w-4 px-1">⌘U</Kbd>
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
+                              <span className="text-[10px] leading-snug">
+                                {hasPdfSupport(selectedModel)
+                                  ? 'Images, PDFs, CSV, Excel, Word'
+                                  : 'Images, CSV, Excel, Word'}
+                              </span>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
 
-                        {user && setIsMultiAgentModeEnabled && swarmEnabledPref && (
+                        {user && setIsMultiAgentModeEnabled && swarmEnabledPref && !isHermesChat && (
                           <Tooltip delayDuration={200}>
                             <TooltipTrigger asChild>
                               <button

@@ -1147,6 +1147,11 @@ const ChatInterface = memo(
         if (
           initialMessages &&
           initialMessages.length >= 2 &&
+          // Never for a Hermes chat: this is a real LLM call, and the follow-ups it
+          // produces are answered through /api/search — a native Zetora turn inside a
+          // relayed conversation. Gating generation is enough to make that unreachable,
+          // since nothing else populates suggestedQuestions in this lane.
+          !isHermesChat &&
           !chatState.suggestedQuestions.length &&
           (user || chatState.selectedVisibilityType === 'private') &&
           uiStatus === 'ready'
@@ -1196,7 +1201,14 @@ const ChatInterface = memo(
       return () => {
         isCancelled = true;
       };
-    }, [initialMessages, chatState.suggestedQuestions.length, uiStatus, user, chatState.selectedVisibilityType]);
+    }, [
+      initialMessages,
+      chatState.suggestedQuestions.length,
+      uiStatus,
+      user,
+      chatState.selectedVisibilityType,
+      isHermesChat,
+    ]);
 
     // Reset suggested questions when status changes to streaming
     useEffect(() => {

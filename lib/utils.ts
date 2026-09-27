@@ -19,7 +19,7 @@ import {
   CanvasIcon,
   SparklesIcon,
   BinocularsIcon,
-  MessengerIcon,
+  CaduceusIcon,
 } from '@hugeicons/core-free-icons';
 import { AgentNetworkIcon } from '@/components/icons/agent-network-icon';
 import { AppsIcon } from '@/components/icons/apps-icon';
@@ -278,7 +278,10 @@ export function getSearchGroups(searchProvider: SearchProvider = 'exa') {
       id: 'hermes' as const,
       name: 'Agent',
       description: "Talk to your own Hermes Agent (github.com/NousResearch/hermes-agent) through Zetora — see Settings > Hermes to connect it.",
-      icon: MessengerIcon,
+      // The caduceus is Hermes's own staff, and the symbol the Hermes Agent project uses
+      // for itself (its favicon is the ⚕ glyph). A generic chat-bubble mark said nothing
+      // about which agent this mode talks to.
+      icon: CaduceusIcon,
       // Always present in the build; only actually selectable once the user has an
       // enrolled connector — that per-user check happens where this list is rendered
       // (components/ui/form-component/index.tsx), not here. Labeled "Agent" (not

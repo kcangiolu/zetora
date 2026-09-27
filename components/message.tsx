@@ -1183,7 +1183,11 @@ export const Message: React.FC<MessageProps> = ({
               <div className="group relative flex items-center gap-3 justify-end">
                 {/* Actions on the left - vertically centered */}
                 <div className="flex items-center gap-0.5 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-200">
-                  {((user && isOwner) || (!user && selectedVisibilityType === 'private')) && (
+                  {/* Not offered on a Hermes chat: the edit path deletes the trailing
+                      messages and re-runs the turn through /api/search, neither of which
+                      means anything for a relayed conversation. MessageEditor's own submit
+                      guard stays as the defensive backstop. */}
+                  {!isHermesChat && ((user && isOwner) || (!user && selectedVisibilityType === 'private')) && (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button
