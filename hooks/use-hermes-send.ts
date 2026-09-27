@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
+import type { HermesAttachmentRef } from '@/lib/hermes/attachments';
 
 export interface HermesPromptResponse {
   promptId: string;
@@ -15,11 +16,19 @@ export interface HermesPromptResponse {
 // this only confirms the send was accepted/delivered.
 export function useHermesSend(chatId: string) {
   return useCallback(
-    async (text: string, promptResponse?: HermesPromptResponse) => {
+    async (
+      text: string,
+      options?: { promptResponse?: HermesPromptResponse; attachments?: HermesAttachmentRef[] },
+    ) => {
       const res = await fetch('/api/hermes/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chatId, text, promptResponse }),
+        body: JSON.stringify({
+          chatId,
+          text,
+          promptResponse: options?.promptResponse,
+          attachments: options?.attachments,
+        }),
       });
 
       if (!res.ok) {

@@ -11,14 +11,23 @@ import {
 } from '@/lib/db/queries';
 import { deliverToGateway } from '@/lib/hermes/relay-client';
 import { assertHermesEnabled } from '@/lib/hermes/feature-flag';
+import {
+  hermesMessageTypeFor,
+  resolveHermesAttachments,
+  type HermesAttachmentRef,
+} from '@/lib/hermes/attachments';
+import { getStorageClient } from '@/lib/storage';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('api-hermes-send');
+
+const { publicUrl: STORAGE_PUBLIC_URL } = getStorageClient();
 
 interface SendBody {
   chatId?: string;
   text?: string;
   promptResponse?: { promptId: string; optionId: string; label?: string };
+  attachments?: HermesAttachmentRef[];
 }
 
 // Outbound path: a Zetora user's message (or a HermesPromptCard button click) to their
@@ -37,14 +46,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { chatId, text, promptResponse } = body;
-  if (!chatId || typeof chatId !== 'string' || !text || typeof text !== 'string') {
-    return NextResponse.json({ error: 'chatId and text are required' }, { status: 400 });
+  const { chatId, promptResponse } = body;
+  const text = typeof body.text === 'string' ? body.text : '';
+  const attachments = Array.isArray(body.attachments) ? body.attachments : [];
+  // A caption-less attachment is a normal message on every other platform Hermes fronts,
+  // so text is only required when nothing else carries the message.
+  if (!chatId || typeof chatId !== 'string' || (!text && attachments.length === 0)) {
+    return NextResponse.json({ error: 'chatId and either text or an attachment are required' }, { status: 400 });
   }
 
   const session = await auth.api.getSession(req);
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Before anything is written or delivered: the gateway downloads every URL cited in
+  // media_urls, so an attachment that isn't this user's own upload is refused outright
+  // rather than quietly skipped (see resolveHermesAttachments).
+  const { media, rejected } = resolveHermesAttachments({
+    attachments,
+    userId: session.user.id,
+    storagePublicUrl: STORAGE_PUBLIC_URL,
+  });
+  if (rejected.length > 0) {
+    const detail = rejected.map((r) => `${r.name} (${r.reason})`).join(', ');
+    return NextResponse.json({ error: `Attachment refused: ${detail}` }, { status: 400 });
   }
 
   // Unlike /api/search, this route is the ONLY thing that ever creates a chat row for a
@@ -61,10 +87,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'This conversation is locked to Zetora search mode' }, { status: 409 });
   }
   if (!existingChat) {
+    // An attachment-only first message has no text to name the chat after — fall back to
+    // the file's own name rather than creating a blank-titled conversation.
+    const titleSource = text || media[0]?.name || 'Attachment';
     await saveChat({
       id: chatId,
       userId: session.user.id,
-      title: text.length > 80 ? `${text.slice(0, 77)}...` : text,
+      title: titleSource.length > 80 ? `${titleSource.slice(0, 77)}...` : titleSource,
       visibility: 'private',
     });
   }
@@ -80,6 +109,13 @@ export async function POST(req: NextRequest) {
   }
 
   const messageId = crypto.randomUUID();
+  // Files first, then the text — the same order /api/search's client builds, so the
+  // existing user-message rendering (components/message.tsx's `file` part filter) shows
+  // these exactly like an attachment on a normal turn, with nothing Hermes-specific.
+  const parts = [
+    ...media.map((m) => ({ type: 'file' as const, url: m.url, name: m.name ?? '', mediaType: m.mime })),
+    { type: 'text' as const, text },
+  ];
   try {
     await saveMessages({
       messages: [
@@ -87,7 +123,7 @@ export async function POST(req: NextRequest) {
           id: messageId,
           chatId,
           role: 'user',
-          parts: [{ type: 'text', text }],
+          parts,
           attachments: [],
           createdAt: new Date(),
           model: null,
@@ -111,7 +147,7 @@ export async function POST(req: NextRequest) {
   // guessed from the prose doc — see hermes-relay-service/README.md.
   const event: Record<string, unknown> = {
     text,
-    message_type: 'text',
+    message_type: hermesMessageTypeFor(media.map((m) => m.mime)),
     message_id: messageId,
     source: {
       platform: 'zetora',
@@ -121,6 +157,15 @@ export async function POST(req: NextRequest) {
       user_name: session.user.name,
     },
   };
+  if (media.length > 0) {
+    // Both fields, always. _media_types_from_wire treats media_urls (flat, legacy) and
+    // media (rich) as INDEPENDENT wire fields and pairs them BY URL, so sending only one
+    // costs every attachment its MIME — and the MIME is what routes an image to vision and
+    // a PDF to the file tools. The gateway then downloads each URL to a local temp path
+    // before the agent ever sees it (adapter.py's _localize_inbound_media).
+    event.media_urls = media.map((m) => m.url);
+    event.media = media.map((m) => ({ url: m.url, mime: m.mime, ...(m.name ? { name: m.name } : {}) }));
+  }
   if (promptResponse) {
     event.prompt_response = {
       prompt_id: promptResponse.promptId,

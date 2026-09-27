@@ -57,6 +57,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useHermesSend } from '@/hooks/use-hermes-send';
 import { filterHermesCommands, type HermesCommand } from '@/lib/hermes/commands';
 import type { HermesChatLock } from '@/lib/hermes/chat-mode';
+import { HERMES_MAX_ATTACHMENT_BYTES } from '@/lib/hermes/attachments';
 import { isHermesEnabled } from '@/lib/hermes/enabled';
 import { HermesCommandMenu } from './hermes-command-menu';
 import { type ConnectorProvider } from '@/lib/connectors';
@@ -1983,9 +1984,23 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
     if (selectedGroup === 'hermes') {
       const text = input.trim();
-      if (!text) {
+      if (!text && attachments.length === 0) {
         haptics.trigger('error');
-        sileo.error({ title: 'Please enter a message.' });
+        sileo.error({ title: 'Please enter a message or attach a file.' });
+        return;
+      }
+
+      // Zetora's own upload accepts documents up to 50MB, but the Hermes gateway abandons
+      // any download over 25MB (HERMES_MAX_ATTACHMENT_BYTES) — so a file in that band
+      // would upload, preview, and never reach the agent. Refuse it by name instead.
+      const oversized = attachments.filter((attachment) => attachment.size > HERMES_MAX_ATTACHMENT_BYTES);
+      if (oversized.length > 0) {
+        haptics.trigger('error');
+        sileo.error({
+          title: 'Too large for your Agent',
+          description: `${oversized.map((a) => a.name).join(', ')} — the Agent accepts files up to 25MB.`,
+          icon: <AlertCircle className="h-4 w-4" />,
+        });
         return;
       }
 
@@ -2004,14 +2019,33 @@ const FormComponent: React.FC<FormComponentProps> = ({
       // useChat's sendMessage/{/api/search} entirely. The user's own bubble is appended
       // optimistically here; the agent's reply arrives over the SSE channel
       // (hooks/use-hermes-stream.ts), same as every other mode's assistant message.
-      setMessages((current) => [...current, { id: crypto.randomUUID(), role: 'user', parts: [{ type: 'text', text }] }]);
+      const hermesAttachments = attachments.map((attachment) => ({
+        url: attachment.url,
+        name: attachment.name,
+        mediaType: attachment.contentType || attachment.mediaType || '',
+      }));
+      setMessages((current) => [
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          role: 'user',
+          parts: [
+            ...hermesAttachments.map((a) => ({ type: 'file' as const, url: a.url, name: a.name, mediaType: a.mediaType })),
+            { type: 'text', text },
+          ],
+        },
+      ]);
       setInput('');
+      setAttachments([]);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
       if (inputRef.current) {
         inputRef.current.style.height = 'auto';
         inputRef.current.style.overflowY = 'hidden';
       }
 
-      sendHermesMessage(text).catch((error) => {
+      sendHermesMessage(text, { attachments: hermesAttachments }).catch((error) => {
         haptics.trigger('error');
         sileo.error({
           title: 'Failed to send to Hermes',
@@ -2733,28 +2767,22 @@ const FormComponent: React.FC<FormComponentProps> = ({
                           <DrawerTitle className="text-sm">Options</DrawerTitle>
                         </DrawerHeader>
                         <div className="px-1 pb-4 max-h-[calc(70vh-80px)] overflow-y-auto">
-                          {/* Agent mode carries text only — /api/hermes/send's body is
-                              {chatId, text, promptResponse} and the stored message gets
-                              attachments: []. Offering the picker would upload the file to
-                              storage, show a preview, and never send it anywhere. */}
-                          {!isHermesChat && (
-                            <button
-                              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors"
-                              onClick={() => {
-                                haptics.trigger('selection');
-                                setPlusMenuOpen(false);
-                                triggerFileInput();
-                              }}
-                            >
-                              <HugeiconsIcon
-                                icon={DocumentAttachmentIcon}
-                                size={16}
-                                color="currentColor"
-                                strokeWidth={1.5}
-                              />
-                              <span className="flex-1 text-[13px]">Upload files or images</span>
-                            </button>
-                          )}
+                          <button
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors"
+                            onClick={() => {
+                              haptics.trigger('selection');
+                              setPlusMenuOpen(false);
+                              triggerFileInput();
+                            }}
+                          >
+                            <HugeiconsIcon
+                              icon={DocumentAttachmentIcon}
+                              size={16}
+                              color="currentColor"
+                              strokeWidth={1.5}
+                            />
+                            <span className="flex-1 text-[13px]">Upload files or images</span>
+                          </button>
 
                           {user && setIsMultiAgentModeEnabled && swarmEnabledPref && !isHermesChat && (
                             <button
@@ -2967,37 +2995,37 @@ const FormComponent: React.FC<FormComponentProps> = ({
                         side="bottom"
                         sideOffset={4}
                       >
-                        {/* Hidden in Agent mode for the same reason as the drawer copy above. */}
-                        {!isHermesChat && (
-                          <Tooltip delayDuration={200}>
-                            <TooltipTrigger asChild>
-                              <button
-                                className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors"
-                                onClick={() => {
-                                  haptics.trigger('selection');
-                                  setPlusMenuOpen(false);
-                                  triggerFileInput();
-                                }}
-                              >
-                                <HugeiconsIcon
-                                  icon={DocumentAttachmentIcon}
-                                  size={16}
-                                  color="currentColor"
-                                  strokeWidth={1.5}
-                                />
-                                <span className="flex-1 text-[13px]">Upload files or images</span>
-                                <Kbd className="text-[9px] h-4 min-w-4 px-1">⌘U</Kbd>
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
-                              <span className="text-[10px] leading-snug">
-                                {hasPdfSupport(selectedModel)
-                                  ? 'Images, PDFs, CSV, Excel, Word'
-                                  : 'Images, CSV, Excel, Word'}
-                              </span>
-                            </TooltipContent>
-                          </Tooltip>
-                        )}
+                        <Tooltip delayDuration={200}>
+                          <TooltipTrigger asChild>
+                            <button
+                              className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors"
+                              onClick={() => {
+                                haptics.trigger('selection');
+                                setPlusMenuOpen(false);
+                                triggerFileInput();
+                              }}
+                            >
+                              <HugeiconsIcon
+                                icon={DocumentAttachmentIcon}
+                                size={16}
+                                color="currentColor"
+                                strokeWidth={1.5}
+                              />
+                              <span className="flex-1 text-[13px]">Upload files or images</span>
+                              <Kbd className="text-[9px] h-4 min-w-4 px-1">⌘U</Kbd>
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
+                            <span className="text-[10px] leading-snug">
+                              {/* selectedModel says nothing about an Agent chat: a Hermes turn
+                                  runs on the agent's own model and reads documents with its own
+                                  file tools, so PDFs are always in. */}
+                              {isHermesChat || hasPdfSupport(selectedModel)
+                                ? 'Images, PDFs, CSV, Excel, Word'
+                                : 'Images, CSV, Excel, Word'}
+                            </span>
+                          </TooltipContent>
+                        </Tooltip>
 
                         {user && setIsMultiAgentModeEnabled && swarmEnabledPref && !isHermesChat && (
                           <Tooltip delayDuration={200}>

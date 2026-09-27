@@ -47,7 +47,9 @@ export function HermesPromptCard({ chatId, prompt }: { chatId: string; prompt: H
     if (answeredOptionId || sending || isExpired) return;
     setSending(true);
     try {
-      await sendHermesMessage(`/${option.id}`, { promptId: prompt.promptId, optionId: option.id, label: option.label });
+      await sendHermesMessage(`/${option.id}`, {
+        promptResponse: { promptId: prompt.promptId, optionId: option.id, label: option.label },
+      });
       setAnsweredOptionId(option.id);
     } catch {
       // Left un-answered so the user can retry — a failed send here means Hermes never
