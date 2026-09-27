@@ -385,9 +385,9 @@ interface MessageProps {
   setMessages: UseChatHelpers<ChatMessage>['setMessages'];
   sendMessage: UseChatHelpers<ChatMessage>['sendMessage'];
   regenerate: UseChatHelpers<ChatMessage>['regenerate'];
-  // See messages.tsx's own isHermesMode comment: regenerate() always targets
+  // See messages.tsx's own isHermesChat comment: regenerate() always targets
   // /api/search, which a Hermes-mode chat never uses.
-  isHermesMode?: boolean;
+  isHermesChat?: boolean;
   // Hermes's best-effort `react` ack on THIS user message (👀 seen → ✅/❌ done), or null.
   hermesReaction?: string | null;
   setSuggestedQuestions: (questions: string[]) => void;
@@ -412,7 +412,7 @@ interface MessageEditorProps {
   setMode: (mode: 'view' | 'edit') => void;
   setMessages: UseChatHelpers<ChatMessage>['setMessages'];
   regenerate: UseChatHelpers<ChatMessage>['regenerate'];
-  isHermesMode?: boolean;
+  isHermesChat?: boolean;
   messages: ChatMessage[];
   setSuggestedQuestions: (questions: string[]) => void;
   user?: ComprehensiveUserData | null;
@@ -478,7 +478,7 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
   setMode,
   setMessages,
   regenerate,
-  isHermesMode = false,
+  isHermesChat = false,
   messages,
   setSuggestedQuestions,
   user,
@@ -749,7 +749,7 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
       sileo.error({ title: 'Please enter a valid message.' });
       return;
     }
-    if (isHermesMode) {
+    if (isHermesChat) {
       sileo.error({
         title: 'Editing is not available here',
         description: 'Agent conversations are append-only — send a new message instead.',
@@ -958,7 +958,7 @@ function isDeliverablePart(part: ChatMessage['parts'][number]): boolean {
   // text with a hermes_prompt/hermes_media part gets its second part swept into the
   // same hidden-steps bucket as a native tool call, and since the "Zetora task
   // complete" toggle that would un-collapse it is itself hidden in Hermes mode (see
-  // the `!isHermesMode` guard below), the card becomes permanently inaccessible.
+  // the `!isHermesChat` guard below), the card becomes permanently inaccessible.
   if (part.type === 'data-hermes_prompt' || part.type === 'data-hermes_media') return true;
   if (!DELIVERABLE_TOOL_PART_TYPES.has(part.type)) return false;
   const anyPart = part as unknown as { state?: string; output?: { success?: boolean } };
@@ -1059,7 +1059,7 @@ export const Message: React.FC<MessageProps> = ({
   user,
   selectedVisibilityType = 'private',
   regenerate,
-  isHermesMode = false,
+  isHermesChat = false,
   hermesReaction = null,
   isLastMessage,
   error,
@@ -1174,7 +1174,7 @@ export const Message: React.FC<MessageProps> = ({
                 setMode={setMode}
                 setMessages={setMessages}
                 regenerate={regenerate}
-                isHermesMode={isHermesMode}
+                isHermesChat={isHermesChat}
                 messages={messages}
                 setSuggestedQuestions={setSuggestedQuestions}
                 user={user}
@@ -1254,7 +1254,7 @@ export const Message: React.FC<MessageProps> = ({
 
                   {/* Hermes's react ack (👀 seen → ✅/❌ done) on this message — see
                       message.tsx's hermesReaction prop / agent-event/route.ts's `react`. */}
-                  {isHermesMode && hermesReaction && (
+                  {isHermesChat && hermesReaction && (
                     <div className="flex justify-end mt-1">
                       <span className="text-sm leading-none" aria-label={`Hermes reacted: ${hermesReaction}`}>
                         {hermesReaction}
@@ -1296,9 +1296,9 @@ export const Message: React.FC<MessageProps> = ({
     // Only the final answer and deliverables (generated images/files) stay
     // visible when collapsed — reasoning, tool calls, and other step parts
     // are what "Zetora task complete" hides. Meaningless for Hermes (see the
-    // header's own !isHermesMode guard below) — always show every part rather
+    // header's own !isHermesChat guard below) — always show every part rather
     // than relying solely on isDeliverablePart to allowlist each hermes_* type.
-    const showAllSteps = isTurnStreaming || isTaskExpanded || !hasParts || isHermesMode;
+    const showAllSteps = isTurnStreaming || isTaskExpanded || !hasParts || isHermesChat;
 
     // When collapsed, don't just drop hidden steps silently — replace each
     // run of consecutive hidden parts (reasoning, tool calls) with a single
@@ -1365,7 +1365,7 @@ export const Message: React.FC<MessageProps> = ({
             to collapse (Hermes messages are plain text, occasionally with its own
             markdown code fences for a tool-use summary it chose to report) — the label
             would misleadingly imply Zetora itself ran a tool-calling turn. */}
-        {!isTurnStreaming && hasParts && !isHermesMode && (
+        {!isTurnStreaming && hasParts && !isHermesChat && (
           <button
             onClick={() => setIsTaskExpanded((v) => !v)}
             className="flex items-center gap-1.5 mb-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"

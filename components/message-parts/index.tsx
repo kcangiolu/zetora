@@ -203,9 +203,9 @@ interface MessagePartRendererProps {
   setMessages: UseChatHelpers<ChatMessage>['setMessages'];
   setSuggestedQuestions: (questions: string[]) => void;
   regenerate: UseChatHelpers<ChatMessage>['regenerate'];
-  // See messages.tsx's own isHermesMode comment: regenerate() always targets
+  // See messages.tsx's own isHermesChat comment: regenerate() always targets
   // /api/search, which a Hermes-mode chat never uses.
-  isHermesMode?: boolean;
+  isHermesChat?: boolean;
   stop: UseChatHelpers<ChatMessage>['stop'];
   sendMessage: UseChatHelpers<ChatMessage>['sendMessage'];
   onHighlight?: (text: string) => void;
@@ -236,7 +236,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
     setMessages,
     setSuggestedQuestions,
     regenerate,
-    isHermesMode = false,
+    isHermesChat = false,
     stop,
     sendMessage,
     onHighlight,
@@ -714,7 +714,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
               hermesConversation link (a dead end masquerading as a continuation), and
               Copy/TTS/Download exist for a native LLM turn's deliverable output, not a
               relayed status update. Hidden wholesale rather than picked apart per-icon. */}
-          {shouldShowActionButtons && !isEditingText && !isHermesMode && (
+          {shouldShowActionButtons && !isEditingText && !isHermesChat && (
             <div className="flex items-center justify-between mt-3 mb-4">
               {/* Left side - Action buttons */}
               <div className="flex items-center gap-1.5">
@@ -753,7 +753,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                           disabled={isRegenerating}
                           onClick={async () => {
                             if (isRegenerating) return;
-                            if (isHermesMode) {
+                            if (isHermesChat) {
                               sileo.error({
                                 title: 'Retry is not available here',
                                 description: 'Use the /retry command in your Agent chat instead.',

@@ -1,7 +1,13 @@
 import { notFound, redirect } from 'next/navigation';
 import { ChatInterface } from '@/components/chat-interface';
 import { getUser } from '@/lib/auth-utils';
-import { getChatWithUserAndInitialMessages, getHiddenContextImageUrlsByChatId } from '@/lib/db/queries';
+import {
+  getChatWithUserAndInitialMessages,
+  getHermesConversationByChatId,
+  getHiddenContextImageUrlsByChatId,
+} from '@/lib/db/queries';
+import { resolveHermesChatLock } from '@/lib/hermes/chat-mode';
+import { isHermesEnabled } from '@/lib/hermes/enabled';
 import { maindb } from '@/lib/db';
 import { getChatById } from '@/lib/db/queries';
 import { chat as chatTable, message as messageTable, Message, type Chat, type User } from '@/lib/db/schema';
@@ -127,7 +133,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
   console.log('🔍 [PAGE] Starting optimized chat page load for:', id);
   const pageStartTime = Date.now();
 
-  const { user, chatBundle, primaryFallback, hiddenImageUrls } = await all(
+  const { user, chatBundle, primaryFallback, hiddenImageUrls, hermesConversation } = await all(
     {
       user: async function () {
         return getUser();
@@ -144,6 +150,12 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
       },
       hiddenImageUrls: async function () {
         return getHiddenContextImageUrlsByChatId({ chatId: id });
+      },
+      // Resolved here rather than by a client query so the answer exists on the very first
+      // render: it decides how this chat's messages render, and a value that arrives late
+      // (or resolves to a cached failure) makes them render as the wrong kind of chat.
+      hermesConversation: async function () {
+        return isHermesEnabled() ? getHermesConversationByChatId(id) : null;
       },
     },
     getBetterAllOptions(),
@@ -186,6 +198,13 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
 
   const initialMessages = convertToUIMessages(messagesFromDb);
 
+  // Derived after the primary fallback above, so it reads the message list the page is
+  // actually going to render rather than a possibly-empty replica read.
+  const initialHermesLock = resolveHermesChatLock({
+    hasHermesConversation: Boolean(hermesConversation),
+    hasMessages: messagesFromDb.length > 0,
+  });
+
   // Determine if the current user owns this chat
   const isOwner = effectiveUser ? effectiveUser.id === chat.userId : false;
 
@@ -201,6 +220,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
       isOwner={isOwner}
       chatTitle={chat.title}
       initialHiddenImageUrls={hiddenImageUrls}
+      initialHermesLock={initialHermesLock}
     />
   );
 }

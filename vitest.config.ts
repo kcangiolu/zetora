@@ -23,6 +23,8 @@ export default defineConfig({
         'lib/search/context-budget.ts',
         'lib/errors.ts',
         'lib/chat-messages.ts',
+        'lib/hermes/chat-mode.ts',
+        'lib/hermes/enabled.ts',
         'lib/mcp/crypto.ts',
         'lib/mcp/server-config.ts',
         'lib/tools/datetime.ts',

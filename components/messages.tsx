@@ -65,7 +65,7 @@ interface MessagesProps {
   // Gate it off entirely rather than build a parallel "resend to Hermes"
   // regenerate — Hermes already has its own native retry (the `/retry` slash
   // command, see lib/hermes/commands.ts).
-  isHermesMode?: boolean;
+  isHermesChat?: boolean;
   // Current Hermes `typing` heartbeat's status phrase (or a generic fallback), null when
   // none is active — drives the same loading indicator a streaming LLM turn shows, since
   // Hermes has no LLM-turn status of its own to derive shouldShowLoading from.
@@ -119,7 +119,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     bottomSpacerClassName = 'mb-38! sm:mb-42!',
     onAtBottomChange,
     skipAutoScrollRef,
-    isHermesMode = false,
+    isHermesChat = false,
     hermesTypingLabel = null,
     hermesReactions,
   },
@@ -178,7 +178,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     // send is a plain fetch, not useChat's sendMessage — see hooks/use-hermes-send.ts),
     // so this would fire the instant the user's message is appended, even though the
     // agent's reply (arriving async over the SSE channel) just hasn't landed yet.
-    if (!isHermesMode && lastMessage?.role === 'user' && status === 'ready' && !error) {
+    if (!isHermesChat && lastMessage?.role === 'user' && status === 'ready' && !error) {
       return lastIndex;
     }
 
@@ -224,11 +224,11 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     }
 
     return -1;
-  }, [memoizedMessages, status, error, isHermesMode]);
+  }, [memoizedMessages, status, error, isHermesChat]);
 
   // Memoize the retry handler
   const handleRetry = useCallback(async () => {
-    if (isHermesMode) {
+    if (isHermesChat) {
       sileo.error({
         title: 'Retry is not available here',
         description: 'Use the /retry command in your Agent chat instead.',
@@ -273,7 +273,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     } catch (error) {
       console.error('Error in retry:', error);
     }
-  }, [messages, user, setMessages, setSuggestedQuestions, regenerate, stop, skipCacheRef, isHermesMode]);
+  }, [messages, user, setMessages, setSuggestedQuestions, regenerate, stop, skipCacheRef, isHermesChat]);
 
   // Memoize the delete handler - same as retry but without regenerating,
   // for when the user just wants to remove an orphaned/empty last turn
@@ -346,7 +346,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
           setMessages={setMessages}
           setSuggestedQuestions={setSuggestedQuestions}
           regenerate={regenerate}
-          isHermesMode={isHermesMode}
+          isHermesChat={isHermesChat}
           stop={stop}
           sendMessage={sendMessage}
           onHighlight={onHighlight}
@@ -368,7 +368,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
       setMessages,
       setSuggestedQuestions,
       regenerate,
-      isHermesMode,
+      isHermesChat,
       stop,
       sendMessage,
       reasoningVisibilityMap,
@@ -381,9 +381,9 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
 
   // Check if we should show loading animation
   const shouldShowLoading = useMemo(() => {
-    // Hermes has no useChat status to derive this from (see isHermesMode's own comment) —
+    // Hermes has no useChat status to derive this from (see isHermesChat's own comment) —
     // the typing heartbeat is the only "agent is working" signal it gets.
-    if (isHermesMode) return Boolean(hermesTypingLabel);
+    if (isHermesChat) return Boolean(hermesTypingLabel);
     // Fire immediately via the onBeforeSubmit callback — before SDK status updates
     if (isTransitioning) return true;
     const lastMessage = memoizedMessages[memoizedMessages.length - 1];
@@ -399,7 +399,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
       }
     }
     return false;
-  }, [isTransitioning, status, memoizedMessages, isHermesMode, hermesTypingLabel]);
+  }, [isTransitioning, status, memoizedMessages, isHermesChat, hermesTypingLabel]);
 
   // Compute index of the most recent assistant message; only that one should keep min-height
   const lastAssistantIndex = useMemo(() => {
@@ -497,7 +497,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
             setMessages={setMessages}
             sendMessage={sendMessage}
             regenerate={regenerate}
-            isHermesMode={isHermesMode}
+            isHermesChat={isHermesChat}
             hermesReaction={hermesReactions?.[message.id] ?? null}
             setSuggestedQuestions={setSuggestedQuestions}
             suggestedQuestions={index === memoizedMessages.length - 1 ? suggestedQuestions : []}
@@ -540,7 +540,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
       setMessages,
       sendMessage,
       regenerate,
-      isHermesMode,
+      isHermesChat,
       hermesReactions,
       setSuggestedQuestions,
       suggestedQuestions,
@@ -570,7 +570,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
             className={`flex items-start ${shouldReserveLoaderMinHeight ? 'min-h-[calc(100vh-18rem)]' : ''} m-0! p-0!`}
           >
             <div className="w-full m-0! p-0!">
-              <StreamingIndicator label={isHermesMode ? (hermesTypingLabel ?? undefined) : undefined} />
+              <StreamingIndicator label={isHermesChat ? (hermesTypingLabel ?? undefined) : undefined} />
             </div>
           </div>
         )}
@@ -593,7 +593,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
   }, [
     shouldShowLoading,
     shouldReserveLoaderMinHeight,
-    isHermesMode,
+    isHermesChat,
     hermesTypingLabel,
     error,
     memoizedMessages,

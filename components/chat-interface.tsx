@@ -65,7 +65,7 @@ import {
 // Hook imports
 import { useAutoResume } from '@/hooks/use-auto-resume';
 import { useHermesStream } from '@/hooks/use-hermes-stream';
-import { getHermesChatLockAction } from '@/app/actions/hermes';
+import { resolveHermesChatMode, type HermesChatLock } from '@/lib/hermes/chat-mode';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import type { ReasoningEffort } from '@/lib/reasoning-effort-types';
 import { useUser } from '@/contexts/user-context';
@@ -93,6 +93,9 @@ interface ChatInterfaceProps {
   isOwner?: boolean;
   chatTitle?: string;
   initialHiddenImageUrls?: string[];
+  // Resolved server-side in app/search/[id]/page.tsx. Undefined only on the new-chat entry
+  // point (app/(search)/page.tsx), which renders no props at all.
+  initialHermesLock?: HermesChatLock;
 }
 
 interface AutoRouterConfig {
@@ -113,6 +116,7 @@ const ChatInterface = memo(
     isOwner = true,
     chatTitle,
     initialHiddenImageUrls,
+    initialHermesLock = null,
   }: ChatInterfaceProps): React.JSX.Element => {
     const router = useRouter();
     const pathname = usePathname();
@@ -232,32 +236,21 @@ const ChatInterface = memo(
       'zetora-selected-group',
       initialGroupDefault,
     );
-    // Which mode lane this chat is permanently committed to, decided by whichever mode
-    // sent its FIRST message — see getHermesChatLock's own comment. null for a chat with
-    // no messages yet (still free), so this only ever matters for an existing chat.
-    // hermesEnvEnabled mirrors form-component/index.tsx's own flag (see
-    // lib/hermes/feature-flag.ts) — skips the query entirely on a deployment where
-    // Hermes never ships, rather than asking a disabled server action for nothing.
-    const hermesEnvEnabled = process.env.NEXT_PUBLIC_HERMES_ENABLED !== 'false';
-    const { data: hermesChatLockData } = useQuery({
-      queryKey: ['hermesChatLock', initialChatId],
-      queryFn: () => getHermesChatLockAction(initialChatId!),
-      enabled: !!initialChatId && hermesEnvEnabled,
-      staleTime: 30_000,
-    });
-    const hermesChatLock = hermesChatLockData?.lock ?? null;
     const rawSelectedGroup = (groupParam ? (groupParam as unknown as SearchGroupId) : selectedGroup) as SearchGroupId;
-    // The lock always wins over both the URL param and the stored preference: a
-    // hermes-locked chat can never render as anything else, and a search-locked chat can
-    // never render as Agent even if that's still the user's global/URL preference from a
-    // different chat (falls back to 'auto' rather than staying stuck on an unusable mode).
-    const effectiveSelectedGroup = (
-      hermesChatLock === 'hermes'
-        ? 'hermes'
-        : hermesChatLock === 'search' && rawSelectedGroup === 'hermes'
-          ? 'auto'
-          : rawSelectedGroup
-    ) as SearchGroupId;
+    // Set the moment this chat's first Agent message is submitted. A brand-new chat gets no
+    // server render (its URL is swapped in with history.replaceState, nothing remounts), so
+    // this is the only signal that it has just become a Hermes chat.
+    const [hermesCommittedThisSession, setHermesCommittedThisSession] = useState(false);
+    const handleHermesMessageSent = useCallback(() => setHermesCommittedThisSession(true), []);
+    // isHermesChat is a fact about this chat's stored data and drives how its messages
+    // render; effectiveSelectedGroup is the mode selector and drives where the next message
+    // is sent. Conflating the two is what made the Agent UI unreliable — see
+    // resolveHermesChatMode's own comment.
+    const { isHermesChat, effectiveGroup: effectiveSelectedGroup } = resolveHermesChatMode({
+      serverLock: initialHermesLock,
+      committedThisSession: hermesCommittedThisSession,
+      storedGroup: rawSelectedGroup,
+    });
     const [selectedConnectors, setSelectedConnectors] = useState<ConnectorProvider[]>([]);
     const [isMultiAgentModeEnabled, setIsMultiAgentModeEnabled] = useLocalStorage('zetora-multi-agent-enabled', false);
     const [isCustomInstructionsEnabled, setIsCustomInstructionsEnabled] = useLocalStorage(
@@ -855,14 +848,18 @@ const ChatInterface = memo(
     });
 
     // Merges Hermes agent replies into the same `messages` list the normal LLM path
-    // populates — only subscribed while a Hermes chat is active (see
-    // hooks/use-hermes-stream.ts). The user's own message is appended optimistically by
-    // FormComponent's Hermes submit branch, not here.
+    // populates — see hooks/use-hermes-stream.ts. The user's own message is appended
+    // optimistically by FormComponent's Hermes submit branch, not here.
+    // Gated on isHermesChat, not on the mode selector: a Hermes chat keeps receiving its
+    // agent's replies regardless of what the selector happens to say, which is what stops
+    // the stream from silently detaching mid-conversation. isOwner too, because the route
+    // rightly 403s anyone else — a non-owner viewing a public Agent chat would otherwise
+    // open a stream only to have it rejected.
     const [hermesTypingLabel, setHermesTypingLabel] = useState<string | null>(null);
     const [hermesReactions, setHermesReactions] = useState<Record<string, string | null>>({});
     useHermesStream({
       chatId,
-      enabled: effectiveSelectedGroup === 'hermes',
+      enabled: isHermesChat && isOwner,
       setMessages,
       onTyping: setHermesTypingLabel,
       onReaction: (messageId, emoji) => setHermesReactions((prev) => ({ ...prev, [messageId]: emoji })),
@@ -1746,7 +1743,7 @@ const ChatInterface = memo(
                     }}
                     sendMessage={sendMessageWithAutoRouting}
                     regenerate={regenerate}
-                    isHermesMode={effectiveSelectedGroup === 'hermes'}
+                    isHermesChat={isHermesChat}
                     hermesTypingLabel={hermesTypingLabel}
                     hermesReactions={hermesReactions}
                     stop={stop}
@@ -1831,7 +1828,9 @@ const ChatInterface = memo(
                       lastSubmittedQueryRef={lastSubmittedQueryRef}
                       selectedGroup={effectiveSelectedGroup}
                       setSelectedGroup={setSelectedGroup}
-                      hermesChatLock={hermesChatLock}
+                      hermesChatLock={initialHermesLock}
+                      isHermesChat={isHermesChat}
+                      onHermesMessageSent={handleHermesMessageSent}
                       showExperimentalModels={messages.length === 0}
                       status={uiStatus}
                       setHasSubmitted={(hasSubmitted) => {

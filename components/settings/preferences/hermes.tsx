@@ -25,7 +25,7 @@ export function HermesTab({ user }: { user: SettingsUser }) {
   const [isRevoking, setIsRevoking] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const { data: statusData, isLoading: isStatusLoading } = useQuery({
+  const { data: statusData, isLoading: isStatusLoading, isError: isStatusError } = useQuery({
     queryKey: ['hermesConnectorStatus', user?.id],
     queryFn: () => getHermesConnectorStatusAction(),
     enabled: !!user,
@@ -150,6 +150,16 @@ export function HermesTab({ user }: { user: SettingsUser }) {
                     · last seen {new Date(connector.lastConnectedAt).toLocaleString()}
                   </span>
                 )}
+              </div>
+            ) : isStatusError ? (
+              // Distinct from "Not connected": the status couldn't be read at all. Showing
+              // the two identically is how a transient auth or DB hiccup used to read as
+              // "you were never enrolled".
+              <div className="flex items-center gap-2 mt-1">
+                <div className="w-2 h-2 bg-amber-500 rounded-full" />
+                <span className="text-xs text-amber-600 dark:text-amber-400">
+                  Couldn&apos;t check connection status — retrying
+                </span>
               </div>
             ) : (
               <div className="flex items-center gap-2 mt-1">

@@ -4,6 +4,9 @@ import { and, eq, gt } from 'drizzle-orm';
 import { hermesConnector, hermesConversation, message } from '../schema';
 import { ChatSDKError } from '../../errors';
 import { maindb } from '../index';
+import { resolveHermesChatLock, type HermesChatLock } from '@/lib/hermes/chat-mode';
+
+export type { HermesChatLock };
 
 export interface CreateHermesConnectorInput {
   userId: string;
@@ -194,26 +197,22 @@ export async function getHermesConversationByChatId(chatId: string) {
   }
 }
 
-export type HermesChatLock = 'hermes' | 'search' | null;
-
-// Which lane a chat is permanently committed to, decided by its FIRST message: 'hermes'
-// once a hermesConversation row exists for it (created lazily by /api/hermes/send on the
-// first Agent-mode message), 'search' once it has any message at all but no
-// hermesConversation (a native Zetora search turn got there first), or null for a chat
-// that hasn't received its first message yet — still free to become either. Both
-// directions get enforced from this single source of truth: the client hides the
-// now-irrelevant mode option (components/ui/form-component/index.tsx), and
-// /api/search + /api/hermes/send each reject a request that would cross the lock.
+// The rule itself lives in lib/hermes/chat-mode.ts so the client can apply it to
+// server-rendered data without reaching for this server-only module; this is the
+// DB-reading wrapper around it. /api/search and /api/hermes/send each reject a request
+// that would cross the lock, using this as the single source of truth.
 export async function getHermesChatLock(chatId: string): Promise<HermesChatLock> {
   try {
     const conversation = await getHermesConversationByChatId(chatId);
-    if (conversation) return 'hermes';
+    if (conversation) {
+      return resolveHermesChatLock({ hasHermesConversation: true, hasMessages: true });
+    }
     const [existingMessage] = await maindb
       .select({ id: message.id })
       .from(message)
       .where(eq(message.chatId, chatId))
       .limit(1);
-    return existingMessage ? 'search' : null;
+    return resolveHermesChatLock({ hasHermesConversation: false, hasMessages: Boolean(existingMessage) });
   } catch (error) {
     throw new ChatSDKError('bad_request:database', 'Failed to resolve Hermes chat lock');
   }

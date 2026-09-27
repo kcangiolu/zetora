@@ -2,8 +2,7 @@
 
 import { randomBytes } from 'node:crypto';
 import { getCurrentUser } from './user';
-import { createHermesConnector, getHermesConnectorByUserId, getHermesChatLock, revokeHermesConnector } from '@/lib/db/queries/hermes';
-import { getChatByIdForValidation } from '@/lib/db/queries/chat';
+import { createHermesConnector, getHermesConnectorByUserId, revokeHermesConnector } from '@/lib/db/queries/hermes';
 import { hashEnrollmentToken } from '@/lib/hermes/crypto';
 import { isHermesEnabled } from '@/lib/hermes/feature-flag';
 import { serverEnv } from '@/env/server';
@@ -66,74 +65,40 @@ export async function createHermesEnrollmentAction() {
   }
 }
 
+// Throws on failure instead of returning a connector-less result. Enrollment state is read
+// straight off this, and a failure payload carrying `connector: null` is indistinguishable
+// from a genuine "never enrolled" — which is what silently kicked live Agent chats out of
+// Agent mode: React Query caches a resolved failure as real data, with no error state and
+// no retry, while a thrown error surfaces as isError and is retried.
 export async function getHermesConnectorStatusAction() {
   'use server';
 
   if (!isHermesEnabled()) {
-    return { success: true as const, connector: null };
+    return { connector: null };
   }
 
-  try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return { success: false as const, error: 'Authentication required', connector: null };
-    }
-
-    const connector = await getHermesConnectorByUserId(user.id);
-    if (!connector) {
-      return { success: true as const, connector: null };
-    }
-
-    return {
-      success: true as const,
-      connector: {
-        status: connector.status,
-        label: connector.label,
-        gatewaySecretPrefix: connector.gatewaySecretPrefix,
-        lastConnectedAt: connector.lastConnectedAt,
-        lastDisconnectedAt: connector.lastDisconnectedAt,
-        lastError: connector.lastError,
-      },
-    };
-  } catch (error) {
-    log.error('Failed to fetch Hermes connector status:', error);
-    return { success: false as const, error: 'Failed to fetch status', connector: null };
+  const user = await getCurrentUser();
+  if (!user) {
+    throw new Error('Authentication required');
   }
+
+  const connector = await getHermesConnectorByUserId(user.id);
+  if (!connector) {
+    return { connector: null };
+  }
+
+  return {
+    connector: {
+      status: connector.status,
+      label: connector.label,
+      gatewaySecretPrefix: connector.gatewaySecretPrefix,
+      lastConnectedAt: connector.lastConnectedAt,
+      lastDisconnectedAt: connector.lastDisconnectedAt,
+      lastError: connector.lastError,
+    },
+  };
 }
 
-// Which mode lane `chatId` is permanently committed to — null for a chat that hasn't
-// received its first message yet (still free to become either). Drives
-// components/ui/form-component/index.tsx hiding the now-irrelevant mode option; the
-// actual enforcement is server-side in /api/search and /api/hermes/send, this is UI only.
-export async function getHermesChatLockAction(chatId: string) {
-  'use server';
-
-  if (!isHermesEnabled()) {
-    return { success: true as const, lock: null };
-  }
-
-  try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return { success: false as const, error: 'Authentication required', lock: null };
-    }
-
-    const chat = await getChatByIdForValidation({ id: chatId });
-    if (chat && chat.userId !== user.id) {
-      return { success: false as const, error: 'Chat not found', lock: null };
-    }
-    if (!chat) {
-      // Not persisted yet (a brand-new, unsent chat) — unlocked by definition.
-      return { success: true as const, lock: null };
-    }
-
-    const lock = await getHermesChatLock(chatId);
-    return { success: true as const, lock };
-  } catch (error) {
-    log.error('Failed to resolve Hermes chat lock:', error);
-    return { success: false as const, error: 'Failed to resolve chat lock', lock: null };
-  }
-}
 
 export async function revokeHermesConnectorAction() {
   'use server';

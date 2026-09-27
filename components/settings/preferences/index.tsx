@@ -13,11 +13,11 @@ import { SearchTab } from './search';
 import { IntegrationsTab } from './integrations';
 import { AiModelsTab } from './ai-models';
 import { HermesTab } from './hermes';
+import { isHermesEnabled } from '@/lib/hermes/enabled';
 
-// Same master switch as components/ui/form-component/index.tsx's hermesEnvEnabled —
-// hides the whole tab (not just the connect flow inside it) when the deployment build
-// didn't enable Hermes. Inlined at build time, see lib/hermes/feature-flag.ts.
-const HERMES_ENV_ENABLED = process.env.NEXT_PUBLIC_HERMES_ENABLED !== 'false';
+// Hides the whole tab (not just the connect flow inside it) when the deployment build
+// didn't enable Hermes.
+const HERMES_ENV_ENABLED = isHermesEnabled();
 
 export function PreferencesSection({
   user,

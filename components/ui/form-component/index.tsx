@@ -56,6 +56,8 @@ import { useSessionPreference } from '@/hooks/use-session-preference';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useHermesSend } from '@/hooks/use-hermes-send';
 import { filterHermesCommands, type HermesCommand } from '@/lib/hermes/commands';
+import type { HermesChatLock } from '@/lib/hermes/chat-mode';
+import { isHermesEnabled } from '@/lib/hermes/enabled';
 import { HermesCommandMenu } from './hermes-command-menu';
 import { type ConnectorProvider } from '@/lib/connectors';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -109,9 +111,17 @@ export interface FormComponentProps {
   lastSubmittedQueryRef: React.RefObject<string>;
   selectedGroup: SearchGroupId;
   setSelectedGroup: React.Dispatch<React.SetStateAction<SearchGroupId>>;
-  // Which mode lane this chat is permanently committed to — see getHermesChatLock's own
-  // comment. null for a chat with no messages yet (still free to become either).
-  hermesChatLock?: 'hermes' | 'search' | null;
+  // Which mode lane this chat is permanently committed to, resolved server-side — see
+  // resolveHermesChatLock. null for a chat with no messages yet (still free to become
+  // either), and for the new-chat entry point which has no server render at all.
+  hermesChatLock?: HermesChatLock;
+  // Whether this chat IS a Hermes chat (server lock, or a first Agent message sent in this
+  // session). Distinct from selectedGroup === 'hermes', which is only what the NEXT message
+  // would do — see resolveHermesChatMode.
+  isHermesChat?: boolean;
+  // Lets the parent record that this chat has just become a Hermes chat, for the brand-new
+  // conversation case where no server-resolved lock exists yet.
+  onHermesMessageSent?: () => void;
   showExperimentalModels: boolean;
   status: UseChatHelpers<ChatMessage>['status'];
   setHasSubmitted: React.Dispatch<React.SetStateAction<boolean>>;
@@ -213,6 +223,8 @@ const FormComponent: React.FC<FormComponentProps> = ({
   selectedGroup,
   setSelectedGroup,
   hermesChatLock = null,
+  isHermesChat = false,
+  onHermesMessageSent,
   messages,
   setMessages,
   status,
@@ -235,10 +247,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
   const canvasEnvEnabled = process.env.NEXT_PUBLIC_CANVAS_ENABLED === 'true';
   const mcpEnvEnabled = process.env.NEXT_PUBLIC_MCP_ENABLED === 'true';
-  // Unlike the other *_ENABLED flags above, this defaults ON (!== 'false', not ===
-  // 'true') — see lib/hermes/feature-flag.ts's isHermesEnabled for why: Hermes already
-  // ships to real users, so an unset build-arg must not silently regress it.
-  const hermesEnvEnabled = process.env.NEXT_PUBLIC_HERMES_ENABLED !== 'false';
+  const hermesEnvEnabled = isHermesEnabled();
   // "Show this mode in the chat's + menu" — separate from any env-level
   // availability gate above; both must hold for the mode to be offered.
   const [appsEnabledPref] = useSyncedPreferences<boolean>('zetora-apps-enabled', true);
@@ -253,7 +262,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const canvasEnabled = canvasEnvEnabled && canvasEnabledPref;
   // Unlike the other modes above, this can't be a user preference toggle — it reflects
   // real server-side enrollment state (Settings > Hermes), not a show/hide choice.
-  const { data: hermesConnectorStatus, isLoading: isHermesConnectorStatusLoading } = useQuery({
+  const { data: hermesConnectorStatus, isSuccess: isHermesConnectorStatusResolved } = useQuery({
     queryKey: ['hermesConnectorStatus', user?.id],
     queryFn: () => getHermesConnectorStatusAction(),
     enabled: !!user && hermesEnvEnabled,
@@ -262,12 +271,13 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const hermesEnabled = hermesEnvEnabled && hermesConnectorStatus?.connector?.status === 'enrolled';
   // Whether the CURRENT chat can still offer Agent mode as a choice — false once this
   // chat's first message already went through native Zetora search (see
-  // getHermesChatLock's own comment for the full rule). Distinct from isHermesLocked
-  // below: this chat could also be unlocked (brand new) or hermes-locked already.
+  // resolveHermesChatLock for the full rule). Distinct from isHermesLocked below: this chat
+  // could also be unlocked (brand new) or hermes-locked already.
   const hermesSelectableForChat = hermesEnabled && hermesChatLock !== 'search';
-  // Whether this chat's first message already went through Agent mode — it can never
-  // leave Agent mode again, so the mode-switcher UI hides every affordance to do so.
-  const isHermesLocked = hermesChatLock === 'hermes';
+  // Whether this chat is committed to Agent mode — it can never leave it, so the
+  // mode-switcher UI hides every affordance to do so. Includes a chat that became a Hermes
+  // chat in this session, before any server-resolved lock exists for it.
+  const isHermesLocked = isHermesChat;
   const sendHermesMessage = useHermesSend(chatId);
   const formQueryClient = useQueryClient();
   const isMounted = useRef(true);
@@ -519,16 +529,22 @@ const FormComponent: React.FC<FormComponentProps> = ({
       (selectedGroup === 'mcp' && !mcpEnabled) ||
       (selectedGroup === 'deep-research' && disabledSkillsPref.includes('deep-research')) ||
       (selectedGroup === 'extreme-search' && disabledSkillsPref.includes('extreme-search')) ||
-      // Real finding, live: on a fresh session the connector-status query hasn't
-      // resolved yet, so hermesEnabled reads false for a split second even for an
-      // already-enrolled user. Without the loading guard this fires right then,
-      // permanently writing 'auto' to localStorage — the reset outlives the query
-      // resolving (nothing ever sets it back to 'hermes' automatically), so a chat
-      // that WAS correctly in Agent mode gets silently, permanently kicked out of it
-      // on every fresh page load. Waiting for the query to settle before judging
-      // fixes that without weakening the other five checks, which read from
-      // synchronous local state and have no such race.
-      (selectedGroup === 'hermes' && !isHermesConnectorStatusLoading && !hermesSelectableForChat);
+      // This branch writes to a GLOBAL, cross-chat preference, and it judges on a value
+      // that arrives asynchronously — so it only fires on a positive signal, never on the
+      // absence of one. Two guards, both for bugs seen live:
+      //   isHermesConnectorStatusResolved — the query must actually have answered. An
+      //   unresolved query (still loading, disabled because `user` hasn't landed yet, or
+      //   errored) leaves hermesEnabled false, and without this the reset fired right then
+      //   and permanently wrote 'auto'. Nothing ever writes 'hermes' back, so a chat that
+      //   WAS correctly in Agent mode got silently kicked out of it for good.
+      //   !isHermesLocked — this component is handed the lock-adjusted group but writes the
+      //   raw stored one. A committed Agent chat therefore kept trying to rewrite the
+      //   preference belonging to every OTHER chat. A locked chat has no preference to tidy.
+      // The other five checks read synchronous local state and need neither guard.
+      (selectedGroup === 'hermes' &&
+        !isHermesLocked &&
+        isHermesConnectorStatusResolved &&
+        !hermesSelectableForChat);
     if (isHiddenByPreference) setSelectedGroup('auto');
   }, [
     selectedGroup,
@@ -538,7 +554,8 @@ const FormComponent: React.FC<FormComponentProps> = ({
     canvasEnabled,
     mcpEnabled,
     hermesSelectableForChat,
-    isHermesConnectorStatusLoading,
+    isHermesConnectorStatusResolved,
+    isHermesLocked,
     disabledSkillsPref,
   ]);
 
@@ -1977,6 +1994,11 @@ const FormComponent: React.FC<FormComponentProps> = ({
       setHasSubmitted(true);
       lastSubmittedQueryRef.current = text;
       if (!isTemporaryChatEnabled) updateChatUrl(chatId);
+      // This chat is a Hermes chat from now on. Said before the request goes out, not after:
+      // /api/hermes/send creates the hermesConversation row that the server lock reads, but
+      // this view never re-renders from the server again (updateChatUrl above is a
+      // history.replaceState), so nothing else would ever tell it.
+      onHermesMessageSent?.();
 
       // Never calls an LLM (see app/api/hermes/send/route.ts) — this bypasses
       // useChat's sendMessage/{/api/search} entirely. The user's own bubble is appended
@@ -2110,6 +2132,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
     selectedGroup,
     setMessages,
     sendHermesMessage,
+    onHermesMessageSent,
   ]);
 
   const submitForm = useCallback(() => executeSubmit(), [executeSubmit]);
