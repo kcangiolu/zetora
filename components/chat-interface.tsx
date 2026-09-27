@@ -1090,7 +1090,12 @@ const ChatInterface = memo(
     }
 
     useAutoResume({
-      autoResume: !isManuallyStopping,
+      // Never in a Hermes chat: resumeStream() re-attaches to /api/search's resumable
+      // stream, which a Hermes turn never creates — so the hook's "last message is the
+      // user's" condition (true for every Agent chat waiting on its agent) produced a
+      // guaranteed not_found:stream error card, complete with Retry and Delete buttons
+      // that mean nothing here.
+      autoResume: !isManuallyStopping && !isHermesChat,
       initialMessages: initialMessages || [],
       status,
       resumeStream,
