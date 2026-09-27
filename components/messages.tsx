@@ -524,7 +524,13 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
             onBeforeSubmit={onBeforeSubmit}
             shouldReduceHeight={
               message.role === 'assistant'
-                ? isTransitioning ||
+                ? // Always reduced for a Hermes reply: the reserved viewport exists to give a
+                  // STREAMING answer room to grow into, and a Hermes reply never streams — it
+                  // arrives complete in one SSE frame. Left on, it is permanent dead space
+                  // under the agent's last message, and the typing indicator (rendered after
+                  // the list, in Footer) ends up a full screen below it.
+                  isHermesChat ||
+                  isTransitioning ||
                   status === 'submitted' ||
                   memoizedMessages[memoizedMessages.length - 1]?.role === 'user'
                   ? true

@@ -13,6 +13,15 @@ type HermesEvent =
   | { kind: 'reaction'; message: { id: string; emoji: string | null } }
   | { kind: 'connection-status'; connected: boolean; error: string | null };
 
+// Hermes's typing frames are one-shot and self-expiring by contract: gateway/relay/
+// adapter.py's send_typing notes that "Discord/Telegram indicators self-expire and need no
+// cleanup", and its stop_typing clear is Slack-gated — a connector advertising
+// platform 'zetora' never receives one. So nothing will ever tell us the agent stopped,
+// and a turn that ends without a message (a /stop, an error, a reaction-only turn, or a
+// heartbeat from the 2s _keep_typing loop landing after the turn's final message) would
+// leave the indicator up forever. Five missed heartbeats is the agent having stopped.
+const TYPING_IDLE_TIMEOUT_MS = 10_000;
+
 // Subscribes to app/api/hermes/[chatId]/stream (plain SSE, native EventSource — see that
 // route's comment on why it isn't the `ai` package's UI-message-stream protocol) and
 // merges incoming Hermes agent replies into useChat's own message list, so voice/TTS/
@@ -31,9 +40,10 @@ export function useHermesStream({
   setMessages: (updater: (messages: ChatMessage[]) => ChatMessage[]) => void;
   onConnectionStatus?: (connected: boolean, error: string | null) => void;
   // Fired on every `typing` heartbeat with a non-null string (the agent's current status
-  // phrase when it has one, a generic fallback otherwise), and called with null to clear
-  // whenever a real message/edit lands — the arriving content is itself proof the agent
-  // is done for now. The two cases are unambiguous: only the clear call ever passes null.
+  // phrase when it has one, a generic fallback otherwise). Called with null to clear it,
+  // either when a real message/edit lands — the arriving content is itself proof the agent
+  // is done for now — or after TYPING_IDLE_TIMEOUT_MS of silence. The two cases are
+  // unambiguous: only a clear ever passes null.
   onTyping?: (content: string | null) => void;
   // Fired whenever Hermes reacts to (or un-reacts from) one of the user's own messages —
   // see agent-event/route.ts's `react` branch. null clears the reaction.
@@ -43,6 +53,15 @@ export function useHermesStream({
     if (!enabled || !chatId) return;
 
     const source = new EventSource(`/api/hermes/${chatId}/stream`);
+
+    let typingTimeout: ReturnType<typeof setTimeout> | null = null;
+    const stopTyping = () => {
+      if (typingTimeout) {
+        clearTimeout(typingTimeout);
+        typingTimeout = null;
+      }
+      onTyping?.(null);
+    };
 
     source.onmessage = (event) => {
       let payload: HermesEvent;
@@ -54,7 +73,7 @@ export function useHermesStream({
 
       if (payload.kind === 'message') {
         const { id, role, parts } = payload.message;
-        onTyping?.(null);
+        stopTyping();
         setMessages((current) => {
           if (current.some((m) => m.id === id)) return current;
           return [...current, { id, role, parts } as ChatMessage];
@@ -64,12 +83,17 @@ export function useHermesStream({
 
       if (payload.kind === 'edit') {
         const { id, parts } = payload.message;
-        onTyping?.(null);
+        stopTyping();
         setMessages((current) => current.map((m) => (m.id === id ? ({ ...m, parts } as ChatMessage) : m)));
         return;
       }
 
       if (payload.kind === 'typing') {
+        if (typingTimeout) clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => {
+          typingTimeout = null;
+          onTyping?.(null);
+        }, TYPING_IDLE_TIMEOUT_MS);
         onTyping?.(payload.content || 'Working…');
         return;
       }
@@ -84,7 +108,10 @@ export function useHermesStream({
       }
     };
 
-    return () => source.close();
+    return () => {
+      if (typingTimeout) clearTimeout(typingTimeout);
+      source.close();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setMessages/onConnectionStatus/onTyping/onReaction are stable callbacks from the caller
   }, [chatId, enabled]);
 }
