@@ -13,6 +13,10 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger('chat-title');
 
+// What generateTitleFromUserMessage returns when it produced no title: title generation
+// disabled in the user's preferences, or an empty model output.
+export const UNTITLED_CHAT_TITLE = 'New Chat';
+
 export async function generateTitleFromUserMessage({ message }: { message: UIMessage }) {
   const startTime = Date.now();
   const firstTextPart = message.parts.find((part) => part.type === 'text');
@@ -25,7 +29,7 @@ export async function generateTitleFromUserMessage({ message }: { message: UIMes
   const titlePrefsMap = (titlePrefs?.preferences ?? {}) as Record<string, string>;
 
   if (titlePrefs?.preferences?.['zetora-tertiary-chat-title-enabled'] === false) {
-    return 'New Chat';
+    return UNTITLED_CHAT_TITLE;
   }
 
   const { text: rawTitle } = await generateText({
@@ -33,6 +37,7 @@ export async function generateTitleFromUserMessage({ message }: { message: UIMes
     system: `You are an expert title generator. You are given a message and you need to generate a short title based on it.
 
     - you will generate a short 3-4 words title based on the first message a user begins a conversation with
+    - write the title in the same language as the user's message (a French message gets a French title); never translate it into English
     - the title should creative and unique
     - do not write anything other than the title
     - do not use quotes or colons
@@ -91,5 +96,5 @@ export async function generateTitleFromUserMessage({ message }: { message: UIMes
   const durationMs = Date.now() - startTime;
   log.debug(`⏱️ [USAGE] generateTitleFromUserMessage: Model took ${durationMs}ms`);
 
-  return title || 'New Chat';
+  return title || UNTITLED_CHAT_TITLE;
 }
