@@ -21,6 +21,7 @@ type HermesEvent =
   | { kind: 'typing'; content: string | null }
   | { kind: 'draft'; draftId: number; content: string; final: boolean }
   | { kind: 'reaction'; message: { id: string; emoji: string | null } }
+  | { kind: 'title'; title: string }
   | { kind: 'connection-status'; connected: boolean; error: string | null };
 
 // Hermes's typing frames are one-shot and self-expiring by contract: gateway/relay/
@@ -47,6 +48,7 @@ export function useHermesStream({
   onTyping,
   onDraft,
   onReaction,
+  onTitle,
 }: {
   chatId: string;
   enabled: boolean;
@@ -67,6 +69,9 @@ export function useHermesStream({
   // Fired whenever Hermes reacts to (or un-reacts from) one of the user's own messages —
   // see agent-event/route.ts's `react` branch. null clears the reaction.
   onReaction?: (messageId: string, emoji: string | null) => void;
+  // Fired once for a new chat, when app/api/hermes/send/route.ts's background title
+  // generation replaces the provisional title.
+  onTitle?: (title: string) => void;
 }) {
   useEffect(() => {
     if (!enabled || !chatId) return;
@@ -162,6 +167,11 @@ export function useHermesStream({
         return;
       }
 
+      if (payload.kind === 'title') {
+        onTitle?.(payload.title);
+        return;
+      }
+
       if (payload.kind === 'connection-status') {
         onConnectionStatus?.(payload.connected, payload.error);
       }
@@ -171,6 +181,6 @@ export function useHermesStream({
       if (idleTimeout) clearTimeout(idleTimeout);
       source.close();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- setMessages/onConnectionStatus/onTyping/onDraft/onReaction are stable callbacks from the caller
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setMessages/onConnectionStatus/onTyping/onDraft/onReaction/onTitle are stable callbacks from the caller
   }, [chatId, enabled]);
 }

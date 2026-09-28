@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { after, NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import {
   getChatByIdForValidation,
@@ -8,8 +8,11 @@ import {
   createHermesConversation,
   saveChat,
   saveMessages,
+  updateChatTitleById,
 } from '@/lib/db/queries';
 import { deliverToGateway } from '@/lib/hermes/relay-client';
+import { publishHermesEvent } from '@/lib/hermes/realtime';
+import { generateTitleFromUserMessage, UNTITLED_CHAT_TITLE } from '@/lib/search/chat-title';
 import { assertHermesEnabled } from '@/lib/hermes/feature-flag';
 import {
   hermesMessageTypeFor,
@@ -87,8 +90,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'This conversation is locked to Zetora search mode' }, { status: 409 });
   }
   if (!existingChat) {
-    // An attachment-only first message has no text to name the chat after — fall back to
-    // the file's own name rather than creating a blank-titled conversation.
+    // Provisional until the generated title lands (see the `after` below), so the sidebar
+    // never shows a blank row. An attachment-only first message has no text to name the
+    // chat after — fall back to the file's own name, which then stays: the title
+    // generator only reads text.
     const titleSource = text || media[0]?.name || 'Attachment';
     await saveChat({
       id: chatId,
@@ -173,6 +178,27 @@ export async function POST(req: NextRequest) {
       option_id: promptResponse.optionId,
       label: promptResponse.label,
     };
+  }
+
+  // A new chat gets the same generated title a classic chat does, off the response path:
+  // the user's message is already saved and delivering it to the agent must not wait on a
+  // model call. The client hears about it on the chat's Hermes SSE stream, as it would on
+  // a classic turn's own stream (app/api/search/route.ts's `data-chat_title`).
+  if (!existingChat && text) {
+    after(async () => {
+      try {
+        const title = await generateTitleFromUserMessage({
+          message: { id: messageId, role: 'user', parts: [{ type: 'text', text }] },
+        });
+        // Generation disabled in the user's preferences (or an empty output): the
+        // provisional title is still a better name than "New Chat".
+        if (title === UNTITLED_CHAT_TITLE) return;
+        await updateChatTitleById({ chatId, title });
+        await publishHermesEvent(chatId, { kind: 'title', title });
+      } catch (error) {
+        log.error('Failed to generate Hermes chat title:', error);
+      }
+    });
   }
 
   const result = await deliverToGateway({ gatewayId: connector.gatewayId, event });

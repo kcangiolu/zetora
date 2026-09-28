@@ -868,6 +868,11 @@ const ChatInterface = memo(
       onTyping: setHermesTypingLabel,
       onDraft: setHermesDraft,
       onReaction: (messageId, emoji) => setHermesReactions((prev) => ({ ...prev, [messageId]: emoji })),
+      // Same update a classic turn's `data-chat_title` part applies (onData above).
+      onTitle: (title) => {
+        setLocalChatTitle(title);
+        setTitleInput(title);
+      },
     });
 
     const [isManuallyStopping, setIsManuallyStopping] = useState(false);
