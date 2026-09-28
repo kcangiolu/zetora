@@ -2,6 +2,7 @@ import asyncio
 import gc
 import os
 from collections import OrderedDict
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 import queue as stdlib_queue
 import re
@@ -13,6 +14,7 @@ import wave
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 import torch
 import numpy as np
@@ -112,7 +114,7 @@ class SpeechRequest(BaseModel):
     input: str
     voice: str
     model: str = "tts-1"
-    response_format: str = "wav"  # wav | pcm
+    response_format: Literal["wav", "pcm", "mp3", "opus", "aac", "flac"] = "wav"
     speed: float = 1.0
     language: str | None = None  # overrides LANG_CODE; e.g. "french", "en", "english"
 
@@ -339,6 +341,15 @@ async def list_models():
 
 _RETRY = object()
 
+# Formats encoded by ffmpeg from the streaming WAV: ffmpeg output args and the
+# response media type. wav and pcm are written directly from the model samples.
+_ENCODED_FORMATS = {
+    "mp3": (["-c:a", "libmp3lame", "-b:a", "128k", "-f", "mp3"], "audio/mpeg"),
+    "opus": (["-c:a", "libopus", "-b:a", "64k", "-f", "ogg"], "audio/ogg"),
+    "aac": (["-c:a", "aac", "-b:a", "128k", "-f", "adts"], "audio/aac"),
+    "flac": (["-c:a", "flac", "-f", "flac"], "audio/flac"),
+}
+
 _SENTENCE_END = re.compile(r'(?<=[.!?;])\s+')
 _NEWLINE = re.compile(r'\n+')
 
@@ -385,6 +396,45 @@ def _try_get(q: stdlib_queue.Queue):
         return _RETRY
 
 
+async def _encode_with_ffmpeg(wav_stream: AsyncIterator[bytes], output_args: list[str]) -> AsyncIterator[bytes]:
+    """Pipe a streaming WAV through ffmpeg, yielding encoded bytes as they come."""
+    proc = await asyncio.create_subprocess_exec(
+        "ffmpeg", "-hide_banner", "-loglevel", "error",
+        # The streaming WAV header declares unknown sizes (0xFFFFFFFF).
+        "-ignore_length", "1", "-f", "wav", "-i", "pipe:0",
+        *output_args, "pipe:1",
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+
+    async def feed():
+        try:
+            async for data in wav_stream:
+                proc.stdin.write(data)
+                await proc.stdin.drain()
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # ffmpeg exited early; its return code says why
+        finally:
+            proc.stdin.close()
+            await wav_stream.aclose()
+
+    feeder = asyncio.create_task(feed())
+    try:
+        while chunk := await proc.stdout.read(16384):
+            yield chunk
+        returncode = await proc.wait()
+        await feeder  # surfaces a generation error before ffmpeg's
+        if returncode != 0:
+            stderr = (await proc.stderr.read()).decode(errors="replace").strip()
+            raise RuntimeError(f"ffmpeg exited with {returncode}: {stderr}")
+    finally:
+        feeder.cancel()
+        if proc.returncode is None:
+            proc.kill()
+            await proc.wait()
+
+
 @app.post("/v1/audio/speech")
 async def speech(request: Request, req: SpeechRequest):
     global _last_used
@@ -402,7 +452,7 @@ async def speech(request: Request, req: SpeechRequest):
     language = LANG_MAP.get(gen_lang_code, "English")
     x_vector_only = _resolve_x_vector_only(req.voice, gen_lang_code)
     prompt = _get_voice_prompt(req.voice, x_vector_only)
-    fmt = req.response_format.lower()
+    fmt = req.response_format
     t0 = time.monotonic()
 
     sentences = _split_sentences(req.input)
@@ -451,11 +501,12 @@ async def speech(request: Request, req: SpeechRequest):
                     if pcm_chunks is not None:
                         pcm_chunks.append(pcm.copy())
                     to_send = []
-                    if fmt == "wav" and not header_sent:
-                        # Streaming WAV header: total length is unknown up
-                        # front, so RIFF and data sizes use the 0xFFFFFFFF
-                        # "unspecified" convention players accept for live
-                        # streams (16-bit mono PCM at the model sample rate).
+                    if fmt != "pcm" and not header_sent:
+                        # Streaming WAV header (also fed to ffmpeg for encoded
+                        # formats): total length is unknown up front, so RIFF
+                        # and data sizes use the 0xFFFFFFFF "unspecified"
+                        # convention players accept for live streams (16-bit
+                        # mono PCM at the model sample rate).
                         to_send.append(struct.pack(
                             "<4sI4s4sIHHIIHH4sI",
                             b"RIFF", 0xFFFFFFFF, b"WAVE",
@@ -516,7 +567,7 @@ async def speech(request: Request, req: SpeechRequest):
 
     disconnect_task = asyncio.create_task(_watch_disconnect())
 
-    async def stream():
+    async def raw_stream():
         try:
             while True:
                 item = await loop.run_in_executor(None, _try_get, chunk_q)
@@ -540,5 +591,8 @@ async def speech(request: Request, req: SpeechRequest):
         finally:
             disconnect_task.cancel()
 
+    if fmt in _ENCODED_FORMATS:
+        output_args, media_type = _ENCODED_FORMATS[fmt]
+        return StreamingResponse(_encode_with_ffmpeg(raw_stream(), output_args), media_type=media_type)
     media_type = "audio/pcm" if fmt == "pcm" else "audio/wav"
-    return StreamingResponse(stream(), media_type=media_type)
+    return StreamingResponse(raw_stream(), media_type=media_type)
