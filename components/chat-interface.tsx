@@ -873,10 +873,18 @@ const ChatInterface = memo(
       onTyping: setHermesTypingLabel,
       onDraft: setHermesDraft,
       onReaction: (messageId, emoji) => setHermesReactions((prev) => ({ ...prev, [messageId]: emoji })),
-      // Same update a classic turn's `data-chat_title` part applies (onData above).
+      // Same update a classic turn's `data-chat_title` part applies (onData above), plus the
+      // two caches a classic turn refreshes by other means. chat-meta first: the effect that
+      // syncs the local title from it would otherwise put back the provisional title it
+      // cached when the chat was created. Then the sidebar, which a classic turn refetches in
+      // useChat's onFinish — an Agent reply never goes through useChat.
       onTitle: (title) => {
+        queryClient.setQueriesData<{ title: string } | null>({ queryKey: ['chat-meta', chatId] }, (meta) =>
+          meta ? { ...meta, title } : meta,
+        );
         setLocalChatTitle(title);
         setTitleInput(title);
+        queryClient.refetchQueries({ queryKey: ['recent-chats'] });
       },
     });
 
