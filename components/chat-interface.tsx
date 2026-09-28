@@ -237,18 +237,23 @@ const ChatInterface = memo(
       initialGroupDefault,
     );
     const rawSelectedGroup = (groupParam ? (groupParam as unknown as SearchGroupId) : selectedGroup) as SearchGroupId;
-    // Set the moment this chat's first Agent message is submitted. A brand-new chat gets no
+    // Set the moment this chat's first message is submitted, by whichever lane sent it — the
+    // first message decides, so a later one never changes it. A brand-new chat gets no
     // server render (its URL is swapped in with history.replaceState, nothing remounts), so
-    // this is the only signal that it has just become a Hermes chat.
-    const [hermesCommittedThisSession, setHermesCommittedThisSession] = useState(false);
-    const handleHermesMessageSent = useCallback(() => setHermesCommittedThisSession(true), []);
+    // this is the only signal that it has just been committed to a lane.
+    const [sessionChatLock, setSessionChatLock] = useState<HermesChatLock>(null);
+    const handleHermesMessageSent = useCallback(() => setSessionChatLock((lock) => lock ?? 'hermes'), []);
     // isHermesChat is a fact about this chat's stored data and drives how its messages
     // render; effectiveSelectedGroup is the mode selector and drives where the next message
     // is sent. Conflating the two is what made the Agent UI unreliable — see
     // resolveHermesChatMode's own comment.
-    const { isHermesChat, effectiveGroup: effectiveSelectedGroup } = resolveHermesChatMode({
+    const {
+      chatLock,
+      isHermesChat,
+      effectiveGroup: effectiveSelectedGroup,
+    } = resolveHermesChatMode({
       serverLock: initialHermesLock,
-      committedThisSession: hermesCommittedThisSession,
+      sessionLock: sessionChatLock,
       storedGroup: rawSelectedGroup,
     });
     const [selectedConnectors, setSelectedConnectors] = useState<ConnectorProvider[]>([]);
@@ -994,6 +999,10 @@ const ChatInterface = memo(
     const sendMessageWithAutoRouting = useCallback(
       async (message: Parameters<typeof sendMessage>[0], options?: Parameters<typeof sendMessage>[1]) => {
         const isUsingAutoRouter = selectedModelRef.current === 'zetora-auto';
+        // Every search turn goes through here and no Agent message ever does
+        // (form-component sends those via useHermesSend), so this is where a chat whose
+        // first message is a search turn becomes search-locked.
+        setSessionChatLock((lock) => lock ?? 'search');
         // Prevent stale/ghost elicitation UI from previous requests.
         setActiveElicitation(null);
         // Keep dismissed/opened id sets so historical stream parts can't resurrect.
@@ -1856,7 +1865,7 @@ const ChatInterface = memo(
                       lastSubmittedQueryRef={lastSubmittedQueryRef}
                       selectedGroup={effectiveSelectedGroup}
                       setSelectedGroup={setSelectedGroup}
-                      hermesChatLock={initialHermesLock}
+                      hermesChatLock={chatLock}
                       isHermesChat={isHermesChat}
                       onHermesMessageSent={handleHermesMessageSent}
                       showExperimentalModels={messages.length === 0}

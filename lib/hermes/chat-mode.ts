@@ -29,29 +29,32 @@ export function resolveHermesChatLock({
 // depending on a cross-chat preference that async queries could silently overwrite —
 // hence the action toolbar appearing on Hermes messages, and the live stream detaching.
 //
-// committedThisSession covers the one case with no server truth yet: a brand-new chat that
-// just sent its first Agent message. Its URL is swapped in with history.replaceState, so
-// nothing remounts and no server render ever runs for it.
+// sessionLock covers the one case with no server truth yet: a brand-new chat that just sent
+// its first message, Agent or search. Its URL is swapped in with history.replaceState, so
+// nothing remounts and no server render ever runs for it — without this, a chat that began
+// with a search turn kept offering Agent until reloaded. The server lock wins whenever it
+// exists: it is the stored fact, and a session lock can only ever agree with it.
 export function resolveHermesChatMode({
   serverLock,
-  committedThisSession,
+  sessionLock,
   storedGroup,
 }: {
   serverLock: HermesChatLock;
-  committedThisSession: boolean;
+  sessionLock: HermesChatLock;
   storedGroup: SearchGroupId;
-}): { isHermesChat: boolean; effectiveGroup: SearchGroupId } {
-  const isHermesChat = serverLock === 'hermes' || committedThisSession;
+}): { chatLock: HermesChatLock; isHermesChat: boolean; effectiveGroup: SearchGroupId } {
+  const chatLock = serverLock ?? sessionLock;
+  const isHermesChat = chatLock === 'hermes';
 
   if (isHermesChat) {
-    return { isHermesChat, effectiveGroup: 'hermes' };
+    return { chatLock, isHermesChat, effectiveGroup: 'hermes' };
   }
 
   // A search-locked chat can never offer Agent again, so fall back to the base lane rather
   // than leaving the selector stuck on a mode this chat will refuse.
-  if (serverLock === 'search' && storedGroup === 'hermes') {
-    return { isHermesChat, effectiveGroup: 'auto' };
+  if (chatLock === 'search' && storedGroup === 'hermes') {
+    return { chatLock, isHermesChat, effectiveGroup: 'auto' };
   }
 
-  return { isHermesChat, effectiveGroup: storedGroup };
+  return { chatLock, isHermesChat, effectiveGroup: storedGroup };
 }

@@ -112,9 +112,10 @@ export interface FormComponentProps {
   lastSubmittedQueryRef: React.RefObject<string>;
   selectedGroup: SearchGroupId;
   setSelectedGroup: React.Dispatch<React.SetStateAction<SearchGroupId>>;
-  // Which mode lane this chat is permanently committed to, resolved server-side — see
-  // resolveHermesChatLock. null for a chat with no messages yet (still free to become
-  // either), and for the new-chat entry point which has no server render at all.
+  // Which mode lane this chat is permanently committed to: the server-resolved lock (see
+  // resolveHermesChatLock), or for a chat whose first message was sent in this session, the
+  // lane that message took (see resolveHermesChatMode). null only while the chat has no
+  // messages yet — still free to become either.
   hermesChatLock?: HermesChatLock;
   // Whether this chat IS a Hermes chat (server lock, or a first Agent message sent in this
   // session). Distinct from selectedGroup === 'hermes', which is only what the NEXT message
