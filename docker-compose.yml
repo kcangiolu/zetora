@@ -245,9 +245,14 @@ services:
   # ---------------------------------------------------------------------------
   # MinIO (S3-compatible file storage — STORAGE_PROVIDER=minio)
   # ---------------------------------------------------------------------------
+  # Runs Silo (github.com/pgsty/silo), the maintained community fork: MinIO
+  # archived its open-source edition and deleted its images from Docker Hub and
+  # quay.io. Same S3 API, MINIO_* variables and on-disk format, so existing data
+  # is used as is. Pinned rather than :latest — upgrade by reading the release
+  # notes first.
   minio:
     profiles: ['minio']
-    image: quay.io/minio/minio:latest
+    image: pgsty/silo:RELEASE.2026-09-16T00-00-00Z
     container_name: zetora-minio
     ports:
       # API port is NOT loopback-restricted like the other internal
@@ -288,7 +293,7 @@ services:
   minio-create-bucket:
     profiles: ['minio']
     # The server image ships /usr/bin/mc, so bucket setup needs no separate client image.
-    image: quay.io/minio/minio:latest
+    image: pgsty/silo:RELEASE.2026-09-16T00-00-00Z
     container_name: zetora-minio-create-bucket
     depends_on:
       - minio
