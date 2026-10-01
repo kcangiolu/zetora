@@ -1,0 +1,11 @@
+# Same Node major as the Docker image (Dockerfile: node:22-alpine). canvas 2.x (pulled in
+# transitively by unpdf) can't build its native addon on Node 26.
+[tools]
+node = "22"
+# pnpm as a mise tool rather than a global npm install, which is tied to one Node version.
+pnpm = "12.5.1"
+
+[env]
+# A system libvips (e.g. installed by the distro's package manager) makes sharp's install
+# script try to build from source against it instead of using its prebuilt binary.
+SHARP_IGNORE_GLOBAL_LIBVIPS = "1"
