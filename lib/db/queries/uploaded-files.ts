@@ -45,7 +45,7 @@ export interface UploadedFilesCursor {
   id: string;
 }
 
-export function encodeUploadedFilesCursor({ createdAt, id }: UploadedFilesCursor): string {
+function encodeUploadedFilesCursor({ createdAt, id }: UploadedFilesCursor): string {
   return `${createdAt.toISOString()}|${id}`;
 }
 
