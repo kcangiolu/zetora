@@ -361,6 +361,16 @@ export function useSyncedPreferences<T extends PreferenceValue>(
   // about. The real stored value is instead applied client-only, post-mount,
   // in the effect below.
   const [localValue, setLocalValue] = useState<T>(defaultValue);
+  // Mirrors the latest value handed to setLocalValue, for effects that must compare against
+  // it without re-running on every change. Updated together with the state (never from an
+  // effect after render): the localStorage hydration below and the DB sync run in the same
+  // commit, and a ref that still held the default there made the DB sync see "no change" and
+  // leave a stale localStorage value on screen while the server acted on the DB one.
+  const localValueRef = useRef<T>(defaultValue);
+  const applyLocalValue = useCallback((value: T) => {
+    localValueRef.current = value;
+    setLocalValue(value);
+  }, []);
   const didHydrateFromStorageRef = useRef(false);
 
   // Apply the localStorage value once, after the hydration render has already
@@ -376,7 +386,7 @@ export function useSyncedPreferences<T extends PreferenceValue>(
       // (localStorage) the hydration-mismatch fix above requires — not a
       // derived-state anti-pattern.
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLocalValue(stored);
+      applyLocalValue(stored);
     }
     // Runs once per mount (per preference key) — intentionally not re-run when
     // `defaultValue` changes, since callers often pass a fresh array/object
@@ -409,14 +419,6 @@ export function useSyncedPreferences<T extends PreferenceValue>(
 
   // Track the last user ID to detect login
   const lastSyncedUserIdRef = useRef<string | null>(null);
-  // Track current local value to compare without causing re-renders
-  const localValueRef = useRef<T>(localValue);
-
-  // Keep ref in sync with state
-  useEffect(() => {
-    localValueRef.current = localValue;
-  }, [localValue]);
-
   // Sync DB preferences when user logs in or DB data changes
   // This handles: 1) Login sync, 2) Cross-device sync
   useEffect(() => {
@@ -433,7 +435,7 @@ export function useSyncedPreferences<T extends PreferenceValue>(
     if (isUserLogin) {
       lastSyncedUserIdRef.current = user.id;
       if (dbValue !== undefined && hasChanged(dbValue, localValueRef.current)) {
-        setLocalValue(dbValue as T);
+        applyLocalValue(dbValue as T);
         localStorage.setItem(key, JSON.stringify(dbValue));
         window.dispatchEvent(new CustomEvent('localStorage-change', { detail: { key, value: dbValue } }));
       }
@@ -443,11 +445,11 @@ export function useSyncedPreferences<T extends PreferenceValue>(
     // After login: only sync if no pending save (don't overwrite user's current changes)
     if (pendingSaveCountRef.current > 0) return;
     if (dbValue !== undefined && hasChanged(dbValue, localValueRef.current)) {
-      setLocalValue(dbValue as T);
+      applyLocalValue(dbValue as T);
       localStorage.setItem(key, JSON.stringify(dbValue));
       window.dispatchEvent(new CustomEvent('localStorage-change', { detail: { key, value: dbValue } }));
     }
-  }, [dbPreferences, key, user?.id]); // No localValue in deps - use ref instead
+  }, [dbPreferences, key, user?.id, applyLocalValue]); // No localValue in deps - use ref instead
 
   // Listen for storage changes from other tabs
   useEffect(() => {
@@ -457,7 +459,7 @@ export function useSyncedPreferences<T extends PreferenceValue>(
       if (e.key === key && e.newValue !== null) {
         try {
           const newValue = JSON.parse(e.newValue);
-          setLocalValue(newValue);
+          applyLocalValue(newValue);
         } catch {
           // Ignore parse errors
         }
@@ -466,7 +468,7 @@ export function useSyncedPreferences<T extends PreferenceValue>(
 
     const handleCustomStorageChange = (e: CustomEvent) => {
       if (e.detail.key === key) {
-        setLocalValue(e.detail.value);
+        applyLocalValue(e.detail.value);
       }
     };
 
@@ -477,7 +479,7 @@ export function useSyncedPreferences<T extends PreferenceValue>(
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('localStorage-change', handleCustomStorageChange as EventListener);
     };
-  }, [key]);
+  }, [key, applyLocalValue]);
 
   // Debounced function to save to DB
   const saveToDB = useCallback(
@@ -534,7 +536,7 @@ export function useSyncedPreferences<T extends PreferenceValue>(
         const nextValue = value instanceof Function ? value(localValue) : value;
 
         // Update React state immediately (optimistic update)
-        setLocalValue(nextValue);
+        applyLocalValue(nextValue);
 
         // Update localStorage immediately
         if (typeof window !== 'undefined') {
@@ -559,17 +561,14 @@ export function useSyncedPreferences<T extends PreferenceValue>(
         console.warn(`Error saving preference "${key}":`, error);
       }
     },
-    [key, localValue, user?.id, saveToDB],
+    [key, localValue, user?.id, saveToDB, applyLocalValue],
   );
 
-  // Cleanup debounce timer on unmount
-  useEffect(() => {
-    return () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-    };
-  }, []);
+  // No unmount cleanup for the debounce timer on purpose: a pending save must still reach
+  // the DB when the component goes away right after a change (e.g. leaving Settings within
+  // DEBOUNCE_MS of a toggle). Clearing it there kept the new value in localStorage only,
+  // so the UI showed it while the server kept acting on the old one. The callback only
+  // touches refs and the query cache, so running it after unmount is safe.
 
   return [localValue, setValue, isResolved];
 }
