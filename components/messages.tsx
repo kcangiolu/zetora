@@ -1,6 +1,6 @@
 import React, { memo, useMemo, useState, useRef, useEffect, useCallback, useImperativeHandle } from 'react';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
-import { Message, DELIVERABLE_TOOL_PART_TYPES } from '@/components/message';
+import { Message, DELIVERABLE_TOOL_PART_TYPES, type MessageEditDraft } from '@/components/message';
 import { DataUIPart, isToolUIPart } from 'ai';
 import { EnhancedErrorDisplay } from '@/components/message';
 import { MessagePartRenderer } from '@/components/message-parts';
@@ -137,6 +137,16 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
   const [reasoningFullscreenMap, setReasoningFullscreenMap] = useState<Record<string, boolean>>({});
   const reasoningScrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  // The message being edited and its draft are held here, not inside Message:
+  // Virtuoso unmounts items it considers off-screen (a large paste growing the
+  // editor past the viewport is enough), which would otherwise close the editor
+  // and discard the draft.
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<MessageEditDraft | null>(null);
+  const handleEditingChange = useCallback((messageId: string | null) => {
+    setEditDraft(null);
+    setEditingMessageId(messageId);
+  }, []);
 
   // Filter messages to only show the ones we want to display
   const memoizedMessages = useMemo(() => {
@@ -529,6 +539,10 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
             onHighlight={onHighlight}
             attachmentsRenderer={attachmentsRenderer}
             onBeforeSubmit={onBeforeSubmit}
+            isEditing={message.id === editingMessageId}
+            onEditingChange={handleEditingChange}
+            editDraft={message.id === editingMessageId ? editDraft : null}
+            setEditDraft={setEditDraft}
             shouldReduceHeight={
               message.role === 'assistant'
                 ? // Always reduced for a Hermes reply: the reserved viewport exists to give a
@@ -577,6 +591,9 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
       onHighlight,
       attachmentsRenderer,
       onBeforeSubmit,
+      editingMessageId,
+      editDraft,
+      handleEditingChange,
       isTransitioning,
       activeAssistantIndex,
       isActiveAssistantSkeleton,

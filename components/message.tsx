@@ -404,12 +404,26 @@ interface MessageProps {
   shouldReduceHeight?: boolean;
   attachmentsRenderer?: (attachments: Attachment[]) => React.ReactNode;
   onBeforeSubmit?: () => void;
+  isEditing: boolean;
+  onEditingChange: (messageId: string | null) => void;
+  editDraft: MessageEditDraft | null;
+  setEditDraft: React.Dispatch<React.SetStateAction<MessageEditDraft | null>>;
+}
+
+// In-progress state of the message editor, owned by the message list so it
+// survives Virtuoso unmounting and remounting the edited item.
+export interface MessageEditDraft {
+  content: string;
+  hasAttachmentEdits: boolean;
 }
 
 // Message Editor Component
 interface MessageEditorProps {
   message: ChatMessage;
   setMode: (mode: 'view' | 'edit') => void;
+  // null until the first change: the editor then shows the message's own content.
+  draft: MessageEditDraft | null;
+  setDraft: React.Dispatch<React.SetStateAction<MessageEditDraft | null>>;
   setMessages: UseChatHelpers<ChatMessage>['setMessages'];
   regenerate: UseChatHelpers<ChatMessage>['regenerate'];
   isHermesChat?: boolean;
@@ -476,6 +490,8 @@ function fileToDataURL(file: File): Promise<string> {
 const MessageEditor: React.FC<MessageEditorProps> = ({
   message,
   setMode,
+  draft,
+  setDraft,
   setMessages,
   regenerate,
   isHermesChat = false,
@@ -486,12 +502,21 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [isDragActive, setIsDragActive] = useState<boolean>(false);
-  const [hasAttachmentEdits, setHasAttachmentEdits] = useState<boolean>(false);
-  const [draftContent, setDraftContent] = useState<string>(
+  const originalContent =
     message.parts
       ?.map((part) => (part.type === 'text' ? part.text : ''))
       .join('')
-      .trim() || '',
+      .trim() || '';
+  const draftContent = draft?.content ?? originalContent;
+  const hasAttachmentEdits = draft?.hasAttachmentEdits ?? false;
+  const updateDraft = useCallback(
+    (changes: Partial<MessageEditDraft>) =>
+      setDraft((current) => ({
+        content: current?.content ?? originalContent,
+        hasAttachmentEdits: current?.hasAttachmentEdits ?? false,
+        ...changes,
+      })),
+    [setDraft, originalContent],
   );
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -510,7 +535,7 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
   };
 
   const handleInput = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setDraftContent(event.target.value);
+    updateDraft({ content: event.target.value });
     adjustHeight();
   };
 
@@ -680,7 +705,7 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
             return updatedMessages;
           });
 
-          setHasAttachmentEdits(true);
+          updateDraft({ hasAttachmentEdits: true });
           sileo.success({
             title: `${uploadedAttachments.length} file${uploadedAttachments.length > 1 ? 's' : ''} uploaded successfully`,
           });
@@ -694,7 +719,7 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
         onFinish();
       }
     },
-    [message.id, message.parts, setMessages, uploadFile],
+    [message.id, message.parts, setMessages, uploadFile, updateDraft],
   );
 
   const handleFileChange = useCallback(
@@ -817,12 +842,7 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
     }
   };
 
-  const isUnchanged =
-    draftContent.trim() ===
-      message.parts
-        ?.map((part) => (part.type === 'text' ? part.text : ''))
-        .join('')
-        .trim() && !hasAttachmentEdits;
+  const isUnchanged = draftContent.trim() === originalContent && !hasAttachmentEdits;
 
   return (
     <form onSubmit={handleSubmit} className="w-full space-y-3">
@@ -842,7 +862,7 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
           onChange={handleInput}
           autoFocus
           className="prose prose-sm sm:prose-base prose-neutral dark:prose-invert prose-p:my-0 prose-pre:my-1 prose-code:before:hidden prose-code:after:hidden
-          font-sans font-normal max-w-none text-base! text-foreground dark:text-foreground overflow-hidden
+          font-sans font-normal max-w-none text-base! text-foreground dark:text-foreground max-h-[60vh] overflow-y-auto
           w-full resize-none border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 p-0! outline-none min-h-0!
           transition-colors bg-transparent!"
           placeholder="Edit your message..."
@@ -873,7 +893,7 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
                   }
                   return messages;
                 });
-                setHasAttachmentEdits(true);
+                updateDraft({ hasAttachmentEdits: true });
               }}
             />
           </div>
@@ -1071,6 +1091,10 @@ export const Message: React.FC<MessageProps> = ({
   shouldReduceHeight = false,
   attachmentsRenderer,
   onBeforeSubmit,
+  isEditing,
+  onEditingChange,
+  editDraft,
+  setEditDraft,
 }) => {
   // Only meaningful for assistant messages, but computed unconditionally
   // since hooks below depend on it and hooks can't be called conditionally.
@@ -1095,8 +1119,12 @@ export const Message: React.FC<MessageProps> = ({
   }, [isTurnStreaming]);
   // Ref to check content height
   const messageContentRef = React.useRef<HTMLDivElement>(null);
-  // Mode state for editing
-  const [mode, setMode] = useState<'view' | 'edit'>('view');
+  // Edit mode lives in the message list (see MessageEditDraft), not here
+  const mode = isEditing ? 'edit' : 'view';
+  const setMode = useCallback(
+    (nextMode: 'view' | 'edit') => onEditingChange(nextMode === 'edit' ? message.id : null),
+    [onEditingChange, message.id],
+  );
 
   const fileAttachments = React.useMemo(
     () => (message.parts?.filter((part) => part.type === 'file') as unknown as Attachment[]) ?? [],
@@ -1172,6 +1200,8 @@ export const Message: React.FC<MessageProps> = ({
               <MessageEditor
                 message={message}
                 setMode={setMode}
+                draft={editDraft}
+                setDraft={setEditDraft}
                 setMessages={setMessages}
                 regenerate={regenerate}
                 isHermesChat={isHermesChat}
