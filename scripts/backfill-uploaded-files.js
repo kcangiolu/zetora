@@ -65,7 +65,8 @@ async function listUploadObjects(client, bucketName) {
     );
     for (const object of page.Contents ?? []) {
       const match = UPLOAD_KEY_PATTERN.exec(object.Key);
-      if (match) objects.push({ key: object.Key, userId: match[1], size: object.Size, lastModified: object.LastModified });
+      if (match)
+        objects.push({ key: object.Key, userId: match[1], size: object.Size, lastModified: object.LastModified });
     }
     continuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
   } while (continuationToken);
