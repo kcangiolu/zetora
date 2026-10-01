@@ -93,6 +93,7 @@ describe('POST /api/hermes/send — chat title', () => {
         role: 'user',
         parts: [{ type: 'text', text: 'Peux-tu préparer le déploiement de demain ?' }],
       }),
+      userId: 'user-1',
     });
     expect(updateChatTitleById).toHaveBeenCalledWith({ chatId: CHAT_ID, title: 'Planification du déploiement' });
     expect(publishHermesEvent).toHaveBeenCalledWith(CHAT_ID, { kind: 'title', title: 'Planification du déploiement' });

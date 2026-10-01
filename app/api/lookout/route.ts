@@ -765,6 +765,7 @@ export async function POST(req: Request) {
                 // Generate title for the chat
                 const title = await generateTitleFromUserMessage({
                   message: userMessage,
+                  userId: userResult.id,
                 });
 
                 log.info('Generated title:', title);

@@ -189,6 +189,7 @@ export async function POST(req: NextRequest) {
       try {
         const title = await generateTitleFromUserMessage({
           message: { id: messageId, role: 'user', parts: [{ type: 'text', text }] },
+          userId: session.user.id,
         });
         // Generation disabled in the user's preferences (or an empty output): the
         // provisional title is still a better name than "New Chat".

@@ -436,7 +436,7 @@ export async function branchOutChat({
     const newAssistantMessageId = uuidv7();
 
     // Start title generation early (can run while we prepare messages)
-    const chatTitlePromise = generateTitleFromUserMessage({ message: userMessage });
+    const chatTitlePromise = generateTitleFromUserMessage({ message: userMessage, userId: currentUser.id });
 
     // Prepare messages for saving
     const messagesToSave = [

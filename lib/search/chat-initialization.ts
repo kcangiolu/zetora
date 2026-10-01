@@ -201,6 +201,7 @@ export function initializeChatAndChecks({
             .then(({ generateTitleFromUserMessage }) =>
               generateTitleFromUserMessage({
                 message: messages[messages.length - 1],
+                userId: user.userId,
               }),
             )
             .catch(() => 'New Chat');

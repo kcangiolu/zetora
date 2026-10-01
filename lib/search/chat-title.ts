@@ -5,7 +5,6 @@ import { GoogleGenerativeAIProviderOptions, GoogleLanguageModelOptions } from '@
 import { GatewayProviderOptions } from '@ai-sdk/gateway';
 import { OpenAIResponsesProviderOptions } from '@ai-sdk/openai';
 
-import { getUser } from '@/lib/auth-utils';
 import { getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { resolveTertiaryModel } from '@/ai/tertiary';
 
@@ -17,15 +16,17 @@ const log = createLogger('chat-title');
 // disabled in the user's preferences, or an empty model output.
 export const UNTITLED_CHAT_TITLE = 'New Chat';
 
-export async function generateTitleFromUserMessage({ message }: { message: UIMessage }) {
+// `userId` is passed by the caller rather than re-derived from the request session: several
+// callers run off the request path (a cron-triggered Lookout run has no session at all), and a
+// missing user there silently read as "no preferences", generating titles the user had disabled.
+export async function generateTitleFromUserMessage({ message, userId }: { message: UIMessage; userId: string }) {
   const startTime = Date.now();
   const firstTextPart = message.parts.find((part) => part.type === 'text');
   const prompt = JSON.stringify(firstTextPart && firstTextPart.type === 'text' ? firstTextPart.text : '');
 
   log.debug('Prompt: ', prompt);
 
-  const titleUser = await getUser().catch(() => null);
-  const titlePrefs = titleUser ? await getCachedUserPreferencesByUserId(titleUser.id).catch(() => null) : null;
+  const titlePrefs = await getCachedUserPreferencesByUserId(userId).catch(() => null);
   const titlePrefsMap = (titlePrefs?.preferences ?? {}) as Record<string, string>;
 
   if (titlePrefs?.preferences?.['zetora-tertiary-chat-title-enabled'] === false) {
@@ -33,7 +34,7 @@ export async function generateTitleFromUserMessage({ message }: { message: UIMes
   }
 
   const { text: rawTitle } = await generateText({
-    model: await resolveTertiaryModel('chat-title', titlePrefsMap, titleUser?.id),
+    model: await resolveTertiaryModel('chat-title', titlePrefsMap, userId),
     system: `You are an expert title generator. You are given a message and you need to generate a short title based on it.
 
     - you will generate a short 3-4 words title based on the first message a user begins a conversation with
