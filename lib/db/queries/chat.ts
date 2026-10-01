@@ -8,6 +8,7 @@ import { db, maindb } from '../index';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
+import { linkUploadedFilesToChats } from './uploaded-files';
 
 import { createLogger } from '@/lib/logger';
 
@@ -321,6 +322,8 @@ export async function saveUserTurnMessage({
 
 export async function saveMessages({ messages }: { messages: Array<Message> }) {
   if (!messages.length) return [];
+
+  await linkUploadedFilesToChats(messages);
 
   try {
     const insertBatchSize = 50;

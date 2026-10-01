@@ -39,20 +39,19 @@ import { Attachment01Icon } from '@hugeicons/core-free-icons';
 import { Input } from '@/components/ui/input';
 
 interface UploadedFile {
+  id: string;
   key: string;
   url: string;
-  size: number;
-  lastModified: string | null;
   filename: string;
   mediaType: string | null;
+  sizeBytes: number | null;
   chatId: string | null;
-  source: 'r2' | 'legacy' | 'vercel-blob';
+  createdAt: string;
 }
 
 interface UploadsResponse {
   files: UploadedFile[];
   nextCursor: string | null;
-  isTruncated: boolean;
 }
 
 function getFileCategory(mediaType: string | null, filename: string): 'image' | 'document' {
@@ -328,7 +327,7 @@ export function UploadsSection() {
               ))}
             </div>
             <span className="text-[11px] tabular-nums text-muted-foreground/50">
-              {counts.all > 0 ? formatBytes(allFiles.reduce((s, f) => s + f.size, 0)) : ''}
+              {counts.all > 0 ? formatBytes(allFiles.reduce((s, f) => s + (f.sizeBytes ?? 0), 0)) : ''}
             </span>
           </div>
         </div>
@@ -440,19 +439,15 @@ export function UploadsSection() {
                         {file.filename}
                       </p>
                       <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
-                        <span className="tabular-nums">{formatBytes(file.size)}</span>
-                        {file.lastModified && (
-                          <>
-                            <span className="opacity-30">·</span>
-                            <span>
-                              {new Date(file.lastModified).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric',
-                              })}
-                            </span>
-                          </>
-                        )}
+                        <span className="tabular-nums">{formatBytes(file.sizeBytes ?? 0)}</span>
+                        <span className="opacity-30">·</span>
+                        <span>
+                          {new Date(file.createdAt).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
+                        </span>
                       </div>
                     </div>
 

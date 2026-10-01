@@ -58,7 +58,6 @@ export const serverEnv = createEnv({
     AMADEUS_API_SECRET: z.string().optional().default('placeholder'),
     CRON_SECRET: z.string().optional().default('placeholder'),
     RAYCAST_API_SECRET: z.string().optional().default('placeholder'),
-    BLOB_READ_WRITE_TOKEN: z.string().optional().default('placeholder'),
     COINGECKO_API_KEY: z.string().optional().default('placeholder'),
     SUPADATA_API_KEY: z.string().optional().default('placeholder'),
     QSTASH_TOKEN: z.string().optional().default('placeholder'),

@@ -13,6 +13,7 @@ import { getBetterAllOptions } from '@/lib/better-all';
 import { checkImageModeration } from '@/app/actions';
 import { getOversizedFileReason, MAX_UPLOADED_IMAGE_SIZE } from '@/components/ui/form-component/attachment-utils';
 import { compressImageForUpload } from '@/components/ui/form-component/image-compression';
+import { uploadFileToStorage } from '@/lib/upload-client';
 import {
   ChevronDown,
   ChevronLeft,
@@ -550,42 +551,8 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
         );
       }
 
-      const presignResponse = await fetch('/api/upload', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          filename: fileToUpload.name,
-          contentType: fileToUpload.type,
-          size: fileToUpload.size,
-        }),
-      });
-
-      if (!presignResponse.ok) {
-        const errorText = await presignResponse.text();
-        throw new Error(`Failed to get upload URL: ${presignResponse.status} ${errorText}`);
-      }
-
-      const { presignedUrl, url } = await presignResponse.json();
-
-      const uploadResponse = await fetch(presignedUrl, {
-        method: 'PUT',
-        body: fileToUpload,
-        headers: {
-          'Content-Type': fileToUpload.type,
-        },
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error(`Failed to upload file: ${uploadResponse.status}`);
-      }
-
-      return {
-        name: fileToUpload.name,
-        contentType: fileToUpload.type,
-        url,
-      };
+      const { url, name, contentType } = await uploadFileToStorage(fileToUpload);
+      return { name, contentType, url };
     } catch (error) {
       sileo.error({
         title: `Failed to upload ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`,

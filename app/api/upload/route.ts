@@ -1,9 +1,8 @@
-import { PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command, HeadObjectCommand } from '@aws-sdk/client-s3';
+import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { nanoid } from 'nanoid';
-import { and, eq, sql } from 'drizzle-orm';
 
 import { auth } from '@/lib/auth';
 import { getStorageClient } from '@/lib/storage';
@@ -14,11 +13,7 @@ const {
   bucketName: STORAGE_BUCKET_NAME,
   publicUrl: STORAGE_PUBLIC_URL,
 } = getStorageClient();
-import { db } from '@/lib/db';
-import { chat, message } from '@/lib/db/schema';
-import { all } from 'better-all';
-import { getBetterAllOptions } from '@/lib/better-all';
-import { del as blobDel, head as blobHead } from '@vercel/blob';
+import { getUploadedFilesByUserId, deleteUploadedFileByUrl, decodeUploadedFilesCursor } from '@/lib/db/queries';
 
 import { createLogger } from '@/lib/logger';
 
@@ -105,49 +100,12 @@ function sanitizeExtension(raw: string): string {
   return cleaned || 'bin';
 }
 
-// Compare origins to prevent prefix-bypass attacks (e.g. https://cdn.x.com.evil.com)
-function isOwnR2Url(url: string): boolean {
-  try {
-    const target = new URL(url);
-    const base = new URL(STORAGE_PUBLIC_URL);
-    return target.origin === base.origin;
-  } catch {
-    return false;
-  }
-}
-
 // Safe integer parsing with bounds
 function parseLimit(raw: string | null, defaultVal: number, max: number): number {
   const n = parseInt(raw ?? String(defaultVal), 10);
   if (!Number.isFinite(n) || n < 1) return defaultVal;
   return Math.min(n, max);
 }
-
-interface UploadedFile {
-  key: string;
-  url: string;
-  size: number;
-  lastModified: string | null;
-  filename: string;
-  mediaType: string | null;
-  chatId: string | null;
-  source: 'r2' | 'legacy' | 'vercel-blob';
-}
-
-const VERCEL_BLOB_PATTERN = '.public.blob.vercel-storage.com';
-
-function isVercelBlobUrl(url: string): boolean {
-  return url.includes(VERCEL_BLOB_PATTERN);
-}
-
-// Flat row returned by the LATERAL jsonb query
-type DbFileRow = {
-  url: string;
-  name: string | null;
-  mediaType: string | null;
-  chatId: string;
-  [key: string]: unknown;
-};
 
 export async function GET(request: NextRequest) {
   let session: Awaited<ReturnType<typeof auth.api.getSession>> | null = null;
@@ -161,175 +119,30 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const userId = session.user.id;
-  const prefix = `zetora/users/${userId}/`;
-
   const { searchParams } = new URL(request.url);
-  const continuationToken = searchParams.get('cursor') ?? undefined;
-  const maxKeys = parseLimit(searchParams.get('limit'), 50, 200);
+  const rawCursor = searchParams.get('cursor');
+  const cursor = rawCursor ? decodeUploadedFilesCursor(rawCursor) : undefined;
+  if (cursor === null) {
+    return NextResponse.json({ error: 'Invalid cursor' }, { status: 400 });
+  }
+  const limit = parseLimit(searchParams.get('limit'), 50, 200);
 
-  // Use better-all's `all()` with explicit this.$ dependencies so the library
-  // can automatically maximise parallelism across the four tasks.
-  // Errors in r2List / dbQuery are caught internally so dependent tasks always
-  // receive a safe fallback — the overall `all()` never rejects.
-  const { r2Res, r2Files, legacyFiles } = await all(
-    {
-      // ── Independent sources ── start immediately in parallel ──────────────
-      async r2List() {
-        try {
-          return await storageClient.send(
-            new ListObjectsV2Command({
-              Bucket: STORAGE_BUCKET_NAME,
-              Prefix: prefix,
-              MaxKeys: maxKeys,
-              ContinuationToken: continuationToken,
-            }),
-          );
-        } catch (e) {
-          log.error('R2 list error:', e);
-          return null;
-        }
-      },
-
-      async dbQuery() {
-        try {
-          if (continuationToken) return [] as DbFileRow[];
-          return await db
-            .execute<DbFileRow>(
-              sql`
-            SELECT DISTINCT ON (elem->>'url')
-              m.chat_id          AS "chatId",
-              elem->>'url'       AS url,
-              elem->>'name'      AS name,
-              elem->>'mediaType' AS "mediaType"
-            FROM message m
-            JOIN chat c ON m.chat_id = c.id
-            CROSS JOIN LATERAL jsonb_array_elements(m.parts::jsonb) AS elem
-            WHERE c."userId"      = ${userId}
-              AND m.role          = 'user'
-              AND elem->>'type'   = 'file'
-              AND (
-              elem->>'url' LIKE ${STORAGE_PUBLIC_URL + '%'}
-              OR elem->>'url' LIKE ${'%' + VERCEL_BLOB_PATTERN + '%'}
-            )
-            ORDER BY elem->>'url', m.created_at DESC
-            LIMIT 200
-          `,
-            )
-            .then((r) => r.rows);
-        } catch (e) {
-          log.error('DB file query error:', e);
-          return [] as DbFileRow[];
-        }
-      },
-
-      // ── r2Res ── alias so callers can read pagination metadata ────────────
-      async r2Res() {
-        return await this.$.r2List;
-      },
-
-      // ── r2Files ── waits for r2List + dbQuery to enrich with metadata ──────
-      async r2Files() {
-        const r2Result = await this.$.r2List;
-        const dbRows = await this.$.dbQuery;
-
-        const dbMeta = new Map<string, DbFileRow>();
-        for (const row of dbRows) dbMeta.set(row.url, row);
-
-        return (r2Result?.Contents ?? []).map((obj) => {
-          const url = `${STORAGE_PUBLIC_URL}/${obj.Key}`;
-          const meta = dbMeta.get(url);
-          return {
-            key: obj.Key!,
-            url,
-            size: obj.Size ?? 0,
-            lastModified: obj.LastModified?.toISOString() ?? null,
-            filename: meta?.name || (obj.Key!.split('/').pop() ?? obj.Key!),
-            mediaType: meta?.mediaType ?? null,
-            chatId: meta?.chatId ?? null,
-            source: 'r2' as const,
-          } satisfies UploadedFile;
-        });
-      },
-
-      // ── legacyFiles ── waits for r2Files + dbQuery, then fires HeadObjects ─
-      async legacyFiles() {
-        const r2Built = await this.$.r2Files;
-        const dbRows = await this.$.dbQuery;
-
-        const r2Urls = new Set(r2Built.map((f) => f.url));
-        const legacyRows = dbRows.filter((r) => !r2Urls.has(r.url));
-
-        const r2LegacyRows = legacyRows.filter((r) => !isVercelBlobUrl(r.url)).slice(0, 20);
-        const blobLegacyRows = legacyRows.filter((r) => isVercelBlobUrl(r.url)).slice(0, 20);
-
-        // Fetch metadata for both storage types in parallel
-        const metaMap =
-          Object.keys({ ...r2LegacyRows, ...blobLegacyRows }).length > 0
-            ? await all(
-                {
-                  ...Object.fromEntries(
-                    r2LegacyRows.map((r, i) => [
-                      `r2:${i}`,
-                      async () =>
-                        storageClient
-                          .send(
-                            new HeadObjectCommand({
-                              Bucket: STORAGE_BUCKET_NAME,
-                              Key: new URL(r.url).pathname.slice(1),
-                            }),
-                          )
-                          .catch(() => null),
-                    ]),
-                  ),
-                  ...Object.fromEntries(
-                    blobLegacyRows.map((r, i) => [`blob:${i}`, async () => blobHead(r.url).catch(() => null)]),
-                  ),
-                },
-                getBetterAllOptions(),
-              )
-            : ({} as Record<string, null>);
-
-        return legacyRows.map((r) => {
-          const isBlob = isVercelBlobUrl(r.url);
-          let size = 0;
-          let lastModified: string | null = null;
-
-          if (isBlob) {
-            const idx = blobLegacyRows.findIndex((lr) => lr.url === r.url);
-            const meta = idx >= 0 ? metaMap[`blob:${idx}`] : null;
-            size = (meta as any)?.size ?? 0;
-            lastModified = (meta as any)?.uploadedAt ? new Date((meta as any).uploadedAt).toISOString() : null;
-          } else {
-            const idx = r2LegacyRows.findIndex((lr) => lr.url === r.url);
-            const meta = idx >= 0 ? metaMap[`r2:${idx}`] : null;
-            size = (meta as any)?.ContentLength ?? 0;
-            lastModified = (meta as any)?.LastModified ? new Date((meta as any).LastModified).toISOString() : null;
-          }
-
-          const key = isBlob ? r.url : r.url.replace(`${STORAGE_PUBLIC_URL}/`, '');
-          return {
-            key,
-            url: r.url,
-            size,
-            lastModified,
-            filename: r.name ?? key.split('/').pop() ?? key,
-            mediaType: r.mediaType ?? null,
-            chatId: r.chatId,
-            source: (isBlob ? 'vercel-blob' : 'legacy') as UploadedFile['source'],
-          } satisfies UploadedFile;
-        });
-      },
-    },
-    getBetterAllOptions(),
-  );
-
-  const nextCursor = r2Res?.NextContinuationToken ?? null;
-  const isTruncated = r2Res?.IsTruncated ?? false;
-  const files = [...r2Files, ...legacyFiles];
+  const { files, nextCursor } = await getUploadedFilesByUserId({ userId: session.user.id, limit, cursor });
 
   return NextResponse.json(
-    { files, nextCursor, isTruncated },
+    {
+      files: files.map((f) => ({
+        id: f.id,
+        key: f.key,
+        url: f.url,
+        filename: f.filename,
+        mediaType: f.mediaType,
+        sizeBytes: f.sizeBytes,
+        chatId: f.chatId,
+        createdAt: f.createdAt.toISOString(),
+      })),
+      nextCursor,
+    },
     { headers: { 'Cache-Control': 'private, max-age=0, stale-while-revalidate=60' } },
   );
 }
@@ -368,7 +181,7 @@ export async function POST(request: NextRequest) {
       Bucket: STORAGE_BUCKET_NAME,
       Key: key,
       // Must exactly match the Content-Type header the browser's direct PUT
-      // sends (see uploadFile in form-component.tsx, which mirrors
+      // sends (see uploadFileToStorage in lib/upload-client.ts, which mirrors
       // file.type verbatim) — any mismatch invalidates the presigned SigV4
       // signature and the PUT 403s.
       ContentType: contentType,
@@ -407,8 +220,6 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const userId = session.user.id;
-
   try {
     const body = await request.json();
     const validated = DeleteRequestSchema.safeParse(body);
@@ -417,39 +228,17 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid URL provided' }, { status: 400 });
     }
 
-    const { url } = validated.data;
-
-    const isBlob = isVercelBlobUrl(url);
-
-    // Verify URL belongs to one of our storage backends
-    if (!isBlob && !isOwnR2Url(url)) {
-      return NextResponse.json({ error: 'Invalid storage URL' }, { status: 400 });
+    // Ownership-checked by userId in the WHERE clause, not just the URL.
+    const deleted = await deleteUploadedFileByUrl({ url: validated.data.url, userId: session.user.id });
+    if (!deleted) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
-    // Ownership check via DB for all non-new-format files
-    const r2Key = isBlob ? '' : new URL(url).pathname.slice(1);
-    const isOwnR2Key = !isBlob && r2Key.startsWith(`zetora/users/${userId}/`);
-
-    if (!isOwnR2Key) {
-      const rows = await db
-        .select({ parts: message.parts })
-        .from(message)
-        .innerJoin(chat, eq(message.chatId, chat.id))
-        .where(
-          and(eq(chat.userId, userId), eq(message.role, 'user'), sql`${message.parts}::text LIKE ${'%' + url + '%'}`),
-        )
-        .limit(1);
-
-      if (rows.length === 0) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-      }
-    }
-
-    if (isBlob) {
-      await blobDel(url);
-    } else {
-      await storageClient.send(new DeleteObjectCommand({ Bucket: STORAGE_BUCKET_NAME, Key: r2Key }));
-    }
+    await storageClient.send(new DeleteObjectCommand({ Bucket: STORAGE_BUCKET_NAME, Key: deleted.key })).catch((e) => {
+      // The DB row is already gone — log and move on rather than leaving the
+      // user stuck if the bucket object was already removed out-of-band.
+      log.error('Failed to delete uploaded file object from storage:', e);
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

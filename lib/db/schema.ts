@@ -713,9 +713,7 @@ export const userMcpServerRelations = relations(userMcpServer, ({ one }) => ({
 // Files produced by AI tools (generated images, generated documents/charts),
 // re-hosted on our own storage so they don't depend on an external
 // provider's URL lifetime (e.g. a ComfyUI wrapper's short-lived signed
-// URLs). Distinct from user-uploaded files, which are derived on read from
-// message.parts + an R2 prefix listing instead of a dedicated table — see
-// app/api/upload/route.ts.
+// URLs). User-uploaded files have their own table, uploadedFile below.
 export const generatedFile = pgTable(
   'generated_file',
   {
@@ -748,6 +746,49 @@ export const generatedFileRelations = relations(generatedFile, ({ one }) => ({
   }),
   chat: one(chat, {
     fields: [generatedFile.chatId],
+    references: [chat.id],
+  }),
+}));
+
+// Files the user uploaded (chat attachments), recorded once the browser's
+// direct PUT to storage is confirmed (see app/api/upload/confirm). The bucket
+// only holds the bytes: listing comes from here, ordered by createdAt, the
+// same way generatedFile backs Settings → Downloads. chatId is filled in when
+// the file is first saved as part of a message (see linkUploadedFilesToChats),
+// since an upload usually happens before its chat exists.
+export const uploadedFile = pgTable(
+  'uploaded_file',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => generateId()),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    chatId: text('chat_id').references(() => chat.id, { onDelete: 'set null' }),
+    key: text('key').notNull(),
+    url: text('url').notNull(),
+    filename: text('filename').notNull(),
+    mediaType: text('media_type'),
+    sizeBytes: integer('size_bytes'),
+    // Millisecond precision so the value round-trips exactly through a JS
+    // Date, which the (createdAt, id) pagination cursor depends on.
+    createdAt: timestamp('created_at', { precision: 3 }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uploadedFile_key_idx').on(table.key),
+    uniqueIndex('uploadedFile_url_idx').on(table.url),
+    index('uploadedFile_userId_createdAt_id_idx').on(table.userId, table.createdAt, table.id),
+  ],
+);
+
+export const uploadedFileRelations = relations(uploadedFile, ({ one }) => ({
+  user: one(user, {
+    fields: [uploadedFile.userId],
+    references: [user.id],
+  }),
+  chat: one(chat, {
+    fields: [uploadedFile.chatId],
     references: [chat.id],
   }),
 }));
@@ -845,3 +886,4 @@ export type UserMcpServer = InferSelectModel<typeof userMcpServer>;
 export type BuildSession = InferSelectModel<typeof buildSession>;
 export type PiiAlias = InferSelectModel<typeof piiAlias>;
 export type GeneratedFile = InferSelectModel<typeof generatedFile>;
+export type UploadedFile = InferSelectModel<typeof uploadedFile>;

@@ -108,5 +108,5 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY drizzle/ ./drizzle/
 COPY create_indexes.sql ./
-COPY scripts/migrate.js ./scripts/
+COPY scripts/migrate.js scripts/backfill-uploaded-files.js ./scripts/
 CMD ["node", "scripts/migrate.js"]

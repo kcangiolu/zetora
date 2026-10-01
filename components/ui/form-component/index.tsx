@@ -81,6 +81,7 @@ import {
   AttachmentPreview,
 } from './attachment-utils';
 import { compressImageForUpload } from './image-compression';
+import { uploadFileToStorage } from '@/lib/upload-client';
 
 interface TypewriterResumeCache {
   target: string;
@@ -1485,47 +1486,10 @@ const FormComponent: React.FC<FormComponentProps> = ({
         );
       }
 
-      console.log('Uploading file:', fileToUpload.name, fileToUpload.type, fileToUpload.size);
-
-      // Step 1: Get presigned URL from our API
-      const presignResponse = await fetch('/api/upload', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          filename: fileToUpload.name,
-          contentType: fileToUpload.type,
-          size: fileToUpload.size,
-        }),
-      });
-
-      if (!presignResponse.ok) {
-        const errorText = await presignResponse.text();
-        console.error('Failed to get presigned URL:', presignResponse.status, errorText);
-        throw new Error(`Failed to get upload URL: ${presignResponse.status} ${errorText}`);
-      }
-
-      const { presignedUrl, url } = await presignResponse.json();
-
-      // Step 2: Upload directly to R2 using presigned URL
-      const uploadResponse = await fetch(presignedUrl, {
-        method: 'PUT',
-        body: fileToUpload,
-        headers: {
-          'Content-Type': fileToUpload.type,
-        },
-      });
-
-      if (!uploadResponse.ok) {
-        console.error('Direct upload failed:', uploadResponse.status);
-        throw new Error(`Failed to upload file: ${uploadResponse.status}`);
-      }
-
-      console.log('Upload successful:', url);
+      const { url, name, contentType } = await uploadFileToStorage(fileToUpload);
       return {
-        name: fileToUpload.name,
-        contentType: fileToUpload.type,
+        name,
+        contentType,
         url,
         size: fileToUpload.size,
       };
