@@ -8,9 +8,13 @@
 // the object itself (LastModified may be the date it was copied during a
 // storage migration rather than the original upload date).
 //
-// Runs in the zetora-migrate image, which already has the dependencies and
-// the deployment's .env:
-//   docker compose run --rm db-migrate node scripts/backfill-uploaded-files.js [--dry-run]
+// Runs in the zetora-migrate image, which already has the dependencies. The
+// db-migrate service doesn't get the storage settings (they live in
+// zetora-app's `environment:`), so pass zetora-app's own values through:
+//   mapfile -t vars < <(docker inspect zetora-app --format '{{range .Config.Env}}{{println .}}{{end}}' \
+//     | grep -E '^(STORAGE_PROVIDER|S3_[A-Z_]+|R2_[A-Z_]+)=')
+//   args=(); for v in "${vars[@]}"; do args+=(-e "$v"); done
+//   docker compose run --rm "${args[@]}" db-migrate node scripts/backfill-uploaded-files.js [--dry-run]
 
 import { HeadObjectCommand, ListObjectsV2Command, S3Client } from '@aws-sdk/client-s3';
 import { Client } from 'pg';
