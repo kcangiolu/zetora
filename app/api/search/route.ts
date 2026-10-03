@@ -1025,21 +1025,16 @@ export async function POST(req: Request) {
         experimental_download: async (requestedDownloads) => {
           type DownloadResult = { data: Uint8Array; mediaType: string | undefined } | null;
 
-          // Download for models that can't fetch R2 URLs directly
-          const requiresDownload =
-            model.startsWith('zetora-anthropic') ||
-            model.startsWith('zetora-google') ||
-            model.startsWith('zetora-gemini');
-
-          if (!requiresDownload) {
-            // Let other models handle URLs directly
-            return requestedDownloads.map(() => null);
-          }
-
+          // Always download here and send the bytes, even to models that
+          // accept image URLs: the storage host is geo-restricted, so a
+          // provider fetching the URL from its own servers (DeepSeek from
+          // China, US-hosted APIs) gets a 404 and the model never sees the
+          // image. Only image/file content parts reach this hook — the
+          // text URL list from buildImageInstruction stays a URL.
           const downloadTasks = requestedDownloads.reduce(
             (acc, { url }, index) => {
               acc[`dl:${index}`] = async (): Promise<DownloadResult> => {
-                log.info(`Downloading for Anthropic: ${url.toString()}`);
+                log.info(`Downloading for the model: ${url.toString()}`);
                 const response = await fetch(url.toString());
                 if (!response.ok) {
                   log.error(`Download failed: ${url.toString()} - ${response.status}`);
