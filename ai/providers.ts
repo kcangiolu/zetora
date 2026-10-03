@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { wrapLanguageModel, customProvider, extractReasoningMiddleware, gateway } from 'ai';
+import { wrapLanguageModel, customProvider, extractReasoningMiddleware, gateway, NoSuchModelError } from 'ai';
 import { dynamicXmlToolMiddleware } from '@/ai/xml-tool-middleware';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { createOpenAI } from '@ai-sdk/openai';
@@ -773,7 +773,19 @@ export async function resolveModel(
   let usingNativeModel = false;
 
   if (!modelId.startsWith('custom-')) {
-    resolved = zetora.languageModel(modelId);
+    try {
+      resolved = zetora.languageModel(modelId);
+    } catch (error) {
+      if (!NoSuchModelError.isInstance(error) || modelId === 'zetora-default') throw error;
+      // A retired built-in model can linger in a stored selection (localStorage,
+      // saved auto-router routes, preferences) — fall back like an unknown custom
+      // model does. Ending on 'zetora-default' guarantees the recursion stops even
+      // when the user's default-model preference is itself a retired model.
+      const preferredId = await resolveDefaultModelId(preferences, userId);
+      const fallbackId = preferredId === modelId ? 'zetora-default' : preferredId;
+      log.warn(`Model ${modelId} no longer exists, falling back to default (${fallbackId})`);
+      return resolveModel(fallbackId, preferences, userId, hasImages);
+    }
   } else {
     const models = await getCustomModels(userId);
     const model = models.find((m) => m.id === modelId);
