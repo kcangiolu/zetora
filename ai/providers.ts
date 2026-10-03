@@ -338,45 +338,23 @@ export const zetora = customProvider({
             model: _google('gemini-3.1-pro-preview'),
             retries: [gateway('google/gemini-3.1-pro-preview')],
           }),
+          // gemini-3.1-flash-lite-preview (May 2026) and gemini-2.5-flash-lite-preview-09-2025
+          // (March 2026) are shut down — the GA Flash-Lite models replace them.
           'zetora-name': createRetryable({
-            model: gateway('google/gemini-3.1-flash-lite-preview'),
-            retries: [_google('gemini-3.1-flash-lite-preview'), _google('gemini-2.5-flash-lite-preview-09-2025')],
+            model: gateway('google/gemini-3.5-flash-lite'),
+            retries: [_google('gemini-3.5-flash-lite'), _google('gemini-3.1-flash-lite')],
           }),
           'zetora-follow-up': createRetryable({
-            model: gateway('google/gemini-3.1-flash-lite-preview'),
-            retries: [
-              _google('gemini-3.1-flash-lite-preview'),
-              _google('gemini-2.5-flash-lite-preview-09-2025'),
-              _google('gemini-2.5-flash-lite'),
-            ],
+            model: gateway('google/gemini-3.5-flash-lite'),
+            retries: [_google('gemini-3.5-flash-lite'), _google('gemini-3.1-flash-lite')],
           }),
-          'zetora-google-lite': _google('gemini-flash-lite-latest'),
-          'zetora-google': _google('gemini-flash-latest'),
-          'zetora-google-think': _google('gemini-flash-latest'),
-          'zetora-google-pro': createRetryable({
-            model: _google('gemini-2.5-pro'),
-            retries: [gateway('google/gemini-2.5-pro')],
+          'zetora-gemini-3.5-flash-lite': createRetryable({
+            model: _google('gemini-3.5-flash-lite'),
+            retries: [gateway('google/gemini-3.5-flash-lite')],
           }),
-          'zetora-google-pro-think': createRetryable({
-            model: _google('gemini-2.5-pro'),
-            retries: [gateway('google/gemini-2.5-pro')],
-          }),
-          'zetora-gemini-3-flash': createRetryable({
-            model: _google('gemini-3-flash-preview'),
-            retries: [gateway('google/gemini-3-flash')],
-          }),
-          'zetora-gemini-3-flash-think': _google('gemini-3-flash-preview'),
-          'zetora-gemini-3.1-flash-lite': createRetryable({
-            model: gateway('google/gemini-3.1-flash-lite-preview'),
-            retries: [_google('gemini-3.1-flash-lite-preview')],
-          }),
-          'zetora-gemini-3.1-flash-lite-think': createRetryable({
-            model: gateway('google/gemini-3.1-flash-lite-preview'),
-            retries: [_google('gemini-3.1-flash-lite-preview')],
-          }),
-          'zetora-gemini-3.1-pro': createRetryable({
-            model: _google('gemini-3.1-pro-preview'),
-            retries: [gateway('google/gemini-3.1-pro-preview')],
+          'zetora-gemini-3.5-flash-lite-think': createRetryable({
+            model: _google('gemini-3.5-flash-lite'),
+            retries: [gateway('google/gemini-3.5-flash-lite')],
           }),
           'zetora-gemini-3.5-flash': createRetryable({
             model: _google('gemini-3.5-flash'),
@@ -385,6 +363,18 @@ export const zetora = customProvider({
           'zetora-gemini-3.5-flash-think': createRetryable({
             model: _google('gemini-3.5-flash'),
             retries: [gateway('google/gemini-3.5-flash')],
+          }),
+          'zetora-gemini-3.8-flash': createRetryable({
+            model: _google('gemini-3.8-flash'),
+            retries: [gateway('google/gemini-3.8-flash')],
+          }),
+          'zetora-gemini-3.8-flash-think': createRetryable({
+            model: _google('gemini-3.8-flash'),
+            retries: [gateway('google/gemini-3.8-flash')],
+          }),
+          'zetora-gemini-3.1-pro': createRetryable({
+            model: _google('gemini-3.1-pro-preview'),
+            retries: [gateway('google/gemini-3.1-pro-preview')],
           }),
         }
       : {}),

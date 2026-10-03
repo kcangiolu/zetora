@@ -30,12 +30,31 @@ export const ANTHROPIC_BUDGET_TOKENS_MAP: Record<EffortTier, number> = {
   off: 0,
 };
 
-export const GOOGLE_THINKING_BUDGET_MAP: Record<EffortTier, number> = {
-  low: 200,
-  medium: 400,
-  high: 2000,
-  off: 0,
-};
+// Gemini 3.x models are driven by thinkingLevel, not the 2.5-era
+// thinkingBudget. Thinking can't be fully disabled, so 'off' maps to the
+// model's lowest accepted level with thoughts hidden — and that floor differs
+// per model: 3.5 Flash/Flash-Lite accept 'minimal', while 3.6+ Flash and
+// 3.1 Pro reject it with an error and bottom out at 'low'.
+const GEMINI_MINIMAL_THINKING_MODELS = new Set([
+  'zetora-gemini-3.5-flash',
+  'zetora-gemini-3.5-flash-think',
+  'zetora-gemini-3.5-flash-lite',
+  'zetora-gemini-3.5-flash-lite-think',
+]);
+
+export function getGeminiThinkingConfig(
+  modelId: string,
+  effort: ReasoningEffort,
+): { thinkingLevel: 'minimal' | 'low' | 'medium' | 'high'; includeThoughts: boolean } {
+  if (effort === 'auto') return { thinkingLevel: 'medium', includeThoughts: true };
+  if (effort === 'off') {
+    return {
+      thinkingLevel: GEMINI_MINIMAL_THINKING_MODELS.has(modelId) ? 'minimal' : 'low',
+      includeThoughts: false,
+    };
+  }
+  return { thinkingLevel: effort, includeThoughts: true };
+}
 
 const LLAMACPP_THINKING_BUDGET_MAP: Record<EffortTier, number> = {
   low: 256,
@@ -357,12 +376,8 @@ export function getZetoraReasoningOverrides(
     case 'google':
       return {
         providerOptions: {
-          google: {
-            thinkingConfig: { thinkingBudget: GOOGLE_THINKING_BUDGET_MAP[tier], includeThoughts: tier !== 'off' },
-          },
-          vertex: {
-            thinkingConfig: { thinkingBudget: GOOGLE_THINKING_BUDGET_MAP[tier], includeThoughts: tier !== 'off' },
-          },
+          google: { thinkingConfig: getGeminiThinkingConfig(modelId, tier) },
+          vertex: { thinkingConfig: getGeminiThinkingConfig(modelId, tier) },
         },
       };
     case 'deepseek':

@@ -131,13 +131,23 @@ describe('getSearchProviderOptions', () => {
   });
 
   it('enables google thinkingConfig for the -think models', () => {
-    expect(getSearchProviderOptions('zetora-google-think', false).google).toMatchObject({
-      thinkingConfig: { thinkingBudget: 400, includeThoughts: true },
-    });
-    expect(getSearchProviderOptions('zetora-gemini-3.1-pro', false).google).toMatchObject({
+    expect(getSearchProviderOptions('zetora-gemini-3.8-flash-think', false).google).toMatchObject({
       thinkingConfig: { thinkingLevel: 'medium', includeThoughts: true },
     });
+    expect(getSearchProviderOptions('zetora-gemini-3.1-pro', false, 'high').google).toMatchObject({
+      thinkingConfig: { thinkingLevel: 'high', includeThoughts: true },
+    });
+    expect(getSearchProviderOptions('zetora-gemini-3.8-flash', false).google).toEqual({ threshold: 'OFF' });
     expect(getSearchProviderOptions('zetora-default', false).google).toEqual({ threshold: 'OFF' });
+  });
+
+  it("maps 'off' to each Gemini model's lowest accepted thinking level", () => {
+    expect(getSearchProviderOptions('zetora-gemini-3.5-flash-think', false, 'off').google).toMatchObject({
+      thinkingConfig: { thinkingLevel: 'minimal', includeThoughts: false },
+    });
+    expect(getSearchProviderOptions('zetora-gemini-3.8-flash-think', false, 'off').google).toMatchObject({
+      thinkingConfig: { thinkingLevel: 'low', includeThoughts: false },
+    });
   });
 
   it('flips every xai parallel-call flag with multi-agent mode', () => {

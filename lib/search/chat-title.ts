@@ -1,7 +1,6 @@
 import 'server-only';
 
 import { generateText, UIMessage } from 'ai';
-import { GoogleGenerativeAIProviderOptions, GoogleLanguageModelOptions } from '@ai-sdk/google';
 import { GatewayProviderOptions } from '@ai-sdk/gateway';
 import { OpenAIResponsesProviderOptions } from '@ai-sdk/openai';
 
@@ -64,18 +63,6 @@ export async function generateTitleFromUserMessage({ message, userId }: { messag
         only: ['vertex', 'google'],
         order: ['vertex', 'google'],
       } satisfies GatewayProviderOptions,
-      google: {
-        thinkingConfig: {
-          thinkingBudget: 0,
-          includeThoughts: false,
-        },
-      } satisfies GoogleGenerativeAIProviderOptions,
-      vertex: {
-        thinkingConfig: {
-          thinkingBudget: 0,
-          includeThoughts: false,
-        },
-      } satisfies GoogleLanguageModelOptions,
     },
     onFinish: (output) => {
       log.debug('Title generated: ', output.text);

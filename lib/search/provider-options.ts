@@ -1,4 +1,4 @@
-import { getMaxOutputTokens } from '@/ai/models';
+import { getMaxOutputTokens, getModelConfig } from '@/ai/models';
 import type { SpecialModeId } from '@/lib/utils';
 import { GroqProviderOptions } from '@ai-sdk/groq';
 import { OpenAIResponsesProviderOptions } from '@ai-sdk/openai';
@@ -9,8 +9,15 @@ import {
   type ReasoningEffort,
   OPENAI_STYLE_EFFORT_MAP,
   ANTHROPIC_BUDGET_TOKENS_MAP,
-  GOOGLE_THINKING_BUDGET_MAP,
+  getGeminiThinkingConfig,
 } from '@/lib/reasoning-effort';
+
+// The catalog's reasoning flag marks the Gemini entries that surface their
+// thinking (the -think variants and 3.1 Pro); the others keep Google's default.
+function isGeminiThinkingModel(model: string): boolean {
+  const config = getModelConfig(model);
+  return config?.provider === 'google' && config.reasoning === true;
+}
 
 export async function getStreamTextStaticSettings({
   model,
@@ -359,51 +366,11 @@ export function getSearchProviderOptions(
       disableParallelToolUse: true,
     } satisfies AnthropicProviderOptions,
     google: {
-      ...(model === 'zetora-google-think' || model === 'zetora-google-pro-think'
-        ? {
-            thinkingConfig: {
-              thinkingBudget: effort !== 'auto' ? GOOGLE_THINKING_BUDGET_MAP[effort] : 400,
-              includeThoughts: effort !== 'off',
-            },
-          }
-        : {}),
-      ...(model === 'zetora-gemini-3-flash-think' ||
-      model === 'zetora-gemini-3.1-pro' ||
-      model === 'zetora-gemini-3.1-flash-lite-think'
-        ? effort !== 'auto'
-          ? {
-              thinkingConfig: {
-                thinkingBudget: GOOGLE_THINKING_BUDGET_MAP[effort],
-                includeThoughts: effort !== 'off',
-              },
-            }
-          : {
-              thinkingConfig: {
-                thinkingLevel: 'medium',
-                includeThoughts: true,
-              },
-            }
-        : {}),
+      ...(isGeminiThinkingModel(model) ? { thinkingConfig: getGeminiThinkingConfig(model, effort) } : {}),
       threshold: 'OFF',
     } satisfies GoogleGenerativeAIProviderOptions,
     vertex: {
-      ...(model === 'zetora-gemini-3-flash-think' ||
-      model === 'zetora-gemini-3.1-pro' ||
-      model === 'zetora-gemini-3.1-flash-lite-think'
-        ? effort !== 'auto'
-          ? {
-              thinkingConfig: {
-                thinkingBudget: GOOGLE_THINKING_BUDGET_MAP[effort],
-                includeThoughts: effort !== 'off',
-              },
-            }
-          : {
-              thinkingConfig: {
-                thinkingLevel: 'medium',
-                includeThoughts: true,
-              },
-            }
-        : {}),
+      ...(isGeminiThinkingModel(model) ? { thinkingConfig: getGeminiThinkingConfig(model, effort) } : {}),
       threshold: 'OFF',
     } satisfies GoogleLanguageModelOptions,
     openrouter: {

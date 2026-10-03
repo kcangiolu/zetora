@@ -228,7 +228,7 @@ export function getDefaultAutoRouterRoutes(): AutoRouterRoute[] {
     {
       name: 'research',
       description: 'Academic research, papers, and scientific topics',
-      model: 'zetora-gemini-3-flash',
+      model: 'zetora-gemini-3.5-flash',
     },
     {
       name: 'code_generation',
