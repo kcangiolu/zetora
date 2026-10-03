@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import { convertToModelMessages } from 'ai';
 import {
   DOCUMENT_MIME_TYPES,
   collectAttachments,
@@ -267,22 +268,24 @@ describe('instruction builders', () => {
 });
 
 describe('labelUploadedImagesInPlace', () => {
-  it('inserts a numbered label immediately before each matching file part', () => {
-    const messages = [
+  it('inserts a numbered label immediately before each matching file part', async () => {
+    // Built by convertToModelMessages, like the route does, so the file part
+    // has its real shape (the URL lives in `data`).
+    const messages = await convertToModelMessages([
       {
         role: 'user',
-        content: [
+        parts: [
           { type: 'text', text: 'look' },
           { type: 'file', mediaType: 'image/png', url: 'https://x/a.png' },
         ],
       },
-    ] as any;
+    ]);
     const uploaded = [{ url: 'https://x/a.png', contentType: 'image/png', turnIndex: 1, sourceMessageId: 'u1' }];
     labelUploadedImagesInPlace(messages, uploaded, 2);
     expect(messages[0].content).toEqual([
       { type: 'text', text: 'look' },
       { type: 'text', text: '\n\n[Uploaded image 1 of 1 — attached 1 turn ago. When discussing this image, refer to it as "Uploaded image 1".]' },
-      { type: 'file', mediaType: 'image/png', url: 'https://x/a.png' },
+      { type: 'file', mediaType: 'image/png', data: 'https://x/a.png' },
     ]);
   });
 

@@ -222,8 +222,9 @@ export function labelUploadedImagesInPlace(
     let touched = false;
     const labeled: any[] = [];
     for (const part of msg.content) {
-      if (part.type === 'file' && typeof part.url === 'string' && ordinalByUrl.has(part.url)) {
-        const ordinal = ordinalByUrl.get(part.url)!;
+      // convertToModelMessages puts a file part's URL in `data`.
+      if (part.type === 'file' && typeof part.data === 'string' && ordinalByUrl.has(part.data)) {
+        const ordinal = ordinalByUrl.get(part.data)!;
         labeled.push({ type: 'text', text: buildUploadedImageLabel(uploadedImages[ordinal - 1], ordinal, total, currentTurnIndex) });
         touched = true;
       }
