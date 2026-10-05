@@ -1,4 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// 'zetora-default' is only registered when XAI_API_KEY is set, and the provider
+// registry is built at import time — set it before ai/providers is loaded so the
+// test doesn't depend on the local .env.
+vi.hoisted(() => {
+  process.env.XAI_API_KEY = 'test-xai-key';
+});
+
 import { resolveModel, zetora } from '@/ai/providers';
 
 describe('resolveModel', () => {
