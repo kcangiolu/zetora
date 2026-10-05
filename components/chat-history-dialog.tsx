@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { usePathname, useRouter } from 'next/navigation';
 import { CommandDialog, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
 import { HermesModeDot } from '@/components/ui/hermes-mode-dot';
+import { isHermesEnabled } from '@/lib/hermes/enabled';
 import {
   Trash,
   ArrowUpRight,
@@ -77,6 +78,22 @@ interface ChatHistoryDialogProps {
 
 // Search modes for different filtering strategies
 type SearchMode = 'all' | 'title' | 'date' | 'visibility';
+
+const HERMES_ENV_ENABLED = isHermesEnabled();
+
+// Which kind of conversation to list: Agent (Hermes) chats, classic search chats, or both
+type ChatTypeFilter = 'all' | 'search' | 'agent';
+
+const CHAT_TYPE_LABELS: Record<ChatTypeFilter, string> = {
+  all: 'All types',
+  search: 'Search',
+  agent: 'Agent',
+};
+
+function matchesChatType(chat: Chat, chatType: ChatTypeFilter): boolean {
+  if (chatType === 'all') return true;
+  return chatType === 'agent' ? Boolean(chat.isHermesChat) : !chat.isHermesChat;
+}
 
 // Helper function to validate chat ID format
 function isValidChatId(id: string): boolean {
@@ -338,6 +355,7 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMode, setSearchMode] = useState<SearchMode>('all');
+  const [chatType, setChatType] = useState<ChatTypeFilter>('all');
   const [navigating, setNavigating] = useState<string | null>(null);
   const [deletingChatId, setDeletingChatId] = useState<string | null>(null);
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
@@ -415,6 +433,7 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
       setEditingTitle('');
       setSearchQuery('');
       setSearchMode('all');
+      setChatType('all');
       setBulkSelectMode(false);
       setSelectedChatIds(new Set());
       setDeletingBulk(false);
@@ -441,6 +460,7 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
     if (open) {
       setSearchQuery('');
       setSearchMode('all');
+      setChatType('all');
     }
 
     return () => {
@@ -476,9 +496,11 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
 
   // Filter chats based on search query and mode with memoization
   const filteredChats = useMemo(() => {
-    const matchingChats = allChats.filter((chat) => advancedSearch(chat, searchQuery, searchMode));
+    const matchingChats = allChats.filter(
+      (chat) => matchesChatType(chat, chatType) && advancedSearch(chat, searchQuery, searchMode),
+    );
     return matchingChats.sort((a, b) => getChatActivityDate(b).getTime() - getChatActivityDate(a).getTime());
-  }, [allChats, searchQuery, searchMode]);
+  }, [allChats, searchQuery, searchMode, chatType]);
 
   const pinnedChats = useMemo(() => {
     return filteredChats.filter((chat) => chat.isPinned);
@@ -668,7 +690,8 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
     [hasNextPage, isFetchingNextPage, isLoading, fetchNextPage],
   );
 
-  // Auto-load: if initial page doesn't fill the viewport, load more immediately
+  // Auto-load: if the (filtered) list doesn't fill the viewport, load more immediately —
+  // a narrow type filter can leave the loaded pages with only a few matching chats
   useEffect(() => {
     if (isLoading || isFetchingNextPage || !hasNextPage || !open) return;
     if (isFetchingGuardRef.current) return;
@@ -681,7 +704,7 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
       isFetchingGuardRef.current = true;
       fetchNextPage();
     }
-  }, [isLoading, isFetchingNextPage, hasNextPage, open, allChats.length, fetchNextPage]);
+  }, [isLoading, isFetchingNextPage, hasNextPage, open, allChats.length, filteredChats.length, fetchNextPage]);
 
   // Deferred prefetching — wait for idle time before prefetching routes
   // This avoids competing with the initial data load for network bandwidth
@@ -833,6 +856,11 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
     const nextMode = modes[nextIndex];
     setSearchMode(nextMode);
   }, [searchMode]);
+
+  const cycleChatType = useCallback(() => {
+    const types: ChatTypeFilter[] = ['all', 'search', 'agent'];
+    setChatType((current) => types[(types.indexOf(current) + 1) % types.length]);
+  }, []);
 
   // Bulk selection handlers
   const toggleBulkSelectMode = useCallback(() => {
@@ -1332,6 +1360,25 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
                 </>
               ) : (
                 <>
+                  {HERMES_ENV_ENABLED && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-6 px-1.5 sm:px-2 gap-1.5 bg-muted hover:bg-muted/80 rounded-md transition-all"
+                          onClick={cycleChatType}
+                          aria-label={`Conversation type: ${CHAT_TYPE_LABELS[chatType]}`}
+                        >
+                          {chatType === 'agent' && <HermesModeDot />}
+                          {CHAT_TYPE_LABELS[chatType]}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" sideOffset={4}>
+                        <p className="text-xs font-medium">Conversation type</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
@@ -1462,6 +1509,8 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
                         <EmptyTitle>No conversations found</EmptyTitle>
                         {searchQuery ? (
                           <EmptyDescription>Try a different search term or change search mode</EmptyDescription>
+                        ) : chatType !== 'all' ? (
+                          <EmptyDescription>No {CHAT_TYPE_LABELS[chatType]} conversations yet</EmptyDescription>
                         ) : (
                           <EmptyDescription>Start a new chat to begin</EmptyDescription>
                         )}
@@ -1555,4 +1604,3 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
     </>
   );
 }
-
