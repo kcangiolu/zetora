@@ -5,6 +5,9 @@ import type { SearchGroupId } from '@/lib/utils';
 // answer is already there on the first render.
 export type HermesChatLock = 'hermes' | 'search' | null;
 
+// History/Library filter on that same lane: Agent (Hermes) chats, classic search chats, or both.
+export type ChatModeFilter = 'all' | 'search' | 'agent';
+
 // 'hermes' once a hermesConversation row exists for the chat (created lazily by
 // /api/hermes/send on the first Agent-mode message), 'search' once it has any message at
 // all but no hermesConversation (a native Zetora search turn got there first), or null for

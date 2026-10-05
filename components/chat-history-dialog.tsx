@@ -7,6 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { CommandDialog, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
 import { HermesModeDot } from '@/components/ui/hermes-mode-dot';
 import { isHermesEnabled } from '@/lib/hermes/enabled';
+import type { ChatModeFilter } from '@/lib/hermes/chat-mode';
 import {
   Trash,
   ArrowUpRight,
@@ -81,16 +82,13 @@ type SearchMode = 'all' | 'title' | 'date' | 'visibility';
 
 const HERMES_ENV_ENABLED = isHermesEnabled();
 
-// Which kind of conversation to list: Agent (Hermes) chats, classic search chats, or both
-type ChatTypeFilter = 'all' | 'search' | 'agent';
-
-const CHAT_TYPE_LABELS: Record<ChatTypeFilter, string> = {
+const CHAT_TYPE_LABELS: Record<ChatModeFilter, string> = {
   all: 'All types',
   search: 'Search',
   agent: 'Agent',
 };
 
-function matchesChatType(chat: Chat, chatType: ChatTypeFilter): boolean {
+function matchesChatType(chat: Chat, chatType: ChatModeFilter): boolean {
   if (chatType === 'all') return true;
   return chatType === 'agent' ? Boolean(chat.isHermesChat) : !chat.isHermesChat;
 }
@@ -355,7 +353,7 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMode, setSearchMode] = useState<SearchMode>('all');
-  const [chatType, setChatType] = useState<ChatTypeFilter>('all');
+  const [chatType, setChatType] = useState<ChatModeFilter>('all');
   const [navigating, setNavigating] = useState<string | null>(null);
   const [deletingChatId, setDeletingChatId] = useState<string | null>(null);
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
@@ -858,7 +856,7 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
   }, [searchMode]);
 
   const cycleChatType = useCallback(() => {
-    const types: ChatTypeFilter[] = ['all', 'search', 'agent'];
+    const types: ChatModeFilter[] = ['all', 'search', 'agent'];
     setChatType((current) => types[(types.indexOf(current) + 1) % types.length]);
   }, []);
 

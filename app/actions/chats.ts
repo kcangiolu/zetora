@@ -23,7 +23,8 @@ import {
   unhideContextImage,
 } from '@/lib/db/queries';
 import { db } from '@/lib/db';
-import { chat, message, buildSession, type Message } from '@/lib/db/schema';
+import { chat, message, buildSession, hermesConversation, type Message } from '@/lib/db/schema';
+import type { ChatModeFilter } from '@/lib/hermes/chat-mode';
 import type { ChatMessage } from '@/lib/types';
 import { eq, desc, ilike, and, or, asc, inArray, notExists, exists, sql } from 'drizzle-orm';
 import {
@@ -595,7 +596,19 @@ async function buildPreviewMap(chatIds: string[]): Promise<Record<string, ChatMe
   return map;
 }
 
-export async function getAllChatsWithPreview(limit: number = 25, offset: number = 0) {
+// A chat is an Agent chat once it has a hermesConversation row (resolveHermesChatLock).
+// Filtered in SQL rather than on the client so pagination stays correct when one mode
+// is rare among the user's chats.
+function chatModeCondition(mode: ChatModeFilter) {
+  if (mode === 'all') return undefined;
+  const hasHermesConversation = db
+    .select({ chatId: hermesConversation.chatId })
+    .from(hermesConversation)
+    .where(eq(hermesConversation.chatId, chat.id));
+  return mode === 'agent' ? exists(hasHermesConversation) : notExists(hasHermesConversation);
+}
+
+export async function getAllChatsWithPreview(limit: number = 25, offset: number = 0, mode: ChatModeFilter = 'all') {
   'use server';
 
   try {
@@ -609,6 +622,7 @@ export async function getAllChatsWithPreview(limit: number = 25, offset: number 
       where: and(
         eq(chat.userId, user.id),
         notExists(db.select({ id: buildSession.id }).from(buildSession).where(eq(buildSession.chatId, chat.id))),
+        chatModeCondition(mode),
       ),
       orderBy: [desc(chat.isPinned), desc(chat.updatedAt), desc(chat.id)],
       limit,
@@ -634,7 +648,12 @@ export async function getAllChatsWithPreview(limit: number = 25, offset: number 
 }
 
 // Search chats by title or message content (paginated)
-export async function searchChatsByTitle(query: string, limit: number = 25, offset: number = 0) {
+export async function searchChatsByTitle(
+  query: string,
+  limit: number = 25,
+  offset: number = 0,
+  mode: ChatModeFilter = 'all',
+) {
   'use server';
 
   try {
@@ -665,11 +684,12 @@ export async function searchChatsByTitle(query: string, limit: number = 25, offs
     const chats = await db.query.chat.findMany({
       where:
         trimmedQuery.length === 0
-          ? and(eq(chat.userId, user.id), excludeBuildChats)
+          ? and(eq(chat.userId, user.id), excludeBuildChats, chatModeCondition(mode))
           : and(
               eq(chat.userId, user.id),
               or(ilike(chat.title, `%${trimmedQuery}%`), matchesContent),
               excludeBuildChats,
+              chatModeCondition(mode),
             ),
       orderBy: [desc(chat.isPinned), desc(chat.updatedAt), desc(chat.id)],
       limit,

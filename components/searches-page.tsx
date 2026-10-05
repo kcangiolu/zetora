@@ -32,6 +32,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { HermesModeDot } from '@/components/ui/hermes-mode-dot';
+import { isHermesEnabled } from '@/lib/hermes/enabled';
+import type { ChatModeFilter } from '@/lib/hermes/chat-mode';
 import {
   Globe,
   MoreHorizontal,
@@ -92,6 +94,14 @@ interface SearchesPageProps {
 type VisibilityFilter = 'all' | 'public' | 'private';
 type DateFilter = 'all' | 'today' | 'week' | 'month';
 type SortOrder = 'newest' | 'oldest';
+
+const HERMES_ENV_ENABLED = isHermesEnabled();
+
+const MODE_FILTER_LABELS: Record<ChatModeFilter, string> = {
+  all: 'All',
+  search: 'Search',
+  agent: 'Agent',
+};
 
 const ITEMS_PER_PAGE = 25;
 
@@ -183,6 +193,7 @@ export function SearchesPage({ userId }: SearchesPageProps) {
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>('all');
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
+  const [modeFilter, setModeFilter] = useState<ChatModeFilter>('all');
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [selectedChatIds, setSelectedChatIds] = useState<Set<string>>(new Set());
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -213,16 +224,16 @@ export function SearchesPage({ userId }: SearchesPageProps) {
   const searchText = useMemo(() => stripSearchPrefix(debouncedQuery).trim(), [debouncedQuery]);
 
   const { data, isLoading, error, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
-    queryKey: ['searches', userId, searchText],
+    queryKey: ['searches', userId, searchText, modeFilter],
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
       const offset = pageParam * ITEMS_PER_PAGE;
       if (searchText.length === 0) {
-        const result = await getAllChatsWithPreview(ITEMS_PER_PAGE, offset);
+        const result = await getAllChatsWithPreview(ITEMS_PER_PAGE, offset, modeFilter);
         if ('error' in result) throw new Error(result.error);
         return result.chats as Chat[];
       }
-      const result = await searchChatsByTitle(searchText, ITEMS_PER_PAGE, offset);
+      const result = await searchChatsByTitle(searchText, ITEMS_PER_PAGE, offset, modeFilter);
       if ('error' in result) throw new Error(result.error);
       return result.chats as Chat[];
     },
@@ -254,7 +265,11 @@ export function SearchesPage({ userId }: SearchesPageProps) {
 
   const hasMore = !!hasNextPage;
   const hasActiveFilters =
-    visibilityFilter !== 'all' || dateFilter !== 'all' || searchQuery.length > 0 || sortOrder !== 'newest';
+    visibilityFilter !== 'all' ||
+    dateFilter !== 'all' ||
+    modeFilter !== 'all' ||
+    searchQuery.length > 0 ||
+    sortOrder !== 'newest';
 
   const toggleChatSelection = useCallback((chatId: string) => {
     setSelectedChatIds((prev) => {
@@ -679,6 +694,35 @@ export function SearchesPage({ userId }: SearchesPageProps) {
             </DropdownMenuContent>
           </DropdownMenu>
 
+          {/* Mode filter — Agent (Hermes) vs classic search chats */}
+          {HERMES_ENV_ENABLED && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className={cn(
+                    'inline-flex items-center gap-1 h-7 px-2.5 text-xs rounded-md border transition-colors',
+                    modeFilter !== 'all'
+                      ? 'border-foreground/40 text-foreground font-medium'
+                      : 'border-border/60 text-foreground/70 hover:text-foreground hover:border-border',
+                  )}
+                >
+                  {modeFilter === 'agent' && <HermesModeDot />}
+                  {modeFilter === 'all' ? 'Mode' : MODE_FILTER_LABELS[modeFilter]}
+                  <ChevronDown className="size-3 opacity-60" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-32">
+                {(['all', 'search', 'agent'] as const).map((v) => (
+                  <DropdownMenuItem key={v} onClick={() => setModeFilter(v)} className="text-xs gap-2">
+                    {v === 'agent' && <HermesModeDot />}
+                    {MODE_FILTER_LABELS[v]}
+                    {modeFilter === v && <Check className="size-3 ml-auto" />}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
           {/* Sort — right-aligned */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -770,6 +814,8 @@ export function SearchesPage({ userId }: SearchesPageProps) {
                     No chats from{' '}
                     {dateFilter === 'today' ? 'today' : dateFilter === 'week' ? 'the last 7 days' : 'this month'}
                   </>
+                ) : modeFilter !== 'all' && visibilityFilter === 'all' ? (
+                  <>No {MODE_FILTER_LABELS[modeFilter]} chats found</>
                 ) : (
                   <>No {visibilityFilter} chats found</>
                 )}
@@ -779,6 +825,7 @@ export function SearchesPage({ userId }: SearchesPageProps) {
                   setSearchQuery('');
                   setDateFilter('all');
                   setVisibilityFilter('all');
+                  setModeFilter('all');
                 }}
                 className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline transition-colors"
               >
