@@ -28,11 +28,7 @@ const PROVIDER_ENV_KEYS: Record<string, string | null> = {
 
 export function getAvailableProviders(): string[] {
   return Object.entries(PROVIDER_ENV_KEYS)
-    .filter(([, envKey]) => {
-      if (envKey === null) return false;
-      const value = process.env[envKey];
-      return !!value && !value.startsWith('your-') && !value.startsWith('sk-your-');
-    })
+    .filter(([, envKey]) => envKey !== null && !!process.env[envKey])
     .map(([provider]) => provider);
 }
 

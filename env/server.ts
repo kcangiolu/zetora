@@ -132,6 +132,10 @@ export const serverEnv = createEnv({
       .transform((v) => v.toLowerCase() !== 'false'),
   },
   experimental__runtimeEnv: process.env,
+  // `KEY=` (how .env.example leaves unset keys) must count as unset, so the
+  // field falls back to its default — otherwise '' slips past every
+  // `=== 'placeholder'` check and reads as configured.
+  emptyStringAsUndefined: true,
 });
 
 const REQUIRED_VARS = new Set(['DATABASE_URL', 'BETTER_AUTH_SECRET']);
