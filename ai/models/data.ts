@@ -340,8 +340,8 @@ export const models: Model[] = [
     provider: 'bytedance',
   },
   {
-    value: 'zetora-qwen-3.6-27b',
-    label: 'Qwen 3.6 27B',
+    value: 'zetora-qwen-3.8-27b',
+    label: 'Qwen 3.8 27B',
     description: "Alibaba's base reasoning LLM",
     vision: true,
     reasoning: true,
@@ -349,11 +349,19 @@ export const models: Model[] = [
     pdf: false,
     requiresAuth: false,
     freeUnlimited: false,
-    maxOutputTokens: 40960,
+    maxOutputTokens: 16_384,
     contextWindow: 131_072,
     fast: true,
+    // Groq's recommended sampling per mode (console.groq.com/docs/model/qwen/qwen3.8-27b).
     parameters: {
-      temperature: 0.6,
+      temperature: 0.7,
+      topP: 0.8,
+      topK: 20,
+      minP: 0,
+      presencePenalty: 1.5,
+    },
+    thinkingParameters: {
+      temperature: 1,
       topP: 0.95,
       topK: 20,
       minP: 0,

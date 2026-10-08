@@ -189,8 +189,8 @@ const ChatInterface = memo(
       if (localStorage.getItem('zetora-selected-model') !== null) return;
       setSelectedModel(defaultModelPreference);
     }, [defaultModelPreferenceResolved, defaultModelPreference, setSelectedModel]);
-    // A stored selection can still name a "Thinking" entry that was folded
-    // into its base model — move it to the merged id.
+    // A stored selection can still name a replaced catalog id (a folded
+    // "Thinking" entry, a model renamed after its successor) — move it on.
     useEffect(() => {
       const canonical = canonicalModelId(selectedModel);
       if (canonical !== selectedModel) setSelectedModel(canonical);

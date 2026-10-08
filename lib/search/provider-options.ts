@@ -282,9 +282,10 @@ export function getSearchProviderOptions(
             reasoningFormat: 'hidden',
           }
         : {}),
-      ...(model === 'zetora-qwen-3.6-27b'
+      // 'auto' leaves Groq's default effort, which thinks; 'off' maps to 'none' (instruct mode).
+      ...(model === 'zetora-qwen-3.8-27b' && effort !== 'auto'
         ? {
-            reasoningEffort: effort !== 'auto' ? OPENAI_STYLE_EFFORT_MAP[effort] : 'none',
+            reasoningEffort: OPENAI_STYLE_EFFORT_MAP[effort],
           }
         : {}),
       parallelToolCalls: false,

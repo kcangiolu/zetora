@@ -43,11 +43,12 @@ export function getModelParameters(modelValue: string, effort?: ReasoningEffort)
   return model?.parameters || {};
 }
 
-// Separate "Thinking" catalog entries were folded into their base model, now
-// driven by the reasoning-effort toggle. Old ids can linger in stored
+// Catalog ids that were replaced: separate "Thinking" entries folded into
+// their base model (now driven by the reasoning-effort toggle), and models
+// renamed after an upstream successor. Old ids can linger in stored
 // selections (localStorage, preferences, auto-router routes), so they resolve
-// to the merged model instead of falling back to the default one.
-const MERGED_THINKING_MODEL_IDS: Record<string, string> = {
+// to their replacement instead of falling back to the default model.
+const REPLACED_MODEL_IDS: Record<string, string> = {
   'zetora-gemini-3.5-flash-lite-think': 'zetora-gemini-3.5-flash-lite',
   'zetora-gemini-3.5-flash-think': 'zetora-gemini-3.5-flash',
   'zetora-gemini-3.8-flash-think': 'zetora-gemini-3.8-flash',
@@ -81,10 +82,12 @@ const MERGED_THINKING_MODEL_IDS: Record<string, string> = {
   'zetora-kimi-k2.5-thinking': 'zetora-kimi-k2.5',
   'zetora-kimi-k2-v2-thinking': 'zetora-kimi-k2-v2',
   'zetora-glm-5-thinking': 'zetora-glm-5',
+  // Groq shut down qwen3.6-27b on 2026-09-14; qwen3.8-27b is its successor.
+  'zetora-qwen-3.6-27b': 'zetora-qwen-3.8-27b',
 };
 
 export function canonicalModelId(modelValue: string): string {
-  return MERGED_THINKING_MODEL_IDS[modelValue] ?? modelValue;
+  return REPLACED_MODEL_IDS[modelValue] ?? modelValue;
 }
 
 // The reasoning-effort toggle's mode for a model: see Model.reasoningControl.

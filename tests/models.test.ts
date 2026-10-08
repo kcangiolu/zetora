@@ -64,6 +64,7 @@ describe('model catalog', () => {
       expect(getModelConfig(merged)?.reasoning).toBe(true);
     }
     expect(canonicalModelId('zetora-gpt-5.4-thinking-xhigh')).toBe('zetora-gpt-5.4-thinking-xhigh');
+    expect(canonicalModelId('zetora-qwen-3.6-27b')).toBe('zetora-qwen-3.8-27b');
   });
 
   it('exposes a full or on/off reasoning toggle per model', () => {

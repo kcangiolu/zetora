@@ -18,7 +18,7 @@ exports[`model catalog > keeps the catalog display order stable > model-order 1`
   "zetora-seed-1.6",
   "zetora-seed-1.8",
   "zetora-seed-1.6-flash",
-  "zetora-qwen-3.6-27b",
+  "zetora-qwen-3.8-27b",
   "zetora-nemotron-3-super",
   "zetora-nemotron-3-ultra",
   "zetora-qwen-4b",
