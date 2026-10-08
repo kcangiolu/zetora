@@ -172,7 +172,7 @@ describe('getSearchProviderOptions', () => {
     });
     expect(getSearchProviderOptions('zetora-mistral-small', false).mistral).toEqual({ reasoning_effort: 'high' });
     expect(getSearchProviderOptions('zetora-mistral-small', false, 'off').mistral).toEqual({});
-    expect(getSearchProviderOptions('zetora-qwen-3.8-27b', false).groq).not.toHaveProperty('reasoningEffort');
+    expect(getSearchProviderOptions('zetora-qwen-3.8-27b', false).groq).toMatchObject({ reasoningEffort: 'medium' });
     expect(getSearchProviderOptions('zetora-qwen-3.8-27b', false, 'off').groq).toMatchObject({
       reasoningEffort: 'none',
     });
