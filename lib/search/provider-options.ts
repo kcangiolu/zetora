@@ -209,10 +209,7 @@ export function getSearchProviderOptions(
             model === 'zetora-gpt-5.1-codex-mini' ||
             model === 'zetora-gpt-5.1-codex-max' ||
             model === 'zetora-gpt5' ||
-            model === 'zetora-gpt5-codex' ||
-            // Pre-existing comparison: 'zetora-gpt4.1' (sans dash) can never
-            // match inside this branch — kept verbatim from the route.
-            (model as string) === 'zetora-gpt4.1'
+            model === 'zetora-gpt5-codex'
               ? {
                   promptCacheRetention: '24h',
                 }
@@ -344,21 +341,6 @@ export function getSearchProviderOptions(
       ...(isGeminiThinkingModel(model) ? { thinkingConfig: getGeminiThinkingConfig(model, effort) } : {}),
       threshold: 'OFF',
     } satisfies GoogleLanguageModelOptions,
-    openrouter: {
-      ...((model === 'zetora-anthropic' || model === 'zetora-anthropic-opus') && thinking
-        ? {
-            reasoning: {
-              exclude: false,
-              max_tokens: 400,
-            },
-          }
-        : {}),
-      // ...(model === "zetora-pony-alpha" ? {
-      //   reasoning: {
-      //     exclude: true,
-      //   },
-      // } : {}),
-    },
     bytedance: {
       reasoningEffort: 'minimal',
     },

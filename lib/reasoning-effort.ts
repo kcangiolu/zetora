@@ -24,7 +24,7 @@ export const OPENAI_STYLE_EFFORT_MAP: Record<EffortTier, 'low' | 'medium' | 'hig
   off: 'none',
 };
 
-export const ANTHROPIC_BUDGET_TOKENS_MAP: Record<EffortTier, number> = {
+const ANTHROPIC_BUDGET_TOKENS_MAP: Record<EffortTier, number> = {
   low: 1024,
   medium: 4000,
   high: 16000,
