@@ -2,6 +2,7 @@ import 'server-only';
 import { extractReasoningMiddleware, type LanguageModelMiddleware } from 'ai';
 import type { LanguageModelV3StreamPart } from '@ai-sdk/provider';
 import { getModelConfig, getModelProvider } from '@/ai/models';
+import { withReasoningSwitch } from '@/ai/reasoning-switch-model';
 import {
   parseCustomModelId,
   shouldUseNativeCustomProvider,
@@ -37,13 +38,9 @@ export const ANTHROPIC_BUDGET_TOKENS_MAP: Record<EffortTier, number> = {
 // 3.1 Pro reject it with an error and bottom out at 'low'.
 const GEMINI_MINIMAL_THINKING_MODELS = new Set([
   'zetora-gemini-3.5-flash',
-  'zetora-gemini-3.5-flash-think',
   'zetora-gemini-3.5-flash-lite',
-  'zetora-gemini-3.5-flash-lite-think',
   'zetora-vertex-gemini-3.5-flash',
-  'zetora-vertex-gemini-3.5-flash-think',
   'zetora-vertex-gemini-3.5-flash-lite',
-  'zetora-vertex-gemini-3.5-flash-lite-think',
 ]);
 
 export function getGeminiThinkingConfig(
@@ -58,6 +55,32 @@ export function getGeminiThinkingConfig(
     };
   }
   return { thinkingLevel: effort, includeThoughts: true };
+}
+
+// Claude's thinking switch differs per generation: 4.5 takes a fixed token
+// budget, 4.6+ takes adaptive thinking with an effort level, and from Opus
+// 4.7 / Sonnet 5 on the thinking text is omitted from the response unless
+// 'summarized' is requested (verified live: no reasoning text without it).
+const CLAUDE_ADAPTIVE_THINKING_MODELS = new Set(['zetora-anthropic-sonnet-4.6', 'zetora-anthropic-opus-4.6']);
+const CLAUDE_SUMMARIZED_THINKING_MODELS = new Set([
+  'zetora-anthropic-sonnet-5',
+  'zetora-anthropic-opus-4.7',
+  'zetora-anthropic-opus-4.8',
+]);
+
+export function getAnthropicThinkingOptions(modelId: string, effort: ReasoningEffort) {
+  if (effort === 'off') return { thinking: { type: 'disabled' as const } };
+  const level = effort === 'auto' ? 'medium' : effort;
+  if (CLAUDE_SUMMARIZED_THINKING_MODELS.has(modelId)) {
+    return { sendReasoning: true, thinking: { type: 'adaptive' as const, display: 'summarized' as const }, effort: level };
+  }
+  if (CLAUDE_ADAPTIVE_THINKING_MODELS.has(modelId)) {
+    return { sendReasoning: true, thinking: { type: 'adaptive' as const }, effort: level };
+  }
+  return {
+    sendReasoning: true,
+    thinking: { type: 'enabled' as const, budgetTokens: ANTHROPIC_BUDGET_TOKENS_MAP[level] },
+  };
 }
 
 const LLAMACPP_THINKING_BUDGET_MAP: Record<EffortTier, number> = {
@@ -364,39 +387,31 @@ export function getZetoraReasoningOverrides(
     return { providerOptions: {} };
   }
   const tier = effort as EffortTier;
+  // Models that pair two upstream models pick one from this flag (see
+  // ai/reasoning-switch-model.ts); every other provider ignores it.
+  return { providerOptions: { ...withReasoningSwitch(tier !== 'off'), ...getProviderReasoningOptions(modelId, tier) } };
+}
 
+function getProviderReasoningOptions(modelId: string, tier: EffortTier): Record<string, unknown> {
   switch (getModelProvider(modelId)) {
     case 'openai':
-      return { providerOptions: { openai: { reasoningEffort: OPENAI_STYLE_EFFORT_MAP[tier] } } };
+      return { openai: { reasoningEffort: OPENAI_STYLE_EFFORT_MAP[tier] } };
     case 'anthropic':
-      return {
-        providerOptions: {
-          anthropic:
-            tier === 'off'
-              ? { thinking: { type: 'disabled' } }
-              : { sendReasoning: true, thinking: { type: 'enabled', budgetTokens: ANTHROPIC_BUDGET_TOKENS_MAP[tier] } },
-        },
-      };
+      return { anthropic: getAnthropicThinkingOptions(modelId, tier) };
     case 'google':
     case 'vertex':
       return {
-        providerOptions: {
-          google: { thinkingConfig: getGeminiThinkingConfig(modelId, tier) },
-          vertex: { thinkingConfig: getGeminiThinkingConfig(modelId, tier) },
-        },
+        google: { thinkingConfig: getGeminiThinkingConfig(modelId, tier) },
+        vertex: { thinkingConfig: getGeminiThinkingConfig(modelId, tier) },
       };
     case 'deepseek':
       return {
-        providerOptions: {
-          deepseek:
-            tier === 'off'
-              ? { thinking: { type: 'disabled' } }
-              : { thinking: { type: 'enabled' }, reasoning_effort: tier },
-        },
+        deepseek:
+          tier === 'off' ? { thinking: { type: 'disabled' } } : { thinking: { type: 'enabled' }, reasoning_effort: tier },
       };
     default:
       // Provider not mapped to a generic reasoning param (e.g. served via
       // Groq/gateway routing) — no-op rather than guessing a shape.
-      return { providerOptions: {} };
+      return {};
   }
 }

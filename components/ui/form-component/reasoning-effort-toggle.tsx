@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { getModelConfig, type Model } from '@/ai/models';
+import { getReasoningControl, type Model } from '@/ai/models';
 import {
   REASONING_EFFORT_LEVELS,
   type ReasoningEffort,
@@ -77,9 +77,7 @@ export function ReasoningEffortToggle({
     ? (customModels
         ? (customModels.find((m) => m.value === selectedModel)?.reasoningControl ?? 'mask-only')
         : fetchedCapability)
-    : getModelConfig(selectedModel)?.reasoning
-      ? 'full'
-      : null;
+    : getReasoningControl(selectedModel);
 
   if (!capability) return null;
 

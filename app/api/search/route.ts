@@ -99,7 +99,7 @@ import {
 } from '@/lib/search/context-budget';
 import { maybeCompactContext } from '@/lib/search/context-compaction';
 import { resolveContextWindow } from '@/lib/context-window';
-import { getMaxOutputTokens } from '@/ai/models';
+import { canonicalModelId, getMaxOutputTokens } from '@/ai/models';
 
 const log = createLogger('search');
 
@@ -175,7 +175,7 @@ export async function POST(req: Request) {
   const streamId = 'stream-' + uuidv7();
 
   // Initialize model - will be updated by auto-router if needed
-  let model = requestedModel.trim();
+  let model = canonicalModelId(requestedModel.trim());
   let autoRouteName: string | undefined;
 
   log.info('🔍 Search API:', {
@@ -532,7 +532,7 @@ export async function POST(req: Request) {
         const { routeWithAutoRouter } = await import('@/lib/search/auto-router');
         const routeResult = await routeWithAutoRouter({ query, routes, hasImages });
         if (routeResult?.success && routeResult.model) {
-          model = routeResult.model;
+          model = canonicalModelId(routeResult.model);
           autoRouteName = routeResult.route;
         } else {
           model = 'zetora-default';
@@ -638,7 +638,7 @@ export async function POST(req: Request) {
 
       const configuredActiveTools = [...activeTools, ...dynamicToolNames];
       const streamActiveTools =
-        model === 'zetora-qwen-coder-plus' || model === 'zetora-qwen-3-vl' || model === 'zetora-qwen-3-vl-thinking'
+        model === 'zetora-qwen-coder-plus' || model === 'zetora-qwen-3-vl'
           ? [...configuredActiveTools].filter((tool) => tool !== 'code_interpreter')
           : [...configuredActiveTools];
       const anonymizeContext = await getAnonymizeContext(
@@ -993,7 +993,7 @@ export async function POST(req: Request) {
               },
             ]
           : budgetedMessages,
-        ...getModelParameters(shouldUseXaiMultiAgent ? 'grok-4.20-multi-agent' : model),
+        ...getModelParameters(shouldUseXaiMultiAgent ? 'grok-4.20-multi-agent' : model, effort),
         stopWhen: startWith ? stepCountIs(1) : stepCountIs(staticSettings.stopWhenStepCount),
         ...(staticSettings.maxOutputTokens !== undefined ? { maxOutputTokens: staticSettings.maxOutputTokens } : {}),
         maxRetries: staticSettings.maxRetries,

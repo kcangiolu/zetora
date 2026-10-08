@@ -76,7 +76,7 @@ import { useSessionPreference } from '@/hooks/use-session-preference';
 // Utility and type imports
 import { ChatSDKError } from '@/lib/errors';
 import { cn, SearchGroupId } from '@/lib/utils';
-import { hasVisionSupport } from '@/ai/models';
+import { canonicalModelId, hasVisionSupport } from '@/ai/models';
 import { ConnectorProvider } from '@/lib/connectors';
 
 // State management imports
@@ -189,6 +189,12 @@ const ChatInterface = memo(
       if (localStorage.getItem('zetora-selected-model') !== null) return;
       setSelectedModel(defaultModelPreference);
     }, [defaultModelPreferenceResolved, defaultModelPreference, setSelectedModel]);
+    // A stored selection can still name a "Thinking" entry that was folded
+    // into its base model — move it to the merged id.
+    useEffect(() => {
+      const canonical = canonicalModelId(selectedModel);
+      if (canonical !== selectedModel) setSelectedModel(canonical);
+    }, [selectedModel, setSelectedModel]);
     // Session-scoped like selectedModel, not a synced DB preference (the
     // per-task recommended defaults live in Settings instead — see
     // ai/tertiary.ts's TASK_RECOMMENDED_EFFORT for the tertiary equivalent).

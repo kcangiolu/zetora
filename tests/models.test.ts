@@ -8,11 +8,14 @@ import {
   getMaxOutputTokens,
   getModelsByProvider,
   getFilteredModels,
+  getModelParameters,
+  getReasoningControl,
+  canonicalModelId,
 } from '@/ai/models';
 
 describe('model catalog', () => {
-  it('holds 165 models with unique ids', () => {
-    expect(models).toHaveLength(165);
+  it('holds 132 models with unique ids', () => {
+    expect(models).toHaveLength(132);
     const ids = models.map((m) => m.value);
     expect(new Set(ids).size).toBe(ids.length);
   });
@@ -50,8 +53,34 @@ describe('model catalog', () => {
     expect(getModelProvider('zetora-gemini-3.5-flash')).toBe('google');
   });
 
+  it('resolves folded "Thinking" ids to a catalog model that reasons', () => {
+    for (const legacy of [
+      'zetora-anthropic-opus-4.8-think',
+      'zetora-qwen-3-vl-thinking',
+      'zetora-vertex-gemini-3.8-flash-think',
+    ]) {
+      const merged = canonicalModelId(legacy);
+      expect(getModelConfig(legacy)).toBeUndefined();
+      expect(getModelConfig(merged)?.reasoning).toBe(true);
+    }
+    expect(canonicalModelId('zetora-gpt-5.4-thinking-xhigh')).toBe('zetora-gpt-5.4-thinking-xhigh');
+  });
+
+  it('exposes a full or on/off reasoning toggle per model', () => {
+    expect(getReasoningControl('zetora-anthropic-sonnet-5')).toBe('full');
+    expect(getReasoningControl('zetora-grok-4-fast')).toBe('binary-guaranteed');
+    expect(getReasoningControl('zetora-anthropic-small')).toBeNull();
+  });
+
+  it('switches sampling parameters with the reasoning effort', () => {
+    expect(getModelParameters('zetora-qwen-235')).toMatchObject({ temperature: 0.6, topP: 0.95 });
+    expect(getModelParameters('zetora-qwen-235', 'off')).toMatchObject({ temperature: 0.7, topP: 0.8 });
+    expect(getModelParameters('zetora-deepseek-chat')).toEqual({});
+    expect(getModelParameters('zetora-deepseek-chat', 'off')).toEqual({ temperature: 1, topP: 0.95 });
+  });
+
   it('getFilteredModels returns the full catalog outside restricted regions', () => {
     expect(getFilteredModels()).toBe(models);
-    expect(getFilteredModels('FR')).toHaveLength(165);
+    expect(getFilteredModels('FR')).toHaveLength(132);
   });
 });

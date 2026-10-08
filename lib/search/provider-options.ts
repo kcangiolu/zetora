@@ -8,12 +8,24 @@ import { CohereChatModelOptions } from '@ai-sdk/cohere';
 import {
   type ReasoningEffort,
   OPENAI_STYLE_EFFORT_MAP,
-  ANTHROPIC_BUDGET_TOKENS_MAP,
+  getAnthropicThinkingOptions,
   getGeminiThinkingConfig,
 } from '@/lib/reasoning-effort';
+import { withReasoningSwitch } from '@/ai/reasoning-switch-model';
 
-// The catalog's reasoning flag marks the Gemini entries that surface their
-// thinking (the -think variants and 3.1 Pro); the others keep Google's default.
+// Claude models whose thinking follows the reasoning-effort toggle.
+const CLAUDE_THINKING_MODELS = new Set([
+  'zetora-anthropic',
+  'zetora-anthropic-opus',
+  'zetora-anthropic-sonnet-4.6',
+  'zetora-anthropic-opus-4.6',
+  'zetora-anthropic-sonnet-5',
+  'zetora-anthropic-opus-4.7',
+  'zetora-anthropic-opus-4.8',
+]);
+
+// The catalog's reasoning flag marks the Gemini entries whose thinking
+// follows the reasoning-effort toggle.
 function isGeminiThinkingModel(model: string): boolean {
   const config = getModelConfig(model);
   return (config?.provider === 'google' || config?.provider === 'vertex') && config.reasoning === true;
@@ -62,12 +74,7 @@ export async function getStreamTextStaticSettings({
             maxOutputTokens: getMaxOutputTokens(model),
           }
         : {}),
-    ...(model === 'zetora-anthropic' ||
-    model === 'zetora-anthropic-think' ||
-    model === 'zetora-anthropic-sonnet-4.6' ||
-    model === 'zetora-anthropic-sonnet-4.6-think' ||
-    model === 'zetora-anthropic-opus-4.6' ||
-    model === 'zetora-anthropic-opus-4.6-think'
+    ...(model === 'zetora-anthropic' || model === 'zetora-anthropic-sonnet-4.6' || model === 'zetora-anthropic-opus-4.6'
       ? {
           headers: {
             'anthropic-beta': 'context-1m-2025-08-07',
@@ -82,7 +89,9 @@ export function getSearchProviderOptions(
   shouldUseXaiMultiAgent: boolean,
   effort: ReasoningEffort = 'auto',
 ) {
+  const thinking = effort !== 'off';
   return {
+    ...withReasoningSwitch(thinking),
     gateway: {
       only: [
         'openai',
@@ -105,7 +114,7 @@ export function getSearchProviderOptions(
         'togetherai',
         'inception',
       ],
-      ...(model === 'zetora-kimi-k2-v2-thinking'
+      ...(model === 'zetora-kimi-k2-v2' && thinking
         ? {
             order: ['moonshotai'],
           }
@@ -130,7 +139,7 @@ export function getSearchProviderOptions(
             order: ['zai'],
           }
         : {}),
-      ...(model === 'zetora-kimi-k2.5' || model === 'zetora-kimi-k2.5-thinking'
+      ...(model === 'zetora-kimi-k2.5'
         ? {
             order: ['fireworks'],
           }
@@ -161,7 +170,6 @@ export function getSearchProviderOptions(
       model === 'zetora-gpt-4.1-mini' ||
       model === 'zetora-gpt-4.1-nano' ||
       model === 'zetora-gpt-5.1' ||
-      model === 'zetora-gpt-5.1-thinking' ||
       model === 'zetora-gpt-5.1-codex' ||
       model === 'zetora-gpt-5.1-codex-mini' ||
       model === 'zetora-gpt-5.1-codex-max' ||
@@ -169,9 +177,9 @@ export function getSearchProviderOptions(
       model === 'zetora-gpt-5.4' ||
       model === 'zetora-gpt-5.4-mini' ||
       model === 'zetora-gpt-5.4-nano' ||
-      model === 'zetora-gpt-5.4-thinking' ||
+      model === 'zetora-gpt-5.5' ||
+      model === 'zetora-gpt-5.6' ||
       model === 'zetora-gpt-5.4-thinking-xhigh' ||
-      model === 'zetora-gpt-5.2-thinking' ||
       model === 'zetora-gpt-5.2-thinking-xhigh' ||
       model === 'zetora-gpt-5.2-codex' ||
       model === 'zetora-gpt-5.3-codex'
@@ -183,11 +191,7 @@ export function getSearchProviderOptions(
                   ? 'minimal'
                   : model === 'zetora-gpt-5.2-thinking-xhigh' || model === 'zetora-gpt-5.4-thinking-xhigh'
                     ? 'xhigh'
-                    : model === 'zetora-gpt-5.1' ||
-                        model === 'zetora-gpt-5.2' ||
-                        model === 'zetora-gpt-5.4' ||
-                        model === 'zetora-gpt-5.4-mini' ||
-                        model === 'zetora-gpt-5.4-nano'
+                    : model === 'zetora-gpt-5.4-mini' || model === 'zetora-gpt-5.4-nano'
                       ? 'none'
                       : 'medium',
             parallelToolCalls:
@@ -198,9 +202,7 @@ export function getSearchProviderOptions(
             model === 'zetora-gpt-5.4' ||
             model === 'zetora-gpt-5.4-mini' ||
             model === 'zetora-gpt-5.4-nano' ||
-            model === 'zetora-gpt-5.4-thinking' ||
             model === 'zetora-gpt-5.2' ||
-            model === 'zetora-gpt-5.2-thinking' ||
             model === 'zetora-gpt-5.2-codex' ||
             model === 'zetora-gpt-5.3-codex' ||
             model === 'zetora-gpt-5.1-codex' ||
@@ -219,7 +221,6 @@ export function getSearchProviderOptions(
             ...(model === 'zetora-gpt-5.4' ||
             model === 'zetora-gpt-5.4-mini' ||
             model === 'zetora-gpt-5.4-nano' ||
-            model === 'zetora-gpt-5.4-thinking' ||
             model === 'zetora-gpt-5.4-thinking-xhigh'
               ? {
                   serviceTier: 'priority',
@@ -231,17 +232,16 @@ export function getSearchProviderOptions(
             model === 'zetora-gpt-5.1-codex-mini' ||
             model === 'zetora-gpt5' ||
             model === 'zetora-gpt5-codex' ||
-            model === 'zetora-gpt-5.1-thinking' ||
             model === 'zetora-gpt5-nano' ||
             model === 'zetora-gpt5-mini' ||
             model === 'zetora-gpt-5.4' ||
             model === 'zetora-gpt-5.4-mini' ||
             model === 'zetora-gpt-5.4-nano' ||
-            model === 'zetora-gpt-5.4-thinking' ||
             model === 'zetora-gpt-5.4-thinking-xhigh' ||
+            model === 'zetora-gpt-5.5' ||
+            model === 'zetora-gpt-5.6' ||
             model === 'zetora-gpt-5.1-codex-max' ||
             model === 'zetora-gpt-5.2' ||
-            model === 'zetora-gpt-5.2-thinking' ||
             model === 'zetora-gpt-5.2-codex' ||
             model === 'zetora-gpt-5.3-codex'
               ? {
@@ -313,7 +313,7 @@ export function getSearchProviderOptions(
       parallel_tool_calls: false,
     },
     cohere: {
-      ...(model === 'zetora-cmd-a-think'
+      ...(model === 'zetora-cmd-a' && thinking
         ? {
             thinking: {
               type: 'enabled',
@@ -323,7 +323,7 @@ export function getSearchProviderOptions(
         : {}),
     } satisfies CohereChatModelOptions,
     zai: {
-      ...(model === 'zetora-glm-4.7' || model === 'zetora-glm-5'
+      ...(model === 'zetora-glm-4.7' || (model === 'zetora-glm-5' && !thinking)
         ? {
             thinking: {
               type: 'disabled',
@@ -333,36 +333,7 @@ export function getSearchProviderOptions(
         : {}),
     },
     anthropic: {
-      ...(model === 'zetora-anthropic-think' || model === 'zetora-anthropic-opus-think'
-        ? effort !== 'auto' && effort !== 'off'
-          ? {
-              sendReasoning: true,
-              thinking: {
-                type: 'enabled' as const,
-                budgetTokens: ANTHROPIC_BUDGET_TOKENS_MAP[effort],
-              },
-            }
-          : effort === 'off'
-            ? { thinking: { type: 'disabled' as const } }
-            : {
-                sendReasoning: true,
-                thinking: {
-                  type: 'enabled' as const,
-                  budgetTokens: 4000,
-                },
-              }
-        : {}),
-      ...(model === 'zetora-anthropic-sonnet-4.6-think' || model === 'zetora-anthropic-opus-4.6-think'
-        ? effort === 'off'
-          ? { thinking: { type: 'disabled' as const } }
-          : {
-              sendReasoning: true,
-              thinking: {
-                type: 'adaptive' as const,
-              },
-              effort: effort !== 'auto' ? effort : ('medium' as const),
-            }
-        : {}),
+      ...(CLAUDE_THINKING_MODELS.has(model) ? getAnthropicThinkingOptions(model, effort) : {}),
       disableParallelToolUse: true,
     } satisfies AnthropicProviderOptions,
     google: {
@@ -374,7 +345,7 @@ export function getSearchProviderOptions(
       threshold: 'OFF',
     } satisfies GoogleLanguageModelOptions,
     openrouter: {
-      ...(model === 'zetora-anthropic-think' || model === 'zetora-anthropic-opus-think'
+      ...((model === 'zetora-anthropic' || model === 'zetora-anthropic-opus') && thinking
         ? {
             reasoning: {
               exclude: false,
@@ -396,7 +367,7 @@ export function getSearchProviderOptions(
       reasoning: { effort: 'minimal' },
     },
     alibaba: {
-      ...(model === 'zetora-qwen-3-max-preview-thinking'
+      ...(model === 'zetora-qwen-3-max-preview' && thinking
         ? {
             enable_thinking: true,
           }
@@ -410,29 +381,19 @@ export function getSearchProviderOptions(
     moonshotai: {
       ...(model === 'zetora-kimi-k2.5'
         ? {
-            thinking: { type: 'disabled' },
-          }
-        : {}),
-      ...(model === 'zetora-kimi-k2.5-thinking'
-        ? {
-            thinking: { type: 'enabled' },
+            thinking: { type: thinking ? 'enabled' : 'disabled' },
           }
         : {}),
     },
     fireworks: {
       ...(model === 'zetora-kimi-k2.5'
         ? {
-            thinking: { type: 'disabled' },
-          }
-        : {}),
-      ...(model === 'zetora-kimi-k2.5-thinking'
-        ? {
-            thinking: { type: 'enabled' },
+            thinking: { type: thinking ? 'enabled' : 'disabled' },
           }
         : {}),
     },
     novita: {
-      ...(model === 'zetora-deepseek-chat-think-exp'
+      ...(model === 'zetora-deepseek-chat-exp' && thinking
         ? {
             enable_thinking: true,
           }
@@ -444,7 +405,7 @@ export function getSearchProviderOptions(
         : {}),
     },
     mistral: {
-      ...(model === 'zetora-mistral-small-think'
+      ...(model === 'zetora-mistral-small' && thinking
         ? {
             reasoning_effort: 'high',
           }

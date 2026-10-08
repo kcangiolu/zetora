@@ -94,14 +94,19 @@ export interface Model {
   fast?: boolean;
   isNew?: boolean;
   parameters?: ModelParameters;
+  // Sampling parameters for the thinking side of a model whose thinking and
+  // instant modes want different settings (e.g. Qwen3 Thinking vs Instruct).
+  // Used whenever reasoning effort isn't 'off'; `parameters` covers 'off'.
+  thinkingParameters?: ModelParameters;
   provider?: ModelProvider; // Optional - will be derived if not specified
   customProviderId?: string; // Identifies which custom provider this model came from
   customProviderName?: string;
   // Whether the reasoning-effort toggle can send this model a real control
-  // parameter ('full'), can only hide its <think> output ('mask-only'), or
-  // should be hidden entirely (undefined/null — model doesn't reason).
-  // Built-in models rely on the static `reasoning` flag above instead;
-  // this is populated for custom provider models (see
+  // parameter ('full'), only switch it on/off ('binary-guaranteed'), can only
+  // hide its <think> output ('mask-only'), or should be hidden entirely
+  // (undefined/null — model doesn't reason). Built-in models default to
+  // 'full' when `reasoning` is set, and declare 'binary-guaranteed' when they
+  // only have an on/off switch. Custom provider models get it computed (see
   // app/api/custom-providers/models/route.ts).
   reasoningControl?: ReasoningCapability;
 }

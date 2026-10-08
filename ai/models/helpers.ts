@@ -1,6 +1,7 @@
 // Accessors over the model catalog — client-safe.
 import { models, DEFAULT_CONTEXT_WINDOW } from './data';
 import type { Model, ModelParameters, ModelProvider } from './types';
+import type { ReasoningCapability, ReasoningEffort } from '@/lib/reasoning-effort-types';
 
 // Helper functions for model access checks
 export function getModelConfig(modelValue: string) {
@@ -36,9 +37,61 @@ export function getContextWindow(modelValue: string): number {
   return model?.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
 }
 
-export function getModelParameters(modelValue: string): ModelParameters {
+export function getModelParameters(modelValue: string, effort?: ReasoningEffort): ModelParameters {
   const model = getModelConfig(modelValue);
+  if (model?.thinkingParameters && effort !== 'off') return model.thinkingParameters;
   return model?.parameters || {};
+}
+
+// Separate "Thinking" catalog entries were folded into their base model, now
+// driven by the reasoning-effort toggle. Old ids can linger in stored
+// selections (localStorage, preferences, auto-router routes), so they resolve
+// to the merged model instead of falling back to the default one.
+const MERGED_THINKING_MODEL_IDS: Record<string, string> = {
+  'zetora-gemini-3.5-flash-lite-think': 'zetora-gemini-3.5-flash-lite',
+  'zetora-gemini-3.5-flash-think': 'zetora-gemini-3.5-flash',
+  'zetora-gemini-3.8-flash-think': 'zetora-gemini-3.8-flash',
+  'zetora-vertex-gemini-3.5-flash-lite-think': 'zetora-vertex-gemini-3.5-flash-lite',
+  'zetora-vertex-gemini-3.5-flash-think': 'zetora-vertex-gemini-3.5-flash',
+  'zetora-vertex-gemini-3.8-flash-think': 'zetora-vertex-gemini-3.8-flash',
+  'zetora-gpt-5.1-thinking': 'zetora-gpt-5.1',
+  'zetora-gpt-5.2-thinking': 'zetora-gpt-5.2',
+  'zetora-gpt-5.4-thinking': 'zetora-gpt-5.4',
+  'zetora-gpt-5.5-thinking': 'zetora-gpt-5.5',
+  'zetora-gpt-5.6-thinking': 'zetora-gpt-5.6',
+  'zetora-anthropic-think': 'zetora-anthropic',
+  'zetora-anthropic-sonnet-4.6-think': 'zetora-anthropic-sonnet-4.6',
+  'zetora-anthropic-sonnet-5-think': 'zetora-anthropic-sonnet-5',
+  'zetora-anthropic-opus-think': 'zetora-anthropic-opus',
+  'zetora-anthropic-opus-4.6-think': 'zetora-anthropic-opus-4.6',
+  'zetora-anthropic-opus-4.7-think': 'zetora-anthropic-opus-4.7',
+  'zetora-anthropic-opus-4.8-think': 'zetora-anthropic-opus-4.8',
+  'zetora-grok-4.20-experimental-beta-0304-thinking': 'zetora-grok-4.20-experimental-beta-0304',
+  'zetora-grok-4-fast-think': 'zetora-grok-4-fast',
+  'zetora-qwen-4b-thinking': 'zetora-qwen-4b',
+  'zetora-mistral-small-think': 'zetora-mistral-small',
+  'zetora-cmd-a-think': 'zetora-cmd-a',
+  'zetora-deepseek-chat-think': 'zetora-deepseek-chat',
+  'zetora-deepseek-chat-think-exp': 'zetora-deepseek-chat-exp',
+  'zetora-qwen-3-vl-30b-thinking': 'zetora-qwen-3-vl-30b',
+  'zetora-qwen-3-next-think': 'zetora-qwen-3-next',
+  'zetora-qwen-3-max-preview-thinking': 'zetora-qwen-3-max-preview',
+  'zetora-qwen-235-think': 'zetora-qwen-235',
+  'zetora-qwen-3-vl-thinking': 'zetora-qwen-3-vl',
+  'zetora-kimi-k2.5-thinking': 'zetora-kimi-k2.5',
+  'zetora-kimi-k2-v2-thinking': 'zetora-kimi-k2-v2',
+  'zetora-glm-5-thinking': 'zetora-glm-5',
+};
+
+export function canonicalModelId(modelValue: string): string {
+  return MERGED_THINKING_MODEL_IDS[modelValue] ?? modelValue;
+}
+
+// The reasoning-effort toggle's mode for a model: see Model.reasoningControl.
+export function getReasoningControl(modelValue: string): ReasoningCapability {
+  const model = getModelConfig(modelValue);
+  if (!model?.reasoning) return null;
+  return model.reasoningControl ?? 'full';
 }
 
 // Helper to check if user should bypass rate limits
@@ -81,15 +134,11 @@ const CANVAS_MODELS = new Set([
   'zetora-gpt-5.4',
   'zetora-gpt-5.4-mini',
   'zetora-gpt-5.4-nano',
-  'zetora-gpt-5.4-thinking',
   'zetora-gpt-5.4-thinking-xhigh',
-  'zetora-gpt-5.2-thinking',
   'zetora-gpt-5.2-thinking-xhigh',
   'zetora-anthropic',
   'zetora-anthropic-sonnet-4.6',
-  'zetora-anthropic-sonnet-4.6-think',
   'zetora-anthropic-opus-4.6',
-  'zetora-anthropic-opus-4.6-think',
   'zetora-glm-5',
   'zetora-glm-4.7',
   'zetora-kimi-k2.5',
@@ -124,14 +173,11 @@ const OPENAI_MODELS = [
   'zetora-gpt-5.1-codex',
   'zetora-gpt-5.1-codex-mini',
   'zetora-gpt-5.1-codex-max',
-  'zetora-gpt-5.1-thinking',
   'zetora-gpt-5.2',
   'zetora-gpt-5.4',
   'zetora-gpt-5.4-mini',
   'zetora-gpt-5.4-nano',
-  'zetora-gpt-5.4-thinking',
   'zetora-gpt-5.4-thinking-xhigh',
-  'zetora-gpt-5.2-thinking',
   'zetora-gpt-5.2-thinking-xhigh',
   'zetora-gpt-5.2-codex',
   'zetora-gpt-5.3-codex',
@@ -143,13 +189,9 @@ const ANTHROPIC_MODELS = [
   'zetora-haiku',
   'zetora-anthropic-small',
   'zetora-anthropic',
-  'zetora-anthropic-think',
   'zetora-anthropic-opus',
-  'zetora-anthropic-opus-think',
   'zetora-anthropic-sonnet-4.6',
-  'zetora-anthropic-sonnet-4.6-think',
   'zetora-anthropic-opus-4.6',
-  'zetora-anthropic-opus-4.6-think',
 ];
 
 // Check if a model should be filtered based on region

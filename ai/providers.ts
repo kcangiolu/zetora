@@ -16,6 +16,7 @@ import { anthropic } from '@ai-sdk/anthropic';
 import { cohere } from '@ai-sdk/cohere';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { createRetryable } from 'ai-retry';
+import { reasoningSwitch } from '@/ai/reasoning-switch-model';
 import { createWorkersAI } from 'workers-ai-provider';
 
 const hasKey = (key: string | undefined): key is string => !!key && !key.startsWith('placeholder');
@@ -185,10 +186,14 @@ export const zetora = customProvider({
           'zetora-grok-3': _xai('grok-3'),
           'zetora-grok-4': _xai('grok-4'),
           'zetora-grok-4.5': _xai('grok-4.5'),
-          'zetora-grok-4.20-experimental-beta-0304': _xai('grok-4.20-non-reasoning-latest'),
-          'zetora-grok-4.20-experimental-beta-0304-thinking': _xai('grok-4.20-reasoning-latest'),
-          'zetora-grok-4-fast': _xai('grok-4-fast-non-reasoning'),
-          'zetora-grok-4-fast-think': _xai('grok-4-fast-reasoning'),
+          'zetora-grok-4.20-experimental-beta-0304': reasoningSwitch({
+            thinking: _xai('grok-4.20-reasoning-latest'),
+            instant: _xai('grok-4.20-non-reasoning-latest'),
+          }),
+          'zetora-grok-4-fast': reasoningSwitch({
+            thinking: _xai('grok-4-fast-reasoning'),
+            instant: _xai('grok-4-fast-non-reasoning'),
+          }),
           'zetora-code': _xai('grok-code-fast-1'),
         }
       : {}),
@@ -217,10 +222,6 @@ export const zetora = customProvider({
             model: openai('gpt-5.1'),
             retries: [openai_2('gpt-5.1')],
           }),
-          'zetora-gpt-5.1-thinking': createRetryable({
-            model: openai('gpt-5.1'),
-            retries: [openai_2('gpt-5.1')],
-          }),
           'zetora-gpt-5.2': createRetryable({
             model: openai('gpt-5.2'),
             retries: [openai_2('gpt-5.2')],
@@ -241,17 +242,9 @@ export const zetora = customProvider({
             model: openai('gpt-5.4-nano'),
             retries: [openai_2('gpt-5.4-nano')],
           }),
-          'zetora-gpt-5.4-thinking': createRetryable({
-            model: openai('gpt-5.4'),
-            retries: [openai_2('gpt-5.4')],
-          }),
           'zetora-gpt-5.4-thinking-xhigh': createRetryable({
             model: openai('gpt-5.4'),
             retries: [openai_2('gpt-5.4')],
-          }),
-          'zetora-gpt-5.2-thinking': createRetryable({
-            model: openai('gpt-5.2'),
-            retries: [openai_2('gpt-5.2')],
           }),
           'zetora-gpt-5.2-thinking-xhigh': createRetryable({
             model: openai('gpt-5.2'),
@@ -309,15 +302,7 @@ export const zetora = customProvider({
             model: openai('gpt-5.5'),
             retries: [openai_2('gpt-5.5')],
           }),
-          'zetora-gpt-5.5-thinking': createRetryable({
-            model: openai('gpt-5.5'),
-            retries: [openai_2('gpt-5.5')],
-          }),
           'zetora-gpt-5.6': createRetryable({
-            model: openai('gpt-5.6'),
-            retries: [openai_2('gpt-5.6')],
-          }),
-          'zetora-gpt-5.6-thinking': createRetryable({
             model: openai('gpt-5.6'),
             retries: [openai_2('gpt-5.6')],
           }),
@@ -338,7 +323,6 @@ export const zetora = customProvider({
           'zetora-gpt-oss-120-groq': _groq('openai/gpt-oss-120b'),
           'zetora-qwen-3.6-27b': wrapLanguageModel({ model: _groq('qwen/qwen3.6-27b'), middleware }),
           'zetora-gpt-oss-20': wrapLanguageModel({ model: _groq('openai/gpt-oss-20b'), middleware }),
-          'zetora-kimi-k2-v2': gateway('moonshotai/kimi-k2-instruct-0905'),
         }
       : {}),
 
@@ -362,23 +346,11 @@ export const zetora = customProvider({
             model: _google('gemini-3.5-flash-lite'),
             retries: [gateway('google/gemini-3.5-flash-lite')],
           }),
-          'zetora-gemini-3.5-flash-lite-think': createRetryable({
-            model: _google('gemini-3.5-flash-lite'),
-            retries: [gateway('google/gemini-3.5-flash-lite')],
-          }),
           'zetora-gemini-3.5-flash': createRetryable({
             model: _google('gemini-3.5-flash'),
             retries: [gateway('google/gemini-3.5-flash')],
           }),
-          'zetora-gemini-3.5-flash-think': createRetryable({
-            model: _google('gemini-3.5-flash'),
-            retries: [gateway('google/gemini-3.5-flash')],
-          }),
           'zetora-gemini-3.8-flash': createRetryable({
-            model: _google('gemini-3.8-flash'),
-            retries: [gateway('google/gemini-3.8-flash')],
-          }),
-          'zetora-gemini-3.8-flash-think': createRetryable({
             model: _google('gemini-3.8-flash'),
             retries: [gateway('google/gemini-3.8-flash')],
           }),
@@ -395,23 +367,11 @@ export const zetora = customProvider({
             model: _vertex('gemini-3.5-flash-lite'),
             retries: [gateway('google/gemini-3.5-flash-lite')],
           }),
-          'zetora-vertex-gemini-3.5-flash-lite-think': createRetryable({
-            model: _vertex('gemini-3.5-flash-lite'),
-            retries: [gateway('google/gemini-3.5-flash-lite')],
-          }),
           'zetora-vertex-gemini-3.5-flash': createRetryable({
             model: _vertex('gemini-3.5-flash'),
             retries: [gateway('google/gemini-3.5-flash')],
           }),
-          'zetora-vertex-gemini-3.5-flash-think': createRetryable({
-            model: _vertex('gemini-3.5-flash'),
-            retries: [gateway('google/gemini-3.5-flash')],
-          }),
           'zetora-vertex-gemini-3.8-flash': createRetryable({
-            model: _vertex('gemini-3.8-flash'),
-            retries: [gateway('google/gemini-3.8-flash')],
-          }),
-          'zetora-vertex-gemini-3.8-flash-think': createRetryable({
             model: _vertex('gemini-3.8-flash'),
             retries: [gateway('google/gemini-3.8-flash')],
           }),
@@ -434,10 +394,6 @@ export const zetora = customProvider({
 
     ...(novita
       ? {
-          'zetora-deepseek-chat-think-exp': wrapLanguageModel({
-            model: novita.chatModel('deepseek/deepseek-v3.2-exp'),
-            middleware,
-          }),
           'zetora-deepseek-r1': wrapLanguageModel({
             model: novita.chatModel('deepseek/deepseek-r1-turbo'),
             middleware,
@@ -447,10 +403,12 @@ export const zetora = customProvider({
             middleware,
           }),
           'zetora-qwen-coder-next': novita.chatModel('qwen/qwen3-coder-next'),
-          'zetora-qwen-3-vl-30b': novita.chatModel('qwen/qwen3-vl-30b-a3b-instruct'),
-          'zetora-qwen-3-vl-30b-thinking': wrapLanguageModel({
-            model: novita.chatModel('qwen/qwen3-vl-30b-a3b-thinking'),
-            middleware,
+          'zetora-qwen-3-vl-30b': reasoningSwitch({
+            thinking: wrapLanguageModel({
+              model: novita.chatModel('qwen/qwen3-vl-30b-a3b-thinking'),
+              middleware,
+            }),
+            instant: novita.chatModel('qwen/qwen3-vl-30b-a3b-instruct'),
           }),
           'zetora-qwen-3.5-27b': novita.chatModel('qwen/qwen3.5-27b'),
           'zetora-qwen-3.5-35b': novita.chatModel('qwen/qwen3.5-35b-a3b'),
@@ -469,19 +427,19 @@ export const zetora = customProvider({
 
     ...(huggingface
       ? {
-          'zetora-qwen-4b': huggingface.chatModel('Qwen/Qwen3-4B-Instruct-2507:nscale'),
-          'zetora-qwen-4b-thinking': wrapLanguageModel({
-            model: huggingface.chatModel('Qwen/Qwen3-4B-Thinking-2507:nscale'),
-            middleware: [middlewareWithStartWithReasoning],
+          'zetora-qwen-4b': reasoningSwitch({
+            thinking: wrapLanguageModel({
+              model: huggingface.chatModel('Qwen/Qwen3-4B-Thinking-2507:nscale'),
+              middleware: [middlewareWithStartWithReasoning],
+            }),
+            instant: huggingface.chatModel('Qwen/Qwen3-4B-Instruct-2507:nscale'),
           }),
-          'zetora-qwen-3-next': huggingface.chatModel('Qwen/Qwen3-Next-80B-A3B-Instruct:hyperbolic'),
-          'zetora-qwen-3-next-think': wrapLanguageModel({
-            model: huggingface.chatModel('Qwen/Qwen3-Next-80B-A3B-Thinking:hyperbolic'),
-            middleware: [middlewareWithStartWithReasoning],
-          }),
-          'zetora-qwen-235-think': wrapLanguageModel({
-            model: huggingface.chatModel('Qwen/Qwen3-235B-A22B-Thinking-2507:fireworks-ai'),
-            middleware: [middlewareWithStartWithReasoning],
+          'zetora-qwen-3-next': reasoningSwitch({
+            thinking: wrapLanguageModel({
+              model: huggingface.chatModel('Qwen/Qwen3-Next-80B-A3B-Thinking:hyperbolic'),
+              middleware: [middlewareWithStartWithReasoning],
+            }),
+            instant: huggingface.chatModel('Qwen/Qwen3-Next-80B-A3B-Instruct:hyperbolic'),
           }),
           'zetora-glm-4.6': wrapLanguageModel({
             model: huggingface.chatModel('zai-org/GLM-4.6:zai-org'),
@@ -509,10 +467,6 @@ export const zetora = customProvider({
             middleware,
           }),
           'zetora-qwen-coder': _baseten('Qwen/Qwen3-Coder-480B-A35B-Instruct'),
-          'zetora-kimi-k2.5': createRetryable({
-            model: _baseten.chatModel('moonshotai/Kimi-K2.5'),
-            retries: [gateway('moonshotai/kimi-k2.5')],
-          }),
         }
       : {}),
 
@@ -528,8 +482,10 @@ export const zetora = customProvider({
 
     ...(_cohere
       ? {
-          'zetora-cmd-a': _cohere('command-a-03-2025'),
-          'zetora-cmd-a-think': _cohere('command-a-reasoning-08-2025'),
+          'zetora-cmd-a': reasoningSwitch({
+            thinking: _cohere('command-a-reasoning-08-2025'),
+            instant: _cohere('command-a-03-2025'),
+          }),
           'zetora-cmd-a-plus': _cohere('command-a-plus-05-2026'),
         }
       : {}),
@@ -544,7 +500,6 @@ export const zetora = customProvider({
           'zetora-magistral-small': _mistral('magistral-small-2509'),
           'zetora-magistral-medium': _mistral('magistral-medium-2509'),
           'zetora-mistral-small': _mistral('mistral-small-2603'),
-          'zetora-mistral-small-think': _mistral('mistral-small-2603'),
           'zetora-leanstral': _mistral('labs-leanstral-2603'),
           'zetora-devstral': _mistral('devstral-2512'),
           'zetora-devstral-small': _mistral('labs-devstral-small-2512'),
@@ -555,19 +510,12 @@ export const zetora = customProvider({
       ? {
           'zetora-anthropic-small': _anthropic('claude-haiku-4-5'),
           'zetora-anthropic': _anthropic('claude-sonnet-4-5'),
-          'zetora-anthropic-think': _anthropic('claude-sonnet-4-5'),
           'zetora-anthropic-sonnet-4.6': _anthropic('claude-sonnet-4-6'),
-          'zetora-anthropic-sonnet-4.6-think': _anthropic('claude-sonnet-4-6'),
           'zetora-anthropic-opus': _anthropic('claude-opus-4-5'),
-          'zetora-anthropic-opus-think': _anthropic('claude-opus-4-5'),
           'zetora-anthropic-opus-4.6': _anthropic('claude-opus-4-6'),
-          'zetora-anthropic-opus-4.6-think': _anthropic('claude-opus-4-6'),
           'zetora-anthropic-sonnet-5': _anthropic('claude-sonnet-5'),
-          'zetora-anthropic-sonnet-5-think': _anthropic('claude-sonnet-5'),
           'zetora-anthropic-opus-4.7': _anthropic('claude-opus-4-7'),
-          'zetora-anthropic-opus-4.7-think': _anthropic('claude-opus-4-7'),
           'zetora-anthropic-opus-4.8': _anthropic('claude-opus-4-8'),
-          'zetora-anthropic-opus-4.8-think': _anthropic('claude-opus-4-8'),
         }
       : {}),
 
@@ -576,7 +524,6 @@ export const zetora = customProvider({
           'zetora-glm-air': wrapLanguageModel({ model: gateway('zai/glm-4.5-air'), middleware }),
           'zetora-glm': wrapLanguageModel({ model: gateway('zai/glm-4.5'), middleware }),
           'zetora-glm-5': wrapLanguageModel({ model: zai('glm-5-turbo'), middleware }),
-          'zetora-glm-5-thinking': wrapLanguageModel({ model: zai('glm-5-turbo'), middleware }),
           'zetora-glm-5.2': wrapLanguageModel({ model: zai('glm-5.2'), middleware }),
         }
       : {}),
@@ -623,9 +570,18 @@ export const zetora = customProvider({
     'zetora-trinity-mini': wrapLanguageModel({ model: gateway('arcee-ai/trinity-mini'), middleware }),
     'zetora-kat-coder': gateway('kwaipilot/kat-coder-pro-v1'),
     'zetora-deepseek-v3.1-terminus': gateway('deepseek/deepseek-v3.1-terminus'),
-    'zetora-deepseek-chat': gateway('deepseek/deepseek-v3.2'),
-    'zetora-deepseek-chat-think': gateway('deepseek/deepseek-v3.2-thinking'),
-    'zetora-deepseek-chat-exp': gateway('deepseek/deepseek-v3.2-exp'),
+    'zetora-deepseek-chat': reasoningSwitch({
+      thinking: gateway('deepseek/deepseek-v3.2-thinking'),
+      instant: gateway('deepseek/deepseek-v3.2'),
+    }),
+    // The thinking side of the pairs below needs an optional provider; without
+    // it the entry keeps only the always-available gateway model.
+    'zetora-deepseek-chat-exp': novita
+      ? reasoningSwitch({
+          thinking: wrapLanguageModel({ model: novita.chatModel('deepseek/deepseek-v3.2-exp'), middleware }),
+          instant: gateway('deepseek/deepseek-v3.2-exp'),
+        })
+      : gateway('deepseek/deepseek-v3.2-exp'),
     // Single entry per size — reasoning is toggled via providerOptions.deepseek.thinking
     // (see lib/search/provider-options.ts / lib/reasoning-effort.ts), not a separate
     // model id. The gateway fallback's 'thinking' variant slug isn't needed since the
@@ -644,20 +600,43 @@ export const zetora = customProvider({
     'zetora-qwen-coder-small': gateway('alibaba/qwen3-coder-30b-a3b'),
     'zetora-qwen-coder-plus': gateway('alibaba/qwen3-coder-plus'),
     'zetora-qwen-3-max': gateway('alibaba/qwen3-max'),
-    'zetora-qwen-3-max-preview': gateway('alibaba/qwen3-max-preview'),
-    'zetora-qwen-3-max-preview-thinking': gateway('alibaba/qwen3-max-thinking'),
-    'zetora-qwen-235': gateway('alibaba/qwen-3-235b'),
+    'zetora-qwen-3-max-preview': reasoningSwitch({
+      thinking: gateway('alibaba/qwen3-max-thinking'),
+      instant: gateway('alibaba/qwen3-max-preview'),
+    }),
+    'zetora-qwen-235': huggingface
+      ? reasoningSwitch({
+          thinking: wrapLanguageModel({
+            model: huggingface.chatModel('Qwen/Qwen3-235B-A22B-Thinking-2507:fireworks-ai'),
+            middleware: [middlewareWithStartWithReasoning],
+          }),
+          instant: gateway('alibaba/qwen-3-235b'),
+        })
+      : gateway('alibaba/qwen-3-235b'),
     'zetora-qwen-3.5-plus': gateway('alibaba/qwen3.5-plus'),
     'zetora-qwen-3.5-flash': gateway('alibaba/qwen3.5-flash'),
     'zetora-qwen-3.7-max': gateway('alibaba/qwen3.7-max'),
     'zetora-qwen-3.7-plus': gateway('alibaba/qwen3.7-plus'),
-    'zetora-qwen-3-vl': gateway('alibaba/qwen3-vl-instruct'),
-    'zetora-qwen-3-vl-thinking': wrapLanguageModel({ model: gateway('alibaba/qwen3-vl-thinking'), middleware }),
-    'zetora-kimi-k2-v2-thinking': wrapLanguageModel({
-      model: gateway('moonshotai/kimi-k2-thinking-turbo'),
-      middleware,
+    'zetora-qwen-3-vl': reasoningSwitch({
+      thinking: wrapLanguageModel({ model: gateway('alibaba/qwen3-vl-thinking'), middleware }),
+      instant: gateway('alibaba/qwen3-vl-instruct'),
     }),
-    'zetora-kimi-k2.5-thinking': gateway('moonshotai/kimi-k2.5'),
+    'zetora-kimi-k2-v2': reasoningSwitch({
+      thinking: wrapLanguageModel({ model: gateway('moonshotai/kimi-k2-thinking-turbo'), middleware }),
+      instant: gateway('moonshotai/kimi-k2-instruct-0905'),
+    }),
+    // Kimi K2.5 thinks through the gateway's moonshotai/fireworks providers
+    // (thinking toggled in providerOptions); Baseten, when configured, serves
+    // the instant side as before.
+    'zetora-kimi-k2.5': _baseten
+      ? reasoningSwitch({
+          thinking: gateway('moonshotai/kimi-k2.5'),
+          instant: createRetryable({
+            model: _baseten.chatModel('moonshotai/Kimi-K2.5'),
+            retries: [gateway('moonshotai/kimi-k2.5')],
+          }),
+        })
+      : gateway('moonshotai/kimi-k2.5'),
     'zetora-kimi-k2.6': gateway('moonshotai/kimi-k2.6'),
     'zetora-kimi-k2.7-code': gateway('moonshotai/kimi-k2.7-code'),
     'zetora-mimo-v2-flash': wrapLanguageModel({ model: gateway('xiaomi/mimo-v2-flash'), middleware }),
@@ -684,6 +663,7 @@ import {
 } from '@/lib/custom-providers';
 import { LlamaCppNativeLanguageModel } from './native-models/llamacpp-model';
 import { OllamaNativeLanguageModel } from './native-models/ollama-model';
+import { canonicalModelId } from './models';
 
 import { createLogger } from '@/lib/logger';
 
@@ -805,6 +785,7 @@ export async function resolveModel(
   let backendKind: CustomProviderConfig['backendKind'] | undefined;
   let usingNativeModel = false;
 
+  modelId = canonicalModelId(modelId);
   if (!modelId.startsWith('custom-')) {
     try {
       resolved = zetora.languageModel(modelId);
