@@ -18,6 +18,7 @@ export type ModelProvider =
   | 'openai'
   | 'anthropic'
   | 'google'
+  | 'vertex'
   | 'alibaba'
   | 'mistral'
   | 'deepseek'
@@ -50,7 +51,8 @@ export const PROVIDERS: Record<ModelProvider, ProviderInfo> = {
   xai: { id: 'xai', name: 'xAI', icon: 'xai', hasNew: true },
   openai: { id: 'openai', name: 'OpenAI', icon: 'openai', hasNew: true },
   anthropic: { id: 'anthropic', name: 'Anthropic', icon: 'anthropic', hasNew: true },
-  google: { id: 'google', name: 'Google', icon: 'google', hasNew: true },
+  google: { id: 'google', name: 'Google AI Studio', icon: 'google', hasNew: true },
+  vertex: { id: 'vertex', name: 'Google Agent Platform', icon: 'google', hasNew: true },
   alibaba: { id: 'alibaba', name: 'Alibaba', icon: 'alibaba', hasNew: true },
   zhipu: { id: 'zhipu', name: 'Zhipu AI', icon: 'zhipu' },
   minimax: { id: 'minimax', name: 'Minimax', icon: 'minimax', hasNew: true },

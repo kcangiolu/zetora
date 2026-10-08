@@ -100,6 +100,7 @@ const CANVAS_MODELS = new Set([
   'zetora-gpt-5.2-codex',
   'zetora-gpt-5.3-codex',
   'zetora-gemini-3.1-pro',
+  'zetora-vertex-gemini-3.1-pro',
 ]);
 
 export function supportsCanvasMode(modelValue: string): boolean {
@@ -202,7 +203,12 @@ export function getModelProvider(modelValue: string, label?: string): ModelProvi
     return 'anthropic';
   }
 
-  // Google (Gemini)
+  // Google Agent Platform (Gemini served through ex-Vertex AI)
+  if (value.includes('zetora-vertex-')) {
+    return 'vertex';
+  }
+
+  // Google AI Studio (Gemini)
   if (value.includes('google') || value.includes('gemini')) {
     return 'google';
   }

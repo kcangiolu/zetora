@@ -11,8 +11,8 @@ import {
 } from '@/ai/models';
 
 describe('model catalog', () => {
-  it('holds 158 models with unique ids', () => {
-    expect(models).toHaveLength(158);
+  it('holds 165 models with unique ids', () => {
+    expect(models).toHaveLength(165);
     const ids = models.map((m) => m.value);
     expect(new Set(ids).size).toBe(ids.length);
   });
@@ -42,8 +42,16 @@ describe('model catalog', () => {
     expect(getModelsByProvider('anthropic')).toContainEqual(anthropic);
   });
 
+  it('mirrors every AI Studio Gemini model on Agent Platform', () => {
+    const studio = models.filter((m) => m.provider === 'google');
+    const agentPlatform = models.filter((m) => m.provider === 'vertex');
+    expect(agentPlatform.map((m) => m.value)).toEqual(studio.map((m) => m.value.replace('zetora-', 'zetora-vertex-')));
+    expect(getModelProvider('zetora-vertex-gemini-3.5-flash')).toBe('vertex');
+    expect(getModelProvider('zetora-gemini-3.5-flash')).toBe('google');
+  });
+
   it('getFilteredModels returns the full catalog outside restricted regions', () => {
     expect(getFilteredModels()).toBe(models);
-    expect(getFilteredModels('FR')).toHaveLength(158);
+    expect(getFilteredModels('FR')).toHaveLength(165);
   });
 });

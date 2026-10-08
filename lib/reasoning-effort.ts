@@ -40,6 +40,10 @@ const GEMINI_MINIMAL_THINKING_MODELS = new Set([
   'zetora-gemini-3.5-flash-think',
   'zetora-gemini-3.5-flash-lite',
   'zetora-gemini-3.5-flash-lite-think',
+  'zetora-vertex-gemini-3.5-flash',
+  'zetora-vertex-gemini-3.5-flash-think',
+  'zetora-vertex-gemini-3.5-flash-lite',
+  'zetora-vertex-gemini-3.5-flash-lite-think',
 ]);
 
 export function getGeminiThinkingConfig(
@@ -374,6 +378,7 @@ export function getZetoraReasoningOverrides(
         },
       };
     case 'google':
+    case 'vertex':
       return {
         providerOptions: {
           google: { thinkingConfig: getGeminiThinkingConfig(modelId, tier) },

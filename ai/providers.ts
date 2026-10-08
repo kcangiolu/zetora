@@ -9,7 +9,8 @@ import { createWebSocketFetch } from 'ai-sdk-openai-websocket-fetch';
 import { xai } from '@ai-sdk/xai';
 import { groq } from '@ai-sdk/groq';
 import { mistral } from '@ai-sdk/mistral';
-import { google } from '@ai-sdk/google';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createVertex } from '@ai-sdk/google-vertex';
 import { baseten } from '@ai-sdk/baseten';
 import { anthropic } from '@ai-sdk/anthropic';
 import { cohere } from '@ai-sdk/cohere';
@@ -152,7 +153,16 @@ const openai_2 = hasKey(process.env.OPENAI_API_KEY_2)
 const _xai = hasKey(process.env.XAI_API_KEY) ? xai : null;
 const _groq = hasKey(process.env.GROQ_API_KEY) ? groq : null;
 const _mistral = hasKey(process.env.MISTRAL_API_KEY) ? mistral : null;
-const _google = hasKey(process.env.GOOGLE_GENERATIVE_AI_API_KEY) ? google : null;
+// Gemini has two endpoints, each with its own key and picker tab. Keys are
+// passed explicitly: the SDKs' default env names (GOOGLE_GENERATIVE_AI_API_KEY,
+// GOOGLE_VERTEX_API_KEY) are not the ones Zetora uses. An API key puts the
+// Vertex SDK in express mode, so no project/location/credentials are needed.
+const _google = hasKey(process.env.GOOGLE_AI_STUDIO_API_KEY)
+  ? createGoogleGenerativeAI({ apiKey: process.env.GOOGLE_AI_STUDIO_API_KEY })
+  : null;
+const _vertex = hasKey(process.env.GOOGLE_AGENT_PLATFORM_API_KEY)
+  ? createVertex({ apiKey: process.env.GOOGLE_AGENT_PLATFORM_API_KEY })
+  : null;
 const _baseten = hasKey(process.env.BASETEN_API_KEY) ? baseten : null;
 const _anthropic = hasKey(process.env.ANTHROPIC_API_KEY) ? anthropic : null;
 const _cohere = hasKey(process.env.COHERE_API_KEY) ? cohere : null;
@@ -374,6 +384,39 @@ export const zetora = customProvider({
           }),
           'zetora-gemini-3.1-pro': createRetryable({
             model: _google('gemini-3.1-pro-preview'),
+            retries: [gateway('google/gemini-3.1-pro-preview')],
+          }),
+        }
+      : {}),
+
+    ...(_vertex
+      ? {
+          'zetora-vertex-gemini-3.5-flash-lite': createRetryable({
+            model: _vertex('gemini-3.5-flash-lite'),
+            retries: [gateway('google/gemini-3.5-flash-lite')],
+          }),
+          'zetora-vertex-gemini-3.5-flash-lite-think': createRetryable({
+            model: _vertex('gemini-3.5-flash-lite'),
+            retries: [gateway('google/gemini-3.5-flash-lite')],
+          }),
+          'zetora-vertex-gemini-3.5-flash': createRetryable({
+            model: _vertex('gemini-3.5-flash'),
+            retries: [gateway('google/gemini-3.5-flash')],
+          }),
+          'zetora-vertex-gemini-3.5-flash-think': createRetryable({
+            model: _vertex('gemini-3.5-flash'),
+            retries: [gateway('google/gemini-3.5-flash')],
+          }),
+          'zetora-vertex-gemini-3.8-flash': createRetryable({
+            model: _vertex('gemini-3.8-flash'),
+            retries: [gateway('google/gemini-3.8-flash')],
+          }),
+          'zetora-vertex-gemini-3.8-flash-think': createRetryable({
+            model: _vertex('gemini-3.8-flash'),
+            retries: [gateway('google/gemini-3.8-flash')],
+          }),
+          'zetora-vertex-gemini-3.1-pro': createRetryable({
+            model: _vertex('gemini-3.1-pro-preview'),
             retries: [gateway('google/gemini-3.1-pro-preview')],
           }),
         }

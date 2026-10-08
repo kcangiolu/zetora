@@ -31,6 +31,7 @@
     "@ai-sdk/elevenlabs": "^2.0.25",
     "@ai-sdk/gateway": "^3.0.76",
     "@ai-sdk/google": "^3.0.51",
+    "@ai-sdk/google-vertex": "4.0.143",
     "@ai-sdk/groq": "^3.0.30",
     "@ai-sdk/mcp": "^1.0.29",
     "@ai-sdk/mistral": "^3.0.25",

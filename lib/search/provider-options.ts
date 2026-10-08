@@ -16,7 +16,7 @@ import {
 // thinking (the -think variants and 3.1 Pro); the others keep Google's default.
 function isGeminiThinkingModel(model: string): boolean {
   const config = getModelConfig(model);
-  return config?.provider === 'google' && config.reasoning === true;
+  return (config?.provider === 'google' || config?.provider === 'vertex') && config.reasoning === true;
 }
 
 export async function getStreamTextStaticSettings({

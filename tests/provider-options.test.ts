@@ -141,6 +141,16 @@ describe('getSearchProviderOptions', () => {
     expect(getSearchProviderOptions('zetora-default', false).google).toEqual({ threshold: 'OFF' });
   });
 
+  it('enables vertex thinkingConfig for the Agent Platform -think models', () => {
+    expect(getSearchProviderOptions('zetora-vertex-gemini-3.8-flash-think', false).vertex).toMatchObject({
+      thinkingConfig: { thinkingLevel: 'medium', includeThoughts: true },
+    });
+    expect(getSearchProviderOptions('zetora-vertex-gemini-3.5-flash-think', false, 'off').vertex).toMatchObject({
+      thinkingConfig: { thinkingLevel: 'minimal', includeThoughts: false },
+    });
+    expect(getSearchProviderOptions('zetora-vertex-gemini-3.8-flash', false).vertex).toEqual({ threshold: 'OFF' });
+  });
+
   it("maps 'off' to each Gemini model's lowest accepted thinking level", () => {
     expect(getSearchProviderOptions('zetora-gemini-3.5-flash-think', false, 'off').google).toMatchObject({
       thinkingConfig: { thinkingLevel: 'minimal', includeThoughts: false },
