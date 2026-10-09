@@ -31,13 +31,13 @@ Zetora no longer asks you to pick a search mode before every message. All former
 
 A few modes remain **exclusive per-message selections**, because they replace the whole toolset for that turn:
 
-| Special mode    | Description                                                                           |
-| --------------- | ------------------------------------------------------------------------------------- |
-| **Memory**      | Your personal memory companion, backed by a knowledge graph                           |
-| **Connectors**  | Search Google Drive, Notion & OneDrive                                                |
-| **Apps (MCP)**  | Use tools from your connected MCP apps                                                |
-| **Multi-agent** | High-agency research via xAI's multi-agent Grok with server-side web/X search         |
-| **Canvas**      | Research and generate interactive dashboards and visual reports                       |
+| Special mode    | Description                                                                            |
+| --------------- | -------------------------------------------------------------------------------------- |
+| **Memory**      | Your personal memory companion: an editable profile plus facts learned from your chats |
+| **Connectors**  | Search Google Drive, Notion & OneDrive                                                 |
+| **Apps (MCP)**  | Use tools from your connected MCP apps                                                 |
+| **Multi-agent** | High-agency research via xAI's multi-agent Grok with server-side web/X search          |
+| **Canvas**      | Research and generate interactive dashboards and visual reports                        |
 
 **Voice** (real-time conversational AI, with a fully local speech-to-speech backend) and **XQL** (advanced X query language for tweet analysis) live on their own dedicated pages.
 
@@ -95,7 +95,7 @@ Loadable per-message via the `skill` tool (subject to your disabled-skills prefe
 - **Text translation** — Translate text (and text within images) between languages using AI models
 - **File query search** — Semantic search over uploaded files (PDF, CSV, DOCX, Excel) with Cohere embeddings and reranking
 - **Connectors search** — Search connected Google Drive, Notion, and OneDrive
-- **Memory tools** — Save and search personal memories, backed by a self-hosted knowledge graph (Graphiti/FalkorDB) or Supermemory
+- **Memory** — An editable profile plus facts learned automatically after each answer (stored in Postgres, no extra service), injected into the prompt when relevant; manage everything under Settings → Memories
 - **Date & time** — Current date/time in multiple formats with timezone support
 - **Greeting** — Personalized time-of-day-aware greetings
 
@@ -123,25 +123,24 @@ Loadable per-message via the `skill` tool (subject to your disabled-skills prefe
 
 This fork bundles a complete self-hosted stack in [`docker-compose.yml`](docker-compose.yml), so Zetora can run with little to no dependency on third-party cloud services beyond your chosen AI provider API keys.
 
-| Service                 | Container(s)                               | Profile    | Cloud equivalent (Scira default) | Purpose                                                                                                                 |
-| ----------------------- | ------------------------------------------ | ---------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| **PostgreSQL 17**       | `postgres`                                 | _(core)_   | Vercel Postgres / Neon           | Primary application database                                                                                            |
-| **Redis 7**             | `redis`                                    | _(core)_   | Upstash Redis                    | Sessions, cache, rate limiting                                                                                          |
-| **MinIO**               | `minio`, `minio-create-bucket`             | `minio`    | Cloudflare R2 / Vercel Blob      | S3-compatible object storage for uploads (`STORAGE_PROVIDER=minio`)                                                     |
-| **Qdrant**              | `qdrant`                                   | `qdrant`   | _(new — no Scira equivalent)_    | Vector store for the hybrid RAG pipeline (content indexing, RRF fusion, reranking)                                      |
-| **SearXNG**             | `searxng`, `searxng-redis`                 | `searxng`  | Tavily / Exa                     | Self-hosted metasearch engine for the Web search source                                                                 |
-| **fastCRW**             | `fastcrw`, `chrome`                        | `fastcrw`  | Firecrawl                        | Self-hosted scraper & search (Firecrawl-compatible API) with JS rendering via LightPanda and a headless-Chrome fallback |
-| **Code Interpreter**    | `sandbox`                                  | `sandbox`  | Daytona                          | Sandboxed Python execution for the Code Interpreter tool (`SANDBOX_PROVIDER=docker`)                                    |
-| **FalkorDB + Graphiti** | `falkordb`, `graphiti-api`, `graphiti-mcp` | `graphiti` | Supermemory / Mem0               | Self-hosted knowledge-graph memory provider                                                                             |
-| **Presidio**            | `presidio-api`                             | `presidio` | _(new — no Scira equivalent)_    | PII detection/anonymization for the activatable privacy layer                                                           |
-| **Voice pipeline**      | `s2s-service`, `stt-service`, `qwen3-tts`  | `tts`*     | ElevenLabs / xAI Realtime        | Local speech-to-speech backend: VAD orchestrator, NVIDIA Parakeet TDT STT, and opt-in GPU Qwen3 TTS (`--profile tts`)   |
-| **BullMQ**              | `bullmq-redis`, `bullboard`                | `bullmq`   | Upstash QStash                   | Self-hosted scheduler for Lookouts (recurring research agents), with a Bull Board admin UI                              |
-| **Hermes Agent relay**  | `hermes-relay-service`                     | `hermes`†  | _(new — no Scira equivalent)_    | Lets any user connect their own self-hosted Hermes Agent gateway as an Agent mode chat channel                         |
-| **DB migrations**       | `db-migrate`                               | _(core)_   | _(manual `drizzle-kit migrate`)_ | Runs Drizzle migrations + performance indexes automatically; `zetora.app` waits for it before starting                  |
+| Service                | Container(s)                              | Profile    | Cloud equivalent (Scira default) | Purpose                                                                                                                 |
+| ---------------------- | ----------------------------------------- | ---------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **PostgreSQL 17**      | `postgres`                                | _(core)_   | Vercel Postgres / Neon           | Primary application database                                                                                            |
+| **Redis 7**            | `redis`                                   | _(core)_   | Upstash Redis                    | Sessions, cache, rate limiting                                                                                          |
+| **MinIO**              | `minio`, `minio-create-bucket`            | `minio`    | Cloudflare R2 / Vercel Blob      | S3-compatible object storage for uploads (`STORAGE_PROVIDER=minio`)                                                     |
+| **Qdrant**             | `qdrant`                                  | `qdrant`   | _(new — no Scira equivalent)_    | Vector store for the hybrid RAG pipeline (content indexing, RRF fusion, reranking)                                      |
+| **SearXNG**            | `searxng`, `searxng-redis`                | `searxng`  | Tavily / Exa                     | Self-hosted metasearch engine for the Web search source                                                                 |
+| **fastCRW**            | `fastcrw`, `chrome`                       | `fastcrw`  | Firecrawl                        | Self-hosted scraper & search (Firecrawl-compatible API) with JS rendering via LightPanda and a headless-Chrome fallback |
+| **Code Interpreter**   | `sandbox`                                 | `sandbox`  | Daytona                          | Sandboxed Python execution for the Code Interpreter tool (`SANDBOX_PROVIDER=docker`)                                    |
+| **Presidio**           | `presidio-api`                            | `presidio` | _(new — no Scira equivalent)_    | PII detection/anonymization for the activatable privacy layer                                                           |
+| **Voice pipeline**     | `s2s-service`, `stt-service`, `qwen3-tts` | `tts`\*    | ElevenLabs / xAI Realtime        | Local speech-to-speech backend: VAD orchestrator, NVIDIA Parakeet TDT STT, and opt-in GPU Qwen3 TTS (`--profile tts`)   |
+| **BullMQ**             | `bullmq-redis`, `bullboard`               | `bullmq`   | Upstash QStash                   | Self-hosted scheduler for Lookouts (recurring research agents), with a Bull Board admin UI                              |
+| **Hermes Agent relay** | `hermes-relay-service`                    | `hermes`†  | _(new — no Scira equivalent)_    | Lets any user connect their own self-hosted Hermes Agent gateway as an Agent mode chat channel                          |
+| **DB migrations**      | `db-migrate`                              | _(core)_   | _(manual `drizzle-kit migrate`)_ | Runs Drizzle migrations + performance indexes automatically; `zetora.app` waits for it before starting                  |
 
 \* Only `qwen3-tts` is behind the `tts` profile — `s2s-service`/`stt-service` (CPU-only) start by default alongside the core services below.
 
-† Unlike every other row, Hermes doesn't degrade to a cloud equivalent when its profile is left off — the whole feature (Settings > Hermes, the Agent mode entry, every `/api/hermes*`/`/api/internal/hermes*` route) is gated by the `NEXT_PUBLIC_HERMES_ENABLED` build flag, which defaults to `true` since it already ships to real users on this fork. The Docker profile itself still needs explicit opt-in like any other (`--profile hermes` / `COMPOSE_PROFILES=hermes`) — the build flag only controls whether the *feature exists in the image at all*, not whether *this deployment's container starts*. Set `NEXT_PUBLIC_HERMES_ENABLED=false` to build an image with the feature hidden entirely.
+† Unlike every other row, Hermes doesn't degrade to a cloud equivalent when its profile is left off — the whole feature (Settings > Hermes, the Agent mode entry, every `/api/hermes*`/`/api/internal/hermes*` route) is gated by the `NEXT_PUBLIC_HERMES_ENABLED` build flag, which defaults to `true` since it already ships to real users on this fork. The Docker profile itself still needs explicit opt-in like any other (`--profile hermes` / `COMPOSE_PROFILES=hermes`) — the build flag only controls whether the _feature exists in the image at all_, not whether _this deployment's container starts_. Set `NEXT_PUBLIC_HERMES_ENABLED=false` to build an image with the feature hidden entirely.
 
 Every profiled service is off by default — `docker compose up -d` alone starts only the `_(core)_` rows plus `zetora.app`, running entirely against cloud providers out of the box. Start any subset with `docker compose --profile <name> up -d` (see [Self-hosted stack](#option-2--self-hosted-stack-docker-compose) below for the full command and what each one falls back to when left off).
 
@@ -165,18 +164,17 @@ Beyond the bundled infrastructure, this fork also adds:
 
 If you'd rather not run the bundled services, Zetora can run entirely against managed/cloud providers, closer to the original Scira setup. Don't start the corresponding compose services and set the matching environment variables instead:
 
-| Self-hosted service | Cloud alternative                 | Configuration                                                                    |
-| ------------------- | --------------------------------- | -------------------------------------------------------------------------------- |
-| Postgres            | Vercel Postgres / Neon / Supabase | `DATABASE_URL` (+ optional `READ_DB_1`/`READ_DB_2` read replicas)                |
-| Redis               | Upstash Redis                     | `REDIS_URL`                                                                      |
-| MinIO               | Cloudflare R2 / Vercel Blob       | `STORAGE_PROVIDER=cloudflare-r2` (default) with R2 credentials — also live in Settings as a per-user "Storage provider" toggle |
-| Qdrant              | — (disabled)                      | leave `QDRANT_URL` unset to disable the vector cache                             |
-| SearXNG             | Tavily / Exa                      | `TAVILY_API_KEY`, `EXA_API_KEY` (used automatically when `SEARXNG_URL` is unset) |
-| fastCRW             | Firecrawl                         | `FIRECRAWL_API_KEY` (used automatically when `FASTCRW_URL` is unset)             |
-| Sandbox             | Daytona                           | `SANDBOX_PROVIDER=daytona` (default) with `DAYTONA_API_KEY`                      |
-| FalkorDB + Graphiti | Supermemory                       | `SUPERMEMORY_API_KEY`                                                            |
-| Presidio            | — (disabled)                      | leave `ANONYMIZER_API_URL` unset — the anonymization layer stays off             |
-| Voice pipeline      | ElevenLabs / xAI Realtime         | leave `VOICE_S2S_URL` unset; configure TTS/STT providers in Settings             |
+| Self-hosted service | Cloud alternative                 | Configuration                                                                                                                                   |
+| ------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Postgres            | Vercel Postgres / Neon / Supabase | `DATABASE_URL` (+ optional `READ_DB_1`/`READ_DB_2` read replicas)                                                                               |
+| Redis               | Upstash Redis                     | `REDIS_URL`                                                                                                                                     |
+| MinIO               | Cloudflare R2 / Vercel Blob       | `STORAGE_PROVIDER=cloudflare-r2` (default) with R2 credentials — also live in Settings as a per-user "Storage provider" toggle                  |
+| Qdrant              | — (disabled)                      | leave `QDRANT_URL` unset to disable the vector cache                                                                                            |
+| SearXNG             | Tavily / Exa                      | `TAVILY_API_KEY`, `EXA_API_KEY` (used automatically when `SEARXNG_URL` is unset)                                                                |
+| fastCRW             | Firecrawl                         | `FIRECRAWL_API_KEY` (used automatically when `FASTCRW_URL` is unset)                                                                            |
+| Sandbox             | Daytona                           | `SANDBOX_PROVIDER=daytona` (default) with `DAYTONA_API_KEY`                                                                                     |
+| Presidio            | — (disabled)                      | leave `ANONYMIZER_API_URL` unset — the anonymization layer stays off                                                                            |
+| Voice pipeline      | ElevenLabs / xAI Realtime         | leave `VOICE_S2S_URL` unset; configure TTS/STT providers in Settings                                                                            |
 | BullMQ              | Upstash QStash                    | `QSTASH_TOKEN` and related QStash variables — also live in Settings as a per-user "Lockout scheduling provider" toggle, not just an env default |
 
 See `.env.example` for the full catalog of provider and feature environment variables.
@@ -196,7 +194,6 @@ See `.env.example` for the full catalog of provider and feature environment vari
 - fastCRW - Self-hosted web scraping and search (Firecrawl-compatible)
 - [Microsoft Presidio](https://microsoft.github.io/presidio/) - PII detection for the anonymization layer
 - [NVIDIA Parakeet](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) + Qwen3 TTS - Self-hosted speech-to-text and text-to-speech
-- [FalkorDB](https://www.falkordb.com/) + [Graphiti](https://github.com/getzep/graphiti) - Self-hosted knowledge-graph memory
 - [BullMQ](https://bullmq.io/) + [Bull Board](https://github.com/felixmosh/bull-board) - Self-hosted job scheduling for Lookouts
 - [Exa.AI](https://exa.ai/) - Web search, academic search, and content retrieval
 - [Firecrawl](https://firecrawl.dev/) - Web scraping with structured extraction
@@ -212,7 +209,7 @@ See `.env.example` for the full catalog of provider and feature environment vari
 - [Google Maps](https://developers.google.com/maps) - Geocoding and places
 - [TMDB](https://www.themoviedb.org/) - Movie and TV data
 - [Cohere](https://cohere.com/) - Embeddings and reranking
-- [Supermemory](https://supermemory.ai/) - Cloud memory management and connector search (alternative to Graphiti)
+- [Supermemory](https://supermemory.ai/) - Connector sync and search (Google Drive, Notion, OneDrive)
 - [ElevenLabs](https://elevenlabs.io/) - Voice synthesis
 
 ## Installation
@@ -253,7 +250,7 @@ Use this for day-to-day development. It runs the Next.js app directly on your ma
    ```
 6. Open `http://localhost:3000`.
 
-You can optionally bring up any other bundled service on its own (Redis, MinIO, Qdrant, SearXNG, fastCRW, sandbox, Graphiti, Presidio, the voice services) with `docker compose up -d <service>` and point the matching `.env.local` variables at `localhost:<port>`.
+You can optionally bring up any other bundled service on its own (Redis, MinIO, Qdrant, SearXNG, fastCRW, sandbox, Presidio, the voice services) with `docker compose up -d <service>` and point the matching `.env.local` variables at `localhost:<port>`.
 
 ### Option 2 — Self-hosted stack (Docker Compose)
 
@@ -269,7 +266,7 @@ Use this to deploy Zetora on a server. By default it runs against cloud provider
    - **Core secrets**: `BETTER_AUTH_SECRET` (generate with `openssl rand -base64 32`), `POSTGRES_PASSWORD`.
    - **MinIO**: `MINIO_ROOT_PASSWORD` (and optionally `MINIO_ROOT_USER`, `S3_PUBLIC_URL`).
    - **AI providers**: at least one provider API key.
-   - Optional but recommended: `BULLMQ_REDIS_PASSWORD`, Graphiti `GRAPHITI_LLM_*`/`GRAPHITI_EMBEDDING_*` keys, OAuth provider credentials.
+   - Optional but recommended: `BULLMQ_REDIS_PASSWORD`, OAuth provider credentials.
 
    See `.env.example` for the full list of available variables.
 
@@ -279,21 +276,22 @@ Use this to deploy Zetora on a server. By default it runs against cloud provider
    docker compose up -d
    ```
 
-   The compose file has no `build:` sections on purpose — all custom images (`zetora-app`, `zetora-migrate`, `graphiti-*`, `presidio-api`, `zetora-tts`, …) are built and published to the registry by the Gitea Actions workflow (`.gitea/workflows/docker.yml`). If you're running your own fork, point the `image:` references at your own registry (or add `build:` sections back locally).
+   The compose file has no `build:` sections on purpose — all custom images (`zetora-app`, `zetora-migrate`, `presidio-api`, `zetora-tts`, …) are built and published to the registry by the Gitea Actions workflow (`.gitea/workflows/docker.yml`). If you're running your own fork, point the `image:` references at your own registry (or add `build:` sections back locally).
 
    Database migrations run automatically: the `db-migrate` container applies Drizzle migrations and performance indexes, and `zetora.app` waits for it to complete before starting — no manual `drizzle-kit migrate` needed.
 
-   Every service below the core three (Postgres, Redis, `zetora.app`) starts on the `zetora-network` only if you opt into its profile — combine as needed, e.g. `docker compose --profile minio --profile graphiti up -d`, or set `COMPOSE_PROFILES` to a comma-separated list in `.env`. Each one has a working cloud default already, so leaving it off degrades the corresponding feature to its cloud equivalent instead of breaking it — see the **Profile** column in the [Self-Hosted Stack](#self-hosted-stack) table above and [All-Cloud Configuration](#all-cloud-configuration) for exactly what each one falls back to. `hermes` is the one exception: it doesn't fall back to anything, it just disappears (see the † note above the table). Full self-hosted stack:
+   Every service below the core three (Postgres, Redis, `zetora.app`) starts on the `zetora-network` only if you opt into its profile — combine as needed, e.g. `docker compose --profile minio --profile searxng up -d`, or set `COMPOSE_PROFILES` to a comma-separated list in `.env`. Each one has a working cloud default already, so leaving it off degrades the corresponding feature to its cloud equivalent instead of breaking it — see the **Profile** column in the [Self-Hosted Stack](#self-hosted-stack) table above and [All-Cloud Configuration](#all-cloud-configuration) for exactly what each one falls back to. `hermes` is the one exception: it doesn't fall back to anything, it just disappears (see the † note above the table). Full self-hosted stack:
+
    ```bash
    docker compose --profile minio --profile searxng --profile fastcrw \
-     --profile sandbox --profile bullmq --profile graphiti \
-     --profile qdrant --profile presidio --profile tts --profile hermes up -d
+     --profile sandbox --profile bullmq --profile qdrant \
+     --profile presidio --profile tts --profile hermes up -d
    ```
 
-4. Put a reverse proxy with TLS in front of `zetora.app` (port 3333) for your domain. If you enabled the `minio` profile, also put one in front of MinIO's API port (`:9010`) and point `S3_PUBLIC_URL` at it — generated images/files are served straight from that URL to the browser, no app-side proxy. For the local voice backend, expose `s2s-service`'s WebSocket port and point `VOICE_S2S_URL` at it. Every other service is bound to `127.0.0.1` only — use an SSH tunnel if you need direct access to an admin UI (MinIO console on `:9001`, Bull Board on `:3001`, Qdrant dashboard on `:6333`, SearXNG on `:8090`, FalkorDB browser on `:3002`).
+4. Put a reverse proxy with TLS in front of `zetora.app` (port 3333) for your domain. If you enabled the `minio` profile, also put one in front of MinIO's API port (`:9010`) and point `S3_PUBLIC_URL` at it — generated images/files are served straight from that URL to the browser, no app-side proxy. For the local voice backend, expose `s2s-service`'s WebSocket port and point `VOICE_S2S_URL` at it. Every other service is bound to `127.0.0.1` only — use an SSH tunnel if you need direct access to an admin UI (MinIO console on `:9001`, Bull Board on `:3001`, Qdrant dashboard on `:6333`, SearXNG on `:8090`).
 5. Visit your domain — Zetora should be up and running. The Diagnostics tab in Settings shows the health of each bundled service.
 
-All nine optional services (`minio`, `searxng`, `fastcrw`, `sandbox`, `bullmq`, `graphiti`, `qdrant`, `presidio`, `tts`) are behind their own profile — none started by default, nothing to edit to skip them. See [All-Cloud Configuration](#all-cloud-configuration) for exactly what each one falls back to when left off.
+All eight optional services (`minio`, `searxng`, `fastcrw`, `sandbox`, `bullmq`, `qdrant`, `presidio`, `tts`) are behind their own profile — none started by default, nothing to edit to skip them. See [All-Cloud Configuration](#all-cloud-configuration) for exactly what each one falls back to when left off.
 
 # License
 

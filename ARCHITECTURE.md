@@ -1,6 +1,6 @@
 # Zetora — Architecture Overview
 
-Zetora is a self-hosted, AI-powered agentic search engine — a fork of [Scira](https://github.com/zaidmukaddam/scira) by Zaid Mukaddam. It combines a Next.js application with a full Docker stack of supporting services (database, caches, object storage, vector store, metasearch, knowledge graph, TTS/STT, job queue, code sandbox).
+Zetora is a self-hosted, AI-powered agentic search engine — a fork of [Scira](https://github.com/zaidmukaddam/scira) by Zaid Mukaddam. It combines a Next.js application with a full Docker stack of supporting services (database, caches, object storage, vector store, metasearch, TTS/STT, job queue, code sandbox).
 
 ## Tech stack
 
@@ -16,7 +16,7 @@ Zetora is a self-hosted, AI-powered agentic search engine — a fork of [Scira](
 | Object storage          | MinIO (S3-compatible) or Cloudflare R2 (`STORAGE_PROVIDER`)                                                                             |
 | Vector store            | Qdrant (search-result cache, hybrid search)                                                                                             |
 | Web search              | SearXNG (self-hosted metasearch), fastCRW (Firecrawl-compatible scraper), plus SaaS fallbacks (Tavily, Exa, Firecrawl, Valyu, Parallel) |
-| Knowledge graph         | Graphiti (Python FastAPI service) backed by FalkorDB                                                                                    |
+| Long-term memory        | Native, in Postgres (`lib/memory`) — bio + facts, no extra service                                                                      |
 | Job scheduling          | BullMQ + dedicated Redis (self-hosted alternative to QStash) — powers "Lookouts" (scheduled searches)                                   |
 | Code sandbox            | Docker-based code interpreter (`onyxdotapp/code-interpreter`) or Daytona (SaaS)                                                         |
 | Voice                   | Qwen3 TTS (GPU, FastAPI, `tts-service/`) and faster-whisper STT; ElevenLabs as SaaS alternative                                         |
@@ -45,11 +45,10 @@ lib/
   mcp/                  MCP client, OAuth flows, credential encryption
   sandbox/              Sandbox providers (docker / daytona)
   vector/               Qdrant integration (content indexer, hybrid search, cache cleanup)
-  graphiti/             Graphiti API client
+  memory/               Native long-term memory (bio + facts: injection, per-turn update, consolidation)
   canvas/               Canvas rendering registry (json-render)
   auth.ts               Better Auth configuration
 drizzle/migrations/     SQL migrations (0000 → 0010)
-graphiti-service/       Python FastAPI service (Graphiti + FalkorDB) + MCP server
 tts-service/            Python Qwen3-TTS FastAPI service (GPU)
 searxng/                SearXNG settings
 scripts/migrate.js      Migration runner used by the db-migrate container
@@ -68,7 +67,6 @@ public/                 Static assets
 | `lookout`                                                                  | Scheduled search execution (BullMQ/QStash callback)                       |
 | `mcp/*`                                                                    | MCP server CRUD, OAuth flows, elicitation, apps bridge                    |
 | `custom-providers*`                                                        | Custom OpenAI-compatible provider management (detect, models)             |
-| `graphiti/[...path]`                                                       | Proxy to the Graphiti API                                                 |
 | `tts/stream`, `transcribe`                                                 | Voice synthesis / transcription                                           |
 | `suggest`, `xql`, `x-wrapped`, `raycast`, `preferences`, `provider-status` | Misc features                                                             |
 
@@ -82,23 +80,21 @@ public/                 Static assets
 
 All services live on the `zetora-network` bridge; only `zetora.app` (port 3333) is meant to be exposed. Everything else binds to `127.0.0.1`.
 
-| Service                           | Image                                     | Host port       | Role                                  |
-| --------------------------------- | ----------------------------------------- | --------------- | ------------------------------------- |
-| `zetora.app`                      | built from `Dockerfile` (target `runner`) | 3333            | Next.js app                           |
-| `db-migrate`                      | same image, target `migrate`              | —               | Runs Drizzle migrations, exits        |
-| `postgres`                        | postgres:17-alpine                        | 5432            | Primary DB                            |
-| `redis`                           | redis:7-alpine                            | 6379            | Cache / sessions / rate limits        |
-| `minio` (+ `minio-create-bucket`) | minio                                     | 9010→9000/9001  | S3 storage + console — API port (9010) is public-reachable, not loopback-only: put TLS in front and point `S3_PUBLIC_URL` at it |
-| `qdrant`                          | qdrant                                    | 6333/6334       | Vector cache                          |
-| `searxng` (+ `searxng-redis`)     | searxng                                   | 8090→8080       | Metasearch                            |
-| `fastcrw`                         | ghcr.io/us/crw                            | 3004→3000       | Scraper/search (Firecrawl-compatible) |
-| `sandbox`                         | onyxdotapp/code-interpreter               | 8003→8000       | Python code execution (docker.sock)   |
-| `falkordb`                        | falkordb                                  | 6380→6379, 3002 | Graph DB                              |
-| `graphiti-api` / `graphiti-mcp`   | built from `graphiti-service/`            | 8001 / 8002     | Knowledge graph API + MCP             |
-| `bullmq-redis`                    | redis:7-alpine (port 6381, AOF)           | 6381            | BullMQ backing store                  |
-| `bullboard`                       | nauverse/bull-board                       | 3001            | Queue dashboard                       |
-| `qwen3-tts`                       | built from `tts-service/` (GPU, `profiles: [tts]`, opt-in) | 8585→8080 | Text-to-speech |
-| `whisper-stt`                     | fedirz/faster-whisper-server              | 9002→8000       | Speech-to-text                        |
+| Service                           | Image                                                      | Host port      | Role                                                                                                                            |
+| --------------------------------- | ---------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `zetora.app`                      | built from `Dockerfile` (target `runner`)                  | 3333           | Next.js app                                                                                                                     |
+| `db-migrate`                      | same image, target `migrate`                               | —              | Runs Drizzle migrations, exits                                                                                                  |
+| `postgres`                        | postgres:17-alpine                                         | 5432           | Primary DB                                                                                                                      |
+| `redis`                           | redis:7-alpine                                             | 6379           | Cache / sessions / rate limits                                                                                                  |
+| `minio` (+ `minio-create-bucket`) | minio                                                      | 9010→9000/9001 | S3 storage + console — API port (9010) is public-reachable, not loopback-only: put TLS in front and point `S3_PUBLIC_URL` at it |
+| `qdrant`                          | qdrant                                                     | 6333/6334      | Vector cache                                                                                                                    |
+| `searxng` (+ `searxng-redis`)     | searxng                                                    | 8090→8080      | Metasearch                                                                                                                      |
+| `fastcrw`                         | ghcr.io/us/crw                                             | 3004→3000      | Scraper/search (Firecrawl-compatible)                                                                                           |
+| `sandbox`                         | onyxdotapp/code-interpreter                                | 8003→8000      | Python code execution (docker.sock)                                                                                             |
+| `bullmq-redis`                    | redis:7-alpine (port 6381, AOF)                            | 6381           | BullMQ backing store                                                                                                            |
+| `bullboard`                       | nauverse/bull-board                                        | 3001           | Queue dashboard                                                                                                                 |
+| `qwen3-tts`                       | built from `tts-service/` (GPU, `profiles: [tts]`, opt-in) | 8585→8080      | Text-to-speech                                                                                                                  |
+| `whisper-stt`                     | fedirz/faster-whisper-server                               | 9002→8000      | Speech-to-text                                                                                                                  |
 
 Build flow: `Dockerfile` has `deps` → `builder` (Next.js build with placeholder secrets) → `runner` (standalone output) and a `migrate` target (drizzle migrations + `create_indexes.sql`).
 
@@ -107,12 +103,12 @@ Build flow: `Dockerfile` has `deps` → `builder` (Next.js build with placeholde
 1. **Search/chat**: `POST /api/search` → auth + rate limiting → model selection (`ai/providers.ts`, `lib/search/auto-router.ts`) → `streamText` with tools loaded per search group (`lib/search/group-config.ts`, `tool-loader.ts`) → results streamed to the client (resumable via `ai-resumable-stream` + Redis); chats persisted through Drizzle (`lib/db/queries.ts`).
 2. **Web search tools**: SearXNG/fastCRW first when configured, SaaS providers otherwise; scraped content can be embedded and cached in Qdrant (`lib/vector`).
 3. **Lookouts**: user-scheduled searches; BullMQ repeatable jobs (`lib/services/bullmq.ts`) call back into `/api/lookout` (QStash used instead when BullMQ is disabled).
-4. **Memory**: Graphiti knowledge graph (self-hosted) or Supermemory (SaaS).
+4. **Memory** (`lib/memory`): a user-editable bio and atomic facts in Postgres. The bio and core facts go into the system prompt; other facts are matched lexically against the message and appended to it. After each answer, the conversation's own model (or a dedicated one) proposes memory changes through structured output, validated in code (new facts stay candidates until confirmed in another chat); a weekly consolidation merges and re-tiers them.
 5. **Access**: no paid tiers — every signed-in account has full access; a per-account daily usage cap enforced via counters in Postgres/Redis guards against abuse.
 
 ## Security & resilience notes
 
-- **Server-side proxies** (`/api/graphiti`, `/api/proxy-image`) never accept the upstream URL from a client header. Graphiti resolves the target from the authenticated user's saved preference; the image proxy allows only http(s), blocks private/reserved IP ranges (re-checked on every redirect hop), and restricts responses to `image/*` capped at 10 MB with a 10 s timeout.
+- **Server-side proxies** (`/api/proxy-image`) never accept the upstream URL from a client header. The image proxy allows only http(s), blocks private/reserved IP ranges (re-checked on every redirect hop), and restricts responses to `image/*` capped at 10 MB with a 10 s timeout.
 - **Scheduled search callbacks** (`/api/lookout`) require the `CRON_SECRET` shared secret (sent as `x-lookout-secret`, or `Upstash-Forward-x-lookout-secret` through QStash). The endpoint returns 503 when the secret is unset so a forgotten env var fails closed. `/api/clean_images` follows the same rule.
 - **Rate limiting** (`lib/rate-limit.ts`) is built lazily and fails closed: if `REDIS_URL` isn't configured, unauthenticated requests are denied rather than crashing the route.
 - **SQL**: all Drizzle `sql` template interpolations are parameterized (no `sql.raw`), so raw string concatenation is not a SQL-injection vector.
