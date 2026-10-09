@@ -125,12 +125,6 @@ export const SERVICE_CHECKS: ServiceCheckDefinition[] = [
     run: () => fetchOk(`${serverEnv.DOCKER_SANDBOX_URL}/health`),
   },
   {
-    id: 'graphiti',
-    label: 'Graphiti (knowledge graph)',
-    configured: () => Boolean(process.env.GRAPHITI_LLM_API_KEY),
-    run: () => fetchOk(`${serverEnv.GRAPHITI_API_URL}/health`),
-  },
-  {
     id: 'presidio',
     label: 'Presidio (anonymizer)',
     configured: () => true,

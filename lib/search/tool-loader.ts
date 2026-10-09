@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { SearchProvider, SkillId } from '@/lib/utils';
 import { anonymizeToolInput, type AnonymizeContext } from '@/lib/anonymizer/pseudonymize';
+import { isMemoryEnabled } from '@/lib/memory/settings';
 
 // Defense in depth for the anonymization layer: when it's active the model
 // only ever sees pseudonyms, so its tool-call args are already tokenized —
@@ -29,7 +30,8 @@ interface LoadConfiguredToolsParams {
   mcpDynamicTools: Record<string, any>;
   lightweightUser: { userId: string; email: string } | null;
   selectedConnectors: any;
-  memoryProvider?: 'supermemory' | 'graphiti';
+  // The chat a remembered fact comes from; null outside a persisted chat.
+  chatId?: string | null;
   userPreferences?: Record<string, unknown>;
   anonymizeContext?: AnonymizeContext | null;
   enabledSkillIds?: SkillId[];
@@ -45,14 +47,13 @@ export async function loadConfiguredTools({
   mcpDynamicTools,
   lightweightUser,
   selectedConnectors,
-  memoryProvider,
+  chatId,
   userPreferences,
   anonymizeContext,
   enabledSkillIds,
 }: LoadConfiguredToolsParams): Promise<Record<string, any>> {
   const tools: Record<string, any> = {};
   const uniqueToolNames = [...new Set(activeToolNames)];
-  let memoryTools: { searchMemories: any; addMemory: any } | null = null;
 
   await Promise.all(
     uniqueToolNames.map(async (toolName) => {
@@ -217,20 +218,10 @@ export async function loadConfiguredTools({
         }
         case 'search_memories':
         case 'add_memory': {
-          if (!lightweightUser) return;
-          if (!memoryTools) {
-            if (memoryProvider === 'graphiti') {
-              const { createGraphitiMemoryTools } = await import('@/lib/tools/graphiti-memory');
-              const gt = createGraphitiMemoryTools(lightweightUser.userId);
-              memoryTools = { searchMemories: gt.searchMemoryTool, addMemory: gt.addMemoryTool };
-            } else {
-              const { createMemoryTools } = await import('@/lib/tools/supermemory');
-              memoryTools = createMemoryTools(lightweightUser.userId, anonymizeContext);
-            }
-          }
-          if (uniqueToolNames.includes('search_memories'))
-            tools.search_memories = tools.search_memories ?? memoryTools.searchMemories;
-          if (uniqueToolNames.includes('add_memory')) tools.add_memory = tools.add_memory ?? memoryTools.addMemory;
+          if (!lightweightUser || !isMemoryEnabled(userPreferences)) return;
+          const { createMemoryTools } = await import('@/lib/memory/tools');
+          const { searchMemories, addMemory } = createMemoryTools(lightweightUser.userId, chatId ?? null);
+          tools[toolName] = toolName === 'add_memory' ? addMemory : searchMemories;
           return;
         }
         case 'connectors_search': {

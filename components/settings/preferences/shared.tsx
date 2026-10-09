@@ -164,11 +164,6 @@ export const lockoutProviders = [
   },
 ] as const;
 
-export const memoryProviders = [
-  { value: 'supermemory', label: 'SuperMemory' },
-  { value: 'graphiti', label: 'Graphiti' },
-] as const;
-
 export const emailProviders = [
   { value: 'resend', label: 'Resend (API)' },
   { value: 'smtp', label: 'SMTP' },

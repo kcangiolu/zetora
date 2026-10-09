@@ -7,8 +7,6 @@ import {
   FASTCRW_SCRAPE_TIMEOUT_MS,
   METADATA_TIMEOUT_MS,
   NOTTE_TIMEOUT_MS,
-  GRAPHITI_TIMEOUT_MS,
-  GRAPHITI_INGEST_TIMEOUT_MS,
   EXTREME_WALL_CLOCK_MS,
   SEARCH_REQUEST_TIMEOUT_MS,
 } from '@/lib/timeouts';
@@ -77,18 +75,12 @@ describe('default timeout constants', () => {
       FASTCRW_SCRAPE_TIMEOUT_MS,
       METADATA_TIMEOUT_MS,
       NOTTE_TIMEOUT_MS,
-      GRAPHITI_TIMEOUT_MS,
-      GRAPHITI_INGEST_TIMEOUT_MS,
       EXTREME_WALL_CLOCK_MS,
       SEARCH_REQUEST_TIMEOUT_MS,
     ]) {
       expect(Number.isFinite(value)).toBe(true);
       expect(value).toBeGreaterThan(0);
     }
-  });
-
-  it('gives ingestion more headroom than a plain Graphiti call', () => {
-    expect(GRAPHITI_INGEST_TIMEOUT_MS).toBeGreaterThan(GRAPHITI_TIMEOUT_MS);
   });
 
   it('gives the whole request more headroom than the extreme-agent wall clock', () => {

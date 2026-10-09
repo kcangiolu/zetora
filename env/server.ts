@@ -108,13 +108,6 @@ export const serverEnv = createEnv({
     HUBSPOT_MCP_CLIENT_ID: z.string().optional().default('placeholder'),
     HUBSPOT_MCP_CLIENT_SECRET: z.string().optional().default('placeholder'),
     CUSTOM_AI_PROVIDERS: z.string().optional(),
-    GRAPHITI_API_URL: z.string().url().optional().default('http://localhost:8001'),
-    GRAPHITI_LLM_MODEL: z.string().optional().default('gpt-4o-mini'),
-    GRAPHITI_LLM_API_KEY: z.string().optional(),
-    GRAPHITI_LLM_BASE_URL: z.string().url().optional(),
-    GRAPHITI_EMBEDDING_MODEL: z.string().optional().default('text-embedding-3-small'),
-    GRAPHITI_EMBEDDING_API_KEY: z.string().optional(),
-    GRAPHITI_EMBEDDING_BASE_URL: z.string().url().optional(),
     ANONYMIZER_API_URL: z.string().url().optional().default('http://localhost:8004'),
     // Internal reachability check only (Diagnostics panel) — distinct from
     // VOICE_S2S_URL, which is the public browser-facing WS address. Default

@@ -66,8 +66,10 @@ const TASK_DEFAULTS: Record<TertiaryTask, string> = {
   'extreme-planner': 'zetora-ext-1',
   'extreme-agent': 'zetora-ext-1',
   voice: 'zetora-default',
-  // Reviews finished turns and decides what to store — needs reliable tool
-  // calling (search_memories/add_memory), not a fast summarizer model.
+  // Only used for weekly memory consolidation, or for every memory update
+  // when the user picks a dedicated model — by default a chat turn's memory
+  // update runs on the conversation's own model (see lib/memory/jobs.ts).
+  // Needs reliable structured output.
   'memory-curator': 'zetora-default',
   // Needs to comfortably read a long, possibly noisy conversation dump
   // (raw tool-call traces included) and produce a coherent summary — a

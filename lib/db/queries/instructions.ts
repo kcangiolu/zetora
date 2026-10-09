@@ -74,8 +74,8 @@ export async function deleteCustomInstructions({ userId }: { userId: string }) {
 
 // User Preferences CRUD operations
 //
-// Two preference fields hold third-party API keys the user types in
-// (zetora-custom-providers[].apiKey, zetora-graphiti-llm-api-key). They are
+// One preference field holds third-party API keys the user types in
+// (zetora-custom-providers[].apiKey). They are
 // encrypted at rest with the same AES-256-GCM scheme as MCP credentials, so a
 // DB dump/backup/replica never contains a usable secret. Encryption happens
 // on write (upsertUserPreferences) and decryption on read

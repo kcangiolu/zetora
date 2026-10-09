@@ -12,8 +12,8 @@ const log = createLogger('db-preferences');
 
 // User Preferences CRUD operations
 //
-// Two preference fields hold third-party API keys the user types in
-// (zetora-custom-providers[].apiKey, zetora-graphiti-llm-api-key). They are
+// One preference field holds third-party API keys the user types in
+// (zetora-custom-providers[].apiKey). They are
 // encrypted at rest with the same AES-256-GCM scheme as MCP credentials, so a
 // DB dump/backup/replica never contains a usable secret. Encryption happens
 // on write (upsertUserPreferences) and decryption on read
@@ -43,11 +43,6 @@ function mapPreferenceSecrets<T extends Record<string, unknown>>(
   shouldTransform: (value: unknown) => value is string,
 ): T {
   const next: Record<string, unknown> = { ...preferences };
-
-  const graphitiKey = next['zetora-graphiti-llm-api-key'];
-  if (shouldTransform(graphitiKey)) {
-    next['zetora-graphiti-llm-api-key'] = applyToSecret(graphitiKey, transform, 'zetora-graphiti-llm-api-key');
-  }
 
   if (Array.isArray(next['zetora-custom-providers'])) {
     next['zetora-custom-providers'] = (next['zetora-custom-providers'] as Array<{ apiKey?: unknown }>).map(
@@ -130,15 +125,6 @@ export async function upsertUserPreferences({
     'zetora-default-model'?: string;
     'zetora-default-provider'?: string;
     'zetora-lockout-provider'?: 'qstash' | 'bullmq';
-    'zetora-memory-provider'?: 'supermemory' | 'graphiti';
-    'zetora-graphiti-llm-model'?: string;
-    'zetora-graphiti-llm-base-url'?: string;
-    'zetora-graphiti-llm-api-key'?: string;
-    'zetora-graphiti-active-provider'?: string;
-    'zetora-graphiti-small-llm-provider'?: string;
-    'zetora-graphiti-small-llm-model'?: string;
-    'zetora-graphiti-embedding-provider'?: string;
-    'zetora-graphiti-embedding-model'?: string;
     'zetora-embedding-enabled'?: boolean;
     'zetora-file-embedding-provider'?: 'cohere' | 'custom';
     'zetora-xml-tool-parsing-enabled'?: boolean;
@@ -171,7 +157,7 @@ export async function upsertUserPreferences({
   }>;
 }) {
   try {
-    // Encrypt secret fields (custom-provider / Graphiti API keys) before they
+    // Encrypt secret fields (custom-provider API keys) before they
     // ever reach the DB — existingPrefs read below is already encrypted, so
     // only the caller-supplied delta needs transforming here.
     const encryptedUpdates = encryptPreferenceSecrets(preferences);

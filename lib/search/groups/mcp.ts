@@ -16,8 +16,8 @@ Today's date is ${new Date().toLocaleDateString('en-US', { year: 'numeric', mont
 - Only respond without tools if the request is purely conversational (e.g. "hello", "thanks") with no informational need.
 
 Memory tools:
-- Use search_memories ONLY when the user refers to past context or explicitly asks you to recall something — not on every message.
-- If the user shares something worth remembering, use add_memory with a short, self-contained summary — when in doubt, store nothing.
+- Use search_memories ONLY when the user refers to something from past conversations that is not already in your context — what you know about the user is already provided to you.
+- Use add_memory ONLY when the user explicitly asks you to remember something — other facts about the user are learned automatically after each answer.
 
 Tool usage:
 - Use available MCP tools as the primary source of truth whenever they can answer the request.

@@ -72,7 +72,10 @@ import { createReasoningDelimiterMiddleware } from '@/ai/native-models/reasoning
 import { getStartWithStrategy } from '@/lib/chat-commands-server';
 import { dropBenignTextPartErrors } from '@/lib/search/benign-stream-errors';
 import { loadConfiguredTools } from '@/lib/search/tool-loader';
-import { runMemoryCurator } from '@/lib/search/memory-curator';
+import { loadMemoryContext } from '@/lib/memory/context';
+import { runMemoryTurnUpdate } from '@/lib/memory/jobs';
+import { buildMemoryQueryText, formatTurnForMemory } from '@/lib/memory/prompt';
+import { isMemoryEnabled } from '@/lib/memory/settings';
 import { resolvePrepareStepOverride } from '@/lib/search/prepare-step';
 import { SEARCH_REQUEST_TIMEOUT_MS } from '@/lib/timeouts';
 import { xai } from '@ai-sdk/xai';
@@ -367,6 +370,12 @@ export async function POST(req: Request) {
       )
     : rawHydratedMessages;
 
+  // Temporary chats neither use nor feed the memory.
+  const memoryContextPromise =
+    lightweightUser && !isTemporaryChat && isMemoryEnabled(userPreferencesResult?.preferences)
+      ? loadMemoryContext(lightweightUser.userId, buildMemoryQueryText(hydratedMessages))
+      : Promise.resolve(null);
+
   // Save user message (chat is guaranteed to exist now) - await synchronously (no background)
   if (lightweightUser && !isTemporaryChat && newIncomingMessages.length > 0) {
     const latestIncomingUserMessage = [...newIncomingMessages].reverse().find((message) => message.role === 'user');
@@ -499,6 +508,13 @@ export async function POST(req: Request) {
         `\n\n[Large attached files: ${fileNames}. Use the file_query_search tool to search and retrieve information from these files.]`,
       );
     }
+  }
+
+  // Contextual memory goes into the last user message, after the stable
+  // prefix (system prompt + history), so it never invalidates prompt caching.
+  const memoryContext = await memoryContextPromise;
+  if (memoryContext?.contextualBlock) {
+    appendToLastUserMessage(processedMessages, memoryContext.contextualBlock);
   }
 
   // Detect images in last user message for auto-routing
@@ -657,9 +673,7 @@ export async function POST(req: Request) {
         mcpDynamicTools,
         lightweightUser,
         selectedConnectors,
-        memoryProvider:
-          (userPreferencesResult?.preferences?.['zetora-memory-provider'] as 'supermemory' | 'graphiti' | undefined) ||
-          'supermemory',
+        chatId: isTemporaryChat ? null : id,
         userPreferences: (userPreferencesResult?.preferences ?? {}) as Record<string, unknown>,
         anonymizeContext,
         enabledSkillIds,
@@ -873,6 +887,7 @@ export async function POST(req: Request) {
         (customInstructions && (isCustomInstructionsEnabled ?? true)
           ? `\n\nThe user's custom instructions are as follows and YOU MUST FOLLOW THEM AT ALL COSTS: ${customInstructions?.content}`
           : '\n') +
+        (memoryContext?.systemBlock ?? '') +
         (latitude && longitude && userPreferencesResult?.preferences?.['zetora-location-metadata-enabled'] === true
           ? `\n\nThe user's location is ${latitude}, ${longitude}.`
           : '') +
@@ -979,35 +994,44 @@ export async function POST(req: Request) {
       // /startwith forces a direct answer rather than an agentic turn: the
       // prefill message below only makes sense as the immediate continuation
       // of a single generation step, not as a lead-in to a tool-calling loop.
+      const modelMessages: ModelMessage[] = startWith
+        ? [
+            ...budgetedMessages,
+            {
+              role: 'assistant' as const,
+              content: startWith,
+              ...(startWithAssistantMessageProviderOptions
+                ? { providerOptions: startWithAssistantMessageProviderOptions }
+                : {}),
+            },
+          ]
+        : budgetedMessages;
+      const requestActiveTools = startWith
+        ? []
+        : shouldUseXaiMultiAgent
+          ? ['xai_web_search', 'xai_x_search']
+          : streamActiveTools;
+      const requestTools = startWith ? {} : streamTools;
+      const requestProviderOptions = {
+        ...getSearchProviderOptions(model, shouldUseXaiMultiAgent, effort),
+        ...customReasoningProviderOptions,
+      };
+
       const result = streamText({
         model: resolvedModel,
-        messages: startWith
-          ? [
-              ...budgetedMessages,
-              {
-                role: 'assistant' as const,
-                content: startWith,
-                ...(startWithAssistantMessageProviderOptions
-                  ? { providerOptions: startWithAssistantMessageProviderOptions }
-                  : {}),
-              },
-            ]
-          : budgetedMessages,
+        messages: modelMessages,
         ...getModelParameters(shouldUseXaiMultiAgent ? 'grok-4.20-multi-agent' : model, effort),
         stopWhen: startWith ? stepCountIs(1) : stepCountIs(staticSettings.stopWhenStepCount),
         ...(staticSettings.maxOutputTokens !== undefined ? { maxOutputTokens: staticSettings.maxOutputTokens } : {}),
         maxRetries: staticSettings.maxRetries,
         abortSignal: abortController.signal,
-        activeTools: startWith ? [] : shouldUseXaiMultiAgent ? ['xai_web_search', 'xai_x_search'] : streamActiveTools,
+        activeTools: requestActiveTools,
         experimental_transform: markdownJoinerTransform(),
         system: baseSystem,
         toolChoice: 'auto',
-        tools: startWith ? {} : streamTools,
+        tools: requestTools,
         ...(staticSettings.headers ? { headers: staticSettings.headers } : {}),
-        providerOptions: {
-          ...getSearchProviderOptions(model, shouldUseXaiMultiAgent, effort),
-          ...customReasoningProviderOptions,
-        },
+        providerOptions: requestProviderOptions,
         experimental_context: {
           // contextImages/contextFiles (collectAttachments, above) already scan
           // every message in the conversation — not just the last one — and
@@ -1177,6 +1201,26 @@ export async function POST(req: Request) {
           } finally {
             await closeMcpToolsSafe();
           }
+
+          if (lightweightUser && !isTemporaryChat && event.finishReason === 'stop') {
+            runMemoryTurnUpdate({
+              userId: lightweightUser.userId,
+              chatId: id,
+              preferences: userPreferencesResult?.preferences,
+              turnText: formatTurnForMemory(userQueryText, event.text),
+              chatRequest: {
+                model: resolvedModel,
+                system: baseSystem,
+                messages: [...modelMessages, ...event.response.messages],
+                // The XML tool middleware rewrites tool definitions into the
+                // prompt and parses tool calls out of the reply — combined
+                // with structured output, the request would no longer be the
+                // cached one anyway, and parsing becomes ambiguous.
+                ...(isXmlParsedCustomModel ? {} : { tools: requestTools, activeTools: requestActiveTools }),
+                providerOptions: requestProviderOptions,
+              },
+            });
+          }
         },
         onError(event) {
           const processingTime = (Date.now() - requestStartTime) / 1000;
@@ -1322,14 +1366,6 @@ export async function POST(req: Request) {
             hermesGatewayId: null,
           };
         }),
-      });
-
-      // Background memory curator — fire-and-forget, does not block response
-      runMemoryCurator({
-        messages: messagesToPersist,
-        userQueryText,
-        userId: lightweightUser.userId,
-        preferences: userPreferencesResult?.preferences,
       });
     },
   });

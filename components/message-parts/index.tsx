@@ -2775,25 +2775,6 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                   />
                 );
               case 'output-available':
-                // Handle error responses
-                if (!part.output.success) {
-                  return (
-                    <div className="w-full my-4 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950">
-                      <div className="p-4">
-                        <div className="flex items-start gap-3">
-                          <div className="shrink-0 w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900 flex items-center justify-center">
-                            <MemoryIcon className="h-4 w-4 text-red-600 dark:text-red-400" />
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="text-sm font-medium text-red-900 dark:text-red-100">Memory search failed</h3>
-                            <p className="text-xs text-red-700 dark:text-red-300 mt-1">{part.output.error}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-
                 const { results, count } = part.output;
                 if (!results || results.length === 0) {
                   return (
@@ -2838,9 +2819,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                       {results.map((memory: any, index: number) => (
                         <div key={memory.id || memory.uuid || index} className="px-4 py-2">
                           <p className="text-xs text-[hsl(var(--muted-foreground))] line-clamp-2">
-                            {/* SuperMemory results carry chunks[].content; Graphiti results carry
-                                a flat `fact` string instead — no `chunks` field at all. */}
-                            • {memory.chunks?.[0]?.content || memory.memory || memory.fact || ''}
+                            • {memory.memory}
                           </p>
                         </div>
                       ))}
@@ -2904,21 +2883,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
 
                       {addedMemory && (
                         <div className="mt-3 p-3 bg-white dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                          {addedMemory.title && (
-                            <h4 className="text-sm font-medium text-green-900 dark:text-green-100 mb-1">
-                              {addedMemory.title}
-                            </h4>
-                          )}
-                          <p className="text-xs text-green-700 dark:text-green-300">
-                            {addedMemory.summary || addedMemory.content || part.input.memory || 'Memory stored'}
-                          </p>
-                          {addedMemory.type && (
-                            <div className="flex items-center gap-2 mt-2">
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300">
-                                {addedMemory.type}
-                              </span>
-                            </div>
-                          )}
+                          <p className="text-xs text-green-700 dark:text-green-300">{addedMemory.memory}</p>
                         </div>
                       )}
                     </div>

@@ -93,9 +93,7 @@ export function PreferencesSection({
         )}
 
         {/* ── Integrations tab ── */}
-        {preferencesTab === 'integrations' && (
-          <IntegrationsTab user={user} customModelsList={customModelsList} customProviders={customProviders} />
-        )}
+        {preferencesTab === 'integrations' && <IntegrationsTab />}
 
         {/* ── Voice & Media tab ── */}
         {preferencesTab === 'voice' && <VoiceTab customProviders={customProviders} />}

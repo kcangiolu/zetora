@@ -17,3 +17,4 @@ export * from './uploaded-files';
 export * from './context-image-visibility';
 export * from './hermes';
 export * from './push-subscriptions';
+export * from './memory';

@@ -16,15 +16,11 @@ export const FASTCRW_SCRAPE_TIMEOUT_MS = envMs('ZETORA_FETCH_TIMEOUT_FASTCRW_SCR
 export const METADATA_TIMEOUT_MS = envMs('ZETORA_FETCH_TIMEOUT_METADATA', 10_000);
 // Slightly above the server-side maxDurationMinutes (2 min) Notte enforces.
 export const NOTTE_TIMEOUT_MS = envMs('ZETORA_FETCH_TIMEOUT_NOTTE', 150_000);
-export const GRAPHITI_TIMEOUT_MS = envMs('ZETORA_FETCH_TIMEOUT_GRAPHITI', 30_000);
 export const GITHUB_API_TIMEOUT_MS = envMs('ZETORA_FETCH_TIMEOUT_GITHUB_API', 10_000);
 // exa-js has no client-side request timeout or retry of its own (plain
 // `fetch` with no `signal`), so a slow/hanging Exa API call blocks its query
 // indefinitely instead of failing fast like the other providers.
 export const EXA_SEARCH_TIMEOUT_MS = envMs('ZETORA_FETCH_TIMEOUT_EXA', 30_000);
-// Episode ingestion runs LLM entity extraction server-side — on a local
-// single-slot llama.cpp that can legitimately take minutes.
-export const GRAPHITI_INGEST_TIMEOUT_MS = envMs('ZETORA_FETCH_TIMEOUT_GRAPHITI_INGEST', 180_000);
 
 // Wall-clock budget for an extreme-search agent run (its 25-75 sequential
 // steps are unbounded in time otherwise). 0 disables the request timer.

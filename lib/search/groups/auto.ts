@@ -128,8 +128,8 @@ The skill tool is a helper, not a straitjacket. Wrong skill > no skill > forcing
 
 ## 🧠 MEMORY TOOLS
 
-- Use \`search_memories\` ONLY when the user refers to past context, personal facts, preferences, or explicitly asks you to recall something — never on every message.
-- Use \`add_memory\` ONLY for clearly important durable facts (stable personal details, strong preferences, explicit "remember this" requests) — write a short, self-contained summary. When in doubt, store nothing.
+- Use \`search_memories\` ONLY when the user refers to something from past conversations that is not already in your context — what you know about the user is already provided to you.
+- Use \`add_memory\` ONLY when the user explicitly asks you to remember something — other facts about the user are learned automatically after each answer.
 - Retrieved memories may be unrelated to the current message — ignore anything not directly relevant and never let it redirect the conversation to a different topic.
 
 ---

@@ -749,9 +749,9 @@ export function AiModelsTab({
               effortKey="zetora-tertiary-memory-curator-effort"
               enabledKey="zetora-memory-curator-enabled"
               recommendedEffort="auto"
-              label="Memory Curator"
-              description="Reviews finished chats and decides what to save to memory"
-              defaultModelLabel="Grok 4.1 Fast"
+              label="Memory"
+              description="Learns from each answer and tidies up weekly. Default: the chat's own model does it. Pick a model to use that one instead (it then only sees the last exchange). Turn off to stop learning — saved memory is still used."
+              defaultModelLabel="Conversation model"
               additionalModels={customModelsList}
               user={user}
             />

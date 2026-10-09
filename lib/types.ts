@@ -26,9 +26,6 @@ import type {
   movieTvSearchTool,
   trendingTvTool,
   createConnectorsSearchTool,
-  createMemoryTools,
-  SearchMemoryTool,
-  AddMemoryTool,
   codeContextTool,
   createFileQuerySearchTool,
   spotifySearchTool,
@@ -37,6 +34,7 @@ import type {
   generateImageTool,
   editImageTool,
 } from '@/lib/tools';
+import type { createMemoryTools } from '@/lib/memory/tools';
 
 import type { InferUITool, UIMessage } from 'ai';
 import type { SpecDataPart } from '@json-render/core';
@@ -194,8 +192,8 @@ type youtubeSearchTool = InferUITool<typeof youtubeSearchTool>;
 type coinDataByContractTool = InferUITool<typeof coinDataByContractTool>;
 type datetimeTool = InferUITool<typeof datetimeTool>;
 type createConnectorsSearchTool = InferUITool<ReturnType<typeof createConnectorsSearchTool>>;
-type createMemoryTools = InferUITool<SearchMemoryTool>;
-type addMemoryTools = InferUITool<AddMemoryTool>;
+type searchMemoriesTool = InferUITool<ReturnType<typeof createMemoryTools>['searchMemories']>;
+type addMemoryTool = InferUITool<ReturnType<typeof createMemoryTools>['addMemory']>;
 type codeContextTool = InferUITool<typeof codeContextTool>;
 type fileQuerySearchTool = InferUITool<ReturnType<typeof createFileQuerySearchTool>>;
 type spotifySearchTool = InferUITool<typeof spotifySearchTool>;
@@ -246,8 +244,8 @@ export type ChatTools = {
   greeting: greetingTool;
 
   connectors_search: createConnectorsSearchTool;
-  search_memories: createMemoryTools;
-  add_memory: addMemoryTools;
+  search_memories: searchMemoriesTool;
+  add_memory: addMemoryTool;
 
   code_context: codeContextTool;
   file_query_search: fileQuerySearchTool;

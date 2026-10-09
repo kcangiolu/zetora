@@ -2,7 +2,7 @@
 # Zetora — Production docker-compose
 #
 # Pull-only, on purpose: no service here has a `build:` section. Custom
-# images (zetora-app, zetora-migrate, graphiti-*, presidio-api, zetora-tts,
+# images (zetora-app, zetora-migrate, presidio-api, zetora-tts,
 # stt-service, s2s-service) are referenced via ${ZETORA_*_IMAGE} vars with a
 # generic `:local` fallback — this file alone doesn't point at any specific
 # registry. Kenny's own deployment supplies the real private-registry tags
@@ -11,7 +11,7 @@
 #   docker compose -f docker-compose.yml -f docker-compose.internal.yml pull/up
 # A prod host that only has this compose file deployed (e.g. Unraid's
 # Compose Manager) doesn't have the source subdirectories
-# (./s2s-service, ./graphiti-service, ...) that a `build:` context would
+# (./s2s-service, ./presidio-service, ...) that a `build:` context would
 # need — always `docker compose pull` before `up -d` so Compose never falls
 # back to trying to build one locally.
 #
@@ -28,8 +28,6 @@
 #          ${DATA_DIR}/qdrant \
 #          ${DATA_DIR}/minio \
 #          ${DATA_DIR}/searxng \
-#          ${DATA_DIR}/falkordb \
-#          ${DATA_DIR}/graphiti \
 #          ${DATA_DIR}/whisper \
 #          ${DATA_DIR}/fastcrw \
 #          ${DATA_DIR}/fastcrw-app \
@@ -54,7 +52,6 @@
 #        fastcrw      fastcrw, chrome                      Exa / Firecrawl
 #        sandbox      sandbox                              Daytona
 #        bullmq       bullmq-redis, bullboard              Upstash QStash
-#        graphiti     falkordb, graphiti-api, graphiti-mcp  Supermemory
 #        qdrant       qdrant                                (hybrid search just skipped)
 #        presidio     presidio-api                          (anonymization stays off)
 #        tts          qwen3-tts                             (no cloud equivalent; GPU-bound)
@@ -67,21 +64,21 @@
 #      specific fallback it was verified to hit).
 #
 #      Start any subset with:
-#        docker compose --profile minio --profile graphiti up -d
+#        docker compose --profile minio --profile searxng up -d
 #      Or set COMPOSE_PROFILES to a comma-separated list in .env to keep a
 #      chosen set always resident. Full self-hosted stack:
 #        docker compose --profile minio --profile searxng --profile fastcrw \
-#          --profile sandbox --profile bullmq --profile graphiti \
-#          --profile qdrant --profile presidio --profile tts up -d
+#          --profile sandbox --profile bullmq --profile qdrant \
+#          --profile presidio --profile tts up -d
 #
 # All services share the `zetora-network` network and resolve each other by
 # service name (e.g. the app reaches Postgres at `postgres:5432`).
 #
 # Internal-only services (postgres, redis, minio, qdrant, searxng, sandbox,
-# falkordb, graphiti, bullmq-redis, bullboard) are bound to 127.0.0.1 — put a
+# bullmq-redis, bullboard) are bound to 127.0.0.1 — put a
 # reverse proxy in front of zetora.app (port 3333) for your domain, and use
 # an SSH tunnel if you need direct access to an admin UI (MinIO console,
-# Bullboard, SearXNG, Qdrant dashboard, FalkorDB browser).
+# Bullboard, SearXNG, Qdrant dashboard).
 # =============================================================================
 
 services:
@@ -146,7 +143,6 @@ services:
       - FASTCRW_URL=http://fastcrw:3000
       - SANDBOX_PROVIDER=docker
       - DOCKER_SANDBOX_URL=http://sandbox:8000
-      - GRAPHITI_API_URL=http://graphiti-api:8001
       - ANONYMIZER_API_URL=http://presidio-api:8000
       - S2S_SERVICE_URL=http://s2s-service:8080
       # Defaults to unset/false, not true: BULLMQ_REDIS is behind the
@@ -555,113 +551,6 @@ services:
         limits:
           cpus: '1'
           memory: 512M
-    restart: unless-stopped
-
-  # ---------------------------------------------------------------------------
-  # Graphiti (knowledge graph memory)
-  # ---------------------------------------------------------------------------
-  falkordb:
-    profiles: ['graphiti']
-    image: falkordb/falkordb:latest
-    container_name: zetora-falkordb
-    ports:
-      - '127.0.0.1:6380:6379'
-      - '127.0.0.1:3002:3002'
-    volumes:
-      # FalkorDB actually persists to /var/lib/falkordb/data (confirmed via
-      # `redis-cli config get dir`), not /data — mounting /data here was a
-      # no-op that silently lost all graph data on every container recreate.
-      - ${DATA_DIR}/falkordb:/var/lib/falkordb/data
-    healthcheck:
-      test: ['CMD', 'redis-cli', '-p', '6379', 'ping']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - zetora-network
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 512M
-    restart: unless-stopped
-
-  graphiti-api:
-    profiles: ['graphiti']
-    image: ${ZETORA_GRAPHITI_API_IMAGE:-zetora-graphiti-api:local}
-    container_name: zetora-graphiti-api
-    ports:
-      - '127.0.0.1:8001:8001'
-    volumes:
-      - ${DATA_DIR}/graphiti:/data
-    environment:
-      - PORT=8001
-      - GRAPH_DB_URL=bolt://falkordb:6379
-      - LLM_MODEL=${GRAPHITI_LLM_MODEL:-gpt-4o-mini}
-      - SMALL_LLM_MODEL=${GRAPHITI_LLM_SMALL_MODEL:-}
-      - LLM_API_KEY=${GRAPHITI_LLM_API_KEY}
-      - LLM_BASE_URL=${GRAPHITI_LLM_BASE_URL:-https://api.openai.com/v1}
-      - EMBEDDING_MODEL=${GRAPHITI_EMBEDDING_MODEL:-text-embedding-3-small}
-      - EMBEDDING_API_KEY=${GRAPHITI_EMBEDDING_API_KEY}
-      - EMBEDDING_BASE_URL=${GRAPHITI_EMBEDDING_BASE_URL:-https://api.openai.com/v1}
-    healthcheck:
-      # Defined here rather than relying on the image's own HEALTHCHECK —
-      # the currently-published image predates that Dockerfile instruction
-      # (path-filtered CI only rebuilds this image when graphiti-service/
-      # changes), so `condition: service_healthy` had nothing to check
-      # against. python:3.12-slim has no curl/wget, so use urllib like the
-      # Dockerfile does.
-      test: ['CMD', 'python', '-c', "import os,urllib.request;urllib.request.urlopen('http://127.0.0.1:'+os.environ.get('PORT','8001')+'/health', timeout=4)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-    depends_on:
-      falkordb:
-        condition: service_healthy
-    networks:
-      - zetora-network
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 512M
-    restart: unless-stopped
-
-  graphiti-mcp:
-    profiles: ['graphiti']
-    image: ${ZETORA_GRAPHITI_MCP_IMAGE:-zetora-graphiti-mcp:local}
-    container_name: zetora-graphiti-mcp
-    ports:
-      - '8002:8002'
-    volumes:
-      - ${DATA_DIR}/graphiti:/data
-    environment:
-      - PORT=8002
-      - GRAPH_DB_URL=bolt://falkordb:6379
-      - LLM_MODEL=${GRAPHITI_LLM_MODEL:-gpt-4o-mini}
-      - SMALL_LLM_MODEL=${GRAPHITI_LLM_SMALL_MODEL:-}
-      - LLM_API_KEY=${GRAPHITI_LLM_API_KEY}
-      - LLM_BASE_URL=${GRAPHITI_LLM_BASE_URL:-https://api.openai.com/v1}
-      - EMBEDDING_MODEL=${GRAPHITI_EMBEDDING_MODEL:-text-embedding-3-small}
-      - EMBEDDING_API_KEY=${GRAPHITI_EMBEDDING_API_KEY}
-      - EMBEDDING_BASE_URL=${GRAPHITI_EMBEDDING_BASE_URL:-https://api.openai.com/v1}
-    healthcheck:
-      test: ['CMD', 'python', '-c', "import os,urllib.request;urllib.request.urlopen('http://127.0.0.1:'+os.environ.get('PORT','8002')+'/health', timeout=4)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-    depends_on:
-      falkordb:
-        condition: service_healthy
-    networks:
-      - zetora-network
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------

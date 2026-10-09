@@ -1,34 +1,13 @@
 'use client';
 
-import type { SettingsUser } from '../shared';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ModelSelectorDialog } from '@/components/ui/model-selector';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
-import { type Model } from '@/ai/models';
 import { sileo } from 'sileo';
-import { HardDrive, Timer, X } from 'lucide-react';
-import {
-  storageProviders,
-  lockoutProviders,
-  memoryProviders,
-  emailProviders,
-  type CustomProviderConfig,
-  EmailTestButton,
-  parseCustomModel,
-} from './shared';
+import { HardDrive, Timer } from 'lucide-react';
+import { storageProviders, lockoutProviders, emailProviders, EmailTestButton } from './shared';
 
-export function IntegrationsTab({
-  user,
-  customModelsList,
-  customProviders,
-}: {
-  user: SettingsUser;
-  customModelsList: Model[];
-  customProviders: CustomProviderConfig[];
-}) {
+export function IntegrationsTab() {
   const [sandboxProvider, setSandboxProvider] = useSyncedPreferences<'daytona' | 'docker'>(
     'zetora-sandbox-provider',
     'daytona',
@@ -45,27 +24,6 @@ export function IntegrationsTab({
     'zetora-lockout-provider',
     'qstash',
   );
-
-  const [memoryProvider, setMemoryProvider] = useSyncedPreferences<'supermemory' | 'graphiti'>(
-    'zetora-memory-provider',
-    'supermemory',
-  );
-  const [selectedGraphitiProvider, setSelectedGraphitiProvider] = useSyncedPreferences<string>(
-    'zetora-graphiti-active-provider',
-    '',
-  );
-  const [graphitiLlmModel, setGraphitiLlmModel] = useSyncedPreferences<string>('zetora-graphiti-llm-model', '');
-  const [, setGraphitiLlmBaseUrl] = useSyncedPreferences<string>('zetora-graphiti-llm-base-url', '');
-  const [selectedGraphitiSmallLlmProvider, setSelectedGraphitiSmallLlmProvider] = useSyncedPreferences<string>(
-    'zetora-graphiti-small-llm-provider',
-    '',
-  );
-  const [, setGraphitiSmallLlmModel] = useSyncedPreferences<string>('zetora-graphiti-small-llm-model', '');
-  const [graphitiEmbeddingProvider, setGraphitiEmbeddingProvider] = useSyncedPreferences<string>(
-    'zetora-graphiti-embedding-provider',
-    '',
-  );
-  const [, setGraphitiEmbeddingModel] = useSyncedPreferences<string>('zetora-graphiti-embedding-model', '');
 
   const [xqlEnabled, setXqlEnabled] = useSyncedPreferences<boolean>('zetora-xql-enabled', true);
   const [lookoutEnabled, setLookoutEnabled] = useSyncedPreferences<boolean>('zetora-lookout-enabled', true);
@@ -91,75 +49,6 @@ export function IntegrationsTab({
       title: `Lookout scheduler changed to ${label}`,
       description: 'This will be used for all future scheduled searches',
       icon: <Timer className="h-4 w-4" />,
-    });
-  };
-
-  // The provider's API key is decrypted server-side and forwarded straight to
-  // Graphiti by /api/graphiti/link-provider — it never touches the browser.
-  const linkGraphitiProvider = async (
-    providerId: string,
-    target: 'llm' | 'embedding' | 'small_llm',
-    modelName: string,
-  ) => {
-    try {
-      const res = await fetch('/api/graphiti/link-provider', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ providerId, target, modelName }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-    } catch {
-      sileo.error({ title: 'Could not configure Graphiti service' });
-    }
-  };
-
-  const handleGraphitiLlmSelect = async (modelId: string) => {
-    setSelectedGraphitiProvider(modelId);
-    if (modelId) {
-      const parsed = parseCustomModel(modelId, customProviders);
-      if (parsed) {
-        setGraphitiLlmModel(parsed.modelName);
-        setGraphitiLlmBaseUrl(parsed.provider.baseURL);
-        await linkGraphitiProvider(parsed.provider.id, 'llm', parsed.modelName);
-      }
-    } else {
-      setGraphitiLlmModel('');
-      setGraphitiLlmBaseUrl('');
-    }
-  };
-
-  const handleGraphitiSmallLlmSelect = async (modelId: string) => {
-    setSelectedGraphitiSmallLlmProvider(modelId);
-    if (modelId) {
-      const parsed = parseCustomModel(modelId, customProviders);
-      if (parsed) {
-        setGraphitiSmallLlmModel(parsed.modelName);
-        await linkGraphitiProvider(parsed.provider.id, 'small_llm', parsed.modelName);
-      }
-    } else {
-      setGraphitiSmallLlmModel('');
-    }
-  };
-
-  const handleGraphitiEmbeddingSelect = async (modelId: string) => {
-    setGraphitiEmbeddingProvider(modelId);
-    if (modelId) {
-      const parsed = parseCustomModel(modelId, customProviders);
-      if (parsed) {
-        setGraphitiEmbeddingModel(parsed.modelName);
-        await linkGraphitiProvider(parsed.provider.id, 'embedding', parsed.modelName);
-      }
-    } else {
-      setGraphitiEmbeddingModel('');
-    }
-  };
-
-  const handleMemoryProviderChange = (newProvider: 'supermemory' | 'graphiti') => {
-    setMemoryProvider(newProvider);
-    const label = memoryProviders.find((p) => p.value === newProvider)?.label ?? newProvider;
-    sileo.success({
-      title: `Memory provider changed to ${label}`,
-      description: 'This will be used for all future memory operations',
     });
   };
 
@@ -255,29 +144,6 @@ export function IntegrationsTab({
           <div className="py-3.5">
             <EmailTestButton />
           </div>
-
-          {/* Memory Provider */}
-          <div className="flex items-center justify-between py-3.5 gap-6">
-            <div className="min-w-0">
-              <p className="text-sm font-medium">Memory Provider</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Backend for long-term memory storage</p>
-            </div>
-            <Select
-              value={memoryProvider}
-              onValueChange={(v) => handleMemoryProviderChange(v as 'supermemory' | 'graphiti')}
-            >
-              <SelectTrigger className="w-[140px] h-8 text-xs rounded-lg shrink-0">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {memoryProviders.map((p) => (
-                  <SelectItem key={p.value} value={p.value}>
-                    {p.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
         </div>
       </div>
       <div className="mt-4">
@@ -346,117 +212,6 @@ export function IntegrationsTab({
               <p className="text-xs text-muted-foreground mt-0.5">Show Canvas in the + menu</p>
             </div>
             <Switch id="canvas-enabled" checked={canvasEnabled} onCheckedChange={setCanvasEnabled} />
-          </div>
-        </div>
-
-        {/* Graphiti Services */}
-        <div className="rounded-xl border border-border/60 mt-4 overflow-hidden">
-          <div className="px-4 py-3 border-b border-border/40">
-            <p className="text-sm font-medium">Graphiti Services</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Self-hosted Graphiti instances (temporal knowledge graph)
-            </p>
-          </div>
-
-          {/* LLM Extractor */}
-          <div className="flex items-center justify-between px-4 py-3.5 gap-6">
-            <div className="min-w-0">
-              <p className="text-sm font-medium">LLM Extractor</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Model used for entity extraction</p>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              {!selectedGraphitiProvider && (
-                <span className="text-[11px] text-muted-foreground/70 shrink-0">Not set</span>
-              )}
-              <ModelSelectorDialog
-                selectedModel={selectedGraphitiProvider}
-                onModelSelect={handleGraphitiLlmSelect}
-                user={user}
-                additionalModels={customModelsList}
-                onlyAdditionalModels
-                className="w-[180px] h-8"
-                compact
-              />
-              {selectedGraphitiProvider && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
-                  onClick={() => handleGraphitiLlmSelect('')}
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {/* Small LLM Extractor */}
-          <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
-            <div className="min-w-0">
-              <p className="text-sm font-medium">Small LLM Extractor</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Fast model for classification/dedup steps — must be on the same provider as LLM Extractor above
-              </p>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              {!selectedGraphitiSmallLlmProvider && (
-                <span className="text-[11px] text-muted-foreground/70 shrink-0">Not set</span>
-              )}
-              <ModelSelectorDialog
-                selectedModel={selectedGraphitiSmallLlmProvider}
-                onModelSelect={handleGraphitiSmallLlmSelect}
-                user={user}
-                additionalModels={customModelsList}
-                onlyAdditionalModels
-                className="w-[180px] h-8"
-                compact
-              />
-              {selectedGraphitiSmallLlmProvider && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
-                  onClick={() => handleGraphitiSmallLlmSelect('')}
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {/* Embedding */}
-          <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
-            <div className="min-w-0">
-              <p className="text-sm font-medium">Embedding</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Model used for vector embeddings</p>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              {!graphitiEmbeddingProvider && (
-                <span className="text-[11px] text-muted-foreground/70 shrink-0">Not set</span>
-              )}
-              <ModelSelectorDialog
-                selectedModel={graphitiEmbeddingProvider}
-                onModelSelect={handleGraphitiEmbeddingSelect}
-                user={user}
-                additionalModels={customModelsList}
-                onlyAdditionalModels
-                className="w-[180px] h-8"
-                compact
-              />
-              {graphitiEmbeddingProvider && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
-                  onClick={() => handleGraphitiEmbeddingSelect('')}
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              )}
-            </div>
           </div>
         </div>
       </div>

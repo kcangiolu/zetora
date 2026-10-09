@@ -47,11 +47,6 @@ try {
     const prefs = row.preferences || {};
     let changed = false;
 
-    if (isPlaintextSecret(prefs['zetora-graphiti-llm-api-key'])) {
-      prefs['zetora-graphiti-llm-api-key'] = encrypt(prefs['zetora-graphiti-llm-api-key']);
-      changed = true;
-    }
-
     if (Array.isArray(prefs['zetora-custom-providers'])) {
       prefs['zetora-custom-providers'] = prefs['zetora-custom-providers'].map((provider) => {
         if (provider && isPlaintextSecret(provider.apiKey)) {

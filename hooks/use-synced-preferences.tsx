@@ -74,15 +74,6 @@ export type PreferenceKey =
   | 'zetora-default-provider'
   | 'zetora-default-effort'
   | 'zetora-lockout-provider'
-  | 'zetora-memory-provider'
-  | 'zetora-graphiti-llm-model'
-  | 'zetora-graphiti-llm-base-url'
-  | 'zetora-graphiti-llm-api-key'
-  | 'zetora-graphiti-active-provider'
-  | 'zetora-graphiti-small-llm-provider'
-  | 'zetora-graphiti-small-llm-model'
-  | 'zetora-graphiti-embedding-provider'
-  | 'zetora-graphiti-embedding-model'
   | 'zetora-embedding-enabled'
   | 'zetora-hybrid-search-enabled'
   | 'zetora-content-indexing-enabled'
@@ -133,6 +124,7 @@ export type PreferenceKey =
   | 'zetora-tertiary-voice-model'
   | 'zetora-tertiary-voice-provider'
   | 'zetora-tertiary-voice-effort'
+  | 'zetora-memory-enabled'
   | 'zetora-memory-curator-enabled'
   | 'zetora-tertiary-memory-curator-model'
   | 'zetora-tertiary-memory-curator-provider'
@@ -152,8 +144,6 @@ type AutoRouterConfig = {
   }>;
 };
 
-type GraphitiProvider = { id: string; name: string; baseURL: string; apiKey?: string };
-
 export type ImageGenPromptPreset = { id: string; name: string; prompt: string; model?: string };
 
 export type SystemPromptPreset = { id: string; name: string; prompt: string };
@@ -164,7 +154,6 @@ type PreferenceValue =
   | boolean
   | number
   | AutoRouterConfig
-  | GraphitiProvider[]
   | ImageGenPromptPreset[]
   | SystemPromptPreset[]
   | Record<string, string>

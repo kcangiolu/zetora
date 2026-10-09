@@ -2,14 +2,13 @@ import { withAuth } from '@/lib/api/route-handlers';
 import { upsertUserPreferences } from '@/lib/db/queries';
 import { clearUserPreferencesCache, getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 
-// zetora-custom-providers[].apiKey and zetora-graphiti-llm-api-key hold
-// third-party API keys. Nothing in the client reads them back from this
-// generic endpoint (custom providers come redacted from
-// /api/custom-providers; the Graphiti key is set write-only) — strip them so
-// they never sit in a browser response body or the settings query cache.
+// zetora-custom-providers[].apiKey holds third-party API keys. Nothing in the
+// client reads them back from this generic endpoint (custom providers come
+// redacted from /api/custom-providers) — strip them so they never sit in a
+// browser response body or the settings query cache.
 function redactSecretPreferences(record: Record<string, unknown> | null | undefined) {
   if (!record) return record;
-  const { 'zetora-graphiti-llm-api-key': _graphitiKey, ...rest } = record;
+  const rest = { ...record };
   if (Array.isArray(rest['zetora-custom-providers'])) {
     rest['zetora-custom-providers'] = (rest['zetora-custom-providers'] as Array<{ apiKey?: unknown }>).map(
       ({ apiKey: _apiKey, ...provider }) => provider,
