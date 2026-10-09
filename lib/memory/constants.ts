@@ -24,7 +24,7 @@ export type MemoryTier = (typeof MEMORY_TIERS)[number];
 
 // Only 'confirmed' entries are ever injected. A model-proposed entry starts as
 // a 'candidate' and is confirmed once it comes up again in another chat.
-export const MEMORY_STATUSES = ['candidate', 'confirmed', 'archived'] as const;
+const MEMORY_STATUSES = ['candidate', 'confirmed', 'archived'] as const;
 export type MemoryStatus = (typeof MEMORY_STATUSES)[number];
 
 export const MEMORY_LIMITS = {

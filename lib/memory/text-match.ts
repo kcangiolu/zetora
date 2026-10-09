@@ -28,7 +28,7 @@ const STOPWORDS = new Set(
     .split(' '),
 );
 
-export function normalizeText(text: string): string {
+function normalizeText(text: string): string {
   return text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 }
 
