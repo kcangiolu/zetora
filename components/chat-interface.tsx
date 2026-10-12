@@ -76,7 +76,8 @@ import { useSessionPreference } from '@/hooks/use-session-preference';
 // Utility and type imports
 import { ChatSDKError } from '@/lib/errors';
 import { cn, SearchGroupId } from '@/lib/utils';
-import { canonicalModelId, hasVisionSupport } from '@/ai/models';
+import { AUTO_MODEL_ID, DEFAULT_MODEL_ALIAS } from '@/ai/models';
+import { useModels } from '@/hooks/use-models';
 import { ConnectorProvider } from '@/lib/connectors';
 
 // State management imports
@@ -173,10 +174,10 @@ const ChatInterface = memo(
       queueMicrotask(() => measureHeaderMenuAlignment());
     }, [pathname, localChatTitle, headerMenuOpen, measureHeaderMenuAlignment]);
 
-    const [selectedModel, setSelectedModel] = useLocalStorage('zetora-selected-model', 'zetora-default');
+    const [selectedModel, setSelectedModel] = useLocalStorage('zetora-selected-model', DEFAULT_MODEL_ALIAS);
     // On first visit (no 'zetora-selected-model' ever stored), pre-select the
     // user's "Default Model" preference (Settings → Tertiary Models) instead
-    // of leaving the hardcoded 'zetora-default' — mirrors resolveModel's
+    // of leaving the instance's default — mirrors resolveModel's
     // server-side fallback (ai/providers.ts's resolveDefaultModelId) so an
     // explicit preference is honored everywhere, not just in the background.
     const [defaultModelPreference, , defaultModelPreferenceResolved] = useSyncedPreferences<string>(
@@ -189,42 +190,21 @@ const ChatInterface = memo(
       if (localStorage.getItem('zetora-selected-model') !== null) return;
       setSelectedModel(defaultModelPreference);
     }, [defaultModelPreferenceResolved, defaultModelPreference, setSelectedModel]);
-    // A stored selection can still name a replaced catalog id (a folded
-    // "Thinking" entry, a model renamed after its successor) — move it on.
+    const { getModel } = useModels();
+    // A stored selection can be the default-model alias, a pre-models.dev id
+    // or an id spelled differently than today's — move it to the current one.
     useEffect(() => {
-      const canonical = canonicalModelId(selectedModel);
-      if (canonical !== selectedModel) setSelectedModel(canonical);
-    }, [selectedModel, setSelectedModel]);
+      const model = getModel(selectedModel);
+      if (model && model.value !== selectedModel) setSelectedModel(model.value);
+    }, [selectedModel, setSelectedModel, getModel]);
     // Session-scoped like selectedModel, not a synced DB preference (the
     // per-task recommended defaults live in Settings instead — see
     // ai/tertiary.ts's TASK_RECOMMENDED_EFFORT for the tertiary equivalent).
     const [reasoningEffort, setReasoningEffort] = useLocalStorage<ReasoningEffort>('zetora-reasoning-effort', 'auto');
-    // Custom-provider models aren't in the static catalog hasVisionSupport
-    // reads from, so their vision flag (auto-detected server-side from
-    // Ollama's /api/show capabilities or llama.cpp's /props modalities) is
-    // fetched separately here, keyed by model id.
-    const [customModelsVision, setCustomModelsVision] = useState<Record<string, boolean>>({});
-    useEffect(() => {
-      let mounted = true;
-      fetch('/api/custom-providers/models')
-        .then((r) => r.json())
-        .then((d) => {
-          if (!mounted || !Array.isArray(d.models)) return;
-          setCustomModelsVision(Object.fromEntries(d.models.map((m: { value: string; vision: boolean }) => [m.value, m.vision])));
-        })
-        .catch(() => {});
-      return () => {
-        mounted = false;
-      };
-    }, []);
-    const resolveVisionSupport = useCallback(
-      (modelValue: string) =>
-        modelValue.startsWith('custom-') ? (customModelsVision[modelValue] ?? false) : hasVisionSupport(modelValue),
-      [customModelsVision],
-    );
+    const resolveVisionSupport = useCallback((modelValue: string) => getModel(modelValue)?.vision ?? false, [getModel]);
     // Whether images are injected into the model's context (vs. hosted +
     // handed to it as a URL only). Defaults from the model's vision
-    // capability (catalog flag, or the fetched custom-provider flag above).
+    // capability (see useModels).
     // The user can override per-message — switching models recomputes the
     // default (see effect below) but doesn't otherwise touch this state.
     const [visionEnabled, setVisionEnabled] = useState(() => resolveVisionSupport(selectedModel));
@@ -1012,7 +992,7 @@ const ChatInterface = memo(
 
     const sendMessageWithAutoRouting = useCallback(
       async (message: Parameters<typeof sendMessage>[0], options?: Parameters<typeof sendMessage>[1]) => {
-        const isUsingAutoRouter = selectedModelRef.current === 'zetora-auto';
+        const isUsingAutoRouter = selectedModelRef.current === AUTO_MODEL_ID;
         // Every search turn goes through here and no Agent message ever does
         // (form-component sends those via useHermesSend), so this is where a chat whose
         // first message is a search turn becomes search-locked.
@@ -1341,7 +1321,7 @@ const ChatInterface = memo(
       (model: string) => {
         setSelectedModel(model);
         // Clear auto-routed model when switching away from auto
-        if (model !== 'zetora-auto') {
+        if (model !== AUTO_MODEL_ID) {
           setAutoRoutedModel(null);
         }
       },

@@ -5,7 +5,6 @@ import { useUserData } from '@/hooks/use-user-data';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { useSession } from '@/lib/auth-client';
 import { type ComprehensiveUserData } from '@/lib/user-data';
-import { shouldBypassRateLimits } from '@/ai/models';
 
 export function useCachedUserData() {
   const { data: session, isPending: isSessionPending } = useSession();
@@ -38,11 +37,6 @@ export function useCachedUserData() {
   // Show loading only if we have no cached data and fresh data is loading
   const isLoading = !cachedUser && isFreshLoading;
 
-  // Helper function to check if user should have unlimited access for specific models
-  const shouldBypassLimitsForModel = (selectedModel: string) => {
-    return shouldBypassRateLimits(selectedModel, user);
-  };
-
   return {
     // Core user data
     user,
@@ -50,8 +44,6 @@ export function useCachedUserData() {
     error,
     refetch,
     isRefetching,
-
-    shouldBypassLimitsForModel,
 
     // Additional utilities
     isCached: Boolean(cachedUser),

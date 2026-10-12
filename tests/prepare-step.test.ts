@@ -5,7 +5,6 @@ const base = {
   group: 'web',
   shouldUseXaiMultiAgent: false,
   isXmlParsedCustomModel: false,
-  model: 'zetora-default',
   latestStepHasToolRoundTrip: false,
   streamActiveTools: ['web_search', 'retrieve', 'datetime'],
   baseSystem: 'You are a search engine.',
@@ -124,20 +123,8 @@ describe('resolvePrepareStepOverride', () => {
     expect(override?.system).toBeUndefined();
   });
 
-  it('keeps tools active for zetora-sarvam-105b even after a tool round', () => {
-    const override = resolvePrepareStepOverride({
-      ...base,
-      model: 'zetora-sarvam-105b',
-      latestStepHasToolRoundTrip: true,
-    });
-    expect(override).toEqual({
-      toolChoice: 'auto',
-      activeTools: base.streamActiveTools,
-    });
-  });
-
   describe('XML-parsed custom models', () => {
-    const xmlBase = { ...base, model: 'custom-llamacpp:qwen3.6', isXmlParsedCustomModel: true };
+    const xmlBase = { ...base, isXmlParsedCustomModel: true };
 
     it('keeps schemas armed AND appends the synthesis nudge after a tool round', () => {
       const override = resolvePrepareStepOverride({ ...xmlBase, latestStepHasToolRoundTrip: true });

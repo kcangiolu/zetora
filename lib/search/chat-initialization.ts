@@ -1,6 +1,5 @@
 import { createLogger } from '@/lib/logger';
 import { ChatSDKError } from '@/lib/errors';
-import { shouldBypassRateLimits } from '@/ai/providers';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { createStreamId, getHermesChatLock, saveNewChatWithStream } from '@/lib/db/queries';
@@ -13,7 +12,6 @@ export interface CriticalChecksResult {
   canProceed: boolean;
   error?: any;
   messageCount?: number;
-  shouldBypassLimits?: boolean;
 }
 
 export interface ChatInitializationParams {
@@ -23,7 +21,6 @@ export interface ChatInitializationParams {
   streamId: string;
   selectedVisibilityType: any;
   messages: any[];
-  model: string;
   isTemporaryChat: boolean;
   enableDetailedTiming?: boolean;
 }
@@ -62,7 +59,6 @@ export function initializeChatAndChecks({
   streamId,
   selectedVisibilityType,
   messages,
-  model,
   isTemporaryChat,
   enableDetailedTiming = false,
 }: ChatInitializationParams): {
@@ -89,11 +85,10 @@ export function initializeChatAndChecks({
 
   async function checkAbuseGuardrail(): Promise<CriticalChecksResult> {
     const { messageCount } = await getMessageCountByUserIdAction(user.userId);
-    const shouldBypassLimits = shouldBypassRateLimits(model, user);
-    if (!shouldBypassLimits && messageCount >= ABUSE_DAILY_LIMIT) {
+    if (messageCount >= ABUSE_DAILY_LIMIT) {
       throw new ChatSDKError('rate_limit:chat', 'Daily message limit reached');
     }
-    return { canProceed: true, messageCount, shouldBypassLimits };
+    return { canProceed: true, messageCount };
   }
 
   if (isTemporaryChat) {

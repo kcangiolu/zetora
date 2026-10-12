@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { Brain } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { getReasoningControl, type Model } from '@/ai/models';
+import { getReasoningControl } from '@/ai/models';
+import { useModels } from '@/hooks/use-models';
 import {
   REASONING_EFFORT_LEVELS,
   type ReasoningEffort,
@@ -42,42 +42,17 @@ export function ReasoningEffortToggle({
   selectedModel,
   value,
   onChange,
-  // When the caller already has the custom-models list at hand (e.g.
-  // Settings' TertiaryModelRow, which fetches it once for the whole page),
-  // pass it in to skip this component's own fetch. The composer doesn't have
-  // it handy, so it falls back to fetching independently.
-  customModels,
 }: {
   selectedModel: string;
   value: ReasoningEffort;
   onChange: (value: ReasoningEffort) => void;
-  customModels?: Model[];
 }) {
-  const [fetchedCapability, setFetchedCapability] = useState<ReasoningCapability>(null);
-
-  useEffect(() => {
-    if (customModels || !selectedModel.startsWith('custom-')) return;
-    let cancelled = false;
-    fetch('/api/custom-providers/models')
-      .then((r) => r.json())
-      .then((d) => {
-        if (cancelled || !Array.isArray(d.models)) return;
-        const match = d.models.find((m: { value: string; reasoningControl?: ReasoningCapability }) => {
-          return m.value === selectedModel;
-        });
-        setFetchedCapability(match?.reasoningControl ?? 'mask-only');
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedModel, customModels]);
-
+  const { getModel } = useModels();
+  const model = getModel(selectedModel);
+  // A custom model not loaded yet can still mask its <think> output.
   const capability: ReasoningCapability = selectedModel.startsWith('custom-')
-    ? (customModels
-        ? (customModels.find((m) => m.value === selectedModel)?.reasoningControl ?? 'mask-only')
-        : fetchedCapability)
-    : getReasoningControl(selectedModel);
+    ? (model?.reasoningControl ?? 'mask-only')
+    : getReasoningControl(model);
 
   if (!capability) return null;
 

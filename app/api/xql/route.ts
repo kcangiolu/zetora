@@ -14,7 +14,8 @@ import {
 import { ChatSDKError } from '@/lib/errors';
 
 import { markdownJoinerTransform } from '@/lib/parser';
-import { zetora, resolveModel } from '@/ai/providers';
+import { resolveModel } from '@/ai/providers';
+import { DEFAULT_MODEL_ALIAS } from '@/ai/models';
 
 import { z } from 'zod';
 import { xai } from '@ai-sdk/xai';
@@ -131,7 +132,7 @@ export async function POST(req: Request) {
   }
 
   const result = streamText({
-    model: await resolveModel('zetora-default'),
+    model: await resolveModel(DEFAULT_MODEL_ALIAS),
     messages: await convertToModelMessages(messages),
     stopWhen: hasToolCall('xql'),
     onAbort: ({ steps }) => {

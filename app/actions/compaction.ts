@@ -8,7 +8,7 @@ import { getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { maybeCompactContext } from '@/lib/search/context-compaction';
 import { resolveContextWindow } from '@/lib/context-window';
 import { computeContextBudget, groupIntoTurns, COMPACTION_KEEP_RECENT_TURNS } from '@/lib/search/context-budget';
-import { getMaxOutputTokens } from '@/ai/models';
+import { getMaxOutputTokens } from '@/ai/catalog/models';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('compaction-action');

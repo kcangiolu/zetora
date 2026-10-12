@@ -3,7 +3,8 @@ import 'server-only';
 import { generateText } from 'ai';
 import { jsonrepair } from 'jsonrepair';
 
-import { hasVisionSupport } from '@/ai/providers';
+import { hasVisionSupport } from '@/ai/catalog/models';
+import { DEFAULT_MODEL_ALIAS } from '@/ai/models';
 import { getComprehensiveUserData, getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { resolveTertiaryModel } from '@/ai/tertiary';
 
@@ -102,11 +103,11 @@ Based on your analysis, provide your response in the following JSON formats if y
     const routeName = parsed?.route as string | undefined;
 
     const matchedRoute = sanitizedRoutes.find((route) => route.name === routeName);
-    let resolvedModel = matchedRoute?.model || 'zetora-default';
+    let resolvedModel = matchedRoute?.model || DEFAULT_MODEL_ALIAS;
 
     if (hasImages && !hasVisionSupport(resolvedModel)) {
       const visionRoute = sanitizedRoutes.find((route) => hasVisionSupport(route.model));
-      resolvedModel = visionRoute?.model || 'zetora-default';
+      resolvedModel = visionRoute?.model || DEFAULT_MODEL_ALIAS;
     }
 
     log.debug('Resolved model:', resolvedModel);

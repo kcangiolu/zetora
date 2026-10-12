@@ -5,11 +5,15 @@ import type { CustomProviderConfig } from '@/lib/custom-providers';
 
 // ai/providers.ts instantiates every provider SDK at import time (gated by
 // env keys) — mock it rather than pull that whole graph into a unit test for
-// chat-commands-server.ts. Mirrors DEEPSEEK_STARTWITH_MODEL_NAMES in
-// ai/providers.ts: only the two direct-API DeepSeek models resolve.
+// chat-commands-server.ts. Only DeepSeek models reached through DeepSeek's
+// own API resolve.
+const DIRECT_DEEPSEEK = ['deepseek:deepseek-flash', 'deepseek:deepseek-v4-pro'];
 vi.mock('@/ai/providers', () => ({
-  getDeepSeekStartWithModel: (modelId: string) =>
-    modelId === 'zetora-deepseek-v4.1-flash' || modelId === 'zetora-deepseek-v4-pro' ? { mocked: modelId } : null,
+  getDeepSeekStartWithModel: (modelId: string) => (DIRECT_DEEPSEEK.includes(modelId) ? { mocked: modelId } : null),
+}));
+vi.mock('@/ai/catalog/models', () => ({
+  getModelEntry: (modelId: string) =>
+    modelId.includes(':') ? { lab: modelId.slice(0, modelId.indexOf(':')) } : undefined,
 }));
 
 describe('parseStartWithCommand', () => {
@@ -53,15 +57,15 @@ describe('getStartWithStrategy', () => {
     });
   });
 
-  it('anthropic zetora model: supported, disables extended thinking', () => {
-    expect(getStartWithStrategy('zetora-anthropic-opus-4.6', providers)).toEqual({
+  it('anthropic catalog model: supported, disables extended thinking', () => {
+    expect(getStartWithStrategy('anthropic:claude-opus-4-6', providers)).toEqual({
       supported: true,
       providerOptions: { anthropic: { thinking: { type: 'disabled' } } },
     });
   });
 
   it('deepseek direct models: supported, swaps to the beta model, no call-level providerOptions', () => {
-    for (const modelId of ['zetora-deepseek-v4.1-flash', 'zetora-deepseek-v4-pro']) {
+    for (const modelId of DIRECT_DEEPSEEK) {
       expect(getStartWithStrategy(modelId, providers)).toEqual({
         supported: true,
         modelOverride: { mocked: modelId },
@@ -70,10 +74,10 @@ describe('getStartWithStrategy', () => {
     }
   });
 
-  it('unsupported: vLLM custom backend, unresolvable custom model, gateway-routed deepseek, and other non-anthropic zetora models', () => {
+  it('unsupported: vLLM custom backend, unresolvable custom model, gateway-routed deepseek, and other non-anthropic catalog models', () => {
     expect(getStartWithStrategy('custom-vllm-qwen3', providers)).toEqual({ supported: false });
     expect(getStartWithStrategy('custom-ghost-qwen3', providers)).toEqual({ supported: false });
-    expect(getStartWithStrategy('zetora-deepseek-chat', providers)).toEqual({ supported: false });
-    expect(getStartWithStrategy('zetora-default', providers)).toEqual({ supported: false });
+    expect(getStartWithStrategy('deepseek:deepseek-v3.2', providers)).toEqual({ supported: false });
+    expect(getStartWithStrategy('xai:grok-4.5', providers)).toEqual({ supported: false });
   });
 });

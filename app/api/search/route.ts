@@ -20,17 +20,12 @@ import {
   type LanguageModelMiddleware,
   type ModelMessage,
 } from 'ai';
-import type { SharedV3ProviderOptions } from '@ai-sdk/provider';
+import type { LanguageModelV3, SharedV3ProviderOptions } from '@ai-sdk/provider';
 import { pipeJsonRender } from '@json-render/core';
 import { createLogger } from '@/lib/logger';
-import {
-  zetora,
-  resolveModel,
-  shouldBypassRateLimits,
-  getModelParameters,
-  hasVisionSupport,
-  getAnonymizeContext,
-} from '@/ai/providers';
+import { resolveModel, getAnonymizeContext } from '@/ai/providers';
+import { getMaxOutputTokens, getModelEntry, getModelParameters, hasVisionSupport } from '@/ai/catalog/models';
+import { loadModelCatalog } from '@/ai/catalog/store';
 import {
   createStreamId,
   getChatByIdForValidation,
@@ -102,7 +97,7 @@ import {
 } from '@/lib/search/context-budget';
 import { maybeCompactContext } from '@/lib/search/context-compaction';
 import { resolveContextWindow } from '@/lib/context-window';
-import { canonicalModelId, getMaxOutputTokens } from '@/ai/models';
+import { AUTO_MODEL_ID, DEFAULT_MODEL_ALIAS } from '@/ai/models';
 
 const log = createLogger('search');
 
@@ -117,6 +112,9 @@ export async function POST(req: Request) {
       durationMs: Date.now() - startTime,
     });
   }
+
+  // Model lookups below are synchronous: make sure a catalog is loaded.
+  await loadModelCatalog();
 
   let opStart = Date.now();
   const {
@@ -178,7 +176,7 @@ export async function POST(req: Request) {
   const streamId = 'stream-' + uuidv7();
 
   // Initialize model - will be updated by auto-router if needed
-  let model = canonicalModelId(requestedModel.trim());
+  let model = requestedModel.trim();
   let autoRouteName: string | undefined;
 
   log.info('🔍 Search API:', {
@@ -236,7 +234,6 @@ export async function POST(req: Request) {
     streamId,
     selectedVisibilityType,
     messages: incomingMessages,
-    model,
     isTemporaryChat: Boolean(isTemporaryChat),
     enableDetailedTiming: shouldLogTimings,
   });
@@ -523,7 +520,7 @@ export async function POST(req: Request) {
   const hasImages = lastUserParts.some((part) => part.type === 'file' && (part as any).mediaType?.startsWith('image/'));
 
   // Auto-routing logic - run on server side if auto router is selected
-  if (isAutoRouted && autoRouterEnabled && requestedModel === 'zetora-auto') {
+  if (isAutoRouted && autoRouterEnabled && requestedModel === AUTO_MODEL_ID) {
     // Extract last user query for routing
     let query = '';
     for (let i = hydratedMessages.length - 1; i >= 0; i--) {
@@ -548,24 +545,29 @@ export async function POST(req: Request) {
         const { routeWithAutoRouter } = await import('@/lib/search/auto-router');
         const routeResult = await routeWithAutoRouter({ query, routes, hasImages });
         if (routeResult?.success && routeResult.model) {
-          model = canonicalModelId(routeResult.model);
+          model = routeResult.model;
           autoRouteName = routeResult.route;
         } else {
-          model = 'zetora-default';
+          model = DEFAULT_MODEL_ALIAS;
         }
       } catch (error) {
         log.error('Auto router error:', error);
-        model = 'zetora-default';
+        model = DEFAULT_MODEL_ALIAS;
       }
     } else {
-      model = 'zetora-default';
+      model = DEFAULT_MODEL_ALIAS;
     }
 
     if (hasImages && !hasVisionSupport(model)) {
-      model = 'zetora-default';
+      model = DEFAULT_MODEL_ALIAS;
       autoRouteName = 'other';
     }
   }
+
+  // Stored selections can hold a legacy id or a role alias: work with the
+  // catalog id from here on, so provider options and saved messages match
+  // the model actually called.
+  if (!model.startsWith('custom-')) model = getModelEntry(model)?.id ?? model;
 
   // /startwith only works where we can force a real prefill (a trailing
   // assistant message the model actually continues) with reasoning forced
@@ -577,7 +579,7 @@ export async function POST(req: Request) {
   // — `model` isn't final until after auto-routing above.
   let startWithProviderOptions: Record<string, unknown> | undefined;
   let startWithAssistantMessageProviderOptions: SharedV3ProviderOptions | undefined;
-  let startWithModelOverride: LanguageModel | undefined;
+  let startWithModelOverride: LanguageModelV3 | undefined;
   if (startWith) {
     const startWithCustomProviders = model.startsWith('custom-')
       ? await getCustomProviders(lightweightUser?.userId)
@@ -653,10 +655,7 @@ export async function POST(req: Request) {
       }
 
       const configuredActiveTools = [...activeTools, ...dynamicToolNames];
-      const streamActiveTools =
-        model === 'zetora-qwen-coder-plus' || model === 'zetora-qwen-3-vl'
-          ? [...configuredActiveTools].filter((tool) => tool !== 'code_interpreter')
-          : [...configuredActiveTools];
+      const streamActiveTools = [...configuredActiveTools];
       const anonymizeContext = await getAnonymizeContext(
         model,
         userPreferencesResult?.preferences ?? {},
@@ -896,14 +895,13 @@ export async function POST(req: Request) {
           : '') +
         dateTimeContext;
       const staticSettings = await getStreamTextStaticSettings({
-        model,
         specialMode,
         shouldUseXaiMultiAgent,
         isXmlParsedCustomModel,
       });
 
       const contextWindow = await contextWindowPromise;
-      const outputReserve = staticSettings.maxOutputTokens ?? getMaxOutputTokens(model);
+      const outputReserve = getMaxOutputTokens(model);
       const contextBudget = computeContextBudget(contextWindow, outputReserve);
       const systemTokens = estimateTokenCount(baseSystem);
 
@@ -1012,17 +1010,18 @@ export async function POST(req: Request) {
           ? ['xai_web_search', 'xai_x_search']
           : streamActiveTools;
       const requestTools = startWith ? {} : streamTools;
-      const requestProviderOptions = {
+      const requestProviderOptions: SharedV3ProviderOptions = {
         ...getSearchProviderOptions(model, shouldUseXaiMultiAgent, effort),
-        ...customReasoningProviderOptions,
+        // Plain JSON literals (lib/reasoning-effort.ts, lib/chat-commands-server.ts),
+        // only typed loosely where they're built.
+        ...(customReasoningProviderOptions as SharedV3ProviderOptions),
       };
 
       const result = streamText({
         model: resolvedModel,
         messages: modelMessages,
-        ...getModelParameters(shouldUseXaiMultiAgent ? 'grok-4.20-multi-agent' : model, effort),
+        ...(shouldUseXaiMultiAgent ? {} : getModelParameters(model, effort)),
         stopWhen: startWith ? stepCountIs(1) : stepCountIs(staticSettings.stopWhenStepCount),
-        ...(staticSettings.maxOutputTokens !== undefined ? { maxOutputTokens: staticSettings.maxOutputTokens } : {}),
         maxRetries: staticSettings.maxRetries,
         abortSignal: abortController.signal,
         activeTools: requestActiveTools,
@@ -1030,7 +1029,6 @@ export async function POST(req: Request) {
         system: baseSystem,
         toolChoice: 'auto',
         tools: requestTools,
-        ...(staticSettings.headers ? { headers: staticSettings.headers } : {}),
         providerOptions: requestProviderOptions,
         experimental_context: {
           // contextImages/contextFiles (collectAttachments, above) already scan
@@ -1101,7 +1099,6 @@ export async function POST(req: Request) {
             group: specialMode ?? 'auto',
             shouldUseXaiMultiAgent,
             isXmlParsedCustomModel,
-            model,
             latestStepHasToolRoundTrip,
             streamActiveTools,
             baseSystem,
@@ -1191,9 +1188,7 @@ export async function POST(req: Request) {
               // Anti-abuse guardrail counter — the only usage tracking left
               // now that Pro/Max-specific limits are gone.
               try {
-                if (!shouldBypassRateLimits(model, lightweightUser)) {
-                  await incrementMessageUsage({ userId: lightweightUser.userId });
-                }
+                await incrementMessageUsage({ userId: lightweightUser.userId });
               } catch (error) {
                 log.error('Failed to track usage:', error);
               }

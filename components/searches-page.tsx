@@ -65,14 +65,8 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { FolderLibraryIcon, Search01Icon } from '@hugeicons/core-free-icons';
 import { cn } from '@/lib/utils';
-import { models } from '@/ai/models';
+import { useModels } from '@/hooks/use-models';
 import { DropdownMenuCheckboxItem, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
-
-// Map a raw model value (e.g. "zetora-grok-3") to a short display label
-function getModelLabel(modelValue: string): string {
-  const found = models.find((m) => m.value === modelValue);
-  return found?.label ?? modelValue.replace(/^zetora-/, '').replace(/-/g, ' ');
-}
 
 interface Chat {
   id: string;
@@ -189,6 +183,7 @@ const GROUP_LABELS: Record<TimeGroup, string> = {
 const GROUP_ORDER: TimeGroup[] = ['pinned', 'today', 'yesterday', 'this_week', 'this_month', 'earlier'];
 
 export function SearchesPage({ userId }: SearchesPageProps) {
+  const { getModel } = useModels();
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>('all');
@@ -418,7 +413,7 @@ export function SearchesPage({ userId }: SearchesPageProps) {
   const renderChatRow = (chat: Chat) => {
     const isSelected = selectedChatIds.has(chat.id);
     const activityDate = new Date(chat.updatedAt || chat.createdAt);
-    const modelLabel = chat.model ? getModelLabel(chat.model) : null;
+    const modelLabel = chat.model ? (getModel(chat.model)?.label ?? chat.model) : null;
 
     return (
       <div key={chat.id} className="group relative border-b border-border/30 last:border-0">

@@ -1,10 +1,11 @@
 import { withAuth } from '@/lib/api/route-handlers';
 import { getCustomModels, getCustomProviders, shouldUseNativeCustomProvider } from '@/lib/custom-providers';
 import { getReasoningCapability } from '@/lib/reasoning-effort';
+import type { Model } from '@/ai/models';
 
 export const GET = withAuth(async () => {
   const [customModels, customProviders] = await Promise.all([getCustomModels(), getCustomProviders()]);
-  const models = customModels.map((m) => {
+  const models = customModels.map((m): Model => {
     const provider = customProviders.find((p) => p.id === m.providerId);
     // A llamacpp/ollama provider without enrichedShim routes text turns
     // through the native /completion or /api/chat endpoint, which cannot
@@ -21,11 +22,9 @@ export const GET = withAuth(async () => {
       vision: m.vision && !usingNativeForText,
       reasoning: false,
       experimental: false,
-      category: 'Free',
       pdf: false,
-      pro: false,
+      structuredOutput: false,
       requiresAuth: false,
-      freeUnlimited: true,
       maxOutputTokens: 16000,
       provider: 'custom',
       customProviderId: m.providerId,

@@ -12,8 +12,6 @@ interface UserContextType {
   refetch: () => void;
   isRefetching: boolean;
 
-  shouldBypassLimitsForModel: (selectedModel: string) => boolean;
-
   // Additional utilities
   isCached: boolean;
   clearCache: () => void;

@@ -6,7 +6,6 @@ import type { ModelMessage } from 'ai';
 import { z } from 'zod';
 import { jsonrepair } from 'jsonrepair';
 import { getUser } from '@/lib/auth-utils';
-import { hasVisionSupport, zetora, resolveModel } from '@/ai/providers';
 import {
   getChatsByUserId,
   getRecentChatsByUserId,

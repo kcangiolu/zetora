@@ -3,7 +3,6 @@
 import { geolocation } from '@vercel/functions';
 import { UIMessage, generateText, Output } from 'ai';
 import type { ModelMessage } from 'ai';
-import { hasVisionSupport, zetora, resolveModel } from '@/ai/providers';
 import { getChatWithUserById } from '@/lib/db/queries';
 import { db, maindb } from '@/lib/db';
 import { chat, message, buildSession, type User } from '@/lib/db/schema';

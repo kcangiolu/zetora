@@ -6,7 +6,6 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ModelSelectorDialog } from '@/components/ui/model-selector';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
-import { type Model } from '@/ai/models';
 import { sileo } from 'sileo';
 import { Search, X } from 'lucide-react';
 import {
@@ -25,11 +24,9 @@ import {
 
 export function SearchTab({
   user,
-  customModelsList,
   customProviders,
 }: {
   user: SettingsUser;
-  customModelsList: Model[];
   customProviders: CustomProviderConfig[];
 }) {
   const [searchProvider, setSearchProvider] = useSyncedPreferences<
@@ -683,8 +680,7 @@ export function SearchTab({
                   selectedModel={selectedEmbeddingProvider}
                   onModelSelect={handleEmbeddingModelSelect}
                   user={user}
-                  additionalModels={customModelsList}
-                  onlyAdditionalModels
+                  source="custom"
                   className="w-[180px] h-8"
                   compact
                 />
@@ -795,8 +791,7 @@ export function SearchTab({
                   selectedModel={selectedEmbeddingProvider}
                   onModelSelect={handleEmbeddingModelSelect}
                   user={user}
-                  additionalModels={customModelsList}
-                  onlyAdditionalModels
+                  source="custom"
                   className="w-[180px] h-8"
                   compact
                 />

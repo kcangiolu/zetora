@@ -8,7 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { ModelSelectorDialog } from '@/components/ui/model-selector';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
-import { type Model } from '@/ai/models';
+import { AUTO_MODEL_ID, DEFAULT_MODEL_ALIAS, FAST_MODEL_ALIAS } from '@/ai/models';
+import { useModels } from '@/hooks/use-models';
 import { sileo } from 'sileo';
 import { useQueryClient } from '@tanstack/react-query';
 import { TrashIcon, FloppyDiskIcon } from '@phosphor-icons/react';
@@ -44,15 +45,17 @@ const BACKEND_KIND_OPTIONS: Array<{ value: CustomBackendKind | 'auto'; label: st
 
 export function AiModelsTab({
   user,
-  customModelsList,
   customProviders,
   setCustomProviders,
 }: {
   user: SettingsUser;
-  customModelsList: Model[];
   customProviders: CustomProviderConfig[];
   setCustomProviders: Dispatch<SetStateAction<CustomProviderConfig[]>>;
 }) {
+  // Tasks without a chosen model run on one of the instance's role models.
+  const { getModel } = useModels();
+  const defaultModelLabel = getModel(DEFAULT_MODEL_ALIAS)?.label ?? 'Default model';
+  const fastModelLabel = getModel(FAST_MODEL_ALIAS)?.label ?? 'Fast model';
   const [autoRouterEnabled, setAutoRouterEnabled] = useSyncedPreferences<boolean>('zetora-auto-router-enabled', false);
   const [autoRouterConfig, setAutoRouterConfig] = useSyncedPreferences<AutoRouterConfig>('zetora-auto-router-config', {
     routes: getDefaultAutoRouterRoutes(),
@@ -238,7 +241,7 @@ export function AiModelsTab({
       setAutoRouterConfig((current: AutoRouterConfig) => {
         const nextRoutes = [...(current?.routes || [])];
         nextRoutes[index] = {
-          ...(nextRoutes[index] || { name: '', description: '', model: 'zetora-default' }),
+          ...(nextRoutes[index] || { name: '', description: '', model: DEFAULT_MODEL_ALIAS }),
           ...update,
         };
         return { routes: nextRoutes };
@@ -249,7 +252,7 @@ export function AiModelsTab({
 
   const addAutoRouterRoute = useCallback(() => {
     setAutoRouterConfig((current: AutoRouterConfig) => ({
-      routes: [...(current?.routes || []), { name: '', description: '', model: 'zetora-default' }],
+      routes: [...(current?.routes || []), { name: '', description: '', model: DEFAULT_MODEL_ALIAS }],
     }));
   }, [setAutoRouterConfig]);
 
@@ -338,9 +341,8 @@ export function AiModelsTab({
                           selectedModel={route.model}
                           onModelSelect={(v) => updateAutoRouterRoute(index, { model: v })}
                           user={user}
-                          excludeModels={['zetora-auto']}
-                          additionalModels={customModelsList}
-                          className="w-full h-7"
+                          excludeModels={[AUTO_MODEL_ID]}
+                                      className="w-full h-7"
                           compact
                         />
                       </div>
@@ -615,8 +617,7 @@ export function AiModelsTab({
               recommendedEffort="auto"
               label="Default Model"
               description="Fallback model used by Lookout and other tasks"
-              defaultModelLabel="Grok 4.1 Fast"
-              additionalModels={customModelsList}
+              defaultModelLabel={defaultModelLabel}
               user={user}
             />
             <TertiaryModelRow
@@ -627,8 +628,7 @@ export function AiModelsTab({
               recommendedEffort="off"
               label="Chat Title"
               description="Generates titles for new chats"
-              defaultModelLabel="Gemini 3.1 Flash Lite"
-              additionalModels={customModelsList}
+              defaultModelLabel={fastModelLabel}
               user={user}
             />
             <TertiaryModelRow
@@ -639,8 +639,7 @@ export function AiModelsTab({
               recommendedEffort="off"
               label="Follow-up Questions"
               description="Generates questions after each response"
-              defaultModelLabel="Gemini 3.1 Flash Lite"
-              additionalModels={customModelsList}
+              defaultModelLabel={fastModelLabel}
               user={user}
             />
             <TertiaryModelRow
@@ -650,8 +649,7 @@ export function AiModelsTab({
               recommendedEffort="auto"
               label="Prompt Enhancement"
               description="Rewrites prompts (Enhance button)"
-              defaultModelLabel="Kimi K2"
-              additionalModels={customModelsList}
+              defaultModelLabel={fastModelLabel}
               user={user}
             />
             <TertiaryModelRow
@@ -661,8 +659,7 @@ export function AiModelsTab({
               recommendedEffort="auto"
               label="Tool Call Repair"
               description="Fixes malformed tool call arguments"
-              defaultModelLabel="Grok 4.1 Fast"
-              additionalModels={customModelsList}
+              defaultModelLabel={defaultModelLabel}
               user={user}
             />
             <TertiaryModelRow
@@ -673,7 +670,6 @@ export function AiModelsTab({
               label="Auto Router"
               description="Classifies queries for model routing"
               defaultModelLabel="Arch-Router 1.5B"
-              additionalModels={customModelsList}
               user={user}
             />
             <TertiaryModelRow
@@ -683,8 +679,7 @@ export function AiModelsTab({
               recommendedEffort="auto"
               label="Text Translation"
               description="Translates text between languages"
-              defaultModelLabel="Gemini 3 Flash"
-              additionalModels={customModelsList}
+              defaultModelLabel={fastModelLabel}
               user={user}
             />
             <TertiaryModelRow
@@ -694,8 +689,7 @@ export function AiModelsTab({
               recommendedEffort="auto"
               label="Vision Translation"
               description="Extracts and translates text from images"
-              defaultModelLabel="Gemini 3 Flash"
-              additionalModels={customModelsList}
+              defaultModelLabel={defaultModelLabel}
               user={user}
             />
             <TertiaryModelRow
@@ -705,8 +699,7 @@ export function AiModelsTab({
               recommendedEffort="auto"
               label="Language Detection"
               description="Detects language of input text"
-              defaultModelLabel="Grok 4.1 Fast"
-              additionalModels={customModelsList}
+              defaultModelLabel={fastModelLabel}
               user={user}
             />
             <TertiaryModelRow
@@ -716,8 +709,7 @@ export function AiModelsTab({
               recommendedEffort="auto"
               label="Extreme Search Planner"
               description="Generates research plans in Extreme mode"
-              defaultModelLabel="Grok 4.1 Fast (Reasoning)"
-              additionalModels={customModelsList}
+              defaultModelLabel={defaultModelLabel}
               user={user}
             />
             <TertiaryModelRow
@@ -727,8 +719,7 @@ export function AiModelsTab({
               recommendedEffort="auto"
               label="Extreme Search Agent"
               description="Executes the autonomous research loop"
-              defaultModelLabel="Grok 4.1 Fast (Reasoning)"
-              additionalModels={customModelsList}
+              defaultModelLabel={defaultModelLabel}
               user={user}
               hideReasoningEffort
             />
@@ -739,8 +730,7 @@ export function AiModelsTab({
               recommendedEffort="off"
               label="Voice (Local Backend)"
               description="LLM used by the local speech-to-speech backend"
-              defaultModelLabel="Grok 4.1 Fast"
-              additionalModels={customModelsList}
+              defaultModelLabel={defaultModelLabel}
               user={user}
             />
             <TertiaryModelRow
@@ -752,7 +742,6 @@ export function AiModelsTab({
               label="Memory"
               description="Learns from each answer and tidies up weekly. Default: the chat's own model does it. Pick a model to use that one instead (it then only sees the last exchange). Turn off to stop learning — saved memory is still used."
               defaultModelLabel="Conversation model"
-              additionalModels={customModelsList}
               user={user}
             />
             <TertiaryModelRow
@@ -763,8 +752,7 @@ export function AiModelsTab({
               recommendedEffort="off"
               label="Context Compaction"
               description="Summarizes older messages when a chat nears its context limit, instead of silently dropping them"
-              defaultModelLabel="Grok 4.1 Fast"
-              additionalModels={customModelsList}
+              defaultModelLabel={defaultModelLabel}
               user={user}
             />
           </div>

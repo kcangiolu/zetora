@@ -42,7 +42,8 @@ import {
   ProAccordionContent,
 } from '@/components/ui/pro-accordion';
 import { useGitHubStars } from '@/hooks/use-github-stars';
-import { models, getModelProvider, PROVIDERS, type ModelProvider } from '@/ai/models';
+import { AUTO_MODEL_ID, getProviderName } from '@/ai/models';
+import { useModels } from '@/hooks/use-models';
 import { VercelLogo } from '@/components/logos/vercel-logo';
 import { ExaLogo } from '@/components/logos/exa-logo';
 import { ElevenLabsLogo } from '@/components/logos/elevenlabs-logo';
@@ -254,6 +255,8 @@ export default function AboutPage() {
   const [selectedCapabilities, setSelectedCapabilities] = useState<string[]>([]);
   const [openCapabilities, setOpenCapabilities] = useState(false);
   const [showAllModels, setShowAllModels] = useState(false);
+  const { catalogModels } = useModels();
+  const listedModels = catalogModels.filter((model) => model.value !== AUTO_MODEL_ID);
   const { data: githubStars, isLoading: isLoadingStars } = useGitHubStars();
   const visibleGroups = useMemo(
     () =>
@@ -697,7 +700,7 @@ export default function AboutPage() {
               </p>
             </div>
             <div className="font-pixel-grid text-6xl sm:text-7xl text-border/30 select-none leading-none shrink-0">
-              {models.length}
+              {listedModels.length}
             </div>
           </div>
 
@@ -768,7 +771,7 @@ export default function AboutPage() {
           {/* Models Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {(() => {
-              const filteredModels = models.filter((model) => {
+              const filteredModels = listedModels.filter((model) => {
                 if (selectedCapabilities.length === 0) return true;
                 return selectedCapabilities.some((c) => {
                   if (c === 'vision') return model.vision;
@@ -799,9 +802,8 @@ export default function AboutPage() {
 
               return (
                 <>
-                  {modelsToShow.map((model: any) => {
-                    const providerKey = (model.provider || getModelProvider(model.value, model.label)) as ModelProvider;
-                    const providerName = PROVIDERS[providerKey]?.name || providerKey;
+                  {modelsToShow.map((model) => {
+                    const providerName = getProviderName(model.provider);
                     return (
                     <div
                       key={model.value}
@@ -830,11 +832,6 @@ export default function AboutPage() {
                         {model.pdf && (
                           <span className="font-pixel text-[8px] uppercase tracking-wider text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full">
                             PDF
-                          </span>
-                        )}
-                        {model.fast && (
-                          <span className="font-pixel text-[8px] uppercase tracking-wider text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full">
-                            Fast
                           </span>
                         )}
                         {model.isNew && (

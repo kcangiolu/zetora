@@ -8,14 +8,8 @@ import { useDebouncer } from '@tanstack/react-pacer';
 import { Button } from '@/components/ui/button';
 import { parseStartWithCommand } from '@/lib/chat-commands';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  models,
-  requiresAuthentication,
-  hasPdfSupport,
-  getAcceptedFileTypes,
-  supportsExtremeMode,
-  supportsCanvasMode,
-} from '@/ai/models';
+import { DEFAULT_MODEL_ALIAS, getAcceptedFileTypes, supportsCanvasMode } from '@/ai/models';
+import { useModels } from '@/hooks/use-models';
 import {
   X,
   Check,
@@ -247,6 +241,8 @@ const FormComponent: React.FC<FormComponentProps> = ({
   visionEnabled,
   setVisionEnabled,
 }) => {
+  const { models, getModel } = useModels();
+  const selectedModelConfig = getModel(selectedModel);
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
   const canvasEnvEnabled = process.env.NEXT_PUBLIC_CANVAS_ENABLED === 'true';
   const mcpEnvEnabled = process.env.NEXT_PUBLIC_MCP_ENABLED === 'true';
@@ -1111,30 +1107,10 @@ const FormComponent: React.FC<FormComponentProps> = ({
           return;
         }
 
-        // Auto-switch to extreme-enabled model when extreme mode is selected
-        if (group.id === 'extreme' && !supportsExtremeMode(selectedModel)) {
-          const extremeModels = models.filter((model) => {
-            if (!supportsExtremeMode(model.value)) return false;
-            if (requiresAuthentication(model.value) && !user) return false;
-            return true;
-          });
-
-          if (extremeModels.length > 0) {
-            const defaultModel = extremeModels.find((m) => m.value === 'zetora-default');
-            const targetModel = defaultModel || extremeModels[0];
-            setSelectedModel(targetModel.value);
-            sileo.info({
-              title: `Switched to ${targetModel.label} for extreme mode`,
-              description: 'Model automatically changed for extreme search',
-              icon: <Zap className="h-4 w-4" />,
-            });
-          }
-        }
-
         // Auto-switch to canvas-supported model when canvas mode is selected
-        if (group.id === 'canvas' && !supportsCanvasMode(selectedModel)) {
-          const canvasModels = models.filter((m) => supportsCanvasMode(m.value));
-          const preferred = canvasModels.find((m) => m.value === 'zetora-code') || canvasModels[0];
+        if (group.id === 'canvas' && !supportsCanvasMode(selectedModelConfig)) {
+          const defaultModel = getModel(DEFAULT_MODEL_ALIAS);
+          const preferred = supportsCanvasMode(defaultModel) ? defaultModel : models.find(supportsCanvasMode);
           if (preferred) {
             setSelectedModel(preferred.value);
             sileo.info({
@@ -1154,9 +1130,10 @@ const FormComponent: React.FC<FormComponentProps> = ({
       inputRef,
       isEnhancing,
       isTypewriting,
-      selectedModel,
+      selectedModelConfig,
+      getModel,
+      models,
       setSelectedModel,
-      user,
       setIsMultiAgentModeEnabled,
     ],
   );
@@ -2407,7 +2384,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
             ref={fileInputRef}
             multiple
             onChange={handleFileChange}
-            accept={getAcceptedFileTypes(selectedModel)}
+            accept={getAcceptedFileTypes(selectedModelConfig)}
             tabIndex={-1}
           />
           <input
@@ -2416,7 +2393,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
             ref={postSubmitFileInputRef}
             multiple
             onChange={handleFileChange}
-            accept={getAcceptedFileTypes(selectedModel)}
+            accept={getAcceptedFileTypes(selectedModelConfig)}
             tabIndex={-1}
           />
 
@@ -2985,7 +2962,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                               {/* selectedModel says nothing about an Agent chat: a Hermes turn
                                   runs on the agent's own model and reads documents with its own
                                   file tools, so PDFs are always in. */}
-                              {isHermesChat || hasPdfSupport(selectedModel)
+                              {isHermesChat || selectedModelConfig?.pdf
                                 ? 'Images, PDFs, CSV, Excel, Word'
                                 : 'Images, CSV, Excel, Word'}
                             </span>

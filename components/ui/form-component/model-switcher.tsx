@@ -2,17 +2,19 @@ import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { all } from 'better-all';
 import { Button } from '@/components/ui/button';
 import {
-  models,
-  requiresAuthentication,
+  AUTO_MODEL_ID,
+  DEFAULT_MODEL_ALIAS,
+  PROVIDER_ORDER,
+  canonicalModelId,
+  findModel,
   getFilteredModels,
+  getProviderName,
   isModelRestrictedInRegion,
-  supportsExtremeMode,
   supportsCanvasMode,
-  PROVIDERS,
-  getModelProvider,
-  getModelConfig,
+  type Model,
   type ModelProvider,
 } from '@/ai/models';
+import { useModels } from '@/hooks/use-models';
 import { X, Check, CheckIcon, Zap, Search, ChevronDown, Star, Puzzle } from 'lucide-react';
 import { MarqueeText } from '@/components/ui/marquee-text';
 import { MagicWandIcon } from '@/components/ui/magic-wand-icon';
@@ -297,35 +299,6 @@ const ProviderIcon = ({
   }
 };
 
-// Provider order for sidebar (most popular first)
-const PROVIDER_ORDER: (ModelProvider | 'all')[] = [
-  'all',
-  'xai',
-  'openai',
-  'mistral',
-  'anthropic',
-  'google',
-  'vertex',
-  'groq',
-  'sarvam',
-  'nvidia',
-  'inception',
-  'alibaba',
-  'bytedance',
-  'zhipu',
-  'minimax',
-  'deepseek',
-  'moonshot',
-  'cohere',
-  'arcee',
-  'vercel',
-  'amazon',
-  'xiaomi',
-  'kwaipilot',
-  'stepfun',
-  'custom',
-];
-
 let modelSwitcherOpenCache = false;
 let cachedCountryCode: string | null = null;
 let countryCodeRequest: Promise<string | null> | null = null;
@@ -352,7 +325,7 @@ interface ModelSwitcherProps {
   setSelectedModel: (value: string) => void;
   className?: string;
   status: UseChatHelpers<ChatMessage>['status'];
-  onModelSelect?: (model: (typeof models)[0]) => void;
+  onModelSelect?: (model: Model) => void;
   user?: ComprehensiveUserData | null;
   selectedGroup: SearchGroupId;
   autoRoutedModel?: { model: string; route: string } | null;
@@ -383,28 +356,16 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       };
     }, []);
 
-    const baseModels = useMemo(() => getFilteredModels(countryCode || undefined), [countryCode]);
-
-    const [customModels, setCustomModels] = useState<typeof models>([]);
-
-    useEffect(() => {
-      fetch('/api/custom-providers/models')
-        .then((r) => r.json())
-        .then((d) => {
-          if (Array.isArray(d.models)) setCustomModels(d.models);
-        })
-        .catch(() => {});
-    }, []);
-
-    const availableModels = useMemo(() => [...baseModels, ...customModels], [baseModels, customModels]);
+    const { models, getModel } = useModels();
+    const availableModels = useMemo(() => getFilteredModels(models, countryCode || undefined), [models, countryCode]);
 
     // Group key for sidebar tabs - each custom provider gets its own virtual key
     // (e.g. 'custom:abc123') instead of being collapsed into a single 'custom' tab
-    const getGroupKey = useCallback((model: (typeof availableModels)[0]): string => {
+    const getGroupKey = useCallback((model: Model): string => {
       if (model.provider === 'custom' && model.customProviderId) {
         return `custom:${model.customProviderId}`;
       }
-      return model.provider || getModelProvider(model.value, model.label);
+      return model.provider;
     }, []);
 
     // Display name for a virtual custom-provider group, keyed by its group key
@@ -419,12 +380,12 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
     }, [availableModels]);
 
     const groupLabel = useCallback(
-      (key: string) => customGroupNames.get(key) ?? PROVIDERS[key as ModelProvider]?.name ?? key,
+      (key: string) => customGroupNames.get(key) ?? getProviderName(key),
       [customGroupNames],
     );
 
     const [showSignInDialog, setShowSignInDialog] = useState(false);
-    const [selectedAuthModel, setSelectedAuthModel] = useState<(typeof models)[0] | null>(null);
+    const [selectedAuthModel, setSelectedAuthModel] = useState<Model | null>(null);
     const [openState, setOpenState] = useState(() => modelSwitcherOpenCache);
     const setOpen = useCallback((nextOpen: boolean) => {
       modelSwitcherOpenCache = nextOpen;
@@ -455,7 +416,9 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
     const modelListRef = useRef<HTMLDivElement>(null);
 
     // Preferred models: only show these in the picker (empty = show all)
-    const [preferredModels, setPreferredModels] = useSyncedPreferences<string[]>('zetora-preferred-models', []);
+    // Stored ids may predate the current catalog ids.
+    const [storedPreferredModels, setPreferredModels] = useSyncedPreferences<string[]>('zetora-preferred-models', []);
+    const preferredModels = useMemo(() => storedPreferredModels.map(canonicalModelId), [storedPreferredModels]);
 
     const normalizeText = useCallback((input: string): string => {
       return input
@@ -487,8 +450,7 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       const index: Record<string, SearchIndexEntry> = {};
       for (const m of availableModels) {
         // Get provider name for indexing
-        const providerKey = m.provider || getModelProvider(m.value, m.label);
-        const providerName = PROVIDERS[providerKey]?.name || '';
+        const providerName = getProviderName(m.provider);
 
         const aggregate = [
           m.label,
@@ -501,7 +463,6 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
           m.experimental ? 'experimental' : '',
           m.requiresAuth ? 'auth' : '',
           m.isNew ? 'new' : '',
-          m.fast ? 'fast' : '',
         ].join(' ');
         const normalized = normalizeText(aggregate);
         const labelNorm = normalizeText(m.label);
@@ -595,15 +556,9 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       // models, manually enabled by the user) is what actually gates whether the image
       // bytes are sent to the model.
 
-      // Filter by extreme mode
-      const isExtremeMode = selectedGroup === 'extreme';
-      if (isExtremeMode) {
-        filtered = filtered.filter((model) => supportsExtremeMode(model.value));
-      }
-
       // Filter by canvas mode
       if (selectedGroup === 'canvas') {
-        filtered = filtered.filter((model) => supportsCanvasMode(model.value));
+        filtered = filtered.filter(supportsCanvasMode);
       }
 
       // Filter by selected provider
@@ -617,7 +572,8 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
         filtered.length > 0 &&
         !filtered.some((m) => m.value === selectedModel)
       ) {
-        const fallback = filtered.find((m) => m.value === 'zetora-code') || filtered[0];
+        const defaultModel = getModel(DEFAULT_MODEL_ALIAS);
+        const fallback = filtered.find((m) => m.value === defaultModel?.value) || filtered[0];
         if (fallback) {
           // Defer to avoid state update during render
           queueMicrotask(() => setSelectedModel(fallback.value));
@@ -634,6 +590,7 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       setSelectedModel,
       user,
       getGroupKey,
+      getModel,
     ]);
 
     // Show all models for everyone; auth-gated models will prompt sign-in on click
@@ -712,14 +669,11 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       return scored.map((s) => s.model);
     }, [availableModels, searchQuery, computeScore, normalizeText, preferredModels]);
 
-    const currentModel = useMemo(
-      () => availableModels.find((m) => m.value === selectedModel),
-      [availableModels, selectedModel],
-    );
+    const currentModel = useMemo(() => findModel(availableModels, selectedModel), [availableModels, selectedModel]);
 
     // Auto-switch away from region-restricted models when necessary, landing
     // on the user's "Default Model" preference when they've set one instead
-    // of the hardcoded 'zetora-default' (mirrors resolveModel's server-side
+    // of the instance's default (mirrors resolveModel's server-side
     // fallback in ai/providers.ts).
     const [preferredDefaultModel, , preferredDefaultModelResolved] = useSyncedPreferences<string>(
       'zetora-default-model',
@@ -729,8 +683,8 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       if (user === undefined) return;
       if (!preferredDefaultModelResolved) return;
 
-      const effectiveDefaultModel = preferredDefaultModel || 'zetora-default';
-      const isCurrentModelRestricted = isModelRestrictedInRegion(selectedModel, countryCode || undefined);
+      const effectiveDefaultModel = preferredDefaultModel || DEFAULT_MODEL_ALIAS;
+      const isCurrentModelRestricted = isModelRestrictedInRegion(getModel(selectedModel), countryCode || undefined);
 
       if (isCurrentModelRestricted && selectedModel !== effectiveDefaultModel) {
         console.log(
@@ -738,16 +692,22 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
         );
         setSelectedModel(effectiveDefaultModel);
       }
-    }, [selectedModel, setSelectedModel, countryCode, user, preferredDefaultModel, preferredDefaultModelResolved]);
+    }, [
+      selectedModel,
+      setSelectedModel,
+      countryCode,
+      user,
+      preferredDefaultModel,
+      preferredDefaultModelResolved,
+      getModel,
+    ]);
 
     const handleModelChange = useCallback(
       (value: string) => {
         const model = availableModels.find((m) => m.value === value);
         if (!model) return;
 
-        const requiresAuth = requiresAuthentication(model.value) && !user;
-
-        if (requiresAuth) {
+        if (model.requiresAuth && !user) {
           haptics.trigger('warning');
           setSelectedAuthModel(model);
           setShowSignInDialog(true);
@@ -771,31 +731,17 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       ],
     );
 
-    const [enabledProviders, setEnabledProviders] = useState<string[] | null>(null);
-
-    useEffect(() => {
-      fetch('/api/provider-status')
-        .then((r) => r.json())
-        .then((data: { providers: string[] }) => setEnabledProviders(data.providers))
-        .catch(() => {});
-    }, []);
-
     // Get providers that have models in the current filtered set
     const activeProviders = useMemo(() => {
-      const groupSet = new Set<string>();
-      for (const model of availableModels) {
-        const groupKey = getGroupKey(model);
-        const provider = model.provider || getModelProvider(model.value, model.label);
-        // 'custom' is allowed whenever models exist (configured via preferences)
-        const isEnabled = !enabledProviders || enabledProviders.includes(provider) || provider === 'custom';
-        if (isEnabled) groupSet.add(groupKey);
-      }
-      const staticOrdered = PROVIDER_ORDER.filter((p) => p === 'all' || (p !== 'custom' && groupSet.has(p)));
+      // Every listed model is reachable (the catalog only holds configured
+      // routes), so each lab with models gets a tab.
+      const groupSet = new Set(availableModels.map(getGroupKey));
+      const staticOrdered = ['all', ...PROVIDER_ORDER.filter((p) => groupSet.has(p))];
       const customGroups = Array.from(groupSet)
         .filter((g) => g.startsWith('custom:'))
         .sort((a, b) => groupLabel(a).localeCompare(groupLabel(b)));
       return [...staticOrdered, ...customGroups];
-    }, [availableModels, enabledProviders, getGroupKey, groupLabel]);
+    }, [availableModels, getGroupKey, groupLabel]);
 
     // Get model count per provider
     // 'all' count reflects preferred models filter, individual providers show their full count
@@ -812,14 +758,10 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       return counts;
     }, [availableModels, preferredModels, getGroupKey]);
 
-    // Providers manually flagged via PROVIDERS[x].hasNew
-    const providersWithNewModels = useMemo(() => {
-      const set = new Set<string>();
-      for (const [key, info] of Object.entries(PROVIDERS)) {
-        if (info.hasNew) set.add(key);
-      }
-      return set;
-    }, []);
+    const providersWithNewModels = useMemo(
+      () => new Set(availableModels.filter((model) => model.isNew).map(getGroupKey)),
+      [availableModels, getGroupKey],
+    );
 
     // Flat list of models to display (after provider filter applied)
     const displayModels = useMemo(() => {
@@ -896,7 +838,7 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
             e.preventDefault();
             if (focusedIndex >= 0 && focusedIndex < count) {
               const model = displayModels[focusedIndex];
-              const needsAuth = requiresAuthentication(model.value) && !user;
+              const needsAuth = model.requiresAuth && !user;
 
               if (needsAuth) {
                 setSelectedAuthModel(model);
@@ -925,12 +867,12 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
     );
 
     // Model card component
-    const renderModelCard = (model: (typeof models)[0], index: number) => {
-      const requiresAuth = requiresAuthentication(model.value) && !user;
+    const renderModelCard = (model: Model, index: number) => {
+      const requiresAuth = model.requiresAuth && !user;
       const isLocked = requiresAuth;
-      const modelProvider = model.provider || getModelProvider(model.value, model.label);
-      const isSelected = selectedModel === model.value;
-      const isAutoRouter = model.value === 'zetora-auto';
+      const modelProvider = model.provider;
+      const isSelected = currentModel?.value === model.value;
+      const isAutoRouter = model.value === AUTO_MODEL_ID;
       const isFocused = focusedIndex === index;
 
       const handleClick = () => {
@@ -1054,18 +996,6 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
           <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
             {/* Capability Icons */}
             <div className="flex items-center gap-0.5">
-              {model.fast && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className={cn('p-0.5 rounded', isMobile && 'p-1')}>
-                      <Zap className={cn('text-amber-500/70', isMobile ? 'size-3' : 'size-2.5')} />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs">
-                    Fast
-                  </TooltipContent>
-                </Tooltip>
-              )}
               {model.vision && (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -1296,8 +1226,7 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
     );
 
     // Common trigger button component
-    const currentModelProvider =
-      currentModel?.provider || (currentModel ? getModelProvider(currentModel.value, currentModel.label) : undefined);
+    const currentModelProvider = currentModel?.provider;
 
     const TriggerButton = React.forwardRef<
       React.ComponentRef<typeof Button>,
@@ -1323,19 +1252,18 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
         <ProcessorIcon size={16} className="sm:hidden block" />
 
         {/* Desktop: show provider icon + label */}
-        {selectedModel === 'zetora-auto' ? (
+        {selectedModel === AUTO_MODEL_ID ? (
           <>
             <span className="text-[13px] font-medium sm:hidden">Auto</span>
             {autoRoutedModel ? (
               <div className="items-center gap-1.5 sm:flex hidden">
-                {(() => {
-                  const routedConfig = getModelConfig(autoRoutedModel.model);
-                  const routedProvider =
-                    routedConfig?.provider || getModelProvider(autoRoutedModel.model, routedConfig?.label || '');
-                  return <ProviderIcon provider={routedProvider} size={14} className="text-foreground/70" />;
-                })()}
+                <ProviderIcon
+                  provider={getModel(autoRoutedModel.model)?.provider ?? 'custom'}
+                  size={14}
+                  className="text-foreground/70"
+                />
                 <span className="text-[13px] font-medium">
-                  {getModelConfig(autoRoutedModel.model)?.label || autoRoutedModel.model}
+                  {getModel(autoRoutedModel.model)?.label || autoRoutedModel.model}
                 </span>
                 <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
                   Auto

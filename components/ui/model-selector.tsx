@@ -3,16 +3,10 @@
 import React, { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { MarqueeText } from '@/components/ui/marquee-text';
-import {
-  models,
-  requiresAuthentication,
-  getFilteredModels,
-  PROVIDERS,
-  getModelProvider,
-  type ModelProvider,
-} from '@/ai/models';
+import { AUTO_MODEL_ID, canonicalModelId, findModel, getProviderName, type Model, type ModelProvider } from '@/ai/models';
+import { useModels } from '@/hooks/use-models';
 import { LockIcon, Eye, Brain, FilePdf } from '@phosphor-icons/react';
-import { Zap, Wand2, Search, ChevronDown, Check, Cpu, Puzzle, Star } from 'lucide-react';
+import { Wand2, Search, ChevronDown, Check, Cpu, Puzzle, Star } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
@@ -262,8 +256,8 @@ interface ModelSelectorDialogProps {
   onModelSelect: (modelValue: string) => void;
   user?: any;
   excludeModels?: string[];
-  additionalModels?: (typeof models)[0][];
-  onlyAdditionalModels?: boolean;
+  // 'custom' lists only the user's custom provider models.
+  source?: 'all' | 'custom';
   className?: string;
   triggerLabel?: string;
   compact?: boolean;
@@ -271,7 +265,7 @@ interface ModelSelectorDialogProps {
 }
 
 function sortModelsForList(
-  modelsToShow: Array<(typeof models)[0]>,
+  modelsToShow: Array<Model>,
   options: { user?: unknown; preferredModels?: string[] },
 ) {
   if (modelsToShow.length === 0) return modelsToShow;
@@ -279,11 +273,11 @@ function sortModelsForList(
   const shouldSortLockedLast = !options.user;
   const preferredSet = new Set(options.preferredModels || []);
 
-  const favoriteModels: Array<(typeof models)[0]> = [];
-  const newModels: Array<(typeof models)[0]> = [];
-  const freeModels: Array<(typeof models)[0]> = [];
-  const lockedModels: Array<(typeof models)[0]> = [];
-  const regularModels: Array<(typeof models)[0]> = [];
+  const favoriteModels: Array<Model> = [];
+  const newModels: Array<Model> = [];
+  const freeModels: Array<Model> = [];
+  const lockedModels: Array<Model> = [];
+  const regularModels: Array<Model> = [];
 
   for (const model of modelsToShow) {
     if (preferredSet.has(model.value)) {
@@ -297,7 +291,7 @@ function sortModelsForList(
     }
 
     if (shouldSortLockedLast) {
-      const isLocked = requiresAuthentication(model.value) && !options.user;
+      const isLocked = model.requiresAuth && !options.user;
       if (isLocked) lockedModels.push(model);
       else freeModels.push(model);
       continue;
@@ -315,8 +309,7 @@ export function ModelSelectorDialog({
   onModelSelect,
   user,
   excludeModels = [],
-  additionalModels = [],
-  onlyAdditionalModels = false,
+  source = 'all',
   className,
   compact = false,
   onClose,
@@ -329,18 +322,13 @@ export function ModelSelectorDialog({
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
   const modelListRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
-  const [enabledProviders, setEnabledProviders] = useState<string[] | null>(null);
+  const { models, customModels } = useModels();
 
   // Preferred models: shown first and, when the 'all' tab is active, used to
   // filter the list down to favorites only (mirrors the chat model switcher).
-  const [preferredModels, setPreferredModels] = useSyncedPreferences<string[]>('zetora-preferred-models', []);
-
-  useEffect(() => {
-    fetch('/api/provider-status')
-      .then((r) => r.json())
-      .then((data: { providers: string[] }) => setEnabledProviders(data.providers))
-      .catch(() => {});
-  }, []);
+  // Stored ids may predate the current catalog ids.
+  const [storedPreferredModels, setPreferredModels] = useSyncedPreferences<string[]>('zetora-preferred-models', []);
+  const preferredModels = useMemo(() => storedPreferredModels.map(canonicalModelId), [storedPreferredModels]);
 
   // ⌘M keyboard shortcut to toggle model selector
   useEffect(() => {
@@ -355,23 +343,13 @@ export function ModelSelectorDialog({
   }, []);
 
   // Get filtered models
-  const availableModels = useMemo(() => {
-    if (onlyAdditionalModels) {
-      return additionalModels.filter((model) => !excludeModels.includes(model.value));
-    }
-    const filtered = getFilteredModels();
-    const base = filtered.filter((model) => !excludeModels.includes(model.value));
-    if (!additionalModels.length) return base;
-    const extraIds = new Set(base.map((m) => m.value));
-    const extra = additionalModels.filter((m) => !excludeModels.includes(m.value) && !extraIds.has(m.value));
-    return [...base, ...extra];
-  }, [excludeModels, additionalModels, onlyAdditionalModels]);
+  const availableModels = useMemo(
+    () => (source === 'custom' ? customModels : models).filter((model) => !excludeModels.includes(model.value)),
+    [source, customModels, models, excludeModels],
+  );
 
   // Get current model
-  const currentModel = useMemo(
-    () => availableModels.find((m) => m.value === selectedModel),
-    [availableModels, selectedModel],
-  );
+  const currentModel = useMemo(() => findModel(availableModels, selectedModel), [availableModels, selectedModel]);
 
   // Group key for sidebar tabs - each custom provider gets its own virtual key
   // (e.g. 'custom:abc123') instead of being collapsed into a single 'custom' tab
@@ -379,7 +357,7 @@ export function ModelSelectorDialog({
     if (model.provider === 'custom' && model.customProviderId) {
       return `custom:${model.customProviderId}`;
     }
-    return model.provider || getModelProvider(model.value, model.label);
+    return model.provider;
   }, []);
 
   // Display name for a virtual custom-provider group, keyed by its group key
@@ -394,22 +372,16 @@ export function ModelSelectorDialog({
   }, [availableModels]);
 
   const groupLabel = useCallback(
-    (key: string) => customGroupNames.get(key) ?? PROVIDERS[key as ModelProvider]?.name ?? key,
+    (key: string) => customGroupNames.get(key) ?? getProviderName(key),
     [customGroupNames],
   );
 
-  // Get active providers from available models, filtered by configured API keys
-  const activeProviders = useMemo(() => {
-    const providerSet = new Set<string>();
-    for (const model of availableModels) {
-      const groupKey = getGroupKey(model);
-      const provider = model.provider || getModelProvider(model.value, model.label);
-      // 'custom' is allowed whenever models exist (configured via preferences)
-      const isEnabled = !enabledProviders || enabledProviders.includes(provider) || provider === 'custom';
-      if (isEnabled) providerSet.add(groupKey);
-    }
-    return ['all', ...Array.from(providerSet)];
-  }, [availableModels, enabledProviders, getGroupKey]);
+  // Every listed model is reachable (the catalog only holds configured
+  // routes), so each provider with models gets a tab.
+  const activeProviders = useMemo(
+    () => ['all', ...new Set(availableModels.map(getGroupKey))],
+    [availableModels, getGroupKey],
+  );
 
   // Count models per provider
   // 'all' count reflects the preferred-models filter, individual providers show their full count
@@ -426,14 +398,10 @@ export function ModelSelectorDialog({
     return counts;
   }, [availableModels, preferredModels, getGroupKey]);
 
-  // Providers manually flagged via PROVIDERS[x].hasNew
-  const providersWithNewModels = useMemo(() => {
-    const set = new Set<string>();
-    for (const [key, info] of Object.entries(PROVIDERS)) {
-      if (info.hasNew) set.add(key);
-    }
-    return set;
-  }, []);
+  const providersWithNewModels = useMemo(
+    () => new Set(availableModels.filter((model) => model.isNew).map(getGroupKey)),
+    [availableModels, getGroupKey],
+  );
 
   // Filter models by provider
   const filteredByProvider = useMemo(() => {
@@ -469,8 +437,7 @@ export function ModelSelectorDialog({
     const tokens = normalized.split(/\s+/).filter(Boolean);
 
     const scored = sortedModelsForList.map((model) => {
-      const providerKey = model.provider || getModelProvider(model.value, model.label);
-      const providerName = PROVIDERS[providerKey]?.name || '';
+      const providerName = getProviderName(model.provider);
       const aggregate = normalizeText([model.label, model.description, providerName, model.value].join(' '));
       let score = 0;
       if (aggregate.includes(normalized)) score += 5;
@@ -561,7 +528,7 @@ export function ModelSelectorDialog({
           e.preventDefault();
           if (focusedIndex >= 0 && focusedIndex < count) {
             const model = displayModels[focusedIndex];
-            const needsAuth = requiresAuthentication(model.value) && !user;
+            const needsAuth = model.requiresAuth && !user;
             if (needsAuth) return;
             onModelSelect(model.value);
             setOpen(false);
@@ -584,12 +551,11 @@ export function ModelSelectorDialog({
   );
 
   // Model card renderer
-  const renderModelCard = (model: (typeof models)[0], index: number) => {
-    const requiresAuth = requiresAuthentication(model.value) && !user;
-    const isLocked = requiresAuth;
-    const modelProvider = model.provider || getModelProvider(model.value, model.label);
-    const isSelected = selectedModel === model.value;
-    const isAutoRouter = model.value === 'zetora-auto';
+  const renderModelCard = (model: Model, index: number) => {
+    const isLocked = model.requiresAuth && !user;
+    const modelProvider = model.provider;
+    const isSelected = currentModel?.value === model.value;
+    const isAutoRouter = model.value === AUTO_MODEL_ID;
     const isFocused = focusedIndex === index;
 
     const handleClick = () => {
@@ -644,7 +610,7 @@ export function ModelSelectorDialog({
               {model.label}
             </span>
 
-            {requiresAuth && !user && <LockIcon className="size-3 text-muted-foreground/60" />}
+            {isLocked && <LockIcon className="size-3 text-muted-foreground/60" />}
             {isAutoRouter && (
               <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-primary/10 text-primary leading-none">
                 AUTO
@@ -700,18 +666,6 @@ export function ModelSelectorDialog({
         {/* Right side: capabilities + check */}
         <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
           <div className="flex items-center gap-0.5">
-            {model.fast && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className={cn('p-0.5 rounded', isMobile && 'p-1')}>
-                    <Zap className={cn('text-amber-500/70', isMobile ? 'size-3' : 'size-2.5')} />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs">
-                  Fast
-                </TooltipContent>
-              </Tooltip>
-            )}
             {model.vision && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -939,8 +893,7 @@ export function ModelSelectorDialog({
   );
 
   // Trigger button
-  const currentModelProvider =
-    currentModel?.provider || (currentModel ? getModelProvider(currentModel.value, currentModel.label) : undefined);
+  const currentModelProvider = currentModel?.provider;
 
   const TriggerButton = React.forwardRef<
     React.ComponentRef<typeof Button>,

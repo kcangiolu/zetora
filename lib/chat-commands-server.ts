@@ -1,8 +1,7 @@
 import 'server-only';
-import type { LanguageModel } from 'ai';
-import type { SharedV3ProviderOptions } from '@ai-sdk/provider';
+import type { LanguageModelV3, SharedV3ProviderOptions } from '@ai-sdk/provider';
 import { parseCustomModelId, shouldUseNativeCustomProvider, type CustomProviderConfig } from '@/lib/custom-providers';
-import { getModelProvider } from '@/ai/models';
+import { getModelEntry } from '@/ai/catalog/models';
 import { getDeepSeekStartWithModel } from '@/ai/providers';
 
 export interface StartWithStrategy {
@@ -19,7 +18,7 @@ export interface StartWithStrategy {
   assistantMessageProviderOptions?: SharedV3ProviderOptions;
   // Swaps the resolved model for this call only (DeepSeek needs a distinct
   // provider instance pointed at its /beta endpoint — see ai/providers.ts).
-  modelOverride?: LanguageModel;
+  modelOverride?: LanguageModelV3;
 }
 
 // Real prefill (pushing a trailing assistant message the model continues
@@ -60,7 +59,7 @@ export function getStartWithStrategy(
     return { supported: false };
   }
 
-  if (getModelProvider(modelId) === 'anthropic') {
+  if (getModelEntry(modelId)?.lab === 'anthropic') {
     return { supported: true, providerOptions: { anthropic: { thinking: { type: 'disabled' } } } };
   }
 

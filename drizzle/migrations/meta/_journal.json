@@ -169,6 +169,13 @@
       "when": 1791534225617,
       "tag": "0023_native_memory",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791791745494,
+      "tag": "0024_model_catalog_source",
+      "breakpoints": true
     }
   ]
 }

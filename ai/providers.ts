@@ -1,6 +1,7 @@
 import 'server-only';
 
-import { wrapLanguageModel, customProvider, extractReasoningMiddleware, gateway, NoSuchModelError } from 'ai';
+import { wrapLanguageModel, extractReasoningMiddleware, gateway, type LanguageModel } from 'ai';
+import type { LanguageModelV3 } from '@ai-sdk/provider';
 import { dynamicXmlToolMiddleware } from '@/ai/xml-tool-middleware';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { createOpenAI } from '@ai-sdk/openai';
@@ -11,649 +12,175 @@ import { groq } from '@ai-sdk/groq';
 import { mistral } from '@ai-sdk/mistral';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createVertex } from '@ai-sdk/google-vertex';
-import { baseten } from '@ai-sdk/baseten';
 import { anthropic } from '@ai-sdk/anthropic';
 import { cohere } from '@ai-sdk/cohere';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { createRetryable } from 'ai-retry';
 import { reasoningSwitch } from '@/ai/reasoning-switch-model';
-import { createWorkersAI } from 'workers-ai-provider';
+import { isConfigured } from '@/ai/catalog/env';
+import { LABS, type DirectClient, type HostId } from '@/ai/catalog/config';
+import { getModelEntry } from '@/ai/catalog/models';
+import { getRoleModelId } from '@/ai/catalog/roles';
+import { loadModelCatalog } from '@/ai/catalog/store';
+import type { CatalogEntry, CatalogRoute } from '@/ai/catalog/types';
 
-const hasKey = (key: string | undefined): key is string => !!key && !key.startsWith('placeholder');
+const openaiCompatible = (name: string, baseURL: string, apiKey: string | undefined) =>
+  isConfigured(apiKey) ? createOpenAICompatible({ name, baseURL, apiKey }) : null;
 
-const ark = hasKey(process.env.ARK_API_KEY)
-  ? createOpenAICompatible({
-      name: 'ark',
-      baseURL: 'https://ark.ap-southeast.bytepluses.com/api/v3',
-      apiKey: process.env.ARK_API_KEY,
-    })
-  : null;
+const sarvam = openaiCompatible('sarvam', 'https://api.sarvam.ai/v1', process.env.SARVAM_API_KEY);
+const zai = openaiCompatible('zai', 'https://api.z.ai/api/paas/v4', process.env.ZAI_API_KEY);
+const minimax = openaiCompatible('minimax', 'https://api.minimax.io/v1', process.env.MINIMAX_API_KEY);
+const novita = openaiCompatible('novita', 'https://api.novita.ai/openai', process.env.NOVITA_API_KEY);
+const huggingface = openaiCompatible('huggingface', 'https://router.huggingface.co/v1', process.env.HF_TOKEN);
 
-const sarvam = hasKey(process.env.SARVAM_API_KEY)
-  ? createOpenAICompatible({
-      name: 'sarvam',
-      baseURL: 'https://api.sarvam.ai/v1',
-      apiKey: process.env.SARVAM_API_KEY,
-    })
-  : null;
-
-const zai = hasKey(process.env.ZAI_API_KEY)
-  ? createOpenAICompatible({
-      name: 'zai',
-      baseURL: 'https://api.z.ai/api/paas/v4',
-      apiKey: process.env.ZAI_API_KEY,
-    })
-  : null;
-
-// Direct DeepSeek API — only V4 flash/pro (the models with graded
-// reasoning_effort control). Older deepseek-* models stay on
-// gateway/novita/baseten, which don't expose that knob anyway.
 // Uses the real @ai-sdk/deepseek package rather than the generic
 // openai-compatible wrapper — DeepSeek doesn't support structuredOutputs
 // either way, but this package still injects the JSON schema into a system
 // message and sets response_format: json_object, instead of silently
 // dropping the schema (which made Output.object() calls like extreme-search's
 // planner fail unpredictably with "response did not match schema").
-const deepseekDirect = hasKey(process.env.DEEPSEEK_API_KEY)
+const deepseekDirect = isConfigured(process.env.DEEPSEEK_API_KEY)
   ? createDeepSeek({
       baseURL: 'https://api.deepseek.com',
       apiKey: process.env.DEEPSEEK_API_KEY,
     })
   : null;
 
-// Separate instance, used only by /startwith on the two direct DeepSeek
-// models. DeepSeek's real prefill ("Chat Prefix Completion") needs the
-// /beta endpoint plus a `prefix: true` field on the trailing assistant
-// message — @ai-sdk/deepseek's hand-rolled message converter has no escape
-// hatch for that field, but the generic openai-compatible shim spreads
-// `message.providerOptions.openaiCompatible` verbatim onto the built
-// message (verified against its source), so it's the one that can actually
-// send `prefix`. Never used for normal chat — deepseekDirect above still
-// handles that — so the shim's known structured-output weakness (why
-// deepseekDirect exists instead of this same shim, see 566f7ca) never
-// applies: /startwith always forces tools:{} and a single plain-text step.
-const deepseekBetaDirect = hasKey(process.env.DEEPSEEK_API_KEY)
-  ? createOpenAICompatible({
-      name: 'deepseek-beta',
-      baseURL: 'https://api.deepseek.com/beta',
-      apiKey: process.env.DEEPSEEK_API_KEY,
-    })
-  : null;
+// Separate instance, used only by /startwith on direct DeepSeek models.
+// DeepSeek's real prefill ("Chat Prefix Completion") needs the /beta
+// endpoint plus a `prefix: true` field on the trailing assistant message —
+// @ai-sdk/deepseek's hand-rolled message converter has no escape hatch for
+// that field, but the generic openai-compatible shim spreads
+// `message.providerOptions.openaiCompatible` verbatim onto the built message
+// (verified against its source), so it's the one that can actually send
+// `prefix`. Never used for normal chat — deepseekDirect above still handles
+// that — so the shim's known structured-output weakness never applies:
+// /startwith always forces tools:{} and a single plain-text step.
+const deepseekBetaDirect = openaiCompatible(
+  'deepseek-beta',
+  'https://api.deepseek.com/beta',
+  process.env.DEEPSEEK_API_KEY,
+);
 
-const DEEPSEEK_STARTWITH_MODEL_NAMES: Record<string, string> = {
-  'zetora-deepseek-v4.1-flash': 'deepseek-flash',
-  'zetora-deepseek-v4-pro': 'deepseek-v4-pro',
-};
-
-export function getDeepSeekStartWithModel(modelId: string): LanguageModel | null {
-  const modelName = DEEPSEEK_STARTWITH_MODEL_NAMES[modelId];
-  if (!modelName || !deepseekBetaDirect) return null;
-  return deepseekBetaDirect.chatModel(modelName);
+export function getDeepSeekStartWithModel(modelId: string): LanguageModelV3 | null {
+  const route = getModelEntry(modelId)?.routes[0];
+  if (!deepseekBetaDirect || getModelEntry(modelId)?.lab !== 'deepseek' || route?.host !== 'direct') return null;
+  return deepseekBetaDirect.chatModel(route.modelId);
 }
 
-const middleware = extractReasoningMiddleware({
-  tagName: 'think',
-});
-
-const middlewareWithStartWithReasoning = extractReasoningMiddleware({
-  tagName: 'think',
-  startWithReasoning: true,
-});
-
-const huggingface = hasKey(process.env.HF_TOKEN)
-  ? createOpenAICompatible({
-      name: 'huggingface',
-      baseURL: 'https://router.huggingface.co/v1',
-      apiKey: process.env.HF_TOKEN,
-    })
-  : null;
-
-const novita = hasKey(process.env.NOVITA_API_KEY)
-  ? createOpenAICompatible({
-      name: 'novita',
-      baseURL: 'https://api.novita.ai/openai',
-      apiKey: process.env.NOVITA_API_KEY,
-    })
-  : null;
-
-const workersai =
-  hasKey(process.env.CLOUDFLARE_ACCOUNT_ID) && hasKey(process.env.CLOUDFLARE_API_TOKEN)
-    ? createWorkersAI({
-        accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
-        apiKey: process.env.CLOUDFLARE_API_TOKEN!,
-      })
-    : null;
-
-const openrouter = hasKey(process.env.OPENROUTER_API_KEY)
+const openrouter = isConfigured(process.env.OPENROUTER_API_KEY)
   ? createOpenRouter({
       apiKey: process.env.OPENROUTER_API_KEY,
       headers: {
-        'HTTP-Referer': 'https://zetoraai.in',
-        'X-Title': 'Zetora AI',
-        'Content-Type': 'application/json',
+        'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
+        'X-Title': 'Zetora',
       },
-    })
-  : null;
-
-const minimax = hasKey(process.env.MINIMAX_API_KEY)
-  ? createOpenAICompatible({
-      name: 'minimax',
-      baseURL: 'https://api.minimax.io/v1',
-      apiKey: process.env.MINIMAX_API_KEY,
     })
   : null;
 
 const wsFetch = createWebSocketFetch();
 
-const openai = hasKey(process.env.OPENAI_API_KEY) ? createOpenAI({ fetch: wsFetch }) : null;
+const openai = isConfigured(process.env.OPENAI_API_KEY) ? createOpenAI({ fetch: wsFetch }) : null;
 
-const openai_2 = hasKey(process.env.OPENAI_API_KEY_2)
+// A second OpenAI key, tried when the first one fails (rate limits).
+const openaiBackup = isConfigured(process.env.OPENAI_API_KEY_2)
   ? createOpenAI({ apiKey: process.env.OPENAI_API_KEY_2, fetch: wsFetch })
   : null;
 
-const _xai = hasKey(process.env.XAI_API_KEY) ? xai : null;
-const _groq = hasKey(process.env.GROQ_API_KEY) ? groq : null;
-const _mistral = hasKey(process.env.MISTRAL_API_KEY) ? mistral : null;
 // Gemini has two endpoints, each with its own key and picker tab. Keys are
 // passed explicitly: the SDKs' default env names (GOOGLE_GENERATIVE_AI_API_KEY,
 // GOOGLE_VERTEX_API_KEY) are not the ones Zetora uses. An API key puts the
 // Vertex SDK in express mode, so no project/location/credentials are needed.
-const _google = hasKey(process.env.GOOGLE_AI_STUDIO_API_KEY)
+const google = isConfigured(process.env.GOOGLE_AI_STUDIO_API_KEY)
   ? createGoogleGenerativeAI({ apiKey: process.env.GOOGLE_AI_STUDIO_API_KEY })
   : null;
-const _vertex = hasKey(process.env.GOOGLE_AGENT_PLATFORM_API_KEY)
+const vertex = isConfigured(process.env.GOOGLE_AGENT_PLATFORM_API_KEY)
   ? createVertex({ apiKey: process.env.GOOGLE_AGENT_PLATFORM_API_KEY })
   : null;
-const _baseten = hasKey(process.env.BASETEN_API_KEY) ? baseten : null;
-const _anthropic = hasKey(process.env.ANTHROPIC_API_KEY) ? anthropic : null;
-const _cohere = hasKey(process.env.COHERE_API_KEY) ? cohere : null;
 
-export const zetora = customProvider({
-  languageModels: {
-    ...(huggingface ? { 'zetora-arch-router': huggingface.chatModel('katanemo/Arch-Router-1.5B:hf-inference') } : {}),
+type ModelFactory = (modelId: string) => LanguageModelV3;
 
-    ...(_xai
-      ? {
-          'zetora-default': _xai('grok-4-1-fast-non-reasoning'),
-          'zetora-auto': _xai('grok-4-1-fast-non-reasoning'),
-          'zetora-grok4.1-fast-thinking': _xai('grok-4-1-fast-reasoning'),
-          'zetora-ext-1': createRetryable({
-            model: _xai('grok-4-1-fast-reasoning'),
-            retries: [gateway('xai/grok-4.1-fast-reasoning')],
-          }),
-          'zetora-ext-8': _xai('grok-4.20-experimental-beta-0304-non-reasoning'),
-          'zetora-grok-3-mini': _xai('grok-3-mini'),
-          'zetora-grok-3': _xai('grok-3'),
-          'zetora-grok-4': _xai('grok-4'),
-          'zetora-grok-4.5': _xai('grok-4.5'),
-          'zetora-grok-4.20-experimental-beta-0304': reasoningSwitch({
-            thinking: _xai('grok-4.20-reasoning-latest'),
-            instant: _xai('grok-4.20-non-reasoning-latest'),
-          }),
-          'zetora-grok-4-fast': reasoningSwitch({
-            thinking: _xai('grok-4-fast-reasoning'),
-            instant: _xai('grok-4-fast-non-reasoning'),
-          }),
-          'zetora-code': _xai('grok-code-fast-1'),
-        }
-      : {}),
+function configured(envKey: string, factory: ModelFactory): ModelFactory | null {
+  return isConfigured(process.env[envKey]) ? factory : null;
+}
 
-    ...(sarvam ? { 'zetora-sarvam-105b': sarvam.chatModel('sarvam-105b') } : {}),
+// Each lab's own API (see ai/catalog/config.ts), null when its key is unset.
+const DIRECT_CLIENTS: Record<DirectClient, ModelFactory | null> = {
+  openai:
+    openai &&
+    ((id) => (openaiBackup ? createRetryable({ model: openai(id), retries: [openaiBackup(id)] }) : openai(id))),
+  anthropic: configured('ANTHROPIC_API_KEY', (id) => anthropic(id)),
+  google: google && ((id) => google(id)),
+  vertex: vertex && ((id) => vertex(id)),
+  xai: configured('XAI_API_KEY', (id) => xai(id)),
+  deepseek: deepseekDirect && ((id) => deepseekDirect(id)),
+  mistral: configured('MISTRAL_API_KEY', (id) => mistral(id)),
+  cohere: configured('COHERE_API_KEY', (id) => cohere(id)),
+  zai: zai && ((id) => zai.chatModel(id)),
+  minimax: minimax && ((id) => minimax.chatModel(id)),
+  sarvam: sarvam && ((id) => sarvam.chatModel(id)),
+};
 
-    ...(openai && openai_2
-      ? {
-          'zetora-ext-2': createRetryable({
-            model: openai('gpt-5.4'),
-            retries: [openai_2('gpt-5.4')],
-          }),
-          'zetora-gpt-4.1-nano': createRetryable({
-            model: openai('gpt-4.1-nano'),
-            retries: [openai_2('gpt-4.1-nano')],
-          }),
-          'zetora-gpt-4.1-mini': createRetryable({
-            model: openai('gpt-4.1-mini'),
-            retries: [openai_2('gpt-4.1-mini')],
-          }),
-          'zetora-gpt-4.1': createRetryable({
-            model: openai('gpt-4.1'),
-            retries: [openai_2('gpt-4.1')],
-          }),
-          'zetora-gpt-5.1': createRetryable({
-            model: openai('gpt-5.1'),
-            retries: [openai_2('gpt-5.1')],
-          }),
-          'zetora-gpt-5.2': createRetryable({
-            model: openai('gpt-5.2'),
-            retries: [openai_2('gpt-5.2')],
-          }),
-          'zetora-gpt-5.3-chat-latest': createRetryable({
-            model: openai('gpt-5.3-chat-latest'),
-            retries: [openai_2('gpt-5.3-chat-latest')],
-          }),
-          'zetora-gpt-5.4': createRetryable({
-            model: openai('gpt-5.4'),
-            retries: [openai_2('gpt-5.4')],
-          }),
-          'zetora-gpt-5.4-mini': createRetryable({
-            model: openai('gpt-5.4-mini'),
-            retries: [openai_2('gpt-5.4-mini')],
-          }),
-          'zetora-gpt-5.4-nano': createRetryable({
-            model: openai('gpt-5.4-nano'),
-            retries: [openai_2('gpt-5.4-nano')],
-          }),
-          'zetora-gpt-5.4-thinking-xhigh': createRetryable({
-            model: openai('gpt-5.4'),
-            retries: [openai_2('gpt-5.4')],
-          }),
-          'zetora-gpt-5.2-thinking-xhigh': createRetryable({
-            model: openai('gpt-5.2'),
-            retries: [openai_2('gpt-5.2')],
-          }),
-          'zetora-gpt-5.1-codex': createRetryable({
-            model: openai('gpt-5.1-codex'),
-            retries: [openai_2('gpt-5.1-codex')],
-          }),
-          'zetora-gpt-5.1-codex-mini': createRetryable({
-            model: openai('gpt-5.1-codex-mini'),
-            retries: [openai_2('gpt-5.1-codex-mini')],
-          }),
-          'zetora-gpt-5.1-codex-max': createRetryable({
-            model: openai('gpt-5.1-codex-max'),
-            retries: [openai_2('gpt-5.1-codex-max')],
-          }),
-          'zetora-gpt-5.2-codex': createRetryable({
-            model: openai('gpt-5.2-codex'),
-            retries: [openai_2('gpt-5.2-codex')],
-          }),
-          'zetora-gpt-5.3-codex': createRetryable({
-            model: openai('gpt-5.3-codex'),
-            retries: [openai_2('gpt-5.3-codex')],
-          }),
-          'zetora-gpt5': createRetryable({
-            model: openai('gpt-5'),
-            retries: [openai_2('gpt-5')],
-          }),
-          'zetora-gpt5-medium': createRetryable({
-            model: openai('gpt-5'),
-            retries: [openai_2('gpt-5')],
-          }),
-          'zetora-gpt5-mini': createRetryable({
-            model: openai('gpt-5-mini'),
-            retries: [openai_2('gpt-5-mini')],
-          }),
-          'zetora-gpt5-nano': createRetryable({
-            model: openai('gpt-5-nano'),
-            retries: [openai_2('gpt-5-nano')],
-          }),
-          'zetora-o3': createRetryable({
-            model: openai('o3'),
-            retries: [openai_2('o3')],
-          }),
-          'zetora-o4-mini': createRetryable({
-            model: openai('o4-mini'),
-            retries: [openai_2('o4-mini')],
-          }),
-          'zetora-gpt5-codex': createRetryable({
-            model: openai('gpt-5-codex'),
-            retries: [openai_2('gpt-5-codex')],
-          }),
-          'zetora-gpt-5.5': createRetryable({
-            model: openai('gpt-5.5'),
-            retries: [openai_2('gpt-5.5')],
-          }),
-          'zetora-gpt-5.6': createRetryable({
-            model: openai('gpt-5.6'),
-            retries: [openai_2('gpt-5.6')],
-          }),
-          'zetora-gpt-5.6-terra': createRetryable({
-            model: openai('gpt-5.6-terra'),
-            retries: [openai_2('gpt-5.6-terra')],
-          }),
-          'zetora-gpt-5.6-luna': createRetryable({
-            model: openai('gpt-5.6-luna'),
-            retries: [openai_2('gpt-5.6-luna')],
-          }),
-        }
-      : {}),
+const HOST_CLIENTS: Record<HostId, ModelFactory | null> = {
+  groq: configured('GROQ_API_KEY', (id) => groq(id)),
+  novita: novita && ((id) => novita.chatModel(id)),
+  gateway: (id) => gateway(id),
+  openrouter: openrouter && ((id) => openrouter(id)),
+};
 
-    ...(_groq
-      ? {
-          'zetora-enhance': _groq('openai/gpt-oss-120b'),
-          'zetora-gpt-oss-120-groq': _groq('openai/gpt-oss-120b'),
-          'zetora-qwen-3.8-27b': wrapLanguageModel({ model: _groq('qwen/qwen3.8-27b'), middleware }),
-          'zetora-gpt-oss-20': wrapLanguageModel({ model: _groq('openai/gpt-oss-20b'), middleware }),
-        }
-      : {}),
+// Native SDKs return reasoning as its own parts; OpenAI-compatible shims and
+// aggregators can stream it inline as <think> tags instead.
+const NATIVE_REASONING_CLIENTS = new Set<DirectClient>([
+  'openai',
+  'anthropic',
+  'google',
+  'vertex',
+  'xai',
+  'deepseek',
+  'mistral',
+  'cohere',
+]);
 
-    ...(_google
-      ? {
-          'zetora-ext-6': createRetryable({
-            model: _google('gemini-3.1-pro-preview'),
-            retries: [gateway('google/gemini-3.1-pro-preview')],
-          }),
-          // gemini-3.1-flash-lite-preview (May 2026) and gemini-2.5-flash-lite-preview-09-2025
-          // (March 2026) are shut down — the GA Flash-Lite models replace them.
-          'zetora-name': createRetryable({
-            model: gateway('google/gemini-3.5-flash-lite'),
-            retries: [_google('gemini-3.5-flash-lite'), _google('gemini-3.1-flash-lite')],
-          }),
-          'zetora-follow-up': createRetryable({
-            model: gateway('google/gemini-3.5-flash-lite'),
-            retries: [_google('gemini-3.5-flash-lite'), _google('gemini-3.1-flash-lite')],
-          }),
-          'zetora-gemini-3.5-flash-lite': createRetryable({
-            model: _google('gemini-3.5-flash-lite'),
-            retries: [gateway('google/gemini-3.5-flash-lite')],
-          }),
-          'zetora-gemini-3.5-flash': createRetryable({
-            model: _google('gemini-3.5-flash'),
-            retries: [gateway('google/gemini-3.5-flash')],
-          }),
-          'zetora-gemini-3.8-flash': createRetryable({
-            model: _google('gemini-3.8-flash'),
-            retries: [gateway('google/gemini-3.8-flash')],
-          }),
-          'zetora-gemini-3.1-pro': createRetryable({
-            model: _google('gemini-3.1-pro-preview'),
-            retries: [gateway('google/gemini-3.1-pro-preview')],
-          }),
-        }
-      : {}),
+const thinkTagMiddleware = extractReasoningMiddleware({ tagName: 'think' });
 
-    ...(_vertex
-      ? {
-          'zetora-vertex-gemini-3.5-flash-lite': createRetryable({
-            model: _vertex('gemini-3.5-flash-lite'),
-            retries: [gateway('google/gemini-3.5-flash-lite')],
-          }),
-          'zetora-vertex-gemini-3.5-flash': createRetryable({
-            model: _vertex('gemini-3.5-flash'),
-            retries: [gateway('google/gemini-3.5-flash')],
-          }),
-          'zetora-vertex-gemini-3.8-flash': createRetryable({
-            model: _vertex('gemini-3.8-flash'),
-            retries: [gateway('google/gemini-3.8-flash')],
-          }),
-          'zetora-vertex-gemini-3.1-pro': createRetryable({
-            model: _vertex('gemini-3.1-pro-preview'),
-            retries: [gateway('google/gemini-3.1-pro-preview')],
-          }),
-        }
-      : {}),
+function routeModel(
+  entry: CatalogEntry,
+  route: CatalogRoute,
+  client: DirectClient | undefined,
+): LanguageModelV3 | null {
+  const factory = route.host === 'direct' ? client && DIRECT_CLIENTS[client] : HOST_CLIENTS[route.host];
+  if (!factory) return null;
+  const model = factory(route.modelId);
+  const native = route.host === 'direct' && client && NATIVE_REASONING_CLIENTS.has(client);
+  return entry.reasoning && !native ? wrapLanguageModel({ model, middleware: thinkTagMiddleware }) : model;
+}
 
-    ...(workersai
-      ? {
-          'zetora-ext-4': createRetryable({
-            model: workersai('@cf/zai-org/glm-4.7-flash'),
-            retries: novita ? [novita.chatModel('zai-org/glm-4.7-flash')] : [],
-          }),
-          'zetora-nemotron-3-super': workersai('@cf/nvidia/nemotron-3-120b-a12b'),
-        }
-      : {}),
+function routeChain(
+  entry: CatalogEntry,
+  routes: CatalogRoute[],
+  client: DirectClient | undefined,
+): LanguageModelV3 | null {
+  const [first, ...rest] = routes.map((route) => routeModel(entry, route, client)).filter((model) => model !== null);
+  if (!first) return null;
+  return rest.length ? createRetryable({ model: first, retries: rest }) : first;
+}
 
-    ...(novita
-      ? {
-          'zetora-deepseek-r1': wrapLanguageModel({
-            model: novita.chatModel('deepseek/deepseek-r1-turbo'),
-            middleware,
-          }),
-          'zetora-deepseek-r1-0528': wrapLanguageModel({
-            model: novita.chatModel('deepseek/deepseek-r1-0528'),
-            middleware,
-          }),
-          'zetora-qwen-coder-next': novita.chatModel('qwen/qwen3-coder-next'),
-          'zetora-qwen-3-vl-30b': reasoningSwitch({
-            thinking: wrapLanguageModel({
-              model: novita.chatModel('qwen/qwen3-vl-30b-a3b-thinking'),
-              middleware,
-            }),
-            instant: novita.chatModel('qwen/qwen3-vl-30b-a3b-instruct'),
-          }),
-          'zetora-qwen-3.5-27b': novita.chatModel('qwen/qwen3.5-27b'),
-          'zetora-qwen-3.5-35b': novita.chatModel('qwen/qwen3.5-35b-a3b'),
-          'zetora-qwen-3.5-122b': novita.chatModel('qwen/qwen3.5-122b-a10b'),
-          'zetora-qwen-3.5': novita.chatModel('qwen/qwen3.5-397b-a17b'),
-          ...(workersai
-            ? {}
-            : {
-                'zetora-ext-4': createRetryable({
-                  model: novita.chatModel('zai-org/glm-4.7-flash'),
-                  retries: [gateway('zai/glm-4.7-flashx')],
-                }),
-              }),
-        }
-      : {}),
+// The language model for a catalog entry: its routes in order, each later
+// one tried when the previous fails.
+function catalogLanguageModel(entry: CatalogEntry): LanguageModelV3 | null {
+  const client = LABS.find((lab) => lab.id === entry.lab)?.direct?.client;
+  const thinking = routeChain(entry, entry.routes, client);
+  if (!thinking || !entry.instantRoutes) return thinking;
+  const instant = routeChain(entry, entry.instantRoutes, client);
+  return instant ? reasoningSwitch({ thinking, instant }) : thinking;
+}
 
-    ...(huggingface
-      ? {
-          'zetora-qwen-4b': reasoningSwitch({
-            thinking: wrapLanguageModel({
-              model: huggingface.chatModel('Qwen/Qwen3-4B-Thinking-2507:nscale'),
-              middleware: [middlewareWithStartWithReasoning],
-            }),
-            instant: huggingface.chatModel('Qwen/Qwen3-4B-Instruct-2507:nscale'),
-          }),
-          'zetora-qwen-3-next': reasoningSwitch({
-            thinking: wrapLanguageModel({
-              model: huggingface.chatModel('Qwen/Qwen3-Next-80B-A3B-Thinking:hyperbolic'),
-              middleware: [middlewareWithStartWithReasoning],
-            }),
-            instant: huggingface.chatModel('Qwen/Qwen3-Next-80B-A3B-Instruct:hyperbolic'),
-          }),
-          'zetora-glm-4.6': wrapLanguageModel({
-            model: huggingface.chatModel('zai-org/GLM-4.6:zai-org'),
-            middleware,
-          }),
-          'zetora-glm-4.6v-flash': wrapLanguageModel({
-            model: huggingface.chatModel('zai-org/GLM-4.6V-Flash:zai-org'),
-            middleware,
-          }),
-          'zetora-glm-4.6v': wrapLanguageModel({
-            model: huggingface.chatModel('zai-org/GLM-4.6V:zai-org'),
-            middleware,
-          }),
-          'zetora-glm-4.7': wrapLanguageModel({
-            model: huggingface.chatModel('zai-org/GLM-4.7:novita'),
-            middleware,
-          }),
-        }
-      : {}),
+// Internal models that aren't chat models, so never part of the catalog.
+const INTERNAL_MODELS: Record<string, () => LanguageModelV3 | null> = {
+  // Tiny router model behind the auto-router task.
+  'zetora-arch-router': () => huggingface?.chatModel('katanemo/Arch-Router-1.5B:hf-inference') ?? null,
+};
 
-    ...(_baseten
-      ? {
-          'zetora-gpt-oss-120': wrapLanguageModel({
-            model: _baseten('openai/gpt-oss-120b'),
-            middleware,
-          }),
-          'zetora-qwen-coder': _baseten('Qwen/Qwen3-Coder-480B-A35B-Instruct'),
-        }
-      : {}),
-
-    ...(openrouter
-      ? {
-          'zetora-trinity-large': wrapLanguageModel({
-            model: openrouter('arcee-ai/trinity-large-preview:free'),
-            middleware,
-          }),
-          'zetora-step-3.5-flash': openrouter('stepfun/step-3.5-flash:free'),
-        }
-      : {}),
-
-    ...(_cohere
-      ? {
-          'zetora-cmd-a': reasoningSwitch({
-            thinking: _cohere('command-a-reasoning-08-2025'),
-            instant: _cohere('command-a-03-2025'),
-          }),
-          'zetora-cmd-a-plus': _cohere('command-a-plus-05-2026'),
-        }
-      : {}),
-
-    ...(_mistral
-      ? {
-          'zetora-ministral-3b': _mistral('ministral-3b-2512'),
-          'zetora-ministral-8b': _mistral('ministral-8b-2512'),
-          'zetora-ministral-14b': _mistral('ministral-14b-2512'),
-          'zetora-mistral-large': _mistral('mistral-large-2512'),
-          'zetora-mistral-medium': _mistral('mistral-medium-2508'),
-          'zetora-magistral-small': _mistral('magistral-small-2509'),
-          'zetora-magistral-medium': _mistral('magistral-medium-2509'),
-          'zetora-mistral-small': _mistral('mistral-small-2603'),
-          'zetora-leanstral': _mistral('labs-leanstral-2603'),
-          'zetora-devstral': _mistral('devstral-2512'),
-          'zetora-devstral-small': _mistral('labs-devstral-small-2512'),
-        }
-      : {}),
-
-    ...(_anthropic
-      ? {
-          'zetora-anthropic-small': _anthropic('claude-haiku-4-5'),
-          'zetora-anthropic': _anthropic('claude-sonnet-4-5'),
-          'zetora-anthropic-sonnet-4.6': _anthropic('claude-sonnet-4-6'),
-          'zetora-anthropic-opus': _anthropic('claude-opus-4-5'),
-          'zetora-anthropic-opus-4.6': _anthropic('claude-opus-4-6'),
-          'zetora-anthropic-sonnet-5': _anthropic('claude-sonnet-5'),
-          'zetora-anthropic-opus-4.7': _anthropic('claude-opus-4-7'),
-          'zetora-anthropic-opus-4.8': _anthropic('claude-opus-4-8'),
-        }
-      : {}),
-
-    ...(zai
-      ? {
-          'zetora-glm-air': wrapLanguageModel({ model: gateway('zai/glm-4.5-air'), middleware }),
-          'zetora-glm': wrapLanguageModel({ model: gateway('zai/glm-4.5'), middleware }),
-          'zetora-glm-5': wrapLanguageModel({ model: zai('glm-5-turbo'), middleware }),
-          'zetora-glm-5.2': wrapLanguageModel({ model: zai('glm-5.2'), middleware }),
-        }
-      : {}),
-
-    ...(minimax
-      ? {
-          'zetora-minimax-m2.7': wrapLanguageModel({
-            model: minimax.chatModel('MiniMax-M2.7-highspeed'),
-            middleware,
-          }),
-          'zetora-minimax-m3': wrapLanguageModel({
-            model: minimax.chatModel('MiniMax-M3'),
-            middleware,
-          }),
-        }
-      : {}),
-
-    ...(ark
-      ? {
-          'zetora-seed-1.6': wrapLanguageModel({ model: ark('seed-1-6-250915'), middleware }),
-          'zetora-seed-1.8': wrapLanguageModel({ model: ark('seed-1-8-251228'), middleware }),
-          'zetora-seed-2.0-mini': wrapLanguageModel({ model: ark('seed-2-0-mini-260215'), middleware }),
-          'zetora-seed-2.0-lite': ark('seed-2-0-lite-260228'),
-          'zetora-seed-1.6-flash': wrapLanguageModel({ model: ark('seed-1-6-flash-250715'), middleware }),
-        }
-      : {}),
-
-    ...(minimax && _baseten && novita
-      ? {
-          'zetora-minimax-m2.5': createRetryable({
-            model: _baseten.chatModel('MiniMaxAI/MiniMax-M2.5'),
-            retries: [
-              minimax.chatModel('MiniMax-M2.5-highspeed'),
-              novita.chatModel('minimax/minimax-m2.5'),
-              gateway('minimax/minimax-m2.5'),
-            ],
-          }),
-        }
-      : {}),
-
-    // Gateway-only models — no provider dependency
-    'zetora-ext-5': gateway('moonshotai/kimi-k2.5'),
-    'zetora-ext-7': gateway('alibaba/qwen3.5-flash'),
-    'zetora-trinity-mini': wrapLanguageModel({ model: gateway('arcee-ai/trinity-mini'), middleware }),
-    'zetora-kat-coder': gateway('kwaipilot/kat-coder-pro-v1'),
-    'zetora-deepseek-v3.1-terminus': gateway('deepseek/deepseek-v3.1-terminus'),
-    'zetora-deepseek-chat': reasoningSwitch({
-      thinking: gateway('deepseek/deepseek-v3.2-thinking'),
-      instant: gateway('deepseek/deepseek-v3.2'),
-    }),
-    // The thinking side of the pairs below needs an optional provider; without
-    // it the entry keeps only the always-available gateway model.
-    'zetora-deepseek-chat-exp': novita
-      ? reasoningSwitch({
-          thinking: wrapLanguageModel({ model: novita.chatModel('deepseek/deepseek-v3.2-exp'), middleware }),
-          instant: gateway('deepseek/deepseek-v3.2-exp'),
-        })
-      : gateway('deepseek/deepseek-v3.2-exp'),
-    // Single entry per size — reasoning is toggled via providerOptions.deepseek.thinking
-    // (see lib/search/provider-options.ts / lib/reasoning-effort.ts), not a separate
-    // model id. The gateway fallback's 'thinking' variant slug isn't needed since the
-    // gateway forwards providerOptions.deepseek through to the same underlying toggle.
-    // deepseek-v4-flash and deepseek-v4-flash-vision-exp are retired — DeepSeek now
-    // serves 'deepseek-flash' (DeepSeek-V4.1-Flash, native vision) as the sole flash-tier
-    // model; the old names are aliased server-side but we route to the canonical id
-    // directly. deepseek-v4-pro stays a distinct, non-aliased model. See memory
-    // deepseek-v4.1-catalog-update.
-    'zetora-deepseek-v4.1-flash': deepseekDirect
-      ? deepseekDirect('deepseek-flash')
-      : gateway('deepseek/deepseek-v4.1-flash'),
-    'zetora-deepseek-v4-pro': deepseekDirect ? deepseekDirect('deepseek-v4-pro') : gateway('deepseek/deepseek-v4-pro'),
-    'zetora-v0-10': gateway('vercel/v0-1.0-md'),
-    'zetora-v0-15': gateway('vercel/v0-1.5-md'),
-    'zetora-qwen-coder-small': gateway('alibaba/qwen3-coder-30b-a3b'),
-    'zetora-qwen-coder-plus': gateway('alibaba/qwen3-coder-plus'),
-    'zetora-qwen-3-max': gateway('alibaba/qwen3-max'),
-    'zetora-qwen-3-max-preview': reasoningSwitch({
-      thinking: gateway('alibaba/qwen3-max-thinking'),
-      instant: gateway('alibaba/qwen3-max-preview'),
-    }),
-    'zetora-qwen-235': huggingface
-      ? reasoningSwitch({
-          thinking: wrapLanguageModel({
-            model: huggingface.chatModel('Qwen/Qwen3-235B-A22B-Thinking-2507:fireworks-ai'),
-            middleware: [middlewareWithStartWithReasoning],
-          }),
-          instant: gateway('alibaba/qwen-3-235b'),
-        })
-      : gateway('alibaba/qwen-3-235b'),
-    'zetora-qwen-3.5-plus': gateway('alibaba/qwen3.5-plus'),
-    'zetora-qwen-3.5-flash': gateway('alibaba/qwen3.5-flash'),
-    'zetora-qwen-3.7-max': gateway('alibaba/qwen3.7-max'),
-    'zetora-qwen-3.7-plus': gateway('alibaba/qwen3.7-plus'),
-    'zetora-qwen-3-vl': reasoningSwitch({
-      thinking: wrapLanguageModel({ model: gateway('alibaba/qwen3-vl-thinking'), middleware }),
-      instant: gateway('alibaba/qwen3-vl-instruct'),
-    }),
-    'zetora-kimi-k2-v2': reasoningSwitch({
-      thinking: wrapLanguageModel({ model: gateway('moonshotai/kimi-k2-thinking-turbo'), middleware }),
-      instant: gateway('moonshotai/kimi-k2-instruct-0905'),
-    }),
-    // Kimi K2.5 thinks through the gateway's moonshotai/fireworks providers
-    // (thinking toggled in providerOptions); Baseten, when configured, serves
-    // the instant side as before.
-    'zetora-kimi-k2.5': _baseten
-      ? reasoningSwitch({
-          thinking: gateway('moonshotai/kimi-k2.5'),
-          instant: createRetryable({
-            model: _baseten.chatModel('moonshotai/Kimi-K2.5'),
-            retries: [gateway('moonshotai/kimi-k2.5')],
-          }),
-        })
-      : gateway('moonshotai/kimi-k2.5'),
-    'zetora-kimi-k2.6': gateway('moonshotai/kimi-k2.6'),
-    'zetora-kimi-k2.7-code': gateway('moonshotai/kimi-k2.7-code'),
-    'zetora-mimo-v2-flash': wrapLanguageModel({ model: gateway('xiaomi/mimo-v2-flash'), middleware }),
-    'zetora-mimo-v2-pro': wrapLanguageModel({ model: gateway('xiaomi/mimo-v2-pro'), middleware }),
-    'zetora-nova-2-lite': gateway('amazon/nova-2-lite'),
-    'zetora-mercury-2': gateway('inception/mercury-2'),
-    'zetora-nemotron-3-ultra': gateway('nvidia/nemotron-3-ultra-550b-a55b'),
-    'zetora-minimax-m2': wrapLanguageModel({ model: gateway('minimax/minimax-m2'), middleware }),
-    'zetora-minimax-m2.1': wrapLanguageModel({ model: gateway('minimax/minimax-m2.1'), middleware }),
-    'zetora-minimax-m2.1-lightning': wrapLanguageModel({
-      model: gateway('minimax/minimax-m2.1-lightning'),
-      middleware,
-    }),
-  },
-});
-
-import type { LanguageModel } from 'ai';
 import {
   getCustomProviders,
   getCustomModels,
@@ -663,7 +190,6 @@ import {
 } from '@/lib/custom-providers';
 import { LlamaCppNativeLanguageModel } from './native-models/llamacpp-model';
 import { OllamaNativeLanguageModel } from './native-models/ollama-model';
-import { canonicalModelId } from './models';
 
 import { createLogger } from '@/lib/logger';
 
@@ -758,21 +284,26 @@ export async function getAnonymizeContext(
 }
 
 // Resolves the user's configured "Default Model" preference (Settings →
-// Tertiary Models) to a model id usable as the chat fallback, verifying a
-// custom-model preference still exists before trusting it — otherwise falls
-// back to the hardcoded 'zetora-default'. This is the SAME preference
+// Tertiary Models) to a model id usable as the chat fallback, verifying it
+// still exists before trusting it — otherwise falls back to the instance's
+// default model (ai/catalog/roles.ts). This is the SAME preference
 // resolveTertiaryModel's 'default' task reads (ai/tertiary.ts's PREF_KEYS),
 // so the chat and background-task fallbacks stay consistent.
 async function resolveDefaultModelId(preferences?: Record<string, unknown> | null, userId?: string): Promise<string> {
   const pref = preferences?.['zetora-default-model'];
-  if (typeof pref !== 'string' || !pref) return 'zetora-default';
-
-  if (pref.startsWith('custom-')) {
-    const models = await getCustomModels(userId);
-    return models.some((m) => m.id === pref) ? pref : 'zetora-default';
+  if (typeof pref === 'string' && pref) {
+    if (pref.startsWith('custom-')) {
+      const models = await getCustomModels(userId);
+      if (models.some((m) => m.id === pref)) return pref;
+    } else if (getModelEntry(pref)) {
+      return pref;
+    }
   }
-
-  return pref;
+  const roleDefault = getRoleModelId('default');
+  if (!roleDefault) {
+    throw new Error('No model available: configure at least one AI provider API key (see .env.example).');
+  }
+  return roleDefault;
 }
 
 export async function resolveModel(
@@ -780,26 +311,25 @@ export async function resolveModel(
   preferences?: Record<string, unknown> | null,
   userId?: string,
   hasImages = false,
-): Promise<LanguageModel> {
-  let resolved: LanguageModel;
+): Promise<LanguageModelV3> {
+  await loadModelCatalog();
+  let resolved: LanguageModelV3;
   let backendKind: CustomProviderConfig['backendKind'] | undefined;
   let usingNativeModel = false;
 
-  modelId = canonicalModelId(modelId);
   if (!modelId.startsWith('custom-')) {
-    try {
-      resolved = zetora.languageModel(modelId);
-    } catch (error) {
-      if (!NoSuchModelError.isInstance(error) || modelId === 'zetora-default') throw error;
-      // A retired built-in model can linger in a stored selection (localStorage,
-      // saved auto-router routes, preferences) — fall back like an unknown custom
-      // model does. Ending on 'zetora-default' guarantees the recursion stops even
-      // when the user's default-model preference is itself a retired model.
-      const preferredId = await resolveDefaultModelId(preferences, userId);
-      const fallbackId = preferredId === modelId ? 'zetora-default' : preferredId;
-      log.warn(`Model ${modelId} no longer exists, falling back to default (${fallbackId})`);
+    const entry = getModelEntry(modelId);
+    const builtIn = INTERNAL_MODELS[modelId]?.() ?? (entry && catalogLanguageModel(entry));
+    if (!builtIn) {
+      // A model that left the catalog can linger in a stored selection
+      // (localStorage, saved auto-router routes, preferences) — fall back
+      // like an unknown custom model does.
+      const fallbackId = await resolveDefaultModelId(preferences, userId);
+      if (fallbackId === modelId) throw new Error(`Default model ${modelId} cannot be reached`);
+      log.warn(`Model ${modelId} is not available, falling back to default (${fallbackId})`);
       return resolveModel(fallbackId, preferences, userId, hasImages);
     }
+    resolved = builtIn;
   } else {
     const models = await getCustomModels(userId);
     const model = models.find((m) => m.id === modelId);
@@ -867,5 +397,3 @@ export async function resolveModel(
 
   return resolved;
 }
-
-export { hasVisionSupport, getModelParameters, shouldBypassRateLimits } from './models';

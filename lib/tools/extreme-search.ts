@@ -35,8 +35,6 @@ import { cohere } from '@ai-sdk/cohere';
 import { rerank } from 'ai';
 import { OpenAIResponsesProviderOptions } from '@ai-sdk/openai';
 import { AnthropicProviderOptions } from '@ai-sdk/anthropic';
-import { gateway, GatewayProviderOptions } from '@ai-sdk/gateway';
-import { GoogleGenerativeAIProviderOptions, GoogleLanguageModelOptions } from '@ai-sdk/google';
 import Parallel from 'parallel-web';
 import {
   FastCrwContentStrategy,
@@ -736,7 +734,6 @@ async function extremeSearch(
   _mcpDynamicTools: Record<string, any> = {},
   preferences: Record<string, string> | null = null,
 ): Promise<Research> {
-  const modelId = preferences?.['zetora-tertiary-extreme-agent-model'] || 'zetora-ext-1';
   const sandboxPreference = preferences?.['zetora-sandbox-provider'] as SandboxProviderType | undefined;
   const storagePreference = preferences?.['zetora-storage-provider'] as StorageProvider | undefined;
   const allSources: SearchResult[] = [];
@@ -1080,6 +1077,9 @@ ${JSON.stringify(plan)}
 `,
     prompt,
     temperature: 0,
+    // Thinking is switched off for this model (ai/tertiary.ts): every step
+    // forces toolChoice 'required', which several providers reject while
+    // thinking.
     providerOptions: {
       xai: {
         parallel_function_calling: false,
@@ -1087,75 +1087,10 @@ ${JSON.stringify(plan)}
       },
       openai: {
         parallelToolCalls: false,
-        reasoningEffort: 'none',
       } satisfies OpenAIResponsesProviderOptions,
       anthropic: {
         disableParallelToolUse: true,
       } satisfies AnthropicProviderOptions,
-      ...(modelId === 'zetora-ext-5'
-        ? {
-            gateway: {
-              only: ['moonshotai', 'fireworks'],
-              order: ['fireworks', 'moonshotai'],
-            } satisfies GatewayProviderOptions,
-          }
-        : {}),
-
-      moonshotai: {
-        ...(modelId === 'zetora-ext-5'
-          ? {
-              thinking: { type: 'disabled' },
-            }
-          : {}),
-      },
-      fireworks: {
-        ...(modelId === 'zetora-ext-5'
-          ? {
-              thinking: { type: 'disabled' },
-            }
-          : {}),
-      },
-      google: {
-        thinkingConfig: {
-          thinkingLevel: 'medium',
-          includeThoughts: false,
-        },
-      } satisfies GoogleGenerativeAIProviderOptions,
-      vertex: {
-        thinkingConfig: {
-          thinkingLevel: 'medium',
-          includeThoughts: false,
-        },
-      } satisfies GoogleLanguageModelOptions,
-      alibaba: {
-        ...(modelId === 'zetora-ext-7'
-          ? {
-              enable_thinking: false,
-            }
-          : {}),
-      },
-      // DeepSeek's API rejects any tool_choice other than 'auto' while
-      // thinking is active, and defaults to thinking enabled server-side
-      // when the field is omitted — but prepareStep below always forces
-      // toolChoice: 'required'. Must be disabled unconditionally here,
-      // since the generic reasoning-effort override (lib/reasoning-effort.ts)
-      // only kicks in when the user picks a non-'auto' effort.
-      deepseek: {
-        thinking: { type: 'disabled' },
-      },
-    },
-    ...(modelId === 'zetora-ext-7'
-      ? {
-          temperature: 1,
-          topP: 0.95,
-          topK: 20,
-          minP: 0,
-          presencePenalty: 1.5,
-          frequencyPenalty: 1.0,
-        }
-      : {}),
-    headers: {
-      'anthropic-beta': 'context-1m-2025-08-07',
     },
     tools: {
       thinking: {

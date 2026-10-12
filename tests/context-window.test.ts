@@ -11,7 +11,7 @@ vi.mock('@/lib/custom-providers', async (importOriginal) => {
 });
 
 import { resolveContextWindow, DEFAULT_CUSTOM_CONTEXT_WINDOW } from '@/lib/context-window';
-import { getContextWindow } from '@/ai/models';
+import { getContextWindow } from '@/ai/catalog/models';
 import type { CustomProviderConfig } from '@/lib/custom-providers';
 
 function stubFetchOnce(response: { ok: boolean; json?: () => Promise<unknown> }) {

@@ -19,7 +19,6 @@ export interface PrepareStepInput {
   group: string;
   shouldUseXaiMultiAgent: boolean;
   isXmlParsedCustomModel: boolean;
-  model: string;
   latestStepHasToolRoundTrip: boolean;
   streamActiveTools: string[];
   baseSystem: string;
@@ -47,7 +46,6 @@ export function resolvePrepareStepOverride({
   group,
   shouldUseXaiMultiAgent,
   isXmlParsedCustomModel,
-  model,
   latestStepHasToolRoundTrip,
   streamActiveTools,
   baseSystem,
@@ -105,7 +103,7 @@ export function resolvePrepareStepOverride({
   }
 
   // Other modes: after the first completed tool round, force synthesis.
-  if (latestStepHasToolRoundTrip && model !== 'zetora-sarvam-105b') {
+  if (latestStepHasToolRoundTrip) {
     if (isXmlParsedCustomModel) {
       // Keep the schemas armed (the XML middleware needs them to parse any
       // further tool call the model emits) and nudge toward synthesis instead.

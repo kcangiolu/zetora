@@ -9,7 +9,7 @@ const hasVisionSupport = vi.hoisted(() => vi.fn());
 vi.mock('ai', () => ({ generateText }));
 vi.mock('@/lib/user-data-server', () => ({ getComprehensiveUserData, getCachedUserPreferencesByUserId }));
 vi.mock('@/ai/tertiary', () => ({ resolveTertiaryModel }));
-vi.mock('@/ai/providers', () => ({ hasVisionSupport }));
+vi.mock('@/ai/catalog/models', () => ({ hasVisionSupport }));
 
 import { routeWithAutoRouter } from '@/lib/search/auto-router';
 
@@ -64,7 +64,7 @@ describe('routeWithAutoRouter', () => {
     expect(result).toMatchObject({ success: true, model: 'model-news', route: 'news' });
   });
 
-  it('falls back to zetora-default when no route matches', async () => {
+  it('falls back to the default model when no route matches', async () => {
     generateText.mockResolvedValue({ text: '{"route": "other"}' });
     expect(await routeWithAutoRouter({ query: 'hello', routes })).toEqual({
       success: true,

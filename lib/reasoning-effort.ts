@@ -1,7 +1,8 @@
 import 'server-only';
 import { extractReasoningMiddleware, type LanguageModelMiddleware } from 'ai';
 import type { LanguageModelV3StreamPart } from '@ai-sdk/provider';
-import { getModelConfig, getModelProvider } from '@/ai/models';
+import { getModelEntry } from '@/ai/catalog/models';
+import { getReasoningCapabilityFor, getReasoningProviderOptions } from '@/ai/catalog/reasoning';
 import { withReasoningSwitch } from '@/ai/reasoning-switch-model';
 import {
   parseCustomModelId,
@@ -15,73 +16,14 @@ export type { ReasoningEffort, ReasoningCapability };
 
 type EffortTier = Exclude<ReasoningEffort, 'auto'>;
 
-// Shared by any provider whose reasoning param is an OpenAI-style
-// low/medium/high/none string (OpenAI itself, Groq, vLLM's reasoning_effort).
-export const OPENAI_STYLE_EFFORT_MAP: Record<EffortTier, 'low' | 'medium' | 'high' | 'none'> = {
+// OpenAI-style low/medium/high/none strings, as vLLM's and other
+// OpenAI-compatible servers' reasoning_effort expects them.
+const OPENAI_STYLE_EFFORT_MAP: Record<EffortTier, 'low' | 'medium' | 'high' | 'none'> = {
   low: 'low',
   medium: 'medium',
   high: 'high',
   off: 'none',
 };
-
-const ANTHROPIC_BUDGET_TOKENS_MAP: Record<EffortTier, number> = {
-  low: 1024,
-  medium: 4000,
-  high: 16000,
-  off: 0,
-};
-
-// Gemini 3.x models are driven by thinkingLevel, not the 2.5-era
-// thinkingBudget. Thinking can't be fully disabled, so 'off' maps to the
-// model's lowest accepted level with thoughts hidden — and that floor differs
-// per model: 3.5 Flash/Flash-Lite accept 'minimal', while 3.6+ Flash and
-// 3.1 Pro reject it with an error and bottom out at 'low'.
-const GEMINI_MINIMAL_THINKING_MODELS = new Set([
-  'zetora-gemini-3.5-flash',
-  'zetora-gemini-3.5-flash-lite',
-  'zetora-vertex-gemini-3.5-flash',
-  'zetora-vertex-gemini-3.5-flash-lite',
-]);
-
-export function getGeminiThinkingConfig(
-  modelId: string,
-  effort: ReasoningEffort,
-): { thinkingLevel: 'minimal' | 'low' | 'medium' | 'high'; includeThoughts: boolean } {
-  if (effort === 'auto') return { thinkingLevel: 'medium', includeThoughts: true };
-  if (effort === 'off') {
-    return {
-      thinkingLevel: GEMINI_MINIMAL_THINKING_MODELS.has(modelId) ? 'minimal' : 'low',
-      includeThoughts: false,
-    };
-  }
-  return { thinkingLevel: effort, includeThoughts: true };
-}
-
-// Claude's thinking switch differs per generation: 4.5 takes a fixed token
-// budget, 4.6+ takes adaptive thinking with an effort level, and from Opus
-// 4.7 / Sonnet 5 on the thinking text is omitted from the response unless
-// 'summarized' is requested (verified live: no reasoning text without it).
-const CLAUDE_ADAPTIVE_THINKING_MODELS = new Set(['zetora-anthropic-sonnet-4.6', 'zetora-anthropic-opus-4.6']);
-const CLAUDE_SUMMARIZED_THINKING_MODELS = new Set([
-  'zetora-anthropic-sonnet-5',
-  'zetora-anthropic-opus-4.7',
-  'zetora-anthropic-opus-4.8',
-]);
-
-export function getAnthropicThinkingOptions(modelId: string, effort: ReasoningEffort) {
-  if (effort === 'off') return { thinking: { type: 'disabled' as const } };
-  const level = effort === 'auto' ? 'medium' : effort;
-  if (CLAUDE_SUMMARIZED_THINKING_MODELS.has(modelId)) {
-    return { sendReasoning: true, thinking: { type: 'adaptive' as const, display: 'summarized' as const }, effort: level };
-  }
-  if (CLAUDE_ADAPTIVE_THINKING_MODELS.has(modelId)) {
-    return { sendReasoning: true, thinking: { type: 'adaptive' as const }, effort: level };
-  }
-  return {
-    sendReasoning: true,
-    thinking: { type: 'enabled' as const, budgetTokens: ANTHROPIC_BUDGET_TOKENS_MAP[level] },
-  };
-}
 
 const LLAMACPP_THINKING_BUDGET_MAP: Record<EffortTier, number> = {
   low: 256,
@@ -205,12 +147,12 @@ export function getReasoningCapability(
 
     return 'mask-only';
   }
-  return getModelConfig(modelId)?.reasoning ? 'full' : null;
+  const entry = getModelEntry(modelId);
+  return entry ? getReasoningCapabilityFor(entry) : null;
 }
 
-// Overrides for custom (OpenAI-compatible) providers only — zetora-* models
-// are handled inline in lib/search/provider-options.ts, which already knows
-// exactly which provider-options branch each model falls into.
+// Overrides for custom (OpenAI-compatible) providers only — catalog models
+// get theirs from ai/catalog/reasoning.ts.
 export function getCustomReasoningOverrides(
   modelId: string,
   effort: ReasoningEffort,
@@ -374,44 +316,19 @@ export function getCustomProviderOptions(
   };
 }
 
-// Generic per-provider-family reasoning overrides for zetora-* (first-party)
-// models, used by tertiary tasks (chat-title, follow-up, memory-curator...).
-// Main search has its own richer per-model logic already — see
-// lib/search/provider-options.ts — this is intentionally simpler since
-// tertiary tasks only need the reasoning knob, nothing else.
-export function getZetoraReasoningOverrides(
+// Reasoning overrides for a catalog model, used by tertiary tasks
+// (chat-title, follow-up, memory-curator...).
+export function getCatalogReasoningOverrides(
   modelId: string,
   effort: ReasoningEffort,
 ): { providerOptions: Record<string, unknown> } {
-  if (effort === 'auto' || !getModelConfig(modelId)?.reasoning) {
+  const entry = getModelEntry(modelId);
+  if (effort === 'auto' || !entry?.reasoning) {
     return { providerOptions: {} };
   }
-  const tier = effort as EffortTier;
   // Models that pair two upstream models pick one from this flag (see
   // ai/reasoning-switch-model.ts); every other provider ignores it.
-  return { providerOptions: { ...withReasoningSwitch(tier !== 'off'), ...getProviderReasoningOptions(modelId, tier) } };
-}
-
-function getProviderReasoningOptions(modelId: string, tier: EffortTier): Record<string, unknown> {
-  switch (getModelProvider(modelId)) {
-    case 'openai':
-      return { openai: { reasoningEffort: OPENAI_STYLE_EFFORT_MAP[tier] } };
-    case 'anthropic':
-      return { anthropic: getAnthropicThinkingOptions(modelId, tier) };
-    case 'google':
-    case 'vertex':
-      return {
-        google: { thinkingConfig: getGeminiThinkingConfig(modelId, tier) },
-        vertex: { thinkingConfig: getGeminiThinkingConfig(modelId, tier) },
-      };
-    case 'deepseek':
-      return {
-        deepseek:
-          tier === 'off' ? { thinking: { type: 'disabled' } } : { thinking: { type: 'enabled' }, reasoning_effort: tier },
-      };
-    default:
-      // Provider not mapped to a generic reasoning param (e.g. served via
-      // Groq/gateway routing) — no-op rather than guessing a shape.
-      return {};
-  }
+  return {
+    providerOptions: { ...withReasoningSwitch(effort !== 'off'), ...getReasoningProviderOptions(entry, effort) },
+  };
 }

@@ -3,8 +3,6 @@
 import type { SettingsUser } from '../shared';
 import { Tabs as KumoTabs } from '@cloudflare/kumo';
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { type Model } from '@/ai/models';
 import { type CustomProviderConfig } from './shared';
 import { CustomizeTab } from './customize';
 import { GeneralTab } from './general';
@@ -28,18 +26,6 @@ export function PreferencesSection({
   isCustomInstructionsEnabled?: boolean;
   setIsCustomInstructionsEnabledAction?: (value: boolean | ((val: boolean) => boolean)) => void;
 }) {
-  // Fetch custom models for the tertiary model selectors
-  const { data: customModelsData } = useQuery({
-    queryKey: ['customModels'],
-    queryFn: async () => {
-      const res = await fetch('/api/custom-providers/models');
-      if (!res.ok) return { models: [] };
-      return res.json() as Promise<{ models: Model[] }>;
-    },
-    staleTime: 60_000,
-  });
-  const customModelsList: Model[] = customModelsData?.models ?? [];
-
   // Custom AI Providers state
   const [customProviders, setCustomProviders] = useState<CustomProviderConfig[]>([]);
 
@@ -88,9 +74,7 @@ export function PreferencesSection({
         )}
 
         {/* ── Search & Retrieval tab ── */}
-        {preferencesTab === 'search' && (
-          <SearchTab user={user} customModelsList={customModelsList} customProviders={customProviders} />
-        )}
+        {preferencesTab === 'search' && <SearchTab user={user} customProviders={customProviders} />}
 
         {/* ── Integrations tab ── */}
         {preferencesTab === 'integrations' && <IntegrationsTab />}
@@ -100,12 +84,7 @@ export function PreferencesSection({
 
         {/* ── AI Models tab ── */}
         {preferencesTab === 'ai-models' && (
-          <AiModelsTab
-            user={user}
-            customModelsList={customModelsList}
-            customProviders={customProviders}
-            setCustomProviders={setCustomProviders}
-          />
+          <AiModelsTab user={user} customProviders={customProviders} setCustomProviders={setCustomProviders} />
         )}
 
         {/* ── Customize tab ── */}

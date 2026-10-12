@@ -5,6 +5,7 @@ import { HeadBucketCommand } from '@aws-sdk/client-s3';
 import Redis from 'ioredis';
 import { db } from '@/lib/db';
 import { getStorageClient } from '@/lib/storage';
+import { getCatalogStatus, refreshModelCatalog } from '@/ai/catalog/store';
 
 const { client: storageClient, bucketName: STORAGE_BUCKET_NAME } = getStorageClient();
 import { serverEnv } from '@/env/server';
@@ -147,5 +148,17 @@ export const SERVICE_CHECKS: ServiceCheckDefinition[] = [
     // overridden to the Docker service name in docker-compose.yml for prod.
     configured: () => true,
     run: () => fetchOk(`${serverEnv.S2S_SERVICE_URL}/health`),
+  },
+  {
+    id: 'model-catalog',
+    label: 'Model catalog (models.dev)',
+    configured: () => true,
+    // Testing it refreshes it: new models show up without waiting a day.
+    run: async () => {
+      await refreshModelCatalog();
+      const { modelCount, fetchedAt, lastError } = getCatalogStatus();
+      if (lastError) return { ok: false, detail: lastError };
+      return { ok: modelCount > 0, detail: `${modelCount} models, updated ${fetchedAt?.toISOString() ?? 'never'}` };
+    },
   },
 ];

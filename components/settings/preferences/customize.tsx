@@ -6,7 +6,8 @@ import { Switch } from '@/components/ui/switch';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 import { getSearchGroups, cn } from '@/lib/utils';
-import { models, PROVIDERS, getModelProvider, type ModelProvider } from '@/ai/models';
+import { canonicalModelId, getProviderName, type Model, type ModelProvider } from '@/ai/models';
+import { useModels } from '@/hooks/use-models';
 import { Search } from 'lucide-react';
 import { useMemo, useState, type ComponentType } from 'react';
 import { SOURCE_CATALOG_IDS } from './shared';
@@ -28,7 +29,10 @@ export function CustomizeTab() {
     enabledSourcesPref.length > 0
       ? enabledSourcesPref
       : visibleModesLegacy.filter((id) => SOURCE_CATALOG_IDS.includes(id));
-  const [preferredModels, setPreferredModels] = useSyncedPreferences<string[]>('zetora-preferred-models', []);
+  // Stored ids may predate the current catalog ids.
+  const [storedPreferredModels, setPreferredModels] = useSyncedPreferences<string[]>('zetora-preferred-models', []);
+  const preferredModels = useMemo(() => storedPreferredModels.map(canonicalModelId), [storedPreferredModels]);
+  const { catalogModels } = useModels();
 
   const sourceCatalog = useMemo(
     () => SOURCE_CATALOG_IDS.map((id) => dynamicGroups.find((g) => g.id === id)).filter((g) => Boolean(g)),
@@ -39,19 +43,18 @@ export function CustomizeTab() {
 
   // Group models by provider for the customize UI
   const modelsByProvider = useMemo(() => {
-    const groups = new Map<ModelProvider, typeof models>();
-    for (const m of models) {
-      const provider = m.provider || getModelProvider(m.value, m.label);
-      if (!groups.has(provider)) groups.set(provider, []);
-      groups.get(provider)!.push(m);
+    const groups = new Map<ModelProvider, Model[]>();
+    for (const m of catalogModels) {
+      if (!groups.has(m.provider)) groups.set(m.provider, []);
+      groups.get(m.provider)!.push(m);
     }
     return groups;
-  }, []);
+  }, [catalogModels]);
 
   const filteredModelsByProvider = useMemo(() => {
     if (!modelSearch.trim()) return modelsByProvider;
     const q = modelSearch.toLowerCase();
-    const filtered = new Map<ModelProvider, typeof models>();
+    const filtered = new Map<ModelProvider, Model[]>();
     for (const [provider, providerModels] of modelsByProvider) {
       const matching = providerModels.filter(
         (m) =>
@@ -172,7 +175,7 @@ export function CustomizeTab() {
               {/* Provider header */}
               <div className="sticky top-0 bg-background/95 backdrop-blur px-4 py-2 border-b border-border/30">
                 <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                  {PROVIDERS[provider]?.name || provider}
+                  {getProviderName(provider)}
                   <span className="text-muted-foreground/40 ml-1.5 font-normal normal-case tracking-normal">
                     {providerModels.filter((m) => preferredModels.includes(m.value)).length > 0 &&
                       `${providerModels.filter((m) => preferredModels.includes(m.value)).length} selected`}

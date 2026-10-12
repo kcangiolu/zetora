@@ -2,7 +2,7 @@
 import { createLogger } from '@/lib/logger';
 import { generateTitleFromUserMessage } from '@/lib/search/chat-title';
 import { convertToModelMessages, streamText, createUIMessageStream, stepCountIs, JsonToSseTransformStream } from 'ai';
-import { zetora, resolveModel, shouldBypassRateLimits } from '@/ai/providers';
+import { DEFAULT_MODEL_ALIAS } from '@/ai/models';
 import { resolveTertiaryModel } from '@/ai/tertiary';
 import {
   createStreamId,
@@ -661,7 +661,7 @@ export async function POST(req: Request) {
           parts: userMessage.parts,
           attachments: [],
           createdAt: new Date(),
-          model: 'zetora-default',
+          model: DEFAULT_MODEL_ALIAS,
           completionTime: 0,
           inputTokens: 0,
           outputTokens: 0,
@@ -758,9 +758,7 @@ export async function POST(req: Request) {
             if (event.finishReason === 'stop') {
               try {
                 // Track usage (matches /app/api/search/route.ts)
-                if (!shouldBypassRateLimits('zetora-default', userResult)) {
-                  await incrementMessageUsage({ userId: userResult.id });
-                }
+                await incrementMessageUsage({ userId: userResult.id });
 
                 // Generate title for the chat
                 const title = await generateTitleFromUserMessage({
@@ -912,7 +910,7 @@ export async function POST(req: Request) {
                 log.debug('Finish part:', part);
                 const processingTime = (Date.now() - streamStartTime) / 1000;
                 return {
-                  model: 'zetora-default',
+                  model: DEFAULT_MODEL_ALIAS,
                   completionTime: processingTime,
                   createdAt: new Date().toISOString(),
                   totalTokens: part.totalUsage?.totalTokens ?? null,
@@ -950,7 +948,7 @@ export async function POST(req: Request) {
                 createdAt,
                 attachments,
                 chatId,
-                model: 'zetora-default',
+                model: DEFAULT_MODEL_ALIAS,
                 completionTime: message.metadata?.completionTime ?? 0,
                 inputTokens: message.metadata?.inputTokens ?? 0,
                 outputTokens: message.metadata?.outputTokens ?? 0,

@@ -18,6 +18,7 @@ import { generateId } from 'ai';
 import { InferSelectModel } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import type { MemoryCategory, MemoryDurability, MemoryStatus, MemoryTier } from '@/lib/memory/constants';
+import type { ModelsDevData } from '@/ai/catalog/types';
 
 export const user = pgTable('user', {
   id: text('id').primaryKey(),
@@ -911,6 +912,15 @@ export const buildSessionRelations = relations(buildSession, ({ one }) => ({
     references: [user.id],
   }),
 }));
+
+// The last models.dev snapshot the model catalog was built from (see
+// ai/catalog/store.ts). One row per source; kept so a restart or a
+// models.dev outage never empties the model picker.
+export const modelCatalogSource = pgTable('model_catalog_source', {
+  id: text('id').primaryKey(),
+  data: json('data').$type<ModelsDevData>().notNull(),
+  fetchedAt: timestamp('fetched_at').notNull(),
+});
 
 export type User = InferSelectModel<typeof user>;
 export type Session = InferSelectModel<typeof session>;

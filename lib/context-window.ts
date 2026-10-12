@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { getContextWindow as getCatalogContextWindow } from '@/ai/models';
+import { getContextWindow as getCatalogContextWindow } from '@/ai/catalog/models';
 import {
   deriveRootURL,
   getCustomProviders,

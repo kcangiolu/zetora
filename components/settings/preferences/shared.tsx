@@ -6,7 +6,8 @@ import { useSyncedPreferences, type PreferenceKey, type ImageGenPromptPreset } f
 import { testEmailDelivery } from '@/app/actions';
 import { Check, X, Trash2, Save, Power, PowerOff } from 'lucide-react';
 import { useState } from 'react';
-import { getModelConfig, getModelProvider, type Model } from '@/ai/models';
+import { DEFAULT_MODEL_ALIAS } from '@/ai/models';
+import { useModels } from '@/hooks/use-models';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -213,32 +214,33 @@ export type AutoRouterConfig = {
   routes: AutoRouterRoute[];
 };
 
+// Every category starts on the default model; users pick a model per route.
 export function getDefaultAutoRouterRoutes(): AutoRouterRoute[] {
   return [
     {
       name: 'general',
       description: 'General questions and conversations',
-      model: 'zetora-default',
+      model: DEFAULT_MODEL_ALIAS,
     },
     {
       name: 'research',
       description: 'Academic research, papers, and scientific topics',
-      model: 'zetora-gemini-3.5-flash',
+      model: DEFAULT_MODEL_ALIAS,
     },
     {
       name: 'code_generation',
       description: 'Generating code, scripts, or programming tasks',
-      model: 'zetora-qwen-coder-next',
+      model: DEFAULT_MODEL_ALIAS,
     },
     {
       name: 'writing',
       description: 'Creative writing, documentation, and content creation',
-      model: 'zetora-kimi-k2.5',
+      model: DEFAULT_MODEL_ALIAS,
     },
     {
       name: 'analysis',
       description: 'Data analysis, reasoning, and problem solving',
-      model: 'zetora-gpt-5.2',
+      model: DEFAULT_MODEL_ALIAS,
     },
   ];
 }
@@ -284,7 +286,6 @@ export function TertiaryModelRow({
   label,
   description,
   defaultModelLabel,
-  additionalModels,
   user,
   hideReasoningEffort = false,
 }: {
@@ -299,7 +300,6 @@ export function TertiaryModelRow({
   label: string;
   description: string;
   defaultModelLabel: string;
-  additionalModels: Model[];
   user: SettingsUser;
   // This task's model call always forces a provider-level override that
   // makes the reasoning-effort toggle a no-op (see ai/tertiary.ts) — showing
@@ -310,14 +310,11 @@ export function TertiaryModelRow({
   const [, setProvider] = useSyncedPreferences<string>(providerKey as PreferenceKey, '');
   const [effort, setEffort] = useSyncedPreferences<ReasoningEffort>(effortKey, recommendedEffort);
 
+  const { getModel } = useModels();
+
   const handleSelect = (modelValue: string) => {
     setModel(modelValue);
-    const explicitProvider =
-      getModelConfig(modelValue)?.provider ?? additionalModels.find((m) => m.value === modelValue)?.provider;
-    const provider = modelValue.startsWith('custom-')
-      ? 'custom'
-      : (explicitProvider ?? String(getModelProvider(modelValue)));
-    setProvider(provider);
+    setProvider(modelValue.startsWith('custom-') ? 'custom' : (getModel(modelValue)?.provider ?? ''));
   };
 
   return (
@@ -334,7 +331,6 @@ export function TertiaryModelRow({
               defaultModelLabel={defaultModelLabel}
               handleSelect={handleSelect}
               user={user}
-              additionalModels={additionalModels}
               hideReasoningEffort={hideReasoningEffort}
               effort={effort}
               recommendedEffort={recommendedEffort}
@@ -349,7 +345,6 @@ export function TertiaryModelRow({
             defaultModelLabel={defaultModelLabel}
             handleSelect={handleSelect}
             user={user}
-            additionalModels={additionalModels}
             hideReasoningEffort={hideReasoningEffort}
             effort={effort}
             recommendedEffort={recommendedEffort}
@@ -397,7 +392,6 @@ function TertiaryModelControls({
   defaultModelLabel,
   handleSelect,
   user,
-  additionalModels,
   hideReasoningEffort,
   effort,
   recommendedEffort,
@@ -409,7 +403,6 @@ function TertiaryModelControls({
   defaultModelLabel: string;
   handleSelect: (modelValue: string) => void;
   user: SettingsUser;
-  additionalModels: Model[];
   hideReasoningEffort: boolean;
   effort: ReasoningEffort;
   recommendedEffort: ReasoningEffort;
@@ -431,7 +424,6 @@ function TertiaryModelControls({
         selectedModel={model}
         onModelSelect={handleSelect}
         user={user}
-        additionalModels={additionalModels}
         className="w-[180px] h-8"
         compact
       />
@@ -439,12 +431,7 @@ function TertiaryModelControls({
           model id, just a display label) — only show once the user has
           picked a specific model for this task. */}
       {model && !hideReasoningEffort && (
-        <ReasoningEffortToggle
-          selectedModel={model}
-          value={effort ?? recommendedEffort}
-          onChange={setEffort}
-          customModels={additionalModels}
-        />
+        <ReasoningEffortToggle selectedModel={model} value={effort ?? recommendedEffort} onChange={setEffort} />
       )}
       {model && (
         <Button

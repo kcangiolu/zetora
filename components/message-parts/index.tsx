@@ -80,7 +80,7 @@ import {
 } from '@phosphor-icons/react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
-import { getModelConfig } from '@/ai/models';
+import { useModels } from '@/hooks/use-models';
 import { ComprehensiveUserData } from '@/lib/user-data-server';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Spinner } from '../ui/spinner';
@@ -285,8 +285,8 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
       [dataStream, inlineElicitationVersion],
     );
     const meta = message?.metadata;
-    const modelConfig = meta?.model ? getModelConfig(meta.model) : null;
-    const modelLabel = modelConfig?.label ?? meta?.model ?? null;
+    const { getModel } = useModels();
+    const modelLabel = meta?.model ? (getModel(meta.model)?.label ?? meta.model) : null;
     const tokenTotal = (meta?.totalTokens ?? (meta?.inputTokens ?? 0) + (meta?.outputTokens ?? 0)) || null;
     const inputCount = meta?.inputTokens ?? null;
     const outputCount = meta?.outputTokens ?? null;

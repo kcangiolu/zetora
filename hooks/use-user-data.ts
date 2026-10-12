@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { getCurrentUser } from '@/app/actions';
 import { type ComprehensiveUserData } from '@/lib/user-data';
-import { shouldBypassRateLimits } from '@/ai/models';
 
 export function useUserData() {
   const {
@@ -21,11 +20,6 @@ export function useUserData() {
     retry: 2,
   });
 
-  // Helper function to check if user should have unlimited access for specific models
-  const shouldBypassLimitsForModel = (selectedModel: string) => {
-    return shouldBypassRateLimits(selectedModel, userData);
-  };
-
   return {
     // Core user data
     user: userData,
@@ -33,8 +27,6 @@ export function useUserData() {
     error,
     refetch,
     isRefetching,
-
-    shouldBypassLimitsForModel,
   };
 }
 

@@ -1,12 +1,13 @@
 import 'server-only';
 import { wrapLanguageModel, type LanguageModelMiddleware } from 'ai';
-import { dynamicXmlToolMiddleware } from '@/ai/xml-tool-middleware';
-import { zetora, resolveModel } from '@/ai/providers';
+import type { LanguageModelV3 } from '@ai-sdk/provider';
+import { resolveModel } from '@/ai/providers';
+import { DEFAULT_MODEL_ALIAS, FAST_MODEL_ALIAS } from '@/ai/models';
 import { getCustomProviders } from '@/lib/custom-providers';
 import {
   type ReasoningEffort,
   getCustomReasoningOverrides,
-  getZetoraReasoningOverrides,
+  getCatalogReasoningOverrides,
   reasoningMaskMiddleware,
 } from '@/lib/reasoning-effort';
 
@@ -53,28 +54,30 @@ export type TertiaryTask =
   | 'memory-curator'
   | 'context-compaction';
 
+// Every task runs on one of the instance's two role models (ai/catalog/roles.ts)
+// unless the user picked a model for it.
 const TASK_DEFAULTS: Record<TertiaryTask, string> = {
-  default: 'zetora-default',
-  'chat-title': 'zetora-name',
-  followup: 'zetora-follow-up',
-  enhance: 'zetora-enhance',
-  'tool-repair': 'zetora-default',
+  default: DEFAULT_MODEL_ALIAS,
+  'chat-title': FAST_MODEL_ALIAS,
+  followup: FAST_MODEL_ALIAS,
+  enhance: FAST_MODEL_ALIAS,
+  'tool-repair': DEFAULT_MODEL_ALIAS,
   'auto-router': 'zetora-arch-router',
-  'translate-text': 'zetora-gemini-3.5-flash',
-  'translate-vision': 'zetora-gemini-3.5-flash',
-  'lang-detect': 'zetora-default',
-  'extreme-planner': 'zetora-ext-1',
-  'extreme-agent': 'zetora-ext-1',
-  voice: 'zetora-default',
+  'translate-text': FAST_MODEL_ALIAS,
+  // Reads images: the default model is the one guaranteed to have vision.
+  'translate-vision': DEFAULT_MODEL_ALIAS,
+  'lang-detect': FAST_MODEL_ALIAS,
+  'extreme-planner': DEFAULT_MODEL_ALIAS,
+  'extreme-agent': DEFAULT_MODEL_ALIAS,
+  voice: DEFAULT_MODEL_ALIAS,
   // Only used for weekly memory consolidation, or for every memory update
   // when the user picks a dedicated model — by default a chat turn's memory
   // update runs on the conversation's own model (see lib/memory/jobs.ts).
   // Needs reliable structured output.
-  'memory-curator': 'zetora-default',
+  'memory-curator': DEFAULT_MODEL_ALIAS,
   // Needs to comfortably read a long, possibly noisy conversation dump
-  // (raw tool-call traces included) and produce a coherent summary — a
-  // large-context, fast model, not necessarily a reasoning one.
-  'context-compaction': 'zetora-default',
+  // (raw tool-call traces included) and produce a coherent summary.
+  'context-compaction': DEFAULT_MODEL_ALIAS,
 };
 
 // Recommended default reasoning effort per task, shown in Settings and used
@@ -143,62 +146,30 @@ export async function resolveTertiaryModel(
   preferences: Record<string, string> | null,
   userId?: string,
 ) {
-  const keys = PREF_KEYS[task];
-  const customModel = preferences?.[keys.model];
-  const isCustomModel = customModel?.startsWith('custom-');
+  const customModel = preferences?.[PREF_KEYS[task].model];
+  const prefs = preferences as Record<string, unknown> | null;
 
-  let resolved: ReturnType<typeof zetora.languageModel> | undefined;
-  let effectiveModelId = TASK_DEFAULTS[task];
-  if (customModel) {
-    try {
-      // resolveModel handles both native zetora-* IDs and custom-{providerId}-{name}
-      // IDs, and (given userId) applies the same anonymization/xml-parsing wrapping
-      // it would for the main chat model.
-      resolved = (await resolveModel(customModel, preferences as Record<string, unknown> | null, userId)) as ReturnType<
-        typeof zetora.languageModel
-      >;
-      effectiveModelId = customModel;
-    } catch {
-      log.warn(`[Tertiary] Failed to load model ${customModel}, using default`);
-    }
-  }
-
-  if (!resolved) {
-    resolved = zetora.languageModel(TASK_DEFAULTS[task]);
+  // resolveModel handles catalog, role-alias and custom-{providerId}-{name}
+  // ids alike, and (given userId) applies the same anonymization/xml-parsing
+  // wrapping it would for the main chat model.
+  let effectiveModelId = customModel || TASK_DEFAULTS[task];
+  let resolved: LanguageModelV3;
+  try {
+    resolved = await resolveModel(effectiveModelId, prefs, userId);
+  } catch (error) {
+    if (!customModel) throw error;
+    log.warn(`[Tertiary] Failed to load model ${customModel}, using default`);
     effectiveModelId = TASK_DEFAULTS[task];
-
-    const prefs = preferences as Record<string, unknown> | null;
-    const xmlParsingEnabled = prefs?.['zetora-xml-tool-parsing-enabled'] === true;
-    if (xmlParsingEnabled && isCustomModel) {
-      resolved = wrapLanguageModel({ model: resolved, middleware: dynamicXmlToolMiddleware });
-    }
-
-    const anonymizationEnabled = prefs?.['zetora-anonymization-enabled'] === true;
-    if (userId && anonymizationEnabled) {
-      const { createAnonymizationMiddleware } = await import('./anonymization-middleware');
-      resolved = wrapLanguageModel({
-        model: resolved,
-        middleware: createAnonymizationMiddleware({
-          userId,
-          denyTerms: (prefs?.['zetora-anonymization-custom-terms'] as string[] | undefined) ?? [],
-          failOpen: prefs?.['zetora-anonymization-fail-open'] === true,
-        }),
-      });
-    }
+    resolved = await resolveModel(effectiveModelId, prefs, userId);
   }
 
   // extreme-agent forces toolChoice: 'required' on every step of its research
-  // loop (lib/tools/extreme-search.ts), which is incompatible with native
-  // reasoning/thinking on several providers — that file hardcodes its own
-  // per-provider disables for this reason. A user-set effort here would wrap
-  // the model with an override that wins over those hardcoded disables (this
-  // middleware's transformParams applies last), silently reintroducing the
-  // conflict. There's also no UI control for this task's effort anymore
-  // (Settings hides it), so 'auto' — skip wrapping entirely — is the only
-  // value that can ever apply.
-  const effort =
+  // loop (lib/tools/extreme-search.ts), which several providers reject while
+  // thinking (DeepSeek, Kimi, Qwen...) — so its thinking is always off. There's
+  // no UI control for this task's effort (Settings hides it).
+  const effort: ReasoningEffort =
     task === 'extreme-agent'
-      ? 'auto'
+      ? 'off'
       : ((preferences?.[effortPrefKey(task)] as ReasoningEffort | undefined) ?? TASK_RECOMMENDED_EFFORT[task]);
 
   let applyMaskMiddleware = false;
@@ -214,7 +185,7 @@ export async function resolveTertiaryModel(
       });
     }
   } else {
-    const { providerOptions } = getZetoraReasoningOverrides(effectiveModelId, effort);
+    const { providerOptions } = getCatalogReasoningOverrides(effectiveModelId, effort);
     if (Object.keys(providerOptions).length > 0) {
       resolved = wrapLanguageModel({ model: resolved, middleware: createReasoningOptionsMiddleware(providerOptions) });
     }

@@ -119,7 +119,6 @@ export async function POST(req: NextRequest) {
         group: 'web',
         shouldUseXaiMultiAgent: false,
         isXmlParsedCustomModel,
-        model: modelId,
         latestStepHasToolRoundTrip,
         streamActiveTools: VOICE_TOOL_NAMES,
         baseSystem,

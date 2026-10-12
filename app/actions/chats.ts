@@ -6,7 +6,6 @@ import { generateTitleFromUserMessage } from '@/lib/search/chat-title';
 import { UIMessage } from 'ai';
 import type { ModelMessage } from 'ai';
 import { getUser } from '@/lib/auth-utils';
-import { hasVisionSupport, zetora, resolveModel } from '@/ai/providers';
 import {
   getChatsByUserId,
   getRecentChatsByUserId,

@@ -3,7 +3,6 @@
 import { UIMessage, generateText, Output } from 'ai';
 import type { ModelMessage } from 'ai';
 import { getUser } from '@/lib/auth-utils';
-import { hasVisionSupport, zetora, resolveModel } from '@/ai/providers';
 import {
   getCustomInstructionsByUserId,
   createCustomInstructions,

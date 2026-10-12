@@ -5,7 +5,6 @@ import { getCurrentUser } from './user';
 import { serverEnv } from '@/env/server';
 import { UIMessage, generateText, Output } from 'ai';
 import type { ModelMessage } from 'ai';
-import { hasVisionSupport, zetora, resolveModel } from '@/ai/providers';
 import {
   createLookout,
   getLookoutsByUserId,

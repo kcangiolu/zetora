@@ -1,22 +1,58 @@
 import { describe, it, expect, vi } from 'vitest';
+import type { CatalogEntry } from '@/ai/catalog/types';
 
-// 'zetora-default' is only registered when XAI_API_KEY is set, and the provider
-// registry is built at import time — set it before ai/providers is loaded so the
-// test doesn't depend on the local .env.
+// Direct clients are built at import time from the env.
 vi.hoisted(() => {
   process.env.XAI_API_KEY = 'test-xai-key';
+  delete process.env.ZETORA_DEFAULT_MODEL;
 });
 
-import { resolveModel, zetora } from '@/ai/providers';
+function entry(id: string, cost: number): CatalogEntry {
+  return {
+    id,
+    lab: 'xai',
+    label: id,
+    description: '',
+    vision: true,
+    pdf: false,
+    contextWindow: 256_000,
+    structuredOutput: true,
+    cost: { input: cost, output: cost },
+    reasoning: null,
+    routes: [{ host: 'direct', modelId: id.slice('xai:'.length) }],
+  };
+}
+
+const ENTRIES = [entry('xai:grok-big', 3), entry('xai:grok-small', 0.2)];
+
+vi.mock('@/ai/catalog/store', () => ({
+  loadModelCatalog: async () => {},
+  getCatalogEntries: () => ENTRIES,
+  getCatalogEntry: (id: string) => ENTRIES.find((e) => e.id === id),
+}));
+
+import { resolveModel } from '@/ai/providers';
 
 describe('resolveModel', () => {
-  it('falls back to the default model for a retired built-in model id', async () => {
-    const resolved = await resolveModel('zetora-retired-model');
-    expect(resolved).toBe(zetora.languageModel('zetora-default'));
+  it('routes a catalog model to its upstream id', async () => {
+    expect((await resolveModel('xai:grok-big')).modelId).toBe('grok-big');
   });
 
-  it("falls back to 'zetora-default' when the default-model preference is itself retired", async () => {
-    const resolved = await resolveModel('zetora-retired-model', { 'zetora-default-model': 'zetora-retired-default' });
-    expect(resolved).toBe(zetora.languageModel('zetora-default'));
+  it('resolves the default alias to the cheapest capable model', async () => {
+    expect((await resolveModel('zetora-default')).modelId).toBe('grok-small');
+  });
+
+  it('falls back to the default model for a model that left the catalog', async () => {
+    expect((await resolveModel('xai:grok-retired')).modelId).toBe('grok-small');
+  });
+
+  it('falls back to the instance default when the default-model preference left the catalog too', async () => {
+    const resolved = await resolveModel('xai:grok-retired', { 'zetora-default-model': 'xai:grok-also-retired' });
+    expect(resolved.modelId).toBe('grok-small');
+  });
+
+  it('honors a default-model preference that is still in the catalog', async () => {
+    const resolved = await resolveModel('xai:grok-retired', { 'zetora-default-model': 'xai:grok-big' });
+    expect(resolved.modelId).toBe('grok-big');
   });
 });
