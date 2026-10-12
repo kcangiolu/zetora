@@ -13,7 +13,7 @@ Zetora is a self-hosted, AI-powered agentic search engine — a fork of [Scira](
 | Auth                    | Better Auth (GitHub / Google / Twitter OAuth)                                                                                           |
 | ORM / DB                | Drizzle ORM + PostgreSQL 17 (migrations in `drizzle/migrations`)                                                                        |
 | Caching / rate limiting | Redis (`ioredis` / `redis`), sliding-window rate limiting via Redis sorted sets                                                         |
-| Object storage          | MinIO (S3-compatible) or Cloudflare R2 (`STORAGE_PROVIDER`)                                                                             |
+| Object storage          | Any S3-compatible service: bundled MinIO, Cloudflare R2, AWS S3... (`S3_*`)                                                             |
 | Vector store            | Qdrant (search-result cache, hybrid search)                                                                                             |
 | Web search              | SearXNG (self-hosted metasearch), fastCRW (Firecrawl-compatible scraper), plus SaaS fallbacks (Tavily, Exa, Firecrawl, Valyu, Parallel) |
 | Long-term memory        | Native, in Postgres (`lib/memory`) — bio + facts, no extra service                                                                      |

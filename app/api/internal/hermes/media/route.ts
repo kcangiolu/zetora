@@ -9,8 +9,6 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger('api-internal-hermes-media');
 
-const { client: storageClient, bucketName: STORAGE_BUCKET_NAME, publicUrl: STORAGE_PUBLIC_URL } = getStorageClient();
-
 const MAX_MEDIA_BYTES = 25 * 1024 * 1024;
 
 function sanitizeExtension(raw: string | undefined): string {
@@ -26,7 +24,7 @@ function sanitizeExtension(raw: string | undefined): string {
 // only place in zetora-app that actually touches storage credentials for Hermes media.
 // The returned `id` is opaque to the gateway; it round-trips through
 // `{connector}/relay/media/{id}` as the send_media action's source_url, and
-// agent-event/route.ts resolves it back to STORAGE_PUBLIC_URL below.
+// agent-event/route.ts resolves it back to storagePublicUrl below.
 export async function POST(req: NextRequest) {
   const disabled = assertHermesEnabled();
   if (disabled) return disabled;
@@ -54,12 +52,13 @@ export async function POST(req: NextRequest) {
   }
 
   const ext = sanitizeExtension(filename?.split('.').pop());
+  const { client: storageClient, bucketName: storageBucket, publicUrl: storagePublicUrl } = getStorageClient();
   const key = `zetora/hermes-media/${connector.userId}/${nanoid()}.${ext}`;
 
   try {
     await storageClient.send(
       new PutObjectCommand({
-        Bucket: STORAGE_BUCKET_NAME,
+        Bucket: storageBucket,
         Key: key,
         Body: body,
         ContentType: contentType,
@@ -74,7 +73,7 @@ export async function POST(req: NextRequest) {
   // Stateless reference: the id IS the base64url-encoded final URL, so resolving it back
   // (agent-event/route.ts's send_media branch) needs no database lookup or link table —
   // same "no correlation table needed" pattern already used for edit/react's message_id.
-  const url = `${STORAGE_PUBLIC_URL}/${key}`;
+  const url = `${storagePublicUrl}/${key}`;
   const id = Buffer.from(url, 'utf8').toString('base64url');
 
   return NextResponse.json({ id });

@@ -7,7 +7,6 @@ import { db } from '@/lib/db';
 import { getStorageClient } from '@/lib/storage';
 import { getCatalogStatus, refreshModelCatalog } from '@/ai/catalog/store';
 
-const { client: storageClient, bucketName: STORAGE_BUCKET_NAME } = getStorageClient();
 import { serverEnv } from '@/env/server';
 
 interface ServiceCheckResult {
@@ -90,11 +89,12 @@ export const SERVICE_CHECKS: ServiceCheckDefinition[] = [
   },
   {
     id: 'storage',
-    label: 'Object storage (MinIO)',
-    configured: () => serverEnv.STORAGE_PROVIDER === 'minio',
+    label: 'Object storage (S3)',
+    configured: () => Boolean(process.env.S3_ENDPOINT),
     run: async () => {
       try {
-        await storageClient.send(new HeadBucketCommand({ Bucket: STORAGE_BUCKET_NAME }));
+        const { client: storageClient, bucketName: storageBucket } = getStorageClient();
+        await storageClient.send(new HeadBucketCommand({ Bucket: storageBucket }));
         return { ok: true };
       } catch (error) {
         return { ok: false, detail: error instanceof Error ? error.message : 'HeadBucket failed' };
@@ -134,7 +134,7 @@ export const SERVICE_CHECKS: ServiceCheckDefinition[] = [
   {
     id: 'bullmq',
     label: 'BullMQ Redis (lookouts)',
-    configured: () => process.env.BULLMQ_ENABLED === 'true',
+    configured: () => serverEnv.LOOKOUT_SCHEDULER === 'bullmq',
     run: () =>
       redisPing(process.env.BULLMQ_REDIS_URL || 'redis://localhost:6381', process.env.BULLMQ_REDIS_PASSWORD),
   },

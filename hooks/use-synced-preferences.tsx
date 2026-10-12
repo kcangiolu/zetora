@@ -6,8 +6,6 @@ import { useUser } from '@/contexts/user-context';
 
 export type PreferenceKey =
   | 'zetora-search-provider'
-  | 'zetora-storage-provider'
-  | 'zetora-email-provider'
   | 'zetora-group-order'
   | 'zetora-model-order-global'
   | 'zetora-blur-personal-info'
@@ -26,7 +24,6 @@ export type PreferenceKey =
   | 'zetora-enabled-sources'
   | 'zetora-disabled-skills'
   | 'zetora-default-group'
-  | 'zetora-sandbox-provider'
   | 'zetora-extreme-search-provider'
   | 'zetora-extreme-search-fallback-enabled'
   | 'zetora-extreme-search-fallback-provider'
@@ -73,7 +70,6 @@ export type PreferenceKey =
   | 'zetora-default-model'
   | 'zetora-default-provider'
   | 'zetora-default-effort'
-  | 'zetora-lockout-provider'
   | 'zetora-embedding-enabled'
   | 'zetora-hybrid-search-enabled'
   | 'zetora-content-indexing-enabled'
@@ -264,8 +260,6 @@ function collectLocalStoragePreferences(): Partial<Record<PreferenceKey, Prefere
 
   const keys: PreferenceKey[] = [
     'zetora-search-provider',
-    'zetora-storage-provider',
-    'zetora-email-provider',
     'zetora-group-order',
     'zetora-model-order-global',
     'zetora-blur-personal-info',
@@ -279,7 +273,6 @@ function collectLocalStoragePreferences(): Partial<Record<PreferenceKey, Prefere
     'zetora-enabled-sources',
     'zetora-disabled-skills',
     'zetora-default-group',
-    'zetora-sandbox-provider',
     'zetora-extreme-content-provider',
     'zetora-search-stack',
     'zetora-embedding-provider',
@@ -307,7 +300,6 @@ function collectLocalStoragePreferences(): Partial<Record<PreferenceKey, Prefere
     'zetora-tertiary-extreme-agent-provider',
     'zetora-default-model',
     'zetora-default-provider',
-    'zetora-lockout-provider',
     'zetora-fallback-metadata',
     'zetora-fallback-notte',
     'zetora-fallback-search-firecrawl',

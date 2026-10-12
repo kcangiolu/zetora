@@ -26,14 +26,6 @@ import { chat, message, buildSession, hermesConversation, type Message } from '@
 import type { ChatModeFilter } from '@/lib/hermes/chat-mode';
 import type { ChatMessage } from '@/lib/types';
 import { eq, desc, ilike, and, or, asc, inArray, notExists, exists, sql } from 'drizzle-orm';
-import {
-  createBullMqSchedule,
-  scheduleBullMqOnce,
-  deleteBullMqSchedule,
-  pauseBullMqSchedule,
-  resumeBullMqSchedule,
-  getLockoutProvider,
-} from '@/lib/services/bullmq';
 import type { CharacterAlignmentResponseModel } from '@elevenlabs/elevenlabs-js/api/types/CharacterAlignmentResponseModel';
 import {
   getComprehensiveUserData,

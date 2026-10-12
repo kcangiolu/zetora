@@ -3,7 +3,7 @@ import 'server-only';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { nanoid } from 'nanoid';
 import sharp from 'sharp';
-import { getStorageClient, type StorageProvider } from '@/lib/storage';
+import { getStorageClient } from '@/lib/storage';
 import { insertGeneratedFile } from '@/lib/db/queries';
 
 import { createLogger } from '@/lib/logger';
@@ -57,7 +57,6 @@ export interface PersistGeneratedFileParams {
   mediaType: string;
   kind: 'image' | 'document';
   toolName: string;
-  storageProvider?: StorageProvider;
 }
 
 // Uploads a tool-produced file to our own bucket (same one /api/upload uses)
@@ -73,11 +72,9 @@ export async function persistGeneratedFile({
   mediaType,
   kind,
   toolName,
-  storageProvider,
 }: PersistGeneratedFileParams): Promise<{ url: string; key: string }> {
   const key = `zetora/users/${userId}/generated/${nanoid()}-${filename}`;
-  const { client: storageClient, bucketName: STORAGE_BUCKET_NAME, publicUrl: STORAGE_PUBLIC_URL } =
-    getStorageClient(storageProvider);
+  const { client: storageClient, bucketName: STORAGE_BUCKET_NAME, publicUrl: STORAGE_PUBLIC_URL } = getStorageClient();
 
   await storageClient.send(
     new PutObjectCommand({
@@ -121,14 +118,12 @@ export async function rehostGeneratedImage({
   sourceImageUrl,
   filenameHint,
   toolName,
-  storageProvider,
 }: {
   userId?: string;
   chatId?: string | null;
   sourceImageUrl: string;
   filenameHint: string;
   toolName: string;
-  storageProvider?: StorageProvider;
 }): Promise<string> {
   if (!userId) return sourceImageUrl;
 
@@ -159,7 +154,6 @@ export async function rehostGeneratedImage({
       mediaType: contentType,
       kind: 'image',
       toolName,
-      storageProvider,
     });
     return url;
   } catch (error) {

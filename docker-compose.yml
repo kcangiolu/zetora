@@ -45,23 +45,22 @@
 #      provider the app already defaults to, gated behind its own profile,
 #      and off unless you opt in:
 #
-#        profile      service(s)                        cloud default instead
+#        profile      service(s)                        cloud alternative instead
 #        ----------   -------------------------------    ----------------------
-#        minio        minio, minio-create-bucket          Cloudflare R2
+#        minio        minio, minio-create-bucket          any S3 service (S3_* in .env)
 #        searxng      searxng, searxng-redis               Exa / Firecrawl
 #        fastcrw      fastcrw, chrome                      Exa / Firecrawl
-#        sandbox      sandbox                              Daytona
-#        bullmq       bullmq-redis, bullboard              Upstash QStash
+#        sandbox      sandbox                              Daytona (SANDBOX_PROVIDER)
+#        bullmq       bullmq-redis, bullboard              Upstash QStash (LOOKOUT_SCHEDULER)
 #        qdrant       qdrant                                (hybrid search just skipped)
 #        presidio     presidio-api                          (anonymization stays off)
 #        tts          qwen3-tts                             (no cloud equivalent; GPU-bound)
 #
-#      Each one degrades gracefully in the app itself if left off — this
-#      isn't "delete the block to disable," the app already prefers its
-#      cloud default whenever a self-hosted service isn't configured or
-#      isn't reachable (see README's "All-Cloud Configuration" section for
-#      the full picture, and each service's own comment below for the
-#      specific fallback it was verified to hit).
+#      Storage, code execution and Lookout scheduling are chosen in .env
+#      (S3_*, SANDBOX_PROVIDER, LOOKOUT_SCHEDULER), with no default: left
+#      unset, the feature fails with an error naming what to set. Web search
+#      falls back to its cloud providers on its own (see README's "All-Cloud
+#      Configuration" section, and each service's own comment below).
 #
 #      Start any subset with:
 #        docker compose --profile minio --profile searxng up -d
@@ -131,26 +130,12 @@ services:
       #     do NOT set these in .env, they would be overridden anyway) ---
       - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/zetora
       - REDIS_URL=redis://redis:6379
-      - STORAGE_PROVIDER=${STORAGE_PROVIDER:-minio}
-      - S3_ENDPOINT=http://minio:9000
-      - S3_ACCESS_KEY_ID=${MINIO_ROOT_USER:-minioadmin}
-      - S3_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD}
-      - S3_BUCKET_NAME=zetora-uploads
-      - S3_REGION=us-east-1
-      - S3_FORCE_PATH_STYLE=true
       - QDRANT_URL=http://qdrant:6333
       - SEARXNG_URL=http://searxng:8080
       - FASTCRW_URL=http://fastcrw:3000
-      - SANDBOX_PROVIDER=docker
       - DOCKER_SANDBOX_URL=http://sandbox:8000
       - ANONYMIZER_API_URL=http://presidio-api:8000
       - S2S_SERVICE_URL=http://s2s-service:8080
-      # Defaults to unset/false, not true: BULLMQ_REDIS is behind the
-      # "bullmq" profile now (off by default), and getLockoutProvider()
-      # (lib/services/bullmq.ts) already falls back to QStash whenever this
-      # isn't exactly 'true' — matching every other service's cloud-first
-      # default instead of trying to reach a container that isn't running.
-      - BULLMQ_ENABLED=${BULLMQ_ENABLED:-false}
       - BULLMQ_REDIS_URL=redis://bullmq-redis:6381
       - BULLMQ_REDIS_PASSWORD=${BULLMQ_REDIS_PASSWORD:-}
       # Public WS URL of s2s-service (local voice backend) the browser
@@ -239,7 +224,7 @@ services:
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
-  # MinIO (S3-compatible file storage — STORAGE_PROVIDER=minio)
+  # MinIO (S3-compatible file storage — point S3_* in .env at it)
   # ---------------------------------------------------------------------------
   # Runs Silo (github.com/pgsty/silo), the maintained community fork: MinIO
   # archived its open-source edition and deleted its images from Docker Hub and

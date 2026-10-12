@@ -134,41 +134,6 @@ export const redditSearchProviders = searchProviders.filter((p) =>
   ),
 );
 
-export const storageProviders = [
-  {
-    value: 'cloudflare-r2',
-    label: 'Cloudflare R2',
-    description: 'Cloudflare object storage with zero egress fees',
-    default: true,
-  },
-  {
-    value: 'minio',
-    label: 'MinIO',
-    description: 'Self-hosted S3-compatible object storage',
-    default: false,
-  },
-] as const;
-
-export const lockoutProviders = [
-  {
-    value: 'qstash',
-    label: 'Upstash QStash',
-    description: "Service managé de scheduling HTTP. Gratuit jusqu'à 500 msg/jour.",
-    default: true,
-  },
-  {
-    value: 'bullmq',
-    label: 'BullMQ',
-    description: 'File de jobs Redis auto-hébergée avec Bull Board pour le monitoring.',
-    default: false,
-  },
-] as const;
-
-export const emailProviders = [
-  { value: 'resend', label: 'Resend (API)' },
-  { value: 'smtp', label: 'SMTP' },
-] as const;
-
 export type CustomBackendKind = 'ollama' | 'vllm' | 'llamacpp' | 'openai' | 'unknown';
 
 export type CustomProviderConfig = {
@@ -473,7 +438,7 @@ export function EmailTestButton() {
       const result = await testEmailDelivery();
       if (result.success) {
         setStatus('success');
-        setMessage(`Test email sent successfully via ${result.provider}. Check your inbox.`);
+        setMessage('Test email sent successfully. Check your inbox.');
       } else {
         setStatus('error');
         setMessage(result.error || 'Failed to send test email');

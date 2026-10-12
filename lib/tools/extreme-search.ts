@@ -8,7 +8,6 @@
 import { createLogger } from '@/lib/logger';
 import Exa from 'exa-js';
 import { getSandboxProvider } from '@/lib/sandbox';
-import type { SandboxProviderType } from '@/lib/sandbox';
 import { Output, generateText, hasToolCall, stepCountIs, tool } from 'ai';
 import type { EmbeddingModel, UIMessageStreamWriter } from 'ai';
 import { getFileEmbeddingModel } from '@/ai/embeddings';
@@ -23,7 +22,7 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { xai } from '@ai-sdk/xai';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
-import { getStorageClient, type StorageProvider } from '@/lib/storage';
+import { getStorageClient } from '@/lib/storage';
 import { nanoid } from 'nanoid';
 import { VectorStoreIndex, BaseRetriever } from '@vectorstores/core';
 import { PDFReader } from '@vectorstores/readers/pdf';
@@ -734,8 +733,6 @@ async function extremeSearch(
   _mcpDynamicTools: Record<string, any> = {},
   preferences: Record<string, string> | null = null,
 ): Promise<Research> {
-  const sandboxPreference = preferences?.['zetora-sandbox-provider'] as SandboxProviderType | undefined;
-  const storagePreference = preferences?.['zetora-storage-provider'] as StorageProvider | undefined;
   const allSources: SearchResult[] = [];
 
   // Initialize clients
@@ -1278,7 +1275,7 @@ ${JSON.stringify(plan)}
               },
             });
           }
-          const response = await getSandboxProvider(sandboxPreference).execute(code, 30000, missingLibs);
+          const response = await getSandboxProvider().execute(code, 30000, missingLibs);
 
           // Upload chart PNGs to storage and return only { url, title }
           const chartsInput = (response.charts || []) as ChartArtifact[];
@@ -1295,7 +1292,7 @@ ${JSON.stringify(plan)}
                       client: storageClient,
                       bucketName: STORAGE_BUCKET_NAME,
                       publicUrl: STORAGE_PUBLIC_URL,
-                    } = getStorageClient(storagePreference);
+                    } = getStorageClient();
 
                     await storageClient.send(
                       new PutObjectCommand({

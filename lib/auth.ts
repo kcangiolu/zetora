@@ -20,7 +20,7 @@ import { dash } from '@better-auth/infra';
 import { maindb } from '@/lib/db';
 import { config } from 'dotenv';
 import { serverEnv } from '@/env/server';
-import { invalidateSessionCacheForToken, getCachedUserPreferencesByUserId } from './user-data-server';
+import { invalidateSessionCacheForToken } from './user-data-server';
 import { sendVerificationEmail, sendTwoFactorOTPEmail } from './email';
 import { APIError } from 'better-auth/api';
 
@@ -56,12 +56,7 @@ export const auth = betterAuth({
     autoSignInAfterVerification: true,
     expiresIn: 3600,
     sendVerificationEmail: async ({ user, url }) => {
-      const prefs = await getCachedUserPreferencesByUserId(user.id).catch(() => null);
-      const emailProvider = (prefs?.preferences as Record<string, string>)?.['zetora-email-provider'] as
-        | 'resend'
-        | 'smtp'
-        | undefined;
-      await sendVerificationEmail({ to: user.email, url, emailProvider });
+      await sendVerificationEmail({ to: user.email, url });
     },
   },
   rateLimit: {
@@ -145,12 +140,7 @@ export const auth = betterAuth({
       issuer: 'Zetora',
       otpOptions: {
         async sendOTP({ user, otp }) {
-          const prefs = await getCachedUserPreferencesByUserId(user.id).catch(() => null);
-          const emailProvider = (prefs?.preferences as Record<string, string>)?.['zetora-email-provider'] as
-            | 'resend'
-            | 'smtp'
-            | undefined;
-          await sendTwoFactorOTPEmail({ to: user.email, otp, emailProvider });
+          await sendTwoFactorOTPEmail({ to: user.email, otp });
         },
       },
     }),

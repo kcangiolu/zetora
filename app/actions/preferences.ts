@@ -14,16 +14,7 @@ import { type User } from '@/lib/db/schema';
 import { eq, desc, ilike, and, asc, inArray, notExists } from 'drizzle-orm';
 import { sendLookoutCompletionEmail } from '@/lib/email';
 import { GroqProviderOptions, groq } from '@ai-sdk/groq';
-import {
-  createBullMqSchedule,
-  scheduleBullMqOnce,
-  deleteBullMqSchedule,
-  pauseBullMqSchedule,
-  resumeBullMqSchedule,
-  getLockoutProvider,
-} from '@/lib/services/bullmq';
 import type { CharacterAlignmentResponseModel } from '@elevenlabs/elevenlabs-js/api/types/CharacterAlignmentResponseModel';
-import { getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { lookoutCallbackHeaders, lookoutQstashHeaders } from '@/lib/lookout-auth';
 import { saveChat, saveMessages } from '@/lib/db/queries';
 import { all, allSettled } from 'better-all';
@@ -119,22 +110,15 @@ export async function testEmailDelivery() {
       return { success: false, error: 'No email address associated with your account' };
     }
 
-    const prefs = await getCachedUserPreferencesByUserId(user.id).catch(() => null);
-    const emailProvider = (prefs?.preferences as Record<string, string>)?.['zetora-email-provider'] as
-      | 'resend'
-      | 'smtp'
-      | undefined;
-
     const result = await sendLookoutCompletionEmail({
       to: user.email,
       chatTitle: 'Test Email',
       assistantResponse: 'This is a test email from Zetora. Your email provider is configured correctly.',
       chatId: 'test',
-      emailProvider,
     });
 
     if (result.success) {
-      return { success: true, provider: emailProvider || 'auto-detected' };
+      return { success: true };
     }
     return { success: false, error: result.error || 'Unknown error' };
   } catch (error) {

@@ -1,4 +1,3 @@
-import { Resend } from 'resend';
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import { serverEnv } from '@/env/server';
@@ -11,7 +10,8 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger('email');
 
-type EmailProvider = 'resend' | 'smtp';
+// Every email goes out over SMTP — any provider works, including hosted ones
+// with an SMTP relay (Resend, Postmark, Mailgun...).
 
 interface SendEmailParams {
   to: string;
@@ -19,192 +19,71 @@ interface SendEmailParams {
   react: React.ReactElement;
 }
 
-let resendClient: Resend | null = null;
 let smtpTransporter: Transporter | null = null;
 
-function getResendClient(): Resend {
-  if (!resendClient) {
-    resendClient = new Resend(serverEnv.RESEND_API_KEY);
+function getSmtpTransporter(): Transporter {
+  const missing = (['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM'] as const).filter((name) => !serverEnv[name]);
+  if (missing.length > 0) {
+    throw new Error(`Email is not configured: set ${missing.join(', ')} (see .env.example)`);
   }
-  return resendClient;
-}
-
-function getSmtpTransporter(): Transporter | null {
-  if (!serverEnv.SMTP_HOST || !serverEnv.SMTP_USER || !serverEnv.SMTP_PASS) {
-    return null;
-  }
-  if (!smtpTransporter) {
-    smtpTransporter = nodemailer.createTransport({
-      host: serverEnv.SMTP_HOST,
-      port: serverEnv.SMTP_PORT,
-      secure: serverEnv.SMTP_SECURE,
-      auth: {
-        user: serverEnv.SMTP_USER,
-        pass: serverEnv.SMTP_PASS,
-      },
-    });
-  }
+  smtpTransporter ??= nodemailer.createTransport({
+    host: serverEnv.SMTP_HOST,
+    port: serverEnv.SMTP_PORT,
+    secure: serverEnv.SMTP_SECURE,
+    auth: {
+      user: serverEnv.SMTP_USER,
+      pass: serverEnv.SMTP_PASS,
+    },
+  });
   return smtpTransporter;
 }
 
-// Real Resend API keys always start with "re_". Env files across this repo use
-// inconsistent dummy values ('placeholder', 'placeholder_resend_key', 'your_resend_api_key_here'),
-// so matching against one exact literal let a dummy value slip through as "configured".
-function isRealResendKey(key: string | undefined): key is string {
-  return !!key && key.startsWith('re_');
+async function sendEmail(params: SendEmailParams): Promise<{ success: boolean; id?: string; error?: string }> {
+  try {
+    const transporter = getSmtpTransporter();
+    const info = await transporter.sendMail({
+      from: serverEnv.SMTP_FROM,
+      to: params.to,
+      subject: params.subject,
+      html: await render(params.react),
+    });
+    log.debug(`✅ Email sent: ${params.subject}`);
+    return { success: true, id: info.messageId };
+  } catch (error) {
+    log.error(`❌ Failed to send email "${params.subject}":`, error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
 }
 
-function resolveEmailProvider(userPreference?: 'resend' | 'smtp'): EmailProvider {
-  // 1. Explicit user preference takes priority
-  if (userPreference === 'smtp') {
-    if (serverEnv.SMTP_HOST && serverEnv.SMTP_USER && serverEnv.SMTP_PASS) {
-      return 'smtp';
-    }
-    log.warn('SMTP configured as preference but SMTP env vars are missing, falling back');
-  }
-  if (userPreference === 'resend') {
-    if (isRealResendKey(serverEnv.RESEND_API_KEY)) {
-      return 'resend';
-    }
-    log.warn('Resend configured as preference but RESEND_API_KEY is missing, falling back');
-  }
-
-  // 2. Otherwise, auto-detect
-  if (serverEnv.SMTP_HOST && serverEnv.SMTP_USER && serverEnv.SMTP_PASS) {
-    if (!isRealResendKey(serverEnv.RESEND_API_KEY)) {
-      return 'smtp';
-    }
-  }
-  if (isRealResendKey(serverEnv.RESEND_API_KEY)) {
-    return 'resend';
-  }
-  if (serverEnv.SMTP_HOST) {
-    return 'smtp';
-  }
-  return 'resend';
-}
-
-function getFromAddress(provider: EmailProvider): string {
-  if (provider === 'smtp') {
-    if (!serverEnv.SMTP_FROM) {
-      throw new Error('SMTP_FROM is not configured');
-    }
-    return serverEnv.SMTP_FROM;
-  }
-  if (!serverEnv.RESEND_FROM) {
-    throw new Error('RESEND_FROM is not configured');
-  }
-  return serverEnv.RESEND_FROM;
-}
-
-async function sendViaResend(params: SendEmailParams) {
-  const resend = getResendClient();
-  const { data, error } = await resend.emails.send({
-    from: getFromAddress('resend'),
-    to: [params.to],
-    subject: params.subject,
-    react: params.react,
-  });
-  if (error) {
-    throw new Error(`Resend error: ${error.message}`);
-  }
-  return data;
-}
-
-async function sendViaSmtp(params: SendEmailParams) {
-  const transporter = getSmtpTransporter();
-  if (!transporter) {
-    throw new Error('SMTP transporter not configured');
-  }
-  const html = await render(params.react);
-  return transporter.sendMail({
-    from: getFromAddress('smtp'),
-    to: params.to,
-    subject: params.subject,
-    html,
-  });
-}
-
-interface SendLookoutCompletionEmailParams {
+export function sendLookoutCompletionEmail(params: {
   to: string;
   chatTitle: string;
   assistantResponse: string;
   chatId: string;
-  emailProvider?: 'resend' | 'smtp';
+}) {
+  return sendEmail({
+    to: params.to,
+    subject: `Lookout Complete: ${params.chatTitle}`,
+    react: SearchCompletedEmail({
+      chatTitle: params.chatTitle,
+      assistantResponse: params.assistantResponse,
+      chatId: params.chatId,
+    }),
+  });
 }
 
-export async function sendLookoutCompletionEmail({
-  to,
-  chatTitle,
-  assistantResponse,
-  chatId,
-  emailProvider,
-}: SendLookoutCompletionEmailParams) {
-  const provider = resolveEmailProvider(emailProvider);
-  const sendFn = provider === 'smtp' ? sendViaSmtp : sendViaResend;
-
-  try {
-    const data = await sendFn({
-      to,
-      subject: `Lookout Complete: ${chatTitle}`,
-      react: SearchCompletedEmail({
-        chatTitle,
-        assistantResponse,
-        chatId,
-      }),
-    });
-    log.debug(
-      `✅ Lookout completion email sent successfully via ${provider}:`,
-      'id' in data ? data.id : (data as any).messageId,
-    );
-    return { success: true, id: 'id' in data ? data.id : (data as any).messageId };
-  } catch (error) {
-    log.error(`❌ Failed to send lookout completion email via ${provider}:`, error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
+export function sendVerificationEmail(params: { to: string; url: string }) {
+  return sendEmail({
+    to: params.to,
+    subject: 'Verify your email for Zetora',
+    react: VerifyEmailTemplate({ url: params.url }),
+  });
 }
 
-export async function sendVerificationEmail(params: { to: string; url: string; emailProvider?: 'resend' | 'smtp' }) {
-  const provider = resolveEmailProvider(params.emailProvider);
-  const sendFn = provider === 'smtp' ? sendViaSmtp : sendViaResend;
-
-  try {
-    const data = await sendFn({
-      to: params.to,
-      subject: 'Verify your email for Zetora',
-      react: VerifyEmailTemplate({ url: params.url }),
-    });
-    log.debug(`✅ Verification email sent successfully via ${provider}`);
-    return { success: true, id: 'id' in data ? data.id : (data as any).messageId };
-  } catch (error) {
-    log.error(`❌ Failed to send verification email via ${provider}:`, error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
-}
-
-export async function sendTwoFactorOTPEmail(params: { to: string; otp: string; emailProvider?: 'resend' | 'smtp' }) {
-  const provider = resolveEmailProvider(params.emailProvider);
-  const sendFn = provider === 'smtp' ? sendViaSmtp : sendViaResend;
-
-  try {
-    const data = await sendFn({
-      to: params.to,
-      subject: `${params.otp} is your Zetora sign-in code`,
-      react: TwoFactorOtpEmailTemplate({ otp: params.otp }),
-    });
-    log.debug(`✅ Two-factor OTP email sent successfully via ${provider}`);
-    return { success: true, id: 'id' in data ? data.id : (data as any).messageId };
-  } catch (error) {
-    log.error(`❌ Failed to send two-factor OTP email via ${provider}:`, error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
+export function sendTwoFactorOTPEmail(params: { to: string; otp: string }) {
+  return sendEmail({
+    to: params.to,
+    subject: `${params.otp} is your Zetora sign-in code`,
+    react: TwoFactorOtpEmailTemplate({ otp: params.otp }),
+  });
 }

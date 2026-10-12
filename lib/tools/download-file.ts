@@ -2,16 +2,13 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { nanoid } from 'nanoid';
-import { getStorageClient, type StorageProvider } from '@/lib/storage';
+import { getStorageClient } from '@/lib/storage';
 import { persistGeneratedFile } from '@/lib/generated-file-storage';
 import { validateFileBuffer } from '@/lib/file-integrity';
 
 interface ToolContext {
   userId?: string;
   chatId?: string;
-  userPreferences?: {
-    'zetora-storage-provider'?: StorageProvider;
-  };
 }
 
 const CONTENT_TYPE_MAP: Record<string, string> = {
@@ -51,7 +48,6 @@ export const downloadFileTool = tool({
         return { success: false, error: integrityError };
       }
       const contentType = getContentType(filename);
-      const storageProvider = context?.userPreferences?.['zetora-storage-provider'];
 
       let url: string;
       if (context?.userId) {
@@ -63,14 +59,13 @@ export const downloadFileTool = tool({
           mediaType: contentType,
           kind: 'document',
           toolName: 'download_file',
-          storageProvider,
         }));
       } else {
         // No authenticated user in context — keep the file usable without a
         // Downloads-panel record (nothing to attribute it to).
         const key = `zetora/downloads/${nanoid()}-${filename}`;
         const { client: storageClient, bucketName: STORAGE_BUCKET_NAME, publicUrl: STORAGE_PUBLIC_URL } =
-          getStorageClient(storageProvider);
+          getStorageClient();
         await storageClient.send(
           new PutObjectCommand({
             Bucket: STORAGE_BUCKET_NAME,

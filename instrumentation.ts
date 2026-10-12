@@ -7,7 +7,7 @@ export async function register() {
     const { loadModelCatalog } = await import('@/ai/catalog/store');
     await loadModelCatalog();
 
-    if (process.env.BULLMQ_ENABLED === 'true') {
+    if (process.env.LOOKOUT_SCHEDULER === 'bullmq') {
       const { startLookoutWorker } = await import('@/lib/services/bullmq');
       startLookoutWorker();
       console.log('[Zetora] BullMQ Lookout Worker started');

@@ -23,11 +23,10 @@ import {
   deleteBullMqSchedule,
   pauseBullMqSchedule,
   resumeBullMqSchedule,
-  getLockoutProvider,
+  getLookoutScheduler,
 } from '@/lib/services/bullmq';
 import type { CharacterAlignmentResponseModel } from '@elevenlabs/elevenlabs-js/api/types/CharacterAlignmentResponseModel';
 import { CronExpressionParser } from 'cron-parser';
-import { getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { lookoutCallbackHeaders, lookoutQstashHeaders } from '@/lib/lookout-auth';
 import { saveChat, saveMessages } from '@/lib/db/queries';
 import { all, allSettled } from 'better-all';
@@ -36,8 +35,11 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger('actions-lookouts');
 
-// Initialize QStash client
-const qstash = new Client({ token: serverEnv.QSTASH_TOKEN });
+// Built on use: only a LOOKOUT_SCHEDULER=qstash instance has a token (checked
+// by getLookoutScheduler before any call here).
+function qstashClient() {
+  return new Client({ token: serverEnv.QSTASH_TOKEN });
+}
 
 // Callback URL the scheduler (QStash or the BullMQ worker) posts back to.
 // NEXT_PUBLIC_APP_URL keeps self-hosted deployments working; NGROK_URL lets
@@ -195,6 +197,10 @@ export async function createScheduledLookout({
       nextRunAt = calculateNextRun(cronSchedule, timezone);
     }
 
+    // Checked before anything is saved: a lookout that can't be scheduled
+    // would never run.
+    const schedulingProvider = getLookoutScheduler();
+
     // Create lookout in database first
     const lookout = await createLookout({
       userId: user.id,
@@ -208,9 +214,6 @@ export async function createScheduledLookout({
       searchMode,
     });
 
-    // Determine scheduling provider from user preferences
-    const userPrefs = await getCachedUserPreferencesByUserId(user.id).catch(() => null);
-    const schedulingProvider = getLockoutProvider(userPrefs?.preferences ?? undefined);
     log.debug(`📝 Created lookout in database: ${lookout.id} — scheduling with ${schedulingProvider}`);
 
     // Small delay to ensure database transaction is committed
@@ -243,7 +246,7 @@ export async function createScheduledLookout({
           } else {
             log.debug('⏰ Creating QStash one-time execution for lookout:', lookout.id);
             log.debug('📅 Scheduled time:', nextRunAt.toISOString());
-            await qstash.publish({
+            await qstashClient().publish({
               url: lookoutEndpoint,
               body: JSON.stringify(lookoutBody),
               headers: { 'Content-Type': 'application/json', ...lookoutQstashHeaders() },
@@ -268,7 +271,7 @@ export async function createScheduledLookout({
             });
             scheduleId = result.scheduleId;
           } else {
-            const scheduleResponse = await qstash.schedules.create({
+            const scheduleResponse = await qstashClient().schedules.create({
               destination: lookoutEndpoint,
               method: 'POST',
               cron: cronSchedule,
@@ -351,20 +354,19 @@ export async function updateLookoutStatusAction({
 
     // Update schedule status if it exists
     if (lookout.qstashScheduleId) {
-      const userPrefs = await getCachedUserPreferencesByUserId(user.id).catch(() => null);
-      const schedulingProvider = getLockoutProvider(userPrefs?.preferences ?? undefined);
+      const schedulingProvider = getLookoutScheduler();
       try {
         if (status === 'paused') {
           if (schedulingProvider === 'bullmq') {
             await pauseBullMqSchedule(lookout.qstashScheduleId);
           } else {
-            await qstash.schedules.pause({ schedule: lookout.qstashScheduleId });
+            await qstashClient().schedules.pause({ schedule: lookout.qstashScheduleId });
           }
         } else if (status === 'active') {
           if (schedulingProvider === 'bullmq') {
             await resumeBullMqSchedule(lookout.qstashScheduleId);
           } else {
-            await qstash.schedules.resume({ schedule: lookout.qstashScheduleId });
+            await qstashClient().schedules.resume({ schedule: lookout.qstashScheduleId });
           }
           // Update next run time when resuming
           if (lookout.cronSchedule) {
@@ -375,7 +377,7 @@ export async function updateLookoutStatusAction({
           if (schedulingProvider === 'bullmq') {
             await deleteBullMqSchedule(lookout.qstashScheduleId);
           } else {
-            await qstash.schedules.delete(lookout.qstashScheduleId);
+            await qstashClient().schedules.delete(lookout.qstashScheduleId);
           }
         }
       } catch (scheduleError) {
@@ -494,8 +496,7 @@ export async function updateLookoutAction({
 
     // Update QStash schedule if it exists and frequency/time changed
     if (lookout.qstashScheduleId && frequency !== 'once') {
-      const userPrefs = await getCachedUserPreferencesByUserId(user.id).catch(() => null);
-      const schedulingProvider = getLockoutProvider(userPrefs?.preferences ?? undefined);
+      const schedulingProvider = getLookoutScheduler();
       try {
         log.debug(`⏰ [${schedulingProvider}] Recreating schedule for lookout:`, id);
         log.debug('📅 Updated cron schedule with timezone:', cronSchedule);
@@ -516,8 +517,8 @@ export async function updateLookoutAction({
           newScheduleId = result.scheduleId;
         } else {
           // QStash requires delete + recreate
-          await qstash.schedules.delete(lookout.qstashScheduleId);
-          const scheduleResponse = await qstash.schedules.create({
+          await qstashClient().schedules.delete(lookout.qstashScheduleId);
+          const scheduleResponse = await qstashClient().schedules.create({
             destination: lookoutEndpoint,
             method: 'POST',
             cron: cronSchedule,
@@ -581,13 +582,12 @@ export async function deleteLookoutAction({ id }: { id: string }) {
 
     // Delete schedule if it exists
     if (lookout.qstashScheduleId) {
-      const userPrefs = await getCachedUserPreferencesByUserId(user.id).catch(() => null);
-      const schedulingProvider = getLockoutProvider(userPrefs?.preferences ?? undefined);
+      const schedulingProvider = getLookoutScheduler();
       try {
         if (schedulingProvider === 'bullmq') {
           await deleteBullMqSchedule(lookout.qstashScheduleId);
         } else {
-          await qstash.schedules.delete(lookout.qstashScheduleId);
+          await qstashClient().schedules.delete(lookout.qstashScheduleId);
         }
       } catch (error) {
         log.error(`Error deleting ${schedulingProvider} schedule:`, error);

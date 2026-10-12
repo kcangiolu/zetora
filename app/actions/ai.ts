@@ -36,14 +36,6 @@ import { db, maindb } from '@/lib/db';
 import { chat, message, buildSession, type User } from '@/lib/db/schema';
 import { eq, desc, ilike, and, asc, inArray, notExists } from 'drizzle-orm';
 import { groq } from '@ai-sdk/groq';
-import {
-  createBullMqSchedule,
-  scheduleBullMqOnce,
-  deleteBullMqSchedule,
-  pauseBullMqSchedule,
-  resumeBullMqSchedule,
-  getLockoutProvider,
-} from '@/lib/services/bullmq';
 import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 import type { CharacterAlignmentResponseModel } from '@elevenlabs/elevenlabs-js/api/types/CharacterAlignmentResponseModel';
 import { usageCountCache, createMessageCountKey } from '@/lib/performance-cache';

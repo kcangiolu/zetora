@@ -268,8 +268,6 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-academic-search-provider'?: 'exa' | 'firecrawl' | 'searxng' | 'fastcrw';
       'zetora-academic-search-fallback-enabled'?: boolean;
       'zetora-academic-search-fallback-provider'?: 'exa' | 'firecrawl' | 'searxng' | 'fastcrw';
-      'zetora-storage-provider'?: 'cloudflare-r2' | 'minio';
-      'zetora-email-provider'?: 'resend' | 'smtp';
       'zetora-extreme-search-provider'?: 'exa' | 'firecrawl' | 'searxng' | 'fastcrw';
       'zetora-extreme-search-fallback-enabled'?: boolean;
       'zetora-extreme-search-fallback-provider'?: 'exa' | 'firecrawl' | 'searxng' | 'fastcrw';
@@ -317,7 +315,6 @@ export const userPreferences = pgTable('user_preferences', {
         | 'mcp'
         | 'prediction'
         | 'canvas';
-      'zetora-sandbox-provider'?: 'daytona' | 'docker';
       'zetora-custom-providers'?: Array<{
         id: string;
         name: string;
@@ -371,7 +368,6 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-default-model'?: string;
       'zetora-default-provider'?: string;
       'zetora-default-effort'?: 'auto' | 'low' | 'medium' | 'high' | 'off';
-      'zetora-lockout-provider'?: 'qstash' | 'bullmq';
       'zetora-embedding-enabled'?: boolean;
       'zetora-xml-tool-parsing-enabled'?: boolean;
       'zetora-fallback-metadata'?: boolean;

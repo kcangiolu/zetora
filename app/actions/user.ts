@@ -7,14 +7,6 @@ import { getChatWithUserById } from '@/lib/db/queries';
 import { db, maindb } from '@/lib/db';
 import { chat, message, buildSession, type User } from '@/lib/db/schema';
 import { eq, desc, ilike, and, asc, inArray, notExists } from 'drizzle-orm';
-import {
-  createBullMqSchedule,
-  scheduleBullMqOnce,
-  deleteBullMqSchedule,
-  pauseBullMqSchedule,
-  resumeBullMqSchedule,
-  getLockoutProvider,
-} from '@/lib/services/bullmq';
 import type { CharacterAlignmentResponseModel } from '@elevenlabs/elevenlabs-js/api/types/CharacterAlignmentResponseModel';
 import { getComprehensiveUserData } from '@/lib/user-data-server';
 import { headers } from 'next/headers';

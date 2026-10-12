@@ -4,8 +4,6 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { getStorageClient } from '@/lib/storage';
 
-const { client: storageClient, bucketName: STORAGE_BUCKET_NAME } = getStorageClient();
-
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('clean-images');
@@ -35,6 +33,7 @@ export async function GET(req: NextRequest) {
 }
 
 async function deleteAllObjectsWithPrefix(prefix: string): Promise<number> {
+  const { client: storageClient, bucketName: storageBucket } = getStorageClient();
   let continuationToken: string | undefined;
   let totalDeleted = 0;
 
@@ -42,7 +41,7 @@ async function deleteAllObjectsWithPrefix(prefix: string): Promise<number> {
     // List objects with prefix
     const listResponse = await storageClient.send(
       new ListObjectsV2Command({
-        Bucket: STORAGE_BUCKET_NAME,
+        Bucket: storageBucket,
         Prefix: prefix,
         MaxKeys: 1000,
         ContinuationToken: continuationToken,
@@ -55,7 +54,7 @@ async function deleteAllObjectsWithPrefix(prefix: string): Promise<number> {
       // Delete objects in batch
       await storageClient.send(
         new DeleteObjectsCommand({
-          Bucket: STORAGE_BUCKET_NAME,
+          Bucket: storageBucket,
           Delete: {
             Objects: objects.map((obj) => ({ Key: obj.Key })),
             Quiet: true,

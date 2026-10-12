@@ -24,7 +24,6 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger('api-hermes-send');
 
-const { publicUrl: STORAGE_PUBLIC_URL } = getStorageClient();
 
 interface SendBody {
   chatId?: string;
@@ -66,10 +65,11 @@ export async function POST(req: NextRequest) {
   // Before anything is written or delivered: the gateway downloads every URL cited in
   // media_urls, so an attachment that isn't this user's own upload is refused outright
   // rather than quietly skipped (see resolveHermesAttachments).
+  const { publicUrl: storagePublicUrl } = getStorageClient();
   const { media, rejected } = resolveHermesAttachments({
     attachments,
     userId: session.user.id,
-    storagePublicUrl: STORAGE_PUBLIC_URL,
+    storagePublicUrl,
   });
   if (rejected.length > 0) {
     const detail = rejected.map((r) => `${r.name} (${r.reason})`).join(', ');

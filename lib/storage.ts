@@ -1,7 +1,8 @@
 import { S3Client } from '@aws-sdk/client-s3';
-import { serverEnv } from '@/env/server';
 
-export type StorageProvider = 'cloudflare-r2' | 'minio';
+// File storage: any S3-compatible service (MinIO/Silo, Cloudflare R2, AWS S3,
+// Backblaze B2...), configured entirely by the S3_* variables. Nothing is
+// assumed: a missing variable fails the storage call that needed it.
 
 export interface StorageClients {
   client: S3Client;
@@ -10,81 +11,49 @@ export interface StorageClients {
   publicUrl: string;
 }
 
-function buildStorageConfig(provider: StorageProvider) {
-  if (provider === 'minio') {
-    return {
-      region: process.env.S3_REGION || 'us-east-1',
-      endpoint: process.env.S3_ENDPOINT || 'http://localhost:9000',
-      // Browser-facing presigned URLs must hit a host the browser can
-      // actually reach (e.g. a reverse-proxied HTTPS domain) — inside
-      // Docker, S3_ENDPOINT is the internal service name (http://minio:9000),
-      // which is neither routable nor HTTPS from the client. Falls back to
-      // S3_ENDPOINT so cloud/local-dev setups where the endpoint is already
-      // public keep working unchanged.
-      presignEndpoint: process.env.S3_PRESIGN_ENDPOINT || process.env.S3_ENDPOINT || 'http://localhost:9000',
-      credentials: {
-        accessKeyId: process.env.S3_ACCESS_KEY_ID || 'minioadmin',
-        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || 'minioadmin',
-      },
-      forcePathStyle: process.env.S3_FORCE_PATH_STYLE === 'true',
-      bucketName: process.env.S3_BUCKET_NAME || 'zetora-uploads',
-      publicUrl: process.env.S3_PUBLIC_URL || 'http://localhost:9000/zetora-uploads',
-    };
+const REQUIRED_VARIABLES = [
+  'S3_ENDPOINT',
+  'S3_ACCESS_KEY_ID',
+  'S3_SECRET_ACCESS_KEY',
+  'S3_BUCKET_NAME',
+  'S3_PUBLIC_URL',
+  'S3_REGION',
+] as const;
+
+let clients: StorageClients | null = null;
+
+export function getStorageClient(): StorageClients {
+  if (clients) return clients;
+
+  const missing = REQUIRED_VARIABLES.filter((name) => !process.env[name]);
+  if (missing.length > 0) {
+    throw new Error(`File storage is not configured: set ${missing.join(', ')} (see .env.example)`);
   }
 
-  // Cloudflare R2 (default) — the R2 API endpoint is already publicly
-  // reachable, so presigning uses the same endpoint as internal operations.
-  const r2Endpoint = `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
-  return {
-    region: 'auto',
-    endpoint: r2Endpoint,
-    presignEndpoint: r2Endpoint,
-    credentials: {
-      accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-    },
-    forcePathStyle: false,
-    bucketName: process.env.R2_BUCKET_NAME!,
-    publicUrl: process.env.R2_PUBLIC_URL!,
+  const credentials = {
+    accessKeyId: process.env.S3_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
   };
-}
+  const forcePathStyle = process.env.S3_FORCE_PATH_STYLE === 'true';
 
-// Keyed by resolved provider (not "first call wins") so a mixed deployment —
-// some users on MinIO, some on R2 via the zetora-storage-provider preference
-// — gets a correct, live client for each, not whichever provider happened
-// to initialize first. S3Client construction is cheap; this cache just
-// avoids re-building one per request for the common case of everyone using
-// the same provider.
-const clientCache = new Map<StorageProvider, StorageClients>();
-
-export function getStorageClient(preferredProvider?: StorageProvider): StorageClients {
-  const provider = preferredProvider ?? (serverEnv.STORAGE_PROVIDER as StorageProvider);
-
-  const cached = clientCache.get(provider);
-  if (cached) return cached;
-
-  const config = buildStorageConfig(provider);
-
-  const clients: StorageClients = {
+  clients = {
     client: new S3Client({
-      region: config.region,
-      endpoint: config.endpoint,
-      credentials: config.credentials,
-      forcePathStyle: config.forcePathStyle,
+      region: process.env.S3_REGION,
+      endpoint: process.env.S3_ENDPOINT,
+      credentials,
+      forcePathStyle,
     }),
-    // Used only to sign URLs handed to the browser (upload PUT). Kept
-    // separate from `client` because the two can point at different hosts
-    // — see presignEndpoint above.
+    // Signs the URLs handed to the browser (upload PUT), which must reach a
+    // host the browser can: S3_ENDPOINT may be an internal Docker address
+    // (http://minio:9000), so S3_PRESIGN_ENDPOINT can point at the public one.
     presignClient: new S3Client({
-      region: config.region,
-      endpoint: config.presignEndpoint,
-      credentials: config.credentials,
-      forcePathStyle: config.forcePathStyle,
+      region: process.env.S3_REGION,
+      endpoint: process.env.S3_PRESIGN_ENDPOINT || process.env.S3_ENDPOINT,
+      credentials,
+      forcePathStyle,
     }),
-    bucketName: config.bucketName,
-    publicUrl: config.publicUrl,
+    bucketName: process.env.S3_BUCKET_NAME!,
+    publicUrl: process.env.S3_PUBLIC_URL!,
   };
-
-  clientCache.set(provider, clients);
   return clients;
 }

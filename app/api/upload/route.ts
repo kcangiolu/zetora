@@ -7,12 +7,6 @@ import { nanoid } from 'nanoid';
 import { auth } from '@/lib/auth';
 import { getStorageClient } from '@/lib/storage';
 
-const {
-  client: storageClient,
-  presignClient: storagePresignClient,
-  bucketName: STORAGE_BUCKET_NAME,
-  publicUrl: STORAGE_PUBLIC_URL,
-} = getStorageClient();
 import { getUploadedFilesByUserId, deleteUploadedFileByUrl, decodeUploadedFilesCursor } from '@/lib/db/queries';
 
 import { createLogger } from '@/lib/logger';
@@ -177,8 +171,13 @@ export async function POST(request: NextRequest) {
 
     const key = `zetora/users/${session.user.id}/${nanoid()}.${ext}`;
 
+    const {
+      presignClient: storagePresignClient,
+      bucketName: storageBucket,
+      publicUrl: storagePublicUrl,
+    } = getStorageClient();
     const command = new PutObjectCommand({
-      Bucket: STORAGE_BUCKET_NAME,
+      Bucket: storageBucket,
       Key: key,
       // Must exactly match the Content-Type header the browser's direct PUT
       // sends (see uploadFileToStorage in lib/upload-client.ts, which mirrors
@@ -194,7 +193,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Construct the final public URL
-    const publicUrl = `${STORAGE_PUBLIC_URL}/${key}`;
+    const publicUrl = `${storagePublicUrl}/${key}`;
 
     return NextResponse.json({
       presignedUrl,
@@ -234,7 +233,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
-    await storageClient.send(new DeleteObjectCommand({ Bucket: STORAGE_BUCKET_NAME, Key: deleted.key })).catch((e) => {
+    const { client: storageClient, bucketName: storageBucket } = getStorageClient();
+    await storageClient.send(new DeleteObjectCommand({ Bucket: storageBucket, Key: deleted.key })).catch((e) => {
       // The DB row is already gone — log and move on rather than leaving the
       // user stuck if the bucket object was already removed out-of-band.
       log.error('Failed to delete uploaded file object from storage:', e);

@@ -18,8 +18,6 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger('api-internal-hermes-agent-event');
 
-const { client: storageClient, bucketName: STORAGE_BUCKET_NAME, publicUrl: STORAGE_PUBLIC_URL } = getStorageClient();
-
 const MAX_MEDIA_BYTES = 25 * 1024 * 1024;
 const RELAY_MEDIA_ID_PATTERN = /\/relay\/media\/([^/?#]+)$/;
 
@@ -69,10 +67,11 @@ async function resolveMediaUrl(sourceUrl: string, ownerUserId: string): Promise<
 
   const ext = sanitizeExtension(parsed.pathname.split('.').pop());
   const key = `zetora/hermes-media/${ownerUserId}/${nanoid()}.${ext}`;
+  const { client: storageClient, bucketName: storageBucket, publicUrl: storagePublicUrl } = getStorageClient();
   await storageClient.send(
-    new PutObjectCommand({ Bucket: STORAGE_BUCKET_NAME, Key: key, Body: body, ContentType: contentType }),
+    new PutObjectCommand({ Bucket: storageBucket, Key: key, Body: body, ContentType: contentType }),
   );
-  return `${STORAGE_PUBLIC_URL}/${key}`;
+  return `${storagePublicUrl}/${key}`;
 }
 
 interface OutboundAction {

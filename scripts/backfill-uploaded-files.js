@@ -9,10 +9,10 @@
 // storage migration rather than the original upload date).
 //
 // Runs in the zetora-migrate image, which already has the dependencies. The
-// db-migrate service doesn't get the storage settings (they live in
-// zetora-app's `environment:`), so pass zetora-app's own values through:
+// db-migrate service doesn't get the storage settings, so pass zetora-app's
+// own values through:
 //   mapfile -t vars < <(docker inspect zetora-app --format '{{range .Config.Env}}{{println .}}{{end}}' \
-//     | grep -E '^(STORAGE_PROVIDER|S3_[A-Z_]+|R2_[A-Z_]+)=')
+//     | grep -E '^S3_[A-Z_]+=')
 //   args=(); for v in "${vars[@]}"; do args+=(-e "$v"); done
 //   docker compose run --rm "${args[@]}" db-migrate node scripts/backfill-uploaded-files.js [--dry-run]
 
@@ -22,35 +22,21 @@ import { randomUUID } from 'node:crypto';
 
 const dryRun = process.argv.includes('--dry-run');
 
-// Mirrors buildStorageConfig in lib/storage.ts (a TS module this plain
-// script can't import), restricted to what listing and HEAD need.
+// Mirrors getStorageClient in lib/storage.ts (a TS module this plain script
+// can't import), restricted to what listing and HEAD need.
 function storageConfig() {
-  if (process.env.STORAGE_PROVIDER === 'minio') {
-    return {
-      client: new S3Client({
-        region: process.env.S3_REGION || 'us-east-1',
-        endpoint: process.env.S3_ENDPOINT || 'http://localhost:9000',
-        credentials: {
-          accessKeyId: process.env.S3_ACCESS_KEY_ID || 'minioadmin',
-          secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || 'minioadmin',
-        },
-        forcePathStyle: process.env.S3_FORCE_PATH_STYLE === 'true',
-      }),
-      bucketName: process.env.S3_BUCKET_NAME || 'zetora-uploads',
-      publicUrl: process.env.S3_PUBLIC_URL || 'http://localhost:9000/zetora-uploads',
-    };
-  }
   return {
     client: new S3Client({
-      region: 'auto',
-      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      region: process.env.S3_REGION,
+      endpoint: process.env.S3_ENDPOINT,
       credentials: {
-        accessKeyId: process.env.R2_ACCESS_KEY_ID,
-        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+        accessKeyId: process.env.S3_ACCESS_KEY_ID,
+        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
       },
+      forcePathStyle: process.env.S3_FORCE_PATH_STYLE === 'true',
     }),
-    bucketName: process.env.R2_BUCKET_NAME,
-    publicUrl: process.env.R2_PUBLIC_URL,
+    bucketName: process.env.S3_BUCKET_NAME,
+    publicUrl: process.env.S3_PUBLIC_URL,
   };
 }
 

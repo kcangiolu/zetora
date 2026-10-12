@@ -92,9 +92,7 @@ export async function upsertUserPreferences({
   userId: string;
   preferences: Partial<{
     'zetora-search-provider'?: 'exa' | 'parallel' | 'firecrawl' | 'searxng' | 'fastcrw';
-    'zetora-storage-provider'?: 'cloudflare-r2' | 'minio';
     'zetora-extreme-content-provider'?: 'exa' | 'firecrawl' | 'fastcrw' | 'notte' | 'parallel';
-    'zetora-email-provider'?: 'resend' | 'smtp';
     'zetora-group-order'?: string[];
     'zetora-model-order-global'?: string[];
     'zetora-blur-personal-info'?: boolean;
@@ -124,7 +122,6 @@ export async function upsertUserPreferences({
     'zetora-anonymization-ner-enabled'?: boolean;
     'zetora-default-model'?: string;
     'zetora-default-provider'?: string;
-    'zetora-lockout-provider'?: 'qstash' | 'bullmq';
     'zetora-embedding-enabled'?: boolean;
     'zetora-file-embedding-provider'?: 'cohere' | 'custom';
     'zetora-xml-tool-parsing-enabled'?: boolean;

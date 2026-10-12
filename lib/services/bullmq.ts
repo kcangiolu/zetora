@@ -1,6 +1,7 @@
 import { Queue, Worker, Job } from 'bullmq';
 import Redis from 'ioredis';
 
+import { serverEnv } from '@/env/server';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('bullmq');
@@ -170,18 +171,19 @@ export function startLookoutWorker(): Worker<LookoutJobData> {
   return worker;
 }
 
-function isBullMqEnabled(): boolean {
-  return process.env.BULLMQ_ENABLED === 'true';
-}
-
-export function getLockoutProvider(preferences?: {
-  'zetora-lockout-provider'?: 'qstash' | 'bullmq';
-}): 'qstash' | 'bullmq' {
-  if (preferences?.['zetora-lockout-provider']) {
-    return preferences['zetora-lockout-provider'];
+// Where Lookouts are scheduled, chosen for the whole instance by
+// LOOKOUT_SCHEDULER: 'bullmq' (the bundled Redis + worker) or 'qstash'
+// (Upstash's cloud, for hosts without a long-running process).
+export function getLookoutScheduler(): 'qstash' | 'bullmq' {
+  switch (serverEnv.LOOKOUT_SCHEDULER) {
+    case 'bullmq':
+      return 'bullmq';
+    case 'qstash':
+      if (!serverEnv.QSTASH_TOKEN) {
+        throw new Error('Lookouts: LOOKOUT_SCHEDULER=qstash needs QSTASH_TOKEN (see .env.example)');
+      }
+      return 'qstash';
+    default:
+      throw new Error('Lookouts are not configured: set LOOKOUT_SCHEDULER to bullmq or qstash (see .env.example)');
   }
-  if (isBullMqEnabled()) {
-    return 'bullmq';
-  }
-  return 'qstash';
 }

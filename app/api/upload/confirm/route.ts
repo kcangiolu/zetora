@@ -8,11 +8,6 @@ import { insertUploadedFile } from '@/lib/db/queries';
 
 import { createLogger } from '@/lib/logger';
 
-const {
-  client: storageClient,
-  bucketName: STORAGE_BUCKET_NAME,
-  publicUrl: STORAGE_PUBLIC_URL,
-} = getStorageClient();
 
 const log = createLogger('upload-confirm');
 
@@ -53,8 +48,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    const { client: storageClient, bucketName: storageBucket, publicUrl: storagePublicUrl } = getStorageClient();
     const head = await storageClient
-      .send(new HeadObjectCommand({ Bucket: STORAGE_BUCKET_NAME, Key: key }))
+      .send(new HeadObjectCommand({ Bucket: storageBucket, Key: key }))
       .catch(() => null);
     if (!head) {
       return NextResponse.json({ error: 'Uploaded file not found' }, { status: 404 });
@@ -63,7 +59,7 @@ export async function POST(request: NextRequest) {
     const row = await insertUploadedFile({
       userId,
       key,
-      url: `${STORAGE_PUBLIC_URL}/${key}`,
+      url: `${storagePublicUrl}/${key}`,
       filename,
       mediaType: head.ContentType ?? null,
       sizeBytes: head.ContentLength ?? null,

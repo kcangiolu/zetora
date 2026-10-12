@@ -114,14 +114,14 @@ This fork bundles a complete self-hosted stack in [`docker-compose.yml`](docker-
 | ---------------------- | ----------------------------------------- | ---------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | **PostgreSQL 17**      | `postgres`                                | _(core)_   | Vercel Postgres / Neon           | Primary application database                                                                                            |
 | **Redis 7**            | `redis`                                   | _(core)_   | Upstash Redis                    | Sessions, cache, rate limiting                                                                                          |
-| **MinIO**              | `minio`, `minio-create-bucket`            | `minio`    | Cloudflare R2 / Vercel Blob      | S3-compatible object storage for uploads (`STORAGE_PROVIDER=minio`)                                                     |
+| **MinIO**              | `minio`, `minio-create-bucket`            | `minio`    | Cloudflare R2 / AWS S3           | S3-compatible object storage for uploads (point `S3_*` at it)                                                           |
 | **Qdrant**             | `qdrant`                                  | `qdrant`   | _(new — no Scira equivalent)_    | Vector store for the hybrid RAG pipeline (content indexing, RRF fusion, reranking)                                      |
 | **SearXNG**            | `searxng`, `searxng-redis`                | `searxng`  | Tavily / Exa                     | Self-hosted metasearch engine for the Web search source                                                                 |
 | **fastCRW**            | `fastcrw`, `chrome`                       | `fastcrw`  | Firecrawl                        | Self-hosted scraper & search (Firecrawl-compatible API) with JS rendering via LightPanda and a headless-Chrome fallback |
 | **Code Interpreter**   | `sandbox`                                 | `sandbox`  | Daytona                          | Sandboxed Python execution for the Code Interpreter tool (`SANDBOX_PROVIDER=docker`)                                    |
 | **Presidio**           | `presidio-api`                            | `presidio` | _(new — no Scira equivalent)_    | PII detection/anonymization for the activatable privacy layer                                                           |
 | **Voice pipeline**     | `s2s-service`, `stt-service`, `qwen3-tts` | `tts`\*    | ElevenLabs / xAI Realtime        | Local speech-to-speech backend: VAD orchestrator, NVIDIA Parakeet TDT STT, and opt-in GPU Qwen3 TTS (`--profile tts`)   |
-| **BullMQ**             | `bullmq-redis`, `bullboard`               | `bullmq`   | Upstash QStash                   | Self-hosted scheduler for Lookouts (recurring research agents), with a Bull Board admin UI                              |
+| **BullMQ**             | `bullmq-redis`, `bullboard`               | `bullmq`   | Upstash QStash                   | Self-hosted scheduler for Lookouts (`LOOKOUT_SCHEDULER=bullmq`), with a Bull Board admin UI                             |
 | **Hermes Agent relay** | `hermes-relay-service`                    | `hermes`†  | _(new — no Scira equivalent)_    | Lets any user connect their own self-hosted Hermes Agent gateway as an Agent mode chat channel                          |
 | **DB migrations**      | `db-migrate`                              | _(core)_   | _(manual `drizzle-kit migrate`)_ | Runs Drizzle migrations + performance indexes automatically; `zetora.app` waits for it before starting                  |
 
@@ -129,7 +129,7 @@ This fork bundles a complete self-hosted stack in [`docker-compose.yml`](docker-
 
 † Unlike every other row, Hermes doesn't degrade to a cloud equivalent when its profile is left off — the whole feature (Settings > Hermes, the Agent mode entry, every `/api/hermes*`/`/api/internal/hermes*` route) is gated by the `NEXT_PUBLIC_HERMES_ENABLED` build flag, which defaults to `true` since it already ships to real users on this fork. The Docker profile itself still needs explicit opt-in like any other (`--profile hermes` / `COMPOSE_PROFILES=hermes`) — the build flag only controls whether the _feature exists in the image at all_, not whether _this deployment's container starts_. Set `NEXT_PUBLIC_HERMES_ENABLED=false` to build an image with the feature hidden entirely.
 
-Every profiled service is off by default — `docker compose up -d` alone starts only the `_(core)_` rows plus `zetora.app`, running entirely against cloud providers out of the box. Start any subset with `docker compose --profile <name> up -d` (see [Self-hosted stack](#option-2--self-hosted-stack-docker-compose) below for the full command and what each one falls back to when left off).
+Every profiled service is off by default — `docker compose up -d` alone starts only the `_(core)_` rows plus `zetora.app`. Storage (`S3_*`), code execution (`SANDBOX_PROVIDER`) and Lookout scheduling (`LOOKOUT_SCHEDULER`) have no default: set each in `.env` to a bundled service or its cloud alternative, or that feature reports what is missing. Start any subset with `docker compose --profile <name> up -d` (see [Self-hosted stack](#option-2--self-hosted-stack-docker-compose) below for the full command and what each one falls back to when left off).
 
 All services share the `zetora-network` Docker network and resolve each other by service name. Most services are bound to `127.0.0.1`; only `zetora.app` (port 3333), MinIO's API port, and `s2s-service` publish beyond loopback (for reverse-proxy and browser access).
 
@@ -141,7 +141,7 @@ Beyond the bundled infrastructure, this fork also adds:
 - **Local voice pipeline** — self-hosted speech-to-speech (VAD + Parakeet STT + Qwen3 TTS) as an alternative to cloud realtime voice, plus Read Aloud with streaming TTS
 - **Hardened auth** — email verification, two-factor authentication, and an `ALLOW_SIGNUPS` switch to close the instance
 - **Per-service diagnostics panel** in Settings to check the health of every bundled service
-- **SMTP email delivery** as an alternative to Resend, with a built-in email test button
+- **SMTP email delivery** for every email (any SMTP server, hosted relays included), with a built-in email test button
 - **Sidebar visibility toggles** for Lookouts, Voice, and sources
 - **User-configurable default model** and per-task tertiary model preferences
 - **Embedding provider configuration**, including OpenAI-compatible endpoints, for the hybrid RAG pipeline
@@ -155,14 +155,14 @@ If you'd rather not run the bundled services, Zetora can run entirely against ma
 | ------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | Postgres            | Vercel Postgres / Neon / Supabase | `DATABASE_URL` (+ optional `READ_DB_1`/`READ_DB_2` read replicas)                                                                               |
 | Redis               | Upstash Redis                     | `REDIS_URL`                                                                                                                                     |
-| MinIO               | Cloudflare R2 / Vercel Blob       | `STORAGE_PROVIDER=cloudflare-r2` (default) with R2 credentials — also live in Settings as a per-user "Storage provider" toggle                  |
+| MinIO               | Cloudflare R2 / AWS S3            | `S3_ENDPOINT`, keys, bucket, `S3_PUBLIC_URL` and `S3_REGION` of the service (examples in `.env.example`)                                        |
 | Qdrant              | — (disabled)                      | leave `QDRANT_URL` unset to disable the vector cache                                                                                            |
 | SearXNG             | Tavily / Exa                      | `TAVILY_API_KEY`, `EXA_API_KEY` (used automatically when `SEARXNG_URL` is unset)                                                                |
 | fastCRW             | Firecrawl                         | `FIRECRAWL_API_KEY` (used automatically when `FASTCRW_URL` is unset)                                                                            |
-| Sandbox             | Daytona                           | `SANDBOX_PROVIDER=daytona` (default) with `DAYTONA_API_KEY`                                                                                     |
+| Sandbox             | Daytona                           | `SANDBOX_PROVIDER=daytona` with `DAYTONA_API_KEY`                                                                                               |
 | Presidio            | — (disabled)                      | leave `ANONYMIZER_API_URL` unset — the anonymization layer stays off                                                                            |
 | Voice pipeline      | ElevenLabs / xAI Realtime         | leave `VOICE_S2S_URL` unset; configure TTS/STT providers in Settings                                                                            |
-| BullMQ              | Upstash QStash                    | `QSTASH_TOKEN` and related QStash variables — also live in Settings as a per-user "Lockout scheduling provider" toggle, not just an env default |
+| BullMQ              | Upstash QStash                    | `LOOKOUT_SCHEDULER=qstash` with `QSTASH_TOKEN` (the only option on hosts with no long-running process, such as Vercel)                        |
 
 See `.env.example` for the full catalog of provider and feature environment variables.
 

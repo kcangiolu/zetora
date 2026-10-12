@@ -3,21 +3,21 @@ import { DaytonaSandboxProvider } from './daytona-provider';
 import { DockerSandboxProvider } from './docker-provider';
 import type { SandboxProvider } from './types';
 
-export type SandboxProviderType = 'daytona' | 'docker';
-
-export function getSandboxProvider(preferredProvider?: SandboxProviderType): SandboxProvider {
-  const provider = preferredProvider ?? serverEnv.SANDBOX_PROVIDER ?? 'daytona';
-
-  if (provider === 'docker') {
-    return new DockerSandboxProvider(serverEnv.DOCKER_SANDBOX_URL);
+// Where Python code runs, chosen for the whole instance by SANDBOX_PROVIDER:
+// 'docker' (the bundled `sandbox` service) or 'daytona' (Daytona's cloud).
+export function getSandboxProvider(): SandboxProvider {
+  switch (serverEnv.SANDBOX_PROVIDER) {
+    case 'docker':
+      if (!serverEnv.DOCKER_SANDBOX_URL) {
+        throw new Error('Code execution: SANDBOX_PROVIDER=docker needs DOCKER_SANDBOX_URL (see .env.example)');
+      }
+      return new DockerSandboxProvider(serverEnv.DOCKER_SANDBOX_URL);
+    case 'daytona':
+      if (!serverEnv.DAYTONA_API_KEY) {
+        throw new Error('Code execution: SANDBOX_PROVIDER=daytona needs DAYTONA_API_KEY (see .env.example)');
+      }
+      return new DaytonaSandboxProvider(serverEnv.DAYTONA_API_KEY);
+    default:
+      throw new Error('Code execution is not configured: set SANDBOX_PROVIDER to docker or daytona (see .env.example)');
   }
-
-  if (!serverEnv.DAYTONA_API_KEY) {
-    throw new Error(
-      'DAYTONA_API_KEY is required when using Daytona sandbox provider. ' +
-        'Set SANDBOX_PROVIDER=docker to use the local Docker sandbox instead.',
-    );
-  }
-
-  return new DaytonaSandboxProvider(serverEnv.DAYTONA_API_KEY);
 }

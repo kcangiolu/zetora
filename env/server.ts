@@ -10,9 +10,8 @@ export const serverEnv = createEnv({
     GROQ_API_KEY: z.string().optional().default('placeholder'),
     GOOGLE_AI_STUDIO_API_KEY: z.string().optional().default('placeholder'),
     GOOGLE_AGENT_PLATFORM_API_KEY: z.string().optional().default('placeholder'),
-    DAYTONA_API_KEY: z.string().optional().default('placeholder'),
-    SANDBOX_PROVIDER: z.enum(['daytona', 'docker']).default('daytona'),
-    STORAGE_PROVIDER: z.enum(['cloudflare-r2', 'minio']).optional().default('cloudflare-r2'),
+    DAYTONA_API_KEY: z.string().optional(),
+    SANDBOX_PROVIDER: z.enum(['daytona', 'docker']).optional(),
     S3_ENDPOINT: z.string().optional(),
     S3_ACCESS_KEY_ID: z.string().optional(),
     S3_SECRET_ACCESS_KEY: z.string().optional(),
@@ -20,7 +19,7 @@ export const serverEnv = createEnv({
     S3_PUBLIC_URL: z.string().optional(),
     S3_REGION: z.string().optional(),
     S3_FORCE_PATH_STYLE: z.string().optional(),
-    DOCKER_SANDBOX_URL: z.string().url().default('http://localhost:8000'),
+    DOCKER_SANDBOX_URL: z.string().url().optional(),
     // Caps how many code-interpreter executions can hit the Docker sandbox at
     // once; the image itself has no built-in concurrency limit (verified by
     // reading its source), so a burst of users would otherwise spawn unbounded
@@ -61,9 +60,8 @@ export const serverEnv = createEnv({
     RAYCAST_API_SECRET: z.string().optional().default('placeholder'),
     COINGECKO_API_KEY: z.string().optional().default('placeholder'),
     SUPADATA_API_KEY: z.string().optional().default('placeholder'),
-    QSTASH_TOKEN: z.string().optional().default('placeholder'),
-    RESEND_API_KEY: z.string().optional().default('placeholder'),
-    RESEND_FROM: z.string().optional(),
+    LOOKOUT_SCHEDULER: z.enum(['bullmq', 'qstash']).optional(),
+    QSTASH_TOKEN: z.string().optional(),
     SMTP_HOST: z.string().optional(),
     SMTP_PORT: z.coerce.number().optional().default(587),
     SMTP_USER: z.string().optional(),
