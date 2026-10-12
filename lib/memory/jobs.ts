@@ -2,6 +2,7 @@ import 'server-only';
 
 import { generateText, Output, type LanguageModel, type ModelMessage, type ToolSet } from 'ai';
 import { resolveTertiaryModel } from '@/ai/tertiary';
+import { ModelUnavailableError } from '@/ai/catalog/task-models';
 import {
   applyMemoryConsolidation,
   applyMemoryMutations,
@@ -122,32 +123,52 @@ export function runMemoryTurnUpdate({
       cachedInputTokens: usage.inputTokenDetails?.cacheReadTokens,
     });
 
-    await maybeConsolidateMemory(userId, preferences);
+    await maybeConsolidateMemory(userId, preferences, chatRequest.model);
   })().catch((error) => log.error('Memory turn update failed:', error instanceof Error ? error.message : error));
 }
 
 const consolidatingUsers = new Set<string>();
 
+function requireChatModel(chatModel: LanguageModel | undefined): LanguageModel {
+  if (!chatModel) {
+    throw new ModelUnavailableError(
+      'Memory: tidying up on demand needs a Memory model. Pick one in Settings → AI Models.',
+    );
+  }
+  return chatModel;
+}
+
 // Weekly consolidation, started lazily from the turn update rather than by a
 // scheduler: memory only changes while the user chats, so there is nothing to
 // tidy for users who don't.
-async function maybeConsolidateMemory(userId: string, preferences: Preferences) {
+async function maybeConsolidateMemory(userId: string, preferences: Preferences, chatModel: LanguageModel) {
   const bio = await getUserBio(userId);
   const last = bio?.consolidatedAt?.getTime() ?? 0;
   if (Date.now() - last < MEMORY_LIMITS.consolidationIntervalDays * DAY_MS) return;
-  await runMemoryConsolidation(userId, preferences);
+  await runMemoryConsolidation(userId, preferences, chatModel);
 }
 
 /**
  * Tidies a user's memory: deterministic expiry first, then one model call
  * that merges duplicates, rewrites unclear entries, re-tiers them and
  * regenerates the learned part of the bio. Only reads the memory itself,
- * never conversations. Returns false when skipped because one is running.
+ * never conversations. Runs on the dedicated Memory model when one is picked,
+ * else on the chat model of the turn that started it. Returns false when
+ * skipped because one is running.
  */
-export async function runMemoryConsolidation(userId: string, preferences: Preferences): Promise<boolean> {
+export async function runMemoryConsolidation(
+  userId: string,
+  preferences: Preferences,
+  chatModel?: LanguageModel,
+): Promise<boolean> {
   if (consolidatingUsers.has(userId)) return false;
   consolidatingUsers.add(userId);
   try {
+    // Resolved first: without a model, nothing is touched.
+    const model = hasDedicatedMemoryModel(preferences)
+      ? await resolveTertiaryModel('memory-curator', preferences as Record<string, string>, userId)
+      : requireChatModel(chatModel);
+
     // Marked up front: a failing model call must wait for the next interval,
     // not be retried after every single message.
     await markMemoryConsolidated(userId);
@@ -166,7 +187,7 @@ export async function runMemoryConsolidation(userId: string, preferences: Prefer
 
     if (entries.length > 0) {
       const { output } = await generateText({
-        model: await resolveTertiaryModel('memory-curator', preferences as Record<string, string>, userId),
+        model,
         prompt: buildConsolidationPrompt({
           entries,
           bioUserText: bio?.userText ?? '',

@@ -20,10 +20,10 @@ import { reasoningSwitch } from '@/ai/reasoning-switch-model';
 import { isConfigured } from '@/ai/catalog/env';
 import { LABS, type DirectClient, type HostId } from '@/ai/catalog/config';
 import { getModelEntry } from '@/ai/catalog/models';
-import { getTaskModelId } from '@/ai/catalog/task-models';
+import { ModelUnavailableError, getTaskModel } from '@/ai/catalog/task-models';
 import { loadModelCatalog } from '@/ai/catalog/store';
 import type { CatalogEntry, CatalogRoute } from '@/ai/catalog/types';
-import { ARCH_ROUTER_MODEL } from '@/ai/models/helpers';
+import { ARCH_ROUTER_MODEL, DEFAULT_MODEL_ALIAS, canonicalModelId } from '@/ai/models/helpers';
 
 const openaiCompatible = (name: string, baseURL: string, apiKey: string | undefined) =>
   isConfigured(apiKey) ? createOpenAICompatible({ name, baseURL, apiKey }) : null;
@@ -191,10 +191,6 @@ import {
 import { LlamaCppNativeLanguageModel } from './native-models/llamacpp-model';
 import { OllamaNativeLanguageModel } from './native-models/ollama-model';
 
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('providers');
-
 const customProviderInstances = new Map<string, ReturnType<typeof createOpenAICompatible>>();
 
 async function getOrCreateProvider(providerId: string, userId?: string) {
@@ -283,29 +279,6 @@ export async function getAnonymizeContext(
   };
 }
 
-// Resolves the user's configured "Default Model" preference (Settings →
-// Tertiary Models) to a model id usable as the chat fallback, verifying it
-// still exists before trusting it — otherwise falls back to the instance's
-// default model (ai/catalog/task-models.ts). This is the SAME preference
-// resolveTertiaryModel's 'default' task reads (ai/tertiary.ts's PREF_KEYS),
-// so the chat and background-task fallbacks stay consistent.
-async function resolveDefaultModelId(preferences?: Record<string, unknown> | null, userId?: string): Promise<string> {
-  const pref = preferences?.['zetora-default-model'];
-  if (typeof pref === 'string' && pref) {
-    if (pref.startsWith('custom-')) {
-      const models = await getCustomModels(userId);
-      if (models.some((m) => m.id === pref)) return pref;
-    } else if (getModelEntry(pref)) {
-      return pref;
-    }
-  }
-  const instanceDefault = getTaskModelId('default');
-  if (!instanceDefault) {
-    throw new Error('No model available: configure at least one AI provider API key (see .env.example).');
-  }
-  return instanceDefault;
-}
-
 export async function resolveModel(
   modelId: string,
   preferences?: Record<string, unknown> | null,
@@ -313,6 +286,10 @@ export async function resolveModel(
   hasImages = false,
 ): Promise<LanguageModelV3> {
   await loadModelCatalog();
+  // The default model is the user's "Default Model" pick, else the instance's.
+  if (canonicalModelId(modelId) === DEFAULT_MODEL_ALIAS) {
+    return resolveModel(getTaskModel('default', preferences), preferences, userId, hasImages);
+  }
   let resolved: LanguageModelV3;
   let backendKind: CustomProviderConfig['backendKind'] | undefined;
   let usingNativeModel = false;
@@ -320,27 +297,19 @@ export async function resolveModel(
   if (!modelId.startsWith('custom-')) {
     const entry = getModelEntry(modelId);
     const builtIn = INTERNAL_MODELS[modelId]?.() ?? (entry && catalogLanguageModel(entry));
+    // A model that left the catalog can linger in a stored selection
+    // (localStorage, saved auto-router routes, preferences).
     if (!builtIn) {
-      // A model that left the catalog can linger in a stored selection
-      // (localStorage, saved auto-router routes, preferences) — fall back
-      // like an unknown custom model does.
-      const fallbackId = await resolveDefaultModelId(preferences, userId);
-      if (fallbackId === modelId) throw new Error(`Default model ${modelId} cannot be reached`);
-      log.warn(`Model ${modelId} is not available, falling back to default (${fallbackId})`);
-      return resolveModel(fallbackId, preferences, userId, hasImages);
+      throw new ModelUnavailableError(
+        `${modelId} is not available. It is not in the model catalog, or its provider has no API key. Pick another model.`,
+      );
     }
     resolved = builtIn;
   } else {
     const models = await getCustomModels(userId);
     const model = models.find((m) => m.id === modelId);
     if (!model) {
-      const fallbackId = await resolveDefaultModelId(preferences, userId);
-      log.warn(`Custom model ${modelId} not found, falling back to default (${fallbackId})`);
-      // Recurse so the fallback model (built-in or custom) goes through the
-      // same resolution/wrapping path as if it had been selected directly —
-      // the xml-parsing/anonymization wrapping below is keyed off the
-      // original modelId, which would be wrong for a substituted model.
-      return resolveModel(fallbackId, preferences, userId, hasImages);
+      throw new ModelUnavailableError(`${modelId} no longer exists in your custom providers. Pick another model.`);
     } else {
       const providers = await getCustomProviders(userId);
       const providerConfig = providers.find((p) => p.id === model.providerId);

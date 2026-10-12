@@ -89,6 +89,8 @@ export function getMessageByErrorCode(errorCode: ErrorCode): string {
     case 'offline:chat':
       return "We're having trouble sending your message. Please check your internet connection and try again.";
 
+    case 'not_found:model':
+      return 'No model is available for this request.';
     case 'unauthorized:model':
       return 'You need to sign in to access this AI model.';
     case 'bad_request:model':

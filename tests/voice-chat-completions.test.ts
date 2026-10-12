@@ -12,7 +12,7 @@ const streamText = vi.hoisted(() => vi.fn());
 const resolveVoiceRequestUserId = vi.hoisted(() => vi.fn());
 const getCachedUserPreferencesByUserId = vi.hoisted(() => vi.fn());
 const resolveTertiaryModel = vi.hoisted(() => vi.fn());
-const getTertiaryModelConfig = vi.hoisted(() => vi.fn());
+const getTaskModel = vi.hoisted(() => vi.fn());
 const getAnonymizeContext = vi.hoisted(() => vi.fn());
 const loadConfiguredTools = vi.hoisted(() => vi.fn());
 const getPiiAliasesByTokens = vi.hoisted(() => vi.fn());
@@ -24,7 +24,8 @@ vi.mock('ai', async (importOriginal) => {
 });
 vi.mock('@/lib/voice-session-token', () => ({ resolveVoiceRequestUserId }));
 vi.mock('@/lib/user-data-server', () => ({ getCachedUserPreferencesByUserId }));
-vi.mock('@/ai/tertiary', () => ({ resolveTertiaryModel, getTertiaryModelConfig }));
+vi.mock('@/ai/tertiary', () => ({ resolveTertiaryModel }));
+vi.mock('@/ai/catalog/task-models', () => ({ getTaskModel }));
 vi.mock('@/ai/providers', () => ({ getAnonymizeContext }));
 vi.mock('@/lib/search/tool-loader', () => ({ loadConfiguredTools }));
 // StreamTokenBuffer -> deanonymizeText -> lib/db/queries; no real DB in unit tests.
@@ -56,7 +57,7 @@ beforeEach(() => {
   resolveVoiceRequestUserId.mockResolvedValue('u1');
   getCachedUserPreferencesByUserId.mockResolvedValue({ preferences: {} });
   resolveTertiaryModel.mockResolvedValue('mock-model');
-  getTertiaryModelConfig.mockReturnValue({ model: 'zetora-default', provider: 'zetora', isCustom: false });
+  getTaskModel.mockReturnValue('xai:grok-4.5');
   getAnonymizeContext.mockResolvedValue(null);
   getPiiAliasesByTokens.mockResolvedValue([]);
   loadConfiguredTools.mockResolvedValue({
@@ -161,11 +162,7 @@ describe('POST /api/v1/chat/completions (local voice LLM stage)', () => {
   });
 
   it('XML-parsed custom voice model: keeps schemas armed and nudges toward synthesis', async () => {
-    getTertiaryModelConfig.mockReturnValue({
-      model: 'custom-ollama-qwen3',
-      provider: 'ollama',
-      isCustom: true,
-    });
+    getTaskModel.mockReturnValue('custom-ollama-qwen3');
     getCachedUserPreferencesByUserId.mockResolvedValue({
       preferences: { 'zetora-xml-tool-parsing-enabled': true },
     });

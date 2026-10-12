@@ -84,7 +84,7 @@ describe('routeWithAutoRouter', () => {
     generateText.mockRejectedValue(new Error('boom'));
     expect(await routeWithAutoRouter({ query: 'q', routes })).toEqual({
       success: false,
-      error: 'Failed to route query',
+      error: 'Auto Router failed to route the query',
     });
   });
 });

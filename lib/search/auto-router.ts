@@ -4,6 +4,7 @@ import { generateText } from 'ai';
 import { jsonrepair } from 'jsonrepair';
 
 import { hasVisionSupport } from '@/ai/catalog/models';
+import { ModelUnavailableError } from '@/ai/catalog/task-models';
 import { DEFAULT_MODEL_ALIAS } from '@/ai/models';
 import { getComprehensiveUserData, getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { resolveTertiaryModel } from '@/ai/tertiary';
@@ -119,6 +120,6 @@ Based on your analysis, provide your response in the following JSON formats if y
     };
   } catch (error) {
     log.error('Error routing with auto router:', error);
-    return { success: false, error: 'Failed to route query' };
+    return { success: false, error: error instanceof ModelUnavailableError ? error.message : 'Auto Router failed to route the query' };
   }
 }

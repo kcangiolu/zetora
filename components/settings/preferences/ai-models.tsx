@@ -607,7 +607,6 @@ export function AiModelsTab({
               providerKey="zetora-default-provider"
               effortKey="zetora-default-effort"
               recommendedEffort="auto"
-              label="Default Model"
               description="Fallback model used by Lookout and other tasks"
             />
             <TertiaryModelRow
@@ -617,7 +616,6 @@ export function AiModelsTab({
               effortKey="zetora-tertiary-chat-title-effort"
               enabledKey="zetora-tertiary-chat-title-enabled"
               recommendedEffort="off"
-              label="Chat Title"
               description="Generates titles for new chats"
             />
             <TertiaryModelRow
@@ -627,7 +625,6 @@ export function AiModelsTab({
               effortKey="zetora-tertiary-followup-effort"
               enabledKey="zetora-tertiary-followup-enabled"
               recommendedEffort="off"
-              label="Follow-up Questions"
               description="Generates questions after each response"
             />
             <TertiaryModelRow
@@ -636,7 +633,6 @@ export function AiModelsTab({
               providerKey="zetora-tertiary-enhance-provider"
               effortKey="zetora-tertiary-enhance-effort"
               recommendedEffort="auto"
-              label="Prompt Enhancement"
               description="Rewrites prompts (Enhance button)"
             />
             <TertiaryModelRow
@@ -645,7 +641,6 @@ export function AiModelsTab({
               providerKey="zetora-tertiary-tool-repair-provider"
               effortKey="zetora-tertiary-tool-repair-effort"
               recommendedEffort="auto"
-              label="Tool Call Repair"
               description="Fixes malformed tool call arguments"
             />
             <TertiaryModelRow
@@ -654,7 +649,6 @@ export function AiModelsTab({
               providerKey="zetora-tertiary-auto-router-provider"
               effortKey="zetora-tertiary-auto-router-effort"
               recommendedEffort="auto"
-              label="Auto Router"
               description="Classifies queries for model routing"
             />
             <TertiaryModelRow
@@ -663,7 +657,6 @@ export function AiModelsTab({
               providerKey="zetora-tertiary-translate-text-provider"
               effortKey="zetora-tertiary-translate-text-effort"
               recommendedEffort="auto"
-              label="Text Translation"
               description="Translates text between languages"
             />
             <TertiaryModelRow
@@ -672,7 +665,6 @@ export function AiModelsTab({
               providerKey="zetora-tertiary-translate-vision-provider"
               effortKey="zetora-tertiary-translate-vision-effort"
               recommendedEffort="auto"
-              label="Vision Translation"
               description="Extracts and translates text from images"
             />
             <TertiaryModelRow
@@ -681,7 +673,6 @@ export function AiModelsTab({
               providerKey="zetora-tertiary-lang-detect-provider"
               effortKey="zetora-tertiary-lang-detect-effort"
               recommendedEffort="auto"
-              label="Language Detection"
               description="Detects language of input text"
             />
             <TertiaryModelRow
@@ -690,7 +681,6 @@ export function AiModelsTab({
               providerKey="zetora-tertiary-extreme-planner-provider"
               effortKey="zetora-tertiary-extreme-planner-effort"
               recommendedEffort="auto"
-              label="Extreme Search Planner"
               description="Generates research plans in Extreme mode"
             />
             <TertiaryModelRow
@@ -699,7 +689,6 @@ export function AiModelsTab({
               providerKey="zetora-tertiary-extreme-agent-provider"
               effortKey="zetora-tertiary-extreme-agent-effort"
               recommendedEffort="auto"
-              label="Extreme Search Agent"
               description="Executes the autonomous research loop"
               hideReasoningEffort
             />
@@ -709,7 +698,6 @@ export function AiModelsTab({
               providerKey="zetora-tertiary-voice-provider"
               effortKey="zetora-tertiary-voice-effort"
               recommendedEffort="off"
-              label="Voice (Local Backend)"
               description="LLM used by the local speech-to-speech backend"
             />
             <TertiaryModelRow
@@ -719,7 +707,6 @@ export function AiModelsTab({
               effortKey="zetora-tertiary-memory-curator-effort"
               enabledKey="zetora-memory-curator-enabled"
               recommendedEffort="auto"
-              label="Memory"
               description="Learns from each answer and tidies up weekly. Default: the chat's own model does it. Pick a model to use that one instead (it then only sees the last exchange). Turn off to stop learning — saved memory is still used."
               defaultModelLabel="Conversation model"
             />
@@ -730,7 +717,6 @@ export function AiModelsTab({
               effortKey="zetora-tertiary-context-compaction-effort"
               enabledKey="zetora-tertiary-context-compaction-enabled"
               recommendedEffort="off"
-              label="Context Compaction"
               description="Summarizes older messages when a chat nears its context limit, instead of silently dropping them"
             />
           </div>

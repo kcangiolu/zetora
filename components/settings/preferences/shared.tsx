@@ -5,7 +5,7 @@ import { useSyncedPreferences, type PreferenceKey, type ImageGenPromptPreset } f
 import { testEmailDelivery } from '@/app/actions';
 import { Check, X, Trash2, Save, Power, PowerOff } from 'lucide-react';
 import { useState } from 'react';
-import { ARCH_ROUTER_MODEL, DEFAULT_MODEL_ALIAS, type TertiaryTask } from '@/ai/models';
+import { ARCH_ROUTER_MODEL, DEFAULT_MODEL_ALIAS, TASK_ENV_KEYS, TASK_LABELS, type TertiaryTask } from '@/ai/models';
 import { useModels } from '@/hooks/use-models';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
@@ -283,7 +283,6 @@ export function TertiaryModelRow({
   effortKey,
   enabledKey,
   recommendedEffort = 'auto',
-  label,
   description,
   defaultModelLabel,
   hideReasoningEffort = false,
@@ -297,10 +296,9 @@ export function TertiaryModelRow({
   // generation) instead of only picking which model runs it.
   enabledKey?: PreferenceKey;
   recommendedEffort?: ReasoningEffort;
-  label: string;
   description: string;
-  // Shown instead of the instance's model for this task when no model is
-  // picked (ai/catalog/task-models.ts).
+  // Shown instead of the instance's model (its ZETORA_MODEL_* variable) for
+  // a task that has none.
   defaultModelLabel?: string;
   // This task's model call always forces a provider-level override that
   // makes the reasoning-effort toggle a no-op (see ai/tertiary.ts) — showing
@@ -311,13 +309,13 @@ export function TertiaryModelRow({
   const [, setProvider] = useSyncedPreferences<string>(providerKey as PreferenceKey, '');
   const [effort, setEffort] = useSyncedPreferences<ReasoningEffort>(effortKey, recommendedEffort);
 
-  const { getModel, taskModelIds } = useModels();
+  const { getModel, taskModelIds, unavailableTaskModels, isLoading } = useModels();
   const taskModelId = taskModelIds?.[task];
   const taskModelLabel =
     defaultModelLabel ??
-    (taskModelId === ARCH_ROUTER_MODEL.id
-      ? ARCH_ROUTER_MODEL.label
-      : (getModel(taskModelId ?? undefined)?.label ?? 'None'));
+    (taskModelId === ARCH_ROUTER_MODEL.id ? ARCH_ROUTER_MODEL.label : getModel(taskModelId ?? undefined)?.label);
+  const envKey = TASK_ENV_KEYS[task];
+  const unavailableModel = unavailableTaskModels?.[task];
 
   const handleSelect = (modelValue: string) => {
     setModel(modelValue);
@@ -327,8 +325,23 @@ export function TertiaryModelRow({
   return (
     <div className="flex items-center justify-between py-3.5 gap-6">
       <div className="min-w-0">
-        <p className="text-sm font-medium">{label}</p>
+        <p className="text-sm font-medium">{TASK_LABELS[task]}</p>
         <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+        {!model && !taskModelLabel && !isLoading && (
+          <p className="text-xs text-destructive mt-1">
+            {unavailableModel ? (
+              <>
+                {envKey}={unavailableModel} is not available (not in the model catalog, or its provider has no API key):
+                this feature will not work. Pick a model here, or fix {envKey} in .env.
+              </>
+            ) : (
+              <>
+                No model configured: this feature will not work. Pick a model here
+                {envKey ? <>, or set {envKey} in .env</> : null}.
+              </>
+            )}
+          </p>
+        )}
       </div>
       <div className="flex items-center gap-1.5 shrink-0">
         {enabledKey ? (
@@ -404,7 +417,7 @@ function TertiaryModelControls({
   setProvider,
 }: {
   model: string;
-  defaultModelLabel: string;
+  defaultModelLabel: string | undefined;
   handleSelect: (modelValue: string) => void;
   hideReasoningEffort: boolean;
   effort: ReasoningEffort;
@@ -415,7 +428,7 @@ function TertiaryModelControls({
 }) {
   return (
     <>
-      {!model && (
+      {!model && defaultModelLabel && (
         <span
           className="text-[11px] text-muted-foreground/70 shrink-0 max-w-[160px] truncate"
           title={`Default : ${defaultModelLabel}`}

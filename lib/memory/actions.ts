@@ -12,6 +12,7 @@ import {
   updateMemoryEntryByUser,
 } from '@/lib/db/queries';
 import { MEMORY_CATEGORIES, MEMORY_LIMITS, MEMORY_TIERS, type MemoryCategory } from './constants';
+import { ModelUnavailableError } from '@/ai/catalog/task-models';
 import { runMemoryConsolidation } from './jobs';
 import { cleanEntryText } from './ops';
 
@@ -123,9 +124,19 @@ export async function deleteMemoryEntry(id: string) {
   await deleteEntry(userId, z.string().min(1).parse(id));
 }
 
-export async function consolidateMemoryNow(): Promise<{ started: boolean }> {
+// Returns the configuration error as a value: a thrown one never reaches the
+// browser in production.
+export async function consolidateMemoryNow(): Promise<{ started: boolean; error?: string }> {
   const userId = await requireUserId();
   const record = await getUserPreferencesByUserId({ userId });
-  const started = await runMemoryConsolidation(userId, (record?.preferences ?? null) as Record<string, unknown> | null);
-  return { started };
+  try {
+    const started = await runMemoryConsolidation(
+      userId,
+      (record?.preferences ?? null) as Record<string, unknown> | null,
+    );
+    return { started };
+  } catch (error) {
+    if (error instanceof ModelUnavailableError) return { started: false, error: error.message };
+    throw error;
+  }
 }

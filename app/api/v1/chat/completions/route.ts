@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { streamText, stepCountIs, type ModelMessage } from 'ai';
-import { resolveTertiaryModel, getTertiaryModelConfig } from '@/ai/tertiary';
+import { resolveTertiaryModel } from '@/ai/tertiary';
+import { getTaskModel } from '@/ai/catalog/task-models';
 import { getAnonymizeContext } from '@/ai/providers';
 import { loadConfiguredTools } from '@/lib/search/tool-loader';
 import { resolvePrepareStepOverride } from '@/lib/search/prepare-step';
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
   const record = await getCachedUserPreferencesByUserId(userId).catch(() => null);
   const prefs = (record?.preferences ?? null) as Record<string, string> | null;
   const model = await resolveTertiaryModel('voice', prefs, userId);
-  const modelId = getTertiaryModelConfig('voice', prefs).model;
+  const modelId = getTaskModel('voice', prefs);
 
   // Local custom models (e.g. Qwen3 on llama.cpp) can't do native tool-calling;
   // resolveTertiaryModel already wraps them in the XML tool middleware. They need

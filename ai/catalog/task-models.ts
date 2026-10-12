@@ -1,74 +1,23 @@
 import 'server-only';
 
 import { ARCH_ROUTER_MODEL } from '@/ai/models/helpers';
-import { TERTIARY_TASKS, type TertiaryTask } from '@/ai/models/tasks';
-import { createLogger } from '@/lib/logger';
-import { getCatalogEntries, getCatalogEntry } from './store';
-import type { CatalogEntry } from './types';
+import { TASK_ENV_KEYS, TASK_LABELS, TERTIARY_TASKS, getTaskPreferenceKey, type TertiaryTask } from '@/ai/models/tasks';
+import { getCatalogEntry } from './store';
 
-const log = createLogger('task-models');
-
-// The models Zetora runs when the user hasn't picked one in Settings: each
-// task's ZETORA_MODEL_* variable, else ZETORA_MODEL_DEFAULT, else the
-// cheapest capable model.
-
-const MIN_CONTEXT_WINDOW = 128_000;
-
-// 'chat-title' -> ZETORA_MODEL_CHAT_TITLE
-function envKey(task: TertiaryTask): string {
-  return `ZETORA_MODEL_${task.toUpperCase().replaceAll('-', '_')}`;
+// A model that was asked for but cannot run. Its message is meant for the
+// user as is.
+export class ModelUnavailableError extends Error {
+  override name = 'ModelUnavailableError';
 }
 
-function isCapable(entry: CatalogEntry): boolean {
-  return (
-    !!entry.cost &&
-    entry.cost.input > 0 &&
-    entry.structuredOutput &&
-    (entry.contextWindow ?? 0) >= MIN_CONTEXT_WINDOW &&
-    !entry.status &&
-    entry.vision &&
-    // An always-on reasoner is too slow for background tasks.
-    (!entry.reasoning || entry.reasoning.toggle || entry.reasoning.efforts.length > 0)
-  );
-}
-
-function totalCost(entry: CatalogEntry): number {
-  return entry.cost ? entry.cost.input + entry.cost.output : Infinity;
-}
-
-// Prefers a lab's own API over aggregators.
-function pickCheapestModel(): CatalogEntry | undefined {
-  const capable = getCatalogEntries().filter(isCapable);
-  const direct = capable.filter((entry) => entry.routes[0]?.host === 'direct');
-  return (direct.length ? direct : capable).sort((a, b) => totalCost(a) - totalCost(b))[0];
-}
-
-const warned = new Set<string>();
-
-function getConfiguredModelId(task: TertiaryTask): string | undefined {
-  const key = envKey(task);
-  const configured = process.env[key];
-  if (!configured) return undefined;
-  const entry = getCatalogEntry(configured);
-  if (entry) return entry.id;
-  if (!warned.has(configured)) {
-    warned.add(configured);
-    log.warn(`${key}=${configured} is not in the model catalog, ignoring it`);
-  }
-  return undefined;
-}
-
+// The instance's model for a task: its ZETORA_MODEL_* variable, when that
+// names a model the catalog can reach.
 export function getTaskModelId(task: TertiaryTask): string | undefined {
-  const configured = getConfiguredModelId(task);
-  if (configured) return configured;
-  if (task === 'auto-router') return ARCH_ROUTER_MODEL.id;
-  if (task === 'default') return pickCheapestModel()?.id;
-  const defaultModelId = getTaskModelId('default');
-  // Reads images: never inherit a default model without vision.
-  if (task === 'translate-vision' && defaultModelId && !getCatalogEntry(defaultModelId)?.vision) {
-    return pickCheapestModel()?.id;
-  }
-  return defaultModelId;
+  const key = TASK_ENV_KEYS[task];
+  const configured = key ? process.env[key] : undefined;
+  if (!configured) return undefined;
+  if (configured === ARCH_ROUTER_MODEL.id) return configured;
+  return getCatalogEntry(configured)?.id;
 }
 
 export function getTaskModelIds(): Record<TertiaryTask, string | null> {
@@ -76,4 +25,36 @@ export function getTaskModelIds(): Record<TertiaryTask, string | null> {
     TertiaryTask,
     string | null
   >;
+}
+
+// Tasks whose ZETORA_MODEL_* variable names a model the catalog cannot
+// reach, with that value.
+export function getUnavailableTaskModels(): Partial<Record<TertiaryTask, string>> {
+  return Object.fromEntries(
+    TERTIARY_TASKS.flatMap((task) => {
+      const key = TASK_ENV_KEYS[task];
+      const configured = key ? process.env[key] : undefined;
+      return configured && !getTaskModelId(task) ? [[task, configured]] : [];
+    }),
+  );
+}
+
+// The model a task runs on: the user's pick, else the instance's. Throws when
+// there is neither.
+export function getTaskModel(task: TertiaryTask, preferences: Record<string, unknown> | null | undefined): string {
+  const picked = preferences?.[getTaskPreferenceKey(task)];
+  if (typeof picked === 'string' && picked) return picked;
+  const modelId = getTaskModelId(task);
+  if (modelId) return modelId;
+
+  const key = TASK_ENV_KEYS[task];
+  const configured = key ? process.env[key] : undefined;
+  if (key && configured) {
+    throw new ModelUnavailableError(
+      `${TASK_LABELS[task]}: ${key}=${configured} is not available. It is not in the model catalog, or its provider has no API key.`,
+    );
+  }
+  throw new ModelUnavailableError(
+    `${TASK_LABELS[task]}: no model is configured. Pick one in Settings → AI Models${key ? `, or set ${key}` : ''}.`,
+  );
 }

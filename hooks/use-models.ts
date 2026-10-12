@@ -8,6 +8,8 @@ interface CatalogResponse {
   models: Model[];
   // The model each task runs on when the user hasn't picked one.
   taskModelIds: Partial<Record<TertiaryTask, string | null>>;
+  // ZETORA_MODEL_* values naming a model the catalog cannot reach.
+  unavailableTaskModels: Partial<Record<TertiaryTask, string>>;
 }
 
 const NO_MODELS: Model[] = [];
@@ -23,7 +25,8 @@ async function fetchModels<T>(url: string, empty: T): Promise<T> {
 export function useModels() {
   const catalog = useQuery({
     queryKey: ['modelCatalog'],
-    queryFn: () => fetchModels<CatalogResponse>('/api/models', { models: [], taskModelIds: {} }),
+    queryFn: () =>
+      fetchModels<CatalogResponse>('/api/models', { models: [], taskModelIds: {}, unavailableTaskModels: {} }),
     staleTime: 60 * 60 * 1000,
   });
   // Same key as Settings, which invalidates it whenever custom providers change.
@@ -36,6 +39,7 @@ export function useModels() {
   const catalogModels = catalog.data?.models ?? NO_MODELS;
   const customModels = custom.data?.models ?? NO_MODELS;
   const taskModelIds = catalog.data?.taskModelIds;
+  const unavailableTaskModels = catalog.data?.unavailableTaskModels;
   const defaultModelId = taskModelIds?.default ?? null;
   const models = useMemo(() => [...catalogModels, ...customModels], [catalogModels, customModels]);
 
@@ -50,6 +54,7 @@ export function useModels() {
     catalogModels,
     customModels,
     taskModelIds,
+    unavailableTaskModels,
     getModel,
     isLoading: catalog.isLoading,
   };

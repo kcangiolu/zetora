@@ -26,6 +26,7 @@ import { createLogger } from '@/lib/logger';
 import { resolveModel, getAnonymizeContext } from '@/ai/providers';
 import { getMaxOutputTokens, getModelEntry, getModelParameters, hasVisionSupport } from '@/ai/catalog/models';
 import { loadModelCatalog } from '@/ai/catalog/store';
+import { ModelUnavailableError, getTaskModel } from '@/ai/catalog/task-models';
 import {
   createStreamId,
   getChatByIdForValidation,
@@ -97,7 +98,7 @@ import {
 } from '@/lib/search/context-budget';
 import { maybeCompactContext } from '@/lib/search/context-compaction';
 import { resolveContextWindow } from '@/lib/context-window';
-import { AUTO_MODEL_ID, DEFAULT_MODEL_ALIAS } from '@/ai/models';
+import { AUTO_MODEL_ID, DEFAULT_MODEL_ALIAS, canonicalModelId } from '@/ai/models';
 
 const log = createLogger('search');
 
@@ -538,35 +539,47 @@ export async function POST(req: Request) {
       }
     }
 
-    // Run auto router with user's configured routes
+    // Run auto router with user's configured routes. Its "other" route, like
+    // a message without text, goes to the Default Model.
     const routes = autoRouterConfig?.routes ?? [];
-    if (query && routes.length > 0) {
-      try {
-        const { routeWithAutoRouter } = await import('@/lib/search/auto-router');
-        const routeResult = await routeWithAutoRouter({ query, routes, hasImages });
-        if (routeResult?.success && routeResult.model) {
-          model = routeResult.model;
-          autoRouteName = routeResult.route;
-        } else {
-          model = DEFAULT_MODEL_ALIAS;
-        }
-      } catch (error) {
-        log.error('Auto router error:', error);
-        model = DEFAULT_MODEL_ALIAS;
-      }
-    } else {
-      model = DEFAULT_MODEL_ALIAS;
+    if (routes.length === 0) {
+      return new ChatSDKError(
+        'not_found:model',
+        'Auto mode has no routes: add some in Settings → AI Models.',
+      ).toResponse();
     }
-
-    if (hasImages && !hasVisionSupport(model)) {
+    if (query) {
+      const { routeWithAutoRouter } = await import('@/lib/search/auto-router');
+      const routeResult = await routeWithAutoRouter({ query, routes, hasImages });
+      if (!routeResult.success || !routeResult.model) {
+        return new ChatSDKError(
+          'not_found:model',
+          routeResult.error ?? 'Auto Router failed to route the query',
+        ).toResponse();
+      }
+      model = routeResult.model;
+      autoRouteName = routeResult.route;
+    } else {
       model = DEFAULT_MODEL_ALIAS;
       autoRouteName = 'other';
     }
   }
 
-  // Stored selections can hold a legacy id or a role alias: work with the
-  // catalog id from here on, so provider options and saved messages match
-  // the model actually called.
+  // The default model is the user's "Default Model" pick, else the instance's.
+  if (canonicalModelId(model) === DEFAULT_MODEL_ALIAS) {
+    try {
+      model = getTaskModel('default', userPreferencesResult?.preferences);
+    } catch (error) {
+      if (error instanceof ModelUnavailableError) {
+        return new ChatSDKError('not_found:model', error.message).toResponse();
+      }
+      throw error;
+    }
+  }
+
+  // Stored selections can hold a legacy id: work with the catalog id from
+  // here on, so provider options and saved messages match the model actually
+  // called.
   if (!model.startsWith('custom-')) model = getModelEntry(model)?.id ?? model;
 
   // /startwith only works where we can force a real prefill (a trailing
@@ -1267,6 +1280,9 @@ export async function POST(req: Request) {
       log.error('Stream error:', error);
       if (error instanceof Error && error.message.includes('Rate Limit')) {
         return 'Oops, you have reached the rate limit! Please try again later.';
+      }
+      if (error instanceof ModelUnavailableError) {
+        return error.message;
       }
       if (isContextLengthError(error)) {
         return "Oops, this conversation is too long for this model's context window! Start a new conversation or switch to a model with a larger context window.";

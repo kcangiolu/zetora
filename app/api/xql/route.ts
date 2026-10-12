@@ -1,4 +1,4 @@
-import { getComprehensiveUserData } from '@/lib/user-data-server';
+import { getCachedUserPreferencesByUserId, getComprehensiveUserData } from '@/lib/user-data-server';
 import {
   convertToModelMessages,
   streamText,
@@ -14,8 +14,8 @@ import {
 import { ChatSDKError } from '@/lib/errors';
 
 import { markdownJoinerTransform } from '@/lib/parser';
-import { resolveModel } from '@/ai/providers';
-import { DEFAULT_MODEL_ALIAS } from '@/ai/models';
+import { resolveTertiaryModel } from '@/ai/tertiary';
+import { ModelUnavailableError } from '@/ai/catalog/task-models';
 
 import { z } from 'zod';
 import { xai } from '@ai-sdk/xai';
@@ -131,8 +131,22 @@ export async function POST(req: Request) {
     return new ChatSDKError('unauthorized:auth', 'Authentication required to use this feature').toResponse();
   }
 
+  // XQL runs on the user's "Default Model" pick, else the instance's.
+  const preferences = await getCachedUserPreferencesByUserId(user.id).catch(() => null);
+  let model;
+  try {
+    model = await resolveTertiaryModel(
+      'default',
+      (preferences?.preferences ?? null) as Record<string, string> | null,
+      user.id,
+    );
+  } catch (error) {
+    if (error instanceof ModelUnavailableError) return new ChatSDKError('not_found:model', error.message).toResponse();
+    throw error;
+  }
+
   const result = streamText({
-    model: await resolveModel(DEFAULT_MODEL_ALIAS),
+    model,
     messages: await convertToModelMessages(messages),
     stopWhen: hasToolCall('xql'),
     onAbort: ({ steps }) => {

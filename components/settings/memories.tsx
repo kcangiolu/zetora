@@ -190,7 +190,11 @@ function EntriesSection({ entries, consolidatedAt }: { entries: MemoryEntryView[
 
   const consolidate = useMutation({
     mutationFn: () => consolidateMemoryNow(),
-    onSuccess: ({ started }) => {
+    onSuccess: ({ started, error }) => {
+      if (error) {
+        sileo.error({ title: 'Cannot tidy up memory', description: error, icon: <X className="h-4 w-4" /> });
+        return;
+      }
       queryClient.invalidateQueries({ queryKey: MEMORY_QUERY_KEY });
       if (started) sileo.success({ title: 'Memory tidied up', icon: <Check className="h-4 w-4" /> });
       else sileo.info({ title: 'Already running', description: 'A tidy-up is already in progress' });

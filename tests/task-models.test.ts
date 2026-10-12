@@ -1,76 +1,79 @@
 import { afterEach, describe, it, expect, vi } from 'vitest';
 import type { CatalogEntry } from '@/ai/catalog/types';
 
-function entry(id: string, cost: number, extra: Partial<CatalogEntry> = {}): CatalogEntry {
-  return {
-    id,
+const ENTRIES: CatalogEntry[] = [
+  {
+    id: 'acme:big',
     lab: 'acme',
-    label: id,
+    label: 'Big',
     description: '',
     vision: true,
     pdf: false,
-    contextWindow: 256_000,
     structuredOutput: true,
-    cost: { input: cost, output: cost },
     reasoning: null,
-    routes: [{ host: 'direct', modelId: id }],
-    ...extra,
-  };
-}
-
-const ENTRIES = [
-  entry('acme:big', 3),
-  entry('acme:small', 0.5),
-  entry('acme:blind', 0.1, { vision: false }),
-  entry('acme:hosted', 0.2, { routes: [{ host: 'openrouter', modelId: 'acme/hosted' }] }),
+    routes: [{ host: 'direct', modelId: 'big' }],
+  },
 ];
 
 vi.mock('@/ai/catalog/store', () => ({
-  getCatalogEntries: () => ENTRIES,
   getCatalogEntry: (id: string) => ENTRIES.find((e) => e.id === id),
 }));
 
-import { getTaskModelId, getTaskModelIds } from '@/ai/catalog/task-models';
+import {
+  getTaskModel,
+  getTaskModelIds,
+  getUnavailableTaskModels,
+  ModelUnavailableError,
+} from '@/ai/catalog/task-models';
 
 afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe('getTaskModelId', () => {
-  it("picks the cheapest capable model reached through a lab's own API by default", () => {
-    vi.stubEnv('ZETORA_MODEL_DEFAULT', '');
-    expect(getTaskModelId('default')).toBe('acme:small');
-  });
-
-  it("uses each task's own variable", () => {
+describe('getTaskModel', () => {
+  it("prefers the user's pick over the task's variable", () => {
     vi.stubEnv('ZETORA_MODEL_CHAT_TITLE', 'acme:big');
-    expect(getTaskModelId('chat-title')).toBe('acme:big');
+    expect(getTaskModel('chat-title', { 'zetora-tertiary-chat-title-model': 'custom-x-y' })).toBe('custom-x-y');
+    expect(getTaskModel('chat-title', {})).toBe('acme:big');
   });
 
-  it('falls back to the default model, then to the arch router for routing', () => {
+  it("never borrows another task's model", () => {
     vi.stubEnv('ZETORA_MODEL_DEFAULT', 'acme:big');
-    expect(getTaskModelId('context-compaction')).toBe('acme:big');
-    expect(getTaskModelId('auto-router')).toBe('zetora-arch-router');
+    vi.stubEnv('ZETORA_MODEL_VOICE', '');
+    expect(() => getTaskModel('voice', {})).toThrow(ModelUnavailableError);
+    expect(() => getTaskModel('voice', {})).toThrow('set ZETORA_MODEL_VOICE');
   });
 
-  it('never gives image translation a default model without vision', () => {
-    vi.stubEnv('ZETORA_MODEL_DEFAULT', 'acme:blind');
-    expect(getTaskModelId('translate-text')).toBe('acme:blind');
-    expect(getTaskModelId('translate-vision')).toBe('acme:small');
+  it('fails when the variable names a model the catalog cannot reach', () => {
+    vi.stubEnv('ZETORA_MODEL_FOLLOWUP', 'acme:retired');
+    expect(() => getTaskModel('followup', {})).toThrow('ZETORA_MODEL_FOLLOWUP=acme:retired is not available');
   });
 
-  it('ignores a model that is not in the catalog', () => {
-    vi.stubEnv('ZETORA_MODEL_DEFAULT', 'acme:retired');
-    expect(getTaskModelId('default')).toBe('acme:small');
+  it('accepts the internal router model for the auto router', () => {
+    vi.stubEnv('ZETORA_MODEL_AUTO_ROUTER', 'zetora-arch-router');
+    expect(getTaskModel('auto-router', {})).toBe('zetora-arch-router');
+  });
+
+  it('has no instance model for memory', () => {
+    expect(() => getTaskModel('memory-curator', {})).toThrow('Pick one in Settings → AI Models.');
   });
 });
 
 describe('getTaskModelIds', () => {
-  it('lists every task', () => {
+  it('reports every task, null when unset', () => {
     vi.stubEnv('ZETORA_MODEL_VOICE', 'acme:big');
+    vi.stubEnv('ZETORA_MODEL_LANG_DETECT', '');
     const ids = getTaskModelIds();
     expect(ids.voice).toBe('acme:big');
-    expect(ids['lang-detect']).toBe(ids.default);
+    expect(ids['lang-detect']).toBeNull();
     expect(Object.keys(ids)).toHaveLength(14);
+  });
+});
+
+describe('getUnavailableTaskModels', () => {
+  it('reports variables naming a model the catalog cannot reach', () => {
+    vi.stubEnv('ZETORA_MODEL_VOICE', 'acme:big');
+    vi.stubEnv('ZETORA_MODEL_FOLLOWUP', 'acme:retired');
+    expect(getUnavailableTaskModels()).toEqual({ followup: 'acme:retired' });
   });
 });

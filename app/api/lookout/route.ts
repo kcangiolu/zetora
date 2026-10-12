@@ -2,7 +2,7 @@
 import { createLogger } from '@/lib/logger';
 import { generateTitleFromUserMessage } from '@/lib/search/chat-title';
 import { convertToModelMessages, streamText, createUIMessageStream, stepCountIs, JsonToSseTransformStream } from 'ai';
-import { DEFAULT_MODEL_ALIAS } from '@/ai/models';
+import { getTaskModel } from '@/ai/catalog/task-models';
 import { resolveTertiaryModel } from '@/ai/tertiary';
 import {
   createStreamId,
@@ -621,6 +621,9 @@ export async function POST(req: Request) {
       return new Response('User not found', { status: 404 });
     }
 
+    // Lookouts run on the user's "Default Model" pick, else the instance's.
+    const modelId = getTaskModel('default', userPrefs?.preferences);
+
     // Generate a new chat ID for this scheduled search
     const chatId = uuidv7();
     const streamId = 'stream-' + uuidv7();
@@ -661,7 +664,7 @@ export async function POST(req: Request) {
           parts: userMessage.parts,
           attachments: [],
           createdAt: new Date(),
-          model: DEFAULT_MODEL_ALIAS,
+          model: modelId,
           completionTime: 0,
           inputTokens: 0,
           outputTokens: 0,
@@ -910,7 +913,7 @@ export async function POST(req: Request) {
                 log.debug('Finish part:', part);
                 const processingTime = (Date.now() - streamStartTime) / 1000;
                 return {
-                  model: DEFAULT_MODEL_ALIAS,
+                  model: modelId,
                   completionTime: processingTime,
                   createdAt: new Date().toISOString(),
                   totalTokens: part.totalUsage?.totalTokens ?? null,
@@ -948,7 +951,7 @@ export async function POST(req: Request) {
                 createdAt,
                 attachments,
                 chatId,
-                model: DEFAULT_MODEL_ALIAS,
+                model: modelId,
                 completionTime: message.metadata?.completionTime ?? 0,
                 inputTokens: message.metadata?.inputTokens ?? 0,
                 outputTokens: message.metadata?.outputTokens ?? 0,
