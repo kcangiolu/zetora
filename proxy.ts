@@ -56,11 +56,6 @@ export async function proxy(request: NextRequest) {
 
   const sessionCookie = getSessionCookie(request);
 
-  // If user is authenticated but trying to access auth routes
-  if (sessionCookie && authRoutes.some((route) => pathname.startsWith(route))) {
-    return redirect(new URL('/', request.url));
-  }
-
   // API routes check the session themselves and answer 401.
   if (!sessionCookie && !pathname.startsWith('/api/') && !publicRoutes.some((route) => pathname.startsWith(route))) {
     return redirect(new URL('/sign-in', request.url));

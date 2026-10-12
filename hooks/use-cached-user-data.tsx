@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useUserData } from '@/hooks/use-user-data';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { useSession } from '@/lib/auth-client';
@@ -11,6 +12,18 @@ export function useCachedUserData() {
 
   // Get fresh data from the existing hook
   const { user: freshUser, isLoading: isFreshLoading, error, refetch, isRefetching } = useUserData();
+
+  // Signing in or out navigates client-side, without reloading the app: when
+  // the session no longer matches the loaded user, load the new one instead
+  // of showing the previous account (or none) until a manual refresh.
+  const queryClient = useQueryClient();
+  const sessionUserId = session?.user.id ?? null;
+  useEffect(() => {
+    if (isSessionPending || freshUser === undefined || isFreshLoading) return;
+    if ((freshUser?.id ?? null) !== sessionUserId) {
+      queryClient.invalidateQueries({ queryKey: ['comprehensive-user-data'] });
+    }
+  }, [isSessionPending, sessionUserId, freshUser, isFreshLoading, queryClient]);
 
   // Cache user data in localStorage
   const [cachedUser, setCachedUser] = useLocalStorage<ComprehensiveUserData | null>('zetora-user-data', null);

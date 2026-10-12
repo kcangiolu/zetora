@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { parseAsString, useQueryState } from 'nuqs';
-import { authClient, signIn, signUp } from '@/lib/auth-client';
+import { authClient, signIn, signUp, useSession } from '@/lib/auth-client';
 import { Loader2, Sparkles, Eye, EyeOff, MailCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -141,6 +141,14 @@ export default function AuthCard({ title, description, mode = 'sign-in' }: AuthC
 
   const lastMethod = authClient.getLastUsedLoginMethod();
   const callbackURL = redirect;
+
+  // Already signed in: leave the sign-in page. Checked here rather than in
+  // proxy.ts, which only sees whether a session cookie exists — an expired
+  // one would bounce between this page and the app.
+  const { data: session } = useSession();
+  useEffect(() => {
+    if (session) router.replace(callbackURL);
+  }, [session, router, callbackURL]);
 
   const anySocialLoading = githubLoading || googleLoading || twitterLoading || microsoftLoading;
   const displayError = error || oauthErrorDescription || (oauthError ? 'Something went wrong. Please try again.' : '');
