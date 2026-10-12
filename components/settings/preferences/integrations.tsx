@@ -38,7 +38,6 @@ export function IntegrationsTab() {
     'qstash',
   );
 
-  const [xqlEnabled, setXqlEnabled] = useSyncedPreferences<boolean>('zetora-xql-enabled', true);
   const [lookoutEnabled, setLookoutEnabled] = useSyncedPreferences<boolean>('zetora-lookout-enabled', true);
   const [voiceEnabled, setVoiceEnabled] = useSyncedPreferences<boolean>('zetora-voice-enabled', true);
   const [appsEnabled, setAppsEnabled] = useSyncedPreferences<boolean>('zetora-apps-enabled', true);
@@ -175,14 +174,6 @@ export function IntegrationsTab() {
               <p className="text-xs text-muted-foreground mt-0.5">Show the Lookout shortcut in the sidebar</p>
             </div>
             <Switch id="lookout-enabled" checked={lookoutEnabled} onCheckedChange={setLookoutEnabled} />
-          </div>
-
-          <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
-            <div className="min-w-0">
-              <p className="text-sm font-medium">XQL (Beta)</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Show the X/Twitter search shortcut in the sidebar</p>
-            </div>
-            <Switch id="xql-enabled" checked={xqlEnabled} onCheckedChange={setXqlEnabled} />
           </div>
 
           <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">

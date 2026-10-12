@@ -39,7 +39,7 @@ A few modes remain **exclusive per-message selections**, because they replace th
 | **Multi-agent** | High-agency research via xAI's multi-agent Grok with server-side web/X search          |
 | **Canvas**      | Research and generate interactive dashboards and visual reports                        |
 
-**Voice** (real-time conversational AI, with a fully local speech-to-speech backend) and **XQL** (advanced X query language for tweet analysis) live on their own dedicated pages.
+**Voice** (real-time conversational AI, with a fully local speech-to-speech backend) lives on its own dedicated page.
 
 ### Skills (15 skills)
 
@@ -145,7 +145,7 @@ Beyond the bundled infrastructure, this fork also adds:
 - **Hardened auth** — email verification, two-factor authentication, and an `ALLOW_SIGNUPS` switch to close the instance
 - **Per-service diagnostics panel** in Settings to check the health of every bundled service
 - **SMTP email delivery** as an alternative to Resend, with a built-in email test button
-- **Sidebar visibility toggles** for Lookouts, XQL, Voice, and sources
+- **Sidebar visibility toggles** for Lookouts, Voice, and sources
 - **User-configurable default model** and per-task tertiary model preferences
 - **Embedding provider configuration**, including OpenAI-compatible endpoints, for the hybrid RAG pipeline
 - **CI-built images** — all custom images are built and published by Gitea Actions (`.gitea/workflows/docker.yml`); the compose file only pulls

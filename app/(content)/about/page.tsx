@@ -12,7 +12,6 @@ import {
   Sparkles,
   Check,
   Globe,
-  FileText,
   Mic,
   Code,
   BarChart3,
@@ -273,7 +272,6 @@ export default function AboutPage() {
     { icon: Headphones, name: 'Spotify', description: 'Search songs, artists, and albums' },
     { icon: Plug, name: 'Connectors', description: 'Search Google Drive, Notion & OneDrive' },
     { icon: Mic, name: 'Voice', description: 'Conversational AI with real-time voice' },
-    { icon: FileText, name: 'XQL', description: 'Advanced X query language for tweet analysis' },
   ];
 
   return (
@@ -831,7 +829,6 @@ export default function AboutPage() {
                 'Zetora Apps (100+ integrations)',
                 'PDF analysis',
                 'Voice mode',
-                'XQL (X Query Language)',
                 'Zetora Lookout',
               ].map((item) => (
                 <li key={item} className="flex items-center gap-3 text-sm text-foreground/80">

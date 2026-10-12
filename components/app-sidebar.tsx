@@ -440,7 +440,6 @@ const groupChatsByDate = (chats: any[]) => {
 
 export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
   const [blurPersonalInfo] = useSyncedPreferences<boolean>('zetora-blur-personal-info', false);
-  const [xqlEnabled] = useSyncedPreferences<boolean>('zetora-xql-enabled', true);
   const [lookoutEnabled] = useSyncedPreferences<boolean>('zetora-lookout-enabled', true);
   const [voiceEnabled] = useSyncedPreferences<boolean>('zetora-voice-enabled', true);
   const [appsEnabled] = useSyncedPreferences<boolean>('zetora-apps-enabled', true);
@@ -848,7 +847,7 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
           )}
 
           {/* Tools Section Label */}
-          {user && (lookoutEnabled || xqlEnabled || voiceEnabled || appsEnabled) && (
+          {user && (lookoutEnabled || voiceEnabled || appsEnabled) && (
             <div className="px-2 py-1.5 group-data-[collapsible=icon]:hidden">
               <span className="font-pixel text-[11px] text-muted-foreground/60 uppercase tracking-[0.12em]">Tools</span>
             </div>
@@ -899,29 +898,6 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
                 >
                   <AppsIcon width={18} height={18} />
                   <span className="group-data-[collapsible=icon]:hidden">Apps</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )}
-
-          {/* XQL */}
-          {user && xqlEnabled && (
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                tooltip="XQL (Beta) - X/Twitter Search"
-                className={cn(
-                  'hover:bg-primary/10 transition-all duration-200',
-                  pathname === '/xql' ? 'bg-primary/15 text-foreground font-medium' : '',
-                )}
-              >
-                <Link
-                  href="/xql"
-                  onClick={closeMobileSidebar}
-                  className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-full"
-                >
-                  <XLogoIcon size={18} weight="regular" />
-                  <span className="group-data-[collapsible=icon]:hidden">XQL (Beta)</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

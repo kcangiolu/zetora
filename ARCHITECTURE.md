@@ -29,7 +29,7 @@ app/                    Next.js App Router
   (auth)/ (content)/ (search)/   Route groups (sign-in, legal pages, main search UI)
   api/                  API routes (see below)
   actions/              Server actions (chat, history, usage…)
-  lookout/ new/ search/ searches/ settings/ share/ voice/ xql/  Pages
+  lookout/ new/ search/ searches/ settings/ share/ voice/  Pages
 ai/                     AI provider layer
   catalog/              Model catalog built from models.dev: labs/hosts config, routing, reasoning options, role models
   providers.ts          Resolves a model id to its provider chain (lab API, then aggregators) or a custom provider
@@ -70,7 +70,7 @@ public/                 Static assets
 | `models`                                                | Model picker catalog and the instance's default/fast models               |
 | `custom-providers*`                                     | Custom OpenAI-compatible provider management (detect, models)             |
 | `tts/stream`, `transcribe`                              | Voice synthesis / transcription                                           |
-| `suggest`, `xql`, `x-wrapped`, `raycast`, `preferences` | Misc features                                                             |
+| `suggest`, `x-wrapped`, `raycast`, `preferences`        | Misc features                                                             |
 
 ## Environment & configuration
 

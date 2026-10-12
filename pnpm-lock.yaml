@@ -456,9 +456,6 @@ importers:
       sileo:
         specifier: ^0.1.5
         version: 0.1.5(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
-      sugar-high:
-        specifier: ^0.9.5
-        version: 0.9.5
       supermemory:
         specifier: ^4.17.0
         version: 4.21.1
@@ -7494,9 +7491,6 @@ packages:
         optional: true
       babel-plugin-macros:
         optional: true
-
-  sugar-high@0.9.5:
-    resolution: {integrity: sha512-eirwp9p7QcMg6EFCD6zrGh4H30uFx2YtfiMJUavagceP6/YUUjLeiQmis7QuwqKB3nXrWXlLaRumCqOd9AKpSA==}
 
   supermemory@4.21.1:
     resolution: {integrity: sha512-KayOHtD94g7O+yN2qxaHEO5UIXtDl+duaKuhW7gvaraVtP1RHxFn80Pb5s5rKmqIvC+ruaARRlgMw7s/y+6LGQ==}
@@ -15508,8 +15502,6 @@ snapshots:
       react: 19.2.6
     optionalDependencies:
       '@babel/core': 7.29.7(supports-color@7.2.0)
-
-  sugar-high@0.9.5: {}
 
   supermemory@4.21.1: {}
 

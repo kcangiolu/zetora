@@ -14,7 +14,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
-import { BorderTrail } from '@/components/core/border-trail';
 import { TextShimmer } from '@/components/core/text-shimmer';
 import { TextLoop } from '@/components/core/text-loop';
 import { ZetoraLogo } from '@/components/logos/zetora-logo';
@@ -307,33 +306,6 @@ export function LoadingPreviewClient() {
           Lookout running status badge
         </h2>
         <StatusBadge status="running" size="md" />
-      </section>
-
-      <section className="space-y-4">
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">XQL execution loader</h2>
-        <div className="relative w-full h-[90px] rounded-xl border border-border overflow-hidden bg-card">
-          <BorderTrail className="bg-linear-to-r from-primary/20 via-primary to-primary/20" size={80} />
-          <div className="relative flex h-full items-center gap-3 px-6 py-4">
-            <div className="relative h-10 w-10 rounded-full flex items-center justify-center bg-primary/10 shrink-0">
-              <BorderTrail className="bg-linear-to-r from-primary/20 via-primary to-primary/20" size={40} />
-              <Code className="h-5 w-5 text-primary" />
-            </div>
-            <div className="space-y-2 min-w-0 flex-1">
-              <TextShimmer className="text-sm font-medium" duration={2}>
-                Executing XQL...
-              </TextShimmer>
-              <div className="flex gap-2">
-                {[40, 28, 52].map((width, i) => (
-                  <div
-                    key={width}
-                    className="h-1.5 rounded-full bg-muted animate-pulse"
-                    style={{ width: `${width}px`, animationDelay: `${i * 0.2}s` }}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
       </section>
 
       <section className="space-y-4">
