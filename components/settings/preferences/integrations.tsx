@@ -7,6 +7,19 @@ import { sileo } from 'sileo';
 import { HardDrive, Timer } from 'lucide-react';
 import { storageProviders, lockoutProviders, emailProviders, EmailTestButton } from './shared';
 
+// Build-time flags, inlined into the bundle: a feature built out can't be
+// turned on here, only by rebuilding the image with the flag set to 'true'.
+const APPS_BUILT = process.env.NEXT_PUBLIC_MCP_ENABLED === 'true';
+const CANVAS_BUILT = process.env.NEXT_PUBLIC_CANVAS_ENABLED === 'true';
+
+function NotInBuild({ flag }: { flag: string }) {
+  return (
+    <p className="text-xs text-destructive mt-1">
+      Not included in this build: rebuild the image with {flag}=true to use it.
+    </p>
+  );
+}
+
 export function IntegrationsTab() {
   const [sandboxProvider, setSandboxProvider] = useSyncedPreferences<'daytona' | 'docker'>(
     'zetora-sandbox-provider',
@@ -186,8 +199,14 @@ export function IntegrationsTab() {
               <p className="text-xs text-muted-foreground mt-0.5">
                 Show the Apps shortcut in the sidebar and the + menu
               </p>
+              {!APPS_BUILT && <NotInBuild flag="NEXT_PUBLIC_MCP_ENABLED" />}
             </div>
-            <Switch id="apps-enabled" checked={appsEnabled} onCheckedChange={setAppsEnabled} />
+            <Switch
+              id="apps-enabled"
+              checked={APPS_BUILT && appsEnabled}
+              disabled={!APPS_BUILT}
+              onCheckedChange={setAppsEnabled}
+            />
           </div>
 
           <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
@@ -210,8 +229,14 @@ export function IntegrationsTab() {
             <div className="min-w-0">
               <p className="text-sm font-medium">Canvas</p>
               <p className="text-xs text-muted-foreground mt-0.5">Show Canvas in the + menu</p>
+              {!CANVAS_BUILT && <NotInBuild flag="NEXT_PUBLIC_CANVAS_ENABLED" />}
             </div>
-            <Switch id="canvas-enabled" checked={canvasEnabled} onCheckedChange={setCanvasEnabled} />
+            <Switch
+              id="canvas-enabled"
+              checked={CANVAS_BUILT && canvasEnabled}
+              disabled={!CANVAS_BUILT}
+              onCheckedChange={setCanvasEnabled}
+            />
           </div>
         </div>
       </div>
