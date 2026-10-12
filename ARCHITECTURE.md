@@ -31,8 +31,9 @@ app/                    Next.js App Router
   actions/              Server actions (chat, history, usage…)
   lookout/ new/ search/ searches/ settings/ share/ voice/ xql/  Pages
 ai/                     AI provider layer
-  providers.ts          Model registry (zetora-default, -think, -vision… via gateway/custom providers)
-  models.ts             Model catalog & capabilities (68 KB)
+  catalog/              Model catalog built from models.dev: labs/hosts config, routing, reasoning options, role models
+  providers.ts          Resolves a model id to its provider chain (lab API, then aggregators) or a custom provider
+  models/               Client-safe model types and helpers
   xml-tool-middleware.ts XML tool-call parsing middleware for models without native tool support
 components/             React components (chat interface, search results, charts, maps…)
 contexts/ hooks/        React contexts and hooks
@@ -57,18 +58,19 @@ public/                 Static assets
 
 ## API routes (`app/api`)
 
-| Route                                                                      | Purpose                                                                   |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `search` (POST)                                                            | Main chat/search endpoint — streams AI responses with tools (73 KB route) |
-| `search/[id]/stream`, `search/[id]/stop`                                   | Resumable stream reconnect / stop                                         |
-| `auth/[...all]`                                                            | Better Auth handler                                                       |
-| `upload`, `clean_images`, `proxy-image`                                    | File upload (S3/R2/Blob), image cleaning/proxying                         |
-| `export/docx`, `export/pdf`                                                | Chat export                                                               |
-| `lookout`                                                                  | Scheduled search execution (BullMQ/QStash callback)                       |
-| `mcp/*`                                                                    | MCP server CRUD, OAuth flows, elicitation, apps bridge                    |
-| `custom-providers*`                                                        | Custom OpenAI-compatible provider management (detect, models)             |
-| `tts/stream`, `transcribe`                                                 | Voice synthesis / transcription                                           |
-| `suggest`, `xql`, `x-wrapped`, `raycast`, `preferences`, `provider-status` | Misc features                                                             |
+| Route                                                   | Purpose                                                                   |
+| ------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `search` (POST)                                         | Main chat/search endpoint — streams AI responses with tools (73 KB route) |
+| `search/[id]/stream`, `search/[id]/stop`                | Resumable stream reconnect / stop                                         |
+| `auth/[...all]`                                         | Better Auth handler                                                       |
+| `upload`, `clean_images`, `proxy-image`                 | File upload (S3/R2/Blob), image cleaning/proxying                         |
+| `export/docx`, `export/pdf`                             | Chat export                                                               |
+| `lookout`                                               | Scheduled search execution (BullMQ/QStash callback)                       |
+| `mcp/*`                                                 | MCP server CRUD, OAuth flows, elicitation, apps bridge                    |
+| `models`                                                | Model picker catalog and the instance's default/fast models               |
+| `custom-providers*`                                     | Custom OpenAI-compatible provider management (detect, models)             |
+| `tts/stream`, `transcribe`                              | Voice synthesis / transcription                                           |
+| `suggest`, `xql`, `x-wrapped`, `raycast`, `preferences` | Misc features                                                             |
 
 ## Environment & configuration
 

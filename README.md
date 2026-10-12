@@ -101,23 +101,13 @@ Loadable per-message via the `skill` tool (subject to your disabled-skills prefe
 
 ## LLM Models Supported
 
+The model list isn't hardcoded: Zetora builds it from [models.dev](https://models.dev), refreshed daily, and lists every current model the API keys you configured can reach — new releases show up by themselves, retired ones disappear. Capabilities (vision, PDF input, reasoning controls, context window) come from the same source.
+
+- **Labs**: OpenAI, Anthropic, Google (AI Studio and Agent Platform), xAI, DeepSeek, Mistral, Cohere, Zhipu, MoonShot, Alibaba (Qwen), Minimax, ByteDance, Arcee, Amazon, Xiaomi, StepFun, Sarvam, Inception and NVIDIA — through each lab's own API, or through the Vercel AI Gateway, OpenRouter, Groq or Novita, which also serve as automatic fallbacks
 - **Auto** — Zetora's router picks a model per message based on the task
-- **xAI**: Grok 3 (+Mini), Grok 4, Grok 4 Fast, Grok 4.1 Fast, Grok 4.20 Beta, Grok 4.20 Multi Agent Beta, Grok 4.5, Grok Code
-- **OpenAI**: GPT 4.1 (Nano/Mini/Standard), GPT 5 through GPT 5.6 (Instant/Thinking/Codex variants, incl. 5.6 Sol/Terra/Luna), o3, o4 mini, GPT OSS 20B/120B
-- **Anthropic**: Claude Haiku 4.5, Claude Sonnet 4.5/4.6/5, Claude Opus 4.5/4.6/4.7/4.8 (all with Thinking variants)
-- **Google**: Gemini 2.5 (Flash Lite/Flash/Pro), Gemini 3 Flash, Gemini 3.1 (Flash Lite/Pro), Gemini 3.5 Flash
-- **Alibaba (Qwen)**: Qwen 3 (4B/32B/235B/VL/Max/Coder/Next), Qwen 3.5 (Flash/27B/35B/122B/397B/Plus), Qwen 3.7 (Plus/Max)
-- **Mistral**: Ministral 3 (3B/8B/14B), Mistral Large 3, Mistral Medium, Mistral Small 4, Magistral (Small/Medium), Devstral 2 (Small/Standard), Leanstral
-- **DeepSeek**: v3, v3.1 Terminus, v3.2 (+Exp), V4 Flash, V4 Pro, R1, R1 0528
-- **Zhipu (GLM)**: GLM 4.5, GLM 4.5 Air, GLM 4.6, GLM 4.6V (+Flash), GLM 4.7, GLM 5, GLM 5.2
-- **Cohere**: Command A, Command A Thinking, Command A+
-- **MoonShot**: Kimi K2 0905, K2 Thinking, K2.5, K2.6, K2.7 Code
-- **Minimax**: M1 80K, M2, M2.1 (+Lightning), M2.5, M2.7, M3
-- **ByteDance**: Seed 1.6 (+Flash), Seed 1.8, Seed 2.0 (Lite/Mini)
-- **NVIDIA**: Nemotron 3 Super, Nemotron 3 Ultra
-- **Arcee**: Trinity Mini, Trinity Large
-- **Others**: Vercel v0 (1.0/1.5), Amazon Nova 2 Lite, Xiaomi Mimo V2 (Flash/Pro), StepFun Step 3.5 Flash, Kwaipilot KAT-Coder-Pro V1, Sarvam 105B, Inception Mercury 2
 - **Custom providers** — Add any OpenAI-compatible endpoint (e.g. Ollama, local inference servers), including models that return tool calls as XML
+
+Adding a lab is a single entry in [`ai/catalog/config.ts`](ai/catalog/config.ts). `ZETORA_DEFAULT_MODEL` and `ZETORA_FAST_MODEL` choose the models Zetora uses by itself (see `.env.example`).
 
 ## Self-Hosted Stack
 
