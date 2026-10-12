@@ -20,9 +20,10 @@ import { reasoningSwitch } from '@/ai/reasoning-switch-model';
 import { isConfigured } from '@/ai/catalog/env';
 import { LABS, type DirectClient, type HostId } from '@/ai/catalog/config';
 import { getModelEntry } from '@/ai/catalog/models';
-import { getRoleModelId } from '@/ai/catalog/roles';
+import { getTaskModelId } from '@/ai/catalog/task-models';
 import { loadModelCatalog } from '@/ai/catalog/store';
 import type { CatalogEntry, CatalogRoute } from '@/ai/catalog/types';
+import { ARCH_ROUTER_MODEL } from '@/ai/models/helpers';
 
 const openaiCompatible = (name: string, baseURL: string, apiKey: string | undefined) =>
   isConfigured(apiKey) ? createOpenAICompatible({ name, baseURL, apiKey }) : null;
@@ -177,8 +178,7 @@ function catalogLanguageModel(entry: CatalogEntry): LanguageModelV3 | null {
 
 // Internal models that aren't chat models, so never part of the catalog.
 const INTERNAL_MODELS: Record<string, () => LanguageModelV3 | null> = {
-  // Tiny router model behind the auto-router task.
-  'zetora-arch-router': () => huggingface?.chatModel('katanemo/Arch-Router-1.5B:hf-inference') ?? null,
+  [ARCH_ROUTER_MODEL.id]: () => huggingface?.chatModel('katanemo/Arch-Router-1.5B:hf-inference') ?? null,
 };
 
 import {
@@ -286,7 +286,7 @@ export async function getAnonymizeContext(
 // Resolves the user's configured "Default Model" preference (Settings →
 // Tertiary Models) to a model id usable as the chat fallback, verifying it
 // still exists before trusting it — otherwise falls back to the instance's
-// default model (ai/catalog/roles.ts). This is the SAME preference
+// default model (ai/catalog/task-models.ts). This is the SAME preference
 // resolveTertiaryModel's 'default' task reads (ai/tertiary.ts's PREF_KEYS),
 // so the chat and background-task fallbacks stay consistent.
 async function resolveDefaultModelId(preferences?: Record<string, unknown> | null, userId?: string): Promise<string> {
@@ -299,11 +299,11 @@ async function resolveDefaultModelId(preferences?: Record<string, unknown> | nul
       return pref;
     }
   }
-  const roleDefault = getRoleModelId('default');
-  if (!roleDefault) {
+  const instanceDefault = getTaskModelId('default');
+  if (!instanceDefault) {
     throw new Error('No model available: configure at least one AI provider API key (see .env.example).');
   }
-  return roleDefault;
+  return instanceDefault;
 }
 
 export async function resolveModel(

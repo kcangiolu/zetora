@@ -24,7 +24,6 @@ export const GET = withAuth(async () => {
       experimental: false,
       pdf: false,
       structuredOutput: false,
-      requiresAuth: false,
       maxOutputTokens: 16000,
       provider: 'custom',
       customProviderId: m.providerId,

@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { AnimatedBeam } from '@/components/ui/animated-beam';
 import Link from 'next/link';
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -51,7 +51,6 @@ import { ElevenLabsLogo } from '@/components/logos/elevenlabs-logo';
 import { ThemeSwitcher } from '@/components/theme-switcher';
 import { ZetoraLogo } from '@/components/logos/zetora-logo';
 import { ZetoraWordmark } from '@/components/logos/zetora-wordmark';
-import { getSearchGroups } from '@/lib/utils';
 
 const AppCircle = React.forwardRef<HTMLDivElement, { favicon: string; label: string; className?: string }>(
   ({ favicon, label, className }, ref) => (
@@ -258,23 +257,6 @@ export default function AboutPage() {
   const { catalogModels } = useModels();
   const listedModels = catalogModels.filter((model) => model.value !== AUTO_MODEL_ID);
   const { data: githubStars, isLoading: isLoadingStars } = useGitHubStars();
-  const visibleGroups = useMemo(
-    () =>
-      getSearchGroups('parallel').filter((g) => g.show && !['extreme', 'connectors'].includes(g.id as string)),
-    [],
-  );
-  const [selectedGroup, setSelectedGroup] = useState<string>(visibleGroups[0]?.id || 'web');
-
-  const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const query = formData.get('query')?.toString();
-    if (query) {
-      const params = new URLSearchParams({ q: query, group: String(selectedGroup) });
-      router.push(`/?${params.toString()}`);
-    }
-  };
-
   const searchModes = [
     { icon: Globe, name: 'Web', description: 'Search the entire web with AI-powered analysis' },
     { icon: MessageSquare, name: 'Chat', description: 'Talk to the model directly, no search' },
@@ -361,59 +343,20 @@ export default function AboutPage() {
               act on what you find.
             </p>
 
-            {/* Search Form */}
-            <form onSubmit={handleSearch} className="animate-fade-in-up delay-400 mb-8">
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="flex-1 relative group">
-                  <input
-                    name="query"
-                    type="text"
-                    placeholder="Ask anything..."
-                    className="w-full h-12 px-5 text-base bg-background border border-border rounded-xl focus:border-primary/50 focus:ring-2 focus:ring-primary/10 focus:outline-none transition-all placeholder:text-muted-foreground/60"
-                  />
-                </div>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      className="h-12 px-4 text-sm text-muted-foreground bg-background border border-border rounded-xl hover:border-primary/30 transition-all flex items-center justify-between gap-2 min-w-[140px]"
-                    >
-                      <span>{visibleGroups.find((g) => g.id === selectedGroup)?.name || 'Mode'}</span>
-                      <ArrowUpRight className="h-3 w-3 opacity-50" />
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent align="start" className="p-0 w-64 rounded-xl">
-                    <Command>
-                      <CommandInput placeholder="Search modes..." className="h-10" />
-                      <CommandList>
-                        <CommandEmpty>No mode found.</CommandEmpty>
-                        <CommandGroup>
-                          {visibleGroups.map((g) => (
-                            <CommandItem
-                              key={g.id}
-                              value={g.id}
-                              onSelect={() => setSelectedGroup(g.id)}
-                              className="text-sm"
-                            >
-                              <div className="flex flex-col">
-                                <span className="font-medium">{g.name}</span>
-                                <span className="text-xs text-muted-foreground">{g.description}</span>
-                              </div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-                <button
-                  type="submit"
-                  className="h-12 px-8 bg-foreground text-background font-medium rounded-xl hover:opacity-90 transition-all active:scale-[0.98]"
-                >
-                  Search
-                </button>
-              </div>
-            </form>
+            {/* Call to action */}
+            <div className="animate-fade-in-up delay-400 mb-8 flex flex-col sm:flex-row gap-3">
+              <Button className="h-12 px-8 rounded-xl text-base font-medium" onClick={() => router.push('/sign-up')}>
+                Create an account
+                <ArrowRight className="w-4 h-4 ml-1" />
+              </Button>
+              <Button
+                variant="outline"
+                className="h-12 px-8 rounded-xl text-base font-medium"
+                onClick={() => router.push('/sign-in')}
+              >
+                Sign in
+              </Button>
+            </div>
 
             {/* Quick Links */}
             <div className="animate-fade-in-up delay-500 flex flex-wrap items-center gap-4">

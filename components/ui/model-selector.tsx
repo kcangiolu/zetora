@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { MarqueeText } from '@/components/ui/marquee-text';
 import { AUTO_MODEL_ID, canonicalModelId, findModel, getProviderName, type Model, type ModelProvider } from '@/ai/models';
 import { useModels } from '@/hooks/use-models';
-import { LockIcon, Eye, Brain, FilePdf } from '@phosphor-icons/react';
+import { Eye, Brain, FilePdf } from '@phosphor-icons/react';
 import { Wand2, Search, ChevronDown, Check, Cpu, Puzzle, Star } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -254,7 +254,6 @@ const ProviderIcon = ({
 interface ModelSelectorDialogProps {
   selectedModel: string;
   onModelSelect: (modelValue: string) => void;
-  user?: any;
   excludeModels?: string[];
   // 'custom' lists only the user's custom provider models.
   source?: 'all' | 'custom';
@@ -264,19 +263,13 @@ interface ModelSelectorDialogProps {
   onClose?: () => void;
 }
 
-function sortModelsForList(
-  modelsToShow: Array<Model>,
-  options: { user?: unknown; preferredModels?: string[] },
-) {
+function sortModelsForList(modelsToShow: Array<Model>, preferredModels: string[] | undefined) {
   if (modelsToShow.length === 0) return modelsToShow;
 
-  const shouldSortLockedLast = !options.user;
-  const preferredSet = new Set(options.preferredModels || []);
+  const preferredSet = new Set(preferredModels || []);
 
   const favoriteModels: Array<Model> = [];
   const newModels: Array<Model> = [];
-  const freeModels: Array<Model> = [];
-  const lockedModels: Array<Model> = [];
   const regularModels: Array<Model> = [];
 
   for (const model of modelsToShow) {
@@ -290,24 +283,15 @@ function sortModelsForList(
       continue;
     }
 
-    if (shouldSortLockedLast) {
-      const isLocked = model.requiresAuth && !options.user;
-      if (isLocked) lockedModels.push(model);
-      else freeModels.push(model);
-      continue;
-    }
-
     regularModels.push(model);
   }
 
-  if (shouldSortLockedLast) return [...favoriteModels, ...newModels, ...freeModels, ...lockedModels];
   return [...favoriteModels, ...newModels, ...regularModels];
 }
 
 export function ModelSelectorDialog({
   selectedModel,
   onModelSelect,
-  user,
   excludeModels = [],
   source = 'all',
   className,
@@ -416,8 +400,8 @@ export function ModelSelectorDialog({
   }, [availableModels, selectedProvider, preferredModels, getGroupKey]);
 
   const sortedModelsForList = useMemo(
-    () => sortModelsForList(filteredByProvider, { user, preferredModels }),
-    [filteredByProvider, user, preferredModels],
+    () => sortModelsForList(filteredByProvider, preferredModels),
+    [filteredByProvider, preferredModels],
   );
 
   // Search functionality
@@ -527,10 +511,7 @@ export function ModelSelectorDialog({
         case 'Enter': {
           e.preventDefault();
           if (focusedIndex >= 0 && focusedIndex < count) {
-            const model = displayModels[focusedIndex];
-            const needsAuth = model.requiresAuth && !user;
-            if (needsAuth) return;
-            onModelSelect(model.value);
+            onModelSelect(displayModels[focusedIndex].value);
             setOpen(false);
           }
           break;
@@ -547,19 +528,17 @@ export function ModelSelectorDialog({
         }
       }
     },
-    [displayModels, focusedIndex, user, onModelSelect, activeProviders, selectedProvider],
+    [displayModels, focusedIndex, onModelSelect, activeProviders, selectedProvider],
   );
 
   // Model card renderer
   const renderModelCard = (model: Model, index: number) => {
-    const isLocked = model.requiresAuth && !user;
     const modelProvider = model.provider;
     const isSelected = currentModel?.value === model.value;
     const isAutoRouter = model.value === AUTO_MODEL_ID;
     const isFocused = focusedIndex === index;
 
     const handleClick = () => {
-      if (isLocked) return;
       onModelSelect(model.value);
       setOpen(false);
     };
@@ -576,9 +555,9 @@ export function ModelSelectorDialog({
         className={cn(
           'group flex items-start gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer',
           'transition-all duration-150',
-          isLocked ? 'opacity-50 hover:opacity-75' : 'hover:bg-accent/40 active:scale-[0.99]',
-          isSelected && !isLocked && 'bg-primary/6 dark:bg-primary/8',
-          isFocused && !isLocked && 'bg-accent/50 ring-1 ring-primary/20',
+          'hover:bg-accent/40 active:scale-[0.99]',
+          isSelected && 'bg-primary/6 dark:bg-primary/8',
+          isFocused && 'bg-accent/50 ring-1 ring-primary/20',
         )}
       >
         {/* Provider Icon */}
@@ -610,7 +589,6 @@ export function ModelSelectorDialog({
               {model.label}
             </span>
 
-            {isLocked && <LockIcon className="size-3 text-muted-foreground/60" />}
             {isAutoRouter && (
               <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-primary/10 text-primary leading-none">
                 AUTO
@@ -705,7 +683,7 @@ export function ModelSelectorDialog({
           </div>
 
           {/* Selected Check */}
-          {isSelected && !isLocked && (
+          {isSelected && (
             <div className="size-4 rounded-full bg-primary flex items-center justify-center">
               <Check className="size-2.5 text-primary-foreground" strokeWidth={3} />
             </div>

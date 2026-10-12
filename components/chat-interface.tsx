@@ -280,10 +280,6 @@ const ChatInterface = memo(
     );
 
     // Get persisted values for dialog states
-    const [persistedHasShownSignInPrompt, setPersitedHasShownSignInPrompt] = useLocalStorage(
-      'zetora-signin-prompt-shown',
-      false,
-    );
     const [persistedHasShownLookoutAnnouncement, setPersitedHasShownLookoutAnnouncement] = useLocalStorage(
       'zetora-lookout-announcement-shown',
       false,
@@ -312,7 +308,7 @@ const ChatInterface = memo(
     // Use reducer for complex state management
     const [chatState, dispatch] = useReducer(
       chatReducer,
-      createInitialState(initialVisibility, persistedHasShownSignInPrompt, persistedHasShownLookoutAnnouncement),
+      createInitialState(initialVisibility, persistedHasShownLookoutAnnouncement),
     );
 
     const { user, isLoading: isUserLoading } = useUser();
@@ -560,9 +556,6 @@ const ChatInterface = memo(
       };
     }, [markManualScroll, syncSkipAutoScroll]);
 
-    // Sign-in prompt timer
-    const signInTimerRef = useRef<NodeJS.Timeout | null>(null);
-
     // Generate a consistent ID for new chats
     const chatId = useMemo(() => initialChatId ?? uuidv7(), [initialChatId]);
 
@@ -575,22 +568,6 @@ const ChatInterface = memo(
 
     // Any connected account has access to every model — no Pro gate left.
     const effectiveSelectedModel = selectedModel;
-
-    // Timer ref cleanup only — sign-in prompt is now a passive inline CTA, not an auto-firing modal
-    useEffect(() => {
-      if (user) {
-        if (signInTimerRef.current) {
-          clearTimeout(signInTimerRef.current);
-          signInTimerRef.current = null;
-        }
-        setPersitedHasShownSignInPrompt(false);
-      }
-      return () => {
-        if (signInTimerRef.current) {
-          clearTimeout(signInTimerRef.current);
-        }
-      };
-    }, [user, setPersitedHasShownSignInPrompt]);
 
     type VisibilityType = 'public' | 'private';
 
@@ -1299,9 +1276,9 @@ const ChatInterface = memo(
     useEffect(() => {
       dispatch({
         type: 'SET_ANY_DIALOG_OPEN',
-        payload: chatState.commandDialogOpen || chatState.showSignInPrompt || chatState.showAnnouncementDialog,
+        payload: chatState.commandDialogOpen || chatState.showAnnouncementDialog,
       });
-    }, [chatState.commandDialogOpen, chatState.showSignInPrompt, chatState.showAnnouncementDialog]);
+    }, [chatState.commandDialogOpen, chatState.showAnnouncementDialog]);
 
     // Keyboard shortcut for command dialog
     useEffect(() => {
@@ -1696,13 +1673,6 @@ const ChatInterface = memo(
             <ChatDialogs
               commandDialogOpen={chatState.commandDialogOpen}
               setCommandDialogOpen={(open) => dispatch({ type: 'SET_COMMAND_DIALOG_OPEN', payload: open })}
-              showSignInPrompt={chatState.showSignInPrompt}
-              setShowSignInPrompt={(open) => dispatch({ type: 'SET_SHOW_SIGNIN_PROMPT', payload: open })}
-              hasShownSignInPrompt={chatState.hasShownSignInPrompt}
-              setHasShownSignInPrompt={(value) => {
-                dispatch({ type: 'SET_HAS_SHOWN_SIGNIN_PROMPT', payload: value });
-                setPersitedHasShownSignInPrompt(value);
-              }}
               showLookoutAnnouncement={chatState.showAnnouncementDialog}
               setShowLookoutAnnouncement={(open) => dispatch({ type: 'SET_SHOW_ANNOUNCEMENT_DIALOG', payload: open })}
               hasShownLookoutAnnouncement={chatState.hasShownAnnouncementDialog}

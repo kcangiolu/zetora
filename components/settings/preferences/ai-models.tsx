@@ -1,6 +1,5 @@
 'use client';
 
-import type { SettingsUser } from '../shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -8,8 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ModelSelectorDialog } from '@/components/ui/model-selector';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
-import { AUTO_MODEL_ID, DEFAULT_MODEL_ALIAS, FAST_MODEL_ALIAS } from '@/ai/models';
-import { useModels } from '@/hooks/use-models';
+import { AUTO_MODEL_ID, DEFAULT_MODEL_ALIAS } from '@/ai/models';
 import { sileo } from 'sileo';
 import { useQueryClient } from '@tanstack/react-query';
 import { TrashIcon, FloppyDiskIcon } from '@phosphor-icons/react';
@@ -44,18 +42,12 @@ const BACKEND_KIND_OPTIONS: Array<{ value: CustomBackendKind | 'auto'; label: st
 ];
 
 export function AiModelsTab({
-  user,
   customProviders,
   setCustomProviders,
 }: {
-  user: SettingsUser;
   customProviders: CustomProviderConfig[];
   setCustomProviders: Dispatch<SetStateAction<CustomProviderConfig[]>>;
 }) {
-  // Tasks without a chosen model run on one of the instance's role models.
-  const { getModel } = useModels();
-  const defaultModelLabel = getModel(DEFAULT_MODEL_ALIAS)?.label ?? 'Default model';
-  const fastModelLabel = getModel(FAST_MODEL_ALIAS)?.label ?? 'Fast model';
   const [autoRouterEnabled, setAutoRouterEnabled] = useSyncedPreferences<boolean>('zetora-auto-router-enabled', false);
   const [autoRouterConfig, setAutoRouterConfig] = useSyncedPreferences<AutoRouterConfig>('zetora-auto-router-config', {
     routes: getDefaultAutoRouterRoutes(),
@@ -340,7 +332,6 @@ export function AiModelsTab({
                         <ModelSelectorDialog
                           selectedModel={route.model}
                           onModelSelect={(v) => updateAutoRouterRoute(index, { model: v })}
-                          user={user}
                           excludeModels={[AUTO_MODEL_ID]}
                                       className="w-full h-7"
                           compact
@@ -611,16 +602,16 @@ export function AiModelsTab({
           </div>
           <div className="divide-y divide-border/40 px-4">
             <TertiaryModelRow
+              task="default"
               modelKey="zetora-default-model"
               providerKey="zetora-default-provider"
               effortKey="zetora-default-effort"
               recommendedEffort="auto"
               label="Default Model"
               description="Fallback model used by Lookout and other tasks"
-              defaultModelLabel={defaultModelLabel}
-              user={user}
             />
             <TertiaryModelRow
+              task="chat-title"
               modelKey="zetora-tertiary-chat-title-model"
               providerKey="zetora-tertiary-chat-title-provider"
               effortKey="zetora-tertiary-chat-title-effort"
@@ -628,10 +619,9 @@ export function AiModelsTab({
               recommendedEffort="off"
               label="Chat Title"
               description="Generates titles for new chats"
-              defaultModelLabel={fastModelLabel}
-              user={user}
             />
             <TertiaryModelRow
+              task="followup"
               modelKey="zetora-tertiary-followup-model"
               providerKey="zetora-tertiary-followup-provider"
               effortKey="zetora-tertiary-followup-effort"
@@ -639,101 +629,91 @@ export function AiModelsTab({
               recommendedEffort="off"
               label="Follow-up Questions"
               description="Generates questions after each response"
-              defaultModelLabel={fastModelLabel}
-              user={user}
             />
             <TertiaryModelRow
+              task="enhance"
               modelKey="zetora-tertiary-enhance-model"
               providerKey="zetora-tertiary-enhance-provider"
               effortKey="zetora-tertiary-enhance-effort"
               recommendedEffort="auto"
               label="Prompt Enhancement"
               description="Rewrites prompts (Enhance button)"
-              defaultModelLabel={fastModelLabel}
-              user={user}
             />
             <TertiaryModelRow
+              task="tool-repair"
               modelKey="zetora-tertiary-tool-repair-model"
               providerKey="zetora-tertiary-tool-repair-provider"
               effortKey="zetora-tertiary-tool-repair-effort"
               recommendedEffort="auto"
               label="Tool Call Repair"
               description="Fixes malformed tool call arguments"
-              defaultModelLabel={defaultModelLabel}
-              user={user}
             />
             <TertiaryModelRow
+              task="auto-router"
               modelKey="zetora-tertiary-auto-router-model"
               providerKey="zetora-tertiary-auto-router-provider"
               effortKey="zetora-tertiary-auto-router-effort"
               recommendedEffort="auto"
               label="Auto Router"
               description="Classifies queries for model routing"
-              defaultModelLabel="Arch-Router 1.5B"
-              user={user}
             />
             <TertiaryModelRow
+              task="translate-text"
               modelKey="zetora-tertiary-translate-text-model"
               providerKey="zetora-tertiary-translate-text-provider"
               effortKey="zetora-tertiary-translate-text-effort"
               recommendedEffort="auto"
               label="Text Translation"
               description="Translates text between languages"
-              defaultModelLabel={fastModelLabel}
-              user={user}
             />
             <TertiaryModelRow
+              task="translate-vision"
               modelKey="zetora-tertiary-translate-vision-model"
               providerKey="zetora-tertiary-translate-vision-provider"
               effortKey="zetora-tertiary-translate-vision-effort"
               recommendedEffort="auto"
               label="Vision Translation"
               description="Extracts and translates text from images"
-              defaultModelLabel={defaultModelLabel}
-              user={user}
             />
             <TertiaryModelRow
+              task="lang-detect"
               modelKey="zetora-tertiary-lang-detect-model"
               providerKey="zetora-tertiary-lang-detect-provider"
               effortKey="zetora-tertiary-lang-detect-effort"
               recommendedEffort="auto"
               label="Language Detection"
               description="Detects language of input text"
-              defaultModelLabel={fastModelLabel}
-              user={user}
             />
             <TertiaryModelRow
+              task="extreme-planner"
               modelKey="zetora-tertiary-extreme-planner-model"
               providerKey="zetora-tertiary-extreme-planner-provider"
               effortKey="zetora-tertiary-extreme-planner-effort"
               recommendedEffort="auto"
               label="Extreme Search Planner"
               description="Generates research plans in Extreme mode"
-              defaultModelLabel={defaultModelLabel}
-              user={user}
             />
             <TertiaryModelRow
+              task="extreme-agent"
               modelKey="zetora-tertiary-extreme-agent-model"
               providerKey="zetora-tertiary-extreme-agent-provider"
               effortKey="zetora-tertiary-extreme-agent-effort"
               recommendedEffort="auto"
               label="Extreme Search Agent"
               description="Executes the autonomous research loop"
-              defaultModelLabel={defaultModelLabel}
-              user={user}
               hideReasoningEffort
             />
             <TertiaryModelRow
+              task="voice"
               modelKey="zetora-tertiary-voice-model"
               providerKey="zetora-tertiary-voice-provider"
               effortKey="zetora-tertiary-voice-effort"
               recommendedEffort="off"
               label="Voice (Local Backend)"
               description="LLM used by the local speech-to-speech backend"
-              defaultModelLabel={defaultModelLabel}
-              user={user}
             />
             <TertiaryModelRow
+              task="memory-curator"
               modelKey="zetora-tertiary-memory-curator-model"
               providerKey="zetora-tertiary-memory-curator-provider"
               effortKey="zetora-tertiary-memory-curator-effort"
@@ -742,9 +722,9 @@ export function AiModelsTab({
               label="Memory"
               description="Learns from each answer and tidies up weekly. Default: the chat's own model does it. Pick a model to use that one instead (it then only sees the last exchange). Turn off to stop learning — saved memory is still used."
               defaultModelLabel="Conversation model"
-              user={user}
             />
             <TertiaryModelRow
+              task="context-compaction"
               modelKey="zetora-tertiary-context-compaction-model"
               providerKey="zetora-tertiary-context-compaction-provider"
               effortKey="zetora-tertiary-context-compaction-effort"
@@ -752,8 +732,6 @@ export function AiModelsTab({
               recommendedEffort="off"
               label="Context Compaction"
               description="Summarizes older messages when a chat nears its context limit, instead of silently dropping them"
-              defaultModelLabel={defaultModelLabel}
-              user={user}
             />
           </div>
         </div>

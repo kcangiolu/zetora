@@ -3,7 +3,19 @@ import { getSessionCookie } from 'better-auth/cookies';
 import { buildCsp } from '@/lib/csp';
 
 const authRoutes = ['/sign-in', '/sign-up'];
-const protectedRoutes = ['/settings', '/searches'];
+// Pages readable without an account. Everything else requires signing in.
+const publicRoutes = [
+  ...authRoutes,
+  '/two-factor',
+  '/about',
+  '/terms',
+  '/privacy-policy',
+  '/robots.txt',
+  '/x-wrapped',
+  // Public chats; the page itself 404s on a private one.
+  '/search/',
+  '/share/',
+];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -22,10 +34,6 @@ export async function proxy(request: NextRequest) {
     const response = NextResponse.redirect(url);
     response.headers.set(cspHeaderName, cspValue);
     return response;
-  }
-
-  if (pathname.startsWith('/new') || pathname.startsWith('/api/search')) {
-    return next();
   }
 
   // /api/payments/webhooks is a webhook endpoint that should be accessible without authentication
@@ -53,7 +61,8 @@ export async function proxy(request: NextRequest) {
     return redirect(new URL('/', request.url));
   }
 
-  if (!sessionCookie && protectedRoutes.some((route) => pathname.startsWith(route))) {
+  // API routes check the session themselves and answer 401.
+  if (!sessionCookie && !pathname.startsWith('/api/') && !publicRoutes.some((route) => pathname.startsWith(route))) {
     return redirect(new URL('/sign-in', request.url));
   }
 

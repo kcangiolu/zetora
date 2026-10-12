@@ -74,7 +74,7 @@ export function PreferencesSection({
         )}
 
         {/* ── Search & Retrieval tab ── */}
-        {preferencesTab === 'search' && <SearchTab user={user} customProviders={customProviders} />}
+        {preferencesTab === 'search' && <SearchTab customProviders={customProviders} />}
 
         {/* ── Integrations tab ── */}
         {preferencesTab === 'integrations' && <IntegrationsTab />}
@@ -84,7 +84,7 @@ export function PreferencesSection({
 
         {/* ── AI Models tab ── */}
         {preferencesTab === 'ai-models' && (
-          <AiModelsTab user={user} customProviders={customProviders} setCustomProviders={setCustomProviders} />
+          <AiModelsTab customProviders={customProviders} setCustomProviders={setCustomProviders} />
         )}
 
         {/* ── Customize tab ── */}

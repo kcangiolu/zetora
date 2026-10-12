@@ -24,7 +24,6 @@ function model(value: string, provider: string, overrides: Partial<Model> = {}):
     structuredOutput: true,
     maxOutputTokens: 8000,
     experimental: false,
-    requiresAuth: true,
     ...overrides,
   };
 }

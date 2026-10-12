@@ -11,11 +11,12 @@ export { canonicalModelId };
 export const AUTO_MODEL_ID = 'zetora-auto';
 
 // Stands for whatever model the instance uses by default (see
-// ai/catalog/roles.ts), wherever a model id is stored or sent.
+// ai/catalog/task-models.ts), wherever a model id is stored or sent.
 export const DEFAULT_MODEL_ALIAS = 'zetora-default';
 
-// Stands for the model the instance uses for short background tasks.
-export const FAST_MODEL_ALIAS = 'zetora-fast';
+// The tiny router model behind the auto-router task, served by Hugging Face
+// (ai/providers.ts). Not a chat model, so never part of the catalog.
+export const ARCH_ROUTER_MODEL = { id: 'zetora-arch-router', label: 'Arch-Router 1.5B' } as const;
 
 // Fallbacks for models whose limits aren't published — most hosted models
 // support at least this much.

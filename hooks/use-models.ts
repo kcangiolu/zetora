@@ -2,12 +2,12 @@
 
 import { useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { DEFAULT_MODEL_ALIAS, FAST_MODEL_ALIAS, findModel, type Model } from '@/ai/models';
+import { DEFAULT_MODEL_ALIAS, findModel, type Model, type TertiaryTask } from '@/ai/models';
 
 interface CatalogResponse {
   models: Model[];
-  defaultModelId: string | null;
-  fastModelId: string | null;
+  // The model each task runs on when the user hasn't picked one.
+  taskModelIds: Partial<Record<TertiaryTask, string | null>>;
 }
 
 const NO_MODELS: Model[] = [];
@@ -23,7 +23,7 @@ async function fetchModels<T>(url: string, empty: T): Promise<T> {
 export function useModels() {
   const catalog = useQuery({
     queryKey: ['modelCatalog'],
-    queryFn: () => fetchModels<CatalogResponse>('/api/models', { models: [], defaultModelId: null, fastModelId: null }),
+    queryFn: () => fetchModels<CatalogResponse>('/api/models', { models: [], taskModelIds: {} }),
     staleTime: 60 * 60 * 1000,
   });
   // Same key as Settings, which invalidates it whenever custom providers change.
@@ -35,18 +35,22 @@ export function useModels() {
 
   const catalogModels = catalog.data?.models ?? NO_MODELS;
   const customModels = custom.data?.models ?? NO_MODELS;
-  const defaultModelId = catalog.data?.defaultModelId ?? null;
-  const fastModelId = catalog.data?.fastModelId ?? null;
+  const taskModelIds = catalog.data?.taskModelIds;
+  const defaultModelId = taskModelIds?.default ?? null;
   const models = useMemo(() => [...catalogModels, ...customModels], [catalogModels, customModels]);
 
-  // Resolves any stored id: current, legacy, or a role alias.
+  // Resolves any stored id: current, legacy, or the default alias.
   const getModel = useCallback(
-    (id: string | undefined) => {
-      const roleModelId = id === DEFAULT_MODEL_ALIAS ? defaultModelId : id === FAST_MODEL_ALIAS ? fastModelId : id;
-      return findModel(models, roleModelId ?? undefined);
-    },
-    [models, defaultModelId, fastModelId],
+    (id: string | undefined) => findModel(models, id === DEFAULT_MODEL_ALIAS ? (defaultModelId ?? undefined) : id),
+    [models, defaultModelId],
   );
 
-  return { models, catalogModels, customModels, defaultModelId, getModel, isLoading: catalog.isLoading };
+  return {
+    models,
+    catalogModels,
+    customModels,
+    taskModelIds,
+    getModel,
+    isLoading: catalog.isLoading,
+  };
 }

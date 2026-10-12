@@ -15,16 +15,15 @@ import {
   type ModelProvider,
 } from '@/ai/models';
 import { useModels } from '@/hooks/use-models';
-import { X, Check, CheckIcon, Zap, Search, ChevronDown, Star, Puzzle } from 'lucide-react';
+import { X, Check, Zap, Search, ChevronDown, Star, Puzzle } from 'lucide-react';
 import { MarqueeText } from '@/components/ui/marquee-text';
 import { MagicWandIcon } from '@/components/ui/magic-wand-icon';
 import { ProcessorIcon } from '@/components/ui/processor-icon';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { cn, SearchGroupId } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ComprehensiveUserData } from '@/hooks/use-user-data';
 import { getUserCountryCode } from '@/app/actions';
-import { LockIcon, Eye, Brain, FilePdf } from '@phosphor-icons/react';
+import { Eye, Brain, FilePdf } from '@phosphor-icons/react';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { StarIcon } from '@hugeicons/core-free-icons';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -384,8 +383,6 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       [customGroupNames],
     );
 
-    const [showSignInDialog, setShowSignInDialog] = useState(false);
-    const [selectedAuthModel, setSelectedAuthModel] = useState<Model | null>(null);
     const [openState, setOpenState] = useState(() => modelSwitcherOpenCache);
     const setOpen = useCallback((nextOpen: boolean) => {
       modelSwitcherOpenCache = nextOpen;
@@ -461,7 +458,6 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
           m.reasoning ? 'reasoning' : '',
           m.pdf ? 'pdf' : '',
           m.experimental ? 'experimental' : '',
-          m.requiresAuth ? 'auth' : '',
           m.isNew ? 'new' : '',
         ].join(' ');
         const normalized = normalizeText(aggregate);
@@ -593,49 +589,35 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       getModel,
     ]);
 
-    // Show all models for everyone; auth-gated models will prompt sign-in on click
     const visibleModelsForList = useMemo(() => {
       let modelsToShow = filteredModels;
 
-      // Sort models: favorites first, then new models, then auth-gated models last for signed-out users
-      const shouldSortLockedLast = !user;
+      // Sort models: favorites first, then new models
       const preferredSet = new Set(preferredModels || []);
 
       if (modelsToShow.length > 0) {
         const favoriteModels: typeof modelsToShow = [];
         const newModels: typeof modelsToShow = [];
-        const freeModels: typeof modelsToShow = [];
-        const lockedModels: typeof modelsToShow = [];
         const regularModels: typeof modelsToShow = [];
 
         for (const model of modelsToShow) {
           const isFavorite = preferredSet.has(model.value);
           const isNew = model.isNew === true;
-          const isLocked = model.requiresAuth === true;
 
           if (isFavorite) {
             favoriteModels.push(model);
           } else if (isNew) {
             newModels.push(model);
-          } else if (shouldSortLockedLast) {
-            if (isLocked) {
-              lockedModels.push(model);
-            } else {
-              freeModels.push(model);
-            }
           } else {
             regularModels.push(model);
           }
         }
 
-        if (shouldSortLockedLast) {
-          return [...favoriteModels, ...newModels, ...freeModels, ...lockedModels];
-        }
         return [...favoriteModels, ...newModels, ...regularModels];
       }
 
       return modelsToShow;
-    }, [filteredModels, user, preferredModels]);
+    }, [filteredModels, preferredModels]);
 
     const rankedModels = useMemo(() => {
       const query = searchQuery.trim();
@@ -707,13 +689,6 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
         const model = availableModels.find((m) => m.value === value);
         if (!model) return;
 
-        if (model.requiresAuth && !user) {
-          haptics.trigger('warning');
-          setSelectedAuthModel(model);
-          setShowSignInDialog(true);
-          return;
-        }
-
         console.log('Selected model:', model.value);
         setSelectedModel(model.value.trim());
         haptics.trigger('selection');
@@ -722,13 +697,7 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
           onModelSelect(model);
         }
       },
-      [
-        availableModels,
-        user,
-        setSelectedModel,
-        onModelSelect,
-        haptics,
-      ],
+      [availableModels, setSelectedModel, onModelSelect, haptics],
     );
 
     // Get providers that have models in the current filtered set
@@ -837,16 +806,7 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
           case 'Enter': {
             e.preventDefault();
             if (focusedIndex >= 0 && focusedIndex < count) {
-              const model = displayModels[focusedIndex];
-              const needsAuth = model.requiresAuth && !user;
-
-              if (needsAuth) {
-                setSelectedAuthModel(model);
-                setShowSignInDialog(true);
-                return;
-              }
-
-              handleModelChange(model.value);
+              handleModelChange(displayModels[focusedIndex].value);
               setOpen(false);
             }
             break;
@@ -863,25 +823,17 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
           }
         }
       },
-      [displayModels, focusedIndex, user, handleModelChange, activeProviders, selectedProvider, setOpen],
+      [displayModels, focusedIndex, handleModelChange, activeProviders, selectedProvider, setOpen],
     );
 
     // Model card component
     const renderModelCard = (model: Model, index: number) => {
-      const requiresAuth = model.requiresAuth && !user;
-      const isLocked = requiresAuth;
       const modelProvider = model.provider;
       const isSelected = currentModel?.value === model.value;
       const isAutoRouter = model.value === AUTO_MODEL_ID;
       const isFocused = focusedIndex === index;
 
       const handleClick = () => {
-        if (requiresAuth) {
-          setSelectedAuthModel(model);
-          setShowSignInDialog(true);
-          return;
-        }
-
         handleModelChange(model.value);
         setOpen(false);
       };
@@ -898,9 +850,9 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
           className={cn(
             'group flex items-start gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer',
             'transition-all duration-150',
-            isLocked ? 'opacity-50 hover:opacity-75' : 'hover:bg-accent/40 active:scale-[0.99]',
-            isSelected && !isLocked && 'bg-primary/6 dark:bg-primary/8',
-            isFocused && !isLocked && 'bg-accent/50 ring-1 ring-primary/20',
+            'hover:bg-accent/40 active:scale-[0.99]',
+            isSelected && 'bg-primary/6 dark:bg-primary/8',
+            isFocused && 'bg-accent/50 ring-1 ring-primary/20',
           )}
         >
           {/* Provider Icon */}
@@ -938,7 +890,6 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
               </span>
 
               {/* Badges */}
-              {requiresAuth && !user && <LockIcon className="size-3 text-muted-foreground/60" />}
               {isAutoRouter && (
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-primary/10 text-primary leading-none">
                   AUTO
@@ -1035,7 +986,7 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
             </div>
 
             {/* Selected Check */}
-            {isSelected && !isLocked && (
+            {isSelected && (
               <div className="size-4 rounded-full bg-primary flex items-center justify-center">
                 <Check className="size-2.5 text-primary-foreground" strokeWidth={3} />
               </div>
@@ -1372,73 +1323,6 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
             </PopoverContent>
           </Popover>
         )}
-        {/* Sign In Dialog */}
-        <Dialog open={showSignInDialog} onOpenChange={setShowSignInDialog}>
-          <DialogContent className="sm:max-w-[400px] p-0 gap-0 overflow-hidden" showCloseButton={false}>
-            {/* Hero */}
-            <div className="relative px-6 pt-8 pb-6 text-center">
-              <div className="absolute inset-0 bg-[url('/placeholder.png')] bg-cover bg-center">
-                <div className="absolute inset-0 bg-linear-to-t from-background via-background/80 to-background/40" />
-              </div>
-              <div className="relative z-10 space-y-1.5">
-                <div className="w-10 h-10 rounded-xl bg-muted/50 flex items-center justify-center mx-auto mb-3">
-                  <LockIcon className="w-5 h-5 text-muted-foreground" />
-                </div>
-                <p className="text-lg font-semibold tracking-tight">Sign in required</p>
-                {selectedAuthModel?.label && (
-                  <p className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">
-                    for {selectedAuthModel.label}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Features */}
-            <div className="px-6 pb-6 space-y-4">
-              <div className="rounded-xl border border-border/60 overflow-hidden grid grid-cols-2">
-                {[
-                  { title: 'Better models', desc: 'GPT-5 Nano and more' },
-                  { title: 'Search history', desc: 'Keep conversations' },
-                  { title: 'Free to start', desc: 'No payment required' },
-                  { title: 'All modes', desc: 'Web, X, Academic...' },
-                ].map((f, i) => (
-                  <div
-                    key={f.title}
-                    className={cn(
-                      'flex items-start gap-2 p-2.5',
-                      i % 2 === 0 && 'border-r border-border/40',
-                      i < 2 && 'border-b border-border/40',
-                    )}
-                  >
-                    <CheckIcon className="size-3 text-primary shrink-0 mt-0.5" />
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-medium leading-tight">{f.title}</p>
-                      <p className="font-pixel text-[8px] text-muted-foreground/50 uppercase tracking-wider mt-0.5">
-                        {f.desc}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <Button
-                onClick={() => {
-                  window.location.href = '/sign-in';
-                }}
-                className="w-full rounded-lg h-9"
-              >
-                Sign in
-              </Button>
-
-              <button
-                onClick={() => setShowSignInDialog(false)}
-                className="w-full text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors py-1"
-              >
-                Maybe later
-              </button>
-            </div>
-          </DialogContent>
-        </Dialog>
       </>
     );
   },

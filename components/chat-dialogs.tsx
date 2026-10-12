@@ -4,7 +4,6 @@ import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { BinocularsIcon } from '@hugeicons/core-free-icons';
 import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogDescription } from '@/components/ui/dialog';
 import { ChatHistoryDialog } from '@/components/chat-history-dialog';
-import { SignInPromptDialog } from '@/components/sign-in-prompt-dialog';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { CheckIcon } from 'lucide-react';
@@ -123,10 +122,6 @@ LookoutAnnouncementDialog.displayName = 'LookoutAnnouncementDialog';
 interface ChatDialogsProps {
   commandDialogOpen: boolean;
   setCommandDialogOpen: (open: boolean) => void;
-  showSignInPrompt: boolean;
-  setShowSignInPrompt: (open: boolean) => void;
-  hasShownSignInPrompt: boolean;
-  setHasShownSignInPrompt: (value: boolean) => void;
   showLookoutAnnouncement: boolean;
   setShowLookoutAnnouncement: (open: boolean) => void;
   hasShownLookoutAnnouncement: boolean;
@@ -139,10 +134,6 @@ export const ChatDialogs = React.memo(
   ({
     commandDialogOpen,
     setCommandDialogOpen,
-    showSignInPrompt,
-    setShowSignInPrompt,
-    hasShownSignInPrompt,
-    setHasShownSignInPrompt,
     showLookoutAnnouncement,
     setShowLookoutAnnouncement,
     hasShownLookoutAnnouncement,
@@ -160,17 +151,6 @@ export const ChatDialogs = React.memo(
             setAnyDialogOpen(open);
           }}
           user={user}
-        />
-
-        {/* Sign-in Prompt Dialog */}
-        <SignInPromptDialog
-          open={showSignInPrompt}
-          onOpenChange={(open) => {
-            setShowSignInPrompt(open);
-            if (!open) {
-              setHasShownSignInPrompt(true);
-            }
-          }}
         />
 
         {/* Lookout Announcement Dialog */}

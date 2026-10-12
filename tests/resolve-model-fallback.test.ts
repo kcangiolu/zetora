@@ -4,7 +4,7 @@ import type { CatalogEntry } from '@/ai/catalog/types';
 // Direct clients are built at import time from the env.
 vi.hoisted(() => {
   process.env.XAI_API_KEY = 'test-xai-key';
-  delete process.env.ZETORA_DEFAULT_MODEL;
+  delete process.env.ZETORA_MODEL_DEFAULT;
 });
 
 function entry(id: string, cost: number): CatalogEntry {

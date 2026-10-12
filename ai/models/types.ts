@@ -36,7 +36,6 @@ export interface Model {
   releaseDate?: string;
   experimental: boolean;
   isNew?: boolean;
-  requiresAuth: boolean;
   customProviderId?: string; // Identifies which custom provider this model came from
   customProviderName?: string;
 }

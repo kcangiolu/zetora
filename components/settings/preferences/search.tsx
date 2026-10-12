@@ -1,6 +1,5 @@
 'use client';
 
-import type { SettingsUser } from '../shared';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -22,13 +21,7 @@ import {
   parseCustomModel,
 } from './shared';
 
-export function SearchTab({
-  user,
-  customProviders,
-}: {
-  user: SettingsUser;
-  customProviders: CustomProviderConfig[];
-}) {
+export function SearchTab({ customProviders }: { customProviders: CustomProviderConfig[] }) {
   const [searchProvider, setSearchProvider] = useSyncedPreferences<
     'exa' | 'parallel' | 'firecrawl' | 'searxng' | 'fastcrw'
   >('zetora-search-provider', 'exa');
@@ -679,7 +672,6 @@ export function SearchTab({
                 <ModelSelectorDialog
                   selectedModel={selectedEmbeddingProvider}
                   onModelSelect={handleEmbeddingModelSelect}
-                  user={user}
                   source="custom"
                   className="w-[180px] h-8"
                   compact
@@ -790,7 +782,6 @@ export function SearchTab({
                 <ModelSelectorDialog
                   selectedModel={selectedEmbeddingProvider}
                   onModelSelect={handleEmbeddingModelSelect}
-                  user={user}
                   source="custom"
                   className="w-[180px] h-8"
                   compact

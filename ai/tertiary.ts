@@ -2,7 +2,8 @@ import 'server-only';
 import { wrapLanguageModel, type LanguageModelMiddleware } from 'ai';
 import type { LanguageModelV3 } from '@ai-sdk/provider';
 import { resolveModel } from '@/ai/providers';
-import { DEFAULT_MODEL_ALIAS, FAST_MODEL_ALIAS } from '@/ai/models';
+import { DEFAULT_MODEL_ALIAS, type TertiaryTask } from '@/ai/models';
+import { getTaskModelId } from '@/ai/catalog/task-models';
 import { getCustomProviders } from '@/lib/custom-providers';
 import {
   type ReasoningEffort,
@@ -38,47 +39,11 @@ function createReasoningOptionsMiddleware(overrides: Record<string, unknown>): L
   };
 }
 
-export type TertiaryTask =
-  | 'default'
-  | 'chat-title'
-  | 'followup'
-  | 'enhance'
-  | 'tool-repair'
-  | 'auto-router'
-  | 'translate-text'
-  | 'translate-vision'
-  | 'lang-detect'
-  | 'extreme-planner'
-  | 'extreme-agent'
-  | 'voice'
-  | 'memory-curator'
-  | 'context-compaction';
-
-// Every task runs on one of the instance's two role models (ai/catalog/roles.ts)
-// unless the user picked a model for it.
-const TASK_DEFAULTS: Record<TertiaryTask, string> = {
-  default: DEFAULT_MODEL_ALIAS,
-  'chat-title': FAST_MODEL_ALIAS,
-  followup: FAST_MODEL_ALIAS,
-  enhance: FAST_MODEL_ALIAS,
-  'tool-repair': DEFAULT_MODEL_ALIAS,
-  'auto-router': 'zetora-arch-router',
-  'translate-text': FAST_MODEL_ALIAS,
-  // Reads images: the default model is the one guaranteed to have vision.
-  'translate-vision': DEFAULT_MODEL_ALIAS,
-  'lang-detect': FAST_MODEL_ALIAS,
-  'extreme-planner': DEFAULT_MODEL_ALIAS,
-  'extreme-agent': DEFAULT_MODEL_ALIAS,
-  voice: DEFAULT_MODEL_ALIAS,
-  // Only used for weekly memory consolidation, or for every memory update
-  // when the user picks a dedicated model — by default a chat turn's memory
-  // update runs on the conversation's own model (see lib/memory/jobs.ts).
-  // Needs reliable structured output.
-  'memory-curator': DEFAULT_MODEL_ALIAS,
-  // Needs to comfortably read a long, possibly noisy conversation dump
-  // (raw tool-call traces included) and produce a coherent summary.
-  'context-compaction': DEFAULT_MODEL_ALIAS,
-};
+// The instance's model for a task (ai/catalog/task-models.ts); the default
+// alias only when the catalog is empty, so resolveModel reports why.
+function getTaskDefault(task: TertiaryTask): string {
+  return getTaskModelId(task) ?? DEFAULT_MODEL_ALIAS;
+}
 
 // Recommended default reasoning effort per task, shown in Settings and used
 // whenever the user hasn't overridden a task's effort preference. Fast,
@@ -152,14 +117,14 @@ export async function resolveTertiaryModel(
   // resolveModel handles catalog, role-alias and custom-{providerId}-{name}
   // ids alike, and (given userId) applies the same anonymization/xml-parsing
   // wrapping it would for the main chat model.
-  let effectiveModelId = customModel || TASK_DEFAULTS[task];
+  let effectiveModelId = customModel || getTaskDefault(task);
   let resolved: LanguageModelV3;
   try {
     resolved = await resolveModel(effectiveModelId, prefs, userId);
   } catch (error) {
     if (!customModel) throw error;
     log.warn(`[Tertiary] Failed to load model ${customModel}, using default`);
-    effectiveModelId = TASK_DEFAULTS[task];
+    effectiveModelId = getTaskDefault(task);
     resolved = await resolveModel(effectiveModelId, prefs, userId);
   }
 
@@ -213,5 +178,5 @@ export function getTertiaryModelConfig(task: TertiaryTask, preferences: Record<s
     return { model, provider, isCustom: true };
   }
 
-  return { model: TASK_DEFAULTS[task], provider: 'zetora', isCustom: false };
+  return { model: getTaskDefault(task), provider: 'zetora', isCustom: false };
 }

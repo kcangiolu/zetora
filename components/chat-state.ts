@@ -2,9 +2,7 @@ export interface ChatState {
   // UI state
   hasSubmitted: boolean;
   hasManuallyScrolled: boolean;
-  showSignInPrompt: boolean;
   showAnnouncementDialog: boolean;
-  hasShownSignInPrompt: boolean;
   hasShownAnnouncementDialog: boolean;
   commandDialogOpen: boolean;
   anyDialogOpen: boolean;
@@ -26,9 +24,7 @@ interface Attachment {
 export type ChatAction =
   | { type: 'SET_HAS_SUBMITTED'; payload: boolean }
   | { type: 'SET_HAS_MANUALLY_SCROLLED'; payload: boolean }
-  | { type: 'SET_SHOW_SIGNIN_PROMPT'; payload: boolean }
   | { type: 'SET_SHOW_ANNOUNCEMENT_DIALOG'; payload: boolean }
-  | { type: 'SET_HAS_SHOWN_SIGNIN_PROMPT'; payload: boolean }
   | { type: 'SET_HAS_SHOWN_ANNOUNCEMENT_DIALOG'; payload: boolean }
   | { type: 'SET_COMMAND_DIALOG_OPEN'; payload: boolean }
   | { type: 'SET_ANY_DIALOG_OPEN'; payload: boolean }
@@ -46,14 +42,8 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
     case 'SET_HAS_MANUALLY_SCROLLED':
       return { ...state, hasManuallyScrolled: action.payload };
 
-    case 'SET_SHOW_SIGNIN_PROMPT':
-      return { ...state, showSignInPrompt: action.payload };
-
     case 'SET_SHOW_ANNOUNCEMENT_DIALOG':
       return { ...state, showAnnouncementDialog: action.payload };
-
-    case 'SET_HAS_SHOWN_SIGNIN_PROMPT':
-      return { ...state, hasShownSignInPrompt: action.payload };
 
     case 'SET_HAS_SHOWN_ANNOUNCEMENT_DIALOG':
       return { ...state, hasShownAnnouncementDialog: action.payload };
@@ -81,7 +71,6 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
         ...state,
         hasSubmitted: false,
         hasManuallyScrolled: false,
-        showSignInPrompt: false,
         showAnnouncementDialog: false,
       };
 
@@ -92,14 +81,11 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
 
 export const createInitialState = (
   initialVisibility: 'public' | 'private' = 'private',
-  hasShownSignInPrompt: boolean = false,
   hasShownAnnouncementDialog: boolean = false,
 ): ChatState => ({
   hasSubmitted: false,
   hasManuallyScrolled: false,
-  showSignInPrompt: false,
   showAnnouncementDialog: false,
-  hasShownSignInPrompt,
   hasShownAnnouncementDialog,
   commandDialogOpen: false,
   anyDialogOpen: false,

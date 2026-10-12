@@ -1,4 +1,3 @@
-import type { SettingsUser } from '../shared';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -6,7 +5,7 @@ import { useSyncedPreferences, type PreferenceKey, type ImageGenPromptPreset } f
 import { testEmailDelivery } from '@/app/actions';
 import { Check, X, Trash2, Save, Power, PowerOff } from 'lucide-react';
 import { useState } from 'react';
-import { DEFAULT_MODEL_ALIAS } from '@/ai/models';
+import { ARCH_ROUTER_MODEL, DEFAULT_MODEL_ALIAS, type TertiaryTask } from '@/ai/models';
 import { useModels } from '@/hooks/use-models';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
@@ -278,6 +277,7 @@ type TertiaryProviderPrefKey =
   | 'zetora-tertiary-context-compaction-provider';
 
 export function TertiaryModelRow({
+  task,
   modelKey,
   providerKey,
   effortKey,
@@ -286,9 +286,9 @@ export function TertiaryModelRow({
   label,
   description,
   defaultModelLabel,
-  user,
   hideReasoningEffort = false,
 }: {
+  task: TertiaryTask;
   modelKey: TertiaryModelPrefKey;
   providerKey: TertiaryProviderPrefKey;
   effortKey: PreferenceKey;
@@ -299,8 +299,9 @@ export function TertiaryModelRow({
   recommendedEffort?: ReasoningEffort;
   label: string;
   description: string;
-  defaultModelLabel: string;
-  user: SettingsUser;
+  // Shown instead of the instance's model for this task when no model is
+  // picked (ai/catalog/task-models.ts).
+  defaultModelLabel?: string;
   // This task's model call always forces a provider-level override that
   // makes the reasoning-effort toggle a no-op (see ai/tertiary.ts) — showing
   // it would imply a control that doesn't do anything.
@@ -310,7 +311,13 @@ export function TertiaryModelRow({
   const [, setProvider] = useSyncedPreferences<string>(providerKey as PreferenceKey, '');
   const [effort, setEffort] = useSyncedPreferences<ReasoningEffort>(effortKey, recommendedEffort);
 
-  const { getModel } = useModels();
+  const { getModel, taskModelIds } = useModels();
+  const taskModelId = taskModelIds?.[task];
+  const taskModelLabel =
+    defaultModelLabel ??
+    (taskModelId === ARCH_ROUTER_MODEL.id
+      ? ARCH_ROUTER_MODEL.label
+      : (getModel(taskModelId ?? undefined)?.label ?? 'None'));
 
   const handleSelect = (modelValue: string) => {
     setModel(modelValue);
@@ -328,9 +335,8 @@ export function TertiaryModelRow({
           <TertiaryTaskToggle enabledKey={enabledKey}>
             <TertiaryModelControls
               model={model}
-              defaultModelLabel={defaultModelLabel}
+              defaultModelLabel={taskModelLabel}
               handleSelect={handleSelect}
-              user={user}
               hideReasoningEffort={hideReasoningEffort}
               effort={effort}
               recommendedEffort={recommendedEffort}
@@ -342,9 +348,8 @@ export function TertiaryModelRow({
         ) : (
           <TertiaryModelControls
             model={model}
-            defaultModelLabel={defaultModelLabel}
+            defaultModelLabel={taskModelLabel}
             handleSelect={handleSelect}
-            user={user}
             hideReasoningEffort={hideReasoningEffort}
             effort={effort}
             recommendedEffort={recommendedEffort}
@@ -391,7 +396,6 @@ function TertiaryModelControls({
   model,
   defaultModelLabel,
   handleSelect,
-  user,
   hideReasoningEffort,
   effort,
   recommendedEffort,
@@ -402,7 +406,6 @@ function TertiaryModelControls({
   model: string;
   defaultModelLabel: string;
   handleSelect: (modelValue: string) => void;
-  user: SettingsUser;
   hideReasoningEffort: boolean;
   effort: ReasoningEffort;
   recommendedEffort: ReasoningEffort;
@@ -420,13 +423,7 @@ function TertiaryModelControls({
           Default : {defaultModelLabel}
         </span>
       )}
-      <ModelSelectorDialog
-        selectedModel={model}
-        onModelSelect={handleSelect}
-        user={user}
-        className="w-[180px] h-8"
-        compact
-      />
+      <ModelSelectorDialog selectedModel={model} onModelSelect={handleSelect} className="w-[180px] h-8" compact />
       {/* Capability for the system default model isn't known here (no
           model id, just a display label) — only show once the user has
           picked a specific model for this task. */}

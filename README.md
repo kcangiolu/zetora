@@ -107,7 +107,7 @@ The model list isn't hardcoded: Zetora builds it from [models.dev](https://model
 - **Auto** — Zetora's router picks a model per message based on the task
 - **Custom providers** — Add any OpenAI-compatible endpoint (e.g. Ollama, local inference servers), including models that return tool calls as XML
 
-Adding a lab is a single entry in [`ai/catalog/config.ts`](ai/catalog/config.ts). `ZETORA_DEFAULT_MODEL` and `ZETORA_FAST_MODEL` choose the models Zetora uses by itself (see `.env.example`).
+Adding a lab is a single entry in [`ai/catalog/config.ts`](ai/catalog/config.ts). One `ZETORA_MODEL_*` variable per function (chat, titles, follow-up questions, Extreme Search…) sets the model everyone gets by default (see `.env.example`); each user can pick another one in Settings.
 
 ## Self-Hosted Stack
 
