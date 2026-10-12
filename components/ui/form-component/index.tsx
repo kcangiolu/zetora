@@ -33,7 +33,6 @@ import { enhancePrompt, getHermesConnectorStatusAction } from '@/app/actions';
 import { LockIcon, Eye, MagnifyingGlassIcon } from '@phosphor-icons/react';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { GlobalSearchIcon, DocumentAttachmentIcon } from '@hugeicons/core-free-icons';
-import { AgentNetworkIcon } from '@/components/icons/agent-network-icon';
 import { AudioLinesIcon } from '@/components/ui/audio-lines';
 import { GripIcon } from '@/components/ui/grip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -125,8 +124,6 @@ export interface FormComponentProps {
   isTemporaryChat: boolean;
   isTemporaryChatLocked: boolean;
   setIsTemporaryChatEnabled: (value: boolean | ((prev: boolean) => boolean)) => void;
-  isMultiAgentModeEnabled?: boolean;
-  setIsMultiAgentModeEnabled?: (value: boolean | ((prev: boolean) => boolean)) => void;
   autoRoutedModel?: { model: string; route: string } | null;
   onBeforeSubmit?: () => void;
   visionEnabled: boolean;
@@ -162,7 +159,7 @@ const WEB_SEARCH_PROVIDERS: Array<{
 
 // The 11 single-purpose search tools that are now always-on, filtered by the
 // zetora-enabled-sources preference, instead of an exclusive mode you had to
-// pick. Memory/Apps/Swarm/Canvas stay exclusive per-message
+// pick. Memory/Apps/Canvas stay exclusive per-message
 // toggles (see VALID_SPECIAL_MODES) since they replace the whole tool set
 // (or, for Canvas, the whole response pipeline) rather than just adding one.
 const SOURCE_CATALOG_IDS = [
@@ -182,7 +179,6 @@ const SOURCE_CATALOG_IDS = [
 const BASE_VALID_SPECIAL_MODES = new Set<string>([
   'auto',
   'mcp',
-  'multi-agent',
   'canvas',
   'deep-research',
   'extreme-search',
@@ -225,8 +221,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
   isTemporaryChat,
   isTemporaryChatLocked,
   setIsTemporaryChatEnabled,
-  isMultiAgentModeEnabled = false,
-  setIsMultiAgentModeEnabled,
   autoRoutedModel,
   onBeforeSubmit,
   visionEnabled,
@@ -241,7 +235,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
   // "Show this mode in the chat's + menu" — separate from any env-level
   // availability gate above; both must hold for the mode to be offered.
   const [appsEnabledPref] = useSyncedPreferences<boolean>('zetora-apps-enabled', true);
-  const [swarmEnabledPref] = useSyncedPreferences<boolean>('zetora-swarm-enabled', true);
   const [canvasEnabledPref] = useSyncedPreferences<boolean>('zetora-canvas-enabled', true);
   // Gates the deep-research/extreme-search forced-mode entries below: a
   // disabled skill can no longer be forced, same list Settings > Skills
@@ -453,7 +446,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
     return applyModeOrder(allVisible);
   }, [dynamicSearchGroups, visibleModesOuter, user, applyModeOrder]);
 
-  // Base groups for / trigger (deep research, extreme search, apps, multi-agent, canvas)
+  // Base groups for / trigger (deep research, extreme search, apps, canvas)
   const modeGroups = useMemo(() => {
     // The old 'extreme' id stays permanently retired (folded into the
     // always-on extreme_search tool + the "Extreme Search" skill) and is
@@ -464,7 +457,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
     const modeIds = new Set<string>();
     if (!disabledSkillsPref.includes('deep-research')) modeIds.add('deep-research');
     if (!disabledSkillsPref.includes('extreme-search')) modeIds.add('extreme-search');
-    if (swarmEnabledPref) modeIds.add('multi-agent');
     if (canvasEnabled) modeIds.add('canvas');
     if (mcpEnabled) modeIds.add('mcp');
     if (hermesSelectableForChat) modeIds.add('hermes');
@@ -473,28 +465,16 @@ const FormComponent: React.FC<FormComponentProps> = ({
       if ('requireAuth' in group && group.requireAuth && !user) return false;
       return modeIds.has(group.id);
     });
-    const order = ['deep-research', 'extreme-search', 'mcp', 'multi-agent', 'canvas', 'hermes'];
+    const order = ['deep-research', 'extreme-search', 'mcp', 'canvas', 'hermes'];
     return filtered.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
   }, [
     dynamicSearchGroups,
     canvasEnabled,
     mcpEnabled,
     hermesSelectableForChat,
-    swarmEnabledPref,
     disabledSkillsPref,
     user,
   ]);
-
-  useEffect(() => {
-    if (!setIsMultiAgentModeEnabled) return;
-    if (selectedGroup === 'multi-agent') {
-      if (!isEnhancing && !isTypewriting) {
-        setIsMultiAgentModeEnabled(true);
-      }
-      return;
-    }
-    setIsMultiAgentModeEnabled(false);
-  }, [selectedGroup, isEnhancing, isTypewriting, setIsMultiAgentModeEnabled]);
 
   // One-time cleanup for stale localStorage values from before Sources/Skills
   // replaced single-purpose modes (e.g. a returning user whose selectedGroup
@@ -510,7 +490,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
       return;
     }
     const isHiddenByPreference =
-      (selectedGroup === 'multi-agent' && !swarmEnabledPref) ||
       (selectedGroup === 'canvas' && !canvasEnabled) ||
       (selectedGroup === 'mcp' && !mcpEnabled) ||
       (selectedGroup === 'deep-research' && disabledSkillsPref.includes('deep-research')) ||
@@ -535,7 +514,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
   }, [
     selectedGroup,
     setSelectedGroup,
-    swarmEnabledPref,
     canvasEnabled,
     mcpEnabled,
     hermesSelectableForChat,
@@ -573,19 +551,9 @@ const FormComponent: React.FC<FormComponentProps> = ({
     return 'temporary'.includes(lower) || 'private'.includes(lower);
   }, [triggerPopup, isHermesCommandMenu, user, hasInteracted, triggerFilter]);
 
-  const showMultiAgentInTrigger = useMemo(() => {
-    if (triggerPopup !== '/' || isHermesCommandMenu) return false;
-    if (!user || !setIsMultiAgentModeEnabled || !swarmEnabledPref) return false;
-    const isAlreadyInModeGroups = filteredTriggerGroups.some((group) => group.id === 'multi-agent');
-    if (isAlreadyInModeGroups) return false;
-    if (!triggerFilter) return true;
-    const lower = triggerFilter.toLowerCase();
-    return 'multi-agent'.includes(lower) || 'multi agent'.includes(lower) || 'research'.includes(lower);
-  }, [triggerPopup, isHermesCommandMenu, user, setIsMultiAgentModeEnabled, swarmEnabledPref, triggerFilter, filteredTriggerGroups]);
-
   const triggerTotalItems = isHermesCommandMenu
     ? hermesCommandItems.length
-    : filteredTriggerGroups.length + (showMultiAgentInTrigger ? 1 : 0) + (showTempInTrigger ? 1 : 0);
+    : filteredTriggerGroups.length + (showTempInTrigger ? 1 : 0);
 
   // Reset highlight when filter or trigger changes
   useEffect(() => {
@@ -1081,17 +1049,11 @@ const FormComponent: React.FC<FormComponentProps> = ({
         // Re-selecting the already-active mode clears it back to auto instead of no-op'ing
         if (group.id === selectedGroup && group.id !== 'auto') {
           setSelectedGroup('auto');
-          setIsMultiAgentModeEnabled?.(false);
           inputRef.current?.focus();
           return;
         }
 
         setSelectedGroup(group.id);
-        setIsMultiAgentModeEnabled?.(group.id === 'multi-agent');
-
-        if (group.id === 'multi-agent') {
-          return;
-        }
 
         // Auto-switch to canvas-supported model when canvas mode is selected
         if (group.id === 'canvas' && !supportsCanvasMode(selectedModelConfig)) {
@@ -1120,7 +1082,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
       getModel,
       models,
       setSelectedModel,
-      setIsMultiAgentModeEnabled,
     ],
   );
 
@@ -1166,7 +1127,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
   );
 
   // '/' mixes two different kinds of entries: skills (deep-research, extreme-search)
-  // force an existing skill for one message, while modes (multi-agent, mcp,
+  // force an existing skill for one message, while modes (mcp,
   // canvas) swap the whole pipeline for another agent. Label them separately so they
   // don't read as equivalent. Extracted to a memo (rather than an inline IIFE in JSX) so
   // it sits alongside the render's other trigger-popup content, swapped out for the
@@ -1180,8 +1141,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
       triggerPopup === '/' ? filteredTriggerGroups.findIndex((g) => !SKILL_MODE_IDS.has(g.id)) : -1;
     return filteredTriggerGroups.map((group, index) => {
       const isHighlighted = index === triggerHighlightIndex;
-      const isCurrentGroup =
-        group.id === 'multi-agent' ? isMultiAgentModeEnabled || selectedGroup === 'multi-agent' : selectedGroup === group.id;
+      const isCurrentGroup = selectedGroup === group.id;
       const showSkillsHeader = index === firstSkillIndex;
       const showModesHeader = index === firstModeIndex;
       return (
@@ -1230,7 +1190,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
         </Fragment>
       );
     });
-  }, [filteredTriggerGroups, triggerHighlightIndex, isMultiAgentModeEnabled, selectedGroup, triggerPopup, handleTriggerSelect]);
+  }, [filteredTriggerGroups, triggerHighlightIndex, selectedGroup, triggerPopup, handleTriggerSelect]);
 
   // Inserts `/name ` at the trigger position — unlike handleTriggerSelect, this never
   // calls handleGroupSelect: a Hermes command targets the already-active conversation,
@@ -1310,53 +1270,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
     setTriggerFilter('');
   }, [isTemporaryChatLocked, setIsTemporaryChatEnabled, triggerPopup, inputRef, setInput]);
 
-  const handleTriggerMultiAgentSelect = useCallback(() => {
-    if (!setIsMultiAgentModeEnabled) return;
-
-    const isTurningOff = selectedGroup === 'multi-agent' || isMultiAgentModeEnabled;
-    setSelectedGroup(isTurningOff ? 'auto' : 'multi-agent');
-    setIsMultiAgentModeEnabled(!isTurningOff);
-
-    const trigger = triggerPopup;
-    const textarea = inputRef.current;
-    if (textarea && trigger) {
-      const val = textarea.value;
-      const cursorPos = textarea.selectionStart ?? val.length;
-      let tPos = -1;
-      for (let i = cursorPos - 1; i >= 0; i--) {
-        if (val[i] === trigger) {
-          tPos = i;
-          break;
-        }
-        if (val[i] === ' ' || val[i] === '\n') break;
-      }
-      if (tPos !== -1) {
-        const before = val.slice(0, tPos);
-        const after = val.slice(cursorPos);
-        const newVal = (before + after).trimStart();
-        setInput(newVal);
-        requestAnimationFrame(() => {
-          if (inputRef.current) {
-            const newPos = Math.min(tPos, newVal.length);
-            inputRef.current.setSelectionRange(newPos, newPos);
-            inputRef.current.focus();
-          }
-        });
-      }
-    }
-
-    setTriggerPopup(null);
-    setTriggerFilter('');
-  }, [
-    setIsMultiAgentModeEnabled,
-    triggerPopup,
-    inputRef,
-    setInput,
-    setSelectedGroup,
-    isMultiAgentModeEnabled,
-    selectedGroup,
-  ]);
-
   const handlePlusMenuGroupSelect = useCallback(
     (group: SearchGroup) => {
       haptics.trigger('selection');
@@ -1368,7 +1281,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
   // Toggle one of the exclusive special modes (Memory/Canvas)
   // from the plus menu — click again to turn off and fall back to the base
-  // Sources+Skills path, mirroring the existing Swarm/Apps toggle rows.
+  // Sources+Skills path, mirroring the existing Apps toggle row.
   const handleSpecialModeToggle = useCallback(
     async (modeId: string) => {
       const group = dynamicSearchGroups.find((g) => g.id === modeId);
@@ -2046,7 +1959,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
     setHasSubmitted,
     lastSubmittedQueryRef,
     formQueryClient,
-    isMultiAgentModeEnabled,
     onBeforeSubmit,
     selectedGroup,
     setMessages,
@@ -2139,12 +2051,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
             }
           } else if (triggerHighlightIndex < filteredTriggerGroups.length) {
             handleTriggerSelect(filteredTriggerGroups[triggerHighlightIndex]);
-          } else if (showMultiAgentInTrigger && triggerHighlightIndex === filteredTriggerGroups.length) {
-            handleTriggerMultiAgentSelect();
-          } else if (
-            showTempInTrigger &&
-            triggerHighlightIndex === filteredTriggerGroups.length + (showMultiAgentInTrigger ? 1 : 0)
-          ) {
+          } else if (showTempInTrigger && triggerHighlightIndex === filteredTriggerGroups.length) {
             handleTriggerTempSelect();
           }
           return;
@@ -2157,12 +2064,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
             }
           } else if (triggerHighlightIndex < filteredTriggerGroups.length) {
             handleTriggerSelect(filteredTriggerGroups[triggerHighlightIndex]);
-          } else if (showMultiAgentInTrigger && triggerHighlightIndex === filteredTriggerGroups.length) {
-            handleTriggerMultiAgentSelect();
-          } else if (
-            showTempInTrigger &&
-            triggerHighlightIndex === filteredTriggerGroups.length + (showMultiAgentInTrigger ? 1 : 0)
-          ) {
+          } else if (showTempInTrigger && triggerHighlightIndex === filteredTriggerGroups.length) {
             handleTriggerTempSelect();
           }
           return;
@@ -2203,10 +2105,8 @@ const FormComponent: React.FC<FormComponentProps> = ({
       triggerHighlightIndex,
       triggerTotalItems,
       showTempInTrigger,
-      showMultiAgentInTrigger,
       handleTriggerSelect,
       handleTriggerTempSelect,
-      handleTriggerMultiAgentSelect,
       isHermesCommandMenu,
       hermesCommandItems,
       handleHermesCommandSelect,
@@ -2410,71 +2310,23 @@ const FormComponent: React.FC<FormComponentProps> = ({
                   ) : (
                     modeListItems
                   )}
-                  {(showTempInTrigger || showMultiAgentInTrigger) && (
+                  {showTempInTrigger && (
                     <>
-                      {showMultiAgentInTrigger && (
+                      {showTempInTrigger && (
                         <>
-                          {!filteredTriggerGroups.some((g) => !SKILL_MODE_IDS.has(g.id)) && (
-                            <>
-                              {filteredTriggerGroups.length > 0 && (
-                                <div className="my-1 mx-2 border-t border-border/30" />
-                              )}
-                              <p className="px-2 pt-1.5 pb-1 text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest">
-                                Modes
-                              </p>
-                            </>
+                          {filteredTriggerGroups.length > 0 && (
+                            <div className="my-1 mx-2 border-t border-border/30" />
                           )}
                           <button
                             data-at-index={filteredTriggerGroups.length}
                             onMouseDown={(e) => {
                               e.preventDefault();
-                              handleTriggerMultiAgentSelect();
+                              handleTriggerTempSelect();
                             }}
                             onMouseEnter={() => setTriggerHighlightIndex(filteredTriggerGroups.length)}
                             className={cn(
                               'flex items-center gap-2.5 w-full px-2 py-1.5 rounded-lg text-left transition-colors duration-100',
                               triggerHighlightIndex === filteredTriggerGroups.length
-                                ? 'bg-accent/80'
-                                : 'bg-transparent',
-                            )}
-                          >
-                            <div
-                              className={cn(
-                                'flex items-center justify-center size-7 rounded-md shrink-0',
-                                isMultiAgentModeEnabled
-                                  ? 'bg-primary/10 text-primary'
-                                  : 'bg-muted/80 text-muted-foreground',
-                              )}
-                            >
-                              <AgentNetworkIcon width={16} height={16} />
-                            </div>
-                            <span className="flex-1 text-[13px] font-medium text-foreground truncate">Swarm mode</span>
-                            {isMultiAgentModeEnabled && (
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <span className="text-[10px] font-medium text-primary/70">Active</span>
-                                <CheckIcon className="size-3 text-primary" />
-                              </div>
-                            )}
-                          </button>
-                        </>
-                      )}
-                      {showTempInTrigger && (
-                        <>
-                          {(showMultiAgentInTrigger || filteredTriggerGroups.length > 0) && (
-                            <div className="my-1 mx-2 border-t border-border/30" />
-                          )}
-                          <button
-                            data-at-index={filteredTriggerGroups.length + (showMultiAgentInTrigger ? 1 : 0)}
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              handleTriggerTempSelect();
-                            }}
-                            onMouseEnter={() =>
-                              setTriggerHighlightIndex(filteredTriggerGroups.length + (showMultiAgentInTrigger ? 1 : 0))
-                            }
-                            className={cn(
-                              'flex items-center gap-2.5 w-full px-2 py-1.5 rounded-lg text-left transition-colors duration-100',
-                              triggerHighlightIndex === filteredTriggerGroups.length + (showMultiAgentInTrigger ? 1 : 0)
                                 ? 'bg-accent/80'
                                 : 'bg-transparent',
                             )}
@@ -2669,25 +2521,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
                             <span className="flex-1 text-[13px]">Upload files or images</span>
                           </button>
 
-                          {user && setIsMultiAgentModeEnabled && swarmEnabledPref && !isHermesChat && (
-                            <button
-                              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors"
-                              onClick={() => {
-                                haptics.trigger('selection');
-                                const isTurningOff = selectedGroup === 'multi-agent' || isMultiAgentModeEnabled;
-                                setSelectedGroup(isTurningOff ? 'auto' : 'multi-agent');
-                                setIsMultiAgentModeEnabled(!isTurningOff);
-                              }}
-                            >
-                              <AgentNetworkIcon width={16} height={16} />
-                              <span className="flex-1 text-[13px]">Swarm mode</span>
-                              {isMultiAgentModeEnabled && (
-                                <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                  Active
-                                </span>
-                              )}
-                            </button>
-                          )}
                           {user && mcpEnabled && (
                             <button
                               className={cn(
@@ -2890,37 +2723,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
                           </TooltipContent>
                         </Tooltip>
 
-                        {user && setIsMultiAgentModeEnabled && swarmEnabledPref && !isHermesChat && (
-                          <Tooltip delayDuration={200}>
-                            <TooltipTrigger asChild>
-                              <button
-                                className={cn(
-                                  'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors',
-                                  isMultiAgentModeEnabled && 'bg-accent',
-                                )}
-                                onClick={() => {
-                                  haptics.trigger('selection');
-                                  const isTurningOff = selectedGroup === 'multi-agent' || isMultiAgentModeEnabled;
-                                  setSelectedGroup(isTurningOff ? 'auto' : 'multi-agent');
-                                  setIsMultiAgentModeEnabled(!isTurningOff);
-                                }}
-                              >
-                                <AgentNetworkIcon width={16} height={16} />
-                                <span className="flex-1 text-[13px]">Swarm mode</span>
-                                {isMultiAgentModeEnabled && (
-                                  <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                    Active
-                                  </span>
-                                )}
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
-                              <span className="text-[10px] leading-snug">
-                                Use xAI Swarm mode with web and X tool calls plus sources
-                              </span>
-                            </TooltipContent>
-                          </Tooltip>
-                        )}
                         {user && mcpEnabled && (
                           <Tooltip delayDuration={200}>
                             <TooltipTrigger asChild>
@@ -3106,63 +2908,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                   {/* Active mode badge */}
                   {(() => {
                     const activeGroup = dynamicSearchGroups.find((g) => g.id === selectedGroup);
-                    if (
-                      !activeGroup ||
-                      selectedGroup === 'auto' ||
-                      selectedGroup === 'mcp' ||
-                      selectedGroup === 'multi-agent'
-                    ) {
-                      if (!isMultiAgentModeEnabled) return null;
-                      return (
-                        <Tooltip delayDuration={300}>
-                          <TooltipTrigger asChild>
-                            <div
-                              className="group relative flex items-center gap-1.5 px-2.5 h-8 rounded-full bg-primary/8! text-primary/80 border border-primary/15 text-[12px] font-medium hover:bg-primary/12 hover:text-primary transition-colors cursor-pointer"
-                              onClick={() => {
-                                haptics.trigger('selection');
-                                if (isMobile) {
-                                  setSelectedGroup('auto');
-                                  setIsMultiAgentModeEnabled?.(false);
-                                  return;
-                                }
-                                setPlusMenuOpen(true);
-                              }}
-                            >
-                              <div className="relative size-3.5">
-                                <AgentNetworkIcon
-                                  width={14}
-                                  height={14}
-                                  className="absolute inset-0 group-hover:opacity-0 transition-opacity"
-                                />
-                                <button
-                                  className="absolute -inset-0.5 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 group-hover:bg-foreground/10 transition-all"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    haptics.trigger('selection');
-                                    setSelectedGroup('auto');
-                                    setIsMultiAgentModeEnabled?.(false);
-                                  }}
-                                  aria-label="Clear Swarm mode"
-                                >
-                                  <X className="size-3.5" strokeWidth={2} />
-                                </button>
-                              </div>
-                              <span>Swarm Mode</span>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent
-                            side="bottom"
-                            sideOffset={6}
-                            className="border-0 backdrop-blur-xs py-2 px-3 shadow-none!"
-                          >
-                            <div className="flex flex-col gap-0.5">
-                              <span className="font-medium text-[11px]">Click to switch mode</span>
-                              <span className="text-[10px] text-background/50">Hover ✕ to clear</span>
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
-                      );
-                    }
+                    if (!activeGroup || selectedGroup === 'auto' || selectedGroup === 'mcp') return null;
                     // Once a chat's first message went through Agent mode, it can never
                     // leave — no clear button, no click-to-switch (see getHermesChatLock's
                     // own comment for the full rule).

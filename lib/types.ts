@@ -146,7 +146,6 @@ export type DataExtremeSearchPart = {
 const messageMetadataSchema = z.object({
   createdAt: z.string(),
   model: z.string(),
-  multiAgentMode: z.boolean().optional(),
   completionTime: z.number().nullable(),
   inputTokens: z.number().nullable(),
   outputTokens: z.number().nullable(),
@@ -212,7 +211,6 @@ export type ChatTools = {
   // Search & Content Tools
   x_search: xSearchTool;
   web_search: webSearch;
-  xai_web_search: webSearch;
   academic_search: academicSearchTool;
   youtube_search: youtubeSearchTool;
   spotify_search: spotifySearchTool;
@@ -220,7 +218,6 @@ export type ChatTools = {
   github_search: githubSearchTool;
   prediction_search: predictionSearchTool;
   retrieve: retrieveTool;
-  xai_x_search: xSearchTool;
 
   // Media & Entertainment
   movie_or_tv_search: movieTvSearchTool;

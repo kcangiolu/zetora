@@ -20,7 +20,6 @@ import {
   BinocularsIcon,
   Robot01Icon,
 } from '@hugeicons/core-free-icons';
-import { AgentNetworkIcon } from '@/components/icons/agent-network-icon';
 import { AppsIcon } from '@/components/icons/apps-icon';
 
 export function cn(...inputs: ClassValue[]) {
@@ -62,7 +61,6 @@ export type SearchGroupId =
   | 'crypto'
   | 'code'
   | 'mcp'
-  | 'multi-agent'
   | 'prediction'
   | 'canvas'
   | 'deep-research'
@@ -92,8 +90,8 @@ export type SkillId =
 // they fully replace the base Sources+Skills tool set for that turn instead
 // of layering on top of it. Every other former "mode" (web, code, academic,
 // extreme, ...) is now an always-on Source/Skill filtered by user
-// preference rather than something picked before sending a message. Five
-// modes remain exclusive: mcp/multi-agent/canvas read from raw
+// preference rather than something picked before sending a message. Four
+// modes remain exclusive: mcp/canvas read from raw
 // external systems or replace the whole response pipeline; deep-research and
 // extreme-search instead force a specific research methodology or tool
 // (bypassing the model's own skill-selection) for a single message — see
@@ -101,7 +99,7 @@ export type SkillId =
 // 'hermes' is exclusive for a different reason than the others: it doesn't call an LLM
 // at all (see app/api/hermes/send/route.ts) — a Hermes turn bypasses the whole
 // Sources/Skills/tool pipeline rather than forcing one methodology within it.
-export type SpecialModeId = 'mcp' | 'multi-agent' | 'canvas' | 'deep-research' | 'extreme-search' | 'hermes';
+export type SpecialModeId = 'mcp' | 'canvas' | 'deep-research' | 'extreme-search' | 'hermes';
 
 // Search provider information for dynamic descriptions
 const searchProviderInfo = {
@@ -164,14 +162,6 @@ export function getSearchGroups(searchProvider: SearchProvider = 'exa') {
       description: 'Use tools from your connected apps',
       icon: AppsIcon,
       show: process.env.NEXT_PUBLIC_MCP_ENABLED === 'true',
-      requireAuth: true,
-    },
-    {
-      id: 'multi-agent' as const,
-      name: 'Swarm',
-      description: 'High-agency research with xAI web and X search plus grouped sources',
-      icon: AgentNetworkIcon,
-      show: true,
       requireAuth: true,
     },
     {

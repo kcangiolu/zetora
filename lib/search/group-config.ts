@@ -4,7 +4,6 @@ import type { SpecialModeId } from '@/lib/utils';
 
 import * as autoGroup from './groups/auto';
 import * as mcpGroup from './groups/mcp';
-import * as multi_agentGroup from './groups/multi-agent';
 import * as canvasGroup from './groups/canvas';
 import * as deepResearchGroup from './groups/deep-research';
 import * as extremeSearchGroup from './groups/extreme-search';
@@ -12,9 +11,9 @@ import * as extremeSearchGroup from './groups/extreme-search';
 // Sources (web, code, academic, reddit, ...) are no longer individual
 // "groups" the model is exclusively restricted to — they're always-on tools
 // filtered by the zetora-enabled-sources preference (see getBaseConfig
-// below and app/api/search/route.ts). Five modes still fully replace the
-// base tool set for a turn: mcp/multi-agent read from raw
-// external systems (user MCP apps, xAI's own search) or canvas changes the
+// below and app/api/search/route.ts). Four modes still fully replace the
+// base tool set for a turn: mcp reads from the user's MCP apps or canvas
+// changes the
 // whole response pipeline, so "run this one thing exclusively" is the right
 // model; deep-research and extreme-search instead let the user force a
 // specific research methodology or the dedicated extreme_search tool for a
@@ -23,7 +22,6 @@ import * as extremeSearchGroup from './groups/extreme-search';
 // zetora-disabled-skills re-validation that gates these two).
 const specialGroups = {
   mcp: mcpGroup,
-  'multi-agent': multi_agentGroup,
   canvas: canvasGroup,
   'deep-research': deepResearchGroup,
   'extreme-search': extremeSearchGroup,
@@ -38,7 +36,6 @@ const specialGroups = {
 // export's use traceable again, by knip and by a human reader alike.
 const specialGroupTools = {
   mcp: mcpGroup.tools,
-  'multi-agent': multi_agentGroup.tools,
   canvas: canvasGroup.tools,
   'deep-research': deepResearchGroup.tools,
   'extreme-search': extremeSearchGroup.tools,
@@ -46,7 +43,6 @@ const specialGroupTools = {
 
 const specialGroupInstructions = {
   mcp: mcpGroup.instructions,
-  'multi-agent': multi_agentGroup.instructions,
   canvas: canvasGroup.instructions,
   'deep-research': deepResearchGroup.instructions,
   'extreme-search': extremeSearchGroup.instructions,

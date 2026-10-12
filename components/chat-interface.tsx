@@ -241,7 +241,6 @@ const ChatInterface = memo(
       sessionLock: sessionChatLock,
       storedGroup: rawSelectedGroup,
     });
-    const [isMultiAgentModeEnabled, setIsMultiAgentModeEnabled] = useLocalStorage('zetora-multi-agent-enabled', false);
     const [isCustomInstructionsEnabled, setIsCustomInstructionsEnabled] = useLocalStorage(
       'zetora-custom-instructions-enabled',
       true,
@@ -577,7 +576,6 @@ const ChatInterface = memo(
     const searchProviderRef = useRef(searchProvider);
     const extremeSearchProviderRef = useRef<'exa'>('exa');
     const sessionEnabledSourcesRef = useRef(sessionEnabledSources);
-    const isMultiAgentModeEnabledRef = useRef(isMultiAgentModeEnabled);
     const isTemporaryChatRef = useRef(isTemporaryChat);
     const skipCacheRef = useRef(false);
 
@@ -590,7 +588,6 @@ const ChatInterface = memo(
     searchProviderRef.current = searchProvider;
     extremeSearchProviderRef.current = 'exa';
     sessionEnabledSourcesRef.current = sessionEnabledSources;
-    isMultiAgentModeEnabledRef.current = isMultiAgentModeEnabled;
     isTemporaryChatRef.current = isTemporaryChat;
 
     const [activeElicitation, setActiveElicitation] = useState<ElicitationData | null>(null);
@@ -634,10 +631,7 @@ const ChatInterface = memo(
               model: selectedModelRef.current,
               reasoningEffort: reasoningEffortRef.current,
               visionEnabled: visionEnabledRef.current,
-              group:
-                user && isMultiAgentModeEnabledRef.current
-                  ? ('multi-agent' as SearchGroupId)
-                  : selectedGroupRef.current,
+              group: selectedGroupRef.current,
               timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
               isCustomInstructionsEnabled: isCustomInstructionsEnabledRef.current,
               searchProvider: searchProviderRef.current,
@@ -1824,16 +1818,6 @@ const ChatInterface = memo(
                           typeof hasSubmitted === 'function' ? hasSubmitted(chatState.hasSubmitted) : hasSubmitted;
                         dispatch({ type: 'SET_HAS_SUBMITTED', payload: newValue });
                       }}
-                      isMultiAgentModeEnabled={Boolean(isMultiAgentModeEnabled)}
-                      setIsMultiAgentModeEnabled={
-                        user
-                          ? (value: boolean | ((prev: boolean) => boolean)) => {
-                              const next =
-                                typeof value === 'function' ? value(Boolean(isMultiAgentModeEnabled)) : value;
-                              setIsMultiAgentModeEnabled(Boolean(next));
-                            }
-                          : undefined
-                      }
                       isTemporaryChatEnabled={isTemporaryChat}
                       isTemporaryChat={isTemporaryChat}
                       isTemporaryChatLocked={isTemporaryChatLocked}

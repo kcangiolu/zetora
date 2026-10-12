@@ -962,9 +962,7 @@ const TOOL_BADGE_SKIP = new Set<string>(['skill', 'greeting']);
 // a humanized version of their name.
 const TOOL_BADGES: Partial<Record<keyof ChatTools, { label: string; Icon: LucideIcon }>> = {
   web_search: { label: 'Web search', Icon: Globe },
-  xai_web_search: { label: 'Web search', Icon: Globe },
   x_search: { label: 'X search', Icon: AtSign },
-  xai_x_search: { label: 'X search', Icon: AtSign },
   academic_search: { label: 'Academic search', Icon: BookOpen },
   youtube_search: { label: 'YouTube search', Icon: Youtube },
   spotify_search: { label: 'Spotify search', Icon: Music },

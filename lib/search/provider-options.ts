@@ -11,11 +11,9 @@ import { withReasoningSwitch } from '@/ai/reasoning-switch-model';
 
 export async function getStreamTextStaticSettings({
   specialMode,
-  shouldUseXaiMultiAgent,
   isXmlParsedCustomModel,
 }: {
   specialMode: SpecialModeId | string | undefined;
-  shouldUseXaiMultiAgent: boolean;
   isXmlParsedCustomModel: boolean;
 }): Promise<{
   stopWhenStepCount: number;
@@ -25,15 +23,7 @@ export async function getStreamTextStaticSettings({
     // XML-parsed local models keep their tools armed on every step (see
     // prepareStep), so the step count is their only hard bound against
     // search-after-search looping: 1 tool round + 1 slack + synthesis.
-    stopWhenStepCount: shouldUseXaiMultiAgent
-      ? 5
-      : specialMode === 'mcp'
-        ? 50
-        : !specialMode
-          ? 15
-          : isXmlParsedCustomModel
-            ? 3
-            : 5,
+    stopWhenStepCount: specialMode === 'mcp' ? 50 : !specialMode ? 15 : isXmlParsedCustomModel ? 3 : 5,
     // Local llama.cpp serves one slot: 10 retries on 10-25k-token prompts
     // stack minutes of dead time, so custom models get a tight budget.
     maxRetries: isXmlParsedCustomModel ? 2 : 10,
@@ -43,7 +33,7 @@ export async function getStreamTextStaticSettings({
 // Per-provider settings that hold for every model a provider serves: one
 // tool call per step (the search loop expects sequential calls), no
 // server-side storage.
-function getProviderDefaults(shouldUseXaiMultiAgent: boolean): SharedV3ProviderOptions {
+function getProviderDefaults(): SharedV3ProviderOptions {
   return {
     gateway: {
       only: [
@@ -79,18 +69,11 @@ function getProviderDefaults(shouldUseXaiMultiAgent: boolean): SharedV3ProviderO
       structuredOutputs: true,
       serviceTier: 'auto',
     } satisfies GroqProviderOptions,
-    xai: shouldUseXaiMultiAgent
-      ? {
-          reasoningEffort: 'high',
-          parallel_function_calling: true,
-          parallel_tool_calls: true,
-          parallelToolCalls: true,
-        }
-      : {
-          parallel_function_calling: false,
-          parallel_tool_calls: false,
-          parallelToolCalls: false,
-        },
+    xai: {
+      parallel_function_calling: false,
+      parallel_tool_calls: false,
+      parallelToolCalls: false,
+    },
     anthropic: { disableParallelToolUse: true } satisfies AnthropicProviderOptions,
     google: { threshold: 'OFF' } satisfies GoogleGenerativeAIProviderOptions,
     vertex: { threshold: 'OFF' } satisfies GoogleLanguageModelOptions,
@@ -105,15 +88,8 @@ function mergeProviderOptions(base: SharedV3ProviderOptions, extra: SharedV3Prov
   return merged;
 }
 
-export function getSearchProviderOptions(
-  model: string,
-  shouldUseXaiMultiAgent: boolean,
-  effort: ReasoningEffort = 'auto',
-): SharedV3ProviderOptions {
+export function getSearchProviderOptions(model: string, effort: ReasoningEffort = 'auto'): SharedV3ProviderOptions {
   const entry = getModelEntry(model);
-  const reasoning = entry && !shouldUseXaiMultiAgent ? getReasoningProviderOptions(entry, effort) : {};
-  return mergeProviderOptions(
-    { ...withReasoningSwitch(effort !== 'off'), ...getProviderDefaults(shouldUseXaiMultiAgent) },
-    reasoning,
-  );
+  const reasoning = entry ? getReasoningProviderOptions(entry, effort) : {};
+  return mergeProviderOptions({ ...withReasoningSwitch(effort !== 'off'), ...getProviderDefaults() }, reasoning);
 }

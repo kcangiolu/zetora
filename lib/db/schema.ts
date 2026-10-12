@@ -315,7 +315,6 @@ export const userPreferences = pgTable('user_preferences', {
         | 'crypto'
         | 'code'
         | 'mcp'
-        | 'multi-agent'
         | 'prediction'
         | 'canvas';
       'zetora-sandbox-provider'?: 'daytona' | 'docker';

@@ -5,13 +5,8 @@ import { getSearchProviderOptions, getStreamTextStaticSettings } from '@/lib/sea
 describe('getStreamTextStaticSettings', () => {
   const base = {
     specialMode: undefined,
-    shouldUseXaiMultiAgent: false,
     isXmlParsedCustomModel: false,
   };
-
-  it('uses 5 steps in multi-agent mode', async () => {
-    expect((await getStreamTextStaticSettings({ ...base, shouldUseXaiMultiAgent: true })).stopWhenStepCount).toBe(5);
-  });
 
   it('uses 50 steps for MCP mode', async () => {
     expect((await getStreamTextStaticSettings({ ...base, specialMode: 'mcp' })).stopWhenStepCount).toBe(50);
@@ -75,7 +70,7 @@ catalog.set(
 
 describe('getSearchProviderOptions', () => {
   it('keeps the gateway provider allowlist stable', () => {
-    expect(getSearchProviderOptions('openai:gpt-5.4', false).gateway).toEqual({
+    expect(getSearchProviderOptions('openai:gpt-5.4').gateway).toEqual({
       only: [
         'openai',
         'google',
@@ -101,31 +96,27 @@ describe('getSearchProviderOptions', () => {
   });
 
   it("merges the model's reasoning options into the provider defaults", () => {
-    expect(getSearchProviderOptions('openai:gpt-5.4', false, 'off').openai).toEqual({
+    expect(getSearchProviderOptions('openai:gpt-5.4', 'off').openai).toEqual({
       parallelToolCalls: false,
       store: false,
       promptCacheKey: 'zetora-oai',
       reasoningEffort: 'none',
     });
-    expect(getSearchProviderOptions('openai:gpt-5.4', false, 'high').openai).toMatchObject({ reasoningEffort: 'high' });
+    expect(getSearchProviderOptions('openai:gpt-5.4', 'high').openai).toMatchObject({ reasoningEffort: 'high' });
   });
 
   it('keeps only the provider defaults for a model outside the catalog', () => {
-    const options = getSearchProviderOptions('custom-llamacpp:qwen', false, 'high');
+    const options = getSearchProviderOptions('custom-llamacpp:qwen', 'high');
     expect(options.openai).toEqual({ parallelToolCalls: false, store: false, promptCacheKey: 'zetora-oai' });
     expect(options.anthropic).toEqual({ disableParallelToolUse: true });
   });
 
   it('tells a thinking/instant pair which upstream model to use', () => {
-    expect(getSearchProviderOptions('xai:grok-4.20', false).zetora).toEqual({ thinking: true });
-    expect(getSearchProviderOptions('xai:grok-4.20', false, 'off').zetora).toEqual({ thinking: false });
+    expect(getSearchProviderOptions('xai:grok-4.20').zetora).toEqual({ thinking: true });
+    expect(getSearchProviderOptions('xai:grok-4.20', 'off').zetora).toEqual({ thinking: false });
   });
 
-  it('lets multi-agent xAI call tools in parallel, never otherwise', () => {
-    expect(getSearchProviderOptions('xai:grok-4.20', true).xai).toMatchObject({
-      parallelToolCalls: true,
-      reasoningEffort: 'high',
-    });
-    expect(getSearchProviderOptions('xai:grok-4.20', false).xai).toMatchObject({ parallelToolCalls: false });
+  it('makes xAI call tools one at a time', () => {
+    expect(getSearchProviderOptions('xai:grok-4.20').xai).toMatchObject({ parallelToolCalls: false });
   });
 });

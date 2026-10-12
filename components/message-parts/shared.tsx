@@ -1,17 +1,8 @@
 import React from 'react';
-import type { ChatMessage } from '@/lib/types';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { Chart03Icon } from '@hugeicons/core-free-icons';
 import { Spinner } from '../ui/spinner';
 import { pseudoRandom } from '@/lib/utils';
-
-export type XaiMultiAgentToolPart = {
-  type: 'tool-xai_web_search' | 'tool-xai_x_search';
-  state: 'input-streaming' | 'input-available' | 'output-available' | 'output-error';
-  input?: Record<string, unknown>;
-  output?: unknown;
-  errorText?: string;
-};
 
 export function IconArrowInbox(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -33,14 +24,6 @@ export function isToolPartType(partType: string) {
 
 export function isSourcePartType(partType: string) {
   return partType === 'source-url';
-}
-
-export function isXaiMultiAgentToolPart(part: ChatMessage['parts'][number]) {
-  return part.type === 'tool-xai_web_search' || part.type === 'tool-xai_x_search';
-}
-
-export function getXaiMultiAgentToolLabel(partType: XaiMultiAgentToolPart['type']) {
-  return partType === 'tool-xai_x_search' ? 'X Search' : 'Web Search';
 }
 
 export function CopyIcon(props: React.SVGProps<SVGSVGElement>) {

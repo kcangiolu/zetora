@@ -74,7 +74,6 @@ import { buildMemoryQueryText, formatTurnForMemory } from '@/lib/memory/prompt';
 import { isMemoryEnabled } from '@/lib/memory/settings';
 import { resolvePrepareStepOverride } from '@/lib/search/prepare-step';
 import { SEARCH_REQUEST_TIMEOUT_MS } from '@/lib/timeouts';
-import { xai } from '@ai-sdk/xai';
 import { initializeChatAndChecks, appendToLastUserMessage } from '@/lib/search/chat-initialization';
 import { checkModelAccess } from '@/lib/search/access-gate';
 import {
@@ -143,7 +142,7 @@ export async function POST(req: Request) {
   // base tool set for a turn. Any other/legacy `group` value (old single-
   // purpose modes, 'auto', or absent) falls through to the base Sources+
   // Skills path.
-  const SPECIAL_MODE_IDS = new Set(['mcp', 'multi-agent', 'canvas', 'deep-research', 'extreme-search']);
+  const SPECIAL_MODE_IDS = new Set(['mcp', 'canvas', 'deep-research', 'extreme-search']);
   // `let` because deep-research/extreme-search get re-validated against
   // zetora-disabled-skills once preferences are available below and
   // downgraded back to undefined if the requester disabled that skill.
@@ -213,7 +212,6 @@ export async function POST(req: Request) {
     return gateError.toResponse();
   }
 
-  const shouldUseXaiMultiAgent = specialMode === 'multi-agent';
 
   // Start config and custom instructions in parallel
   opStart = Date.now();
@@ -596,9 +594,7 @@ export async function POST(req: Request) {
     const startWithCustomProviders = model.startsWith('custom-')
       ? await getCustomProviders(lightweightUser?.userId)
       : [];
-    const startWithStrategy = shouldUseXaiMultiAgent
-      ? { supported: false as const }
-      : getStartWithStrategy(model, startWithCustomProviders, hasImages);
+    const startWithStrategy = getStartWithStrategy(model, startWithCustomProviders, hasImages);
     if (!startWithStrategy.supported) {
       return new ChatSDKError('bad_request:model', 'startWith not supported by the resolved model').toResponse();
     }
@@ -689,13 +685,6 @@ export async function POST(req: Request) {
         enabledSkillIds,
       });
 
-      const streamTools = shouldUseXaiMultiAgent
-        ? {
-            ...loadedTools,
-            xai_web_search: xai.tools.webSearch(),
-            xai_x_search: xai.tools.xSearch(),
-          }
-        : loadedTools;
 
       function setUsageMetadataFromUsage(
         usage:
@@ -792,9 +781,12 @@ export async function POST(req: Request) {
       const VALID_REASONING_EFFORTS = new Set(['auto', 'low', 'medium', 'high', 'off']);
       const effort: ReasoningEffort = VALID_REASONING_EFFORTS.has(reasoningEffort) ? reasoningEffort : 'auto';
 
-      let resolvedModel = shouldUseXaiMultiAgent
-        ? xai.responses('grok-4.20-multi-agent')
-        : await resolveModel(model, userPreferencesResult?.preferences ?? {}, lightweightUser?.userId, hasImages);
+      let resolvedModel = await resolveModel(
+        model,
+        userPreferencesResult?.preferences ?? {},
+        lightweightUser?.userId,
+        hasImages,
+      );
       // DeepSeek's real prefill needs a distinct provider instance pointed at
       // its /beta endpoint (see getDeepSeekStartWithModel) — swap it in only
       // for this call, normal chat on the same model is unaffected.
@@ -808,7 +800,7 @@ export async function POST(req: Request) {
       // params merged into providerOptions below; unknown backends can only
       // have their <think> output hidden after the fact, via middleware.
       let customReasoningProviderOptions: Record<string, unknown> = {};
-      if (!shouldUseXaiMultiAgent && model.startsWith('custom-')) {
+      if (model.startsWith('custom-')) {
         const customProviders = await getCustomProviders(lightweightUser?.userId);
         const overrides = getCustomProviderOptions(model, effort, customProviders, hasImages);
         customReasoningProviderOptions = overrides.providerOptions;
@@ -864,7 +856,6 @@ export async function POST(req: Request) {
       // local Qwen3 models routinely do — the parser has nothing to match and
       // the raw <web_search> XML leaks straight to the user.
       const isXmlParsedCustomModel =
-        !shouldUseXaiMultiAgent &&
         model.startsWith('custom-') &&
         userPreferencesResult?.preferences?.['zetora-xml-tool-parsing-enabled'] === true;
       // Recomputed per-request (never baked into the cached `instructions`
@@ -901,13 +892,9 @@ export async function POST(req: Request) {
         (latitude && longitude && userPreferencesResult?.preferences?.['zetora-location-metadata-enabled'] === true
           ? `\n\nThe user's location is ${latitude}, ${longitude}.`
           : '') +
-        (shouldUseXaiMultiAgent
-          ? '\n\nWhen multi-agent mode is enabled, you are operating in a high-agency research workflow. Use only the xAI server-side web search and X search tools available in this environment. Do not call any other research or search tools.\n\nYour job is to behave like a rigorous research analyst:\n- Break the request into sub-questions when useful.\n- Search broadly first, then narrow based on what you find.\n- Use multiple searches when the topic is ambiguous, fast-moving, comparative, or requires validation.\n- Cross-check important claims across multiple sources whenever possible.\n- Prefer recent and primary sources for news, releases, product changes, pricing, benchmarks, and policy updates.\n- Use X search when social signals, firsthand announcements, or fast-moving discourse are relevant.\n- Use web search when you need official documentation, articles, product pages, blogs, papers, or other published sources.\n- If both web and X are relevant, use both.\n\nOutput requirements:\n- Synthesize findings into a clear, direct answer instead of narrating every search step.\n- Be concise but complete.\n- Include uncertainty when evidence is mixed, incomplete, or time-sensitive.\n- Do not fabricate facts, sources, timelines, quotes, or consensus.\n- If you cannot verify a claim well enough, say so plainly.\n- Ground the final answer in the sources you found and make sure the answer actually reflects them.\n\nResponse structure guidelines:\n- Start with a direct answer or conclusion in 1-3 sentences.\n- Then present the most important findings as short sections or bullet points.\n- For comparative questions, explicitly compare the options point-by-point.\n- For fast-moving topics, clearly separate confirmed facts from tentative signals.\n- End with a brief takeaway, recommendation, or next step when useful.\n- Keep the response skimmable and avoid long, repetitive paragraphs.\n\nTool behavior requirements:\n- Do not mention internal tool limitations unless necessary.\n- Do not ask for permission to search.\n- Do not stop after a single weak search if the question clearly needs deeper verification.\n- Avoid redundant searches that do not add evidence.\n- Prefer quality of evidence over quantity of searches.'
-          : '') +
         dateTimeContext;
       const staticSettings = await getStreamTextStaticSettings({
         specialMode,
-        shouldUseXaiMultiAgent,
         isXmlParsedCustomModel,
       });
 
@@ -1015,14 +1002,10 @@ export async function POST(req: Request) {
             },
           ]
         : budgetedMessages;
-      const requestActiveTools = startWith
-        ? []
-        : shouldUseXaiMultiAgent
-          ? ['xai_web_search', 'xai_x_search']
-          : streamActiveTools;
-      const requestTools = startWith ? {} : streamTools;
+      const requestActiveTools = startWith ? [] : streamActiveTools;
+      const requestTools = startWith ? {} : loadedTools;
       const requestProviderOptions: SharedV3ProviderOptions = {
-        ...getSearchProviderOptions(model, shouldUseXaiMultiAgent, effort),
+        ...getSearchProviderOptions(model, effort),
         // Plain JSON literals (lib/reasoning-effort.ts, lib/chat-commands-server.ts),
         // only typed loosely where they're built.
         ...(customReasoningProviderOptions as SharedV3ProviderOptions),
@@ -1031,7 +1014,7 @@ export async function POST(req: Request) {
       const result = streamText({
         model: resolvedModel,
         messages: modelMessages,
-        ...(shouldUseXaiMultiAgent ? {} : getModelParameters(model, effort)),
+        ...getModelParameters(model, effort),
         stopWhen: startWith ? stepCountIs(1) : stepCountIs(staticSettings.stopWhenStepCount),
         maxRetries: staticSettings.maxRetries,
         abortSignal: abortController.signal,
@@ -1108,7 +1091,6 @@ export async function POST(req: Request) {
             // steps for the skill-load-then-research loop) — synthesize the
             // 'auto' sentinel resolvePrepareStepOverride already expects.
             group: specialMode ?? 'auto',
-            shouldUseXaiMultiAgent,
             isXmlParsedCustomModel,
             latestStepHasToolRoundTrip,
             streamActiveTools,
@@ -1246,7 +1228,6 @@ export async function POST(req: Request) {
           const baseMetadata = {
             model: model as string,
             createdAt: assistantMessageCreatedAt,
-            multiAgentMode: shouldUseXaiMultiAgent,
           };
 
           if (part.type === 'finish') {

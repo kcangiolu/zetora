@@ -109,11 +109,8 @@ import { RetrieveResults } from '@/components/retrieve-results';
 import FileQuerySearch from '@/components/file-query-search';
 import { useDataStream } from '../data-stream-provider';
 import {
-  XaiMultiAgentToolPart,
   isToolPartType,
   isSourcePartType,
-  isXaiMultiAgentToolPart,
-  getXaiMultiAgentToolLabel,
   IconArrowInbox,
   CopyIcon,
   TryAgainIcon,
@@ -448,15 +445,6 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
       };
     }, [sourceItems]);
 
-    const xaiToolParts = useMemo(() => parts.filter(isXaiMultiAgentToolPart) as XaiMultiAgentToolPart[], [parts]);
-    const firstXaiToolIndex = useMemo(() => parts.findIndex(isXaiMultiAgentToolPart), [parts]);
-    const lastXaiToolIndex = useMemo(() => parts.findLastIndex(isXaiMultiAgentToolPart), [parts]);
-    const isWithinXaiToolRun =
-      firstXaiToolIndex !== -1 &&
-      lastXaiToolIndex !== -1 &&
-      partIndex >= firstXaiToolIndex &&
-      partIndex <= lastXaiToolIndex;
-
     // Automatic context-compaction summary (lib/search/context-compaction.ts):
     // a synthetic assistant message with a single text part, flagged via
     // message.metadata.isCompactionSummary. Rendered as a distinct
@@ -591,14 +579,6 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
       }
 
       const prevPart = parts[partIndex - 1];
-
-      if (
-        part.type === 'text' &&
-        isWithinXaiToolRun &&
-        (!part.text || part.text.trim() === '' || part.text.trim() === '<|im_end|>')
-      ) {
-        return null;
-      }
 
       // Skip text parts that are ONLY <|im_end|> after a tool call/source
       const hasToolInvocationBefore = parts
@@ -2313,58 +2293,6 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                 );
             }
             break;
-
-          case 'tool-xai_web_search':
-          case 'tool-xai_x_search': {
-            const mergedXaiToolParts = parts.filter(isXaiMultiAgentToolPart) as XaiMultiAgentToolPart[];
-            const mergedFirstXaiToolIndex = parts.findIndex(isXaiMultiAgentToolPart);
-
-            if (partIndex !== mergedFirstXaiToolIndex) {
-              return null;
-            }
-
-            const labels = mergedXaiToolParts.map((toolPart: XaiMultiAgentToolPart) =>
-              getXaiMultiAgentToolLabel(toolPart.type),
-            );
-            const hasError = mergedXaiToolParts.some(
-              (toolPart: XaiMultiAgentToolPart) => toolPart.state === 'output-error',
-            );
-            const errorText = mergedXaiToolParts.find(
-              (toolPart: XaiMultiAgentToolPart) => toolPart.state === 'output-error',
-            )?.errorText;
-            const counts = labels.reduce<Record<string, number>>((acc: Record<string, number>, label: string) => {
-              acc[label] = (acc[label] ?? 0) + 1;
-              return acc;
-            }, {});
-            const summary = Object.entries(counts)
-              .map(([label, count]) => {
-                const pluralLabel = label === 'Web Search' ? 'Web Searches' : label;
-                return count > 1 ? `${count} ${pluralLabel}` : label;
-              })
-              .join(' · ');
-            const activityLabel = hasError ? summary : `Running ${summary}`;
-
-            return (
-              <div key={`${messageIndex}-${partIndex}-tool`} className="my-1.5">
-                <div
-                  className={cn(
-                    'inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] bg-background/70',
-                    hasError
-                      ? 'border-red-500/20 text-red-600 dark:text-red-300'
-                      : 'border-border/60 text-muted-foreground',
-                  )}
-                >
-                  <Globe className="h-3 w-3 shrink-0" />
-                  <span className="font-medium">{activityLabel}</span>
-                  {hasError && errorText ? (
-                    <span className="max-w-[200px] truncate text-[11px]" title={errorText}>
-                      {errorText}
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-            );
-          }
 
           case 'tool-extreme_search':
             switch (part.state) {

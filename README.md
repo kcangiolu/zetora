@@ -35,7 +35,6 @@ A few modes remain **exclusive per-message selections**, because they replace th
 | --------------- | -------------------------------------------------------------------------------------- |
 | **Memory**      | Your personal memory companion: an editable profile plus facts learned from your chats |
 | **Apps (MCP)**  | Use tools from your connected MCP apps                                                 |
-| **Multi-agent** | High-agency research via xAI's multi-agent Grok with server-side web/X search          |
 | **Canvas**      | Research and generate interactive dashboards and visual reports                        |
 
 **Voice** (real-time conversational AI, with a fully local speech-to-speech backend) lives on its own dedicated page.

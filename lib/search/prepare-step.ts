@@ -17,7 +17,6 @@ export const SYNTHESIS_NUDGE =
 
 export interface PrepareStepInput {
   group: string;
-  shouldUseXaiMultiAgent: boolean;
   isXmlParsedCustomModel: boolean;
   latestStepHasToolRoundTrip: boolean;
   streamActiveTools: string[];
@@ -44,7 +43,6 @@ export interface PrepareStepOverride {
 
 export function resolvePrepareStepOverride({
   group,
-  shouldUseXaiMultiAgent,
   isXmlParsedCustomModel,
   latestStepHasToolRoundTrip,
   streamActiveTools,
@@ -57,7 +55,7 @@ export function resolvePrepareStepOverride({
   // own tool round-trips have burned through SOFT_STEP_BUDGET_FRACTION of the
   // context budget, force synthesis regardless of group/keepToolsArmed/
   // stepCount. Every mode below that keeps tools armed across steps (mcp,
-  // auto, xai multi-agent) otherwise has no check between the one-time
+  // auto) otherwise has no check between the one-time
   // pre-turn pruneToContextBudget() call and stepCountIs() running out — a
   // single turn's own fan-out (multiple search tools, each with several
   // sub-queries, across up to 15-50 steps depending on mode) can accumulate
@@ -81,15 +79,8 @@ export function resolvePrepareStepOverride({
         };
   }
 
-  // MCP mode and xAI multi-agent mode: keep tools available across steps.
-  if (group === 'mcp' || shouldUseXaiMultiAgent) {
-    return shouldUseXaiMultiAgent
-      ? {
-          toolChoice: 'auto' as const,
-          activeTools: ['xai_web_search', 'xai_x_search'],
-        }
-      : undefined;
-  }
+  // MCP mode: keep tools available across steps.
+  if (group === 'mcp') return undefined;
 
   // Auto mode (and any extension mode opting into keepToolsArmed): the model
   // loads a skill/tool via a tool call and then keeps researching with it —

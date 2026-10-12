@@ -3,7 +3,6 @@ import { resolvePrepareStepOverride, SYNTHESIS_NUDGE } from '@/lib/search/prepar
 
 const base = {
   group: 'web',
-  shouldUseXaiMultiAgent: false,
   isXmlParsedCustomModel: false,
   latestStepHasToolRoundTrip: false,
   streamActiveTools: ['web_search', 'retrieve', 'datetime'],
@@ -61,10 +60,10 @@ describe('resolvePrepareStepOverride', () => {
       });
     });
 
-    it('overrides xAI multi-agent mode too', () => {
+    it('overrides MCP mode too', () => {
       const override = resolvePrepareStepOverride({
         ...base,
-        shouldUseXaiMultiAgent: true,
+        group: 'mcp',
         cumulativeTokens: 90_000,
         budgetTokens: 100_000,
       });
@@ -98,12 +97,8 @@ describe('resolvePrepareStepOverride', () => {
     });
   });
 
-  it('pins the xAI tools in multi-agent mode', () => {
-    const override = resolvePrepareStepOverride({ ...base, shouldUseXaiMultiAgent: true });
-    expect(override).toEqual({
-      toolChoice: 'auto',
-      activeTools: ['xai_web_search', 'xai_x_search'],
-    });
+  it('leaves MCP mode on its own tool loop', () => {
+    expect(resolvePrepareStepOverride({ ...base, group: 'mcp' })).toBeUndefined();
   });
 
   it('keeps all tools active before the first completed tool round', () => {

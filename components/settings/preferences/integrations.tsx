@@ -41,7 +41,6 @@ export function IntegrationsTab() {
   const [lookoutEnabled, setLookoutEnabled] = useSyncedPreferences<boolean>('zetora-lookout-enabled', true);
   const [voiceEnabled, setVoiceEnabled] = useSyncedPreferences<boolean>('zetora-voice-enabled', true);
   const [appsEnabled, setAppsEnabled] = useSyncedPreferences<boolean>('zetora-apps-enabled', true);
-  const [swarmEnabled, setSwarmEnabled] = useSyncedPreferences<boolean>('zetora-swarm-enabled', true);
   const [canvasEnabled, setCanvasEnabled] = useSyncedPreferences<boolean>('zetora-canvas-enabled', true);
 
   const handleStorageProviderChange = (newProvider: 'cloudflare-r2' | 'minio') => {
@@ -197,14 +196,6 @@ export function IntegrationsTab() {
               disabled={!APPS_BUILT}
               onCheckedChange={setAppsEnabled}
             />
-          </div>
-
-          <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">
-            <div className="min-w-0">
-              <p className="text-sm font-medium">Swarm mode</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Show Swarm mode in the + menu</p>
-            </div>
-            <Switch id="swarm-enabled" checked={swarmEnabled} onCheckedChange={setSwarmEnabled} />
           </div>
 
           <div className="flex items-center justify-between px-4 py-3.5 border-t border-border/40 gap-6">

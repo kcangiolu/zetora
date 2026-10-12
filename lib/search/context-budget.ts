@@ -25,8 +25,8 @@ const ESTIMATED_TOKENS_PER_IMAGE = 1100;
 export const PRUNE_TOKEN_THRESHOLD = 40_000;
 
 // Fraction of the per-turn context budget at which resolvePrepareStepOverride
-// (lib/search/prepare-step.ts) forces every keepToolsArmed mode (auto/mcp/
-// xai-multi-agent) to drain tools and synthesize, regardless of step count —
+// (lib/search/prepare-step.ts) forces every keepToolsArmed mode (auto/mcp)
+// to drain tools and synthesize, regardless of step count —
 // a hard safety net for the gap between the one-time pre-turn
 // pruneToContextBudget() call and stepCountIs() running out, during which a
 // single turn's own tool round-trips can otherwise accumulate unbounded

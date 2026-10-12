@@ -117,7 +117,6 @@ export async function POST(req: NextRequest) {
 
       return resolvePrepareStepOverride({
         group: 'web',
-        shouldUseXaiMultiAgent: false,
         isXmlParsedCustomModel,
         latestStepHasToolRoundTrip,
         streamActiveTools: VOICE_TOOL_NAMES,
