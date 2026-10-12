@@ -19,7 +19,6 @@ export { redditSearchTool } from './reddit-search';
 export { githubSearchTool } from './github-search';
 export { extremeSearchTool } from './extreme-search';
 export { greetingTool } from './greeting';
-export { createConnectorsSearchTool } from './connectors-search';
 export { codeContextTool } from './code-context';
 export { createFileQuerySearchTool } from './file-query-search';
 export { spotifySearchTool } from './spotify-search';

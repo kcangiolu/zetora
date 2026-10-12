@@ -34,13 +34,8 @@ COPY . .
 # docker-compose environment/env_file.
 ARG DATABASE_URL=postgresql://placeholder:placeholder@localhost:5432/placeholder
 ARG BETTER_AUTH_SECRET=build-time-placeholder-secret
-# Some SDKs (Supermemory) validate their API key/bearer token eagerly at
-# module-load time, which Next.js triggers during page-data collection.
-# Placeholders satisfy those checks without baking real secrets into the image.
-ARG SUPERMEMORY_API_KEY=build-time-placeholder-supermemory-key
 ENV DATABASE_URL=${DATABASE_URL} \
-    BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET} \
-    SUPERMEMORY_API_KEY=${SUPERMEMORY_API_KEY}
+    BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
 
 # NEXT_PUBLIC_* vars are inlined into the client bundle at build time, so the
 # production values must be passed as build args (see docker-compose.yml).

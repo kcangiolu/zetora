@@ -25,7 +25,6 @@ import type {
   greetingTool,
   movieTvSearchTool,
   trendingTvTool,
-  createConnectorsSearchTool,
   codeContextTool,
   createFileQuerySearchTool,
   spotifySearchTool,
@@ -191,7 +190,6 @@ type trendingTvTool = InferUITool<typeof trendingTvTool>;
 type youtubeSearchTool = InferUITool<typeof youtubeSearchTool>;
 type coinDataByContractTool = InferUITool<typeof coinDataByContractTool>;
 type datetimeTool = InferUITool<typeof datetimeTool>;
-type createConnectorsSearchTool = InferUITool<ReturnType<typeof createConnectorsSearchTool>>;
 type searchMemoriesTool = InferUITool<ReturnType<typeof createMemoryTools>['searchMemories']>;
 type addMemoryTool = InferUITool<ReturnType<typeof createMemoryTools>['addMemory']>;
 type codeContextTool = InferUITool<typeof codeContextTool>;
@@ -243,7 +241,6 @@ export type ChatTools = {
   extreme_search: extremeSearchTool;
   greeting: greetingTool;
 
-  connectors_search: createConnectorsSearchTool;
   search_memories: searchMemoriesTool;
   add_memory: addMemoryTool;
 

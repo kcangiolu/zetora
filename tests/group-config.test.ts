@@ -16,14 +16,11 @@ afterAll(() => vi.useRealTimers());
 describe('getGroupConfig', () => {
   // Snapshots guard the split of group-config.ts into per-group files:
   // identical output before/after proves iso-functionality.
-  it.each(['canvas', 'connectors', 'multi-agent'] as const)(
-    'returns stable tools+instructions for %s',
-    async (group) => {
-      const config = await getGroupConfig(group);
-      expect(config.tools).toMatchSnapshot(`${group}-tools`);
-      expect(config.instructions).toMatchSnapshot(`${group}-instructions`);
-    },
-  );
+  it.each(['canvas', 'multi-agent'] as const)('returns stable tools+instructions for %s', async (group) => {
+    const config = await getGroupConfig(group);
+    expect(config.tools).toMatchSnapshot(`${group}-tools`);
+    expect(config.instructions).toMatchSnapshot(`${group}-instructions`);
+  });
 
   it('undefined group resolves to the base Sources+Skills config', async () => {
     const config = await getGroupConfig(undefined);
@@ -34,13 +31,12 @@ describe('getGroupConfig', () => {
 
   it('every connected-account-only mode is available — no tier gate left', async () => {
     const base = getBaseConfig();
-    const [canvas, mcp, connectors, multiAgent] = await Promise.all([
+    const [canvas, mcp, multiAgent] = await Promise.all([
       getGroupConfig('canvas'),
       getGroupConfig('mcp'),
-      getGroupConfig('connectors'),
       getGroupConfig('multi-agent'),
     ]);
-    for (const config of [canvas, mcp, connectors, multiAgent]) {
+    for (const config of [canvas, mcp, multiAgent]) {
       expect(config.instructions).not.toBe(base.instructions);
     }
   });

@@ -83,7 +83,6 @@ export type PreferenceKey =
   | 'zetora-voice-enabled'
   | 'zetora-apps-enabled'
   | 'zetora-swarm-enabled'
-  | 'zetora-connectors-enabled'
   | 'zetora-canvas-enabled'
   | 'zetora-fallback-metadata'
   | 'zetora-fallback-notte'

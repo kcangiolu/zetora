@@ -456,9 +456,6 @@ importers:
       sileo:
         specifier: ^0.1.5
         version: 0.1.5(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
-      supermemory:
-        specifier: ^4.17.0
-        version: 4.21.1
       tailwind-merge:
         specifier: ^3.5.0
         version: 3.6.0
@@ -7491,10 +7488,6 @@ packages:
         optional: true
       babel-plugin-macros:
         optional: true
-
-  supermemory@4.21.1:
-    resolution: {integrity: sha512-KayOHtD94g7O+yN2qxaHEO5UIXtDl+duaKuhW7gvaraVtP1RHxFn80Pb5s5rKmqIvC+ruaARRlgMw7s/y+6LGQ==}
-    hasBin: true
 
   supports-color@7.2.0:
     resolution: {integrity: sha512-qpCAvRl9stuOHveKsn7HncJRvv501qIacKzQlO/+Lwxc9+0q2wLyv4Dfvt80/DPn2pqOBsJdDiogXGR9+OvwRw==}
@@ -15502,8 +15495,6 @@ snapshots:
       react: 19.2.6
     optionalDependencies:
       '@babel/core': 7.29.7(supports-color@7.2.0)
-
-  supermemory@4.21.1: {}
 
   supports-color@7.2.0:
     dependencies:

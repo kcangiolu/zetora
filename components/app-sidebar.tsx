@@ -397,7 +397,6 @@ interface AppSidebarProps {
   setIsCustomInstructionsEnabledAction?: (value: boolean | ((val: boolean) => boolean)) => void;
   settingsOpen?: boolean;
   setSettingsOpen?: (open: boolean) => void;
-  settingsInitialTab?: string;
 }
 
 // Helper function to group chats by date

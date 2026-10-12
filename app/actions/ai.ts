@@ -48,14 +48,6 @@ import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 import type { CharacterAlignmentResponseModel } from '@elevenlabs/elevenlabs-js/api/types/CharacterAlignmentResponseModel';
 import { usageCountCache, createMessageCountKey } from '@/lib/performance-cache';
 import { getLightweightUserAuth, getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
-import {
-  createConnection,
-  listUserConnections,
-  deleteConnection,
-  manualSync,
-  getSyncStatus,
-  type ConnectorProvider,
-} from '@/lib/connectors';
 import { lookoutCallbackHeaders, lookoutQstashHeaders } from '@/lib/lookout-auth';
 import { saveChat, saveMessages } from '@/lib/db/queries';
 import { all, allSettled } from 'better-all';

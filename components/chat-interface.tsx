@@ -78,7 +78,6 @@ import { ChatSDKError } from '@/lib/errors';
 import { cn, SearchGroupId } from '@/lib/utils';
 import { AUTO_MODEL_ID, DEFAULT_MODEL_ALIAS } from '@/ai/models';
 import { useModels } from '@/hooks/use-models';
-import { ConnectorProvider } from '@/lib/connectors';
 
 // State management imports
 import { chatReducer, createInitialState } from '@/components/chat-state';
@@ -242,7 +241,6 @@ const ChatInterface = memo(
       sessionLock: sessionChatLock,
       storedGroup: rawSelectedGroup,
     });
-    const [selectedConnectors, setSelectedConnectors] = useState<ConnectorProvider[]>([]);
     const [isMultiAgentModeEnabled, setIsMultiAgentModeEnabled] = useLocalStorage('zetora-multi-agent-enabled', false);
     const [isCustomInstructionsEnabled, setIsCustomInstructionsEnabled] = useLocalStorage(
       'zetora-custom-instructions-enabled',
@@ -269,15 +267,6 @@ const ChatInterface = memo(
 
     // Settings page navigation (replaces dialog/hash approach)
     const [settingsOpen, setSettingsOpen] = useState(false);
-    const [settingsInitialTab, setSettingsInitialTab] = useState<string>('profile');
-
-    const handleOpenSettings = useCallback(
-      (tab: string = 'profile') => {
-        setSettingsInitialTab(tab);
-        router.push(tab ? `/settings?tab=${encodeURIComponent(tab)}` : '/settings');
-      },
-      [router],
-    );
 
     // Get persisted values for dialog states
     const [persistedHasShownLookoutAnnouncement, setPersitedHasShownLookoutAnnouncement] = useLocalStorage(
@@ -587,7 +576,6 @@ const ChatInterface = memo(
     const isCustomInstructionsEnabledRef = useRef(isCustomInstructionsEnabled);
     const searchProviderRef = useRef(searchProvider);
     const extremeSearchProviderRef = useRef<'exa'>('exa');
-    const selectedConnectorsRef = useRef(selectedConnectors);
     const sessionEnabledSourcesRef = useRef(sessionEnabledSources);
     const isMultiAgentModeEnabledRef = useRef(isMultiAgentModeEnabled);
     const isTemporaryChatRef = useRef(isTemporaryChat);
@@ -601,7 +589,6 @@ const ChatInterface = memo(
     isCustomInstructionsEnabledRef.current = isCustomInstructionsEnabled;
     searchProviderRef.current = searchProvider;
     extremeSearchProviderRef.current = 'exa';
-    selectedConnectorsRef.current = selectedConnectors;
     sessionEnabledSourcesRef.current = sessionEnabledSources;
     isMultiAgentModeEnabledRef.current = isMultiAgentModeEnabled;
     isTemporaryChatRef.current = isTemporaryChat;
@@ -655,7 +642,6 @@ const ChatInterface = memo(
               isCustomInstructionsEnabled: isCustomInstructionsEnabledRef.current,
               searchProvider: searchProviderRef.current,
               extremeSearchProvider: extremeSearchProviderRef.current,
-              selectedConnectors: selectedConnectorsRef.current,
               sessionEnabledSources: sessionEnabledSourcesRef.current,
               isTemporaryChat: isTemporaryChatRef.current,
               ...(initialChatId ? { chat_id: initialChatId } : {}),
@@ -1449,7 +1435,6 @@ const ChatInterface = memo(
           setIsCustomInstructionsEnabledAction={setIsCustomInstructionsEnabled}
           settingsOpen={settingsOpen}
           setSettingsOpen={setSettingsOpen}
-          settingsInitialTab={settingsInitialTab}
         />
         <SidebarInset>
           {/* Temporary Chat Header - show when in temp mode with messages but no regular header */}
@@ -1839,9 +1824,6 @@ const ChatInterface = memo(
                           typeof hasSubmitted === 'function' ? hasSubmitted(chatState.hasSubmitted) : hasSubmitted;
                         dispatch({ type: 'SET_HAS_SUBMITTED', payload: newValue });
                       }}
-                      onOpenSettings={handleOpenSettings}
-                      selectedConnectors={selectedConnectors}
-                      setSelectedConnectors={setSelectedConnectors}
                       isMultiAgentModeEnabled={Boolean(isMultiAgentModeEnabled)}
                       setIsMultiAgentModeEnabled={
                         user

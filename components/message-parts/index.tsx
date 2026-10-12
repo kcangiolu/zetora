@@ -104,7 +104,6 @@ import { CoinData as CryptoCoinsData } from '@/components/crypto-coin-data';
 import { CurrencyConverter } from '@/components/currency_conv';
 import { YouTubeSearchResults } from '@/components/youtube-search-results';
 import { SpotifySearchResults } from '@/components/spotify-search-results';
-import { ConnectorsSearchResults } from '@/components/connectors-search-results';
 import { CodeInterpreterView, NearbySearchSkeleton } from '@/components/tool-invocation-list-view';
 import { RetrieveResults } from '@/components/retrieve-results';
 import FileQuerySearch from '@/components/file-query-search';
@@ -2888,31 +2887,6 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                       )}
                     </div>
                   </div>
-                );
-            }
-            break;
-
-          case 'tool-connectors_search':
-            switch (part.state) {
-              case 'input-streaming':
-              case 'input-available':
-                return (
-                  <ConnectorsSearchResults
-                    key={`${messageIndex}-${partIndex}-tool`}
-                    results={[]}
-                    query={part.input?.query || ''}
-                    totalResults={0}
-                    isLoading={true}
-                  />
-                );
-              case 'output-available':
-                return (
-                  <ConnectorsSearchResults
-                    key={`${messageIndex}-${partIndex}-tool`}
-                    results={part.output?.success ? part.output.results : []}
-                    query={part.output?.success ? part.output.query : ''}
-                    totalResults={part.output?.success ? part.output.count : 0}
-                  />
                 );
             }
             break;

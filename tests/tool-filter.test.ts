@@ -89,7 +89,7 @@ describe('filterActiveTools', () => {
   it('skips source narrowing in special modes', () => {
     const result = filterActiveTools({
       ...base,
-      specialMode: 'connectors',
+      specialMode: 'canvas',
       preferences: { 'zetora-enabled-sources': ['web'] },
     });
     expect(result).toContain('reddit_search');

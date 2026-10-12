@@ -29,7 +29,6 @@ interface LoadConfiguredToolsParams {
   includeMcpTools: boolean;
   mcpDynamicTools: Record<string, any>;
   lightweightUser: { userId: string; email: string } | null;
-  selectedConnectors: any;
   // The chat a remembered fact comes from; null outside a persisted chat.
   chatId?: string | null;
   userPreferences?: Record<string, unknown>;
@@ -46,7 +45,6 @@ export async function loadConfiguredTools({
   includeMcpTools,
   mcpDynamicTools,
   lightweightUser,
-  selectedConnectors,
   chatId,
   userPreferences,
   anonymizeContext,
@@ -222,13 +220,6 @@ export async function loadConfiguredTools({
           const { createMemoryTools } = await import('@/lib/memory/tools');
           const { searchMemories, addMemory } = createMemoryTools(lightweightUser.userId, chatId ?? null);
           tools[toolName] = toolName === 'add_memory' ? addMemory : searchMemories;
-          return;
-        }
-        case 'connectors_search': {
-          if (!lightweightUser) return;
-          const { createConnectorsSearchTool } = await import('@/lib/tools/connectors-search');
-          const built = createConnectorsSearchTool(lightweightUser.userId, selectedConnectors);
-          tools.connectors_search = anonymizeContext ? withEgressAnonymization(built, anonymizeContext) : built;
           return;
         }
         default:

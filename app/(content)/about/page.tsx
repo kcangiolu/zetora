@@ -21,7 +21,6 @@ import {
   TrendingUp,
   MessageSquare,
   Bitcoin,
-  Plug,
   Headphones,
   ChartNoAxesCombined,
 } from 'lucide-react';
@@ -270,7 +269,6 @@ export default function AboutPage() {
     { icon: ChartNoAxesCombined, name: 'Prediction', description: 'Prediction markets from Polymarket and Kalshi' },
     { icon: Music, name: 'YouTube', description: 'Video summaries, transcripts, and analysis' },
     { icon: Headphones, name: 'Spotify', description: 'Search songs, artists, and albums' },
-    { icon: Plug, name: 'Connectors', description: 'Search Google Drive, Notion & OneDrive' },
     { icon: Mic, name: 'Voice', description: 'Conversational AI with real-time voice' },
   ];
 

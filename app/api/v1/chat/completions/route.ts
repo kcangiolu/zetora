@@ -88,7 +88,6 @@ export async function POST(req: NextRequest) {
     includeMcpTools: false,
     mcpDynamicTools: {},
     lightweightUser: { userId, email: '' },
-    selectedConnectors: undefined,
     userPreferences: (prefs ?? {}) as Record<string, unknown>,
     anonymizeContext,
   });

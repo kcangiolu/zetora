@@ -314,7 +314,6 @@ export const userPreferences = pgTable('user_preferences', {
         | 'extreme'
         | 'crypto'
         | 'code'
-        | 'connectors'
         | 'mcp'
         | 'multi-agent'
         | 'prediction'

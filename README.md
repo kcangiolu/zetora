@@ -18,7 +18,7 @@ Runs either way, your choice: entirely against managed cloud providers with zero
 
 - **Agentic Planning** — Breaks complex questions into steps, selects the right models and tools, then executes multi-step workflows end to end
 - **Grounded Retrieval** — Every answer comes with inline citations you can click to audit the evidence yourself
-- **Hybrid RAG** — Self-hosted vector search (Qdrant) with content indexing, RRF fusion, and Cohere reranking for file/connector search
+- **Hybrid RAG** — Self-hosted vector search (Qdrant) with content indexing, RRF fusion, and Cohere reranking for file search
 - **Skills** — 15 loadable research and generation skills (deep research, academic review, market intel, image generation, Office documents, …) picked automatically per message
 - **Generation** — Image generation and editing with durable storage, plus document generation skills for .docx, .pptx, .pdf, and .xlsx
 - **Privacy Layer** — Optional PII anonymization (Microsoft Presidio) that masks personal data before it reaches cloud providers
@@ -34,7 +34,6 @@ A few modes remain **exclusive per-message selections**, because they replace th
 | Special mode    | Description                                                                            |
 | --------------- | -------------------------------------------------------------------------------------- |
 | **Memory**      | Your personal memory companion: an editable profile plus facts learned from your chats |
-| **Connectors**  | Search Google Drive, Notion & OneDrive                                                 |
 | **Apps (MCP)**  | Use tools from your connected MCP apps                                                 |
 | **Multi-agent** | High-agency research via xAI's multi-agent Grok with server-side web/X search          |
 | **Canvas**      | Research and generate interactive dashboards and visual reports                        |
@@ -94,7 +93,6 @@ Loadable per-message via the `skill` tool (subject to your disabled-skills prefe
 - **Code context** — Get contextual information about programming topics using Exa Context API
 - **Text translation** — Translate text (and text within images) between languages using AI models
 - **File query search** — Semantic search over uploaded files (PDF, CSV, DOCX, Excel) with Cohere embeddings and reranking
-- **Connectors search** — Search connected Google Drive, Notion, and OneDrive
 - **Memory** — An editable profile plus facts learned automatically after each answer (stored in Postgres, no extra service), injected into the prompt when relevant; manage everything under Settings → Memories
 - **Date & time** — Current date/time in multiple formats with timezone support
 - **Greeting** — Personalized time-of-day-aware greetings
@@ -199,7 +197,6 @@ See `.env.example` for the full catalog of provider and feature environment vari
 - [Google Maps](https://developers.google.com/maps) - Geocoding and places
 - [TMDB](https://www.themoviedb.org/) - Movie and TV data
 - [Cohere](https://cohere.com/) - Embeddings and reranking
-- [Supermemory](https://supermemory.ai/) - Connector sync and search (Google Drive, Notion, OneDrive)
 - [ElevenLabs](https://elevenlabs.io/) - Voice synthesis
 
 ## Installation

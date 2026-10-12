@@ -26,7 +26,7 @@ describe('getStreamTextStaticSettings', () => {
       (
         await getStreamTextStaticSettings({
           ...base,
-          specialMode: 'connectors',
+          specialMode: 'canvas',
           isXmlParsedCustomModel: true,
         })
       ).stopWhenStepCount,

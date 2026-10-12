@@ -29,7 +29,7 @@ import { cn, SearchGroup, SearchGroupId, getSearchGroups, SearchProvider } from 
 import { track } from '@vercel/analytics';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ComprehensiveUserData } from '@/hooks/use-user-data';
-import { enhancePrompt, listUserConnectorsAction, getHermesConnectorStatusAction } from '@/app/actions';
+import { enhancePrompt, getHermesConnectorStatusAction } from '@/app/actions';
 import { LockIcon, Eye, MagnifyingGlassIcon } from '@phosphor-icons/react';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { GlobalSearchIcon, DocumentAttachmentIcon } from '@hugeicons/core-free-icons';
@@ -54,14 +54,12 @@ import type { HermesChatLock } from '@/lib/hermes/chat-mode';
 import { HERMES_MAX_ATTACHMENT_BYTES } from '@/lib/hermes/attachments';
 import { isHermesEnabled } from '@/lib/hermes/enabled';
 import { HermesCommandMenu } from './hermes-command-menu';
-import { type ConnectorProvider } from '@/lib/connectors';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useWebHaptics } from 'web-haptics/react';
 import { ModelSwitcher, FlexibleIcon } from './model-switcher';
 import { ReasoningEffortToggle } from './reasoning-effort-toggle';
 import type { ReasoningEffort } from '@/lib/reasoning-effort-types';
 import { useModeAccentStyle, ModeAccentSpread } from '@/components/mode-accent';
-import { ConnectorSelector } from './connector-selector';
 import { McpServerSelector } from './mcp-server-selector';
 import {
   type Attachment,
@@ -122,9 +120,6 @@ export interface FormComponentProps {
   showExperimentalModels: boolean;
   status: UseChatHelpers<ChatMessage>['status'];
   setHasSubmitted: React.Dispatch<React.SetStateAction<boolean>>;
-  onOpenSettings?: (tab?: string) => void;
-  selectedConnectors?: ConnectorProvider[];
-  setSelectedConnectors?: React.Dispatch<React.SetStateAction<ConnectorProvider[]>>;
   usageData?: { messageCount: number; extremeSearchCount: number; error: string | null } | null;
   isTemporaryChatEnabled: boolean;
   isTemporaryChat: boolean;
@@ -167,7 +162,7 @@ const WEB_SEARCH_PROVIDERS: Array<{
 
 // The 11 single-purpose search tools that are now always-on, filtered by the
 // zetora-enabled-sources preference, instead of an exclusive mode you had to
-// pick. Memory/Connectors/Apps/Swarm/Canvas stay exclusive per-message
+// pick. Memory/Apps/Swarm/Canvas stay exclusive per-message
 // toggles (see VALID_SPECIAL_MODES) since they replace the whole tool set
 // (or, for Canvas, the whole response pipeline) rather than just adding one.
 const SOURCE_CATALOG_IDS = [
@@ -186,7 +181,6 @@ const SOURCE_CATALOG_IDS = [
 
 const BASE_VALID_SPECIAL_MODES = new Set<string>([
   'auto',
-  'connectors',
   'mcp',
   'multi-agent',
   'canvas',
@@ -226,10 +220,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
   setMessages,
   status,
   setHasSubmitted,
-  onOpenSettings,
   usageData,
-  selectedConnectors = [],
-  setSelectedConnectors,
   isTemporaryChatEnabled,
   isTemporaryChat,
   isTemporaryChatLocked,
@@ -251,7 +242,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
   // availability gate above; both must hold for the mode to be offered.
   const [appsEnabledPref] = useSyncedPreferences<boolean>('zetora-apps-enabled', true);
   const [swarmEnabledPref] = useSyncedPreferences<boolean>('zetora-swarm-enabled', true);
-  const [connectorsEnabledPref] = useSyncedPreferences<boolean>('zetora-connectors-enabled', true);
   const [canvasEnabledPref] = useSyncedPreferences<boolean>('zetora-canvas-enabled', true);
   // Gates the deep-research/extreme-search forced-mode entries below: a
   // disabled skill can no longer be forced, same list Settings > Skills
@@ -295,7 +285,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const [isTypewriting, setIsTypewriting] = useState(false);
   const [showSignInDialog, setShowSignInDialog] = useState(false);
 
-  // Inline trigger popup state: '@' for sources, '/' for modes (extreme/connectors)
+  // Inline trigger popup state: '@' for sources, '/' for modes (extreme/canvas/apps)
   const [triggerPopup, setTriggerPopup] = useState<'@' | '/' | null>(null);
   const [triggerFilter, setTriggerFilter] = useState('');
   const [triggerHighlightIndex, setTriggerHighlightIndex] = useState(0);
@@ -452,7 +442,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
     let allVisible = dynamicSearchGroups.filter((group) => {
       if (!group.show) return false;
       if ('requireAuth' in group && group.requireAuth && !user) return false;
-      if (group.id === 'extreme' || group.id === 'connectors' || group.id === 'canvas' || group.id === 'mcp')
+      if (group.id === 'extreme' || group.id === 'canvas' || group.id === 'mcp')
         return false;
       return true;
     });
@@ -475,7 +465,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
     if (!disabledSkillsPref.includes('deep-research')) modeIds.add('deep-research');
     if (!disabledSkillsPref.includes('extreme-search')) modeIds.add('extreme-search');
     if (swarmEnabledPref) modeIds.add('multi-agent');
-    if (connectorsEnabledPref) modeIds.add('connectors');
     if (canvasEnabled) modeIds.add('canvas');
     if (mcpEnabled) modeIds.add('mcp');
     if (hermesSelectableForChat) modeIds.add('hermes');
@@ -484,7 +473,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
       if ('requireAuth' in group && group.requireAuth && !user) return false;
       return modeIds.has(group.id);
     });
-    const order = ['deep-research', 'extreme-search', 'connectors', 'mcp', 'multi-agent', 'canvas', 'hermes'];
+    const order = ['deep-research', 'extreme-search', 'mcp', 'multi-agent', 'canvas', 'hermes'];
     return filtered.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
   }, [
     dynamicSearchGroups,
@@ -492,7 +481,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
     mcpEnabled,
     hermesSelectableForChat,
     swarmEnabledPref,
-    connectorsEnabledPref,
     disabledSkillsPref,
     user,
   ]);
@@ -523,7 +511,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
     }
     const isHiddenByPreference =
       (selectedGroup === 'multi-agent' && !swarmEnabledPref) ||
-      (selectedGroup === 'connectors' && !connectorsEnabledPref) ||
       (selectedGroup === 'canvas' && !canvasEnabled) ||
       (selectedGroup === 'mcp' && !mcpEnabled) ||
       (selectedGroup === 'deep-research' && disabledSkillsPref.includes('deep-research')) ||
@@ -549,7 +536,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
     selectedGroup,
     setSelectedGroup,
     swarmEnabledPref,
-    connectorsEnabledPref,
     canvasEnabled,
     mcpEnabled,
     hermesSelectableForChat,
@@ -1180,7 +1166,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
   );
 
   // '/' mixes two different kinds of entries: skills (deep-research, extreme-search)
-  // force an existing skill for one message, while modes (multi-agent, connectors, mcp,
+  // force an existing skill for one message, while modes (multi-agent, mcp,
   // canvas) swap the whole pipeline for another agent. Label them separately so they
   // don't read as equivalent. Extracted to a memo (rather than an inline IIFE in JSX) so
   // it sits alongside the render's other trigger-popup content, swapped out for the
@@ -1371,46 +1357,16 @@ const FormComponent: React.FC<FormComponentProps> = ({
     selectedGroup,
   ]);
 
-  const handleConnectorToggle = useCallback(
-    (provider: ConnectorProvider) => {
-      if (!setSelectedConnectors) return;
-
-      setSelectedConnectors((prev) => {
-        if (prev.includes(provider)) {
-          return prev.filter((p) => p !== provider);
-        } else {
-          return [...prev, provider];
-        }
-      });
-    },
-    [setSelectedConnectors],
-  );
-
-  // Plus menu group select with auth/connector guards
   const handlePlusMenuGroupSelect = useCallback(
-    async (group: SearchGroup) => {
-      // Check if connectors group is selected but no connectors are connected
-      if (group.id === 'connectors' && user && onOpenSettings) {
-        try {
-          const result = await listUserConnectorsAction();
-          if (result.success && result.connections.length === 0) {
-            onOpenSettings('connectors');
-            setPlusMenuOpen(false);
-            return;
-          }
-        } catch (error) {
-          console.error('Error checking connectors:', error);
-        }
-      }
-
+    (group: SearchGroup) => {
       haptics.trigger('selection');
       handleGroupSelect(group);
       setPlusMenuOpen(false);
     },
-    [user, onOpenSettings, handleGroupSelect, haptics],
+    [handleGroupSelect, haptics],
   );
 
-  // Toggle one of the exclusive special modes (Memory/Connectors/Canvas)
+  // Toggle one of the exclusive special modes (Memory/Canvas)
   // from the plus menu — click again to turn off and fall back to the base
   // Sources+Skills path, mirroring the existing Swarm/Apps toggle rows.
   const handleSpecialModeToggle = useCallback(
@@ -1432,24 +1388,11 @@ const FormComponent: React.FC<FormComponentProps> = ({
         return;
       }
 
-      if (modeId === 'connectors' && user && onOpenSettings) {
-        try {
-          const result = await listUserConnectorsAction();
-          if (result.success && result.connections.length === 0) {
-            onOpenSettings('connectors');
-            setPlusMenuOpen(false);
-            return;
-          }
-        } catch (error) {
-          console.error('Error checking connectors:', error);
-        }
-      }
-
       haptics.trigger('selection');
       handleGroupSelect(group);
       setPlusMenuOpen(false);
     },
-    [dynamicSearchGroups, user, selectedGroup, setSelectedGroup, onOpenSettings, handleGroupSelect, haptics],
+    [dynamicSearchGroups, user, selectedGroup, setSelectedGroup, handleGroupSelect, haptics],
   );
 
   const uploadFile = useCallback(async (file: File): Promise<Attachment> => {
@@ -2687,7 +2630,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                   isRecording && 'bg-muted! text-muted-foreground!',
                 )}
               >
-                {/* Left: Plus menu button + connector selector */}
+                {/* Left: Plus menu button + mode selectors */}
                 <div className="flex items-center gap-1.5">
                   {isMobile ? (
                     <Drawer open={plusMenuOpen} onOpenChange={handlePlusMenuOpenChange}>
@@ -2751,36 +2694,14 @@ const FormComponent: React.FC<FormComponentProps> = ({
                                 'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors',
                                 selectedGroup === 'mcp' && 'bg-accent',
                               )}
-                              onClick={async () => {
+                              onClick={() => {
                                 const g = dynamicSearchGroups.find((g) => g.id === 'mcp');
-                                if (g) await handlePlusMenuGroupSelect(g);
+                                if (g) handlePlusMenuGroupSelect(g);
                               }}
                             >
                               <AppsIcon width={16} height={16} />
                               <span className="flex-1 text-[13px]">Apps</span>
                               {selectedGroup === 'mcp' && (
-                                <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                  Active
-                                </span>
-                              )}
-                            </button>
-                          )}
-                          {user && connectorsEnabledPref && (
-                            <button
-                              className={cn(
-                                'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors',
-                                selectedGroup === 'connectors' && 'bg-accent',
-                              )}
-                              onClick={() => handleSpecialModeToggle('connectors')}
-                            >
-                              <FlexibleIcon
-                                icon={dynamicSearchGroups.find((g) => g.id === 'connectors')!.icon}
-                                size={16}
-                                color="currentColor"
-                                strokeWidth={1.5}
-                              />
-                              <span className="flex-1 text-[13px]">Connectors</span>
-                              {selectedGroup === 'connectors' && (
                                 <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
                                   Active
                                 </span>
@@ -3008,9 +2929,9 @@ const FormComponent: React.FC<FormComponentProps> = ({
                                   'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors',
                                   selectedGroup === 'mcp' && 'bg-accent',
                                 )}
-                                onClick={async () => {
+                                onClick={() => {
                                   const g = dynamicSearchGroups.find((g) => g.id === 'mcp');
-                                  if (g) await handlePlusMenuGroupSelect(g);
+                                  if (g) handlePlusMenuGroupSelect(g);
                                 }}
                               >
                                 <AppsIcon width={16} height={16} />
@@ -3024,35 +2945,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
                             </TooltipTrigger>
                             <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
                               <span className="text-[10px] leading-snug">Use tools from your connected apps</span>
-                            </TooltipContent>
-                          </Tooltip>
-                        )}
-                        {user && connectorsEnabledPref && (
-                          <Tooltip delayDuration={200}>
-                            <TooltipTrigger asChild>
-                              <button
-                                className={cn(
-                                  'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors',
-                                  selectedGroup === 'connectors' && 'bg-accent',
-                                )}
-                                onClick={() => handleSpecialModeToggle('connectors')}
-                              >
-                                <FlexibleIcon
-                                  icon={dynamicSearchGroups.find((g) => g.id === 'connectors')!.icon}
-                                  size={16}
-                                  color="currentColor"
-                                  strokeWidth={1.5}
-                                />
-                                <span className="flex-1 text-[13px]">Connectors</span>
-                                {selectedGroup === 'connectors' && (
-                                  <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                    Active
-                                  </span>
-                                )}
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
-                              <span className="text-[10px] leading-snug">Search Google Drive, Notion and OneDrive</span>
                             </TooltipContent>
                           </Tooltip>
                         )}
@@ -3217,7 +3109,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
                     if (
                       !activeGroup ||
                       selectedGroup === 'auto' ||
-                      selectedGroup === 'connectors' ||
                       selectedGroup === 'mcp' ||
                       selectedGroup === 'multi-agent'
                     ) {
@@ -3336,15 +3227,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
                       </Tooltip>
                     );
                   })()}
-
-                  {/* Inline connector selector when connectors mode is active */}
-                  {selectedGroup === 'connectors' && setSelectedConnectors && (
-                    <ConnectorSelector
-                      selectedConnectors={selectedConnectors}
-                      onConnectorToggle={handleConnectorToggle}
-                      user={user}
-                    />
-                  )}
 
                   {/* Inline MCP server selector when MCP mode is active */}
                   {selectedGroup === 'mcp' && <McpServerSelector user={user} />}

@@ -41,14 +41,6 @@ import {
   getCachedUserPreferencesByUserId,
   clearUserPreferencesCache,
 } from '@/lib/user-data-server';
-import {
-  createConnection,
-  listUserConnections,
-  deleteConnection,
-  manualSync,
-  getSyncStatus,
-  type ConnectorProvider,
-} from '@/lib/connectors';
 import { lookoutCallbackHeaders, lookoutQstashHeaders } from '@/lib/lookout-auth';
 import { v7 as uuidv7 } from 'uuid';
 import { saveChat, saveMessages } from '@/lib/db/queries';

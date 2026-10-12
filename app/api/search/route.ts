@@ -127,7 +127,6 @@ export async function POST(req: Request) {
     selectedVisibilityType,
     isCustomInstructionsEnabled,
     searchProvider,
-    selectedConnectors,
     sessionEnabledSources,
     isTemporaryChat,
     isAutoRouted,
@@ -144,7 +143,7 @@ export async function POST(req: Request) {
   // base tool set for a turn. Any other/legacy `group` value (old single-
   // purpose modes, 'auto', or absent) falls through to the base Sources+
   // Skills path.
-  const SPECIAL_MODE_IDS = new Set(['connectors', 'mcp', 'multi-agent', 'canvas', 'deep-research', 'extreme-search']);
+  const SPECIAL_MODE_IDS = new Set(['mcp', 'multi-agent', 'canvas', 'deep-research', 'extreme-search']);
   // `let` because deep-research/extreme-search get re-validated against
   // zetora-disabled-skills once preferences are available below and
   // downgraded back to undefined if the requester disabled that skill.
@@ -684,7 +683,6 @@ export async function POST(req: Request) {
         includeMcpTools: dynamicToolNames.length > 0,
         mcpDynamicTools,
         lightweightUser,
-        selectedConnectors,
         chatId: isTemporaryChat ? null : id,
         userPreferences: (userPreferencesResult?.preferences ?? {}) as Record<string, unknown>,
         anonymizeContext,

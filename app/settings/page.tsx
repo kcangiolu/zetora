@@ -4,7 +4,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUser } from '@/contexts/user-context';
 import {
   PreferencesSection,
-  ConnectorsSection,
   MemoriesSection,
   UploadsSection,
   DownloadsSection,
@@ -56,7 +55,6 @@ function SettingsContent() {
   const tabs = [
     { value: 'preferences', label: 'Preferences', icon: Settings02Icon },
     { value: 'security', label: 'Security', icon: ShieldKeyIcon },
-    { value: 'connectors', label: 'Connectors', icon: ConnectIcon },
     { value: 'skills', label: 'Skills', icon: SparklesIcon },
     { value: 'memories', label: 'Memories', icon: Brain02Icon },
     { value: 'uploads', label: 'Uploads', icon: Attachment01Icon },
@@ -281,21 +279,6 @@ function SettingsContent() {
                     <p className="text-sm text-muted-foreground">Protect your account with two-factor authentication</p>
                   </div>
                   <TwoFactorSettings enabled={Boolean(user?.twoFactorEnabled)} />
-                </div>
-              </TabsContent>
-
-              <TabsContent value="connectors" className="m-0">
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-pixel-grid text-xs text-muted-foreground/30">
-                        {tabs.find((t) => t.value === 'connectors')?.number}
-                      </span>
-                      <h2 className="text-lg font-semibold">Connectors</h2>
-                    </div>
-                    <p className="text-sm text-muted-foreground">Connect your external services and data sources</p>
-                  </div>
-                  <ConnectorsSection user={user} />
                 </div>
               </TabsContent>
 
