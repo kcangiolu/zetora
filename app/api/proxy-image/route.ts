@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { lookup } from 'node:dns/promises';
-import { isIP } from 'node:net';
-
 import { createLogger } from '@/lib/logger';
+import { fetchPublicUrl, PublicUrlError } from '@/lib/net/public-url';
 
 const log = createLogger('proxy-image');
 
@@ -15,48 +13,6 @@ const MAX_REDIRECTS = 3;
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
 const FETCH_TIMEOUT_MS = 10_000;
 
-function isPrivateIp(ip: string): boolean {
-  if (ip.includes(':')) {
-    // IPv6 (including IPv4-mapped addresses)
-    const lower = ip.toLowerCase();
-    if (lower === '::' || lower === '::1') return true;
-    if (lower.startsWith('fe80:') || lower.startsWith('fc') || lower.startsWith('fd')) return true;
-    const mapped = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-    if (mapped) return isPrivateIp(mapped[1]);
-    return false;
-  }
-  const parts = ip.split('.').map(Number);
-  if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) return true;
-  const [a, b] = parts;
-  return (
-    a === 0 ||
-    a === 10 ||
-    a === 127 ||
-    (a === 100 && b >= 64 && b <= 127) || // CGNAT
-    (a === 169 && b === 254) || // link-local / cloud metadata
-    (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168) ||
-    a >= 224 // multicast + reserved
-  );
-}
-
-async function assertPublicHttpUrl(raw: string): Promise<URL> {
-  const url = new URL(raw);
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    throw new Error('Only http(s) URLs are allowed');
-  }
-  const host = url.hostname;
-  if (isIP(host)) {
-    if (isPrivateIp(host)) throw new Error('Target resolves to a private address');
-    return url;
-  }
-  const addresses = await lookup(host, { all: true, verbatim: true });
-  if (addresses.length === 0 || addresses.some((a) => isPrivateIp(a.address))) {
-    throw new Error('Target resolves to a private address');
-  }
-  return url;
-}
-
 export async function GET(request: NextRequest) {
   const raw = request.nextUrl.searchParams.get('url');
   if (!raw) {
@@ -64,42 +20,23 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    let current: URL;
+    let response: Response;
     try {
-      current = await assertPublicHttpUrl(raw);
-    } catch (e) {
-      return NextResponse.json({ error: e instanceof Error ? e.message : 'Invalid URL' }, { status: 400 });
-    }
-
-    // Follow redirects manually so every hop gets the same private-IP check.
-    let response: Response | null = null;
-    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-      response = await fetch(current, {
-        redirect: 'manual',
-        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      ({ response } = await fetchPublicUrl(raw, {
+        timeoutMs: FETCH_TIMEOUT_MS,
+        maxRedirects: MAX_REDIRECTS,
         headers: {
           'User-Agent':
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         },
-      });
-
-      if (response.status >= 300 && response.status < 400) {
-        const location = response.headers.get('location');
-        if (!location || hop === MAX_REDIRECTS) {
-          return NextResponse.json({ error: 'Too many redirects' }, { status: 400 });
-        }
-        try {
-          current = await assertPublicHttpUrl(new URL(location, current).toString());
-        } catch {
-          return NextResponse.json({ error: 'Redirect target not allowed' }, { status: 400 });
-        }
-        continue;
-      }
-      break;
+      }));
+    } catch (e) {
+      if (e instanceof PublicUrlError) return NextResponse.json({ error: e.message }, { status: 400 });
+      throw e;
     }
 
-    if (!response || !response.ok) {
-      return NextResponse.json({ error: 'Failed to fetch image' }, { status: response?.status ?? 502 });
+    if (!response.ok) {
+      return NextResponse.json({ error: 'Failed to fetch image' }, { status: response.status });
     }
 
     const contentType = response.headers.get('content-type') || '';

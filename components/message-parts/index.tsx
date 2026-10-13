@@ -417,9 +417,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
         const entries = await Promise.all(
           sourceItems.map(async (source) => {
             try {
-              const response = await fetch(`https://metadata.zetora.app/?url=${encodeURIComponent(source.url)}`, {
-                cache: 'force-cache',
-              });
+              const response = await fetch(`/api/link-metadata?url=${encodeURIComponent(source.url)}`);
 
               if (!response.ok) {
                 return [source.url, {} satisfies SourceMetadata] as const;

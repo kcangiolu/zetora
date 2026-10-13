@@ -2,9 +2,10 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { serverEnv } from '@/env/server';
 import { scrapeWebpageWithNotte } from '@/lib/notte';
-import { FASTCRW_SCRAPE_TIMEOUT_MS, METADATA_TIMEOUT_MS, withAbort } from '@/lib/timeouts';
+import { FASTCRW_SCRAPE_TIMEOUT_MS, withAbort } from '@/lib/timeouts';
 
 import { createLogger } from '@/lib/logger';
+import { getLinkMetadata } from '@/lib/link-metadata';
 
 const log = createLogger('selfhosted-content');
 
@@ -131,51 +132,27 @@ async function scrapeWithNotte(url: string, maxContentChars: number = SEARCH_CON
   }
 }
 
-interface MetadataResponse {
-  title?: string;
-  description?: string;
-  canonical?: string;
-  ogUrl?: string;
-  favicon?: string;
-  finalUrl?: string;
-  siteName?: string | null;
-  image?: string;
-}
+// Bounded by getLinkMetadata's own timeout, and cached.
+async function scrapeWithMetadata(url: string): Promise<SearchResult | null> {
+  const data = await getLinkMetadata(url);
+  if (!data) return null;
+  const hostname = getHostnameForUrl(url);
+  const title = data.title || hostname;
+  const content = [title, data.description].filter(Boolean).join('\n\n').slice(0, SEARCH_CONTENT_MAX_CHARS);
 
-async function scrapeWithMetadata(url: string, abortSignal?: AbortSignal): Promise<SearchResult | null> {
-  try {
-    const endpoint = new URL('https://metadata.zetora.app/');
-    endpoint.searchParams.set('url', url);
-    const response = await fetch(endpoint.toString(), {
-      method: 'GET',
-      signal: withAbort(abortSignal, METADATA_TIMEOUT_MS),
-    });
-    if (!response.ok) return null;
-
-    const data = (await response.json()) as MetadataResponse;
-    const hostname = getHostnameForUrl(url);
-    const title = (data.title || '').trim() || hostname;
-    const content = [title, (data.description || '').trim()]
-      .filter(Boolean)
-      .join('\n\n')
-      .slice(0, SEARCH_CONTENT_MAX_CHARS);
-
-    return {
-      title,
-      url,
-      content: content || title,
-      publishedDate: '',
-      favicon: data.favicon || `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`,
-      description: data.description,
-      canonical: data.canonical,
-      ogUrl: data.ogUrl,
-      finalUrl: data.finalUrl,
-      siteName: data.siteName,
-      image: data.image,
-    };
-  } catch {
-    return null;
-  }
+  return {
+    title,
+    url,
+    content: content || title,
+    publishedDate: '',
+    favicon: data.favicon || `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`,
+    description: data.description,
+    canonical: data.canonical,
+    ogUrl: data.ogUrl,
+    finalUrl: data.finalUrl,
+    siteName: data.siteName,
+    image: data.image,
+  };
 }
 
 interface SelfHostedContentOptions {
@@ -256,7 +233,7 @@ export class SelfHostedContentStrategy implements ContentExtractionStrategy {
 
     if (remaining.length > 0 && this.metadataEnabled) {
       const metaResults = await all(
-        Object.fromEntries(remaining.map((url, i) => [`md:${i}`, async () => scrapeWithMetadata(url, abortSignal)])),
+        Object.fromEntries(remaining.map((url, i) => [`md:${i}`, async () => scrapeWithMetadata(url)])),
         getBetterAllOptions(),
       );
 

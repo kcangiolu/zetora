@@ -3,6 +3,7 @@ import 'server-only';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import type { UserMcpServer } from '@/lib/db/schema';
+import { isPrivateIp } from '@/lib/net/public-url';
 import { decryptMcpCredentials, encryptMcpCredentials } from '@/lib/mcp/crypto';
 
 export type McpAuthType = 'none' | 'bearer' | 'header' | 'oauth';
@@ -37,34 +38,9 @@ export interface McpServerInput {
   isEnabled?: boolean;
 }
 
-// Mirrors the private-IP check in app/api/proxy-image/route.ts: MCP server
-// URLs are user-supplied (Pro users register/test them), so without this an
-// attacker could point a server at an internal service or the cloud
-// metadata endpoint and read the response through the MCP bridge/tools APIs.
-function isPrivateIp(ip: string): boolean {
-  if (ip.includes(':')) {
-    const lower = ip.toLowerCase();
-    if (lower === '::' || lower === '::1') return true;
-    if (lower.startsWith('fe80:') || lower.startsWith('fc') || lower.startsWith('fd')) return true;
-    const mapped = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-    if (mapped) return isPrivateIp(mapped[1]);
-    return false;
-  }
-  const parts = ip.split('.').map(Number);
-  if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) return true;
-  const [a, b] = parts;
-  return (
-    a === 0 ||
-    a === 10 ||
-    a === 127 ||
-    (a === 100 && b >= 64 && b <= 127) || // CGNAT
-    (a === 169 && b === 254) || // link-local / cloud metadata
-    (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168) ||
-    a >= 224 // multicast + reserved
-  );
-}
-
+// MCP server URLs are user-supplied, so they must resolve to a public address
+// (see lib/net/public-url.ts), with dev-mode http://localhost as the only
+// exception.
 export async function validateMcpServerUrl(url: string) {
   let parsed: URL;
   try {

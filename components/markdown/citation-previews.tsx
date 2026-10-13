@@ -38,9 +38,8 @@ function fetchMetadata(url: string) {
   if (!metadataCache.has(url)) {
     metadataCache.set(
       url,
-      fetch(`https://metadata.zetora.app/?url=${encodeURIComponent(url)}`)
-        .then((res) => res.json())
-        .then((data) => (data.url ? data : null))
+      fetch(`/api/link-metadata?url=${encodeURIComponent(url)}`)
+        .then((res) => (res.ok ? res.json() : null))
         .catch(() => null),
     );
   }
@@ -89,7 +88,7 @@ const LinkPreviewContent = ({ href, title }: { href: string; title?: string }) =
   const isAccessDenied = metadata?.title === 'Access Denied';
   const displayTitle = metadata?.title && !isAccessDenied ? metadata.title : title;
 
-  const metadataFavicon = metadata?.logo;
+  const metadataFavicon = metadata?.favicon;
   const googleFavicon = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
 
   // Determine favicon source based on error states
@@ -98,13 +97,13 @@ const LinkPreviewContent = ({ href, title }: { href: string; title?: string }) =
   let showIcon = false;
 
   if (!faviconError && metadataFavicon) {
-    // Try metadata logo first
+    // Try metadata favicon first
     favicon = metadataFavicon;
   } else if (!googleFaviconError) {
-    // If metadata logo failed/doesn't exist, try Google favicon
+    // If metadata favicon failed/doesn't exist, try Google favicon
     favicon = googleFavicon;
   } else if (!proxyError && metadataFavicon) {
-    // If Google also failed and we have a metadata logo, try proxying it
+    // If Google also failed and we have a metadata favicon, try proxying it
     favicon = `/api/proxy-image?url=${encodeURIComponent(metadataFavicon)}`;
     useProxy = true;
   } else {

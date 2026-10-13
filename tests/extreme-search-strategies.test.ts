@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
+const getLinkMetadataMock = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/link-metadata', () => ({ getLinkMetadata: getLinkMetadataMock }));
+
 vi.mock('@/env/server', () => ({
   serverEnv: {
     EXA_API_KEY: 'test-key',
@@ -142,13 +145,16 @@ describe('runExtremeContentExtraction (per-URL fallback)', () => {
   it('falls through to metadata for URLs still missing after primary and fallback', async () => {
     const exa = { getContents: vi.fn().mockResolvedValue({ results: [] }) };
     const clients = makeClients({ exa: exa as any });
-    const fetchMock = stubFetch({
-      'metadata.zetora.app': { title: 'Meta Title', description: 'desc' },
+    getLinkMetadataMock.mockResolvedValue({
+      url: 'https://a.com',
+      finalUrl: 'https://a.com/',
+      title: 'Meta Title',
+      description: 'desc',
     });
 
     const results = await runExtremeContentExtraction(['https://a.com'], 'exa', null, true, clients);
 
-    expect(fetchMock).toHaveBeenCalled();
+    expect(getLinkMetadataMock).toHaveBeenCalledWith('https://a.com');
     expect(results).toHaveLength(1);
     expect(results[0].title).toBe('Meta Title');
   });

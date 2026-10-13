@@ -6,6 +6,7 @@
 // ----> Return all collected sources and research data to the user
 
 import { createLogger } from '@/lib/logger';
+import { getLinkMetadata } from '@/lib/link-metadata';
 import { resolveFallbackSearchProvider, resolveSearchProvider } from '@/lib/instance/capabilities';
 import type { SearchProviderFor } from '@/lib/search/providers';
 import Exa from 'exa-js';
@@ -214,18 +215,6 @@ async function searchFilesForQuery(
   return allResults.slice(0, maxResults);
 }
 
-interface MetadataZetoraResponse {
-  url?: string;
-  canonical?: string;
-  ogUrl?: string;
-  title?: string;
-  description?: string;
-  siteName?: string | null;
-  image?: string;
-  favicon?: string;
-  finalUrl?: string;
-}
-
 function isHttpUrl(url: string) {
   try {
     const parsed = new URL(url);
@@ -263,54 +252,38 @@ async function getMetadataFallbackResults(urls: string[], logPrefix: string): Pr
   const uniqueUrls = Array.from(new Set(urls)).filter(isHttpUrl);
   if (uniqueUrls.length === 0) return [];
 
-  log.debug(`[${logPrefix}] Using metadata.zetora.app fallback for ${uniqueUrls.length} URLs:`, uniqueUrls);
+  log.debug(`[${logPrefix}] Using the metadata fallback for ${uniqueUrls.length} URLs:`, uniqueUrls);
 
   const metadataResults = await all(
     Object.fromEntries(
       uniqueUrls.map((url, index) => [
         `md:${index}`,
         async () => {
-          try {
-            const endpoint = new URL('https://metadata.zetora.app/');
-            endpoint.searchParams.set('url', url);
+          const data = await getLinkMetadata(url);
+          if (!data) return null;
+          const parsedUrl = new URL(url);
 
-            const response = await fetch(endpoint.toString(), { method: 'GET' });
-            if (!response.ok) {
-              log.error(`[${logPrefix}] metadata.zetora.app failed for ${url}:`, response.status, response.statusText);
-              return null;
-            }
+          const title = data.title || parsedUrl.hostname || url.split('/').pop() || 'Retrieved Content';
+          const content = buildMetadataFallbackContent({
+            title,
+            description: data.description,
+            canonical: data.canonical,
+            finalUrl: data.finalUrl,
+          }).slice(0, 3000);
 
-            const data = (await response.json()) as MetadataZetoraResponse;
-            const parsedUrl = new URL(url);
-
-            const title =
-              (data.title || '').trim() || parsedUrl.hostname || url.split('/').pop() || 'Retrieved Content';
-            const content = buildMetadataFallbackContent({
-              title,
-              description: data.description,
-              canonical: data.canonical,
-              finalUrl: data.finalUrl,
-            }).slice(0, 3000);
-
-            const favicon = data.favicon || `https://www.google.com/s2/favicons?domain=${parsedUrl.hostname}&sz=128`;
-
-            return {
-              title,
-              url,
-              content,
-              publishedDate: '',
-              favicon,
-              description: data.description,
-              canonical: data.canonical,
-              ogUrl: data.ogUrl,
-              finalUrl: data.finalUrl,
-              siteName: data.siteName,
-              image: data.image,
-            } satisfies SearchResult;
-          } catch (error) {
-            log.error(`[${logPrefix}] metadata.zetora.app error for ${url}:`, error);
-            return null;
-          }
+          return {
+            title,
+            url,
+            content,
+            publishedDate: '',
+            favicon: data.favicon || `https://www.google.com/s2/favicons?domain=${parsedUrl.hostname}&sz=128`,
+            description: data.description,
+            canonical: data.canonical,
+            ogUrl: data.ogUrl,
+            finalUrl: data.finalUrl,
+            siteName: data.siteName,
+            image: data.image,
+          } satisfies SearchResult;
         },
       ]),
     ),
