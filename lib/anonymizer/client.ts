@@ -29,6 +29,9 @@ export async function detectEntities(
   enableNer = true,
 ): Promise<DetectedEntity[]> {
   if (!text.trim()) return [];
+  // Unreachable in practice: getAnonymizeContext only builds a context when
+  // this instance has a detector.
+  if (!serverEnv.ANONYMIZER_API_URL) throw new Error('[anonymizer] ANONYMIZER_API_URL is not set');
 
   const url = `${serverEnv.ANONYMIZER_API_URL.replace(/\/$/, '')}/detect`;
   const body = JSON.stringify({ text, language, deny_terms: denyTerms, enable_ner: enableNer });

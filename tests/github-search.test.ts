@@ -41,17 +41,16 @@ afterEach(() => {
 });
 
 describe('githubSearchTool provider selection', () => {
-  it('uses firecrawl by default and never calls the SearXNG/fastCRW endpoints', async () => {
-    firecrawlSearchMock.mockResolvedValue({
-      web: [{ url: 'https://github.com/foo/bar', title: 'bar', description: 'desc' }],
+  it('defaults to the first available provider in order (SearXNG here) and calls nothing else', async () => {
+    const fetchMock = stubFetch({
+      'searxng.local/search': { results: [{ url: 'https://github.com/foo/bar', title: 'bar', content: 'desc' }] },
     });
-    const fetchMock = stubFetch({});
 
     const tool = githubSearchTool(undefined, undefined);
     const result = await runTool(tool, ['foo']);
 
     expect(result.searches[0].results).toHaveLength(1);
-    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('searxng'))).toBe(false);
+    expect(firecrawlSearchMock).not.toHaveBeenCalled();
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('fastcrw'))).toBe(false);
   });
 
@@ -64,6 +63,7 @@ describe('githubSearchTool provider selection', () => {
 
     const tool = githubSearchTool(undefined, {
       'zetora-github-search-provider': 'searxng',
+      'zetora-github-search-fallback-enabled': true,
       'zetora-github-search-fallback-provider': 'fastcrw',
     });
     const result = await runTool(tool, ['foo']);
@@ -87,6 +87,7 @@ describe('githubSearchTool provider selection', () => {
 
     const tool = githubSearchTool(undefined, {
       'zetora-github-search-provider': 'searxng',
+      'zetora-github-search-fallback-enabled': true,
       'zetora-github-search-fallback-provider': 'fastcrw',
     });
     const result = await runTool(tool, ['foo']);
@@ -108,19 +109,14 @@ describe('githubSearchTool provider selection', () => {
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('fastcrw'))).toBe(false);
   });
 
-  it('defaults the fallback to fastCRW (enabled) when no fallback preference is set', async () => {
-    const fetchMock = stubFetch({
-      'searxng.local/search': { results: [] },
-      'fastcrw.local/v1/search': {
-        success: true,
-        data: { results: [{ url: 'https://github.com/foo/bar', title: 'bar', snippet: '', description: '', score: 1, category: '' }] },
-      },
-    });
+  it('leaves the fallback off when no fallback preference is set', async () => {
+    const fetchMock = stubFetch({ 'searxng.local/search': { results: [] } });
 
     const tool = githubSearchTool(undefined, { 'zetora-github-search-provider': 'searxng' });
     const result = await runTool(tool, ['foo']);
 
-    expect(result.searches[0].results).toHaveLength(1);
-    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('fastcrw.local/v1/search'))).toBe(true);
+    expect(result.searches[0].results).toHaveLength(0);
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('fastcrw'))).toBe(false);
+    expect(firecrawlSearchMock).not.toHaveBeenCalled();
   });
 });

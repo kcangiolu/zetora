@@ -174,7 +174,7 @@ export function getSearchGroups(searchProvider: SearchProvider = 'exa') {
     {
       id: 'academic' as const,
       name: 'Academic',
-      description: 'Search academic papers and pdfs powered by Firecrawl',
+      description: 'Search academic papers and PDFs',
       icon: MicroscopeIcon,
       show: true,
     },
@@ -189,7 +189,7 @@ export function getSearchGroups(searchProvider: SearchProvider = 'exa') {
     {
       id: 'reddit' as const,
       name: 'Reddit',
-      description: 'Search Reddit posts powered by Parallel',
+      description: 'Search Reddit posts',
       icon: RedditIcon,
       show: true,
     },

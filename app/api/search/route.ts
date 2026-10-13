@@ -125,7 +125,6 @@ export async function POST(req: Request) {
     id,
     selectedVisibilityType,
     isCustomInstructionsEnabled,
-    searchProvider,
     sessionEnabledSources,
     isTemporaryChat,
     isAutoRouted,
@@ -673,7 +672,6 @@ export async function POST(req: Request) {
       const loadedTools = await loadConfiguredTools({
         activeToolNames: streamActiveTools,
         dataStream,
-        searchProvider,
         timezone,
         contextFiles,
         includeMcpTools: dynamicToolNames.length > 0,

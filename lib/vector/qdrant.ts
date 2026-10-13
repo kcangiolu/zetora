@@ -1,16 +1,16 @@
 import 'server-only';
 import type { QdrantFilter } from './qdrant-filters';
 
-const DEFAULT_QDRANT_URL = process.env.QDRANT_URL || 'http://localhost:6333';
-
 interface SearchResult {
   id: string | number;
   score: number;
   payload: Record<string, any>;
 }
 
-export function getQdrantClient(baseUrl: string = DEFAULT_QDRANT_URL) {
-  const QDRANT_URL = baseUrl.replace(/\/$/, '');
+// Only called when isHybridSearchAvailable() (lib/instance/capabilities.ts).
+export function getQdrantClient() {
+  if (!process.env.QDRANT_URL) throw new Error('QDRANT_URL is not set');
+  const QDRANT_URL = process.env.QDRANT_URL.replace(/\/$/, '');
 
   return {
     async createCollection(name: string, vectorSize: number) {

@@ -11,6 +11,8 @@ import Exa from 'exa-js';
 
 import { createLogger } from '@/lib/logger';
 import { FASTCRW_SEARCH_TIMEOUT_MS, SEARXNG_TIMEOUT_MS, withAbort } from '@/lib/timeouts';
+import { resolveFallbackSearchProvider, resolveSearchProvider } from '@/lib/instance/capabilities';
+import type { SearchProviderFor } from '@/lib/search/providers';
 
 const log = createLogger('academic-search');
 
@@ -111,12 +113,7 @@ async function searchAcademicWithExa(query: string, limit: number): Promise<Acad
   }));
 }
 
-type AcademicSearchProvider = 'exa' | 'firecrawl' | 'searxng' | 'fastcrw';
-
-function normalizeAcademicProvider(value: unknown): AcademicSearchProvider {
-  if (value === 'exa' || value === 'firecrawl' || value === 'searxng' || value === 'fastcrw') return value;
-  return 'firecrawl';
-}
+type AcademicSearchProvider = SearchProviderFor<'academic'>;
 
 async function runAcademicProvider(
   provider: AcademicSearchProvider,
@@ -128,21 +125,9 @@ async function runAcademicProvider(
     return searchAcademicWithExa(query, limit);
   }
 
-  if (provider === 'searxng') {
-    if (!serverEnv.SEARXNG_URL) {
-      log.warn('SearXNG provider selected for academic search but SEARXNG_URL is not configured');
-      return [];
-    }
-    return searchAcademicWithSearxng(serverEnv.SEARXNG_URL, query, limit, abortSignal);
-  }
-
-  if (provider === 'fastcrw') {
-    if (!serverEnv.FASTCRW_URL) {
-      log.warn('fastCRW provider selected for academic search but FASTCRW_URL is not configured');
-      return [];
-    }
-    return searchAcademicWithFastCrw(serverEnv.FASTCRW_URL, query, limit, abortSignal);
-  }
+  // Providers come from resolveSearchProvider, so their URL is configured.
+  if (provider === 'searxng') return searchAcademicWithSearxng(serverEnv.SEARXNG_URL!, query, limit, abortSignal);
+  if (provider === 'fastcrw') return searchAcademicWithFastCrw(serverEnv.FASTCRW_URL!, query, limit, abortSignal);
 
   const firecrawlResults = await firecrawl.search(query, {
     categories: ['research', 'pdf'],
@@ -161,15 +146,18 @@ async function runAcademicProvider(
   }));
 }
 
+// Only built when this instance has an academic search provider (see
+// lib/search/tool-loader.ts).
 export function academicSearchTool(
   dataStream?: UIMessageStreamWriter<ChatMessage>,
   preferences?: Record<string, unknown>,
 ) {
-  const provider = normalizeAcademicProvider(preferences?.['zetora-academic-search-provider']);
-  const fallbackEnabled = preferences?.['zetora-academic-search-fallback-enabled'] !== false;
-  const fallbackProvider = fallbackEnabled
-    ? normalizeAcademicProvider(preferences?.['zetora-academic-search-fallback-provider'] ?? 'fastcrw')
-    : null;
+  const provider = resolveSearchProvider('academic', preferences?.['zetora-academic-search-provider']);
+  if (!provider) throw new Error('No academic search provider is configured on this instance');
+  const fallbackProvider =
+    preferences?.['zetora-academic-search-fallback-enabled'] === true
+      ? resolveFallbackSearchProvider('academic', preferences?.['zetora-academic-search-fallback-provider'], provider)
+      : null;
 
   return tool({
     description: 'Search academic papers and research with multiple queries.',
@@ -216,7 +204,7 @@ export function academicSearchTool(
               log.error(`Academic search ${provider} error for query "${query}":`, primaryError);
             }
 
-            if (processedResults.length === 0 && fallbackProvider && fallbackProvider !== provider) {
+            if (processedResults.length === 0 && fallbackProvider) {
               try {
                 log.debug(`Academic search: ${provider} returned no results, falling back to ${fallbackProvider}`);
                 processedResults = await runAcademicProvider(fallbackProvider, query, currentMaxResults, abortSignal);

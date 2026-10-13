@@ -9,6 +9,8 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
 import { createLogger } from '@/lib/logger';
+import { resolveFallbackSearchProvider, resolveSearchProvider } from '@/lib/instance/capabilities';
+import type { SearchProviderFor } from '@/lib/search/providers';
 import { FASTCRW_SEARCH_TIMEOUT_MS, SEARXNG_TIMEOUT_MS, withAbort } from '@/lib/timeouts';
 
 const log = createLogger('reddit-search');
@@ -219,14 +221,7 @@ async function searchRedditWithFastCrw(
   });
 }
 
-type RedditSearchProvider = 'parallel' | 'firecrawl' | 'searxng' | 'fastcrw';
-
-function normalizeRedditProvider(value: unknown): RedditSearchProvider {
-  if (value === 'parallel' || value === 'firecrawl' || value === 'searxng' || value === 'fastcrw') {
-    return value;
-  }
-  return 'parallel';
-}
+type RedditSearchProvider = SearchProviderFor<'reddit'>;
 
 async function runRedditProvider(
   provider: RedditSearchProvider,
@@ -237,34 +232,25 @@ async function runRedditProvider(
 ): Promise<RedditResult[]> {
   if (provider === 'firecrawl') return searchRedditWithFirecrawl(query, maxResults);
 
-  if (provider === 'searxng') {
-    if (!serverEnv.SEARXNG_URL) {
-      log.warn('SearXNG provider selected for Reddit search but SEARXNG_URL is not configured');
-      return [];
-    }
-    return searchRedditWithSearxng(serverEnv.SEARXNG_URL, query, maxResults, abortSignal);
-  }
-
-  if (provider === 'fastcrw') {
-    if (!serverEnv.FASTCRW_URL) {
-      log.warn('fastCRW provider selected for Reddit search but FASTCRW_URL is not configured');
-      return [];
-    }
-    return searchRedditWithFastCrw(serverEnv.FASTCRW_URL, query, maxResults, abortSignal);
-  }
+  // Providers come from resolveSearchProvider, so their URL is configured.
+  if (provider === 'searxng') return searchRedditWithSearxng(serverEnv.SEARXNG_URL!, query, maxResults, abortSignal);
+  if (provider === 'fastcrw') return searchRedditWithFastCrw(serverEnv.FASTCRW_URL!, query, maxResults, abortSignal);
 
   return searchRedditWithParallel(query, maxResults, afterDate);
 }
 
+// Only built when this instance has a Reddit search provider (see
+// lib/search/tool-loader.ts).
 export function redditSearchTool(
   dataStream?: UIMessageStreamWriter<ChatMessage>,
   preferences?: Record<string, unknown>,
 ) {
-  const provider = normalizeRedditProvider(preferences?.['zetora-reddit-search-provider']);
-  const fallbackEnabled = preferences?.['zetora-reddit-search-fallback-enabled'] !== false;
-  const fallbackProvider = fallbackEnabled
-    ? normalizeRedditProvider(preferences?.['zetora-reddit-search-fallback-provider'] ?? 'searxng')
-    : null;
+  const provider = resolveSearchProvider('reddit', preferences?.['zetora-reddit-search-provider']);
+  if (!provider) throw new Error('No Reddit search provider is configured on this instance');
+  const fallbackProvider =
+    preferences?.['zetora-reddit-search-fallback-enabled'] === true
+      ? resolveFallbackSearchProvider('reddit', preferences?.['zetora-reddit-search-fallback-provider'], provider)
+      : null;
 
   return tool({
     description: 'Search Reddit content using the configured search provider, with multiple queries.',
@@ -325,7 +311,7 @@ export function redditSearchTool(
             log.error(`Reddit search ${provider} error for query "${query}":`, primaryError);
           }
 
-          if (processedResults.length === 0 && fallbackProvider && fallbackProvider !== provider) {
+          if (processedResults.length === 0 && fallbackProvider) {
             try {
               log.debug(`Reddit search: ${provider} returned no results, falling back to ${fallbackProvider}`);
               processedResults = await runRedditProvider(

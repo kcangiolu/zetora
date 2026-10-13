@@ -9,7 +9,6 @@ import { getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { resolveVoiceRequestUserId } from '@/lib/voice-session-token';
 import { StreamTokenBuffer } from '@/ai/anonymization-middleware';
 import { TOKEN_PATTERN } from '@/lib/anonymizer/pseudonymize';
-import type { SearchProvider } from '@/lib/utils';
 
 import { createLogger } from '@/lib/logger';
 
@@ -82,7 +81,6 @@ export async function POST(req: NextRequest) {
   const tools = await loadConfiguredTools({
     activeToolNames: VOICE_TOOL_NAMES,
     dataStream: undefined,
-    searchProvider: (prefs?.['zetora-search-provider'] as SearchProvider | undefined) || undefined,
     timezone: undefined,
     contextFiles: [],
     includeMcpTools: false,

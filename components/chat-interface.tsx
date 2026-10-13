@@ -273,11 +273,6 @@ const ChatInterface = memo(
       false,
     );
 
-    const [searchProvider, _] = useLocalStorage<'exa' | 'parallel' | 'firecrawl'>(
-      'zetora-search-provider',
-      'firecrawl',
-    );
-
     const [extremeSearchModel] = useSyncedPreferences<string>('zetora-tertiary-extreme-agent-model', '');
     const [isAutoRouterEnabled] = useSyncedPreferences<boolean>('zetora-auto-router-enabled', false);
     const [autoRouterConfig] = useSyncedPreferences<AutoRouterConfig>('zetora-auto-router-config', { routes: [] });
@@ -573,7 +568,6 @@ const ChatInterface = memo(
     const visionEnabledRef = useRef(visionEnabled);
     const selectedGroupRef = useRef(effectiveSelectedGroup);
     const isCustomInstructionsEnabledRef = useRef(isCustomInstructionsEnabled);
-    const searchProviderRef = useRef(searchProvider);
     const extremeSearchProviderRef = useRef<'exa'>('exa');
     const sessionEnabledSourcesRef = useRef(sessionEnabledSources);
     const isTemporaryChatRef = useRef(isTemporaryChat);
@@ -585,7 +579,6 @@ const ChatInterface = memo(
     visionEnabledRef.current = visionEnabled;
     selectedGroupRef.current = effectiveSelectedGroup;
     isCustomInstructionsEnabledRef.current = isCustomInstructionsEnabled;
-    searchProviderRef.current = searchProvider;
     extremeSearchProviderRef.current = 'exa';
     sessionEnabledSourcesRef.current = sessionEnabledSources;
     isTemporaryChatRef.current = isTemporaryChat;
@@ -634,7 +627,6 @@ const ChatInterface = memo(
               group: selectedGroupRef.current,
               timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
               isCustomInstructionsEnabled: isCustomInstructionsEnabledRef.current,
-              searchProvider: searchProviderRef.current,
               extremeSearchProvider: extremeSearchProviderRef.current,
               sessionEnabledSources: sessionEnabledSourcesRef.current,
               isTemporaryChat: isTemporaryChatRef.current,

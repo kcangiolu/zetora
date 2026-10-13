@@ -13,6 +13,8 @@ import { FastCrwWebSearchStrategy } from './fastcrw-web-search';
 import { clampSearchInput, dedupeAndCapSearches, enrichBestQualityResults } from './web-search-limits';
 import { SelfHostedContentStrategy } from './self-hosted-content';
 import { EXA_SEARCH_TIMEOUT_MS } from '@/lib/timeouts';
+import { resolveFallbackSearchProvider, resolveSearchProvider } from '@/lib/instance/capabilities';
+import type { SearchProviderFor } from '@/lib/search/providers';
 
 import { createLogger } from '@/lib/logger';
 
@@ -625,21 +627,7 @@ class ExaSearchStrategy implements SearchStrategy {
 }
 
 // Search provider factory
-const WEB_SEARCH_PROVIDERS = ['exa', 'parallel', 'firecrawl', 'searxng', 'fastcrw'] as const;
-type WebSearchProvider = (typeof WEB_SEARCH_PROVIDERS)[number];
-
-const normalizeWebSearchProvider = (provider: string): WebSearchProvider => {
-  if (
-    provider === 'parallel' ||
-    provider === 'firecrawl' ||
-    provider === 'exa' ||
-    provider === 'searxng' ||
-    provider === 'fastcrw'
-  ) {
-    return provider;
-  }
-  return 'exa';
-};
+type WebSearchProvider = SearchProviderFor<'web'>;
 
 const createSearchStrategy = (
   provider: WebSearchProvider,
@@ -651,23 +639,9 @@ const createSearchStrategy = (
   preferences?: Record<string, unknown>,
   userId?: string,
 ): SearchStrategy => {
-  if (provider === 'searxng') {
-    const url = serverEnv.SEARXNG_URL;
-    if (!url) {
-      log.warn('SearXNG provider selected but SEARXNG_URL is not configured, falling back to Exa');
-      return new ExaSearchStrategy(clients.exa, clients.firecrawl);
-    }
-    return new SearXNGSearchStrategy(url, preferences, userId);
-  }
-
-  if (provider === 'fastcrw') {
-    const url = serverEnv.FASTCRW_URL;
-    if (!url) {
-      log.warn('fastCRW provider selected but FASTCRW_URL is not configured, falling back to Exa');
-      return new ExaSearchStrategy(clients.exa, clients.firecrawl);
-    }
-    return new FastCrwWebSearchStrategy(url);
-  }
+  // Providers come from resolveSearchProvider, so their URL is configured.
+  if (provider === 'searxng') return new SearXNGSearchStrategy(serverEnv.SEARXNG_URL!, preferences, userId);
+  if (provider === 'fastcrw') return new FastCrwWebSearchStrategy(serverEnv.FASTCRW_URL!);
 
   const strategies = {
     parallel: () => new ParallelSearchStrategy(clients.parallel, clients.firecrawl),
@@ -678,12 +652,22 @@ const createSearchStrategy = (
   return strategies[provider]();
 };
 
+// Only built when this instance has a web search provider (see
+// lib/search/tool-loader.ts); preferredProvider is the user's choice.
 export function webSearchTool(
   dataStream?: UIMessageStreamWriter<ChatMessage> | undefined,
-  searchProvider: WebSearchProvider = 'exa',
+  preferredProvider?: string,
   preferences?: Record<string, unknown>,
   userId?: string,
 ) {
+  const searchProvider = resolveSearchProvider('web', preferredProvider);
+  if (!searchProvider) throw new Error('No web search provider is configured on this instance');
+  const fallbackProvider =
+    preferences?.['zetora-fallback-search-firecrawl'] === true &&
+    preferences?.['zetora-search-fallback-provider'] !== 'none'
+      ? resolveFallbackSearchProvider('web', preferences?.['zetora-search-fallback-provider'], searchProvider)
+      : null;
+
   return tool({
     description: `This is the default tool of the app to be used to search the web for information with multiple queries (2-4), max results (8 per query), topics, and quality.
     Very important Rules:
@@ -780,8 +764,7 @@ export function webSearchTool(
       log.debug('Search Provider:', searchProvider);
 
       // Create and use the appropriate search strategy
-      const normalizedProvider = normalizeWebSearchProvider(searchProvider);
-      const strategy = createSearchStrategy(normalizedProvider, clients, preferences, userId);
+      const strategy = createSearchStrategy(searchProvider, clients, preferences, userId);
       if (!topics) {
         topics = new Array(queries.length).fill('general');
       }
@@ -800,13 +783,8 @@ export function webSearchTool(
       };
       let result = await strategy.search(queries, searchOptions);
       const hasNoResults = result.searches.every((s) => s.results.length === 0);
-      const searchFallbackEnabled = preferences?.['zetora-fallback-search-firecrawl'] !== false;
-      const configuredFallbackProvider =
-        (preferences?.['zetora-search-fallback-provider'] as string | undefined) || 'firecrawl';
-      const fallbackProvider =
-        configuredFallbackProvider === 'none' ? null : normalizeWebSearchProvider(configuredFallbackProvider);
-      if (hasNoResults && searchFallbackEnabled && fallbackProvider && fallbackProvider !== normalizedProvider) {
-        log.debug(`${normalizedProvider} returned no results, falling back to ${fallbackProvider}`);
+      if (hasNoResults && fallbackProvider) {
+        log.debug(`${searchProvider} returned no results, falling back to ${fallbackProvider}`);
         const fallbackStrategy = createSearchStrategy(fallbackProvider, clients, preferences, userId);
         result = await fallbackStrategy.search(queries, searchOptions);
       }

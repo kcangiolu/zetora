@@ -121,16 +121,29 @@ This fork bundles a complete self-hosted stack in [`docker-compose.yml`](docker-
 | **fastCRW**            | `fastcrw`, `chrome`                       | `fastcrw`  | Firecrawl                        | Self-hosted scraper & search (Firecrawl-compatible API) with JS rendering via LightPanda and a headless-Chrome fallback |
 | **Code Interpreter**   | `sandbox`                                 | `sandbox`  | Daytona                          | Sandboxed Python execution for the Code Interpreter tool (`SANDBOX_PROVIDER=docker`)                                    |
 | **Presidio**           | `presidio-api`                            | `presidio` | _(new — no Scira equivalent)_    | PII detection/anonymization for the activatable privacy layer                                                           |
-| **Voice pipeline**     | `s2s-service`, `stt-service`, `qwen3-tts` | `tts`\*    | ElevenLabs / xAI Realtime        | Local speech-to-speech backend: VAD orchestrator, NVIDIA Parakeet TDT STT, and opt-in GPU Qwen3 TTS (`--profile tts`)   |
+| **Voice pipeline**     | `s2s-service`, `stt-service`, `qwen3-tts` | `voice`\*  | ElevenLabs / xAI Realtime        | Local speech-to-speech backend: VAD orchestrator, NVIDIA Parakeet TDT STT, and Qwen3 TTS (`tts` profile)                |
 | **BullMQ**             | `bullmq-redis`, `bullboard`               | `bullmq`   | Upstash QStash                   | Self-hosted scheduler for Lookouts (`LOOKOUT_SCHEDULER=bullmq`), with a Bull Board admin UI                             |
 | **Hermes Agent relay** | `hermes-relay-service`                    | `hermes`†  | _(new — no Scira equivalent)_    | Lets any user connect their own self-hosted Hermes Agent gateway as an Agent mode chat channel                          |
 | **DB migrations**      | `db-migrate`                              | _(core)_   | _(manual `drizzle-kit migrate`)_ | Runs Drizzle migrations + performance indexes automatically; `zetora.app` waits for it before starting                  |
 
-\* Only `qwen3-tts` is behind the `tts` profile — `s2s-service`/`stt-service` (CPU-only) start by default alongside the core services below.
+\* `s2s-service` and `stt-service` are behind the `voice` profile, `qwen3-tts` behind its own `tts` profile. `stt-service` and `qwen3-tts` need an NVIDIA GPU (Docker `nvidia` runtime).
 
-† Unlike every other row, Hermes doesn't degrade to a cloud equivalent when its profile is left off — the whole feature (Settings > Hermes, the Agent mode entry, every `/api/hermes*`/`/api/internal/hermes*` route) is gated by the `NEXT_PUBLIC_HERMES_ENABLED` build flag, which defaults to `true` since it already ships to real users on this fork. The Docker profile itself still needs explicit opt-in like any other (`--profile hermes` / `COMPOSE_PROFILES=hermes`) — the build flag only controls whether the _feature exists in the image at all_, not whether _this deployment's container starts_. Set `NEXT_PUBLIC_HERMES_ENABLED=false` to build an image with the feature hidden entirely.
+† Unlike every other row, Hermes doesn't degrade to a cloud equivalent when its profile is left off — the whole feature (Settings > Hermes, the Agent mode entry, every `/api/hermes*`/`/api/internal/hermes*` route) is gated by the `NEXT_PUBLIC_HERMES_ENABLED` build flag. Hermes is experimental: `.env.example` sets the flag to `false`, so the feature is absent from the image; set it to `true` and add the `hermes` profile to opt in. The build flag controls whether the _feature exists in the image at all_, the profile whether _this deployment's container starts_.
 
-Every profiled service is off by default — `docker compose up -d` alone starts only the `_(core)_` rows plus `zetora.app`. Storage (`S3_*`), code execution (`SANDBOX_PROVIDER`) and Lookout scheduling (`LOOKOUT_SCHEDULER`) have no default: set each in `.env` to a bundled service or its cloud alternative, or that feature reports what is missing. Start any subset with `docker compose --profile <name> up -d` (see [Self-hosted stack](#option-2--self-hosted-stack-docker-compose) below for the full command and what each one falls back to when left off).
+Every profiled service is off by default — `docker compose up -d` alone starts only the `_(core)_` rows plus `zetora.app`. Storage (`S3_*`), code execution (`SANDBOX_PROVIDER`) and Lookout scheduling (`LOOKOUT_SCHEDULER`) have no default: set each in `.env` to a bundled service or its cloud alternative, or that feature reports what is missing.
+
+### Choose a setup
+
+Pick one row, set `COMPOSE_PROFILES` in `.env` to its value, then point the matching variables at what runs (`.env.example` documents each one). Every service also keeps its own profile, so any other mix works too.
+
+| Setup              | `COMPOSE_PROFILES`     | What runs                                                                                      |
+| ------------------ | ---------------------- | ---------------------------------------------------------------------------------------------- |
+| **Minimal**        | _(unset)_              | Postgres, Redis, the app. Cloud APIs for storage, search, code execution, scheduling and voice |
+| **Self-hosted**    | `selfhosted`           | Adds every CPU-only service: Silo, SearXNG, fastCRW, sandbox, BullMQ, Qdrant, Presidio         |
+| + **local voice**  | `selfhosted,voice,tts` | Adds local speech-to-speech and Qwen3 TTS (NVIDIA GPU)                                         |
+| + **Hermes Agent** | add `hermes`           | Experimental; also set `NEXT_PUBLIC_HERMES_ENABLED=true` and rebuild                           |
+
+Zetora only offers what the instance has. A search provider shows up in Settings and in the chat's sources once its API key or URL is set; Hybrid Search once `QDRANT_URL` is; Data protection once `ANONYMIZER_API_URL` is; the local voice backend once `VOICE_S2S_URL` is. With the bundled containers, these URLs are the Docker service names given in `.env.example`. Each search function picks the user's choice when the instance has it, else the first available provider in a fixed order: the self-hosted services, then Exa, Firecrawl and Parallel. A function with no provider at all is not offered, and Settings says what it needs. Fallback providers are off unless the user turns them on.
 
 All services share the `zetora-network` Docker network and resolve each other by service name. Most services are bound to `127.0.0.1`; only `zetora.app` (port 3333), Silo's API port, and `s2s-service` publish beyond loopback (for reverse-proxy and browser access).
 
@@ -157,12 +170,12 @@ If you'd rather not run the bundled services, Zetora can run entirely against ma
 | Postgres            | Vercel Postgres / Neon / Supabase | `DATABASE_URL` (+ optional `READ_DB_1`/`READ_DB_2` read replicas)                                                                               |
 | Redis               | Upstash Redis                     | `REDIS_URL`                                                                                                                                     |
 | Silo                | Cloudflare R2 / AWS S3            | `S3_ENDPOINT`, keys, bucket, `S3_PUBLIC_URL` and `S3_REGION` of the service (examples in `.env.example`)                                        |
-| Qdrant              | — (disabled)                      | leave `QDRANT_URL` unset to disable the vector cache                                                                                            |
-| SearXNG             | Tavily / Exa                      | `TAVILY_API_KEY`, `EXA_API_KEY` (used automatically when `SEARXNG_URL` is unset)                                                                |
-| fastCRW             | Firecrawl                         | `FIRECRAWL_API_KEY` (used automatically when `FASTCRW_URL` is unset)                                                                            |
+| Qdrant              | — (disabled)                      | leave `QDRANT_URL` unset: Settings then hides Hybrid Search                                                                                     |
+| SearXNG             | Exa / Firecrawl / Parallel        | the provider's API key (`EXA_API_KEY`, …); only providers whose key or URL is set are offered                                                   |
+| fastCRW             | Firecrawl                         | `FIRECRAWL_API_KEY`; only providers whose key or URL is set are offered                                                                         |
 | Sandbox             | Daytona                           | `SANDBOX_PROVIDER=daytona` with `DAYTONA_API_KEY`                                                                                               |
-| Presidio            | — (disabled)                      | leave `ANONYMIZER_API_URL` unset — the anonymization layer stays off                                                                            |
-| Voice pipeline      | ElevenLabs / xAI Realtime         | leave `VOICE_S2S_URL` unset; configure TTS/STT providers in Settings                                                                            |
+| Presidio            | — (disabled)                      | leave `ANONYMIZER_API_URL` unset: Settings then hides Data protection                                                                           |
+| Voice pipeline      | ElevenLabs / xAI Realtime         | leave `VOICE_S2S_URL` unset: Settings then only offers the cloud backend                                                                        |
 | BullMQ              | Upstash QStash                    | `LOOKOUT_SCHEDULER=qstash` with `QSTASH_TOKEN` (the only option on hosts with no long-running process, such as Vercel)                        |
 
 See `.env.example` for the full catalog of provider and feature environment variables.
@@ -267,18 +280,16 @@ Use this to deploy Zetora on a server. By default it runs against cloud provider
 
    Database migrations run automatically: the `db-migrate` container applies Drizzle migrations and performance indexes, and `zetora.app` waits for it to complete before starting — no manual `drizzle-kit migrate` needed.
 
-   Every service below the core three (Postgres, Redis, `zetora.app`) starts on the `zetora-network` only if you opt into its profile — combine as needed, e.g. `docker compose --profile minio --profile searxng up -d`, or set `COMPOSE_PROFILES` to a comma-separated list in `.env`. Each one has a working cloud default already, so leaving it off degrades the corresponding feature to its cloud equivalent instead of breaking it — see the **Profile** column in the [Self-Hosted Stack](#self-hosted-stack) table above and [All-Cloud Configuration](#all-cloud-configuration) for exactly what each one falls back to. `hermes` is the one exception: it doesn't fall back to anything, it just disappears (see the † note above the table). Full self-hosted stack:
+   Every service below the core three (Postgres, Redis, `zetora.app`) starts only if you opt into its profile — see [Choose a setup](#choose-a-setup). Leaving one off means using its cloud equivalent instead (see [All-Cloud Configuration](#all-cloud-configuration)); `hermes` is the exception, it just disappears (see the † note above the table). Full self-hosted stack, voice included:
 
    ```bash
-   docker compose --profile minio --profile searxng --profile fastcrw \
-     --profile sandbox --profile bullmq --profile qdrant \
-     --profile presidio --profile tts --profile hermes up -d
+   COMPOSE_PROFILES=selfhosted,voice,tts docker compose up -d
    ```
 
 4. Put a reverse proxy with TLS in front of `zetora.app` (port 3333) for your domain. If you enabled the `minio` profile, also put one in front of Silo's API port (`:9010`) and point `S3_PUBLIC_URL` at it — generated images/files are served straight from that URL to the browser, no app-side proxy. For the local voice backend, expose `s2s-service`'s WebSocket port and point `VOICE_S2S_URL` at it. Every other service is bound to `127.0.0.1` only — use an SSH tunnel if you need direct access to an admin UI (Silo console on `:9001`, Bull Board on `:3001`, Qdrant dashboard on `:6333`, SearXNG on `:8090`).
 5. Visit your domain — Zetora should be up and running. The Diagnostics tab in Settings shows the health of each bundled service.
 
-All eight optional services (`minio`, `searxng`, `fastcrw`, `sandbox`, `bullmq`, `qdrant`, `presidio`, `tts`) are behind their own profile — none started by default, nothing to edit to skip them. See [All-Cloud Configuration](#all-cloud-configuration) for exactly what each one falls back to when left off.
+All ten optional profiles (`minio`, `searxng`, `fastcrw`, `sandbox`, `bullmq`, `qdrant`, `presidio`, `voice`, `tts`, `hermes`) are off by default, nothing to edit to skip them. See [All-Cloud Configuration](#all-cloud-configuration) for exactly what each one falls back to when left off.
 
 # License
 

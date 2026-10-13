@@ -5,6 +5,7 @@ import { SEARXNG_TIMEOUT_MS, withAbort } from '@/lib/timeouts';
 import { mergeArchiveResults } from '@/lib/vector/archive-merge';
 
 import { createLogger } from '@/lib/logger';
+import { isHybridSearchAvailable } from '@/lib/instance/capabilities';
 
 const log = createLogger('searxng-search');
 
@@ -147,7 +148,12 @@ export class SearXNGSearchStrategy implements SearchStrategy {
     // search had found them (this is how a topic from a past conversation
     // used to leak into an unrelated one).
     const allSearxngResults = searches.flatMap((s) => s.results);
-    if (this.preferences?.['zetora-hybrid-search-enabled'] === true && allSearxngResults.length > 0) {
+    const hybridSearchAvailable = isHybridSearchAvailable();
+    if (
+      hybridSearchAvailable &&
+      this.preferences?.['zetora-hybrid-search-enabled'] === true &&
+      allSearxngResults.length > 0
+    ) {
       try {
         const { hybridSearch } = await import('@/lib/vector/hybrid-search');
         const fusedResults = await hybridSearch(
@@ -166,7 +172,7 @@ export class SearXNGSearchStrategy implements SearchStrategy {
     }
 
     // Background content indexing (fire-and-forget)
-    if (this.preferences?.['zetora-content-indexing-enabled'] === true) {
+    if (hybridSearchAvailable && this.preferences?.['zetora-content-indexing-enabled'] === true) {
       const { indexSearchResults } = await import('@/lib/vector/content-indexer');
       indexSearchResults(
         allSearxngResults.map((r) => ({ url: r.url, title: r.title, content: r.content })),

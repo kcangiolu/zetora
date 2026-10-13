@@ -18,8 +18,6 @@ import {
   FirecrawlSearchStrategy,
   runExtremeContentExtraction,
   runExtremeSearchProvider,
-  normalizeExtremeSearchProvider,
-  normalizeExtremeContentProvider,
   type ExtremeProviderClients,
 } from '@/lib/tools/extreme-search';
 
@@ -35,16 +33,6 @@ function stubFetch(responsesByUrlSubstring: Record<string, unknown>) {
 
 afterEach(() => {
   vi.unstubAllGlobals();
-});
-
-describe('normalizeExtremeSearchProvider / normalizeExtremeContentProvider', () => {
-  it('defaults to exa for invalid or missing values', () => {
-    expect(normalizeExtremeSearchProvider(undefined)).toBe('exa');
-    expect(normalizeExtremeSearchProvider('bogus')).toBe('exa');
-    expect(normalizeExtremeSearchProvider('searxng')).toBe('searxng');
-    expect(normalizeExtremeContentProvider(undefined)).toBe('exa');
-    expect(normalizeExtremeContentProvider('notte')).toBe('notte');
-  });
 });
 
 describe('ExaContentStrategy', () => {
@@ -163,16 +151,6 @@ describe('runExtremeContentExtraction (per-URL fallback)', () => {
     expect(fetchMock).toHaveBeenCalled();
     expect(results).toHaveLength(1);
     expect(results[0].title).toBe('Meta Title');
-  });
-
-  it('skips the fallback entirely when it matches the primary provider', async () => {
-    const exa = { getContents: vi.fn().mockResolvedValue({ results: [] }) };
-    const clients = makeClients({ exa: exa as any });
-
-    const results = await runExtremeContentExtraction(['https://a.com'], 'exa', 'exa', false, clients);
-
-    expect(exa.getContents).toHaveBeenCalledTimes(1);
-    expect(results).toEqual([]);
   });
 });
 

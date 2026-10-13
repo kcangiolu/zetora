@@ -1,4 +1,5 @@
 'use client';
+import { useInstanceCapabilities } from '@/hooks/use-instance-capabilities';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUser } from '@/contexts/user-context';
@@ -42,6 +43,8 @@ import { useRouter } from 'next/navigation';
 
 function SettingsContent() {
   const { user, isLoading } = useUser();
+  // Data protection (anonymization) only exists when the instance runs a PII detector.
+  const anonymizationAvailable = useInstanceCapabilities()?.anonymization === true;
   const router = useRouter();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
@@ -277,10 +280,14 @@ function SettingsContent() {
                       </span>
                       <h2 className="text-lg font-semibold">Security</h2>
                     </div>
-                    <p className="text-sm text-muted-foreground">Two-factor authentication and data protection</p>
+                    <p className="text-sm text-muted-foreground">
+                      {anonymizationAvailable
+                        ? 'Two-factor authentication and data protection'
+                        : 'Two-factor authentication'}
+                    </p>
                   </div>
                   <TwoFactorSettings enabled={Boolean(user?.twoFactorEnabled)} />
-                  <DataProtectionSection />
+                  {anonymizationAvailable && <DataProtectionSection />}
                 </div>
               </TabsContent>
 

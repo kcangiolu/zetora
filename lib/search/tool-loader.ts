@@ -1,8 +1,9 @@
 import 'server-only';
 
-import type { SearchProvider, SkillId } from '@/lib/utils';
+import type { SkillId } from '@/lib/utils';
 import { anonymizeToolInput, type AnonymizeContext } from '@/lib/anonymizer/pseudonymize';
 import { isMemoryEnabled } from '@/lib/memory/settings';
+import { isSearchToolAvailable } from '@/lib/instance/capabilities';
 
 // Defense in depth for the anonymization layer: when it's active the model
 // only ever sees pseudonyms, so its tool-call args are already tokenized —
@@ -23,7 +24,6 @@ function withEgressAnonymization<T extends { execute?: (...args: any[]) => any }
 interface LoadConfiguredToolsParams {
   activeToolNames: string[];
   dataStream: any;
-  searchProvider: SearchProvider | undefined;
   timezone: string | undefined;
   contextFiles: Array<{ url: string; contentType: string; name?: string }>;
   includeMcpTools: boolean;
@@ -39,7 +39,6 @@ interface LoadConfiguredToolsParams {
 export async function loadConfiguredTools({
   activeToolNames,
   dataStream,
-  searchProvider,
   timezone,
   contextFiles,
   includeMcpTools,
@@ -51,7 +50,7 @@ export async function loadConfiguredTools({
   enabledSkillIds,
 }: LoadConfiguredToolsParams): Promise<Record<string, any>> {
   const tools: Record<string, any> = {};
-  const uniqueToolNames = [...new Set(activeToolNames)];
+  const uniqueToolNames = [...new Set(activeToolNames)].filter(isSearchToolAvailable);
 
   await Promise.all(
     uniqueToolNames.map(async (toolName) => {
@@ -84,7 +83,12 @@ export async function loadConfiguredTools({
         }
         case 'web_search': {
           const { webSearchTool } = await import('@/lib/tools/web-search');
-          const built = webSearchTool(dataStream, searchProvider, userPreferences, lightweightUser?.userId);
+          const built = webSearchTool(
+            dataStream,
+            userPreferences?.['zetora-search-provider'] as string | undefined,
+            userPreferences,
+            lightweightUser?.userId,
+          );
           tools.web_search = anonymizeContext ? withEgressAnonymization(built, anonymizeContext) : built;
           return;
         }

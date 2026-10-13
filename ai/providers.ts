@@ -1,4 +1,5 @@
 import 'server-only';
+import { isAnonymizationAvailable } from '@/lib/instance/capabilities';
 
 import { wrapLanguageModel, extractReasoningMiddleware, gateway, type LanguageModel } from 'ai';
 import type { LanguageModelV3 } from '@ai-sdk/provider';
@@ -260,6 +261,9 @@ export async function getAnonymizeContext(
   userId?: string,
 ): Promise<import('@/lib/anonymizer/pseudonymize').AnonymizeContext | null> {
   if (!userId) return null;
+  // Without a PII detector the instance doesn't offer anonymization at all
+  // (Settings hides it), so a preference left over from before is moot.
+  if (!isAnonymizationAvailable()) return null;
   if (preferences?.['zetora-anonymization-enabled'] !== true) return null;
 
   if (modelId.startsWith('custom-')) {

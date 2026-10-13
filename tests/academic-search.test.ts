@@ -46,18 +46,18 @@ afterEach(() => {
 });
 
 describe('academicSearchTool provider selection', () => {
-  it('uses firecrawl by default and never calls Exa/SearXNG/fastCRW', async () => {
-    firecrawlSearchMock.mockResolvedValue({
-      web: [{ url: 'https://arxiv.org/abs/1234', title: 'paper', description: 'desc' }],
+  it('defaults to the first available provider in order (SearXNG here) and calls nothing else', async () => {
+    const fetchMock = stubFetch({
+      'searxng.local/search': { results: [{ url: 'https://arxiv.org/abs/1234', title: 'paper', content: 'desc' }] },
     });
-    const fetchMock = stubFetch({});
 
     const tool = academicSearchTool(undefined, undefined);
     const result = await runTool(tool, ['foo']);
 
     expect(result.searches[0].results).toHaveLength(1);
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('searxng.local/search'))).toBe(true);
     expect(exaSearchMock).not.toHaveBeenCalled();
-    expect(fetchMock.mock.calls.length).toBe(0);
+    expect(firecrawlSearchMock).not.toHaveBeenCalled();
   });
 
   it('does not call the fallback when the primary provider (Exa) returns results', async () => {
@@ -66,6 +66,7 @@ describe('academicSearchTool provider selection', () => {
 
     const tool = academicSearchTool(undefined, {
       'zetora-academic-search-provider': 'exa',
+      'zetora-academic-search-fallback-enabled': true,
       'zetora-academic-search-fallback-provider': 'fastcrw',
     });
     const result = await runTool(tool, ['foo']);
@@ -89,6 +90,7 @@ describe('academicSearchTool provider selection', () => {
 
     const tool = academicSearchTool(undefined, {
       'zetora-academic-search-provider': 'exa',
+      'zetora-academic-search-fallback-enabled': true,
       'zetora-academic-search-fallback-provider': 'fastcrw',
     });
     const result = await runTool(tool, ['foo']);
@@ -111,19 +113,15 @@ describe('academicSearchTool provider selection', () => {
     expect(fetchMock.mock.calls.length).toBe(0);
   });
 
-  it('defaults the fallback to fastCRW (enabled) when no fallback preference is set', async () => {
+  it('leaves the fallback off when no fallback preference is set', async () => {
     exaSearchMock.mockResolvedValue({ results: [] });
-    const fetchMock = stubFetch({
-      'fastcrw.local/v1/search': {
-        success: true,
-        data: { results: [{ url: 'https://arxiv.org/abs/1234', title: 'paper', snippet: '', description: '', score: 1, category: '' }] },
-      },
-    });
+    const fetchMock = stubFetch({});
 
     const tool = academicSearchTool(undefined, { 'zetora-academic-search-provider': 'exa' });
     const result = await runTool(tool, ['foo']);
 
-    expect(result.searches[0].results).toHaveLength(1);
-    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('fastcrw.local/v1/search'))).toBe(true);
+    expect(result.searches[0].results).toHaveLength(0);
+    expect(fetchMock.mock.calls.length).toBe(0);
+    expect(firecrawlSearchMock).not.toHaveBeenCalled();
   });
 });

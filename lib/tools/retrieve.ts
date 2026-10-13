@@ -10,6 +10,8 @@ import { getBetterAllOptions } from '@/lib/better-all';
 import { scrapeWithFastCrwForBrowsePage } from './self-hosted-content';
 
 import { createLogger } from '@/lib/logger';
+import { resolveFallbackSearchProvider, resolveSearchProvider } from '@/lib/instance/capabilities';
+import type { SearchProviderFor } from '@/lib/search/providers';
 
 const log = createLogger('retrieve');
 
@@ -216,12 +218,7 @@ const exa = new Exa(serverEnv.EXA_API_KEY as string);
 const parallel = new Parallel({ apiKey: serverEnv.PARALLEL_API_KEY });
 const firecrawl = new FirecrawlApp({ apiKey: serverEnv.FIRECRAWL_API_KEY });
 
-type RetrieveProvider = 'fastcrw' | 'exa' | 'parallel' | 'firecrawl';
-
-function normalizeRetrieveProvider(value: unknown): RetrieveProvider {
-  if (value === 'fastcrw' || value === 'exa' || value === 'parallel' || value === 'firecrawl') return value;
-  return 'exa';
-}
+type RetrieveProvider = SearchProviderFor<'retrieve'>;
 
 type RetrieveContent = {
   url: string;
@@ -235,13 +232,9 @@ type RetrieveContent = {
   language: string;
 };
 
-// Self-hosted stacks configure FASTCRW_URL instead of paying for Exa — worth
-// trying first if selected, so retrieve doesn't silently depend on a paid API.
+// Only reached when FASTCRW_URL is configured: providers come from
+// resolveSearchProvider.
 async function retrieveWithFastCrw(url: string): Promise<RetrieveContent | null> {
-  if (!serverEnv.FASTCRW_URL) {
-    log.warn('fastCRW selected for retrieve but FASTCRW_URL is not configured');
-    return null;
-  }
   const fastcrwResult = await scrapeWithFastCrwForBrowsePage(url);
   if (!fastcrwResult?.content?.trim()) return null;
 
@@ -351,13 +344,10 @@ async function runRetrieveProvider(
 // Helper function to retrieve content from a single URL
 async function retrieveSingleUrl(
   url: string,
+  providerOptions: { provider: RetrieveProvider; fallbackProvider: RetrieveProvider | null },
   content_type?: 'general' | 'twitter' | 'youtube' | 'tiktok' | 'instagram',
   include_summary: boolean = true,
   live_crawl: 'never' | 'auto' | 'preferred' = 'preferred',
-  providerOptions: { provider: RetrieveProvider; fallbackProvider: RetrieveProvider | null } = {
-    provider: 'exa',
-    fallbackProvider: 'fastcrw',
-  },
 ): Promise<{
   url: string;
   result: any;
@@ -565,7 +555,7 @@ async function retrieveSingleUrl(
       log.error(`retrieve ${provider} error for ${url}:`, primaryError);
     }
 
-    if (fallbackProvider && fallbackProvider !== provider) {
+    if (fallbackProvider) {
       try {
         log.debug(`Falling back to ${fallbackProvider} for ${url}`);
         const fallback = await runRetrieveProvider(fallbackProvider, url, include_summary, live_crawl);
@@ -643,11 +633,14 @@ export const retrieveTool = tool({
     const startTime = Date.now();
     const prefs =
       (experimental_context as { userPreferences?: Record<string, unknown> } | undefined)?.userPreferences ?? {};
-    const provider = normalizeRetrieveProvider(prefs['zetora-retrieve-provider']);
-    const fallbackEnabled = prefs['zetora-retrieve-fallback-enabled'] !== false;
-    const fallbackProvider = fallbackEnabled
-      ? normalizeRetrieveProvider(prefs['zetora-retrieve-fallback-provider'] ?? 'fastcrw')
-      : null;
+    // The tool is only loaded when this instance has a retrieve provider (see
+    // lib/search/tool-loader.ts).
+    const provider = resolveSearchProvider('retrieve', prefs['zetora-retrieve-provider']);
+    if (!provider) throw new Error('No retrieve provider is configured on this instance');
+    const fallbackProvider =
+      prefs['zetora-retrieve-fallback-enabled'] === true
+        ? resolveFallbackSearchProvider('retrieve', prefs['zetora-retrieve-fallback-provider'], provider)
+        : null;
     const providerOptions = { provider, fallbackProvider };
 
     try {
@@ -676,10 +669,10 @@ export const retrieveTool = tool({
       const urlPromises = url.map((singleUrl, index) =>
         retrieveSingleUrl(
           singleUrl,
+          providerOptions,
           content_types[index],
           include_summaries[index],
           live_crawls[index],
-          providerOptions,
         ),
       );
 

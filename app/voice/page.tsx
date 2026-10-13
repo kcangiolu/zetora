@@ -21,6 +21,7 @@ import { ZetoraLogo } from '@/components/logos/zetora-logo';
 import { VoiceButton, type VoiceButtonState } from '@/components/ui/voice-button';
 import { useVoiceClient, type VoiceType, type ConversationTurn } from '@/hooks/use-voice-client';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
+import { useInstanceCapabilities } from '@/hooks/use-instance-capabilities';
 import { useUser } from '@/contexts/user-context';
 import { cn, normalizeError } from '@/lib/utils';
 
@@ -129,7 +130,10 @@ export default function VoicePage() {
   const { user, isLoading: isProStatusLoading } = useUser();
   const router = useRouter();
 
-  const [voiceBackend] = useSyncedPreferences<'cloud' | 'local'>('zetora-voice-s2s-backend', 'cloud');
+  const [voiceBackendPref] = useSyncedPreferences<'cloud' | 'local'>('zetora-voice-s2s-backend', 'cloud');
+  // The local backend only exists when this instance runs s2s-service.
+  const localVoiceAvailable = useInstanceCapabilities()?.localVoice === true;
+  const voiceBackend = localVoiceAvailable ? voiceBackendPref : 'cloud';
 
   const {
     agentState,

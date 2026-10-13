@@ -9,6 +9,8 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
 import { createLogger } from '@/lib/logger';
+import { resolveFallbackSearchProvider, resolveSearchProvider } from '@/lib/instance/capabilities';
+import type { SearchProviderFor } from '@/lib/search/providers';
 import { FASTCRW_SEARCH_TIMEOUT_MS, GITHUB_API_TIMEOUT_MS, SEARXNG_TIMEOUT_MS, withAbort } from '@/lib/timeouts';
 
 const log = createLogger('github-search');
@@ -234,12 +236,7 @@ async function searchGithubWithSearxng(
     });
 }
 
-type GithubSearchProvider = 'firecrawl' | 'searxng' | 'fastcrw';
-
-function normalizeGithubProvider(value: unknown): GithubSearchProvider {
-  if (value === 'firecrawl' || value === 'searxng' || value === 'fastcrw') return value;
-  return 'firecrawl';
-}
+type GithubSearchProvider = SearchProviderFor<'github'>;
 
 async function runGithubProvider(
   provider: GithubSearchProvider,
@@ -247,21 +244,9 @@ async function runGithubProvider(
   limit: number,
   abortSignal?: AbortSignal,
 ): Promise<GitHubResult[]> {
-  if (provider === 'searxng') {
-    if (!serverEnv.SEARXNG_URL) {
-      log.warn('SearXNG provider selected for GitHub search but SEARXNG_URL is not configured');
-      return [];
-    }
-    return searchGithubWithSearxng(serverEnv.SEARXNG_URL, query, limit, abortSignal);
-  }
-
-  if (provider === 'fastcrw') {
-    if (!serverEnv.FASTCRW_URL) {
-      log.warn('fastCRW provider selected for GitHub search but FASTCRW_URL is not configured');
-      return [];
-    }
-    return searchGithubWithFastCrw(serverEnv.FASTCRW_URL, query, limit, abortSignal);
-  }
+  // Providers come from resolveSearchProvider, so their URL is configured.
+  if (provider === 'searxng') return searchGithubWithSearxng(serverEnv.SEARXNG_URL!, query, limit, abortSignal);
+  if (provider === 'fastcrw') return searchGithubWithFastCrw(serverEnv.FASTCRW_URL!, query, limit, abortSignal);
 
   const firecrawlResults = await firecrawl.search(query, {
     categories: ['github'],
@@ -324,15 +309,18 @@ export type GitHubResult = {
   description?: string;
 };
 
+// Only built when this instance has a GitHub search provider (see
+// lib/search/tool-loader.ts).
 export function githubSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>, preferences?: Record<string, unknown>) {
-  const provider = normalizeGithubProvider(preferences?.['zetora-github-search-provider']);
-  const fallbackEnabled = preferences?.['zetora-github-search-fallback-enabled'] !== false;
-  const fallbackProvider = fallbackEnabled
-    ? normalizeGithubProvider(preferences?.['zetora-github-search-fallback-provider'] ?? 'fastcrw')
-    : null;
+  const provider = resolveSearchProvider('github', preferences?.['zetora-github-search-provider']);
+  if (!provider) throw new Error('No GitHub search provider is configured on this instance');
+  const fallbackProvider =
+    preferences?.['zetora-github-search-fallback-enabled'] === true
+      ? resolveFallbackSearchProvider('github', preferences?.['zetora-github-search-fallback-provider'], provider)
+      : null;
 
   return tool({
-    description: 'Search GitHub using Firecrawl with multiple queries.',
+    description: 'Search GitHub repositories, code and discussions with multiple queries.',
     inputSchema: z.object({
       queries: z
         .array(z.string().max(200))
@@ -394,7 +382,7 @@ export function githubSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>
             log.error(`GitHub search ${provider} error for query "${query}":`, primaryError);
           }
 
-          if (processedResults.length === 0 && fallbackProvider && fallbackProvider !== provider) {
+          if (processedResults.length === 0 && fallbackProvider) {
             try {
               log.debug(`GitHub search: ${provider} returned no results, falling back to ${fallbackProvider}`);
               processedResults = await runGithubProvider(fallbackProvider, query, currentMaxResults, abortSignal);

@@ -46,18 +46,20 @@ afterEach(() => {
 });
 
 describe('redditSearchTool provider selection', () => {
-  it('uses Parallel AI by default and never calls Firecrawl/SearXNG/fastCRW', async () => {
-    parallelSearchMock.mockResolvedValue({
-      results: [{ url: 'https://www.reddit.com/r/test/comments/abc/foo', title: 'foo', excerpts: ['hello'] }],
+  it('defaults to the first available provider in order (SearXNG here) and calls nothing else', async () => {
+    const fetchMock = stubFetch({
+      'searxng.local/search': {
+        results: [{ url: 'https://www.reddit.com/r/test/comments/abc/foo', title: 'foo', content: 'hello' }],
+      },
     });
-    const fetchMock = stubFetch({});
 
     const tool = redditSearchTool(undefined, undefined);
     const result = await runTool(tool, ['foo']);
 
     expect(result.searches[0].results).toHaveLength(1);
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('searxng.local/search'))).toBe(true);
     expect(firecrawlSearchMock).not.toHaveBeenCalled();
-    expect(fetchMock.mock.calls.length).toBe(0);
+    expect(parallelSearchMock).not.toHaveBeenCalled();
   });
 
   it('does not call the fallback when the primary provider returns results', async () => {
@@ -68,6 +70,7 @@ describe('redditSearchTool provider selection', () => {
 
     const tool = redditSearchTool(undefined, {
       'zetora-reddit-search-provider': 'firecrawl',
+      'zetora-reddit-search-fallback-enabled': true,
       'zetora-reddit-search-fallback-provider': 'searxng',
     });
     const result = await runTool(tool, ['foo']);
@@ -86,6 +89,7 @@ describe('redditSearchTool provider selection', () => {
 
     const tool = redditSearchTool(undefined, {
       'zetora-reddit-search-provider': 'firecrawl',
+      'zetora-reddit-search-fallback-enabled': true,
       'zetora-reddit-search-fallback-provider': 'searxng',
     });
     const result = await runTool(tool, ['foo']);
@@ -108,18 +112,15 @@ describe('redditSearchTool provider selection', () => {
     expect(fetchMock.mock.calls.length).toBe(0);
   });
 
-  it('defaults the fallback to SearXNG (enabled) when no fallback preference is set', async () => {
-    parallelSearchMock.mockResolvedValue({ results: [] });
-    const fetchMock = stubFetch({
-      'searxng.local/search': {
-        results: [{ url: 'https://www.reddit.com/r/test/comments/abc/foo', title: 'foo', content: 'hello' }],
-      },
-    });
+  it('leaves the fallback off when no fallback preference is set', async () => {
+    firecrawlSearchMock.mockResolvedValue({ web: [] });
+    const fetchMock = stubFetch({});
 
-    const tool = redditSearchTool(undefined, undefined);
+    const tool = redditSearchTool(undefined, { 'zetora-reddit-search-provider': 'firecrawl' });
     const result = await runTool(tool, ['foo']);
 
-    expect(result.searches[0].results).toHaveLength(1);
-    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('searxng.local/search'))).toBe(true);
+    expect(result.searches[0].results).toHaveLength(0);
+    expect(fetchMock.mock.calls.length).toBe(0);
+    expect(parallelSearchMock).not.toHaveBeenCalled();
   });
 });

@@ -5,6 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
+import { useInstanceCapabilities } from '@/hooks/use-instance-capabilities';
+import { isSearchGroupAvailable, pickSearchProvider } from '@/lib/search/providers';
 import { getSearchGroups, cn } from '@/lib/utils';
 import { canonicalModelId, getProviderName, type Model, type ModelProvider } from '@/ai/models';
 import { useModels } from '@/hooks/use-models';
@@ -15,13 +17,18 @@ import { SOURCE_CATALOG_IDS } from './shared';
 export function CustomizeTab() {
   // Own instance of the chat search provider (read-only here) — kept in sync
   // with the Search tab's instance via useSyncedPreferences' CustomEvent.
-  const [searchProvider] = useSyncedPreferences<'exa' | 'parallel' | 'firecrawl' | 'searxng' | 'fastcrw'>(
-    'zetora-search-provider',
-    'exa',
-  );
+  const [searchProviderPref] = useSyncedPreferences<string>('zetora-search-provider', '');
+  const availableSearchProviders = useInstanceCapabilities()?.searchProviders;
 
-  // Customize state: enabled sources and preferred models
-  const dynamicGroups = useMemo(() => getSearchGroups(searchProvider), [searchProvider]);
+  // Customize state: enabled sources and preferred models. Sources this
+  // instance has no search provider for are not listed.
+  const dynamicGroups = useMemo(
+    () =>
+      getSearchGroups(
+        pickSearchProvider('web', searchProviderPref, availableSearchProviders ?? []) ?? undefined,
+      ).filter((group) => isSearchGroupAvailable(group.id, availableSearchProviders)),
+    [searchProviderPref, availableSearchProviders],
+  );
   const [visibleModesLegacy] = useSyncedPreferences<string[]>('zetora-visible-modes', []);
   const [enabledSourcesPref, setEnabledSources] = useSyncedPreferences<string[]>('zetora-enabled-sources', []);
   // Fall back to the pre-migration key so existing curation isn't silently reset to "all enabled".

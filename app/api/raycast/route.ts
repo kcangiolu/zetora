@@ -1,4 +1,5 @@
 import { webSearchTool } from '@/lib/tools';
+import { isSearchToolAvailable } from '@/lib/instance/capabilities';
 import { xSearchTool } from '@/lib/tools/x-search';
 import { convertToModelMessages, generateText, stepCountIs } from 'ai';
 import { resolveModel } from '@/ai/providers';
@@ -106,7 +107,9 @@ export async function POST(req: Request) {
   const systemPrompt = groupSystemPrompts[group];
 
   // Determine which tools to activate based on the group
-  const activeTools: ('web_search' | 'x_search')[] = group === 'x' ? ['x_search'] : ['web_search'];
+  const webSearchAvailable = isSearchToolAvailable('web_search');
+  const activeTools: ('web_search' | 'x_search')[] =
+    group === 'x' ? ['x_search'] : webSearchAvailable ? ['web_search'] : [];
 
   try {
     const { text } = await generateText({
@@ -118,7 +121,7 @@ export async function POST(req: Request) {
       toolChoice: 'auto',
       experimental_activeTools: activeTools,
       tools: {
-        web_search: webSearchTool(undefined, 'exa'),
+        ...(webSearchAvailable ? { web_search: webSearchTool(undefined) } : {}),
         x_search: xSearchTool(undefined),
       },
     });

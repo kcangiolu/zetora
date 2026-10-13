@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { MagicEditIcon } from '@/components/ui/magic-edit-icon';
 import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogDescription } from '@/components/ui/dialog';
-import { cn, SearchGroup, SearchGroupId, getSearchGroups, SearchProvider } from '@/lib/utils';
+import { cn, SearchGroup, SearchGroupId, getSearchGroups } from '@/lib/utils';
 import { track } from '@vercel/analytics';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ComprehensiveUserData } from '@/hooks/use-user-data';
@@ -45,6 +45,8 @@ import { UseChatHelpers } from '@ai-sdk/react';
 import { ChatMessage } from '@/lib/types';
 import { useLocation } from '@/hooks/use-location';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
+import { useInstanceCapabilities } from '@/hooks/use-instance-capabilities';
+import { isSearchGroupAvailable, pickSearchProvider } from '@/lib/search/providers';
 import { useSessionPreference } from '@/hooks/use-session-preference';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useHermesSend } from '@/hooks/use-hermes-send';
@@ -129,33 +131,6 @@ export interface FormComponentProps {
   visionEnabled: boolean;
   setVisionEnabled: React.Dispatch<React.SetStateAction<boolean>>;
 }
-
-const WEB_SEARCH_PROVIDERS: Array<{
-  value: SearchProvider;
-  label: string;
-  description: string;
-}> = [
-  {
-    value: 'exa',
-    label: 'Exa',
-    description: 'Enhanced and faster neural web search with images and filtering.',
-  },
-  {
-    value: 'firecrawl',
-    label: 'Firecrawl',
-    description: 'Web, news, and image search with content scraping capabilities.',
-  },
-  {
-    value: 'parallel',
-    label: 'Parallel AI',
-    description: 'Base and premium web search with Parallel’s Firecrawl image support.',
-  },
-  {
-    value: 'searxng',
-    label: 'SearXNG',
-    description: 'Self-hosted metasearch engine aggregating results from multiple sources.',
-  },
-];
 
 // The 11 single-purpose search tools that are now always-on, filtered by the
 // zetora-enabled-sources preference, instead of an exclusive mode you had to
@@ -333,8 +308,16 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const modeAccentStyle = useModeAccentStyle(selectedGroup);
 
   // Search groups for the plus menu
-  const [searchProvider] = useSyncedPreferences<SearchProvider>('zetora-search-provider', 'exa');
-  const dynamicSearchGroups = useMemo(() => getSearchGroups(searchProvider), [searchProvider]);
+  const [searchProviderPref] = useSyncedPreferences<string>('zetora-search-provider', '');
+  const instanceCapabilities = useInstanceCapabilities();
+  const availableSearchProviders = instanceCapabilities?.searchProviders;
+  const dynamicSearchGroups = useMemo(
+    () =>
+      getSearchGroups(
+        pickSearchProvider('web', searchProviderPref, availableSearchProviders ?? []) ?? undefined,
+      ).filter((group) => isSearchGroupAvailable(group.id, availableSearchProviders)),
+    [searchProviderPref, availableSearchProviders],
+  );
   const [visibleModesOuter] = useSyncedPreferences<string[]>('zetora-visible-modes', []);
   const [modeOrderOuter] = useSyncedPreferences<string[]>('zetora-group-order', []);
 

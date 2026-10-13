@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ModelSelectorDialog } from '@/components/ui/model-selector';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
+import { useInstanceCapabilities } from '@/hooks/use-instance-capabilities';
 import { AUTO_MODEL_ID, DEFAULT_MODEL_ALIAS } from '@/ai/models';
 import { sileo } from 'sileo';
 import { useQueryClient } from '@tanstack/react-query';
@@ -48,6 +49,8 @@ export function AiModelsTab({
   customProviders: CustomProviderConfig[];
   setCustomProviders: Dispatch<SetStateAction<CustomProviderConfig[]>>;
 }) {
+  // The per-provider anonymization toggle only exists when the instance runs a PII detector.
+  const anonymizationAvailable = useInstanceCapabilities()?.anonymization === true;
   const [autoRouterEnabled, setAutoRouterEnabled] = useSyncedPreferences<boolean>('zetora-auto-router-enabled', false);
   const [autoRouterConfig, setAutoRouterConfig] = useSyncedPreferences<AutoRouterConfig>('zetora-auto-router-config', {
     routes: getDefaultAutoRouterRoutes(),
@@ -431,20 +434,22 @@ export function AiModelsTab({
                           <RefreshCw className="h-3 w-3" />
                         )}
                       </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                        title={
-                          p.anonymize
-                            ? 'Anonymization on — PII is masked before requests reach this provider'
-                            : 'Anonymization off — click to enable if this provider is a cloud endpoint'
-                        }
-                        onClick={() => handleToggleAnonymize(p.id)}
-                      >
-                        {p.anonymize ? <Shield className="h-3 w-3" /> : <ShieldOff className="h-3 w-3" />}
-                      </Button>
+                      {anonymizationAvailable && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                          title={
+                            p.anonymize
+                              ? 'Anonymization on — PII is masked before requests reach this provider'
+                              : 'Anonymization off — click to enable if this provider is a cloud endpoint'
+                          }
+                          onClick={() => handleToggleAnonymize(p.id)}
+                        >
+                          {p.anonymize ? <Shield className="h-3 w-3" /> : <ShieldOff className="h-3 w-3" />}
+                        </Button>
+                      )}
                       <Button
                         type="button"
                         variant="ghost"

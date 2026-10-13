@@ -23,15 +23,19 @@ import { VOICE_S2S_BACKENDS, type VoiceS2SBackend, getVoiceS2SBackendConfig } fr
 import { ChevronDown, AlertCircle } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { type CustomProviderConfig, ImagePromptPresetEditor } from './shared';
+import { useInstanceCapabilities } from '@/hooks/use-instance-capabilities';
 
 export function VoiceTab({ customProviders }: { customProviders: CustomProviderConfig[] }) {
   // Own instance (read-only here) — the Integrations tab owns the toggle;
   // both stay in sync via useSyncedPreferences' CustomEvent.
   const [voiceEnabled] = useSyncedPreferences<boolean>('zetora-voice-enabled', true);
-  const [voiceS2SBackend, setVoiceS2SBackend] = useSyncedPreferences<VoiceS2SBackend>(
+  const [voiceS2SBackendPref, setVoiceS2SBackend] = useSyncedPreferences<VoiceS2SBackend>(
     'zetora-voice-s2s-backend',
     'cloud',
   );
+  // The local backend is only offered when this instance runs s2s-service.
+  const localVoiceAvailable = useInstanceCapabilities()?.localVoice === true;
+  const voiceS2SBackend: VoiceS2SBackend = localVoiceAvailable ? voiceS2SBackendPref : 'cloud';
 
   const [ttsProvider, setTtsProvider] = useSyncedPreferences<TTSProvider>('zetora-tts-provider', 'elevenlabs');
   const [ttsCustomProviderId, setTtsCustomProviderId] = useSyncedPreferences<string>(
@@ -422,7 +426,7 @@ export function VoiceTab({ customProviders }: { customProviders: CustomProviderC
         </div>
 
         {/* ── Voice Backend (cloud vs local speech-to-speech) ── */}
-        {voiceEnabled && (
+        {voiceEnabled && localVoiceAvailable && (
           <div className="flex items-center justify-between py-3.5 border-t border-border/40 gap-6">
             <div className="min-w-0">
               <p className="text-sm font-medium">Voice Backend</p>

@@ -6,6 +6,8 @@
 // ----> Return all collected sources and research data to the user
 
 import { createLogger } from '@/lib/logger';
+import { resolveFallbackSearchProvider, resolveSearchProvider } from '@/lib/instance/capabilities';
+import type { SearchProviderFor } from '@/lib/search/providers';
 import Exa from 'exa-js';
 import { getSandboxProvider } from '@/lib/sandbox';
 import { Output, generateText, hasToolCall, stepCountIs, tool } from 'ai';
@@ -596,25 +598,13 @@ export class FirecrawlSearchStrategy implements SearchProviderStrategy {
   }
 }
 
-export type ExtremeSearchProvider = 'exa' | 'firecrawl' | 'searxng' | 'fastcrw';
-export type ExtremeContentProvider = 'exa' | 'firecrawl' | 'fastcrw' | 'notte' | 'parallel';
+export type ExtremeSearchProvider = SearchProviderFor<'extremeSearch'>;
+export type ExtremeContentProvider = SearchProviderFor<'extremeContent'>;
 
 export interface ExtremeProviderClients {
   exa: Exa;
   firecrawl: FirecrawlApp;
   parallel: Parallel;
-}
-
-export function normalizeExtremeSearchProvider(value: unknown): ExtremeSearchProvider {
-  if (value === 'exa' || value === 'firecrawl' || value === 'searxng' || value === 'fastcrw') return value;
-  return 'exa';
-}
-
-export function normalizeExtremeContentProvider(value: unknown): ExtremeContentProvider {
-  if (value === 'exa' || value === 'firecrawl' || value === 'fastcrw' || value === 'notte' || value === 'parallel') {
-    return value;
-  }
-  return 'exa';
 }
 
 export async function runExtremeSearchProvider(
@@ -628,12 +618,9 @@ export async function runExtremeSearchProvider(
   if (provider === 'firecrawl') {
     return new FirecrawlSearchStrategy(clients.firecrawl).search(query, category, include_domains, startDate);
   }
+  // Providers come from resolveSearchProvider, so their URL is configured.
   if (provider === 'searxng') {
-    if (!serverEnv.SEARXNG_URL) {
-      log.warn('SearXNG selected for extreme search but SEARXNG_URL is not configured');
-      return [];
-    }
-    return new SearXNGSearchStrategy(serverEnv.SEARXNG_URL.replace(/\/$/, '')).search(
+    return new SearXNGSearchStrategy(serverEnv.SEARXNG_URL!.replace(/\/$/, '')).search(
       query,
       category,
       include_domains,
@@ -641,11 +628,7 @@ export async function runExtremeSearchProvider(
     );
   }
   if (provider === 'fastcrw') {
-    if (!serverEnv.FASTCRW_URL) {
-      log.warn('fastCRW selected for extreme search but FASTCRW_URL is not configured');
-      return [];
-    }
-    return new FastCrwSearchStrategy(serverEnv.FASTCRW_URL).search(query, category, include_domains, startDate);
+    return new FastCrwSearchStrategy(serverEnv.FASTCRW_URL!).search(query, category, include_domains, startDate);
   }
   return new ExaSearchStrategy(clients.exa).search(query, category, include_domains, startDate);
 }
@@ -654,16 +637,10 @@ function buildExtremeContentStrategy(
   provider: ExtremeContentProvider,
   clients: ExtremeProviderClients,
   maxContentChars: number,
-): ContentExtractionStrategy | null {
+): ContentExtractionStrategy {
   if (provider === 'firecrawl') return new FirecrawlContentStrategy(clients.firecrawl, maxContentChars);
   if (provider === 'parallel') return new ParallelContentStrategy(clients.parallel, maxContentChars);
-  if (provider === 'fastcrw') {
-    if (!serverEnv.FASTCRW_URL) {
-      log.warn('fastCRW selected for extreme content extraction but FASTCRW_URL is not configured');
-      return null;
-    }
-    return new FastCrwContentStrategy(serverEnv.FASTCRW_URL, maxContentChars);
-  }
+  if (provider === 'fastcrw') return new FastCrwContentStrategy(serverEnv.FASTCRW_URL!, maxContentChars);
   if (provider === 'notte') return new NotteContentStrategy(maxContentChars);
   return new ExaContentStrategy(clients.exa, maxContentChars);
 }
@@ -675,7 +652,8 @@ function buildExtremeContentStrategy(
 // behavior instead of re-fetching links that already succeeded.
 export async function runExtremeContentExtraction(
   links: string[],
-  provider: ExtremeContentProvider,
+  // Null when this instance has no content provider: metadata only.
+  provider: ExtremeContentProvider | null,
   fallbackProvider: ExtremeContentProvider | null,
   metadataEnabled: boolean,
   clients: ExtremeProviderClients,
@@ -686,10 +664,11 @@ export async function runExtremeContentExtraction(
   const results: SearchResult[] = [];
   let remaining = Array.from(new Set(links));
 
-  const primaryStrategy = buildExtremeContentStrategy(provider, clients, maxContentChars);
-  if (primaryStrategy) {
+  if (provider) {
     try {
-      const primaryResults = await primaryStrategy.getContents(remaining);
+      const primaryResults = await buildExtremeContentStrategy(provider, clients, maxContentChars).getContents(
+        remaining,
+      );
       results.push(...primaryResults);
       const resolved = new Set(primaryResults.map((r) => r.url));
       remaining = remaining.filter((url) => !resolved.has(url));
@@ -698,22 +677,21 @@ export async function runExtremeContentExtraction(
     }
   }
 
-  if (remaining.length > 0 && fallbackProvider && fallbackProvider !== provider) {
-    const fallbackStrategy = buildExtremeContentStrategy(fallbackProvider, clients, maxContentChars);
-    if (fallbackStrategy) {
-      try {
-        const fallbackResults = await fallbackStrategy.getContents(remaining);
-        results.push(...fallbackResults);
-        const resolved = new Set(fallbackResults.map((r) => r.url));
-        remaining = remaining.filter((url) => !resolved.has(url));
-      } catch (error) {
-        log.error(`[ExtremeContent] ${fallbackProvider} fallback error:`, error);
-      }
+  if (remaining.length > 0 && fallbackProvider) {
+    try {
+      const fallbackResults = await buildExtremeContentStrategy(fallbackProvider, clients, maxContentChars).getContents(
+        remaining,
+      );
+      results.push(...fallbackResults);
+      const resolved = new Set(fallbackResults.map((r) => r.url));
+      remaining = remaining.filter((url) => !resolved.has(url));
+    } catch (error) {
+      log.error(`[ExtremeContent] ${fallbackProvider} fallback error:`, error);
     }
   }
 
   if (remaining.length > 0 && metadataEnabled) {
-    const metadataResults = await getMetadataFallbackResults(remaining, provider);
+    const metadataResults = await getMetadataFallbackResults(remaining, provider ?? 'ExtremeContent');
     results.push(...metadataResults);
   }
 
@@ -743,17 +721,26 @@ async function extremeSearch(
   const prefs = preferences as Record<string, unknown> | null;
   const metadataEnabled = prefs?.['zetora-fallback-metadata'] !== false;
 
-  const searchProvider = normalizeExtremeSearchProvider(prefs?.['zetora-extreme-search-provider']);
-  const searchFallbackEnabled = prefs?.['zetora-extreme-search-fallback-enabled'] !== false;
-  const searchFallbackProvider = searchFallbackEnabled
-    ? normalizeExtremeSearchProvider(prefs?.['zetora-extreme-search-fallback-provider'] ?? 'firecrawl')
-    : null;
+  const searchProvider = resolveSearchProvider('extremeSearch', prefs?.['zetora-extreme-search-provider']);
+  if (!searchProvider) throw new Error('No Extreme Search provider is configured on this instance');
+  const searchFallbackProvider =
+    prefs?.['zetora-extreme-search-fallback-enabled'] === true
+      ? resolveFallbackSearchProvider(
+          'extremeSearch',
+          prefs?.['zetora-extreme-search-fallback-provider'],
+          searchProvider,
+        )
+      : null;
 
-  const contentProvider = normalizeExtremeContentProvider(prefs?.['zetora-extreme-content-provider']);
-  const contentFallbackEnabled = prefs?.['zetora-extreme-content-fallback-enabled'] !== false;
-  const contentFallbackProvider = contentFallbackEnabled
-    ? normalizeExtremeContentProvider(prefs?.['zetora-extreme-content-fallback-provider'] ?? 'firecrawl')
-    : null;
+  const contentProvider = resolveSearchProvider('extremeContent', prefs?.['zetora-extreme-content-provider']);
+  const contentFallbackProvider =
+    contentProvider && prefs?.['zetora-extreme-content-fallback-enabled'] === true
+      ? resolveFallbackSearchProvider(
+          'extremeContent',
+          prefs?.['zetora-extreme-content-fallback-provider'],
+          contentProvider,
+        )
+      : null;
 
   const extremeClients: ExtremeProviderClients = { exa, firecrawl, parallel };
 
@@ -1390,7 +1377,7 @@ ${JSON.stringify(plan)}
               includeDomains,
               startDate,
             );
-            if (results.length === 0 && searchFallbackProvider && searchFallbackProvider !== searchProvider) {
+            if (results.length === 0 && searchFallbackProvider) {
               log.debug(`Extreme search: ${searchProvider} returned no results, falling back to ${searchFallbackProvider}`);
               results = await runExtremeSearchProvider(
                 searchFallbackProvider,

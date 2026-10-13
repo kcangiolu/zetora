@@ -4,10 +4,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { useSyncedPreferences, type PreferenceKey, type ImageGenPromptPreset } from '@/hooks/use-synced-preferences';
 import { testEmailDelivery } from '@/app/actions';
 import { Check, X, Trash2, Save, Power, PowerOff } from 'lucide-react';
-import { useState } from 'react';
+import { useState, type ComponentType } from 'react';
 import { ARCH_ROUTER_MODEL, DEFAULT_MODEL_ALIAS, TASK_ENV_KEYS, TASK_LABELS, type TertiaryTask } from '@/ai/models';
 import { useModels } from '@/hooks/use-models';
 import { cn } from '@/lib/utils';
+import type { SearchProviderId } from '@/lib/search/providers';
 import Image from 'next/image';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ReasoningEffortToggle } from '@/components/ui/form-component/reasoning-effort-toggle';
@@ -48,91 +49,50 @@ const NotteIcon = ({ className }: { className?: string }) => (
   <HugeiconsIcon icon={Cursor02Icon} size={16} className={className} />
 );
 
-// Search Provider Options
-export const searchProviders = [
-  {
-    value: 'exa',
+// Label, description and icon of every search provider, and what an instance
+// needs for it (shown when a search function has no provider at all). Which
+// provider serves which function lives in lib/search/providers.ts.
+export const SEARCH_PROVIDER_OPTIONS: Record<
+  SearchProviderId,
+  { label: string; description: string; icon: ComponentType<{ className?: string }>; requirement: string }
+> = {
+  exa: {
     label: 'Exa',
     description: 'Enhanced and faster web search with images and advanced filtering',
     icon: ExaIcon,
-    default: true,
+    requirement: 'an Exa API key',
   },
-  {
-    value: 'firecrawl',
+  firecrawl: {
     label: 'Firecrawl',
     description: 'Web, news, and image search with content scraping capabilities',
     icon: FirecrawlIcon,
-    default: false,
+    requirement: 'a Firecrawl API key',
   },
-  {
-    value: 'parallel',
+  parallel: {
     label: 'Parallel AI',
     description: 'Base and premium web search along with Firecrawl image search support',
     icon: ParallelIcon,
-    default: false,
+    requirement: 'a Parallel API key',
   },
-  {
-    value: 'searxng',
+  searxng: {
     label: 'SearXNG',
     description: 'Self-hosted metasearch engine aggregating results from multiple sources',
     icon: SearXNGIcon,
-    default: false,
+    requirement: 'SearXNG',
   },
-  {
-    value: 'fastcrw',
+  fastcrw: {
     label: 'fastCRW',
     description: 'Self-hosted Rust scraper & search — Firecrawl-compatible API',
     icon: FastCrwIcon,
-    default: false,
+    requirement: 'fastCRW',
   },
-] as const;
-
-// GitHub search only has code/repo-relevant providers: Exa and Parallel AI
-// have no "github"/code category in their APIs (verified against exa-js's
-// and parallel-web's own type definitions), so they're excluded here.
-export const githubSearchProviders = searchProviders.filter((p) =>
-  (['firecrawl', 'searxng', 'fastcrw'] as const).includes(p.value as 'firecrawl' | 'searxng' | 'fastcrw'),
-);
-
-// Academic search excludes Parallel AI — it has no academic/PDF category,
-// only free-text objective + domain allow-listing.
-export const academicSearchProviders = searchProviders.filter((p) =>
-  (['exa', 'firecrawl', 'searxng', 'fastcrw'] as const).includes(
-    p.value as 'exa' | 'firecrawl' | 'searxng' | 'fastcrw',
-  ),
-);
-
-// Retrieve extracts content from a single URL, not a search — SearXNG (a
-// metasearch engine) has no role here, so it's excluded.
-export const retrieveProviders = searchProviders.filter((p) =>
-  (['fastcrw', 'exa', 'parallel', 'firecrawl'] as const).includes(
-    p.value as 'fastcrw' | 'exa' | 'parallel' | 'firecrawl',
-  ),
-);
-
-// Extreme Search's content-extraction role: Exa, Firecrawl, fastCRW, Parallel
-// AI can all fetch a given URL's full content; Notte adds real headless-browser
-// rendering. SearXNG is excluded — it's a metasearch aggregator, it never
-// fetches a page's actual content.
-export const extremeContentProviders = [
-  ...searchProviders.filter((p) => (['exa', 'firecrawl', 'parallel', 'fastcrw'] as const).includes(p.value as any)),
-  {
-    value: 'notte' as const,
+  notte: {
     label: 'Notte',
     description: 'Real headless-browser rendering for JavaScript-heavy pages',
     icon: NotteIcon,
-    default: false,
+    requirement: 'a Notte API key',
   },
-];
-
-// Reddit search excludes Exa — verified live that its index carries
-// essentially no reddit.com content (0 results even with no domain
-// restriction at all), so it's not a usable choice in practice.
-export const redditSearchProviders = searchProviders.filter((p) =>
-  (['parallel', 'firecrawl', 'searxng', 'fastcrw'] as const).includes(
-    p.value as 'parallel' | 'firecrawl' | 'searxng' | 'fastcrw',
-  ),
-);
+};
 
 export type CustomBackendKind = 'ollama' | 'vllm' | 'llamacpp' | 'openai' | 'unknown';
 

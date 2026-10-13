@@ -8,6 +8,7 @@ import { getStorageClient } from '@/lib/storage';
 import { getCatalogStatus, refreshModelCatalog } from '@/ai/catalog/store';
 
 import { serverEnv } from '@/env/server';
+import { isAnonymizationAvailable, isLocalVoiceAvailable } from '@/lib/instance/capabilities';
 
 interface ServiceCheckResult {
   ok: boolean;
@@ -128,7 +129,7 @@ export const SERVICE_CHECKS: ServiceCheckDefinition[] = [
   {
     id: 'presidio',
     label: 'Presidio (anonymizer)',
-    configured: () => true,
+    configured: isAnonymizationAvailable,
     run: () => fetchOk(`${serverEnv.ANONYMIZER_API_URL}/health`),
   },
   {
@@ -146,7 +147,8 @@ export const SERVICE_CHECKS: ServiceCheckDefinition[] = [
     // connect to directly) — unreachable, or wrong, from inside this
     // process. S2S_SERVICE_URL defaults to the local-dev host port and is
     // overridden to the Docker service name in docker-compose.yml for prod.
-    configured: () => true,
+    // Listed only when the instance offers local voice (VOICE_S2S_URL set).
+    configured: isLocalVoiceAvailable,
     run: () => fetchOk(`${serverEnv.S2S_SERVICE_URL}/health`),
   },
   {
