@@ -1,10 +1,8 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { getMcpCatalogIcon, MCP_COMPONENT_ICON_URLS } from '@/lib/mcp/catalog-icons';
-import { Github01Icon } from '@hugeicons/core-free-icons';
+import { ServiceIcon } from '@/components/mcp/service-icon';
 import { ArrowUpRight, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ComprehensiveUserData } from '@/hooks/use-user-data';
-import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -128,48 +126,6 @@ export const McpServerSelector: React.FC<McpServerSelectorProps> = React.memo(({
         ) : (
           filteredServers.map((server) => {
             const ready = isReady(server);
-            const hostname = (() => {
-              try {
-                return new URL(server.url).hostname;
-              } catch {
-                return server.url;
-              }
-            })();
-            const rootDomain = (() => {
-              const parts = hostname.split('.');
-              if (parts.length <= 2) return hostname;
-              const last2 = parts.slice(-2).join('.');
-              const sldTlds = new Set([
-                'gov.in',
-                'co.in',
-                'org.in',
-                'net.in',
-                'ac.in',
-                'co.uk',
-                'org.uk',
-                'me.uk',
-                'net.uk',
-                'ac.uk',
-                'co.jp',
-                'co.nz',
-                'co.za',
-                'co.kr',
-                'co.il',
-                'com.au',
-                'net.au',
-                'org.au',
-                'com.br',
-                'net.br',
-                'org.br',
-                'nih.gov',
-              ]);
-              return sldTlds.has(last2) ? parts.slice(-3).join('.') : last2;
-            })();
-            const isGitHub = MCP_COMPONENT_ICON_URLS.has(server.url.replace(/\/+$/, ''));
-            const faviconSrc = isGitHub
-              ? null
-              : (getMcpCatalogIcon(server.url) ??
-                `/api/proxy-image?url=${encodeURIComponent(`https://www.google.com/s2/favicons?domain=${rootDomain}&sz=128`)}`);
             return (
               <div
                 key={server.id}
@@ -186,18 +142,7 @@ export const McpServerSelector: React.FC<McpServerSelectorProps> = React.memo(({
                   ready ? 'hover:bg-accent cursor-pointer' : 'hover:bg-accent/50 cursor-pointer opacity-80',
                 )}
               >
-                {isGitHub ? (
-                  <HugeiconsIcon icon={Github01Icon} size={20} className="shrink-0 text-foreground" />
-                ) : (
-                  <img
-                    src={faviconSrc!}
-                    alt=""
-                    width={20}
-                    height={20}
-                    className="shrink-0 rounded object-contain"
-                    loading="lazy"
-                  />
-                )}
+                <ServiceIcon url={server.url} name={server.name} size={20} className="shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="text-[13px] font-medium truncate leading-tight">{server.name}</div>
                   {!ready && (
@@ -261,48 +206,6 @@ export const McpServerSelector: React.FC<McpServerSelectorProps> = React.memo(({
         ) : (
           filteredServers.map((server) => {
             const ready = isReady(server);
-            const hostname = (() => {
-              try {
-                return new URL(server.url).hostname;
-              } catch {
-                return server.url;
-              }
-            })();
-            const rootDomain = (() => {
-              const parts = hostname.split('.');
-              if (parts.length <= 2) return hostname;
-              const last2 = parts.slice(-2).join('.');
-              const sldTlds = new Set([
-                'gov.in',
-                'co.in',
-                'org.in',
-                'net.in',
-                'ac.in',
-                'co.uk',
-                'org.uk',
-                'me.uk',
-                'net.uk',
-                'ac.uk',
-                'co.jp',
-                'co.nz',
-                'co.za',
-                'co.kr',
-                'co.il',
-                'com.au',
-                'net.au',
-                'org.au',
-                'com.br',
-                'net.br',
-                'org.br',
-                'nih.gov',
-              ]);
-              return sldTlds.has(last2) ? parts.slice(-3).join('.') : last2;
-            })();
-            const isGitHubMobile = MCP_COMPONENT_ICON_URLS.has(server.url.replace(/\/+$/, ''));
-            const faviconSrcMobile = isGitHubMobile
-              ? null
-              : (getMcpCatalogIcon(server.url) ??
-                `/api/proxy-image?url=${encodeURIComponent(`https://www.google.com/s2/favicons?domain=${rootDomain}&sz=128`)}`);
             return (
               <div
                 key={server.id}
@@ -321,18 +224,7 @@ export const McpServerSelector: React.FC<McpServerSelectorProps> = React.memo(({
                     : 'hover:bg-accent/50 active:bg-accent/50 cursor-pointer opacity-80',
                 )}
               >
-                {isGitHubMobile ? (
-                  <HugeiconsIcon icon={Github01Icon} size={28} className="shrink-0 text-foreground" />
-                ) : (
-                  <img
-                    src={faviconSrcMobile!}
-                    alt=""
-                    width={28}
-                    height={28}
-                    className="shrink-0 rounded-md object-contain"
-                    loading="lazy"
-                  />
-                )}
+                <ServiceIcon url={server.url} name={server.name} size={28} className="shrink-0 rounded-md" />
                 <div className="flex-1 min-w-0">
                   <div className="text-[15px] font-medium truncate leading-tight">{server.name}</div>
                   {!ready && (

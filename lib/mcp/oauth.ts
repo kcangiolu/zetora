@@ -152,6 +152,12 @@ function getOAuthCallbackUri(origin: string) {
   return `${origin}/api/mcp/oauth/callback`;
 }
 
+// The redirect URI sent to OAuth providers, for users registering an OAuth app
+// with one by hand.
+export function getMcpOAuthRedirectUri(requestOrigin: string) {
+  return getOAuthCallbackUri(getTrustedAppOrigin(requestOrigin));
+}
+
 function toBase64Url(input: Buffer | string) {
   const buffer = Buffer.isBuffer(input) ? input : Buffer.from(input, 'utf8');
   return buffer.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');

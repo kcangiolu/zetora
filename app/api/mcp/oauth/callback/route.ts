@@ -2,7 +2,6 @@ import { getComprehensiveUserData } from '@/lib/user-data-server';
 import { getUserMcpServerById, updateUserMcpServer } from '@/lib/db/queries';
 import { ChatSDKError } from '@/lib/errors';
 import { exchangeMcpOAuthCode, verifyMcpOAuthState } from '@/lib/mcp/oauth';
-import { injectManagedOAuthCredentials } from '@/lib/mcp/managed-credentials';
 
 function assertUser(user: Awaited<ReturnType<typeof getComprehensiveUserData>>) {
   if (!user) throw new ChatSDKError('unauthorized:auth', 'Authentication required');
@@ -38,11 +37,9 @@ export async function GET(request: Request) {
     });
     resolvedServerId = payload.serverId;
 
-    const rawServer = await getUserMcpServerById({ id: payload.serverId, userId: user.id });
-    if (!rawServer) return redirectToApps(request, 'error', 'MCP server not found');
-    if (rawServer.authType !== 'oauth') return redirectToApps(request, 'error', 'Server is not OAuth');
-
-    const server = injectManagedOAuthCredentials(rawServer);
+    const server = await getUserMcpServerById({ id: payload.serverId, userId: user.id });
+    if (!server) return redirectToApps(request, 'error', 'MCP server not found');
+    if (server.authType !== 'oauth') return redirectToApps(request, 'error', 'Server is not OAuth');
 
     await exchangeMcpOAuthCode({
       server,

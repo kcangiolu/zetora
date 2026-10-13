@@ -3,8 +3,7 @@ import type { Metadata } from 'next';
 import { SidebarLayout } from '@/components/sidebar-layout';
 
 const title = 'Apps';
-const description =
-  'Browse and connect apps to power your AI workflows. Integrate with GitHub, Notion, Linear, Figma, Stripe, and 50+ more services.';
+const description = 'Connect any app that exposes an MCP server and use its tools in chat.';
 
 export const metadata: Metadata = {
   title,
