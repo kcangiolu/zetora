@@ -202,13 +202,6 @@ export const DynamicToolStepper = ({
     const container = scrollContainerRef.current;
     if (!container) return;
     const RESUME_AUTOSCROLL_THRESHOLD = 24;
-    const notifyRootScrollInteraction = (userScrolledUp = false) => {
-      window.dispatchEvent(
-        new CustomEvent('zetora:nested-scroll-active', {
-          detail: { active: true, userScrolledUp },
-        }),
-      );
-    };
 
     const handleScroll = () => {
       const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
@@ -226,14 +219,12 @@ export const DynamicToolStepper = ({
     };
 
     const handleWheel = (event: WheelEvent) => {
-      notifyRootScrollInteraction(event.deltaY < 0);
       if (event.deltaY < 0) {
         userScrolledUpRef.current = true;
       }
     };
 
     const handleTouchStart = (event: TouchEvent) => {
-      notifyRootScrollInteraction();
       lastTouchYRef.current = event.touches[0]?.clientY ?? null;
     };
 
@@ -241,7 +232,6 @@ export const DynamicToolStepper = ({
       const y = event.touches[0]?.clientY;
       if (y == null || lastTouchYRef.current == null) return;
       const isUserScrollingUp = y > lastTouchYRef.current + 3;
-      notifyRootScrollInteraction(isUserScrollingUp);
       if (isUserScrollingUp) {
         userScrolledUpRef.current = true;
       }

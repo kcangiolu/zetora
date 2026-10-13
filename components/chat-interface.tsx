@@ -69,7 +69,6 @@ import { resolveHermesChatMode, type HermesChatLock } from '@/lib/hermes/chat-mo
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import type { ReasoningEffort } from '@/lib/reasoning-effort-types';
 import { useUser } from '@/contexts/user-context';
-import { useOptimizedScroll } from '@/hooks/use-optimized-scroll';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 import { useSessionPreference } from '@/hooks/use-session-preference';
 
@@ -415,7 +414,6 @@ const ChatInterface = memo(
     }, [initialChatId, pathname, router]);
 
     const lastSubmittedQueryRef = useRef(initialState.query);
-    const bottomRef = useRef<HTMLDivElement>(null);
     const messagesRef = useRef<MessagesHandle>(null);
     const [showScrollToBottom, setShowScrollToBottom] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null!);
@@ -423,121 +421,17 @@ const ChatInterface = memo(
     const initializedRef = useRef(false);
     const openChatAutoScrolledRef = useRef<string | null>(null);
 
-    // Touch active = don't run scrollToBottom so we never fight the user's finger
-    const touchActiveRef = useRef(false);
-    const nestedScrollActiveRef = useRef(false);
-    const skipAutoScrollRef = useRef(false);
-    const lastTouchYRef = useRef<number | null>(null);
-    const touchEndTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const nestedScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    const syncSkipAutoScroll = useCallback(() => {
-      skipAutoScrollRef.current = touchActiveRef.current || nestedScrollActiveRef.current;
-    }, []);
-
-    // Use optimized scroll hook (skip programmatic scroll while user interacts with nested MCP scrollers)
-    const { scrollToBottom, markManualScroll, resetManualScroll } = useOptimizedScroll(bottomRef, {
-      skipScrollWhen: skipAutoScrollRef,
-    });
-
     // Messages renders via react-virtuoso, which owns its own internal scroll container —
-    // the page/window never scrolls for a tall conversation, so "at bottom" must come from
-    // Virtuoso's own atBottomStateChange rather than the window-based hook above.
+    // the page/window never scrolls for a tall conversation, so "at bottom" comes from
+    // Virtuoso's own atBottomStateChange.
     const handleAtBottomChange = useCallback((atBottom: boolean) => {
       setShowScrollToBottom(!atBottom);
     }, []);
 
     const handleScrollToBottomClick = useCallback(() => {
-      resetManualScroll();
       setShowScrollToBottom(false);
       messagesRef.current?.scrollToBottom();
-    }, [resetManualScroll]);
-
-    // Detect intentional user scroll to stop auto-scrolling.
-    // On touch: mark manual scroll on any touch + movement, and skip auto-scroll while finger is down.
-    const TOUCH_MOVE_THRESHOLD = 5; // px movement in any direction = user is scrolling
-    const TOUCH_END_SETTLE_MS = 150; // wait for momentum to settle before re-evaluating "at bottom"
-
-    useEffect(() => {
-      // Scroll: update manual state when not touching (mouse/keyboard or after touch ended)
-      const handleScroll = () => {
-        if (!touchActiveRef.current) markManualScroll();
-      };
-      // Wheel: upward wheel = intentional read-back
-      const handleWheel = (e: WheelEvent) => {
-        if (e.deltaY < 0) markManualScroll({ userScrolledUp: true });
-      };
-      const handleTouchStart = (e: TouchEvent) => {
-        touchActiveRef.current = true;
-        syncSkipAutoScroll();
-        lastTouchYRef.current = e.touches[0]?.clientY ?? null;
-        // Sync manual state from current position so we don't jump on first frame
-        markManualScroll();
-      };
-      const handleTouchMove = (e: TouchEvent) => {
-        if (!touchActiveRef.current) return;
-        const y = e.touches[0]?.clientY;
-        if (y != null && lastTouchYRef.current != null) {
-          const dy = y - lastTouchYRef.current;
-          // Any intentional scroll (up or down) = user is in control, stop auto-scroll
-          if (Math.abs(dy) >= TOUCH_MOVE_THRESHOLD) {
-            if (dy < 0) markManualScroll({ userScrolledUp: true });
-            else markManualScroll();
-          }
-        }
-        lastTouchYRef.current = y ?? lastTouchYRef.current;
-      };
-      const handleTouchEnd = () => {
-        touchActiveRef.current = false;
-        syncSkipAutoScroll();
-        lastTouchYRef.current = null;
-        if (touchEndTimeoutRef.current) clearTimeout(touchEndTimeoutRef.current);
-        // Re-evaluate after momentum settles so we don't wrongly think user is at bottom
-        touchEndTimeoutRef.current = setTimeout(() => {
-          touchEndTimeoutRef.current = null;
-          markManualScroll();
-        }, TOUCH_END_SETTLE_MS);
-      };
-      window.addEventListener('scroll', handleScroll, { passive: true });
-      window.addEventListener('wheel', handleWheel, { passive: true });
-      window.addEventListener('touchstart', handleTouchStart, { passive: true });
-      window.addEventListener('touchmove', handleTouchMove, { passive: true });
-      window.addEventListener('touchend', handleTouchEnd, { passive: true });
-      window.addEventListener('touchcancel', handleTouchEnd, { passive: true });
-      const handleNestedScrollInteraction = (event: Event) => {
-        const customEvent = event as CustomEvent<{ active?: boolean; userScrolledUp?: boolean }>;
-        const isActive = customEvent.detail?.active ?? false;
-        const userScrolledUp = customEvent.detail?.userScrolledUp ?? false;
-
-        nestedScrollActiveRef.current = isActive;
-        if (userScrolledUp) {
-          markManualScroll({ userScrolledUp: true });
-        }
-
-        if (nestedScrollTimeoutRef.current) clearTimeout(nestedScrollTimeoutRef.current);
-        if (isActive) {
-          nestedScrollTimeoutRef.current = setTimeout(() => {
-            nestedScrollActiveRef.current = false;
-            syncSkipAutoScroll();
-            nestedScrollTimeoutRef.current = null;
-          }, 250);
-        }
-
-        syncSkipAutoScroll();
-      };
-      window.addEventListener('zetora:nested-scroll-active', handleNestedScrollInteraction as EventListener);
-      return () => {
-        if (touchEndTimeoutRef.current) clearTimeout(touchEndTimeoutRef.current);
-        if (nestedScrollTimeoutRef.current) clearTimeout(nestedScrollTimeoutRef.current);
-        window.removeEventListener('scroll', handleScroll);
-        window.removeEventListener('wheel', handleWheel);
-        window.removeEventListener('touchstart', handleTouchStart);
-        window.removeEventListener('touchmove', handleTouchMove);
-        window.removeEventListener('touchend', handleTouchEnd);
-        window.removeEventListener('touchcancel', handleTouchEnd);
-        window.removeEventListener('zetora:nested-scroll-active', handleNestedScrollInteraction as EventListener);
-      };
-    }, [markManualScroll, syncSkipAutoScroll]);
+    }, []);
 
     // Generate a consistent ID for new chats
     const chatId = useMemo(() => initialChatId ?? uuidv7(), [initialChatId]);
@@ -560,7 +454,6 @@ const ChatInterface = memo(
       initialChatId || (routeChatId && routeChatId !== 'undefined' && routeChatId !== 'null'),
     );
     const isTemporaryChat = isTemporaryChatEnabled && !isExistingChat;
-    const existingChatId = isExistingChat ? initialChatId || routeChatId : null;
 
     // Create refs to store current values to avoid closure issues
     const selectedModelRef = useRef(effectiveSelectedModel);
@@ -913,13 +806,16 @@ const ChatInterface = memo(
       }
     }, [initialChatId, messages.length, chatId, isTemporaryChat, effectiveSelectedModel, setMessages]);
 
+    // Only a chat that was opened (its page was rendered with an id) jumps to its latest
+    // message. A chat started here gets its id mid-stream through history.replaceState
+    // and must not jump once the reply finishes.
     useEffect(() => {
-      if (!existingChatId) {
+      if (!initialChatId) {
         openChatAutoScrolledRef.current = null;
         return;
       }
 
-      if (openChatAutoScrolledRef.current === existingChatId) return;
+      if (openChatAutoScrolledRef.current === initialChatId) return;
 
       // Don't commit to "skip" on the pre-DB-fetch default (false) — that would
       // permanently lock this chat out of auto-scrolling before the real preference
@@ -927,17 +823,16 @@ const ChatInterface = memo(
       if (!scrollToLatestOnOpenResolved) return;
 
       if (!scrollToLatestOnOpen) {
-        openChatAutoScrolledRef.current = existingChatId;
+        openChatAutoScrolledRef.current = initialChatId;
         return;
       }
 
       if (messages.length === 0 || uiStatus === 'streaming') return;
 
-      openChatAutoScrolledRef.current = existingChatId;
-      resetManualScroll();
+      openChatAutoScrolledRef.current = initialChatId;
       // Double rAF: wait for Virtuoso to mount and measure its rows before jumping to the end.
       requestAnimationFrame(() => requestAnimationFrame(() => messagesRef.current?.scrollToBottom('auto')));
-    }, [existingChatId, messages.length, resetManualScroll, scrollToLatestOnOpen, scrollToLatestOnOpenResolved, uiStatus]);
+    }, [initialChatId, messages.length, scrollToLatestOnOpen, scrollToLatestOnOpenResolved, uiStatus]);
 
     const sendMessageWithAutoRouting = useCallback(
       async (message: Parameters<typeof sendMessage>[0], options?: Parameters<typeof sendMessage>[1]) => {
@@ -1201,48 +1096,6 @@ const ChatInterface = memo(
         setIsTransitioning(false);
       }
     }, [messages]);
-
-    // Scroll immediately when transitioning starts — don't wait for SDK status
-    useEffect(() => {
-      if (isTransitioning) {
-        resetManualScroll();
-        scrollToBottom();
-      }
-    }, [isTransitioning, resetManualScroll, scrollToBottom]);
-
-    const prevStatusRef = useRef<string>('');
-    useEffect(() => {
-      const prev = prevStatusRef.current;
-      prevStatusRef.current = uiStatus;
-      // Only reset manual scroll when transitioning from idle → streaming (new user submission)
-      // NOT during ongoing streaming status changes
-      if (uiStatus === 'streaming' && prev !== 'streaming') {
-        resetManualScroll();
-        scrollToBottom();
-      }
-    }, [uiStatus, resetManualScroll, scrollToBottom]);
-
-    // Auto-scroll during streaming when messages change; throttle so we don't fight touch/momentum
-    const lastScrollToBottomAtRef = useRef<number>(0);
-    const STREAM_SCROLL_THROTTLE_MS = 100;
-    useEffect(() => {
-      if (uiStatus !== 'streaming') return;
-      const now = Date.now();
-      if (now - lastScrollToBottomAtRef.current < STREAM_SCROLL_THROTTLE_MS) return;
-      lastScrollToBottomAtRef.current = now;
-      scrollToBottom();
-    }, [messages, uiStatus, scrollToBottom]);
-
-    // Disable browser scroll anchoring during streaming so images/layout don't pull the view up
-    useEffect(() => {
-      const el = document.documentElement;
-      if (uiStatus === 'streaming' && messages.length > 0) {
-        el.style.overflowAnchor = 'none';
-        return () => {
-          el.style.overflowAnchor = '';
-        };
-      }
-    }, [uiStatus, messages.length]);
 
     // Dialog management state - track command dialog state in chat state
     useEffect(() => {
@@ -1666,7 +1519,6 @@ const ChatInterface = memo(
                 className={`w-full max-w-[95%] sm:max-w-2xl space-y-6 p-0 mx-auto transition-all duration-300 ${
                   messages.length > 0 ? 'flex flex-col flex-1 min-h-0' : ''
                 }`}
-                style={{ overflowAnchor: 'none' }}
               >
                 {uiStatus === 'ready' && messages.length === 0 && (
                   <div className="text-center m-0 mb-2">
@@ -1703,7 +1555,6 @@ const ChatInterface = memo(
                   <Messages
                     ref={messagesRef}
                     onAtBottomChange={handleAtBottomChange}
-                    skipAutoScrollRef={skipAutoScrollRef}
                     skipCacheRef={skipCacheRef}
                     messages={messages as ChatMessage[]}
                     lastUserMessageIndex={lastUserMessageIndex}
@@ -1739,8 +1590,6 @@ const ChatInterface = memo(
                     onBeforeSubmit={() => setIsTransitioning(true)}
                   />
                 )}
-
-                <div ref={bottomRef} style={{ overflowAnchor: 'auto' }} />
               </div>
 
               {/* Single Form Component with dynamic positioning */}

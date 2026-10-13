@@ -2,18 +2,9 @@ import { useRef, useCallback } from 'react';
 
 const NEAR_BOTTOM_THRESHOLD = 80; // px from bottom to consider "at bottom"
 
-export interface UseOptimizedScrollOptions {
-  /** When this ref is true, scrollToBottom is a no-op (e.g. touch active so we don't fight the user). */
-  skipScrollWhen?: React.RefObject<boolean>;
-}
-
-export function useOptimizedScroll(
-  targetRef: React.RefObject<HTMLElement | null>,
-  options?: UseOptimizedScrollOptions,
-) {
+export function useOptimizedScroll(targetRef: React.RefObject<HTMLElement | null>) {
   const hasManuallyScrolledRef = useRef(false);
   const rafRef = useRef<number | null>(null);
-  const skipWhen = options?.skipScrollWhen;
 
   const isNearBottom = useCallback(() => {
     const target = targetRef.current;
@@ -31,14 +22,13 @@ export function useOptimizedScroll(
 
   const scrollToBottom = useCallback(() => {
     if (hasManuallyScrolledRef.current) return;
-    if (skipWhen?.current) return;
 
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
 
     rafRef.current = requestAnimationFrame(() => {
       rafRef.current = requestAnimationFrame(() => {
         rafRef.current = null;
-        if (hasManuallyScrolledRef.current || skipWhen?.current) return;
+        if (hasManuallyScrolledRef.current) return;
         const target = targetRef.current;
         if (!target) return;
 
@@ -49,7 +39,7 @@ export function useOptimizedScroll(
         }
       });
     });
-  }, [targetRef, skipWhen]);
+  }, [targetRef]);
 
   const markManualScroll = useCallback(
     (options?: { userScrolledUp?: boolean }) => {

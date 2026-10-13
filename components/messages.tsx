@@ -1,5 +1,5 @@
 import React, { memo, useMemo, useState, useRef, useEffect, useCallback, useImperativeHandle } from 'react';
-import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
+import { Virtuoso, VirtuosoHandle, type Components } from 'react-virtuoso';
 import { Message, DELIVERABLE_TOOL_PART_TYPES, type MessageEditDraft } from '@/components/message';
 import { DataUIPart, isToolUIPart } from 'ai';
 import { EnhancedErrorDisplay } from '@/components/message';
@@ -23,13 +23,6 @@ import { cn } from '@/lib/utils';
 // global is virtuoso's own documented-in-source escape hatch for it.
 if (typeof window !== 'undefined') {
   (window as unknown as { VIRTUOSO_LOG_LEVEL?: number }).VIRTUOSO_LOG_LEVEL = 4;
-}
-
-// Define interface for part, messageIndex and partIndex objects
-interface PartInfo {
-  part: any;
-  messageIndex: number;
-  partIndex: number;
 }
 
 interface MessagesProps {
@@ -86,14 +79,83 @@ interface MessagesProps {
   // this is the source of truth for "at bottom", since Virtuoso owns its own scroll
   // container and the outer page/window scroll doesn't move when it's virtualized.
   onAtBottomChange?: (atBottom: boolean) => void;
-  // When this ref is true (finger down / nested scroller active), Virtuoso's own
-  // followOutput must not re-trigger a scroll — otherwise it fights the user's touch.
-  skipAutoScrollRef?: React.RefObject<boolean>;
 }
 
 export interface MessagesHandle {
   scrollToBottom: (behavior?: 'smooth' | 'auto') => void;
 }
+
+interface MessagesFooterContext {
+  isHermesChat: boolean;
+  hermesDraft: string | null;
+  hermesTypingLabel: string | null;
+  shouldShowLoading: boolean;
+  shouldReserveLoaderMinHeight: boolean;
+  // Set only when there is no assistant message to show the error itself.
+  error: Error | null;
+  user?: ComprehensiveUserData | null;
+  isOwner?: boolean;
+  selectedVisibilityType: 'public' | 'private';
+  handleRetry: () => Promise<void>;
+  handleDelete: () => Promise<void>;
+}
+
+// Declared once at module level and fed through Virtuoso's `context`: a Footer component
+// created inside MessagesImpl would be a new component type on every change, and React
+// would unmount and remount the whole footer (restarting the loader's animation) each time.
+function MessagesFooter({ context }: { context: MessagesFooterContext }) {
+  const {
+    isHermesChat,
+    hermesDraft,
+    hermesTypingLabel,
+    shouldShowLoading,
+    shouldReserveLoaderMinHeight,
+    error,
+    user,
+    isOwner,
+    selectedVisibilityType,
+    handleRetry,
+    handleDelete,
+  } = context;
+  return (
+    <>
+      {/* The agent's reply while it is still being written (Hermes's `draft` op). It lives
+          here instead of in the message list because it is never persisted: the completed
+          segment arrives separately as its own message, and the draft is cleared the
+          moment it does. Same MarkdownRenderer as a real assistant text part, so the
+          handoff from draft to message is seamless rather than a visible reflow. */}
+      {isHermesChat && hermesDraft && (
+        <div className="mt-2">
+          <MarkdownRenderer content={hermesDraft} />
+        </div>
+      )}
+
+      {/* Loading animation when status is submitted or streaming with minimal assistant content */}
+      {shouldShowLoading && (
+        <div
+          className={`flex items-start ${shouldReserveLoaderMinHeight ? 'min-h-[calc(100vh-18rem)]' : ''} m-0! p-0!`}
+        >
+          <div className="w-full m-0! p-0!">
+            <StreamingIndicator label={isHermesChat ? (hermesTypingLabel ?? undefined) : undefined} />
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <EnhancedErrorDisplay
+          error={error}
+          user={user ?? undefined}
+          isOwner={isOwner}
+          selectedVisibilityType={selectedVisibilityType}
+          handleRetry={handleRetry}
+          handleDelete={handleDelete}
+        />
+      )}
+    </>
+  );
+}
+
+const VIRTUOSO_COMPONENTS: Components<ChatMessage, MessagesFooterContext> = { Footer: MessagesFooter };
 
 const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function MessagesImpl(
   {
@@ -123,7 +185,6 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     skipCacheRef,
     bottomSpacerClassName = 'mb-38! sm:mb-42!',
     onAtBottomChange,
-    skipAutoScrollRef,
     isHermesChat = false,
     hermesTypingLabel = null,
     hermesDraft = null,
@@ -135,8 +196,6 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
   // Track visibility state for each reasoning section using messageIndex-partIndex as key
   const [reasoningVisibilityMap, setReasoningVisibilityMap] = useState<Record<string, boolean>>({});
   const [reasoningFullscreenMap, setReasoningFullscreenMap] = useState<Record<string, boolean>>({});
-  const reasoningScrollRef = useRef<HTMLDivElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   // The message being edited and its draft are held here, not inside Message:
   // Virtuoso unmounts items it considers off-screen (a large paste growing the
   // editor past the viewport is enough), which would otherwise close the editor
@@ -152,10 +211,6 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
   const memoizedMessages = useMemo(() => {
     return messages.filter((message) => message.role === 'user' || message.role === 'assistant');
   }, [messages]);
-
-  // Compute the initial scroll target once, at mount, so incoming messages
-  // don't keep resetting where Virtuoso thinks the "initial" bottom is.
-  const initialTopMostItemIndexRef = useRef(Math.max(memoizedMessages.length - 1, 0));
 
   useImperativeHandle(
     ref,
@@ -466,27 +521,18 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     return false;
   }, [isTransitioning, memoizedMessages, status, isActiveAssistantSkeleton]);
 
-  // Add effect for auto-scrolling reasoning content
+  // The list never follows a streaming reply on its own, so the reader is never pulled
+  // away from what they are reading (the scroll-to-bottom button does that on demand).
+  // It moves once, when a new user message is added: to the end of the list, where the
+  // loader's reserved height leaves that message near the top with room for the reply.
+  const latestMessage = memoizedMessages[memoizedMessages.length - 1];
+  const lastUserMessageId = latestMessage?.role === 'user' ? latestMessage.id : null;
+  const scrolledToUserMessageIdRef = useRef(lastUserMessageId);
   useEffect(() => {
-    // Find active reasoning parts that are not complete
-    const activeReasoning = messages.flatMap((message, messageIndex) =>
-      (message.parts || [])
-        .map((part: any, partIndex: number) => ({ part, messageIndex, partIndex }))
-        .filter(({ part }: PartInfo) => part.type === 'reasoning')
-        .filter(({ messageIndex, partIndex }: PartInfo) => {
-          const message = messages[messageIndex];
-          // Check if reasoning is complete
-          return !(message.parts || []).some(
-            (p: any, i: number) => i > partIndex && (p.type === 'text' || p.type === 'tool-invocation'),
-          );
-        }),
-    );
-
-    // Auto-scroll when active reasoning
-    if (activeReasoning.length > 0 && reasoningScrollRef.current) {
-      reasoningScrollRef.current.scrollTop = reasoningScrollRef.current.scrollHeight;
-    }
-  }, [messages]);
+    if (!lastUserMessageId || lastUserMessageId === scrolledToUserMessageIdRef.current) return;
+    scrolledToUserMessageIdRef.current = lastUserMessageId;
+    virtuosoRef.current?.scrollToIndex({ index: 'LAST', align: 'end', behavior: 'auto' });
+  }, [lastUserMessageId]);
 
   const renderMessageItem = useCallback(
     (index: number, message: ChatMessage) => {
@@ -601,77 +647,53 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     ],
   );
 
-  const Footer = useCallback(() => {
-    return (
-      <>
-        {/* The agent's reply while it is still being written (Hermes's `draft` op). It lives
-            here instead of in the message list because it is never persisted: the completed
-            segment arrives separately as its own message, and the draft is cleared the
-            moment it does. Same MarkdownRenderer as a real assistant text part, so the
-            handoff from draft to message is seamless rather than a visible reflow. */}
-        {isHermesChat && hermesDraft && (
-          <div className="mt-2">
-            <MarkdownRenderer content={hermesDraft} />
-          </div>
-        )}
-
-        {/* Loading animation when status is submitted or streaming with minimal assistant content */}
-        {shouldShowLoading && (
-          <div
-            className={`flex items-start ${shouldReserveLoaderMinHeight ? 'min-h-[calc(100vh-18rem)]' : ''} m-0! p-0!`}
-          >
-            <div className="w-full m-0! p-0!">
-              <StreamingIndicator label={isHermesChat ? (hermesTypingLabel ?? undefined) : undefined} />
-            </div>
-          </div>
-        )}
-
-        {/* Show global error when there is no assistant message to display it */}
-        {error && memoizedMessages[memoizedMessages.length - 1]?.role !== 'assistant' && (
-          <EnhancedErrorDisplay
-            error={error}
-            user={user ?? undefined}
-            isOwner={isOwner}
-            selectedVisibilityType={selectedVisibilityType}
-            handleRetry={handleRetry}
-            handleDelete={handleDelete}
-          />
-        )}
-
-        <div ref={messagesEndRef} />
-      </>
-    );
-  }, [
-    shouldShowLoading,
-    shouldReserveLoaderMinHeight,
-    isHermesChat,
-    hermesTypingLabel,
-    hermesDraft,
-    error,
-    memoizedMessages,
-    user,
-    isOwner,
-    selectedVisibilityType,
-    handleRetry,
-    handleDelete,
-  ]);
+  const footerContext = useMemo<MessagesFooterContext>(
+    () => ({
+      isHermesChat,
+      hermesDraft,
+      hermesTypingLabel,
+      shouldShowLoading,
+      shouldReserveLoaderMinHeight,
+      error: memoizedMessages[memoizedMessages.length - 1]?.role !== 'assistant' ? error : null,
+      user,
+      isOwner,
+      selectedVisibilityType,
+      handleRetry,
+      handleDelete,
+    }),
+    [
+      isHermesChat,
+      hermesDraft,
+      hermesTypingLabel,
+      shouldShowLoading,
+      shouldReserveLoaderMinHeight,
+      memoizedMessages,
+      error,
+      user,
+      isOwner,
+      selectedVisibilityType,
+      handleRetry,
+      handleDelete,
+    ],
+  );
 
   if (memoizedMessages.length === 0) {
     return null;
   }
 
   return (
-    <div className={cn(bottomSpacerClassName, 'flex-1 min-h-0 flex flex-col')} style={{ overflowAnchor: 'none' }}>
+    <div className={cn(bottomSpacerClassName, 'flex-1 min-h-0 flex flex-col')}>
       <Virtuoso
         ref={virtuosoRef}
         style={{ height: '100%', overflowX: 'hidden' }}
         data={memoizedMessages}
         computeItemKey={(index, message) => message.id ?? index}
-        followOutput={(isAtBottom) => (isAtBottom && !skipAutoScrollRef?.current ? 'smooth' : false)}
+        followOutput={false}
         atBottomStateChange={onAtBottomChange}
         atBottomThreshold={80}
         itemContent={renderMessageItem}
-        components={{ Footer }}
+        context={footerContext}
+        components={VIRTUOSO_COMPONENTS}
       />
     </div>
   );
