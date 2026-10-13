@@ -34,7 +34,7 @@ const SEARCH_PROVIDER_CONFIGURED: Record<SearchProviderId, () => boolean> = {
   notte: () => isConfigured(serverEnv.NOTTE_API_KEY),
 };
 
-export function getAvailableSearchProviders(): SearchProviderId[] {
+function getAvailableSearchProviders(): SearchProviderId[] {
   return SEARCH_PROVIDER_IDS.filter((id) => SEARCH_PROVIDER_CONFIGURED[id]());
 }
 
