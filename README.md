@@ -98,9 +98,10 @@ Loadable per-message via the `skill` tool (subject to your disabled-skills prefe
 
 ## LLM Models Supported
 
-The model list isn't hardcoded: Zetora builds it from [models.dev](https://models.dev), refreshed daily, and lists every current model the API keys you configured can reach — new releases show up by themselves, retired ones disappear. Capabilities (vision, PDF input, reasoning controls, context window) come from the same source.
+Zetora names no models itself. It lists the providers it integrates, and the models come from [models.dev](https://models.dev), an open catalog that Zetora re-reads every 24 hours: new releases appear on their own, retired ones disappear, and capabilities (vision, PDF input, reasoning controls, context window) come from the same source. Only providers whose API key is set are listed.
 
-- **Labs**: OpenAI, Anthropic, Google (AI Studio and Agent Platform), xAI, DeepSeek, Mistral, Cohere, Zhipu, MoonShot, Alibaba (Qwen), Minimax, ByteDance, Arcee, Amazon, Xiaomi, StepFun, Sarvam, Inception and NVIDIA — through each lab's own API, or through the Vercel AI Gateway, OpenRouter, Groq or Novita, which also serve as automatic fallbacks
+- **Direct APIs** — OpenAI, Anthropic, Google AI Studio, Google Agent Platform, xAI, DeepSeek, Mistral, Cohere, Zhipu AI, Minimax and Sarvam
+- **Aggregators** — Vercel AI Gateway, OpenRouter, Groq and Novita. They also serve MoonShot, Alibaba (Qwen), ByteDance, Arcee, Amazon, Xiaomi, StepFun, Inception and NVIDIA models, and act as automatic fallbacks for the direct APIs above
 - **Auto** — Zetora's router picks a model per message based on the task
 - **Custom providers** — Add any OpenAI-compatible endpoint (e.g. Ollama, local inference servers), including models that return tool calls as XML
 
