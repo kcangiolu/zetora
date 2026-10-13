@@ -227,7 +227,7 @@ services:
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
-  # MinIO (S3-compatible file storage — point S3_* in .env at it)
+  # Silo (S3-compatible file storage — point S3_* in .env at it)
   # ---------------------------------------------------------------------------
   # Runs Silo (github.com/pgsty/silo), the maintained community fork: MinIO
   # archived its open-source edition and deleted its images from Docker Hub and

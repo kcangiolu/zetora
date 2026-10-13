@@ -115,7 +115,7 @@ This fork bundles a complete self-hosted stack in [`docker-compose.yml`](docker-
 | ---------------------- | ----------------------------------------- | ---------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | **PostgreSQL 17**      | `postgres`                                | _(core)_   | Vercel Postgres / Neon           | Primary application database                                                                                            |
 | **Redis 7**            | `redis`                                   | _(core)_   | Upstash Redis                    | Sessions, cache, rate limiting                                                                                          |
-| **MinIO**              | `minio`, `minio-create-bucket`            | `minio`    | Cloudflare R2 / AWS S3           | S3-compatible object storage for uploads (point `S3_*` at it)                                                           |
+| **Silo**               | `minio`, `minio-create-bucket`            | `minio`    | Cloudflare R2 / AWS S3           | S3-compatible object storage for uploads, a maintained MinIO fork (point `S3_*` at it)                                  |
 | **Qdrant**             | `qdrant`                                  | `qdrant`   | _(new — no Scira equivalent)_    | Vector store for the hybrid RAG pipeline (content indexing, RRF fusion, reranking)                                      |
 | **SearXNG**            | `searxng`, `searxng-redis`                | `searxng`  | Tavily / Exa                     | Self-hosted metasearch engine for the Web search source                                                                 |
 | **fastCRW**            | `fastcrw`, `chrome`                       | `fastcrw`  | Firecrawl                        | Self-hosted scraper & search (Firecrawl-compatible API) with JS rendering via LightPanda and a headless-Chrome fallback |
@@ -132,7 +132,7 @@ This fork bundles a complete self-hosted stack in [`docker-compose.yml`](docker-
 
 Every profiled service is off by default — `docker compose up -d` alone starts only the `_(core)_` rows plus `zetora.app`. Storage (`S3_*`), code execution (`SANDBOX_PROVIDER`) and Lookout scheduling (`LOOKOUT_SCHEDULER`) have no default: set each in `.env` to a bundled service or its cloud alternative, or that feature reports what is missing. Start any subset with `docker compose --profile <name> up -d` (see [Self-hosted stack](#option-2--self-hosted-stack-docker-compose) below for the full command and what each one falls back to when left off).
 
-All services share the `zetora-network` Docker network and resolve each other by service name. Most services are bound to `127.0.0.1`; only `zetora.app` (port 3333), MinIO's API port, and `s2s-service` publish beyond loopback (for reverse-proxy and browser access).
+All services share the `zetora-network` Docker network and resolve each other by service name. Most services are bound to `127.0.0.1`; only `zetora.app` (port 3333), Silo's API port, and `s2s-service` publish beyond loopback (for reverse-proxy and browser access).
 
 Beyond the bundled infrastructure, this fork also adds:
 
@@ -156,7 +156,7 @@ If you'd rather not run the bundled services, Zetora can run entirely against ma
 | ------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | Postgres            | Vercel Postgres / Neon / Supabase | `DATABASE_URL` (+ optional `READ_DB_1`/`READ_DB_2` read replicas)                                                                               |
 | Redis               | Upstash Redis                     | `REDIS_URL`                                                                                                                                     |
-| MinIO               | Cloudflare R2 / AWS S3            | `S3_ENDPOINT`, keys, bucket, `S3_PUBLIC_URL` and `S3_REGION` of the service (examples in `.env.example`)                                        |
+| Silo                | Cloudflare R2 / AWS S3            | `S3_ENDPOINT`, keys, bucket, `S3_PUBLIC_URL` and `S3_REGION` of the service (examples in `.env.example`)                                        |
 | Qdrant              | — (disabled)                      | leave `QDRANT_URL` unset to disable the vector cache                                                                                            |
 | SearXNG             | Tavily / Exa                      | `TAVILY_API_KEY`, `EXA_API_KEY` (used automatically when `SEARXNG_URL` is unset)                                                                |
 | fastCRW             | Firecrawl                         | `FIRECRAWL_API_KEY` (used automatically when `FASTCRW_URL` is unset)                                                                            |
@@ -176,7 +176,7 @@ See `.env.example` for the full catalog of provider and feature environment vari
 - [Better Auth](https://github.com/better-auth/better-auth) - Authentication
 - [Drizzle ORM](https://orm.drizzle.team/) - Database management
 - [PostgreSQL](https://www.postgresql.org/) - Primary database
-- [MinIO](https://min.io/) - Self-hosted S3-compatible object storage
+- [Silo](https://github.com/pgsty/silo) - Self-hosted S3-compatible object storage, a maintained fork of MinIO
 - [Qdrant](https://qdrant.tech/) - Vector store for hybrid RAG
 - [SearXNG](https://docs.searxng.org/) - Self-hosted metasearch engine
 - fastCRW - Self-hosted web scraping and search (Firecrawl-compatible)
@@ -237,7 +237,7 @@ Use this for day-to-day development. It runs the Next.js app directly on your ma
    ```
 6. Open `http://localhost:3000`.
 
-You can optionally bring up any other bundled service on its own (Redis, MinIO, Qdrant, SearXNG, fastCRW, sandbox, Presidio, the voice services) with `docker compose up -d <service>` and point the matching `.env.local` variables at `localhost:<port>`.
+You can optionally bring up any other bundled service on its own (Redis, Silo, Qdrant, SearXNG, fastCRW, sandbox, Presidio, the voice services) with `docker compose up -d <service>` and point the matching `.env.local` variables at `localhost:<port>`.
 
 ### Option 2 — Self-hosted stack (Docker Compose)
 
@@ -251,7 +251,7 @@ Use this to deploy Zetora on a server. By default it runs against cloud provider
 2. Create `.env` (gitignored — never commit it). Fill in at least:
    - **Domain**: `NEXT_PUBLIC_APP_URL`, `BETTER_AUTH_BASE_URL`, `ALLOWED_ORIGINS` — set to your public URL (e.g. `https://zetora.example.com`).
    - **Core secrets**: `BETTER_AUTH_SECRET` (generate with `openssl rand -base64 32`), `POSTGRES_PASSWORD`.
-   - **MinIO**: `MINIO_ROOT_PASSWORD` (and optionally `MINIO_ROOT_USER`, `S3_PUBLIC_URL`).
+   - **Silo** (`minio` profile): `MINIO_ROOT_PASSWORD` (and optionally `MINIO_ROOT_USER`, `S3_PUBLIC_URL`).
    - **AI providers**: at least one provider API key.
    - Optional but recommended: `BULLMQ_REDIS_PASSWORD`, OAuth provider credentials.
 
@@ -275,7 +275,7 @@ Use this to deploy Zetora on a server. By default it runs against cloud provider
      --profile presidio --profile tts --profile hermes up -d
    ```
 
-4. Put a reverse proxy with TLS in front of `zetora.app` (port 3333) for your domain. If you enabled the `minio` profile, also put one in front of MinIO's API port (`:9010`) and point `S3_PUBLIC_URL` at it — generated images/files are served straight from that URL to the browser, no app-side proxy. For the local voice backend, expose `s2s-service`'s WebSocket port and point `VOICE_S2S_URL` at it. Every other service is bound to `127.0.0.1` only — use an SSH tunnel if you need direct access to an admin UI (MinIO console on `:9001`, Bull Board on `:3001`, Qdrant dashboard on `:6333`, SearXNG on `:8090`).
+4. Put a reverse proxy with TLS in front of `zetora.app` (port 3333) for your domain. If you enabled the `minio` profile, also put one in front of Silo's API port (`:9010`) and point `S3_PUBLIC_URL` at it — generated images/files are served straight from that URL to the browser, no app-side proxy. For the local voice backend, expose `s2s-service`'s WebSocket port and point `VOICE_S2S_URL` at it. Every other service is bound to `127.0.0.1` only — use an SSH tunnel if you need direct access to an admin UI (Silo console on `:9001`, Bull Board on `:3001`, Qdrant dashboard on `:6333`, SearXNG on `:8090`).
 5. Visit your domain — Zetora should be up and running. The Diagnostics tab in Settings shows the health of each bundled service.
 
 All eight optional services (`minio`, `searxng`, `fastcrw`, `sandbox`, `bullmq`, `qdrant`, `presidio`, `tts`) are behind their own profile — none started by default, nothing to edit to skip them. See [All-Cloud Configuration](#all-cloud-configuration) for exactly what each one falls back to when left off.

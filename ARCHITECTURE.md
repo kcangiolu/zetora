@@ -13,7 +13,7 @@ Zetora is a self-hosted, AI-powered agentic search engine — a fork of [Scira](
 | Auth                    | Better Auth (GitHub / Google / Twitter OAuth)                                                                                           |
 | ORM / DB                | Drizzle ORM + PostgreSQL 17 (migrations in `drizzle/migrations`)                                                                        |
 | Caching / rate limiting | Redis (`ioredis` / `redis`), sliding-window rate limiting via Redis sorted sets                                                         |
-| Object storage          | Any S3-compatible service: bundled MinIO, Cloudflare R2, AWS S3... (`S3_*`)                                                             |
+| Object storage          | Any S3-compatible service: bundled Silo (MinIO fork), Cloudflare R2, AWS S3... (`S3_*`)                                                 |
 | Vector store            | Qdrant (search-result cache, hybrid search)                                                                                             |
 | Web search              | SearXNG (self-hosted metasearch), fastCRW (Firecrawl-compatible scraper), plus SaaS fallbacks (Tavily, Exa, Firecrawl, Valyu, Parallel) |
 | Long-term memory        | Native, in Postgres (`lib/memory`) — bio + facts, no extra service                                                                      |
@@ -88,7 +88,7 @@ All services live on the `zetora-network` bridge; only `zetora.app` (port 3333) 
 | `db-migrate`                      | same image, target `migrate`                               | —              | Runs Drizzle migrations, exits                                                                                                  |
 | `postgres`                        | postgres:17-alpine                                         | 5432           | Primary DB                                                                                                                      |
 | `redis`                           | redis:7-alpine                                             | 6379           | Cache / sessions / rate limits                                                                                                  |
-| `minio` (+ `minio-create-bucket`) | minio                                                      | 9010→9000/9001 | S3 storage + console — API port (9010) is public-reachable, not loopback-only: put TLS in front and point `S3_PUBLIC_URL` at it |
+| `minio` (+ `minio-create-bucket`) | pgsty/silo                                                 | 9010→9000/9001 | S3 storage + console — API port (9010) is public-reachable, not loopback-only: put TLS in front and point `S3_PUBLIC_URL` at it |
 | `qdrant`                          | qdrant                                                     | 6333/6334      | Vector cache                                                                                                                    |
 | `searxng` (+ `searxng-redis`)     | searxng                                                    | 8090→8080      | Metasearch                                                                                                                      |
 | `fastcrw`                         | ghcr.io/us/crw                                             | 3004→3000      | Scraper/search (Firecrawl-compatible)                                                                                           |
