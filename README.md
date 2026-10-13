@@ -145,7 +145,7 @@ Beyond the bundled infrastructure, this fork also adds:
 - **Sidebar visibility toggles** for Lookouts, Voice, and sources
 - **User-configurable default model** and per-task tertiary model preferences
 - **Embedding provider configuration**, including OpenAI-compatible endpoints, for the hybrid RAG pipeline
-- **CI-built images** — all custom images are built and published by Gitea Actions (`.gitea/workflows/docker.yml`); the compose file only pulls
+- **CI-built images** — all custom images are built and published by Gitea Actions (`.gitea/workflows/docker.yml`); the compose file only pulls, and `docker-compose.build.yml` builds them from source instead
 
 ## All-Cloud Configuration
 
@@ -259,10 +259,10 @@ Use this to deploy Zetora on a server. By default it runs against cloud provider
 3. Start the stack:
 
    ```bash
-   docker compose up -d
+   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
    ```
 
-   The compose file has no `build:` sections on purpose — all custom images (`zetora-app`, `zetora-migrate`, `presidio-api`, `zetora-tts`, …) are built and published to the registry by the Gitea Actions workflow (`.gitea/workflows/docker.yml`). If you're running your own fork, point the `image:` references at your own registry (or add `build:` sections back locally).
+   `docker-compose.yml` itself is pull-only: its custom images (`zetora-app`, `zetora-migrate`, `presidio-api`, `zetora-tts`, …) resolve to `ZETORA_*_IMAGE` variables, defaulting to `:local` tags that no registry serves. `docker-compose.build.yml` builds those `:local` images from the source tree. Set `COMPOSE_FILE=docker-compose.yml:docker-compose.build.yml` in `.env` to drop the `-f` flags. `zetora-app` has to be built per instance anyway: its `NEXT_PUBLIC_*` values (`NEXT_PUBLIC_APP_URL` first) are inlined into the client bundle at build time, so they're read from your `.env` and changing one needs `--build` again, not just a restart. If you publish your own images to a registry, set the `ZETORA_*_IMAGE` variables to their tags and use `docker compose pull && docker compose up -d` instead.
 
    Database migrations run automatically: the `db-migrate` container applies Drizzle migrations and performance indexes, and `zetora.app` waits for it to complete before starting — no manual `drizzle-kit migrate` needed.
 

@@ -3,17 +3,18 @@
 #
 # Pull-only, on purpose: no service here has a `build:` section. Custom
 # images (zetora-app, zetora-migrate, presidio-api, zetora-tts,
-# stt-service, s2s-service) are referenced via ${ZETORA_*_IMAGE} vars with a
-# generic `:local` fallback — this file alone doesn't point at any specific
-# registry. Kenny's own deployment supplies the real private-registry tags
-# via docker-compose.internal.yml, tracked in the private zetora-agent
-# overlay (AGENT.md §2.3), not published here:
+# stt-service, s2s-service, hermes-relay) are referenced via
+# ${ZETORA_*_IMAGE} vars with a generic `:local` fallback — this file alone
+# doesn't point at any specific registry. A deployment with its own registry
+# supplies the real tags from a host-resident override file that is not
+# tracked here (scripts/deploy-server-prod.sh uses docker-compose.internal.yml):
 #   docker compose -f docker-compose.yml -f docker-compose.internal.yml pull/up
 # A prod host that only has this compose file deployed (e.g. Unraid's
 # Compose Manager) doesn't have the source subdirectories
 # (./s2s-service, ./presidio-service, ...) that a `build:` context would
 # need — always `docker compose pull` before `up -d` so Compose never falls
-# back to trying to build one locally.
+# back to trying to build one locally. Without a registry, build the `:local`
+# images from source with docker-compose.build.yml (see its header).
 #
 # Usage:
 #   1. Copy .env.example to .env and fill in the required values.
@@ -39,6 +40,8 @@
 #        # Optional: drop {voice}.wav + {voice}.lang into qwen3-tts/voices/
 #
 #   4. docker compose pull && docker compose up -d
+#      (or, building from source: docker compose -f docker-compose.yml
+#       -f docker-compose.build.yml up -d --build)
 #      By default this starts only the services Zetora actually needs to
 #      boot — Postgres, Redis, BullMQ Redis, and zetora.app itself. Every
 #      other bundled service is a self-hosted ALTERNATIVE to a cloud
@@ -107,8 +110,8 @@ services:
   zetora.app:
     # Pulled from the registry only — this file has no `build:` sections on
     # purpose (see the header comment). Images are built by
-    # .gitea/workflows/docker.yml; the NEXT_PUBLIC_* build-args that used to
-    # live here now live in that workflow's build-args instead.
+    # .gitea/workflows/docker.yml, or locally by docker-compose.build.yml;
+    # both pass the NEXT_PUBLIC_* build-args.
     image: ${ZETORA_APP_IMAGE:-zetora-app:local}
     container_name: zetora-app
     ports:

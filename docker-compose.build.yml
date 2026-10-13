@@ -1,0 +1,63 @@
+# =============================================================================
+# Zetora — build-from-source overlay
+#
+# docker-compose.yml is pull-only: its custom images resolve to
+# ${ZETORA_*_IMAGE}, defaulting to `<name>:local` tags that no registry
+# serves. Without a registry of your own, add this file to build those
+# `:local` images from the source tree instead:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+#
+# or set COMPOSE_FILE=docker-compose.yml:docker-compose.build.yml in .env so a
+# plain `docker compose up -d --build` picks it up.
+#
+# zetora.app must be built per instance: its NEXT_PUBLIC_* values are inlined
+# into the client bundle at build time, so they are read from your .env here
+# and changing one needs a rebuild, not a restart. Services outside the active
+# profiles (see COMPOSE_PROFILES in .env.example) are neither started nor built.
+# =============================================================================
+
+services:
+  db-migrate:
+    build:
+      context: .
+      target: migrate
+
+  zetora.app:
+    build:
+      context: .
+      target: runner
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?set NEXT_PUBLIC_APP_URL in .env}
+        NEXT_PUBLIC_MCP_ENABLED: ${NEXT_PUBLIC_MCP_ENABLED:-false}
+        NEXT_PUBLIC_MCP_SANDBOX_ORIGIN: ${NEXT_PUBLIC_MCP_SANDBOX_ORIGIN:-}
+        NEXT_PUBLIC_CANVAS_ENABLED: ${NEXT_PUBLIC_CANVAS_ENABLED:-false}
+        NEXT_PUBLIC_HERMES_ENABLED: ${NEXT_PUBLIC_HERMES_ENABLED:-true}
+        NEXT_PUBLIC_VOICE_BACKEND_URL: ${NEXT_PUBLIC_VOICE_BACKEND_URL:-}
+        NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
+
+  presidio-api:
+    build:
+      context: presidio-service
+
+  qwen3-tts:
+    build:
+      context: tts-service
+      args:
+        CUDA_IMAGE: ${TTS_CUDA_IMAGE:-nvidia/cuda:13.1.2-runtime-ubuntu24.04}
+        TORCH_CUDA_BUILD: ${TTS_TORCH_CUDA_BUILD:-cu130}
+        TORCH_VERSION: ${TTS_TORCH_VERSION:-2.9.1}
+        FLASH_ATTN_MODE: ${TTS_FLASH_ATTN_MODE:-prebuilt}
+        FLASH_ATTN_ARCH_LIST: ${TTS_FLASH_ATTN_ARCH_LIST:-8.0;8.6;8.9;9.0;10.0;12.0}
+
+  stt-service:
+    build:
+      context: stt-service
+
+  s2s-service:
+    build:
+      context: s2s-service
+
+  hermes-relay-service:
+    build:
+      context: hermes-relay-service

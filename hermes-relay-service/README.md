@@ -88,4 +88,5 @@ Built and pushed as `zetora-hermes-relay:latest`/`:<sha>` by the `hermes-relay` 
 `.gitea/workflows/docker.yml`, path-filtered on this directory — same pattern as every other
 sidecar service (tts/stt/s2s/presidio). `docker-compose.yml`'s own image reference
 defaults to a `:local` placeholder; the real registry tag is pinned in the deployment host's
-own `docker-compose.internal.yml` (not tracked here — see that file's header).
+own `docker-compose.internal.yml` (not tracked here — see that file's header). Without a
+registry, `docker-compose.build.yml` at the repo root builds it from this directory.
