@@ -9,6 +9,7 @@ import {
   DownloadsSection,
   SkillsSection,
   DiagnosticsSection,
+  DataProtectionSection,
 } from '@/components/settings';
 import { cn } from '@/lib/utils';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
@@ -276,9 +277,10 @@ function SettingsContent() {
                       </span>
                       <h2 className="text-lg font-semibold">Security</h2>
                     </div>
-                    <p className="text-sm text-muted-foreground">Protect your account with two-factor authentication</p>
+                    <p className="text-sm text-muted-foreground">Two-factor authentication and data protection</p>
                   </div>
                   <TwoFactorSettings enabled={Boolean(user?.twoFactorEnabled)} />
+                  <DataProtectionSection />
                 </div>
               </TabsContent>
 
