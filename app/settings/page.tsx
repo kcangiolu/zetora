@@ -355,9 +355,7 @@ function SettingsContent() {
                       </span>
                       <h2 className="text-lg font-semibold">Diagnostics</h2>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      Check connectivity to the local services this deployment talks to
-                    </p>
+                    <p className="text-sm text-muted-foreground">Check that connected services are reachable</p>
                   </div>
                   <DiagnosticsSection />
                 </div>

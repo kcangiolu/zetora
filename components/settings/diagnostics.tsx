@@ -83,14 +83,8 @@ export function DiagnosticsSection() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-medium mb-1">Diagnostics</h3>
-          <p className="text-sm text-muted-foreground">
-            Check connectivity to the local services this deployment talks to over the Docker network.
-          </p>
-        </div>
-        {configuredServices.length > 0 && (
+      {configuredServices.length > 0 && (
+        <div className="flex justify-end">
           <Button
             variant="outline"
             size="sm"
@@ -101,8 +95,8 @@ export function DiagnosticsSection() {
             <ArrowClockwiseIcon className={cn('h-4 w-4', testingId !== null && 'animate-spin')} />
             Test all
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="space-y-2">
