@@ -10,7 +10,6 @@ const publicRoutes = [
   '/about',
   '/privacy-policy',
   '/robots.txt',
-  '/x-wrapped',
   // Public chats; the page itself 404s on a private one.
   '/search/',
   '/share/',

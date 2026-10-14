@@ -70,7 +70,7 @@ public/                 Static assets
 | `models`                                                | Model picker catalog and the instance's default/fast models               |
 | `custom-providers*`                                     | Custom OpenAI-compatible provider management (detect, models)             |
 | `tts/stream`, `transcribe`                              | Voice synthesis / transcription                                           |
-| `suggest`, `x-wrapped`, `raycast`, `preferences`        | Misc features                                                             |
+| `suggest`, `raycast`, `preferences`                     | Misc features                                                             |
 
 ## Environment & configuration
 
