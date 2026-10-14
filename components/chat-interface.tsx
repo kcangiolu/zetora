@@ -83,6 +83,7 @@ import { chatReducer, createInitialState } from '@/components/chat-state';
 import { useDataStream } from './data-stream-provider';
 import { DefaultChatTransport } from 'ai';
 import { ChatMessage } from '@/lib/types';
+import { placeCompactionSummary } from '@/lib/compaction-summary';
 import type { ElicitationData } from '@/components/mcp-elicitation-modal';
 
 interface ChatInterfaceProps {
@@ -591,10 +592,7 @@ const ChatInterface = memo(
                   compactionReplacedCount: summaryData.replacedCount,
                 },
               };
-              const exists = current.some((m) => m.id === summaryData.messageId);
-              return exists
-                ? current.map((m) => (m.id === summaryData.messageId ? summaryMessage : m))
-                : [summaryMessage, ...current];
+              return placeCompactionSummary(current, summaryMessage);
             });
           }
         }
@@ -775,10 +773,7 @@ const ChatInterface = memo(
                 compactionReplacedCount: result.replacedCount,
               },
             } as ChatMessage;
-            const exists = current.some((m) => m.id === result.messageId);
-            return exists
-              ? current.map((m) => (m.id === result.messageId ? summaryMessage : m))
-              : [summaryMessage, ...current];
+            return placeCompactionSummary(current, summaryMessage);
           });
           sileo.success({
             title: 'Conversation compacted',

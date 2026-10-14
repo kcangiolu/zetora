@@ -439,6 +439,8 @@ export const getMessagesByChatId = cache(
     mostRecent = false,
   }: { id: string; limit?: number; offset?: number; mostRecent?: boolean }) => {
     try {
+      // A compaction summary shares its createdAt with the last message it
+      // covers: isCompactionSummary breaks that tie so it sorts right after.
       if (mostRecent) {
         // Fetch the newest `limit` rows, then flip back to chronological
         // order — callers always get ascending order, same contract as the
@@ -447,7 +449,7 @@ export const getMessagesByChatId = cache(
           .select()
           .from(message)
           .where(eq(message.chatId, id))
-          .orderBy(desc(message.createdAt), desc(message.id))
+          .orderBy(desc(message.createdAt), desc(message.isCompactionSummary), desc(message.id))
           .limit(limit)
           .offset(offset);
         return rows.reverse();
@@ -457,7 +459,7 @@ export const getMessagesByChatId = cache(
         .select()
         .from(message)
         .where(eq(message.chatId, id))
-        .orderBy(asc(message.createdAt), asc(message.id))
+        .orderBy(asc(message.createdAt), asc(message.isCompactionSummary), asc(message.id))
         .limit(limit)
         .offset(offset);
     } catch (error) {
