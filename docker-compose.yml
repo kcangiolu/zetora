@@ -6,19 +6,17 @@
 # stt-service, s2s-service, hermes-relay) are referenced via
 # ${ZETORA_*_IMAGE} vars with a generic `:local` fallback — this file alone
 # doesn't point at any specific registry. A deployment with its own registry
-# supplies the real tags from a host-resident override file that is not
-# tracked here (scripts/deploy-server-prod.sh uses docker-compose.internal.yml):
-#   docker compose -f docker-compose.yml -f docker-compose.internal.yml pull/up
-# A prod host that only has this compose file deployed (e.g. Unraid's
-# Compose Manager) doesn't have the source subdirectories
-# (./s2s-service, ./presidio-service, ...) that a `build:` context would
-# need — always `docker compose pull` before `up -d` so Compose never falls
-# back to trying to build one locally. Without a registry, build the `:local`
-# images from source with docker-compose.build.yml (see its header).
+# sets those variables in .env to its own tags, then pulls.
+# A host that only has this compose file deployed doesn't have the source
+# subdirectories (./s2s-service, ./presidio-service, ...) that a `build:`
+# context would need — always `docker compose pull` before `up -d` so Compose
+# never falls back to trying to build one locally. Without a registry, build
+# the `:local` images from source with docker-compose.build.yml (see its
+# header).
 #
 # Usage:
 #   1. Copy .env.example to .env and fill in the required values.
-#   2. Set DATA_DIR in .env (e.g. DATA_DIR=/mnt/user/appdata/zetora).
+#   2. Set DATA_DIR in .env (e.g. DATA_DIR=./data).
 #   3. Create the required directories and files on the host:
 #
 #        source .env

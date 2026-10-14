@@ -84,9 +84,6 @@ Requires `ZETORA_INTERNAL_URL` (default `http://zetora-app:3333`, override to
 
 ## Deploy
 
-Built and pushed as `zetora-hermes-relay:latest`/`:<sha>` by the `hermes-relay` job in
-`.gitea/workflows/docker.yml`, path-filtered on this directory — same pattern as every other
-sidecar service (tts/stt/s2s/presidio). `docker-compose.yml`'s own image reference
-defaults to a `:local` placeholder; the real registry tag is pinned in the deployment host's
-own `docker-compose.internal.yml` (not tracked here — see that file's header). Without a
-registry, `docker-compose.build.yml` at the repo root builds it from this directory.
+`docker-compose.yml` references the image as `${ZETORA_HERMES_RELAY_IMAGE}`, defaulting to
+a `:local` tag: `docker-compose.build.yml` at the repo root builds it from this directory, or
+set the variable to an image you publish to your own registry.
