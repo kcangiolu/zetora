@@ -19,7 +19,7 @@ Zetora is a self-hosted, AI-powered agentic search engine — a fork of [Scira](
 | Long-term memory        | Native, in Postgres (`lib/memory`) — bio + facts, no extra service                                                                      |
 | Job scheduling          | BullMQ + dedicated Redis (self-hosted alternative to QStash) — powers "Lookouts" (scheduled searches)                                   |
 | Code sandbox            | Docker-based code interpreter (`onyxdotapp/code-interpreter`) or Daytona (SaaS)                                                         |
-| Voice                   | Qwen3 TTS (GPU, FastAPI, `tts-service/`) and faster-whisper STT; ElevenLabs as SaaS alternative                                         |
+| Voice                   | Qwen3 TTS (GPU, FastAPI, `tts-service/`) and NVIDIA Parakeet STT (`stt-service/`); ElevenLabs as SaaS alternative                       |
 | Email                   | Resend or SMTP (nodemailer), templates in `components/emails` (react-email)                                                             |
 
 ## Repository layout
@@ -96,7 +96,7 @@ All services live on the `zetora-network` bridge; only `zetora.app` (port 3333) 
 | `bullmq-redis`                    | redis:7-alpine (port 6381, AOF)                            | 6381           | BullMQ backing store                                                                                                            |
 | `bullboard`                       | nauverse/bull-board                                        | 3001           | Queue dashboard                                                                                                                 |
 | `qwen3-tts`                       | built from `tts-service/` (GPU, `profiles: [tts]`, opt-in) | 8585→8080      | Text-to-speech                                                                                                                  |
-| `whisper-stt`                     | fedirz/faster-whisper-server                               | 9002→8000      | Speech-to-text                                                                                                                  |
+| `stt-service`                     | built from `stt-service/` (GPU, `profiles: [voice]`)       | 9002→8080      | Speech-to-text (NVIDIA Parakeet)                                                                                                |
 
 Build flow: `Dockerfile` has `deps` → `builder` (Next.js build with placeholder secrets) → `runner` (standalone output) and a `migrate` target (drizzle migrations + `create_indexes.sql`).
 
