@@ -1,5 +1,15 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { convertToModelMessages } from 'ai';
+
+// The SSRF guard and storage check have their own tests (attachment-fetch.test.ts);
+// here fetchAttachment is a plain fetch so each case can stub the response.
+vi.mock('@/lib/net/attachment-fetch', () => ({
+  fetchAttachment: async (url: string) => {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Failed to fetch attachment: ${response.status}`);
+    return { bytes: new Uint8Array(await response.arrayBuffer()), contentType: undefined };
+  },
+}));
 import {
   DOCUMENT_MIME_TYPES,
   collectAttachments,

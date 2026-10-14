@@ -3,6 +3,7 @@ import 'katex/dist/katex.min.css';
 import 'leaflet/dist/leaflet.css';
 
 import { Metadata, Viewport } from 'next';
+import { headers } from 'next/headers';
 import { Be_Vietnam_Pro, Baumans, Geist, Instrument_Serif } from 'next/font/google';
 import { GeistPixelSquare, GeistPixelGrid } from 'geist/font/pixel';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
@@ -12,6 +13,7 @@ import { NewChatHotkey } from '@/components/new-chat-hotkey';
 import { HapticsProvider } from '@/components/haptics-provider';
 
 import { Providers } from './providers';
+import { CSP_HEADER, getNonceFromCsp } from '@/lib/csp';
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || 'http://localhost:3000'),
@@ -89,6 +91,8 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const nonce = getNonceFromCsp((await headers()).get(CSP_HEADER));
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body
@@ -96,7 +100,7 @@ export default async function RootLayout({
         suppressHydrationWarning
       >
         <NuqsAdapter>
-          <Providers>
+          <Providers nonce={nonce}>
             <SidebarProvider>
               <Toaster position="top-center" />
               <HapticsProvider />

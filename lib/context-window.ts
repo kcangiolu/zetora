@@ -2,6 +2,7 @@ import 'server-only';
 
 import { getContextWindow as getCatalogContextWindow } from '@/ai/catalog/models';
 import {
+  fetchCustomProvider,
   deriveRootURL,
   getCustomProviders,
   parseCustomModelId,
@@ -26,7 +27,7 @@ async function probeCustomContextWindow(provider: CustomProviderConfig, modelNam
   try {
     if (backendKind === 'llamacpp') {
       const root = deriveRootURL(provider.baseURL);
-      const res = await fetch(`${root}/props`, { signal: AbortSignal.timeout(3000) });
+      const res = await fetchCustomProvider(`${root}/props`, { signal: AbortSignal.timeout(3000) });
       if (res.ok) {
         const body = await res.json().catch(() => null);
         // Recent llama-server nests this under default_generation_settings;
@@ -36,7 +37,7 @@ async function probeCustomContextWindow(provider: CustomProviderConfig, modelNam
       }
     } else if (backendKind === 'ollama') {
       const root = deriveRootURL(provider.baseURL);
-      const res = await fetch(`${root}/api/show`, {
+      const res = await fetchCustomProvider(`${root}/api/show`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: modelName }),
@@ -59,7 +60,7 @@ async function probeCustomContextWindow(provider: CustomProviderConfig, modelNam
       // standard /models list with a context-length field — same endpoint
       // detectModels() already calls for the model picker.
       const url = `${provider.baseURL.replace(/\/$/, '')}/models`;
-      const res = await fetch(url, {
+      const res = await fetchCustomProvider(url, {
         headers: { Authorization: `Bearer ${provider.apiKey ?? 'not-needed'}` },
         signal: AbortSignal.timeout(3000),
       });

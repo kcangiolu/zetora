@@ -3,20 +3,46 @@
 import { getCurrentUser } from './user';
 import { createPushSubscription, deletePushSubscriptionByEndpoint } from '@/lib/db/queries';
 import { sendPushToEndpoint } from '@/lib/push/send-push';
+import { assertPublicHttpUrl } from '@/lib/net/public-url';
 import { createLogger } from '@/lib/logger';
+import { z } from 'zod';
 
 const log = createLogger('actions-push');
 
-export async function subscribeToPushAction(subscription: {
-  endpoint: string;
-  keys: { p256dh: string; auth: string };
-}) {
+// web-push later POSTs to the endpoint, so it must be a public https URL
+// (a browser push service), never an address on the server's network.
+const pushSubscriptionSchema = z.object({
+  endpoint: z.string().url().startsWith('https://').max(2048),
+  keys: z.object({
+    p256dh: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]+={0,2}$/)
+      .max(256),
+    auth: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]+={0,2}$/)
+      .max(256),
+  }),
+});
+
+export async function subscribeToPushAction(rawSubscription: unknown) {
   'use server';
 
   try {
     const user = await getCurrentUser();
     if (!user) {
       return { success: false as const, error: 'Authentication required' };
+    }
+
+    const parsed = pushSubscriptionSchema.safeParse(rawSubscription);
+    if (!parsed.success) {
+      return { success: false as const, error: 'Invalid push subscription' };
+    }
+    const subscription = parsed.data;
+    try {
+      await assertPublicHttpUrl(subscription.endpoint);
+    } catch {
+      return { success: false as const, error: 'Invalid push subscription' };
     }
 
     await createPushSubscription({

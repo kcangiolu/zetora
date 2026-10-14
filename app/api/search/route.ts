@@ -1,3 +1,4 @@
+import { z } from 'zod';
 // /app/api/chat/route.ts
 import {
   convertToModelMessages,
@@ -23,6 +24,7 @@ import {
 import type { LanguageModelV3, SharedV3ProviderOptions } from '@ai-sdk/provider';
 import { pipeJsonRender } from '@json-render/core';
 import { createLogger } from '@/lib/logger';
+import { fetchAttachment } from '@/lib/net/attachment-fetch';
 import { resolveModel, getAnonymizeContext } from '@/ai/providers';
 import { getMaxOutputTokens, getModelEntry, getModelParameters, hasVisionSupport } from '@/ai/catalog/models';
 import { loadModelCatalog } from '@/ai/catalog/store';
@@ -101,6 +103,37 @@ import { AUTO_MODEL_ID, DEFAULT_MODEL_ALIAS, canonicalModelId } from '@/ai/model
 
 const log = createLogger('search');
 
+// Fields every request must get right; the rest are optional switches read
+// below. Message parts are checked where they are used.
+const searchRequestSchema = z
+  .object({
+    id: z.string().min(1),
+    messages: z
+      .array(
+        z
+          .object({ id: z.string(), role: z.enum(['user', 'assistant', 'system']), parts: z.array(z.unknown()) })
+          .passthrough(),
+      )
+      .min(1, 'Messages array is required and cannot be empty')
+      .max(1000),
+    model: z.string().min(1, 'A model is required'),
+    group: z.string().nullish(),
+    timezone: z.string().nullish(),
+    selectedVisibilityType: z.enum(['public', 'private']).nullish(),
+    isCustomInstructionsEnabled: z.boolean().nullish(),
+    sessionEnabledSources: z.array(z.string()).nullish(),
+    isTemporaryChat: z.boolean().nullish(),
+    isAutoRouted: z.boolean().nullish(),
+    autoRouterEnabled: z.boolean().nullish(),
+    autoRouterConfig: z
+      .object({ routes: z.array(z.object({ name: z.string(), description: z.string(), model: z.string() })) })
+      .nullish(),
+    visionEnabled: z.boolean().nullish(),
+    reasoningEffort: z.enum(['auto', 'low', 'medium', 'high', 'off']).nullish(),
+    startWith: z.string().nullish(),
+  })
+  .passthrough();
+
 export async function POST(req: Request) {
   const requestStartTime = Date.now();
   const preStreamTimings: { label: string; durationMs: number }[] = [];
@@ -117,6 +150,10 @@ export async function POST(req: Request) {
   await loadModelCatalog();
 
   let opStart = Date.now();
+  const parsedBody = searchRequestSchema.safeParse(await req.json());
+  if (!parsedBody.success) {
+    return new ChatSDKError('bad_request:api', parsedBody.error.issues[0]?.message ?? 'Invalid request').toResponse();
+  }
   const {
     messages: requestMessages,
     model: requestedModel,
@@ -133,7 +170,7 @@ export async function POST(req: Request) {
     visionEnabled,
     reasoningEffort,
     startWith,
-  } = await req.json();
+  } = parsedBody.data;
   recordTiming('parse_request_body', opStart);
 
   // Sources (web, code, academic, ...) are always-on tools filtered by user
@@ -148,12 +185,17 @@ export async function POST(req: Request) {
   let specialMode: SpecialModeId | string | undefined =
     typeof group === 'string' && SPECIAL_MODE_IDS.has(group) ? group : undefined;
 
-  if (!Array.isArray(requestMessages) || requestMessages.length === 0) {
-    return new ChatSDKError('bad_request:api', 'Messages array is required and cannot be empty').toResponse();
-  }
-
-  const incomingMessages = requestMessages as ChatMessage[];
-  const requestLastUserMessage = [...incomingMessages].reverse().find((message) => message.role === 'user');
+  const requestLastUserMessage = [...(requestMessages as ChatMessage[])]
+    .reverse()
+    .find((message) => message.role === 'user');
+  // A saved chat's history is read back from the database, so the request only
+  // contributes its new user message: a client cannot rewrite or forge earlier
+  // turns. A temporary chat has nothing saved and sends its whole history.
+  const incomingMessages: ChatMessage[] = isTemporaryChat
+    ? (requestMessages as ChatMessage[])
+    : requestLastUserMessage
+      ? [requestLastUserMessage]
+      : [];
 
   const userQueryText = requestLastUserMessage
     ? (requestLastUserMessage.parts as any[])
@@ -193,10 +235,9 @@ export async function POST(req: Request) {
   const lightweightUserPromise = getLightweightUser();
   // Use lightweight validation query - only fetches id and userId
   const chatQueryPromise = isTemporaryChat ? Promise.resolve(null) : getChatByIdForValidation({ id });
-  const persistedMessagesPromise =
-    isTemporaryChat || incomingMessages.length > 1
-      ? Promise.resolve<ChatMessage[]>([])
-      : getMessagesByChatId({ id, mostRecent: true });
+  const persistedMessagesPromise = isTemporaryChat
+    ? Promise.resolve<ChatMessage[]>([])
+    : getMessagesByChatId({ id, mostRecent: true });
   recordTiming('start_parallel_operations', opStart);
 
   // Wait for lightweight user first (needed for early exit checks)
@@ -672,7 +713,7 @@ export async function POST(req: Request) {
       const loadedTools = await loadConfiguredTools({
         activeToolNames: streamActiveTools,
         dataStream,
-        timezone,
+        timezone: timezone ?? undefined,
         contextFiles,
         includeMcpTools: dynamicToolNames.length > 0,
         mcpDynamicTools,
@@ -776,8 +817,7 @@ export async function POST(req: Request) {
         });
       }
 
-      const VALID_REASONING_EFFORTS = new Set(['auto', 'low', 'medium', 'high', 'off']);
-      const effort: ReasoningEffort = VALID_REASONING_EFFORTS.has(reasoningEffort) ? reasoningEffort : 'auto';
+      const effort: ReasoningEffort = reasoningEffort ?? 'auto';
 
       let resolvedModel = await resolveModel(
         model,
@@ -1049,14 +1089,7 @@ export async function POST(req: Request) {
             (acc, { url }, index) => {
               acc[`dl:${index}`] = async (): Promise<DownloadResult> => {
                 log.info(`Downloading for the model: ${url.toString()}`);
-                const response = await fetch(url.toString());
-                if (!response.ok) {
-                  log.error(`Download failed: ${url.toString()} - ${response.status}`);
-                  throw new Error(`Failed to download file: ${response.status} ${response.statusText}`);
-                }
-
-                const data = new Uint8Array(await response.arrayBuffer());
-                const mediaType = response.headers.get('content-type') || undefined;
+                const { bytes: data, contentType: mediaType } = await fetchAttachment(url.toString());
 
                 log.info(`Download succeeded: ${url.toString()} (${data.byteLength} bytes, ${mediaType})`);
                 return { data, mediaType };

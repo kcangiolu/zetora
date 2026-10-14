@@ -207,15 +207,37 @@ describe('POST /api/internal/hermes/agent-event', () => {
         op: 'send_media',
         chat_id: CHAT_ID,
         media_kind: 'voice',
-        source_url: relayUrl('https://storage.test/voice.ogg'),
+        source_url: relayUrl('https://storage.test/zetora/hermes-media/user-1/voice.ogg'),
       });
 
       expect(savedParts()).toEqual([
         {
           type: 'data-hermes_media',
-          data: { mediaKind: 'voice', url: 'https://storage.test/voice.ogg', filename: null, caption: null },
+          data: {
+            mediaKind: 'voice',
+            url: 'https://storage.test/zetora/hermes-media/user-1/voice.ogg',
+            filename: null,
+            caption: null,
+          },
         },
       ]);
+    });
+
+    it("refuses a relay-media reference outside the owner's media prefix", async () => {
+      for (const target of [
+        'http://169.254.169.254/latest/meta-data/',
+        'https://storage.test/zetora/hermes-media/user-2/pic.png',
+        'https://storage.test/zetora/users/user-1/upload.png',
+        'https://storage.test/zetora/hermes-media/user-1/../../users/user-2/x.png',
+      ]) {
+        const res = await post({
+          op: 'send_media',
+          chat_id: CHAT_ID,
+          media_kind: 'image',
+          source_url: relayUrl(target),
+        });
+        expect(await res.json()).toEqual({ success: false, error: 'media_fetch_failed' });
+      }
     });
 
     it('treats an empty caption as no caption', async () => {
@@ -224,7 +246,7 @@ describe('POST /api/internal/hermes/agent-event', () => {
         op: 'send_media',
         chat_id: CHAT_ID,
         media_kind: 'image',
-        source_url: relayUrl('https://storage.test/pic.png'),
+        source_url: relayUrl('https://storage.test/zetora/hermes-media/user-1/pic.png'),
         content: '',
       });
 
@@ -236,7 +258,7 @@ describe('POST /api/internal/hermes/agent-event', () => {
         op: 'send_media',
         chat_id: CHAT_ID,
         media_kind: 'image',
-        source_url: relayUrl('https://storage.test/pic.png'),
+        source_url: relayUrl('https://storage.test/zetora/hermes-media/user-1/pic.png'),
         content: 'Look at this',
       });
 

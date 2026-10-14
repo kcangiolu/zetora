@@ -1,5 +1,6 @@
 import 'server-only';
 import { serverEnv } from '@/env/server';
+import { secretsEqual } from '@/lib/secure-compare';
 
 export const LOOKOUT_SECRET_HEADER = 'x-lookout-secret';
 
@@ -37,7 +38,7 @@ export function verifyLookoutRequest(req: Request): VerifyResult {
       message: 'Lookouts are disabled: set CRON_SECRET to enable scheduled search callbacks',
     };
   }
-  if (req.headers.get(LOOKOUT_SECRET_HEADER) !== secret) {
+  if (!secretsEqual(req.headers.get(LOOKOUT_SECRET_HEADER), secret)) {
     return { ok: false, status: 401, message: 'Unauthorized' };
   }
   return { ok: true };

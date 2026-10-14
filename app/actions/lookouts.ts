@@ -221,7 +221,7 @@ export async function createScheduledLookout({
 
     const lookoutEndpoint = resolveLookoutEndpoint();
 
-    const lookoutBody = { lookoutId: lookout.id, prompt, userId: user.id };
+    const lookoutBody = { lookoutId: lookout.id };
 
     // Create schedule for all frequencies (recurring and once)
     if (lookout.id) {
@@ -511,7 +511,7 @@ export async function updateLookoutAction({
             scheduleId: lookout.qstashScheduleId,
             destination: lookoutEndpoint,
             cron: cronSchedule,
-            body: { lookoutId: id, prompt: prompt.trim(), userId: user.id },
+            body: { lookoutId: id },
             headers: { 'Content-Type': 'application/json', ...lookoutCallbackHeaders() },
           });
           newScheduleId = result.scheduleId;
@@ -522,7 +522,7 @@ export async function updateLookoutAction({
             destination: lookoutEndpoint,
             method: 'POST',
             cron: cronSchedule,
-            body: JSON.stringify({ lookoutId: id, prompt: prompt.trim(), userId: user.id }),
+            body: JSON.stringify({ lookoutId: id }),
             headers: { 'Content-Type': 'application/json', ...lookoutQstashHeaders() },
           });
           newScheduleId = scheduleResponse.scheduleId;

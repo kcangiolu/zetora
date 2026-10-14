@@ -19,14 +19,15 @@ export async function uploadFileToStorage(file: File): Promise<StoredUpload> {
     const errorText = await presignResponse.text();
     throw new Error(`Failed to get upload URL: ${presignResponse.status} ${errorText}`);
   }
-  const { presignedUrl, key } = await presignResponse.json();
+  const { presignedUrl, key, contentType } = await presignResponse.json();
 
   const uploadResponse = await fetch(presignedUrl, {
     method: 'PUT',
     body: file,
-    // Must match the contentType sent above: it's part of the presigned
-    // SigV4 signature, and any mismatch makes storage reject the PUT.
-    headers: { 'Content-Type': file.type },
+    // The type storage will serve, signed into the presigned URL: any other
+    // value makes storage reject the PUT. The browser sends the matching
+    // Content-Length from the file itself.
+    headers: { 'Content-Type': contentType },
   });
   if (!uploadResponse.ok) {
     throw new Error(`Failed to upload file: ${uploadResponse.status}`);

@@ -4,7 +4,7 @@ import { withError } from '@/lib/api/route-handlers';
 import { getComprehensiveUserData } from '@/lib/user-data-server';
 import { getUserMcpServerById } from '@/lib/db/queries';
 import { resolveMcpAuthHeaders } from '@/lib/mcp/auth-headers';
-import { validateMcpServerUrl } from '@/lib/mcp/server-config';
+import { validateMcpServerUrl, getMcpFetch } from '@/lib/mcp/server-config';
 import { ChatSDKError } from '@/lib/errors';
 
 const bridgeRequestSchema = z.object({
@@ -28,6 +28,8 @@ export const POST = withError(
       transport: {
         type: server.transportType,
         url: server.url,
+        fetch: getMcpFetch(server.url),
+        redirect: 'error',
         headers: await resolveMcpAuthHeaders({
           server,
           userId: user.id,

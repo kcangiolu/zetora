@@ -2,6 +2,10 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 
 const mockGetCustomProviders = vi.fn();
 
+// These cases are about reading each backend's answer; the providers sit on
+// localhost, which the network policy (custom-provider-network.test.ts) would refuse.
+process.env.CUSTOM_PROVIDERS_ALLOW_PRIVATE_NETWORK = 'true';
+
 vi.mock('@/lib/custom-providers', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/custom-providers')>();
   return {

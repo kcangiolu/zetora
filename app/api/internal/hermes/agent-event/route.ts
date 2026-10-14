@@ -14,12 +14,16 @@ import {
 import { publishHermesEvent, isHermesChatViewerActive } from '@/lib/hermes/realtime';
 import { sendPushToUser } from '@/lib/push/send-push';
 import { getStorageClient } from '@/lib/storage';
+import { isInstanceStorageUrl } from '@/lib/net/attachment-fetch';
+import { fetchPublicUrl, readBodyCapped } from '@/lib/net/public-url';
+import { ATTACHMENT_TIMEOUT_MS } from '@/lib/timeouts';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('api-internal-hermes-agent-event');
 
 const MAX_MEDIA_BYTES = 25 * 1024 * 1024;
 const RELAY_MEDIA_ID_PATTERN = /\/relay\/media\/([^/?#]+)$/;
+const MEDIA_REDIRECTS = 3;
 
 function sanitizeExtension(raw: string | undefined): string {
   const cleaned = (raw ?? '')
@@ -36,38 +40,42 @@ function sanitizeExtension(raw: string | undefined): string {
 // cites a third-party URL directly (mirrors the contract's symmetric inbound-media
 // re-host treatment of expiring platform URLs).
 async function resolveMediaUrl(sourceUrl: string, ownerUserId: string): Promise<string | null> {
+  const { client: storageClient, bucketName: storageBucket, publicUrl: storagePublicUrl } = getStorageClient();
+
   const relayMatch = sourceUrl.match(RELAY_MEDIA_ID_PATTERN);
   if (relayMatch) {
-    try {
-      return Buffer.from(relayMatch[1], 'base64url').toString('utf8');
-    } catch {
-      return null;
-    }
+    // Only an object the media route wrote for this owner: the id is opaque
+    // to the gateway, but nothing stops it from encoding any URL.
+    const decoded = Buffer.from(relayMatch[1], 'base64url').toString('utf8');
+    if (!isInstanceStorageUrl(decoded, storagePublicUrl)) return null;
+    const basePath = new URL(storagePublicUrl).pathname.replace(/\/+$/, '');
+    const storedUrl = new URL(decoded);
+    return storedUrl.pathname.startsWith(`${basePath}/zetora/hermes-media/${ownerUserId}/`)
+      ? storedUrl.toString()
+      : null;
   }
 
   let parsed: URL;
-  try {
-    parsed = new URL(sourceUrl);
-  } catch {
-    return null;
-  }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
-
   let res: Response;
+  let body: Uint8Array;
   try {
-    res = await fetch(sourceUrl);
-  } catch {
+    ({ response: res, url: parsed } = await fetchPublicUrl(sourceUrl, {
+      timeoutMs: ATTACHMENT_TIMEOUT_MS,
+      maxRedirects: MEDIA_REDIRECTS,
+    }));
+    if (!res.ok) {
+      await res.body?.cancel().catch(() => undefined);
+      return null;
+    }
+    body = await readBodyCapped(res, MAX_MEDIA_BYTES);
+  } catch (error) {
+    log.warn('Could not re-host Hermes media:', error);
     return null;
   }
-  if (!res.ok) return null;
 
   const contentType = res.headers.get('content-type') || 'application/octet-stream';
-  const body = Buffer.from(await res.arrayBuffer());
-  if (body.length > MAX_MEDIA_BYTES) return null;
-
   const ext = sanitizeExtension(parsed.pathname.split('.').pop());
   const key = `zetora/hermes-media/${ownerUserId}/${nanoid()}.${ext}`;
-  const { client: storageClient, bucketName: storageBucket, publicUrl: storagePublicUrl } = getStorageClient();
   await storageClient.send(
     new PutObjectCommand({ Bucket: storageBucket, Key: key, Body: body, ContentType: contentType }),
   );

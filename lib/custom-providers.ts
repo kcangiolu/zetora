@@ -7,6 +7,7 @@ import { getCachedUserPreferencesByUserId, clearUserPreferencesCache } from '@/l
 import { upsertUserPreferences } from '@/lib/db/queries';
 
 import { createLogger } from '@/lib/logger';
+import { guardedPublicFetch } from '@/lib/net/public-url';
 
 const log = createLogger('custom-providers');
 
@@ -79,20 +80,25 @@ const visionCache = new Map<string, { vision: boolean; expiresAt: number }>();
 // authenticates via a Bearer token instead of a browser session cookie) pass
 // the already-resolved user in directly — otherwise getUser() reads the
 // request's cookies via next/headers and silently sees no one signed in.
+// Providers the operator declares in CUSTOM_AI_PROVIDERS, shared by every user.
+function getOperatorProviders(): CustomProviderConfig[] {
+  if (!serverEnv.CUSTOM_AI_PROVIDERS) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(serverEnv.CUSTOM_AI_PROVIDERS);
+  } catch {
+    throw new Error('CUSTOM_AI_PROVIDERS is not valid JSON (see .env.example)');
+  }
+  if (!Array.isArray(parsed)) {
+    throw new Error('CUSTOM_AI_PROVIDERS must be a JSON array (see .env.example)');
+  }
+  return parsed as CustomProviderConfig[];
+}
+
 export async function getCustomProviders(userId?: string): Promise<CustomProviderConfig[]> {
   const providers: CustomProviderConfig[] = [];
 
-  // Env var source (shared across all users)
-  if (serverEnv.CUSTOM_AI_PROVIDERS) {
-    try {
-      const parsed = JSON.parse(serverEnv.CUSTOM_AI_PROVIDERS);
-      if (Array.isArray(parsed)) {
-        providers.push(...(parsed as CustomProviderConfig[]));
-      }
-    } catch {
-      log.warn('[custom-providers] Failed to parse CUSTOM_AI_PROVIDERS env var');
-    }
-  }
+  providers.push(...getOperatorProviders());
 
   // DB source (per-user)
   const resolvedUserId = userId ?? (await getUser())?.id;
@@ -144,6 +150,32 @@ export async function saveCustomProviders(
   clearUserPreferencesCache(user.id);
 }
 
+// Providers users add are user-supplied URLs, so on an instance with open
+// sign-ups they must not reach the host's network. The operator's own
+// providers (CUSTOM_AI_PROVIDERS) always can; to let users point at the LAN
+// too (llama.cpp, Ollama), set CUSTOM_PROVIDERS_ALLOW_PRIVATE_NETWORK=true.
+export function customProviderFetch(url: string): typeof fetch {
+  if (process.env.CUSTOM_PROVIDERS_ALLOW_PRIVATE_NETWORK === 'true') return fetch;
+  let origin: string;
+  try {
+    origin = new URL(url).origin;
+  } catch {
+    return guardedPublicFetch;
+  }
+  const isOperatorProvider = getOperatorProviders().some((provider) => {
+    try {
+      return new URL(provider.baseURL).origin === origin;
+    } catch {
+      return false;
+    }
+  });
+  return isOperatorProvider ? fetch : guardedPublicFetch;
+}
+
+export function fetchCustomProvider(url: string, init?: RequestInit): Promise<Response> {
+  return customProviderFetch(url)(url, init);
+}
+
 export async function detectModels(baseURL: string, apiKey?: string): Promise<string[]> {
   const cacheKey = `${baseURL}::${apiKey ?? ''}`;
   const cached = modelsCache.get(cacheKey);
@@ -152,7 +184,7 @@ export async function detectModels(baseURL: string, apiKey?: string): Promise<st
   }
 
   const url = `${baseURL.replace(/\/$/, '')}/models`;
-  const response = await fetch(url, {
+  const response = await fetchCustomProvider(url, {
     headers: { Authorization: `Bearer ${apiKey ?? 'not-needed'}` },
     // Unreachable LAN devices (asleep/off) don't always answer with an
     // immediate RST — without a bound this can hang for the OS's TCP
@@ -201,7 +233,7 @@ async function probeBackendKind(root: string): Promise<CustomBackendKind> {
   const timeout = (ms: number) => AbortSignal.timeout(ms);
 
   try {
-    const props = await fetch(`${root}/props`, { signal: timeout(1500) });
+    const props = await fetchCustomProvider(`${root}/props`, { signal: timeout(1500) });
     if (props.ok) {
       const body = await props.json().catch(() => null);
       if (body && ('default_generation_settings' in body || 'total_slots' in body)) {
@@ -213,7 +245,7 @@ async function probeBackendKind(root: string): Promise<CustomBackendKind> {
   }
 
   try {
-    const version = await fetch(`${root}/api/version`, { signal: timeout(1500) });
+    const version = await fetchCustomProvider(`${root}/api/version`, { signal: timeout(1500) });
     if (version.ok) {
       const body = await version.json().catch(() => null);
       if (body && typeof body === 'object' && 'version' in body) {
@@ -225,7 +257,7 @@ async function probeBackendKind(root: string): Promise<CustomBackendKind> {
   }
 
   try {
-    const health = await fetch(`${root}/health`, { signal: timeout(1500) });
+    const health = await fetchCustomProvider(`${root}/health`, { signal: timeout(1500) });
     const requestId = health.headers.get('x-request-id');
     if (requestId && /^[0-9a-f-]{36}$/i.test(requestId)) {
       return 'vllm';
@@ -257,7 +289,7 @@ async function detectModelVision(
   let vision = false;
   try {
     if (backendKind === 'ollama') {
-      const res = await fetch(`${root}/api/show`, {
+      const res = await fetchCustomProvider(`${root}/api/show`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: modelName }),
@@ -268,7 +300,7 @@ async function detectModelVision(
         vision = Array.isArray(body?.capabilities) && body.capabilities.includes('vision');
       }
     } else if (backendKind === 'llamacpp') {
-      const res = await fetch(`${root}/props`, { signal: AbortSignal.timeout(3000) });
+      const res = await fetchCustomProvider(`${root}/props`, { signal: AbortSignal.timeout(3000) });
       if (res.ok) {
         const body = await res.json().catch(() => null);
         vision = body?.modalities?.vision === true;
@@ -320,6 +352,7 @@ export function createCustomProvider(config: CustomProviderConfig) {
     name: config.id,
     baseURL: config.baseURL,
     apiKey: config.apiKey ?? 'not-needed',
+    fetch: customProviderFetch(config.baseURL),
   });
 }
 

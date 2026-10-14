@@ -1,6 +1,7 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import { rehostGeneratedImage } from '@/lib/generated-file-storage';
+import { fetchCustomProvider } from '@/lib/custom-providers';
 
 import { createLogger } from '@/lib/logger';
 
@@ -73,7 +74,7 @@ export const generateImageTool = tool({
 
     let response: Response;
     try {
-      response = await fetch(`${base}/images/generations`, {
+      response = await fetchCustomProvider(`${base}/images/generations`, {
         method: 'POST',
         headers,
         body: JSON.stringify(body),

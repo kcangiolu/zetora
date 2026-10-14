@@ -1,4 +1,5 @@
 import { ModelMessage } from 'ai';
+import { fetchAttachment } from '@/lib/net/attachment-fetch';
 
 export type AttachmentRef = { url: string; contentType: string; name?: string };
 
@@ -354,12 +355,7 @@ export async function fetchInlineableTextFiles(
     otherFileParts.map(async (file) => {
       const name = file.name || 'unnamed file';
       try {
-        const res = await fetch(file.url, { signal: AbortSignal.timeout(15_000) });
-        if (!res.ok) {
-          unreadableFiles.push({ name });
-          return;
-        }
-        const bytes = new Uint8Array(await res.arrayBuffer());
+        const { bytes } = await fetchAttachment(file.url);
         let text: string | null;
         try {
           text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);

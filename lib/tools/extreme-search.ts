@@ -6,6 +6,7 @@
 // ----> Return all collected sources and research data to the user
 
 import { createLogger } from '@/lib/logger';
+import { fetchAttachment } from '@/lib/net/attachment-fetch';
 import { getLinkMetadata } from '@/lib/link-metadata';
 import { resolveFallbackSearchProvider, resolveSearchProvider } from '@/lib/instance/capabilities';
 import type { SearchProviderFor } from '@/lib/search/providers';
@@ -120,10 +121,7 @@ async function createFileRetriever(
     throw new Error(`Unsupported file type: ${mimeType}`);
   }
 
-  const response = await fetch(file.url);
-  if (!response.ok) throw new Error(`Failed to fetch file: ${response.statusText}`);
-
-  const content = new Uint8Array(await response.arrayBuffer());
+  const { bytes: content } = await fetchAttachment(file.url);
   const reader = FILE_READERS[mimeType]();
   const documents = await reader.loadDataAsContent(content);
 

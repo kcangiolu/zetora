@@ -7,19 +7,11 @@ function isUnframedPath(pathname: string): boolean {
   return UNFRAMED_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
 }
 
-interface BuiltCsp {
-  nonce: string;
-  header: string;
-  value: string;
-}
+// Report-only until a pass through chat, search, markdown/math rendering and
+// the apps page shows no violations; then switch to 'content-security-policy'.
+export const CSP_HEADER = 'content-security-policy-report-only';
 
-// Content-Security-Policy, started in report-only mode (see proxy.ts): it
-// logs violations to the browser console without blocking anything, so it's
-// safe to ship ahead of confirming every legitimate script/style/connect
-// source is covered. Flip the header name to enforce once a normal pass
-// through chat, search, markdown/math rendering, and the apps page shows no
-// unexpected violations.
-export function buildCsp(pathname: string): BuiltCsp {
+export function buildCsp(pathname: string): string {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
 
   const directives = [
@@ -28,7 +20,8 @@ export function buildCsp(pathname: string): BuiltCsp {
     // allowlist distinction below and trust anything loaded by an
     // already-trusted (nonced) script — https: is a fallback for older
     // browsers without strict-dynamic support, ignored by newer ones.
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https:`,
+    // React's development build evaluates code for its debugging tools.
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https:${process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : ''}`,
     // Not nonce-gated: shiki (code blocks), MathJax, echarts and Radix all
     // set inline style="" attributes/<style> tags outside our control.
     // Script injection is the primary XSS vector this policy defends
@@ -46,9 +39,11 @@ export function buildCsp(pathname: string): BuiltCsp {
     `upgrade-insecure-requests`,
   ];
 
-  return {
-    nonce,
-    header: 'Content-Security-Policy-Report-Only',
-    value: directives.join('; '),
-  };
+  return directives.join('; ');
+}
+
+// The nonce of the policy proxy.ts set on the request, for inline scripts the
+// app renders itself.
+export function getNonceFromCsp(policy: string | null): string | undefined {
+  return policy?.match(/'nonce-([^']+)'/)?.[1];
 }

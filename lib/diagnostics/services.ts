@@ -8,7 +8,23 @@ import { getStorageClient } from '@/lib/storage';
 import { getCatalogStatus, refreshModelCatalog } from '@/ai/catalog/store';
 
 import { serverEnv } from '@/env/server';
+import { createLogger } from '@/lib/logger';
 import { isAnonymizationAvailable, isLocalVoiceAvailable } from '@/lib/instance/capabilities';
+
+const log = createLogger('diagnostics');
+
+// Every signed-in user can open Diagnostics, and raw driver errors name
+// internal hosts and ports. The page shows the error's kind; the full error
+// goes to the server log.
+function describeFailure(error: unknown, label: string): string {
+  log.warn(`${label} check failed:`, error);
+  if (error instanceof Error) {
+    const code = (error as Error & { code?: unknown }).code;
+    if (typeof code === 'string') return code;
+    if (error.name === 'TimeoutError' || error.name === 'AbortError') return 'Timed out';
+  }
+  return 'Unreachable';
+}
 
 interface ServiceCheckResult {
   ok: boolean;
@@ -29,7 +45,7 @@ async function fetchOk(url: string, init?: RequestInit): Promise<ServiceCheckRes
     const res = await fetch(url, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) });
     return res.ok ? { ok: true } : { ok: false, detail: `HTTP ${res.status}` };
   } catch (error) {
-    return { ok: false, detail: error instanceof Error ? error.message : 'Request failed' };
+    return { ok: false, detail: describeFailure(error, url) };
   }
 }
 
@@ -42,7 +58,7 @@ async function fetchReachable(url: string): Promise<ServiceCheckResult> {
     const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
     return { ok: true, detail: `HTTP ${res.status}` };
   } catch (error) {
-    return { ok: false, detail: error instanceof Error ? error.message : 'Request failed' };
+    return { ok: false, detail: describeFailure(error, url) };
   }
 }
 
@@ -58,7 +74,7 @@ async function redisPing(rawUrl: string, password?: string): Promise<ServiceChec
     const pong = await client.ping();
     return pong === 'PONG' ? { ok: true } : { ok: false, detail: `Unexpected reply: ${pong}` };
   } catch (error) {
-    return { ok: false, detail: error instanceof Error ? error.message : 'Connection failed' };
+    return { ok: false, detail: describeFailure(error, 'Redis') };
   } finally {
     client.disconnect();
   }
@@ -78,7 +94,7 @@ export const SERVICE_CHECKS: ServiceCheckDefinition[] = [
         await db.execute(sql`select 1`);
         return { ok: true };
       } catch (error) {
-        return { ok: false, detail: error instanceof Error ? error.message : 'Query failed' };
+        return { ok: false, detail: describeFailure(error, 'PostgreSQL') };
       }
     },
   },
@@ -98,7 +114,7 @@ export const SERVICE_CHECKS: ServiceCheckDefinition[] = [
         await storageClient.send(new HeadBucketCommand({ Bucket: storageBucket }));
         return { ok: true };
       } catch (error) {
-        return { ok: false, detail: error instanceof Error ? error.message : 'HeadBucket failed' };
+        return { ok: false, detail: describeFailure(error, 'Storage') };
       }
     },
   },
@@ -155,7 +171,7 @@ export const SERVICE_CHECKS: ServiceCheckDefinition[] = [
     id: 'model-catalog',
     label: 'Model catalog (models.dev)',
     configured: () => true,
-    // Testing it refreshes it: new models show up without waiting a day.
+    // Testing it refreshes it: new models show up without waiting for the hourly refresh.
     run: async () => {
       await refreshModelCatalog();
       const { modelCount, fetchedAt, lastError } = getCatalogStatus();

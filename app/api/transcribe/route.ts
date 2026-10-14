@@ -7,16 +7,16 @@ import { resolveVoiceRequestUserId } from '@/lib/voice-session-token';
 // The s2s-service (local voice backend) authenticates via a Bearer
 // voice-session token instead of a cookie, but a session is required either way.
 export const POST = withError(async (request) => {
+  const userId = await resolveVoiceRequestUserId(request);
+  if (!userId) {
+    return Response.json({ error: 'Authentication required' }, { status: 401 });
+  }
+
   const formData = await request.formData();
   const audio = formData.get('audio');
 
   if (!audio || !(audio instanceof Blob)) {
     return Response.json({ error: 'No audio file found in form data.' }, { status: 400 });
-  }
-
-  const userId = await resolveVoiceRequestUserId(request);
-  if (!userId) {
-    return Response.json({ error: 'Authentication required' }, { status: 401 });
   }
 
   const prefs = await getCachedUserPreferencesByUserId(userId).catch(() => null);

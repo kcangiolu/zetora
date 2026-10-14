@@ -3,7 +3,7 @@ import { withAuth } from '@/lib/api/route-handlers';
 import { ChatSDKError } from '@/lib/errors';
 import { getUserMcpServerById, updateUserMcpServer } from '@/lib/db/queries';
 import { resolveMcpAuthHeaders } from '@/lib/mcp/auth-headers';
-import { validateMcpServerUrl } from '@/lib/mcp/server-config';
+import { validateMcpServerUrl, getMcpFetch } from '@/lib/mcp/server-config';
 import { z } from 'zod';
 
 const testMcpServerSchema = z
@@ -96,6 +96,8 @@ export const POST = withAuth(async (request, { user }) => {
       transport: {
         type: serverConfig.transportType,
         url: serverConfig.url,
+        fetch: getMcpFetch(serverConfig.url),
+        redirect: 'error',
         headers: serverConfig.headers,
       },
     });

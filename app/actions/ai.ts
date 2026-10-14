@@ -49,13 +49,22 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger('ai');
 
-export async function suggestQuestions(history: any[]) {
+// The last exchange of a chat, as the chat interface sends it.
+const suggestionHistorySchema = z
+  .array(z.object({ role: z.enum(['user', 'assistant']), content: z.string().max(20_000) }))
+  .min(1)
+  .max(10);
+
+export async function suggestQuestions(rawHistory: unknown) {
   'use server';
 
-  log.debug(history);
+  const suggestUser = await getUser();
+  if (!suggestUser) {
+    throw new Error('Authentication required');
+  }
+  const history = suggestionHistorySchema.parse(rawHistory);
 
-  const suggestUser = await getUser().catch(() => null);
-  const suggestPrefs = suggestUser ? await getCachedUserPreferencesByUserId(suggestUser.id).catch(() => null) : null;
+  const suggestPrefs = await getCachedUserPreferencesByUserId(suggestUser.id).catch(() => null);
   const suggestPrefsMap = (suggestPrefs?.preferences ?? {}) as Record<string, string>;
 
   if (suggestPrefs?.preferences?.['zetora-tertiary-followup-enabled'] === false) {
@@ -69,7 +78,7 @@ export async function suggestQuestions(history: any[]) {
   // and take the whole page down with it. Same pattern as auto-router.ts.
   try {
     const { text } = await generateText({
-      model: await resolveTertiaryModel('followup', suggestPrefsMap, suggestUser?.id),
+      model: await resolveTertiaryModel('followup', suggestPrefsMap, suggestUser.id),
       system: `You are a search engine follow up query/questions generator. You MUST create between 3 and 5 questions for the search engine based on the conversation history.
 
 ### Question Generation Guidelines:
@@ -139,7 +148,17 @@ Respond with ONLY the JSON object below, no markdown code fences or extra commen
   }
 }
 
-export async function checkImageModeration(images: string[]) {
+const moderationImagesSchema = z
+  .array(z.string().max(10 * 1024 * 1024))
+  .min(1)
+  .max(10);
+
+export async function checkImageModeration(rawImages: unknown) {
+  if (!(await getUser())) {
+    throw new Error('Authentication required');
+  }
+  const images = moderationImagesSchema.parse(rawImages);
+
   const messages: ModelMessage[] = images.map((image) => ({
     role: 'user',
     content: [{ type: 'image', image: image }],

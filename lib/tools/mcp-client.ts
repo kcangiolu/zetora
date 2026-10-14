@@ -3,7 +3,7 @@ import 'server-only';
 import { createMCPClient, ElicitationRequestSchema, type MCPClient } from '@ai-sdk/mcp';
 import { getUserMcpServersByUserId } from '@/lib/db/queries';
 import { resolveMcpAuthHeaders } from '@/lib/mcp/auth-headers';
-import { validateMcpServerUrl } from '@/lib/mcp/server-config';
+import { validateMcpServerUrl, getMcpFetch } from '@/lib/mcp/server-config';
 import type { UIMessageStreamWriter } from 'ai';
 import type { ChatMessage } from '@/lib/types';
 import { randomUUID } from 'node:crypto';
@@ -165,6 +165,8 @@ export async function resolveUserMcpTools({
         transport: {
           type: server.transportType,
           url: server.url,
+          fetch: getMcpFetch(server.url),
+          redirect: 'error',
           headers: await resolveMcpAuthHeaders({
             server,
             userId,

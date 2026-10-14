@@ -14,6 +14,7 @@ import { getBetterAllOptions } from '@/lib/better-all';
 import { getFileEmbeddingModel } from '@/ai/embeddings';
 
 import { createLogger } from '@/lib/logger';
+import { fetchAttachment } from '@/lib/net/attachment-fetch';
 
 const log = createLogger('file-query-search');
 
@@ -84,11 +85,7 @@ async function createRetriever(file: FileContext, embeddingModel: EmbeddingModel
     throw new Error(`Unsupported file type: ${mimeType}. Supported types: ${Object.keys(FILE_READERS).join(', ')}`);
   }
 
-  // Fetch the file content
-  const response = await fetch(file.url);
-  if (!response.ok) throw new Error(`Failed to fetch file: ${response.statusText}`);
-
-  const content = new Uint8Array(await response.arrayBuffer());
+  const { bytes: content } = await fetchAttachment(file.url);
   const reader = isKnownStructuredMimeType(mimeType) ? FILE_READERS[mimeType]() : new TextFileReader();
   const documents = await reader.loadDataAsContent(content);
 

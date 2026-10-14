@@ -6,6 +6,7 @@ import { resolveModel } from '@/ai/providers';
 import { z } from 'zod';
 
 import { createLogger } from '@/lib/logger';
+import { secretsEqual } from '@/lib/secure-compare';
 
 const log = createLogger('raycast');
 
@@ -83,7 +84,7 @@ function verifyRaycastSecret(req: Request): boolean {
   const secret = process.env.RAYCAST_API_SECRET;
   if (!secret || secret === 'placeholder') return false;
   const auth = req.headers.get('authorization');
-  return auth === `Bearer ${secret}`;
+  return secretsEqual(auth, `Bearer ${secret}`);
 }
 
 export async function POST(req: Request) {

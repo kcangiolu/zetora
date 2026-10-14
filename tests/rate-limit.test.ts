@@ -37,25 +37,24 @@ describe('getClientIdentifier', () => {
       expect(getClientIdentifier(reqWith({ 'x-forwarded-for': '  9.9.9.9  ' }))).toBe('ip:9.9.9.9');
     });
 
-    it('prefers x-real-ip over x-forwarded-for', () => {
-      process.env.TRUSTED_PROXY = 'true';
-      expect(getClientIdentifier(reqWith({ 'x-real-ip': '10.0.0.1', 'x-forwarded-for': '1.2.3.4' }))).toBe(
-        'ip:10.0.0.1',
-      );
-    });
-
-    it('prefers cf-connecting-ip over everything else', () => {
+    it('ignores x-real-ip and cf-connecting-ip, which a proxy may pass through from the client', () => {
       process.env.TRUSTED_PROXY = 'true';
       expect(
         getClientIdentifier(
           reqWith({ 'cf-connecting-ip': '11.0.0.1', 'x-real-ip': '10.0.0.1', 'x-forwarded-for': '1.2.3.4' }),
         ),
-      ).toBe('ip:11.0.0.1');
+      ).toBe('ip:1.2.3.4');
+      expect(getClientIdentifier(reqWith({ 'x-real-ip': '10.0.0.1' }))).toBe('ip:unknown');
     });
 
     it('returns ip:unknown when no IP header is present', () => {
       process.env.TRUSTED_PROXY = 'true';
       expect(getClientIdentifier(reqWith({}))).toBe('ip:unknown');
     });
+  });
+
+  it('keys signed-in users by account, whatever the headers say', () => {
+    process.env.TRUSTED_PROXY = 'true';
+    expect(getClientIdentifier(reqWith({ 'x-forwarded-for': '1.2.3.4' }), 'user-1')).toBe('user:user-1');
   });
 });

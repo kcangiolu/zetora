@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionCookie } from 'better-auth/cookies';
-import { buildCsp } from '@/lib/csp';
+import { buildCsp, CSP_HEADER } from '@/lib/csp';
 
 const authRoutes = ['/sign-in', '/sign-up'];
 // Pages readable without an account. Everything else requires signing in.
@@ -18,19 +18,21 @@ const publicRoutes = [
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const { nonce, header: cspHeaderName, value: cspValue } = buildCsp(pathname);
+  const cspValue = buildCsp(pathname);
+  // Next.js reads the nonce from the CSP request header and stamps it on its
+  // own inline scripts; without it the policy would block the app's bootstrap.
   const requestHeaders = new Headers(request.headers);
-  requestHeaders.set('x-nonce', nonce);
+  requestHeaders.set(CSP_HEADER, cspValue);
 
   function next(): NextResponse {
     const response = NextResponse.next({ request: { headers: requestHeaders } });
-    response.headers.set(cspHeaderName, cspValue);
+    response.headers.set(CSP_HEADER, cspValue);
     return response;
   }
 
   function redirect(url: URL): NextResponse {
     const response = NextResponse.redirect(url);
-    response.headers.set(cspHeaderName, cspValue);
+    response.headers.set(CSP_HEADER, cspValue);
     return response;
   }
 

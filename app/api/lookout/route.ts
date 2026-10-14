@@ -577,9 +577,11 @@ export async function POST(req: Request) {
   let runError: string | undefined;
 
   try {
-    const { lookoutId, prompt, userId } = await req.json();
+    // The job runs as the lookout's stored owner with its stored prompt; the
+    // request only names which lookout.
+    const { lookoutId } = await req.json();
 
-    log.debug('Running lookout', { lookoutId, userId, prompt });
+    log.debug('Running lookout', { lookoutId });
 
     // Verify lookout exists and get details with retry logic
     let lookout: any = null;
@@ -603,6 +605,7 @@ export async function POST(req: Request) {
       log.error('Lookout not found after', maxRetries, 'attempts:', lookoutId);
       return new Response('Lookout not found', { status: 404 });
     }
+    const { userId, prompt } = lookout;
 
     // Get user details and preferences in parallel (eliminate waterfall)
     const { userResult, userPrefs } = await all(

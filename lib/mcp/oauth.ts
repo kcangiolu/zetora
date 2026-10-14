@@ -3,7 +3,9 @@ import 'server-only';
 import { createHash, createHmac, randomBytes } from 'node:crypto';
 import type { UserMcpServer } from '@/lib/db/schema';
 import { updateUserMcpServer } from '@/lib/db/queries';
-import { decryptOAuthValue, getEncryptedOAuthValue, validateMcpServerUrl } from '@/lib/mcp/server-config';
+import { decryptOAuthValue, getEncryptedOAuthValue, getMcpFetch, validateMcpServerUrl } from '@/lib/mcp/server-config';
+import { MCP_OAUTH_TIMEOUT_MS } from '@/lib/timeouts';
+import { secretsEqual } from '@/lib/secure-compare';
 
 interface OAuthEndpointConfig {
   authorizationUrl: string;
@@ -261,22 +263,33 @@ function getAuthorizationServerMetadataUrls(issuerUrl: string) {
   return urls;
 }
 
+// Every OAuth request targets a URL taken from a server's metadata, so it is
+// validated here, redirects are refused, and a slow endpoint times out.
+async function oauthFetch(url: string, init: RequestInit): Promise<Response> {
+  await validateMcpServerUrl(url);
+  return getMcpFetch(url)(url, {
+    ...init,
+    cache: 'no-store',
+    redirect: 'error',
+    signal: AbortSignal.timeout(MCP_OAUTH_TIMEOUT_MS),
+  });
+}
+
 async function fetchJson<T>(url: string) {
-  const response = await fetch(url, {
+  const response = await oauthFetch(url, {
     method: 'GET',
     headers: { Accept: 'application/json' },
-    cache: 'no-store',
-  });
+  }).catch(() => null);
+  if (!response) return null;
   if (!response.ok) return null;
   const text = await response.text();
   return safeJsonParse<T>(text);
 }
 
 async function discoverProtectedResourceMetadata(serverUrl: string) {
-  const challengeResponse = await fetch(serverUrl, {
+  const challengeResponse = await oauthFetch(serverUrl, {
     method: 'GET',
     headers: { Accept: 'application/json' },
-    cache: 'no-store',
   }).catch(() => null);
 
   const bearerChallenge = parseBearerChallenge(challengeResponse?.headers.get('www-authenticate') ?? null);
@@ -344,14 +357,13 @@ async function discoverAuthorizationServerMetadata(issuerUrl: string) {
 }
 
 async function postTokenRequest(tokenUrl: string, body: URLSearchParams) {
-  const response = await fetch(tokenUrl, {
+  const response = await oauthFetch(tokenUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
       Accept: 'application/json',
     },
     body,
-    cache: 'no-store',
   });
 
   const text = await response.text();
@@ -415,7 +427,7 @@ async function registerDynamicOAuthClient({
   await validateMcpServerUrl(registrationUrl);
   const origin = getTrustedAppOrigin(requestOrigin);
   const redirectUri = getOAuthCallbackUri(origin);
-  const response = await fetch(registrationUrl, {
+  const response = await oauthFetch(registrationUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -429,7 +441,6 @@ async function registerDynamicOAuthClient({
       response_types: ['code'],
       token_endpoint_auth_method: 'none',
     }),
-    cache: 'no-store',
   });
 
   const text = await response.text();
@@ -693,7 +704,7 @@ export function verifyMcpOAuthState({
   if (!payloadBase64 || !signature) throw new Error('Invalid OAuth state');
 
   const expectedSignature = signStatePayload(payloadBase64);
-  if (signature !== expectedSignature) throw new Error('Invalid OAuth state signature');
+  if (!secretsEqual(signature, expectedSignature)) throw new Error('Invalid OAuth state signature');
 
   const payloadRaw = fromBase64Url(payloadBase64).toString('utf8');
   const payload = safeJsonParse<OAuthStatePayload>(payloadRaw);

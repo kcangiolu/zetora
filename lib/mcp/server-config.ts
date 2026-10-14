@@ -1,9 +1,7 @@
 import 'server-only';
 
-import { lookup } from 'node:dns/promises';
-import { isIP } from 'node:net';
 import type { UserMcpServer } from '@/lib/db/schema';
-import { isPrivateIp } from '@/lib/net/public-url';
+import { assertPublicHttpUrl, publicOnlyFetch } from '@/lib/net/public-url';
 import { decryptMcpCredentials, encryptMcpCredentials } from '@/lib/mcp/crypto';
 
 export type McpAuthType = 'none' | 'bearer' | 'header' | 'oauth';
@@ -41,6 +39,11 @@ export interface McpServerInput {
 // MCP server URLs are user-supplied, so they must resolve to a public address
 // (see lib/net/public-url.ts), with dev-mode http://localhost as the only
 // exception.
+function isAllowedDevLocalhost(parsed: URL): boolean {
+  const isLocalhost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+  return process.env.NODE_ENV !== 'production' && isLocalhost && parsed.protocol === 'http:';
+}
+
 export async function validateMcpServerUrl(url: string) {
   let parsed: URL;
   try {
@@ -49,28 +52,19 @@ export async function validateMcpServerUrl(url: string) {
     throw new Error('Invalid URL');
   }
 
-  const isLocalhost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
-  const isDev = process.env.NODE_ENV !== 'production';
-  const isHttps = parsed.protocol === 'https:';
-  const isAllowedLocalHttp = isDev && isLocalhost && parsed.protocol === 'http:';
-
-  if (!isHttps && !isAllowedLocalHttp) {
+  // Dev-mode localhost is the one exception; everything else must be https
+  // and resolve to a public address, even in dev, so behavior stays consistent.
+  if (isAllowedDevLocalhost(parsed)) return;
+  if (parsed.protocol !== 'https:') {
     throw new Error('Only https URLs are allowed in production (http localhost allowed in development)');
   }
+  await assertPublicHttpUrl(url);
+}
 
-  // Dev-mode localhost is explicitly allowed above; everything else must
-  // resolve to a public address, even in dev, so behavior stays consistent.
-  if (isAllowedLocalHttp) return;
-
-  const host = parsed.hostname;
-  if (isIP(host)) {
-    if (isPrivateIp(host)) throw new Error('Target resolves to a private address');
-    return;
-  }
-  const addresses = await lookup(host, { all: true, verbatim: true }).catch(() => []);
-  if (addresses.length === 0 || addresses.some((a) => isPrivateIp(a.address))) {
-    throw new Error('Target resolves to a private address');
-  }
+// The fetch for requests to an MCP server or its OAuth endpoints, validated
+// with validateMcpServerUrl first: connections stay on public addresses.
+export function getMcpFetch(url: string): typeof fetch {
+  return isAllowedDevLocalhost(new URL(url)) ? fetch : publicOnlyFetch;
 }
 
 export function getEncryptedMcpCredentials(input: McpServerInput) {

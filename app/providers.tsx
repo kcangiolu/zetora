@@ -26,13 +26,14 @@ const queryClient = new QueryClient({
   },
 });
 
-export function Providers({ children }: { children: ReactNode }) {
+export function Providers({ children, nonce }: { children: ReactNode; nonce: string | undefined }) {
   return (
     <QueryClientProvider client={queryClient}>
       <UserProvider>
         <DataStreamProvider>
           <SpeechProvider>
             <ThemeProvider
+              nonce={nonce}
               attribute="class"
               defaultTheme="system"
               enableSystem

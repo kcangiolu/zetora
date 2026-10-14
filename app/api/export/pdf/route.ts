@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { unauthenticatedRateLimit, getClientIdentifier } from '@/lib/rate-limit';
+import { exportRateLimit, getClientIdentifier } from '@/lib/rate-limit';
+import { getUser } from '@/lib/auth-utils';
 import { PDFDocument, StandardFonts, rgb, PDFName, PDFString, PDFArray, PDFFont, PDFImage, RGB } from 'pdf-lib';
 import { Lexer } from 'marked';
 import { readFileSync } from 'node:fs';
@@ -193,8 +194,9 @@ export async function POST(req: NextRequest) {
   try {
     // MathJax/sharp rendering is CPU-heavy and this route has no session
     // requirement (shared-chat exports can come from anonymous visitors), so
-    // rate-limit by IP.
-    const rateLimitResult = await unauthenticatedRateLimit.limit(getClientIdentifier(req));
+    // rate-limit per account, or per IP for anonymous visitors.
+    const user = await getUser();
+    const rateLimitResult = await exportRateLimit.limit(getClientIdentifier(req, user?.id));
     if (!rateLimitResult.success) {
       return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
     }

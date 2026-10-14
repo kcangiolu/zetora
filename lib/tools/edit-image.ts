@@ -1,6 +1,8 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import { rehostGeneratedImage } from '@/lib/generated-file-storage';
+import { fetchCustomProvider } from '@/lib/custom-providers';
+import { fetchAttachment } from '@/lib/net/attachment-fetch';
 
 import { createLogger } from '@/lib/logger';
 
@@ -65,20 +67,17 @@ export const editImageTool = tool({
       extraBody = {};
     }
 
-    let sourceImage: Response;
+    let sourceImage: Awaited<ReturnType<typeof fetchAttachment>>;
     try {
-      sourceImage = await fetch(resolvedImageUrl, { signal: AbortSignal.timeout(30_000) });
+      sourceImage = await fetchAttachment(resolvedImageUrl);
     } catch (err) {
       return { success: false as const, error: `Could not download source image: ${(err as Error).message}` };
-    }
-    if (!sourceImage.ok) {
-      return { success: false as const, error: `Could not download source image: ${sourceImage.status}` };
     }
 
     const finalSeed = seed ?? Math.floor(Math.random() * 2 ** 32);
 
     const formData = new FormData();
-    formData.append('image', await sourceImage.blob(), 'image.png');
+    formData.append('image', new Blob([sourceImage.bytes], { type: sourceImage.contentType }), 'image.png');
     formData.append('prompt', prompt);
     formData.append('model', model);
     formData.append('n', '1');
@@ -99,7 +98,7 @@ export const editImageTool = tool({
 
     let response: Response;
     try {
-      response = await fetch(`${base}/images/edits`, {
+      response = await fetchCustomProvider(`${base}/images/edits`, {
         method: 'POST',
         headers,
         body: formData,

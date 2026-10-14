@@ -183,6 +183,7 @@ const INTERNAL_MODELS: Record<string, () => LanguageModelV3 | null> = {
 };
 
 import {
+  customProviderFetch,
   getCustomProviders,
   getCustomModels,
   deriveRootURL,
@@ -211,6 +212,7 @@ async function getOrCreateProvider(providerId: string, userId?: string) {
     // (unlike most other self-hosted backends, which silently ignore the
     // schema and fall back to json_object) — only safe to advertise for it.
     supportsStructuredOutputs: config.backendKind === 'vllm',
+    fetch: customProviderFetch(config.baseURL),
   });
   customProviderInstances.set(cacheKey, provider);
   return provider;
@@ -227,6 +229,7 @@ function getOrCreateLlamaCppModel(config: CustomProviderConfig, modelName: strin
     providerId: config.id,
     rootURL: deriveRootURL(config.baseURL),
     apiKey: config.apiKey,
+    fetch: customProviderFetch(config.baseURL),
   });
   llamaCppModelInstances.set(cacheKey, model);
   return model;
@@ -243,6 +246,7 @@ function getOrCreateOllamaModel(config: CustomProviderConfig, modelName: string)
     providerId: config.id,
     rootURL: deriveRootURL(config.baseURL),
     apiKey: config.apiKey,
+    fetch: customProviderFetch(config.baseURL),
   });
   ollamaModelInstances.set(cacheKey, model);
   return model;

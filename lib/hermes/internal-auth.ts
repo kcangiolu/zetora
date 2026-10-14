@@ -2,6 +2,7 @@ import 'server-only';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { serverEnv } from '@/env/server';
+import { secretsEqual } from '@/lib/secure-compare';
 
 // Gates every /api/internal/hermes/* route, called only by hermes-relay-service over the
 // compose network. That network isn't itself a trust boundary — zetora-app's port is not
@@ -15,7 +16,7 @@ export function assertInternalHermesAuth(req: NextRequest): NextResponse | null 
       { status: 503 },
     );
   }
-  if (req.headers.get('Authorization') !== `Bearer ${secret}`) {
+  if (!secretsEqual(req.headers.get('Authorization'), `Bearer ${secret}`)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   return null;

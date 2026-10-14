@@ -50,6 +50,18 @@ function isTextLikeType(contentType: string): boolean {
   );
 }
 
+// The bucket serves objects publicly with their stored type, so text a
+// browser would run (HTML, XML, scripts) is stored as plain text. Files keep
+// their original type in the chat; only how storage serves them changes.
+const SERVED_AS_IS_TEXT_TYPES = ['text/plain', 'text/csv', 'text/markdown', 'application/json'];
+
+function storedContentType(contentType: string): string {
+  if (!isTextLikeType(contentType) || contentType === '' || contentType === 'application/octet-stream') {
+    return contentType;
+  }
+  return SERVED_AS_IS_TEXT_TYPES.includes(contentType) ? contentType : 'text/plain';
+}
+
 function isValidUploadType(contentType: string): boolean {
   return VALID_TYPES.includes(contentType) || isTextLikeType(contentType);
 }
@@ -65,7 +77,7 @@ const UploadRequestSchema = z
     contentType: z.string().refine((type) => isValidUploadType(type), {
       message: 'Unsupported file type',
     }),
-    size: z.number(),
+    size: z.number().int().nonnegative(),
   })
   .superRefine((data, ctx) => {
     const maxSize = getMaxSizeForType(data.contentType);
@@ -163,7 +175,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: validated.error.issues[0]?.message || 'Invalid request' }, { status: 400 });
     }
 
-    const { filename, contentType } = validated.data;
+    const { filename, contentType, size } = validated.data;
+    const uploadContentType = storedContentType(contentType);
 
     // Sanitize extension to prevent path injection in the R2 key
     const rawExt = filename.split('.').pop() ?? '';
@@ -179,17 +192,18 @@ export async function POST(request: NextRequest) {
     const command = new PutObjectCommand({
       Bucket: storageBucket,
       Key: key,
-      // Must exactly match the Content-Type header the browser's direct PUT
-      // sends (see uploadFileToStorage in lib/upload-client.ts, which mirrors
-      // file.type verbatim) — any mismatch invalidates the presigned SigV4
-      // signature and the PUT 403s.
-      ContentType: contentType,
+      // Content-Type and Content-Length are part of the signature: the
+      // browser's PUT (uploadFileToStorage in lib/upload-client.ts) must send
+      // exactly these, so the declared size is the size that gets stored.
+      ContentType: uploadContentType,
+      ContentLength: size,
       // Store owner so individual files can be attributed even if the key format changes
       Metadata: { 'user-id': session.user.id },
     });
 
     const presignedUrl = await getSignedUrl(storagePresignClient, command, {
       expiresIn: 3600, // 1 hour
+      signableHeaders: new Set(['content-type', 'content-length']),
     });
 
     // Construct the final public URL
@@ -197,6 +211,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       presignedUrl,
+      contentType: uploadContentType,
       url: publicUrl,
       key,
       authenticated: true,

@@ -35,13 +35,18 @@ config({
 // fork works without editing this file. ALLOWED_ORIGINS is an optional
 // comma-separated list for any additional domains.
 const configuredOrigins = [
-  'http://localhost:3000',
+  process.env.NODE_ENV === 'production' ? undefined : 'http://localhost:3000',
   process.env.NEXT_PUBLIC_APP_URL,
   process.env.BETTER_AUTH_BASE_URL,
   ...(process.env.ALLOWED_ORIGINS?.split(',').map((o) => o.trim()) ?? []),
 ].filter((o): o is string => Boolean(o));
 
 const trustedOrigins = Array.from(new Set(configuredOrigins));
+
+// Set by app/api/auth/[...all]/route.ts from getClientIp(), so the sign-in
+// rate limit cannot be dodged by sending a forged X-Forwarded-For.
+export const CLIENT_IP_HEADER = 'x-zetora-client-ip';
+export const UNTRUSTED_CLIENT_IP = '0.0.0.0';
 
 export const auth = betterAuth({
   appName: 'zetora',
@@ -63,11 +68,11 @@ export const auth = betterAuth({
     window: 60,
   },
   experimental: { joins: true },
-  // advanced: {
-  //   ipAddress: {
-  //     ipAddressHeaders: ["x-vercel-forwarded-for", "x-forwarded-for"],
-  //   }
-  // },
+  advanced: {
+    ipAddress: {
+      ipAddressHeaders: [CLIENT_IP_HEADER],
+    },
+  },
   databaseHooks: {
     session: {
       delete: {

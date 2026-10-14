@@ -25,21 +25,22 @@ function isEncryptedSecret(value: unknown): value is string {
   return typeof value === 'string' && ENCRYPTED_SECRET_PATTERN.test(value);
 }
 
-// Applies `transform` to a single field, but never lets a bad key or corrupt
-// value take down the whole preferences read/write — it logs and leaves that
-// one field as-is instead.
-function applyToSecret(value: string, transform: (value: string) => string, label: string): string {
+// Decrypting: a corrupt value or a rotated key must not take down the whole
+// preferences read, so that one field is logged and left as stored, and the
+// provider it belongs to then fails with an authentication error. Encrypting
+// has no such exception: a key that cannot be encrypted is never written.
+function decryptSecretOrKeep(value: string, label: string): string {
   try {
-    return transform(value);
+    return decryptMcpCredentials(value);
   } catch (error) {
-    log.error(`[preferences] Failed to process secret field "${label}":`, error);
+    log.error(`[preferences] Failed to decrypt secret field "${label}":`, error);
     return value;
   }
 }
 
 function mapPreferenceSecrets<T extends Record<string, unknown>>(
   preferences: T,
-  transform: (value: string) => string,
+  transform: (value: string, label: string) => string,
   shouldTransform: (value: unknown) => value is string,
 ): T {
   const next: Record<string, unknown> = { ...preferences };
@@ -48,7 +49,7 @@ function mapPreferenceSecrets<T extends Record<string, unknown>>(
     next['zetora-custom-providers'] = (next['zetora-custom-providers'] as Array<{ apiKey?: unknown }>).map(
       (provider) =>
         provider && shouldTransform(provider.apiKey)
-          ? { ...provider, apiKey: applyToSecret(provider.apiKey, transform, 'zetora-custom-providers.apiKey') }
+          ? { ...provider, apiKey: transform(provider.apiKey, 'zetora-custom-providers.apiKey') }
           : provider,
     );
   }
@@ -59,13 +60,13 @@ function mapPreferenceSecrets<T extends Record<string, unknown>>(
 function encryptPreferenceSecrets<T extends Record<string, unknown>>(preferences: T): T {
   return mapPreferenceSecrets(
     preferences,
-    encryptMcpCredentials,
+    (value) => encryptMcpCredentials(value),
     (value): value is string => typeof value === 'string' && value.length > 0 && !isEncryptedSecret(value),
   );
 }
 
 function decryptPreferenceSecrets<T extends Record<string, unknown>>(preferences: T): T {
-  return mapPreferenceSecrets(preferences, decryptMcpCredentials, isEncryptedSecret);
+  return mapPreferenceSecrets(preferences, decryptSecretOrKeep, isEncryptedSecret);
 }
 
 export async function getUserPreferencesByUserId({ userId }: { userId: string }) {
