@@ -159,7 +159,7 @@ Beyond the bundled infrastructure, Zetora also adds:
 - **Sidebar visibility toggles** for Lookouts, Voice, and sources
 - **User-configurable default model** and per-task tertiary model preferences
 - **Embedding provider configuration**, including OpenAI-compatible endpoints, for the hybrid RAG pipeline
-- **CI-built images** — all custom images are built and published by Gitea Actions (`.gitea/workflows/docker.yml`); the compose file only pulls, and `docker-compose.build.yml` builds them from source instead
+- **Pull-only compose file** — `docker-compose.yml` never builds; `docker-compose.build.yml` builds every custom image from the source tree, or `ZETORA_*_IMAGE` points the stack at images you publish to your own registry
 
 ## All-Cloud Configuration
 
@@ -250,7 +250,7 @@ Use this for day-to-day development. It runs the Next.js app directly on your ma
    ```
 6. Open `http://localhost:3000`.
 
-You can optionally bring up any other bundled service on its own (Redis, Silo, Qdrant, SearXNG, fastCRW, sandbox, Presidio, the voice services) with `docker compose up -d <service>` and point the matching `.env.local` variables at `localhost:<port>`.
+You can optionally bring up any other bundled service on its own (Redis, Silo, Qdrant, SearXNG, fastCRW, sandbox, Presidio, the voice services) with `docker compose up -d <service>` and point the matching `.env.local` variables at `localhost:<port>`. Presidio and the voice services are built from source: add `-f docker-compose.yml -f docker-compose.build.yml` and `--build` (see Option 2).
 
 ### Option 2 — Self-hosted stack (Docker Compose)
 
@@ -283,7 +283,7 @@ Use this to deploy Zetora on a server. By default it runs against cloud provider
    Every service below the core three (Postgres, Redis, `zetora.app`) starts only if you opt into its profile — see [Choose a setup](#choose-a-setup). Leaving one off means using its cloud equivalent instead (see [All-Cloud Configuration](#all-cloud-configuration)); `hermes` is the exception, it just disappears (see the † note above the table). Full self-hosted stack, voice included:
 
    ```bash
-   COMPOSE_PROFILES=selfhosted,voice,tts docker compose up -d
+   COMPOSE_PROFILES=selfhosted,voice,tts docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
    ```
 
 4. Put a reverse proxy with TLS in front of `zetora.app` (port 3333) for your domain. If you enabled the `minio` profile, also put one in front of Silo's API port (`:9010`) and point `S3_PUBLIC_URL` at it — generated images/files are served straight from that URL to the browser, no app-side proxy. For the local voice backend, expose `s2s-service`'s WebSocket port and point `VOICE_S2S_URL` at it. Every other service is bound to `127.0.0.1` only — use an SSH tunnel if you need direct access to an admin UI (Silo console on `:9001`, Bull Board on `:3001`, Qdrant dashboard on `:6333`, SearXNG on `:8090`).
