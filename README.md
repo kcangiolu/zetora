@@ -109,21 +109,21 @@ Adding a lab is a single entry in [`ai/catalog/config.ts`](ai/catalog/config.ts)
 
 ## Self-Hosted Stack
 
-This fork bundles a complete self-hosted stack in [`docker-compose.yml`](docker-compose.yml), so Zetora can run with little to no dependency on third-party cloud services beyond your chosen AI provider API keys.
+Zetora bundles a complete self-hosted stack in [`docker-compose.yml`](docker-compose.yml), so Zetora can run with little to no dependency on third-party cloud services beyond your chosen AI provider API keys.
 
-| Service                | Container(s)                              | Profile    | Cloud equivalent (Scira default) | Purpose                                                                                                                 |
+| Service                | Container(s)                              | Profile    | Cloud equivalent                 | Purpose                                                                                                                 |
 | ---------------------- | ----------------------------------------- | ---------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | **PostgreSQL 17**      | `postgres`                                | _(core)_   | Vercel Postgres / Neon           | Primary application database                                                                                            |
 | **Redis 7**            | `redis`                                   | _(core)_   | Upstash Redis                    | Sessions, cache, rate limiting                                                                                          |
 | **Silo**               | `minio`, `minio-create-bucket`            | `minio`    | Cloudflare R2 / AWS S3           | S3-compatible object storage for uploads, a maintained MinIO fork (point `S3_*` at it)                                  |
-| **Qdrant**             | `qdrant`                                  | `qdrant`   | _(new — no Scira equivalent)_    | Vector store for the hybrid RAG pipeline (content indexing, RRF fusion, reranking)                                      |
+| **Qdrant**             | `qdrant`                                  | `qdrant`   | —                                | Vector store for the hybrid RAG pipeline (content indexing, RRF fusion, reranking)                                      |
 | **SearXNG**            | `searxng`, `searxng-redis`                | `searxng`  | Tavily / Exa                     | Self-hosted metasearch engine for the Web search source                                                                 |
 | **fastCRW**            | `fastcrw`, `chrome`                       | `fastcrw`  | Firecrawl                        | Self-hosted scraper & search (Firecrawl-compatible API) with JS rendering via LightPanda and a headless-Chrome fallback |
 | **Code Interpreter**   | `sandbox`                                 | `sandbox`  | Daytona                          | Sandboxed Python execution for the Code Interpreter tool (`SANDBOX_PROVIDER=docker`)                                    |
-| **Presidio**           | `presidio-api`                            | `presidio` | _(new — no Scira equivalent)_    | PII detection/anonymization for the activatable privacy layer                                                           |
+| **Presidio**           | `presidio-api`                            | `presidio` | —                                | PII detection/anonymization for the activatable privacy layer                                                           |
 | **Voice pipeline**     | `s2s-service`, `stt-service`, `qwen3-tts` | `voice`\*  | ElevenLabs / xAI Realtime        | Local speech-to-speech backend: VAD orchestrator, NVIDIA Parakeet TDT STT, and Qwen3 TTS (`tts` profile)                |
 | **BullMQ**             | `bullmq-redis`, `bullboard`               | `bullmq`   | Upstash QStash                   | Self-hosted scheduler for Lookouts (`LOOKOUT_SCHEDULER=bullmq`), with a Bull Board admin UI                             |
-| **Hermes Agent relay** | `hermes-relay-service`                    | `hermes`†  | _(new — no Scira equivalent)_    | Lets any user connect their own self-hosted Hermes Agent gateway as an Agent mode chat channel                          |
+| **Hermes Agent relay** | `hermes-relay-service`                    | `hermes`†  | —                                | Lets any user connect their own self-hosted Hermes Agent gateway as an Agent mode chat channel                          |
 | **DB migrations**      | `db-migrate`                              | _(core)_   | _(manual `drizzle-kit migrate`)_ | Runs Drizzle migrations + performance indexes automatically; `zetora.app` waits for it before starting                  |
 
 \* `s2s-service` and `stt-service` are behind the `voice` profile, `qwen3-tts` behind its own `tts` profile. `stt-service` and `qwen3-tts` need an NVIDIA GPU (Docker `nvidia` runtime).
@@ -147,7 +147,7 @@ Zetora only offers what the instance has. A search provider shows up in Settings
 
 All services share the `zetora-network` Docker network and resolve each other by service name. Most services are bound to `127.0.0.1`; only `zetora.app` (port 3333), Silo's API port, and `s2s-service` publish beyond loopback (for reverse-proxy and browser access).
 
-Beyond the bundled infrastructure, this fork also adds:
+Beyond the bundled infrastructure, Zetora also adds:
 
 - **Custom AI providers** with XML tool-call parsing, for OpenAI-compatible / local models (e.g. Ollama)
 - **Automated database migrations** — the `db-migrate` container applies Drizzle migrations on every `docker compose up`, no manual step
@@ -163,7 +163,7 @@ Beyond the bundled infrastructure, this fork also adds:
 
 ## All-Cloud Configuration
 
-If you'd rather not run the bundled services, Zetora can run entirely against managed/cloud providers, closer to the original Scira setup. Don't start the corresponding compose services and set the matching environment variables instead:
+If you'd rather not run the bundled services, Zetora can run entirely against managed/cloud providers. Don't start the corresponding compose services and set the matching environment variables instead:
 
 | Self-hosted service | Cloud alternative                 | Configuration                                                                                                                                   |
 | ------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |

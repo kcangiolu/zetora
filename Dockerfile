@@ -42,9 +42,8 @@ ENV DATABASE_URL=${DATABASE_URL} \
 ARG NEXT_PUBLIC_APP_URL
 ARG NEXT_PUBLIC_MCP_ENABLED=false
 ARG NEXT_PUBLIC_CANVAS_ENABLED=false
-# Unlike the two flags above, this defaults to true, not false: Hermes already ships to
-# real users, so an unset build-arg must not silently regress an existing deployment.
-# See lib/hermes/feature-flag.ts.
+# Unlike the two flags above, this defaults to true: an image built without the arg
+# keeps Hermes, and hiding it is an explicit opt-out. See lib/hermes/feature-flag.ts.
 ARG NEXT_PUBLIC_HERMES_ENABLED=true
 ARG NEXT_PUBLIC_MCP_SANDBOX_ORIGIN
 ARG NEXT_PUBLIC_VOICE_BACKEND_URL
