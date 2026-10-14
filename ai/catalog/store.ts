@@ -12,8 +12,8 @@ const log = createLogger('model-catalog');
 
 const SOURCE_ID = 'models.dev';
 const SOURCE_URL = 'https://models.dev/api.json';
-const REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000;
-// After a failed refresh, wait this long before trying again.
+const REFRESH_INTERVAL_MS = 60 * 60 * 1000;
+// While there is no catalog at all, wait this long between failed fetches.
 const RETRY_INTERVAL_MS = 5 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 20_000;
 
@@ -32,6 +32,7 @@ interface CatalogState {
   lastAttemptAt: number;
   lastError: string | null;
   loading: Promise<void> | null;
+  timer: NodeJS.Timeout | null;
 }
 
 // Must live on globalThis: route bundles each get their own module instance.
@@ -45,6 +46,7 @@ function state(): CatalogState {
     lastAttemptAt: 0,
     lastError: null,
     loading: null,
+    timer: null,
   };
   return store.__zetoraModelCatalog;
 }
@@ -108,13 +110,12 @@ async function loadStored(): Promise<void> {
   }
 }
 
-function isStale(current: CatalogState): boolean {
-  const age = current.fetchedAt ? Date.now() - current.fetchedAt.getTime() : Infinity;
-  return age > REFRESH_INTERVAL_MS && Date.now() - current.lastAttemptAt > RETRY_INTERVAL_MS;
+function canRetry(current: CatalogState): boolean {
+  return Date.now() - current.lastAttemptAt > RETRY_INTERVAL_MS;
 }
 
-// Makes sure a catalog is loaded, waiting only when there is none yet; a
-// stale one keeps serving while it refreshes in the background.
+// Makes sure a catalog is loaded: the stored one, or models.dev when there is
+// none yet. Keeping it current is startModelCatalogRefresh's job.
 export async function loadModelCatalog(): Promise<void> {
   const current = state();
   if (current.loading) return current.entries.length ? undefined : current.loading;
@@ -124,11 +125,22 @@ export async function loadModelCatalog(): Promise<void> {
     });
     await current.loading;
   }
-  if (!isStale(current)) return;
+  if (current.entries.length || !canRetry(current)) return;
   current.loading = refresh().finally(() => {
     current.loading = null;
   });
-  if (!current.entries.length) await current.loading;
+  await current.loading;
+}
+
+// Re-reads models.dev every hour from server start, so a new model is in the
+// picker without anyone having used Zetora in between. Once per process.
+export function startModelCatalogRefresh(): void {
+  const current = state();
+  if (current.timer) return;
+  current.timer = setInterval(() => void refreshModelCatalog(), REFRESH_INTERVAL_MS);
+  current.timer.unref();
+  const age = current.fetchedAt ? Date.now() - current.fetchedAt.getTime() : Infinity;
+  if (age > REFRESH_INTERVAL_MS && canRetry(current)) void refreshModelCatalog();
 }
 
 // Fetches models.dev now, whatever the age of the current catalog.
