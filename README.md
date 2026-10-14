@@ -291,6 +291,10 @@ Use this to deploy Zetora on a server. By default it runs against cloud provider
 
 All ten optional profiles (`minio`, `searxng`, `fastcrw`, `sandbox`, `bullmq`, `qdrant`, `presidio`, `voice`, `tts`, `hermes`) are off by default, nothing to edit to skip them. See [All-Cloud Configuration](#all-cloud-configuration) for exactly what each one falls back to when left off.
 
+# Contributing and security
+
+Bug reports and feature ideas are welcome as issues; code contributions are not accepted yet, see [CONTRIBUTING.md](CONTRIBUTING.md). Report vulnerabilities privately, as described in [SECURITY.md](SECURITY.md).
+
 # License
 
 This project is licensed under the AGPLv3 License - see the [LICENSE](LICENSE) file for details.
