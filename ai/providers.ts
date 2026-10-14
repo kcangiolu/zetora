@@ -91,13 +91,20 @@ const openaiBackup = isConfigured(process.env.OPENAI_API_KEY_2)
 
 // Gemini has two endpoints, each with its own key and picker tab. Keys are
 // passed explicitly: the SDKs' default env names (GOOGLE_GENERATIVE_AI_API_KEY,
-// GOOGLE_VERTEX_API_KEY) are not the ones Zetora uses. An API key puts the
-// Vertex SDK in express mode, so no project/location/credentials are needed.
+// GOOGLE_VERTEX_API_KEY) are not the ones Zetora uses.
 const google = isConfigured(process.env.GOOGLE_AI_STUDIO_API_KEY)
   ? createGoogleGenerativeAI({ apiKey: process.env.GOOGLE_AI_STUDIO_API_KEY })
   : null;
+
+// An API key alone would send requests to the express endpoint, which Google
+// routes to a regional default where newly released models are often missing.
+// The project's `global` location gets every model first and still accepts the key.
+const vertexProject = process.env.GOOGLE_AGENT_PLATFORM_PROJECT;
 const vertex = isConfigured(process.env.GOOGLE_AGENT_PLATFORM_API_KEY)
-  ? createVertex({ apiKey: process.env.GOOGLE_AGENT_PLATFORM_API_KEY })
+  ? createVertex({
+      apiKey: process.env.GOOGLE_AGENT_PLATFORM_API_KEY,
+      baseURL: `https://aiplatform.googleapis.com/v1/projects/${vertexProject}/locations/global/publishers/google`,
+    })
   : null;
 
 type ModelFactory = (modelId: string) => LanguageModelV3;
@@ -113,7 +120,16 @@ const DIRECT_CLIENTS: Record<DirectClient, ModelFactory | null> = {
     ((id) => (openaiBackup ? createRetryable({ model: openai(id), retries: [openaiBackup(id)] }) : openai(id))),
   anthropic: configured('ANTHROPIC_API_KEY', (id) => anthropic(id)),
   google: google && ((id) => google(id)),
-  vertex: vertex && ((id) => vertex(id)),
+  vertex:
+    vertex &&
+    ((id) => {
+      if (!isConfigured(vertexProject)) {
+        throw new ModelUnavailableError(
+          'GOOGLE_AGENT_PLATFORM_PROJECT is not set: Google Agent Platform models need the Google Cloud project ID or number.',
+        );
+      }
+      return vertex(id);
+    }),
   xai: configured('XAI_API_KEY', (id) => xai(id)),
   deepseek: deepseekDirect && ((id) => deepseekDirect(id)),
   mistral: configured('MISTRAL_API_KEY', (id) => mistral(id)),

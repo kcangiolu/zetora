@@ -10,6 +10,7 @@ export const serverEnv = createEnv({
     GROQ_API_KEY: z.string().optional().default('placeholder'),
     GOOGLE_AI_STUDIO_API_KEY: z.string().optional().default('placeholder'),
     GOOGLE_AGENT_PLATFORM_API_KEY: z.string().optional().default('placeholder'),
+    GOOGLE_AGENT_PLATFORM_PROJECT: z.string().optional(),
     DAYTONA_API_KEY: z.string().optional(),
     SANDBOX_PROVIDER: z.enum(['daytona', 'docker']).optional(),
     S3_ENDPOINT: z.string().optional(),
