@@ -188,7 +188,12 @@ interface MessagePartRendererProps {
   reasoningFullscreenMap: Record<string, boolean>;
   setReasoningVisibilityMap: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   setReasoningFullscreenMap: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
-  messages: ChatMessage[];
+  // Whether this part's message is the last one in the list.
+  isLastMessage: boolean;
+  // Reads the current message list when an action runs. The list itself is not a prop: it
+  // changes on every streamed chunk, and memoized parts of older messages would hold a
+  // stale copy of it.
+  getMessages: () => ChatMessage[];
   user?: ComprehensiveUserData;
   isOwner?: boolean;
   selectedVisibilityType?: 'public' | 'private';
@@ -221,7 +226,8 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
     reasoningFullscreenMap,
     setReasoningVisibilityMap,
     setReasoningFullscreenMap,
-    messages,
+    isLastMessage,
+    getMessages,
     user,
     isOwner,
     selectedVisibilityType,
@@ -587,7 +593,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
       }
 
       // Determine if this is the last assistant message
-      const isLastAssistantMessage = messageIndex === messages.length - 1 && message.role === 'assistant';
+      const isLastAssistantMessage = isLastMessage && message.role === 'assistant';
       // A multi-step tool loop (reasoning -> tool call -> reasoning -> answer)
       // can legitimately produce several `text` parts within one assistant
       // message — one per step. Action buttons belong on the message as a
@@ -751,6 +757,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
 
                             try {
                               setIsRegenerating(true);
+                              const messages = getMessages();
                               const lastUserMessage = messages.findLast((m) => m.role === 'user');
                               if (!lastUserMessage) return;
 
@@ -817,6 +824,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                             try {
                               setIsDeletingMessage(true);
 
+                              const messages = getMessages();
                               const lastUserMessage = messages.findLast((m) => m.role === 'user');
                               if (!lastUserMessage) return;
 
@@ -959,6 +967,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                                 setIsBranchingOut(true);
 
                                 // Find the corresponding user message (the one before this assistant message)
+                                const messages = getMessages();
                                 const currentMessageIndex = messages.findIndex((m) => m.id === message.id);
                                 if (currentMessageIndex === -1) {
                                   sileo.error({ title: 'Could not find message' });
@@ -3267,10 +3276,11 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
     return null;
   },
   (prevProps: MessagePartRendererProps, nextProps: MessagePartRendererProps) => {
-    const areEqual =
+    return (
       isEqual(prevProps.part, nextProps.part) &&
       prevProps.messageIndex === nextProps.messageIndex &&
       prevProps.partIndex === nextProps.partIndex &&
+      prevProps.isLastMessage === nextProps.isLastMessage &&
       isEqual(prevProps.parts, nextProps.parts) &&
       isEqual(prevProps.message, nextProps.message) &&
       prevProps.status === nextProps.status &&
@@ -3286,14 +3296,8 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
       // equality is correct here since hiddenImageUrls is always replaced
       // with a new Set instance on change (see chat-interface.tsx).
       prevProps.hiddenImageUrls === nextProps.hiddenImageUrls &&
-      isEqual(prevProps.annotations, nextProps.annotations);
-
-    // Debug logging (can be removed in production)
-    if (!areEqual) {
-      console.log('MessagePartRenderer re-rendering');
-    }
-
-    return areEqual;
+      isEqual(prevProps.annotations, nextProps.annotations)
+    );
   },
 );
 

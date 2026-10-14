@@ -157,6 +157,9 @@ function MessagesFooter({ context }: { context: MessagesFooterContext }) {
 
 const VIRTUOSO_COMPONENTS: Components<ChatMessage, MessagesFooterContext> = { Footer: MessagesFooter };
 
+// Shared by every message but the last, so their memoized props stay equal.
+const NO_SUGGESTED_QUESTIONS: string[] = [];
+
 const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function MessagesImpl(
   {
     messages,
@@ -206,6 +209,14 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     setEditDraft(null);
     setEditingMessageId(messageId);
   }, []);
+
+  // Actions read the list when they run instead of closing over it: the list changes
+  // on every streamed chunk, and depending on it would re-render every message.
+  const messagesRef = useRef(messages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+  const getMessages = useCallback(() => messagesRef.current, []);
 
   // Filter messages to only show the ones we want to display
   const memoizedMessages = useMemo(() => {
@@ -307,6 +318,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
       return;
     }
     try {
+      const messages = messagesRef.current;
       const lastUserMessage = messages.findLast((m) => m.role === 'user');
       if (!lastUserMessage) return;
 
@@ -344,7 +356,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     } catch (error) {
       console.error('Error in retry:', error);
     }
-  }, [messages, user, setMessages, setSuggestedQuestions, regenerate, stop, skipCacheRef, isHermesChat]);
+  }, [user, setMessages, setSuggestedQuestions, regenerate, stop, skipCacheRef, isHermesChat]);
 
   // Memoize the delete handler - same as retry but without regenerating,
   // for when the user just wants to remove an orphaned/empty last turn
@@ -361,6 +373,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
       return;
     }
     try {
+      const messages = messagesRef.current;
       const lastUserMessage = messages.findLast((m) => m.role === 'user');
       if (!lastUserMessage) return;
 
@@ -387,7 +400,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
       console.error('Error in delete:', error);
       sileo.error({ title: 'Failed to delete message' });
     }
-  }, [messages, user, setMessages, setSuggestedQuestions, stop, isHermesChat]);
+  }, [user, setMessages, setSuggestedQuestions, stop, isHermesChat]);
 
   // Handle rendering of message parts - using the new MessagePartRenderer component
   const renderPart = useCallback(
@@ -416,7 +429,8 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
           reasoningFullscreenMap={reasoningFullscreenMap}
           setReasoningVisibilityMap={setReasoningVisibilityMap}
           setReasoningFullscreenMap={setReasoningFullscreenMap}
-          messages={messages}
+          isLastMessage={messageIndex === memoizedMessages.length - 1}
+          getMessages={getMessages}
           user={user ?? undefined}
           isOwner={isOwner}
           selectedVisibilityType={selectedVisibilityType}
@@ -438,7 +452,8 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     [
       status,
       hasActiveToolInvocations,
-      messages,
+      memoizedMessages.length,
+      getMessages,
       user,
       isOwner,
       selectedVisibilityType,
@@ -566,14 +581,13 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
             lastUserMessageIndex={lastUserMessageIndex}
             renderPart={renderPart}
             status={status}
-            messages={messages}
             setMessages={setMessages}
             sendMessage={sendMessage}
             regenerate={regenerate}
             isHermesChat={isHermesChat}
             hermesReaction={hermesReactions?.[message.id] ?? null}
             setSuggestedQuestions={setSuggestedQuestions}
-            suggestedQuestions={index === memoizedMessages.length - 1 ? suggestedQuestions : []}
+            suggestedQuestions={index === memoizedMessages.length - 1 ? suggestedQuestions : NO_SUGGESTED_QUESTIONS}
             user={user ?? undefined}
             selectedVisibilityType={selectedVisibilityType}
             isLastMessage={isLastMessage}
@@ -619,7 +633,6 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
       lastUserMessageIndex,
       renderPart,
       status,
-      messages,
       setMessages,
       sendMessage,
       regenerate,

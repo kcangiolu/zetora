@@ -1129,6 +1129,12 @@ const ChatInterface = memo(
       dispatch({ type: 'RESET_SUGGESTED_QUESTIONS' });
     }, []);
 
+    const setSuggestedQuestions = useCallback((questions: string[]) => {
+      dispatch({ type: 'SET_SUGGESTED_QUESTIONS', payload: questions });
+    }, []);
+
+    const startTransitioning = useCallback(() => setIsTransitioning(true), []);
+
     // Handle example selection from ExampleCategories
     const handleExampleSelect = useCallback(
       (text: string, group?: string) => {
@@ -1555,9 +1561,7 @@ const ChatInterface = memo(
                     lastUserMessageIndex={lastUserMessageIndex}
                     input={input}
                     setInput={setInput}
-                    setMessages={(messages) => {
-                      setMessages(messages as ChatMessage[]);
-                    }}
+                    setMessages={setMessages}
                     sendMessage={sendMessageWithAutoRouting}
                     regenerate={regenerate}
                     isHermesChat={isHermesChat}
@@ -1566,9 +1570,7 @@ const ChatInterface = memo(
                     hermesReactions={hermesReactions}
                     stop={stop}
                     suggestedQuestions={chatState.suggestedQuestions}
-                    setSuggestedQuestions={(questions) =>
-                      dispatch({ type: 'SET_SUGGESTED_QUESTIONS', payload: questions })
-                    }
+                    setSuggestedQuestions={setSuggestedQuestions}
                     status={uiStatus}
                     error={error ?? null}
                     user={user}
@@ -1582,7 +1584,7 @@ const ChatInterface = memo(
                     onHighlight={handleHighlight}
                     hasSubmitted={chatState.hasSubmitted}
                     isTransitioning={isTransitioning}
-                    onBeforeSubmit={() => setIsTransitioning(true)}
+                    onBeforeSubmit={startTransitioning}
                   />
                 )}
               </div>
@@ -1659,7 +1661,7 @@ const ChatInterface = memo(
                       isTemporaryChatLocked={isTemporaryChatLocked}
                       setIsTemporaryChatEnabled={setIsTemporaryChatEnabled}
                       autoRoutedModel={autoRoutedModel}
-                      onBeforeSubmit={() => setIsTransitioning(true)}
+                      onBeforeSubmit={startTransitioning}
                     />
 
                     {/* Example Categories - shown on a fresh, non-temporary chat */}

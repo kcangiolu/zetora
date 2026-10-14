@@ -1,5 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { memo, useState, useCallback, useRef, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -382,7 +382,6 @@ interface MessageProps {
     message: ChatMessage,
   ) => React.ReactNode;
   status: UseChatHelpers<ChatMessage>['status'];
-  messages: ChatMessage[];
   setMessages: UseChatHelpers<ChatMessage>['setMessages'];
   sendMessage: UseChatHelpers<ChatMessage>['sendMessage'];
   regenerate: UseChatHelpers<ChatMessage>['regenerate'];
@@ -428,7 +427,6 @@ interface MessageEditorProps {
   setMessages: UseChatHelpers<ChatMessage>['setMessages'];
   regenerate: UseChatHelpers<ChatMessage>['regenerate'];
   isHermesChat?: boolean;
-  messages: ChatMessage[];
   setSuggestedQuestions: (questions: string[]) => void;
   user?: ComprehensiveUserData | null;
 }
@@ -496,7 +494,6 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
   setMessages,
   regenerate,
   isHermesChat = false,
-  messages,
   setSuggestedQuestions,
   user,
 }) => {
@@ -1029,13 +1026,14 @@ function summarizeToolCalls(parts: ChatMessage['parts'] | undefined): ToolCallSu
   return Array.from(summaries.entries()).map(([key, value]) => ({ key, ...value }));
 }
 
-export const Message: React.FC<MessageProps> = ({
+// Memoized: while a reply streams, the list re-renders on every chunk, and only the
+// message whose props changed (the one being written) needs to render again.
+export const Message = memo(function Message({
   message,
   index,
   lastUserMessageIndex,
   renderPart,
   status,
-  messages,
   setMessages,
   sendMessage,
   setSuggestedQuestions,
@@ -1059,7 +1057,7 @@ export const Message: React.FC<MessageProps> = ({
   onEditingChange,
   editDraft,
   setEditDraft,
-}) => {
+}: MessageProps) {
   // Only meaningful for assistant messages, but computed unconditionally
   // since hooks below depend on it and hooks can't be called conditionally.
   const isTurnStreaming = isLastMessage && (status === 'streaming' || status === 'submitted');
@@ -1169,7 +1167,6 @@ export const Message: React.FC<MessageProps> = ({
                 setMessages={setMessages}
                 regenerate={regenerate}
                 isHermesChat={isHermesChat}
-                messages={messages}
                 setSuggestedQuestions={setSuggestedQuestions}
                 user={user}
               />
@@ -1425,10 +1422,7 @@ export const Message: React.FC<MessageProps> = ({
   }
 
   return null;
-};
-
-// Add display name for better debugging
-Message.displayName = 'Message';
+});
 
 // Editable attachments badge component for edit mode
 const EditableAttachmentsBadge = ({
