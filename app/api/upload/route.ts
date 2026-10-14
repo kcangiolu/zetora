@@ -149,7 +149,9 @@ export async function GET(request: NextRequest) {
       })),
       nextCursor,
     },
-    { headers: { 'Cache-Control': 'private, max-age=0, stale-while-revalidate=60' } },
+    // The list changes on every upload and delete; a cached copy would show
+    // deleted files again.
+    { headers: { 'Cache-Control': 'private, no-store' } },
   );
 }
 

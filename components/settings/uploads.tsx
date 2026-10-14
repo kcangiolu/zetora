@@ -129,9 +129,14 @@ export function UploadsSection() {
   });
 
   const handleDelete = async (file: UploadedFile) => {
-    await deleteMutation.mutateAsync(file.url).catch(() => null);
-    queryClient.invalidateQueries({ queryKey: ['uploads'] });
-    sileo.success({ title: 'File deleted', icon: <Trash2 className="h-4 w-4" /> });
+    try {
+      await deleteMutation.mutateAsync(file.url);
+      sileo.success({ title: 'File deleted', icon: <Trash2 className="h-4 w-4" /> });
+    } catch {
+      sileo.error({ title: 'Failed to delete the file. Please try again.', icon: <X className="h-4 w-4" /> });
+    } finally {
+      queryClient.invalidateQueries({ queryKey: ['uploads'] });
+    }
   };
 
   const handleBulkDelete = () => {
@@ -158,7 +163,8 @@ export function UploadsSection() {
       ),
       getBetterAllOptions(),
     );
-    const failed = Object.values(results).filter((r) => r.status === 'rejected').length;
+    // fetch only rejects on a network error; a refused delete is a response that is not ok.
+    const failed = Object.values(results).filter((r) => r.status === 'rejected' || !r.value.ok).length;
     setBulkDeleting(false);
     setSelected(new Set());
     setConfirmInput('');
