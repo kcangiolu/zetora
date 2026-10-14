@@ -380,10 +380,10 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
 
       if (pageParam) {
         // Load more chats using cursor — pass both ID and updatedAt to skip extra DB lookup
-        return await loadMoreChats(user.id, pageParam.id, 30, pageParam.cursorDate, pageParam.cursorIsPinned);
+        return await loadMoreChats(pageParam.id, 30, pageParam.cursorDate, pageParam.cursorIsPinned);
       } else {
         // Initial load — fetch 30 to reduce need for early pagination
-        return await getUserChats(user.id, 30);
+        return await getUserChats(30);
       }
     },
     getNextPageParam: (lastPage) => {

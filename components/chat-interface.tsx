@@ -896,7 +896,7 @@ const ChatInterface = memo(
     const { data: chatMeta } = useQuery({
       queryKey: ['chat-meta', effectiveChatId, user?.id],
       enabled: Boolean(effectiveChatId),
-      queryFn: async () => await getChatMeta(effectiveChatId as string, user?.id),
+      queryFn: async () => await getChatMeta(effectiveChatId as string),
       staleTime: 1000 * 60,
       refetchOnWindowFocus: false,
     });
@@ -1350,7 +1350,6 @@ const ChatInterface = memo(
                               <AvatarFallback className="rounded-md text-xs p-0 m-0 size-7">
                                 {(
                                   chatMeta?.user?.name ||
-                                  chatMeta?.user?.email ||
                                   user.name ||
                                   user.email ||
                                   '?'

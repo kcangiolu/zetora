@@ -44,10 +44,7 @@ import { createLogger } from '@/lib/logger';
 const log = createLogger('chats');
 
 // Lightweight function for sidebar recent chats - minimal payload, no cursor pagination
-export async function getRecentChats(
-  userId: string,
-  limit: number = 8,
-): Promise<{
+export async function getRecentChats(limit: number = 8): Promise<{
   chats: Array<{
     id: string;
     title: string;
@@ -61,10 +58,11 @@ export async function getRecentChats(
 }> {
   'use server';
 
-  if (!userId) return { chats: [], hasMore: false };
+  const user = await getUser();
+  if (!user) return { chats: [], hasMore: false };
 
   try {
-    return await getRecentChatsByUserId({ userId, limit });
+    return await getRecentChatsByUserId({ userId: user.id, limit });
   } catch (error) {
     log.error('Error fetching recent chats:', error);
     return { chats: [], hasMore: false };
@@ -73,18 +71,18 @@ export async function getRecentChats(
 
 // Add functions to fetch user chats
 export async function getUserChats(
-  userId: string,
   limit: number = 20,
   startingAfter?: string,
   endingBefore?: string,
 ): Promise<{ chats: any[]; hasMore: boolean }> {
   'use server';
 
-  if (!userId) return { chats: [], hasMore: false };
+  const user = await getUser();
+  if (!user) return { chats: [], hasMore: false };
 
   try {
     return await getChatsByUserId({
-      id: userId,
+      id: user.id,
       limit,
       startingAfter: startingAfter || null,
       endingBefore: endingBefore || null,
@@ -98,7 +96,6 @@ export async function getUserChats(
 // Add function to load more chats for infinite scroll
 // Accepts optional cursorDate to skip the extra DB lookup for the cursor chat's updatedAt
 export async function loadMoreChats(
-  userId: string,
   lastChatId: string,
   limit: number = 20,
   cursorDate?: string,
@@ -106,11 +103,14 @@ export async function loadMoreChats(
 ): Promise<{ chats: any[]; hasMore: boolean }> {
   'use server';
 
-  if (!userId || !lastChatId) return { chats: [], hasMore: false };
+  if (!lastChatId) return { chats: [], hasMore: false };
+
+  const user = await getUser();
+  if (!user) return { chats: [], hasMore: false };
 
   try {
     return await getChatsByUserId({
-      id: userId,
+      id: user.id,
       limit,
       startingAfter: null,
       endingBefore: lastChatId,
@@ -123,6 +123,19 @@ export async function loadMoreChats(
   }
 }
 
+// Server actions are reachable by anyone who can POST to a page, so every
+// chat mutation checks the session and the chat's owner first.
+async function assertOwnsChat(chatId: string): Promise<void> {
+  const user = await getUser();
+  if (!user) {
+    throw new Error('Unauthorized');
+  }
+  const owningChat = await getChatByIdForValidation({ id: chatId });
+  if (!owningChat || owningChat.userId !== user.id) {
+    throw new Error('Unauthorized');
+  }
+}
+
 // Add function to delete a chat
 export async function deleteChat(chatId: string) {
   'use server';
@@ -130,6 +143,7 @@ export async function deleteChat(chatId: string) {
   if (!chatId) return null;
 
   try {
+    await assertOwnsChat(chatId);
     return await deleteChatById({ id: chatId });
   } catch (error) {
     log.error('Error deleting chat:', error);
@@ -146,6 +160,8 @@ export async function bulkDeleteChats(chatIds: string[]) {
   }
 
   try {
+    await Promise.all(chatIds.map((id) => assertOwnsChat(id)));
+
     const taskEntries = chatIds.map((id) => [`chat:${id}`, async () => deleteChatById({ id })] as const);
 
     const settled = await allSettled(Object.fromEntries(taskEntries), getBetterAllOptions());
@@ -177,6 +193,7 @@ export async function updateChatVisibility(chatId: string, visibility: 'private'
   }
 
   try {
+    await assertOwnsChat(chatId);
     log.debug('📡 Calling updateChatVisibilityById with:', { chatId, visibility });
     const result = await updateChatVisibilityById({ chatId, visibility });
     log.debug('✅ updateChatVisibilityById successful, result:', result);
@@ -205,6 +222,7 @@ export async function updateChatPinned(chatId: string, isPinned: boolean) {
   if (!chatId) return null;
 
   try {
+    await assertOwnsChat(chatId);
     return await updateChatPinnedById({ chatId, isPinned });
   } catch (error) {
     log.error('Error updating chat pinned state:', error);
@@ -316,6 +334,7 @@ export async function updateChatTitle(chatId: string, title: string) {
   if (!chatId || !title.trim()) return null;
 
   try {
+    await assertOwnsChat(chatId);
     return await updateChatTitleById({ chatId, title: title.trim() });
   } catch (error) {
     log.error('Error updating chat title:', error);

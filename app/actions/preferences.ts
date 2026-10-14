@@ -10,7 +10,6 @@ import {
   deleteCustomInstructions,
 } from '@/lib/db/queries';
 import { db, maindb } from '@/lib/db';
-import { type User } from '@/lib/db/schema';
 import { eq, desc, ilike, and, asc, inArray, notExists } from 'drizzle-orm';
 import { sendLookoutCompletionEmail } from '@/lib/email';
 import { GroqProviderOptions, groq } from '@ai-sdk/groq';
@@ -34,11 +33,11 @@ export async function getDefaultSystemPrompt() {
 }
 
 // Custom Instructions Server Actions
-export async function getCustomInstructions(providedUser?: User | null) {
+export async function getCustomInstructions() {
   'use server';
 
   try {
-    const user = providedUser || (await getUser());
+    const user = await getUser();
     if (!user) {
       return null;
     }

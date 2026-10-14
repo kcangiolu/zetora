@@ -26,7 +26,7 @@ function isIOSBrowserTab(): boolean {
   return isIOS && !window.matchMedia('(display-mode: standalone)').matches;
 }
 
-export type PushSupport = 'supported' | 'ios-needs-install' | 'unsupported';
+type PushSupport = 'supported' | 'ios-needs-install' | 'unsupported';
 
 function detectPushSupport(): PushSupport {
   if (typeof window === 'undefined') return 'unsupported';

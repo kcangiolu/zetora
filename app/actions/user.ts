@@ -4,6 +4,7 @@ import { geolocation } from '@vercel/functions';
 import { UIMessage, generateText, Output } from 'ai';
 import type { ModelMessage } from 'ai';
 import { getChatWithUserById } from '@/lib/db/queries';
+import { getUser } from '@/lib/auth-utils';
 import { db, maindb } from '@/lib/db';
 import { chat, message, buildSession, type User } from '@/lib/db/schema';
 import { eq, desc, ilike, and, asc, inArray, notExists } from 'drizzle-orm';
@@ -25,18 +26,20 @@ export async function getCurrentUser() {
   return await getComprehensiveUserData();
 }
 
-// Fetch chat meta with user details (server action for client use via React Query)
-export async function getChatMeta(chatId: string, viewerUserId?: string) {
+// Header metadata for a chat. A private chat is visible to its owner only, and
+// the owner's id and email never leave the server.
+export async function getChatMeta(chatId: string) {
   'use server';
 
   if (!chatId) return null;
 
   try {
-    const chat = await getChatWithUserById({ id: chatId });
+    const [chat, viewer] = await Promise.all([getChatWithUserById({ id: chatId }), getUser()]);
 
     if (!chat) return null;
 
-    const isOwner = viewerUserId ? chat.userId === viewerUserId : false;
+    const isOwner = viewer ? chat.userId === viewer.id : false;
+    if (chat.visibility !== 'public' && !isOwner) return null;
 
     return {
       id: chat.id,
@@ -45,9 +48,7 @@ export async function getChatMeta(chatId: string, viewerUserId?: string) {
       createdAt: chat.createdAt,
       updatedAt: chat.updatedAt,
       user: {
-        id: chat.userId,
         name: chat.userName,
-        email: chat.userEmail,
         image: chat.userImage,
       },
       isOwner,

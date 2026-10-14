@@ -47,7 +47,7 @@ export function GeneralTab({
     refetch,
   } = useQuery({
     queryKey: ['customInstructions', user?.id],
-    queryFn: () => getCustomInstructions(user),
+    queryFn: () => getCustomInstructions(),
     enabled: !!user,
   });
 

@@ -16,7 +16,6 @@ import {
   twoFactor as twoFactorTable,
 } from '@/lib/db/schema';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { dash } from '@better-auth/infra';
 import { maindb } from '@/lib/db';
 import { config } from 'dotenv';
 import { serverEnv } from '@/env/server';
@@ -134,7 +133,6 @@ export const auth = betterAuth({
       : {}),
   },
   plugins: [
-    dash(),
     lastLoginMethod(),
     twoFactor({
       issuer: 'Zetora',

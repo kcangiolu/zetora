@@ -876,12 +876,15 @@ function stripLinks(text: string): string {
 }
 
 /** Allow only safe inline HTML tags + markdown links, strip everything else */
-function sanitizeInlineHtml(text: string): string {
+export function sanitizeInlineHtml(text: string): string {
   return (
     text
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
+      // Quotes too: the link URL below lands inside an href attribute.
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
       // Restore only safe inline tags
       .replace(/&lt;(\/?(strong|em|b|i|code|br|mark|u|s|sub|sup))&gt;/gi, '<$1>')
       // Convert markdown links [text](url) to pill anchors with favicon

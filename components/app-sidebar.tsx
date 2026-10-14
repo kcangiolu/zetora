@@ -48,7 +48,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   deleteChat,
   getRecentChats,
-  getUserChats,
   updateChatPinned,
   updateChatTitle,
   updateChatVisibility,
@@ -487,7 +486,7 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
     queryKey: ['recent-chats', user?.id],
     queryFn: async () => {
       if (!user?.id) return { chats: [], hasMore: false };
-      return await getRecentChats(user.id, 8);
+      return await getRecentChats(8);
     },
     enabled: !!user?.id,
     refetchOnWindowFocus: false,
