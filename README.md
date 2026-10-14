@@ -92,7 +92,7 @@ Loadable per-message via the `skill` tool (subject to your disabled-skills prefe
 - **Code context** — Get contextual information about programming topics using Exa Context API
 - **Text translation** — Translate text (and text within images) between languages using AI models
 - **File query search** — Semantic search over uploaded files (PDF, CSV, DOCX, Excel) with Cohere embeddings and reranking
-- **Memory** — An editable profile plus facts learned automatically after each answer (stored in Postgres, no extra service), injected into the prompt when relevant; manage everything under Settings → Memories
+- **Memory** — An editable profile plus facts learned automatically after each answer (stored in Postgres, no extra service), injected into the prompt when relevant; manage everything under Settings → Memories. Memory is still being tested: how it works may change in future versions
 - **Date & time** — Current date/time in multiple formats with timezone support
 - **Greeting** — Personalized time-of-day-aware greetings
 
