@@ -428,20 +428,14 @@ export default function AuthCard({ title, description, mode = 'sign-in' }: AuthC
 
       {/* Legal */}
       <p className="mt-6 text-[11px] text-center text-muted-foreground leading-relaxed">
-        By continuing, you agree to our{' '}
-        <Link
-          href="/terms"
-          className="text-foreground/70 hover:text-foreground underline-offset-2 hover:underline transition-colors"
-        >
-          Terms
-        </Link>{' '}
-        and{' '}
+        See how this instance handles your data in the{' '}
         <Link
           href="/privacy-policy"
           className="text-foreground/70 hover:text-foreground underline-offset-2 hover:underline transition-colors"
         >
           Privacy Policy
         </Link>
+        .
       </p>
     </div>
   );

@@ -1,7 +1,7 @@
 // Public legal pages skip strict framing rules — see next.config.ts's
 // headers(), which exempts the same paths from X-Frame-Options so Google's
 // OAuth verification crawler can iframe them.
-const UNFRAMED_PATHS = ['/privacy-policy', '/terms', '/about'];
+const UNFRAMED_PATHS = ['/privacy-policy', '/about'];
 
 function isUnframedPath(pathname: string): boolean {
   return UNFRAMED_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));

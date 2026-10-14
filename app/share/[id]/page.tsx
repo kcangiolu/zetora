@@ -42,7 +42,6 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       url: `/share/${id}`,
       description: `A shared chat on ${siteName}`,
       siteName,
-      creator: '@zetoraai',
       images: [
         {
           url: `/api/og/chat/${id}`,

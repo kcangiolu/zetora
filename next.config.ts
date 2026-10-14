@@ -119,7 +119,7 @@ const nextConfig: NextConfig = {
     return [
       {
         // Apply X-Frame-Options: DENY to all routes except public legal pages
-        source: '/((?!privacy-policy|terms|about).*)',
+        source: '/((?!privacy-policy|about).*)',
         headers: [
           {
             key: 'X-Content-Type-Options',
@@ -148,7 +148,7 @@ const nextConfig: NextConfig = {
       },
       {
         // Public legal pages — no X-Frame-Options so Google's OAuth validator can process them
-        source: '/(privacy-policy|terms|about)',
+        source: '/(privacy-policy|about)',
         headers: [
           {
             key: 'X-Content-Type-Options',

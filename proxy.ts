@@ -8,7 +8,6 @@ const publicRoutes = [
   ...authRoutes,
   '/two-factor',
   '/about',
-  '/terms',
   '/privacy-policy',
   '/robots.txt',
   '/x-wrapped',

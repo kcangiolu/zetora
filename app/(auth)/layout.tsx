@@ -2,14 +2,13 @@
 
 import Link from 'next/link';
 import { ZetoraWordmark } from '@/components/logos/zetora-wordmark';
-import { Brain, Search, Eye, Mic, Blocks } from 'lucide-react';
+import { Brain, Search, Eye, Server } from 'lucide-react';
 
 const features = [
-  { icon: Brain, label: 'Agentic Planning', description: 'Multi-step research, automated' },
-  { icon: Search, label: 'Cited Answers', description: 'Every claim linked to a source' },
-  { icon: Eye, label: 'Lookouts', description: 'Scheduled research, auto-delivered' },
-  { icon: Mic, label: 'Voice Mode', description: 'Conversational AI research' },
-  { icon: Blocks, label: 'Apps', description: '100+ connected tools via MCP' },
+  { icon: Search, label: 'Cited Answers', description: 'Every claim linked to its source' },
+  { icon: Brain, label: 'Deep Research', description: 'Planned, multi-step searches' },
+  { icon: Eye, label: 'Lookouts', description: 'Scheduled research by email' },
+  { icon: Server, label: 'Your Models', description: 'Cloud providers or your own hardware' },
 ];
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -32,12 +31,13 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             {/* Tagline */}
             <div className="mb-12">
               <p className="text-2xl xl:text-3xl font-light tracking-tight leading-snug text-foreground/90 font-be-vietnam-pro">
-                Research anything.
+                Research anything,
                 <br />
-                Do anything.
+                on your own terms.
               </p>
               <p className="mt-4 text-sm text-muted-foreground leading-relaxed max-w-sm">
-                Deep web research, cited answers, and 100+ connected apps. One assistant for everything you need.
+                An open-source research assistant that answers from live sources with citations, using the models you
+                choose.
               </p>
             </div>
 
@@ -74,8 +74,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <Link href="/about" className="hover:text-foreground transition-colors">
             About
           </Link>
-          <Link href="/terms" className="hover:text-foreground transition-colors">
-            Terms
+          <Link href="/privacy-policy" className="hover:text-foreground transition-colors">
+            Privacy
           </Link>
         </footer>
       </div>

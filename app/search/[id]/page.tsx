@@ -111,7 +111,6 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       url: `/search/${id}`,
       description: `A search in ${siteName}`,
       siteName,
-      creator: '@zetoraai',
       images: [
         {
           url: `/api/og/chat/${id}`,

@@ -27,7 +27,6 @@ export const metadata: Metadata = {
     title,
     description,
     images: ['/voice/twitter-image.png'],
-    creator: '@zetoraai',
   },
   alternates: {
     canonical: '/voice',

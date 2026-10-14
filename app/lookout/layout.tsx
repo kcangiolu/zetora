@@ -30,7 +30,6 @@ export const metadata: Metadata = {
     title,
     description,
     images: ['/lookout/twitter-image.png'],
-    creator: '@zetoraai',
   },
   alternates: {
     canonical: '/lookout',

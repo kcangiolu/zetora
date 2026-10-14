@@ -68,8 +68,8 @@ export const serverEnv = createEnv({
     SMTP_PASS: z.string().optional(),
     SMTP_FROM: z.string().optional(),
     SMTP_SECURE: z.coerce.boolean().optional().default(false),
-    // Public contact address surfaced on legal pages (privacy policy, terms).
-    CONTACT_EMAIL: z.string().optional().default('kenny@flowinit.fr'),
+    // Public contact address shown on the privacy policy page.
+    CONTACT_EMAIL: z.string().email().optional(),
     SPOTIFY_CLIENT_ID: z.string().optional().default('placeholder'),
     SPOTIFY_CLIENT_SECRET: z.string().optional().default('placeholder'),
     MCP_CREDENTIALS_ENCRYPTION_KEY: z.string().optional().default('placeholder'),

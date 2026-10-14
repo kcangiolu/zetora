@@ -1,914 +1,261 @@
-'use client';
-
-import {
-  Brain,
-  Search,
-  ArrowUpRight,
-  ArrowRight,
-  Bot,
-  Eye,
-  Filter,
-  X,
-  Sparkles,
-  Check,
-  Globe,
-  Mic,
-  Code,
-  BarChart3,
-  Newspaper,
-  BookOpen,
-  Music,
-  TrendingUp,
-  MessageSquare,
-  Bitcoin,
-  Headphones,
-  ChartNoAxesCombined,
-} from 'lucide-react';
-import { AnimatedBeam } from '@/components/ui/animated-beam';
+import type { Metadata } from 'next';
 import Link from 'next/link';
-import React, { useState, useRef } from 'react';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { useRouter } from 'next/navigation';
-import { GithubLogoIcon, XLogoIcon } from '@phosphor-icons/react';
-import {
-  ProAccordion,
-  ProAccordionItem,
-  ProAccordionTrigger,
-  ProAccordionContent,
-} from '@/components/ui/pro-accordion';
-import { useGitHubStars } from '@/hooks/use-github-stars';
-import { AUTO_MODEL_ID, getProviderName } from '@/ai/models';
-import { useModels } from '@/hooks/use-models';
-import { VercelLogo } from '@/components/logos/vercel-logo';
-import { ExaLogo } from '@/components/logos/exa-logo';
-import { ElevenLabsLogo } from '@/components/logos/elevenlabs-logo';
-
+import { ArrowUpRight } from 'lucide-react';
+import { GithubLogoIcon } from '@phosphor-icons/react/dist/ssr';
 import { ThemeSwitcher } from '@/components/theme-switcher';
 import { ZetoraLogo } from '@/components/logos/zetora-logo';
 import { ZetoraWordmark } from '@/components/logos/zetora-wordmark';
 
-const AppCircle = React.forwardRef<HTMLDivElement, { favicon: string; label: string; className?: string }>(
-  ({ favicon, label, className }, ref) => (
-    <div
-      ref={ref}
-      className={cn(
-        'z-10 flex size-12 items-center justify-center rounded-full border-2 bg-background p-2.5 shadow-[0_0_20px_-12px_rgba(0,0,0,0.8)]',
-        className,
-      )}
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={`/api/proxy-image?url=${encodeURIComponent(`https://www.google.com/s2/favicons?domain=${favicon}&sz=64`)}`}
-        alt={label}
-        width={24}
-        height={24}
-        className="rounded object-contain"
-      />
-    </div>
-  ),
-);
-AppCircle.displayName = 'AppCircle';
+const GITHUB_URL = 'https://github.com/kcangiolu/zetora';
 
-function AppsBeamSection() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const centerRef = useRef<HTMLDivElement>(null);
-  const l0 = useRef<HTMLDivElement>(null);
-  const l1 = useRef<HTMLDivElement>(null);
-  const l2 = useRef<HTMLDivElement>(null);
-  const l3 = useRef<HTMLDivElement>(null);
-  const l4 = useRef<HTMLDivElement>(null);
-  const r0 = useRef<HTMLDivElement>(null);
-  const r1 = useRef<HTMLDivElement>(null);
-  const r2 = useRef<HTMLDivElement>(null);
-  const r3 = useRef<HTMLDivElement>(null);
-  const r4 = useRef<HTMLDivElement>(null);
+export const metadata: Metadata = {
+  title: 'About',
+  description:
+    'Zetora is an open-source research assistant you run yourself: cited answers from live sources, with the models you choose.',
+  alternates: {
+    canonical: '/about',
+  },
+};
 
-  return (
-    <section className="border-t border-border/50 bg-muted/10">
-      <div className="max-w-6xl mx-auto px-6 py-24">
-        <div className="text-center mb-16 max-w-xl mx-auto">
-          <span className="font-pixel text-lg uppercase tracking-[0.2em] text-primary/80 mb-4 block">Apps</span>
-          <h2 className="text-3xl sm:text-4xl font-light tracking-tight font-be-vietnam-pro mb-4">
-            Your tools, <span className="font-pixel text-3xl sm:text-4xl">connected.</span>
-          </h2>
-          <p className="text-muted-foreground leading-relaxed">
-            Connect 100+ apps via MCP and let Zetora take action inside them. Research and act, without leaving the
-            conversation.
-          </p>
-        </div>
+const principles = [
+  {
+    title: 'Your choice',
+    description:
+      'Use any of the supported cloud providers, an OpenAI-compatible server on your own hardware, or both. Pick the model per message; nothing ties you to one vendor.',
+  },
+  {
+    title: 'Your control',
+    description:
+      'Conversations, files and memory live in the database and storage of the instance that runs Zetora. They only go to the providers that instance is configured to use.',
+  },
+  {
+    title: 'Open code',
+    description:
+      'Zetora is licensed under the AGPL-3.0. You can read every line, check what it does with your data, change it and run your own copy.',
+  },
+];
 
-        <div
-          className="relative flex h-[600px] w-full items-center justify-center overflow-hidden p-14"
-          ref={containerRef}
-        >
-          <div className="flex size-full max-h-[500px] max-w-2xl flex-col items-stretch justify-between">
-            {/* Row 1 — top */}
-            <div className="flex flex-row items-center justify-between">
-              <AppCircle ref={l0} favicon="github.com" label="GitHub" />
-              <AppCircle ref={r0} favicon="vercel.com" label="Vercel" />
-            </div>
-            {/* Row 2 */}
-            <div className="flex flex-row items-center justify-between">
-              <AppCircle ref={l1} favicon="notion.so" label="Notion" />
-              <AppCircle ref={r1} favicon="stripe.com" label="Stripe" />
-            </div>
-            {/* Row 3 — center */}
-            <div className="flex flex-row items-center justify-between">
-              <AppCircle ref={l2} favicon="slack.com" label="Slack" />
-              <div
-                ref={centerRef}
-                className="z-10 flex size-16 items-center justify-center rounded-2xl border-2 border-primary/30 bg-background p-3 shadow-[0_0_20px_-12px_rgba(0,0,0,0.8)]"
-              >
-                <ZetoraLogo className="size-8" />
-              </div>
-              <AppCircle ref={r2} favicon="linear.app" label="Linear" />
-            </div>
-            {/* Row 4 */}
-            <div className="flex flex-row items-center justify-between">
-              <AppCircle ref={l3} favicon="google.com" label="Google" />
-              <AppCircle ref={r3} favicon="huggingface.co" label="Hugging Face" />
-            </div>
-            {/* Row 5 — bottom */}
-            <div className="flex flex-row items-center justify-between">
-              <AppCircle ref={l4} favicon="cloudflare.com" label="Cloudflare" />
-              <AppCircle ref={r4} favicon="trivago.com" label="Trivago" />
-            </div>
-          </div>
+const capabilities = [
+  {
+    title: 'Cited answers',
+    description:
+      'Zetora searches live sources and answers with inline citations, so every claim can be checked against where it came from.',
+  },
+  {
+    title: 'Deep research',
+    description:
+      'For harder questions it plans the research, runs many searches, reads the pages and writes a structured report.',
+  },
+  {
+    title: 'Sources',
+    description:
+      'The web, academic papers, Reddit, GitHub, YouTube, X, markets and more. Each one can be switched off for a conversation.',
+  },
+  {
+    title: 'Your files',
+    description: 'Upload PDFs, documents and images, and ask questions about them alongside web results.',
+  },
+  {
+    title: 'Memory',
+    description:
+      'An editable profile and the facts Zetora learns from your conversations. You can read, edit or delete every entry in Settings.',
+  },
+  {
+    title: 'Lookouts',
+    description: 'Scheduled research on a topic, run on its own and sent to you by email.',
+  },
+  {
+    title: 'Apps',
+    description: 'Connect your own MCP servers and let Zetora use their tools in a conversation.',
+  },
+  {
+    title: 'Voice',
+    description: 'Talk to Zetora out loud, with a fully local speech pipeline as an option.',
+  },
+  {
+    title: 'Personal data masking',
+    description:
+      'An optional layer that replaces names, emails and other personal data before a message reaches a cloud model.',
+  },
+];
 
-          {/* Left beams */}
-          <AnimatedBeam
-            containerRef={containerRef}
-            fromRef={l0}
-            toRef={centerRef}
-            curvature={-75}
-            endYOffset={-10}
-            gradientStartColor="var(--primary)"
-            gradientStopColor="var(--secondary)"
-          />
-          <AnimatedBeam
-            containerRef={containerRef}
-            fromRef={l1}
-            toRef={centerRef}
-            curvature={-30}
-            endYOffset={-5}
-            gradientStartColor="var(--primary)"
-            gradientStopColor="var(--secondary)"
-          />
-          <AnimatedBeam
-            containerRef={containerRef}
-            fromRef={l2}
-            toRef={centerRef}
-            gradientStartColor="var(--primary)"
-            gradientStopColor="var(--secondary)"
-          />
-          <AnimatedBeam
-            containerRef={containerRef}
-            fromRef={l3}
-            toRef={centerRef}
-            curvature={30}
-            endYOffset={5}
-            gradientStartColor="var(--primary)"
-            gradientStopColor="var(--secondary)"
-          />
-          <AnimatedBeam
-            containerRef={containerRef}
-            fromRef={l4}
-            toRef={centerRef}
-            curvature={75}
-            endYOffset={10}
-            gradientStartColor="var(--primary)"
-            gradientStopColor="var(--secondary)"
-          />
-          {/* Right beams */}
-          <AnimatedBeam
-            containerRef={containerRef}
-            fromRef={r0}
-            toRef={centerRef}
-            curvature={-75}
-            endYOffset={-10}
-            reverse
-            gradientStartColor="var(--secondary)"
-            gradientStopColor="var(--primary)"
-          />
-          <AnimatedBeam
-            containerRef={containerRef}
-            fromRef={r1}
-            toRef={centerRef}
-            curvature={-30}
-            endYOffset={-5}
-            reverse
-            gradientStartColor="var(--secondary)"
-            gradientStopColor="var(--primary)"
-          />
-          <AnimatedBeam
-            containerRef={containerRef}
-            fromRef={r2}
-            toRef={centerRef}
-            reverse
-            gradientStartColor="var(--secondary)"
-            gradientStopColor="var(--primary)"
-          />
-          <AnimatedBeam
-            containerRef={containerRef}
-            fromRef={r3}
-            toRef={centerRef}
-            curvature={30}
-            endYOffset={5}
-            reverse
-            gradientStartColor="var(--secondary)"
-            gradientStopColor="var(--primary)"
-          />
-          <AnimatedBeam
-            containerRef={containerRef}
-            fromRef={r4}
-            toRef={centerRef}
-            curvature={75}
-            endYOffset={10}
-            reverse
-            gradientStartColor="var(--secondary)"
-            gradientStopColor="var(--primary)"
-          />
-        </div>
-
-        <div className="text-center mt-6">
-          <Link
-            href="/apps"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
-          >
-            Browse all apps
-            <ArrowUpRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-          </Link>
-        </div>
-      </div>
-    </section>
-  );
-}
+const components = [
+  { name: 'Models', cloud: 'OpenAI, Anthropic, Google, Mistral, OpenRouter…', local: 'Ollama, llama.cpp, vLLM' },
+  { name: 'Web search', cloud: 'Exa, Tavily, Firecrawl', local: 'SearXNG, fastCRW' },
+  { name: 'File storage', cloud: 'Cloudflare R2, AWS S3', local: 'Silo (S3-compatible)' },
+  { name: 'Code execution', cloud: 'Daytona', local: 'Docker sandbox' },
+  { name: 'Voice', cloud: 'ElevenLabs, xAI', local: 'Parakeet and Qwen3 TTS' },
+  { name: 'Scheduling', cloud: 'Upstash QStash', local: 'BullMQ' },
+];
 
 export default function AboutPage() {
-  const router = useRouter();
-  const [selectedCapabilities, setSelectedCapabilities] = useState<string[]>([]);
-  const [openCapabilities, setOpenCapabilities] = useState(false);
-  const [showAllModels, setShowAllModels] = useState(false);
-  const { catalogModels } = useModels();
-  const listedModels = catalogModels.filter((model) => model.value !== AUTO_MODEL_ID);
-  const { data: githubStars, isLoading: isLoadingStars } = useGitHubStars();
-  const searchModes = [
-    { icon: Globe, name: 'Web', description: 'Search the entire web with AI-powered analysis' },
-    { icon: MessageSquare, name: 'Chat', description: 'Talk to the model directly, no search' },
-    { icon: XLogoIcon, name: 'X', description: 'Real-time posts, trends, and conversations' },
-    { icon: TrendingUp, name: 'Stocks', description: 'Market data, charts, and financial analysis' },
-    { icon: Code, name: 'Code', description: 'Get context about languages and frameworks' },
-    { icon: BookOpen, name: 'Academic', description: 'Research papers, citations, and scholarly sources' },
-    { icon: BarChart3, name: 'Extreme', description: 'Deep research with multiple sources and analysis' },
-    { icon: Newspaper, name: 'Reddit', description: 'Discussions, opinions, and community insights' },
-    { icon: Search, name: 'GitHub', description: 'Repositories, code, and developer discussions' },
-    { icon: Bitcoin, name: 'Crypto', description: 'Cryptocurrency research powered by CoinGecko' },
-    { icon: ChartNoAxesCombined, name: 'Prediction', description: 'Prediction markets from Polymarket and Kalshi' },
-    { icon: Music, name: 'YouTube', description: 'Video summaries, transcripts, and analysis' },
-    { icon: Headphones, name: 'Spotify', description: 'Search songs, artists, and albums' },
-    { icon: Mic, name: 'Voice', description: 'Conversational AI with real-time voice' },
-  ];
-
   return (
     <div className="min-h-screen bg-background">
-      {/* Navigation */}
+      {/* Header */}
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between h-14 px-6">
-            <Link href="/" className="flex items-center group">
-              <ZetoraWordmark height={26} className="transition-transform duration-300 group-hover:scale-110" />
+            <Link href="/" className="flex items-center">
+              <ZetoraWordmark height={22} />
             </Link>
-
-            <nav className="hidden md:flex items-center gap-6">
-              <Link
-                href="https://git.new/zetora"
-                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            <div className="flex items-center gap-4">
+              <a
+                href={GITHUB_URL}
                 target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
-                <GithubLogoIcon className="h-3.5 w-3.5" />
-                GitHub
-                {!isLoadingStars && githubStars && (
-                  <span className="text-[10px] tabular-nums text-muted-foreground/70">
-                    {githubStars > 1000 ? `${(githubStars / 1000).toFixed(1)}k` : githubStars}
-                  </span>
-                )}
-              </Link>
-            </nav>
-
-            <div className="flex items-center gap-3">
+                <GithubLogoIcon className="w-4 h-4" />
+                <span className="hidden sm:inline">GitHub</span>
+              </a>
               <ThemeSwitcher />
-              <Button size="sm" className="h-8 px-5 text-sm rounded-full font-medium" onClick={() => router.push('/')}>
-                Try Zetora
-                <ArrowRight className="w-3 h-3 ml-1" />
-              </Button>
+              <Link href="/" className="text-sm font-medium text-foreground hover:text-foreground/70 transition-colors">
+                Open Zetora
+              </Link>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 pixel-grid-bg opacity-40" />
-        <div className="absolute inset-0 bg-linear-to-b from-transparent via-transparent to-background" />
-
-        <div className="relative max-w-6xl mx-auto px-6 pt-20 sm:pt-32 pb-24">
-          <div className="max-w-3xl">
-            {/* Eyebrow */}
-            <div className="animate-fade-in-up inline-flex items-center gap-2.5 mb-8 px-3 py-1.5 bg-muted/50 border border-border/50 rounded-full">
-              <span className="font-pixel text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                Open Source
-              </span>
-              <span className="w-1 h-1 rounded-full bg-primary/60 animate-pulse-subtle" />
-              <span className="font-pixel text-[10px] uppercase tracking-[0.2em] text-muted-foreground">AGPL-3.0</span>
-            </div>
-
-            {/* Title */}
-            <h1 className="animate-fade-in-up delay-100 text-5xl sm:text-6xl lg:text-[5.5rem] font-light tracking-tight leading-[1.05] text-foreground font-be-vietnam-pro mb-3">
-              Research anything.
-            </h1>
-            <p className="animate-fade-in-up delay-200 font-pixel text-5xl sm:text-6xl lg:text-7xl tracking-tight text-foreground/90 mb-8">
-              Do anything.
+      <main className="max-w-4xl mx-auto px-6">
+        {/* Introduction */}
+        <section className="py-20">
+          <span className="font-pixel text-[10px] uppercase tracking-[0.2em] text-primary/80 mb-4 block">
+            Open source · AGPL-3.0
+          </span>
+          <h1 className="text-3xl sm:text-5xl font-light tracking-tight text-foreground font-be-vietnam-pro mb-6">
+            A research assistant you run yourself.
+          </h1>
+          <div className="max-w-2xl space-y-4 text-base sm:text-lg text-muted-foreground leading-relaxed">
+            <p>
+              Zetora answers questions by searching live sources and citing them, like the cloud answer engines do. The
+              difference is where it runs and who decides: Zetora runs on a server you choose, with the models you
+              choose, and keeps its data there.
             </p>
-
-            {/* Description */}
-            <p className="animate-fade-in-up delay-300 text-lg sm:text-xl text-muted-foreground leading-relaxed mb-10 max-w-xl">
-              The AI assistant that searches the web in depth, cites its sources, and connects to 100+ apps so you can
-              act on what you find.
+            <p>
+              Every service it relies on can be a cloud provider or software running next to it. You can use it entirely
+              in the cloud, entirely on your own hardware, or anywhere in between.
             </p>
-
-            {/* Call to action */}
-            <div className="animate-fade-in-up delay-400 mb-8 flex flex-col sm:flex-row gap-3">
-              <Button className="h-12 px-8 rounded-xl text-base font-medium" onClick={() => router.push('/sign-up')}>
-                Create an account
-                <ArrowRight className="w-4 h-4 ml-1" />
-              </Button>
-              <Button
-                variant="outline"
-                className="h-12 px-8 rounded-xl text-base font-medium"
-                onClick={() => router.push('/sign-in')}
-              >
-                Sign in
-              </Button>
-            </div>
-
-            {/* Quick Links */}
-            <div className="animate-fade-in-up delay-500 flex flex-wrap items-center gap-4">
-              <Link
-                href="https://git.new/zetora"
-                className="inline-flex items-center gap-2 text-sm text-foreground hover:text-foreground/70 transition-colors group"
-                target="_blank"
-              >
-                <GithubLogoIcon className="h-4 w-4" />
-                <span>Star on GitHub</span>
-                {!isLoadingStars && githubStars && (
-                  <span className="text-xs text-muted-foreground font-pixel">
-                    {githubStars > 1000 ? `${(githubStars / 1000).toFixed(1)}k` : githubStars}
-                  </span>
-                )}
-              </Link>
-              <span className="w-px h-4 bg-border" />
-              <Link
-                href="/"
-                className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors group"
-              >
-                <span>Try now</span>
-                <ArrowUpRight className="h-3 w-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-              </Link>
-            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* How It Works */}
-      <section className="border-t border-border/50 bg-muted/10">
-        <div className="max-w-6xl mx-auto px-6 py-24">
-          <div className="text-center mb-16">
-            <span className="font-pixel text-[10px] uppercase tracking-[0.2em] text-primary/80 mb-4 block">
-              How it works
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-light tracking-tight font-be-vietnam-pro">
-              Three steps. <span className="font-pixel text-2xl sm:text-3xl">Zero friction.</span>
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-            {[
-              {
-                step: '01',
-                title: 'Ask anything',
-                description: 'Type a question, upload a PDF, or paste a URL. Pick a mode or let Zetora decide for you.',
-              },
-              {
-                step: '02',
-                title: 'Zetora plans & retrieves',
-                description:
-                  'The agent breaks your question into sub-tasks, searches live sources, and cross-checks the evidence.',
-              },
-              {
-                step: '03',
-                title: 'Get cited answers',
-                description: 'Receive a grounded answer with inline citations. Click any source to verify it yourself.',
-              },
-            ].map((item) => (
-              <div key={item.step} className="relative text-center group">
-                <div className="font-pixel-grid text-7xl sm:text-8xl text-border/60 group-hover:text-primary/15 transition-colors duration-500 mb-3 select-none">
-                  {item.step}
-                </div>
-                <h3 className="text-base font-semibold mb-2 text-foreground">{item.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
+        {/* Principles */}
+        <section className="py-16 border-t border-border/50">
+          <h2 className="text-xl font-medium tracking-tight font-be-vietnam-pro mb-10">Why Zetora</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+            {principles.map((principle) => (
+              <div key={principle.title}>
+                <h3 className="text-sm font-semibold text-foreground mb-2">{principle.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{principle.description}</p>
               </div>
             ))}
           </div>
+        </section>
 
-          {/* CTA */}
-          <div className="text-center mt-14">
-            <Button className="rounded-full px-8 h-11" onClick={() => router.push('/')}>
-              Try it now &mdash; it&apos;s free
-              <ArrowRight className="w-3.5 h-3.5 ml-2" />
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      {/* Features - Bento Grid */}
-      <section className="border-t border-border/50">
-        <div className="max-w-6xl mx-auto px-6 py-24">
-          <div className="mb-16 max-w-lg">
-            <span className="font-pixel text-[10px] uppercase tracking-[0.2em] text-primary/80 mb-4 block">
-              Capabilities
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-light tracking-tight font-be-vietnam-pro mb-4">
-              Built for the way <span className="font-pixel text-3xl sm:text-4xl">you</span> think
-            </h2>
-            <p className="text-muted-foreground leading-relaxed">
-              Research, plan, connect, and act. Everything in one place.
-            </p>
-          </div>
-
-          {/* Bento Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-            {/* Large card - Agentic Planning */}
-            <div className="md:col-span-4 group p-8 sm:p-10 rounded-2xl border border-border/50 bg-card/50 hover:bg-card hover:border-border transition-all duration-300 min-h-[240px]">
-              <div className="flex items-start justify-between mb-6">
-                <Brain className="h-6 w-6 text-muted-foreground group-hover:text-foreground transition-colors" />
-                <span className="font-pixel-grid text-5xl text-border/40 group-hover:text-border/60 transition-colors select-none leading-none">
-                  01
-                </span>
-              </div>
-              <h3 className="text-xl font-semibold mb-3 text-foreground">Agentic Planning</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed max-w-md mb-6">
-                Breaks complex questions into steps, selects the right models and tools, then executes multi-step
-                workflows end to end. Ask one question, get a research report.
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                {['Multi-step reasoning', 'Tool orchestration', 'Auto-planning'].map((tag) => (
-                  <span
-                    key={tag}
-                    className="font-pixel text-[9px] uppercase tracking-wider text-muted-foreground bg-muted/50 px-2.5 py-1 rounded-full"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Small card - Grounded Retrieval */}
-            <div className="md:col-span-2 group p-8 rounded-2xl border border-border/50 bg-card/50 hover:bg-card hover:border-border transition-all duration-300 min-h-[240px]">
-              <div className="flex items-start justify-between mb-6">
-                <Search className="h-6 w-6 text-muted-foreground group-hover:text-foreground transition-colors" />
-                <span className="font-pixel-grid text-5xl text-border/40 group-hover:text-border/60 transition-colors select-none leading-none">
-                  02
-                </span>
-              </div>
-              <h3 className="text-lg font-semibold mb-3 text-foreground">Grounded Retrieval</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Every answer comes with inline citations. Click any source to audit the evidence yourself.
-              </p>
-            </div>
-
-            {/* Small card - Extensible & Open */}
-            <div className="md:col-span-2 group p-8 rounded-2xl border border-border/50 bg-card/50 hover:bg-card hover:border-border transition-all duration-300 min-h-[240px]">
-              <div className="flex items-start justify-between mb-6">
-                <Bot className="h-6 w-6 text-muted-foreground group-hover:text-foreground transition-colors" />
-                <span className="font-pixel-grid text-5xl text-border/40 group-hover:text-border/60 transition-colors select-none leading-none">
-                  03
-                </span>
-              </div>
-              <h3 className="text-lg font-semibold mb-3 text-foreground">Extensible & Open</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                AGPL-3.0. Self-host, bring your own models, connect custom tools, and tailor everything to your
-                workflow.
-              </p>
-            </div>
-
-            {/* Large card - Lookouts */}
-            <div className="md:col-span-4 group p-8 sm:p-10 rounded-2xl border border-border/50 bg-card/50 hover:bg-card hover:border-border transition-all duration-300 min-h-[240px]">
-              <div className="flex items-start justify-between mb-6">
-                <Eye className="h-6 w-6 text-muted-foreground group-hover:text-foreground transition-colors" />
-                <span className="font-pixel-grid text-5xl text-border/40 group-hover:text-border/60 transition-colors select-none leading-none">
-                  04
-                </span>
-              </div>
-              <h3 className="text-xl font-semibold mb-3 text-foreground">Lookouts</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed max-w-md mb-6">
-                Schedule recurring research agents that monitor topics, track changes, and email you updates. Set it
-                once, stay informed forever.
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                {['Scheduled runs', 'Email alerts', 'Change detection'].map((tag) => (
-                  <span
-                    key={tag}
-                    className="font-pixel text-[9px] uppercase tracking-wider text-muted-foreground bg-muted/50 px-2.5 py-1 rounded-full"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Search Modes Showcase */}
-      <section className="border-t border-border/50 bg-muted/10">
-        <div className="max-w-6xl mx-auto px-6 py-24">
-          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6 mb-12">
-            <div className="max-w-lg">
-              <span className="font-pixel text-[10px] uppercase tracking-[0.2em] text-primary/80 mb-4 block">
-                {searchModes.length} Modes
-              </span>
-              <h2 className="text-3xl sm:text-4xl font-light tracking-tight font-be-vietnam-pro mb-4">
-                One box, <span className="font-pixel text-3xl sm:text-4xl">every</span> source
-              </h2>
-              <p className="text-muted-foreground leading-relaxed">
-                Each mode is fine-tuned for a specific type of research. Pick one, or let Zetora choose.
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="font-pixel text-[9px] uppercase tracking-wider text-primary bg-primary/10 px-2.5 py-1 rounded-full">
-                All included
-              </span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-            {searchModes.map((mode, i) => (
-              <div
-                key={mode.name}
-                className="group relative p-4 sm:p-5 rounded-2xl border border-border/50 bg-card/30 hover:bg-card hover:border-border transition-all duration-200 cursor-default"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <mode.icon className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
-                  <span className="font-pixel-grid text-lg text-border/40 select-none leading-none">
-                    {String(i + 1).padStart(2, '0')}
-                  </span>
-                </div>
-                <h3 className="text-xs sm:text-sm font-medium text-foreground mb-1">{mode.name}</h3>
-                <p className="text-[10px] sm:text-[11px] text-muted-foreground leading-relaxed">{mode.description}</p>
+        {/* Capabilities */}
+        <section className="py-16 border-t border-border/50">
+          <h2 className="text-xl font-medium tracking-tight font-be-vietnam-pro mb-3">What it does</h2>
+          <p className="text-sm text-muted-foreground mb-10 max-w-2xl">
+            Some features are optional: whoever runs an instance decides which ones it offers.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-8">
+            {capabilities.map((capability) => (
+              <div key={capability.title}>
+                <h3 className="text-sm font-semibold text-foreground mb-2">{capability.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{capability.description}</p>
               </div>
             ))}
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Apps Section */}
-      <AppsBeamSection />
-
-      {/* Built With */}
-      <section className="border-t border-border/50">
-        <div className="max-w-6xl mx-auto px-6 py-14">
-          <div className="flex flex-col md:flex-row md:items-center gap-8 md:gap-16">
-            <span className="font-pixel text-[10px] uppercase tracking-[0.2em] text-muted-foreground shrink-0">
-              Built with
-            </span>
-            <div className="flex flex-wrap items-center gap-10 md:gap-14">
-              {[
-                { logo: VercelLogo, name: 'Vercel AI SDK' },
-                { logo: ExaLogo, name: 'Exa Search' },
-                { logo: ElevenLabsLogo, name: 'ElevenLabs' },
-              ].map((partner) => (
-                <div
-                  key={partner.name}
-                  className="flex items-center gap-3 opacity-50 hover:opacity-100 transition-opacity duration-300"
-                >
-                  <partner.logo />
-                  <span className="text-sm text-muted-foreground">{partner.name}</span>
-                </div>
-              ))}
-            </div>
+        {/* Cloud or local */}
+        <section className="py-16 border-t border-border/50">
+          <h2 className="text-xl font-medium tracking-tight font-be-vietnam-pro mb-3">
+            Cloud or local, piece by piece
+          </h2>
+          <p className="text-sm text-muted-foreground mb-8 max-w-2xl">
+            Each building block has a cloud option and a self-hosted one, bundled in the Docker Compose stack.
+          </p>
+          <div className="overflow-x-auto rounded-xl border border-border/50">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border/50 text-left">
+                  <th className="px-4 py-3 font-medium text-foreground"></th>
+                  <th className="px-4 py-3 font-medium text-foreground">Cloud</th>
+                  <th className="px-4 py-3 font-medium text-foreground">Self-hosted</th>
+                </tr>
+              </thead>
+              <tbody>
+                {components.map((component) => (
+                  <tr key={component.name} className="border-b border-border/30 last:border-0">
+                    <td className="px-4 py-3 font-medium text-foreground whitespace-nowrap">{component.name}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{component.cloud}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{component.local}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Inline CTA */}
-      <section className="border-t border-border/50 bg-muted/10">
-        <div className="max-w-6xl mx-auto px-6 py-20">
-          <div className="max-w-2xl mx-auto text-center">
-            <h2 className="text-2xl sm:text-3xl font-light tracking-tight font-be-vietnam-pro mb-4">
-              Ready to <span className="font-pixel">think faster?</span>
-            </h2>
-            <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-              Research smarter and get things done with Zetora.
-            </p>
-            <div className="flex items-center justify-center gap-4">
-              <Button className="rounded-full px-8 h-11" onClick={() => router.push('/')}>
-                Start for free
-                <ArrowRight className="w-3.5 h-3.5 ml-2" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </section>
+        {/* Run your own */}
+        <section className="py-16 border-t border-border/50">
+          <h2 className="text-xl font-medium tracking-tight font-be-vietnam-pro mb-3">Run your own</h2>
+          <p className="text-sm text-muted-foreground mb-6 max-w-2xl">
+            Zetora is a Next.js app with a Docker Compose stack. The README covers the configuration, from an all-cloud
+            setup to a fully self-hosted one.
+          </p>
+          <pre className="mb-6 overflow-x-auto rounded-xl border border-border/50 bg-muted/30 px-4 py-3 text-xs text-foreground">
+            <code>git clone {GITHUB_URL}.git</code>
+          </pre>
+          <a
+            href={GITHUB_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground hover:underline underline-offset-4"
+          >
+            Read the setup guide on GitHub <ArrowUpRight className="w-3.5 h-3.5" />
+          </a>
+        </section>
 
-      {/* Models Section */}
-      <section className="border-t border-border/50">
-        <div className="max-w-6xl mx-auto px-6 py-24">
-          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6 mb-12">
-            <div className="max-w-lg">
-              <span className="font-pixel text-[10px] uppercase tracking-[0.2em] text-primary/80 mb-4 block">
-                AI Providers
-              </span>
-              <h2 className="text-3xl sm:text-4xl font-light tracking-tight font-be-vietnam-pro mb-4">
-                Every model, <span className="font-pixel text-3xl sm:text-4xl">one place</span>
-              </h2>
-              <p className="text-muted-foreground leading-relaxed">
-                Switch between models on the fly. Use the best tool for each question.
-              </p>
-            </div>
-            <div className="font-pixel-grid text-6xl sm:text-7xl text-border/30 select-none leading-none shrink-0">
-              {listedModels.length}
-            </div>
-          </div>
-
-          {/* Filter Controls */}
-          <div className="flex flex-wrap gap-3 mb-8">
-            <Popover open={openCapabilities} onOpenChange={setOpenCapabilities}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={openCapabilities}
-                  className="h-9 justify-between rounded-full text-xs"
-                >
-                  {selectedCapabilities.length === 0
-                    ? 'All Capabilities'
-                    : selectedCapabilities.length === 1
-                      ? selectedCapabilities[0]
-                      : `${selectedCapabilities.length} selected`}
-                  <ArrowUpRight className="ml-2 h-3 w-3 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[200px] p-0 rounded-xl">
-                <Command>
-                  <CommandInput placeholder="Search..." className="h-9" />
-                  <CommandList>
-                    <CommandEmpty>No capability found.</CommandEmpty>
-                    <CommandGroup>
-                      {[
-                        { value: 'vision', label: 'Vision' },
-                        { value: 'reasoning', label: 'Reasoning' },
-                        { value: 'pdf', label: 'PDF' },
-                      ].map((capability) => (
-                        <CommandItem
-                          key={capability.value}
-                          value={capability.value}
-                          onSelect={(v) => {
-                            setSelectedCapabilities((prev) =>
-                              prev.includes(v) ? prev.filter((item) => item !== v) : [...prev, v],
-                            );
-                          }}
-                        >
-                          <div className="flex items-center gap-2">
-                            <div
-                              className={`w-2 h-2 rounded-full transition-colors ${selectedCapabilities.includes(capability.value) ? 'bg-foreground' : 'bg-border'}`}
-                            />
-                            {capability.label}
-                          </div>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-
-            {selectedCapabilities.length > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelectedCapabilities([])}
-                className="h-9 text-muted-foreground rounded-full text-xs"
-              >
-                <X className="w-3 h-3 mr-1" /> Clear
-              </Button>
-            )}
-          </div>
-
-          {/* Models Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {(() => {
-              const filteredModels = listedModels.filter((model) => {
-                if (selectedCapabilities.length === 0) return true;
-                return selectedCapabilities.some((c) => {
-                  if (c === 'vision') return model.vision;
-                  if (c === 'reasoning') return model.reasoning;
-                  if (c === 'pdf') return model.pdf;
-                  return false;
-                });
-              });
-
-              if (filteredModels.length === 0) {
-                return (
-                  <div className="col-span-full p-12 text-center border border-border/50 rounded-2xl">
-                    <Filter className="w-6 h-6 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-sm text-muted-foreground mb-4">No models match your filters</p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="rounded-full"
-                      onClick={() => setSelectedCapabilities([])}
-                    >
-                      Clear filters
-                    </Button>
-                  </div>
-                );
-              }
-
-              const modelsToShow = showAllModels ? filteredModels : filteredModels.slice(0, 9);
-
-              return (
-                <>
-                  {modelsToShow.map((model) => {
-                    const providerName = getProviderName(model.provider);
-                    return (
-                    <div
-                      key={model.value}
-                      className="p-5 rounded-xl border border-border/50 bg-card/30 hover:bg-card hover:border-border transition-all duration-200 group"
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <h3 className="text-sm font-medium text-foreground">{model.label}</h3>
-                        <span className="font-pixel text-[9px] uppercase tracking-wider text-muted-foreground/60 group-hover:text-muted-foreground transition-colors">
-                          {providerName}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mb-4 line-clamp-2 leading-relaxed">
-                        {model.description}
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {model.vision && (
-                          <span className="font-pixel text-[8px] uppercase tracking-wider text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full">
-                            Vision
-                          </span>
-                        )}
-                        {model.reasoning && (
-                          <span className="font-pixel text-[8px] uppercase tracking-wider text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full">
-                            Reasoning
-                          </span>
-                        )}
-                        {model.pdf && (
-                          <span className="font-pixel text-[8px] uppercase tracking-wider text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full">
-                            PDF
-                          </span>
-                        )}
-                        {model.isNew && (
-                          <span className="font-pixel text-[8px] uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                            New
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                  })}
-                  {filteredModels.length > 9 && (
-                    <div className="col-span-full flex justify-center pt-4">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="rounded-full"
-                        onClick={() => setShowAllModels(!showAllModels)}
-                      >
-                        {showAllModels ? 'Show less' : `Show ${filteredModels.length - 9} more`}
-                      </Button>
-                    </div>
-                  )}
-                </>
-              );
-            })()}
-          </div>
-        </div>
-      </section>
-
-      {/* Access Section */}
-      <section className="border-t border-border/50 bg-muted/10">
-        <div className="max-w-6xl mx-auto px-6 py-24">
-          <div className="mb-16 text-center max-w-lg mx-auto">
-            <span className="font-pixel text-[10px] uppercase tracking-[0.2em] text-primary/80 mb-4 block">
-              Access
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-light tracking-tight font-be-vietnam-pro mb-4">
-              One account, <span className="font-pixel text-3xl sm:text-4xl">everything</span> included
-            </h2>
-            <p className="text-muted-foreground">
-              Sign in and get every model, every mode, and every tool — no tiers, no upgrades.
-            </p>
-          </div>
-
-          <div className="max-w-lg mx-auto p-8 lg:p-10 flex flex-col rounded-2xl border border-primary/20 bg-card relative overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h-1 bg-linear-to-r from-primary/60 via-primary to-primary/60" />
-            <h3 className="text-lg font-semibold mb-2 text-foreground">Full access</h3>
-            <p className="text-sm text-muted-foreground mb-8">Everything, for every signed-in account</p>
-            <ul className="space-y-3 mb-8">
-              {[
-                'Unlimited research',
-                'Every AI model, including Claude Sonnet and Opus',
-                'Zetora Apps (100+ integrations)',
-                'PDF analysis',
-                'Voice mode',
-                'Zetora Lookout',
-              ].map((item) => (
-                <li key={item} className="flex items-center gap-3 text-sm text-foreground/80">
-                  <Check className="w-3.5 h-3.5 text-primary shrink-0" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-            <Button className="w-full h-11 rounded-xl mt-auto" onClick={() => router.push('/sign-in')}>
-              Sign in <Sparkles className="w-3.5 h-3.5 ml-1.5" />
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ Section */}
-      <section className="border-t border-border/50">
-        <div className="max-w-6xl mx-auto px-6 py-24">
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-16">
-            <div className="lg:col-span-2">
-              <span className="font-pixel text-[10px] uppercase tracking-[0.2em] text-primary/80 mb-4 block">
-                Support
-              </span>
-              <h2 className="text-3xl sm:text-4xl font-light tracking-tight font-be-vietnam-pro mb-4">
-                Questions?
-                <br />
-                <span className="font-pixel text-2xl sm:text-3xl">Answers.</span>
-              </h2>
-              <p className="text-muted-foreground leading-relaxed mb-8">
-                Can&apos;t find what you need? Reach out at{' '}
-                <a href="mailto:kenny@flowinit.fr" className="text-foreground hover:underline underline-offset-2">
-                  kenny@flowinit.fr
-                </a>
-              </p>
-              <div className="flex gap-3">
-                <Button size="sm" className="rounded-full" onClick={() => router.push('/')}>
-                  Start searching <ArrowRight className="ml-1.5 h-3 w-3" />
-                </Button>
-              </div>
-            </div>
-
-            <div className="lg:col-span-3">
-              <ProAccordion type="single" collapsible className="w-full">
-                <ProAccordionItem value="item-1">
-                  <ProAccordionTrigger>What is Zetora?</ProAccordionTrigger>
-                  <ProAccordionContent>
-                    Zetora is an open-source AI assistant built for research and action. It searches the web in depth,
-                    cites its sources, and connects to 100+ apps via MCP so you can act on what you find without leaving
-                    the conversation.
-                  </ProAccordionContent>
-                </ProAccordionItem>
-                <ProAccordionItem value="item-5">
-                  <ProAccordionTrigger>What AI models does Zetora use?</ProAccordionTrigger>
-                  <ProAccordionContent>
-                    Zetora uses a range of advanced models including Grok, Claude, GPT, Gemini, and more. Switch between
-                    them for each query based on what works best.
-                  </ProAccordionContent>
-                </ProAccordionItem>
-                <ProAccordionItem value="item-6">
-                  <ProAccordionTrigger>How does Zetora ensure accuracy?</ProAccordionTrigger>
-                  <ProAccordionContent>
-                    Zetora grounds outputs in retrieved sources (RAG + search grounding) and includes inline citations
-                    so you can audit the evidence. Agents cross-check multiple sources before synthesizing an answer.
-                  </ProAccordionContent>
-                </ProAccordionItem>
-              </ProAccordion>
-            </div>
-          </div>
-        </div>
-      </section>
+        {/* Credits */}
+        <section className="py-16 border-t border-border/50">
+          <h2 className="text-xl font-medium tracking-tight font-be-vietnam-pro mb-3">Credits</h2>
+          <p className="text-sm text-muted-foreground max-w-2xl leading-relaxed">
+            Zetora started as a fork of{' '}
+            <a
+              href="https://github.com/zaidmukaddam/scira"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-foreground hover:underline underline-offset-2"
+            >
+              Scira
+            </a>{' '}
+            by Zaid Mukaddam, also released under the AGPL-3.0. Bugs and ideas are welcome as{' '}
+            <a
+              href={`${GITHUB_URL}/issues`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-foreground hover:underline underline-offset-2"
+            >
+              GitHub issues
+            </a>
+            .
+          </p>
+        </section>
+      </main>
 
       {/* Footer */}
       <footer className="border-t border-border/50">
-        <div className="max-w-6xl mx-auto px-6">
+        <div className="max-w-4xl mx-auto px-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-8">
             <div className="flex items-center gap-3">
               <ZetoraLogo className="size-4" />
-              <span className="text-xs text-muted-foreground">&copy; {new Date().getFullYear()} Zetora</span>
+              <span className="text-xs text-muted-foreground">Zetora · AGPL-3.0</span>
             </div>
             <div className="flex items-center gap-6">
-              <Link href="/terms" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-                Terms
+              <Link href="/" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                Home
               </Link>
               <Link
                 href="/privacy-policy"
@@ -916,21 +263,14 @@ export default function AboutPage() {
               >
                 Privacy
               </Link>
-              <span className="w-px h-4 bg-border/50" />
-              <Link
-                href="https://x.com/zetoraai"
-                className="text-muted-foreground hover:text-foreground transition-colors"
+              <a
+                href={GITHUB_URL}
                 target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
-                <XLogoIcon className="h-3.5 w-3.5" />
-              </Link>
-              <Link
-                href="https://git.new/zetora"
-                className="text-muted-foreground hover:text-foreground transition-colors"
-                target="_blank"
-              >
-                <GithubLogoIcon className="h-3.5 w-3.5" />
-              </Link>
+                GitHub
+              </a>
             </div>
           </div>
         </div>

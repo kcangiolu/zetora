@@ -26,7 +26,6 @@ import {
 import { MagicEditIcon } from '@/components/ui/magic-edit-icon';
 import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogDescription } from '@/components/ui/dialog';
 import { cn, SearchGroup, SearchGroupId, getSearchGroups } from '@/lib/utils';
-import { track } from '@vercel/analytics';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ComprehensiveUserData } from '@/hooks/use-user-data';
 import { enhancePrompt, getHermesConnectorStatusAction } from '@/app/actions';
@@ -1858,9 +1857,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
     if (input.trim() || attachments.length > 0) {
       haptics.trigger('medium');
-      track('model_selected', {
-        model: selectedModel,
-      });
 
       onBeforeSubmit?.();
       setHasSubmitted(true);
@@ -1926,7 +1922,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
     haptics,
     status,
     isRecording,
-    selectedModel,
     user,
     input,
     attachments,

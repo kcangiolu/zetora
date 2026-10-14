@@ -2,10 +2,9 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Zetora - AI-powered Search Engine',
+    name: 'Zetora',
     short_name: 'Zetora',
-    description:
-      'A minimalistic AI-powered search engine that helps you find information on the internet using advanced AI models like GPT-4, Claude, and Grok',
+    description: 'An open-source research assistant: cited answers from live sources, with the models you choose.',
     start_url: '/',
     display: 'standalone',
     categories: ['search', 'ai', 'productivity'],

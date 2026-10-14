@@ -9,7 +9,6 @@ import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import { Toaster } from '@/components/ui/sileo-toaster';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { NewChatHotkey } from '@/components/new-chat-hotkey';
-import { ClientAnalytics } from '@/components/client-analytics';
 import { HapticsProvider } from '@/components/haptics-provider';
 
 import { Providers } from './providers';
@@ -17,66 +16,15 @@ import { Providers } from './providers';
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || 'http://localhost:3000'),
   title: {
-    default: 'Zetora AI - Research anything. Do anything.',
+    default: 'Zetora AI',
     template: '%s | Zetora AI',
   },
   description:
-    'Zetora is an AI assistant that searches the web in depth, cites sources, and connects to 100+ apps including GitHub, Notion, and Slack.',
+    'Zetora is an open-source research assistant you run yourself: cited answers from live sources, with the models you choose.',
   openGraph: {
     url: '/',
     siteName: 'Zetora AI',
   },
-  keywords: [
-    'agentic research platform',
-    'agentic research',
-    'agentic search',
-    'agentic search engine',
-    'agentic search platform',
-    'agentic search tool',
-    'agentic search tool',
-    'zetora.ai',
-    'free ai search',
-    'ai search',
-    'ai research tool',
-    'ai search tool',
-    'perplexity ai alternative',
-    'perplexity alternative',
-    'chatgpt alternative',
-    'ai search engine',
-    'search engine',
-    'zetora ai',
-    'Zetora AI',
-    'zetora AI',
-    'SCIRA.AI',
-    'ZETORA.AI',
-    'zetora github',
-    'ai search engine',
-    'Zetora',
-    'zetora',
-    'zetora.app',
-    'zetora ai',
-    'zetora ai app',
-    'zetora',
-    'MiniPerplx',
-    'Zetora AI',
-    'Perplexity alternatives',
-    'Perplexity AI alternatives',
-    'open source ai search engine',
-    'minimalistic ai search engine',
-    'minimalistic ai search alternatives',
-    'ai search',
-    'minimal ai search',
-    'minimal ai search alternatives',
-    'scira alternatives',
-    'AI Search Engine',
-    'mplx.run',
-    'mplx ai',
-    'flowinit',
-    'zetora.how',
-    'search engine',
-    'AI',
-    'perplexity',
-  ],
   robots: {
     index: true,
     follow: true,
@@ -157,7 +105,6 @@ export default async function RootLayout({
             </SidebarProvider>
           </Providers>
         </NuqsAdapter>
-        <ClientAnalytics />
       </body>
     </html>
   );

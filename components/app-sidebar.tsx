@@ -7,10 +7,8 @@ import {
   PlusIcon,
   GearIcon,
   SignIn,
-  XLogoIcon,
   GithubLogoIcon,
   InfoIcon,
-  FileTextIcon,
   ShieldIcon,
   BugIcon,
   UsersIcon,
@@ -310,14 +308,6 @@ function UserDropdownContent({
                 <span>About</span>
               </Link>
               <Link
-                href="/terms"
-                onClick={closeMobileSidebar}
-                className="flex items-center gap-3 px-2.5 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-accent/30 hover:text-foreground transition-colors duration-150"
-              >
-                <FileTextIcon size={16} weight="regular" />
-                <span>Terms</span>
-              </Link>
-              <Link
                 href="/privacy-policy"
                 onClick={closeMobileSidebar}
                 className="flex items-center gap-3 px-2.5 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-accent/30 hover:text-foreground transition-colors duration-150"
@@ -327,7 +317,7 @@ function UserDropdownContent({
               </Link>
               <div className="h-px bg-border/40 my-1" />
               <a
-                href="https://git.new/zetora"
+                href="https://github.com/kcangiolu/zetora"
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={closeMobileSidebar}
@@ -337,17 +327,7 @@ function UserDropdownContent({
                 <span>GitHub</span>
               </a>
               <a
-                href="https://x.com/zetoraai"
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={closeMobileSidebar}
-                className="flex items-center gap-3 px-2.5 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-accent/30 hover:text-foreground transition-colors duration-150"
-              >
-                <XLogoIcon size={16} weight="regular" />
-                <span>X.com</span>
-              </a>
-              <a
-                href="https://zetora.userjot.com"
+                href="https://github.com/kcangiolu/zetora/issues"
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={closeMobileSidebar}
@@ -557,12 +537,6 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
       href: '/about',
     },
     {
-      id: 'terms',
-      label: 'Terms',
-      icon: FileTextIcon,
-      href: '/terms',
-    },
-    {
       id: 'privacy',
       label: 'Privacy',
       icon: ShieldIcon,
@@ -572,14 +546,14 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
       id: 'github',
       label: 'GitHub',
       icon: GithubLogoIcon,
-      href: 'https://git.new/zetora',
+      href: 'https://github.com/kcangiolu/zetora',
       external: true,
     },
     {
       id: 'feedback',
       label: 'Feedback',
       icon: BugIcon,
-      href: 'https://zetora.userjot.com',
+      href: 'https://github.com/kcangiolu/zetora/issues',
       external: true,
     },
   ];
