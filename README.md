@@ -227,7 +227,7 @@ Use this for day-to-day development. It runs the Next.js app directly on your ma
 
 1. Clone the repository and install dependencies:
    ```bash
-   git clone <your-repo-url> zetora
+   git clone https://github.com/kcangiolu/zetora.git
    cd zetora
    corepack enable pnpm
    pnpm install
@@ -258,7 +258,7 @@ Use this to deploy Zetora on a server. By default it runs against cloud provider
 
 1. Clone the repository on the server:
    ```bash
-   git clone <your-repo-url> zetora
+   git clone https://github.com/kcangiolu/zetora.git
    cd zetora
    ```
 2. Create `.env` (gitignored — never commit it). Fill in at least:
