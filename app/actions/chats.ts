@@ -147,7 +147,7 @@ export async function deleteChat(chatId: string) {
     return await deleteChatById({ id: chatId });
   } catch (error) {
     log.error('Error deleting chat:', error);
-    return null;
+    throw error;
   }
 }
 
@@ -226,7 +226,7 @@ export async function updateChatPinned(chatId: string, isPinned: boolean) {
     return await updateChatPinnedById({ chatId, isPinned });
   } catch (error) {
     log.error('Error updating chat pinned state:', error);
-    return null;
+    throw error;
   }
 }
 
@@ -338,7 +338,7 @@ export async function updateChatTitle(chatId: string, title: string) {
     return await updateChatTitleById({ chatId, title: title.trim() });
   } catch (error) {
     log.error('Error updating chat title:', error);
-    return null;
+    throw error;
   }
 }
 

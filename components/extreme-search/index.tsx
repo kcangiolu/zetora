@@ -2,6 +2,7 @@
 'use client';
 
 import { useOptimizedScroll } from '@/hooks/use-optimized-scroll';
+import { getFaviconUrl } from '@/lib/url';
 import type { extremeSearchTool, Research } from '@/lib/tools/extreme-search';
 import type { UIToolInvocation } from 'ai';
 import React, { useEffect, useState, memo, useMemo, useRef, useCallback } from 'react';
@@ -233,9 +234,7 @@ const ExtremeSearchComponent = ({
               url: source.url || '',
               content: source.content || '',
               publishedDate: source.publishedDate || '',
-              favicon:
-                source.favicon ||
-                `https://www.google.com/s2/favicons?sz=128&domain=${encodeURIComponent(new URL(source.url || 'example.com').hostname)}`,
+              favicon: source.favicon || getFaviconUrl(source.url),
             }));
 
             return [
@@ -263,9 +262,7 @@ const ExtremeSearchComponent = ({
               url: source.url || '',
               content: source.content || '',
               publishedDate: source.publishedDate || '',
-              favicon:
-                source.favicon ||
-                `https://www.google.com/s2/favicons?sz=128&domain=${encodeURIComponent(new URL(source.url || 'example.com').hostname)}`,
+              favicon: source.favicon || getFaviconUrl(source.url),
             }));
 
             return {
@@ -318,9 +315,7 @@ const ExtremeSearchComponent = ({
               title: data.source.title || '',
               url: data.source.url,
               content: '', // 🔧 Initialize with empty content, will be populated by content annotations
-              favicon:
-                data.source.favicon ||
-                `https://www.google.com/s2/favicons?sz=128&domain=${encodeURIComponent(new URL(data.source.url).hostname)}`,
+              favicon: data.source.favicon || getFaviconUrl(data.source.url),
             });
           }
         } else if (data.kind === 'content' && data.content) {
@@ -330,9 +325,7 @@ const ExtremeSearchComponent = ({
               title: data.content.title || '',
               url: data.content.url,
               text: data.content.text || '',
-              favicon:
-                data.content.favicon ||
-                `https://www.google.com/s2/favicons?sz=128&domain=${encodeURIComponent(new URL(data.content.url).hostname)}`,
+              favicon: data.content.favicon || getFaviconUrl(data.content.url),
             });
           }
         }
@@ -696,9 +689,7 @@ const ExtremeSearchComponent = ({
                 url: source.url || '',
                 content: source.content || '',
                 publishedDate: source.publishedDate || '',
-                favicon:
-                  source.favicon ||
-                  `https://www.google.com/s2/favicons?sz=128&domain=${encodeURIComponent(new URL(source.url || 'example.com').hostname)}`,
+                favicon: source.favicon || getFaviconUrl(source.url),
               }));
               const query: SearchQuery = {
                 id: tr.toolCallId || `query-${Math.random().toString(36).slice(2)}`,
@@ -716,9 +707,7 @@ const ExtremeSearchComponent = ({
                 url: source.url || '',
                 content: source.content || '',
                 publishedDate: source.publishedDate || '',
-                favicon:
-                  source.favicon ||
-                  `https://www.google.com/s2/favicons?sz=128&domain=${encodeURIComponent(new URL(source.url || 'example.com').hostname)}`,
+                favicon: source.favicon || getFaviconUrl(source.url),
               }));
               const query: SearchQuery = {
                 id: `${tr.toolCallId || `query-${Math.random().toString(36).slice(2)}`}-${index}`,
@@ -1194,9 +1183,7 @@ const ExtremeSearchComponent = ({
       if (research?.sources?.length) {
         return research.sources.map((s) => ({
           ...s,
-          favicon:
-            s.favicon ||
-            `https://www.google.com/s2/favicons?sz=128&domain=${encodeURIComponent(new URL(s.url).hostname)}`,
+          favicon: s.favicon || getFaviconUrl(s.url),
         }));
       }
 
@@ -1211,9 +1198,7 @@ const ExtremeSearchComponent = ({
                 url: source.url || '',
                 content: source.content || '',
                 publishedDate: source.publishedDate || '',
-                favicon:
-                  source.favicon ||
-                  `https://www.google.com/s2/favicons?sz=128&domain=${encodeURIComponent(new URL(source.url || 'example.com').hostname)}`,
+                favicon: source.favicon || getFaviconUrl(source.url),
               }));
             }
 
@@ -1224,9 +1209,7 @@ const ExtremeSearchComponent = ({
                 url: source.url || '',
                 content: source.content || '',
                 publishedDate: source.publishedDate || '',
-                favicon:
-                  source.favicon ||
-                  `https://www.google.com/s2/favicons?sz=128&domain=${encodeURIComponent(new URL(source.url || 'example.com').hostname)}`,
+                favicon: source.favicon || getFaviconUrl(source.url),
               })),
             );
           });

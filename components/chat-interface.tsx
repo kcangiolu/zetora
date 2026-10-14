@@ -79,7 +79,7 @@ import { AUTO_MODEL_ID, DEFAULT_MODEL_ALIAS } from '@/ai/models';
 import { useModels } from '@/hooks/use-models';
 
 // State management imports
-import { chatReducer, createInitialState } from '@/components/chat-state';
+import { chatReducer, createInitialState, type ChatState } from '@/components/chat-state';
 import { useDataStream } from './data-stream-provider';
 import { DefaultChatTransport } from 'ai';
 import { ChatMessage } from '@/lib/types';
@@ -128,7 +128,6 @@ const ChatInterface = memo(
     const [input, setInput] = useLocalStorage<string>('zetora-draft-input', '');
     const [localChatTitle, setLocalChatTitle] = useState<string>(chatTitle || (initialChatId ? 'Chat' : 'New Chat'));
     const [hiddenImageUrls, setHiddenImageUrls] = useState<Set<string>>(() => new Set(initialHiddenImageUrls ?? []));
-    const [isEditingTitle, setIsEditingTitle] = useState(false); // legacy inline edit (to be removed)
     const [titleInput, setTitleInput] = useState(localChatTitle);
     const [isSavingTitle, setIsSavingTitle] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -313,13 +312,16 @@ const ChatInterface = memo(
       [query, q],
     );
 
-    useEffect(() => {
-      // keep local title in sync if prop changes (e.g., server updated)
-      if (chatTitle && chatTitle !== localChatTitle) {
+    // The server's title replaces the local one only when it changes, so a
+    // rename made here is not undone by the older value still in the props.
+    const [syncedChatTitle, setSyncedChatTitle] = useState(chatTitle);
+    if (chatTitle !== syncedChatTitle) {
+      setSyncedChatTitle(chatTitle);
+      if (chatTitle) {
         setLocalChatTitle(chatTitle);
-        if (!isEditingTitle) setTitleInput(chatTitle);
+        if (!isEditDialogOpen) setTitleInput(chatTitle);
       }
-    }, [chatTitle, localChatTitle, isEditingTitle]);
+    }
 
     const handleStartEditTitle = useCallback(() => {
       const currentChatId = initialChatId || (pathname?.startsWith('/search/') ? pathname.split('/')[2] : null);
@@ -330,7 +332,6 @@ const ChatInterface = memo(
 
     const handleCancelEditTitle = useCallback(() => {
       setIsEditDialogOpen(false);
-      setIsEditingTitle(false);
       setTitleInput(localChatTitle || '');
     }, [localChatTitle]);
 
@@ -359,12 +360,14 @@ const ChatInterface = memo(
         const updated = await updateChatTitle(currentChatId, next);
         if (updated) {
           setLocalChatTitle(next);
+          queryClient.setQueriesData<{ title: string } | null>({ queryKey: ['chat-meta', currentChatId] }, (meta) =>
+            meta ? { ...meta, title: next } : meta,
+          );
           sileo.success({
             title: 'Title updated',
             description: 'The chat title has been updated',
             icon: <Pencil className="h-4 w-4" />,
           });
-          setIsEditingTitle(false);
           setIsEditDialogOpen(false);
         } else {
           sileo.error({
@@ -382,7 +385,7 @@ const ChatInterface = memo(
       } finally {
         setIsSavingTitle(false);
       }
-    }, [initialChatId, titleInput, pathname]);
+    }, [initialChatId, titleInput, pathname, queryClient]);
 
     const handleOpenDelete = useCallback(() => {
       const currentChatId = initialChatId || (pathname?.startsWith('/search/') ? pathname.split('/')[2] : null);
@@ -440,9 +443,10 @@ const ChatInterface = memo(
     // Reset transient elicitation UI state when chat context changes.
     useEffect(() => {
       setActiveElicitation(null);
+      setDataStream([]);
       dismissedElicitationIdsRef.current.clear();
       openedElicitationIdsRef.current.clear();
-    }, [chatId]);
+    }, [chatId, setDataStream]);
 
     // Any connected account has access to every model — no Pro gate left.
     const effectiveSelectedModel = selectedModel;
@@ -456,32 +460,72 @@ const ChatInterface = memo(
     );
     const isTemporaryChat = isTemporaryChatEnabled && !isExistingChat;
 
-    // Create refs to store current values to avoid closure issues
+    // useChat keeps the transport it got first, so the request reads the
+    // current settings through refs, updated after every render.
     const selectedModelRef = useRef(effectiveSelectedModel);
     const reasoningEffortRef = useRef(reasoningEffort);
     const visionEnabledRef = useRef(visionEnabled);
     const selectedGroupRef = useRef(effectiveSelectedGroup);
     const isCustomInstructionsEnabledRef = useRef(isCustomInstructionsEnabled);
-    const extremeSearchProviderRef = useRef<'exa'>('exa');
     const sessionEnabledSourcesRef = useRef(sessionEnabledSources);
     const isTemporaryChatRef = useRef(isTemporaryChat);
     const skipCacheRef = useRef(false);
 
-    // Update refs whenever state changes - this ensures we always have current values
-    selectedModelRef.current = effectiveSelectedModel;
-    reasoningEffortRef.current = reasoningEffort;
-    visionEnabledRef.current = visionEnabled;
-    selectedGroupRef.current = effectiveSelectedGroup;
-    isCustomInstructionsEnabledRef.current = isCustomInstructionsEnabled;
-    extremeSearchProviderRef.current = 'exa';
-    sessionEnabledSourcesRef.current = sessionEnabledSources;
-    isTemporaryChatRef.current = isTemporaryChat;
+    useEffect(() => {
+      selectedModelRef.current = effectiveSelectedModel;
+      reasoningEffortRef.current = reasoningEffort;
+      visionEnabledRef.current = visionEnabled;
+      selectedGroupRef.current = effectiveSelectedGroup;
+      isCustomInstructionsEnabledRef.current = isCustomInstructionsEnabled;
+      sessionEnabledSourcesRef.current = sessionEnabledSources;
+      isTemporaryChatRef.current = isTemporaryChat;
+    });
 
     const [activeElicitation, setActiveElicitation] = useState<ElicitationData | null>(null);
     const dismissedElicitationIdsRef = useRef<Set<string>>(new Set());
     const openedElicitationIdsRef = useRef<Set<string>>(new Set());
     const [isTransitioning, setIsTransitioning] = useState(false);
     const lastSuggestionKeyRef = useRef<string | null>(null);
+
+    const transport = useMemo(
+      () =>
+        new DefaultChatTransport({
+          api: '/api/search',
+          fetch: async (url, options) => {
+            if (options?.body && skipCacheRef.current) {
+              const body = JSON.parse(options.body as string);
+              body.skipCache = true;
+              options.body = JSON.stringify(body);
+              skipCacheRef.current = false;
+            }
+            return fetch(url, options);
+          },
+          prepareSendMessagesRequest({ messages, body }) {
+            // A saved chat's history is read back on the server, so only the
+            // new user message is sent; a temporary chat sends all of it.
+            const latestUserMessage = [...messages].reverse().find((message) => message.role === 'user');
+            const shouldTrimRequestHistory = Boolean(!isTemporaryChatRef.current && latestUserMessage);
+
+            return {
+              body: {
+                id: chatId,
+                messages: shouldTrimRequestHistory && latestUserMessage ? [latestUserMessage] : messages,
+                model: selectedModelRef.current,
+                reasoningEffort: reasoningEffortRef.current,
+                visionEnabled: visionEnabledRef.current,
+                group: selectedGroupRef.current,
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                isCustomInstructionsEnabled: isCustomInstructionsEnabledRef.current,
+                sessionEnabledSources: sessionEnabledSourcesRef.current,
+                isTemporaryChat: isTemporaryChatRef.current,
+                ...(initialChatId ? { chat_id: initialChatId } : {}),
+                ...body,
+              },
+            };
+          },
+        }),
+      [chatId, initialChatId],
+    );
 
     const {
       messages,
@@ -496,40 +540,7 @@ const ChatInterface = memo(
     } = useChat<ChatMessage>({
       id: chatId,
       // resume: true,
-      transport: new DefaultChatTransport({
-        api: '/api/search',
-        fetch: async (url, options) => {
-          if (options?.body && skipCacheRef.current) {
-            const body = JSON.parse(options.body as string);
-            body.skipCache = true;
-            options.body = JSON.stringify(body);
-            skipCacheRef.current = false;
-          }
-          return fetch(url, options);
-        },
-        prepareSendMessagesRequest({ messages, body }) {
-          const latestUserMessage = [...messages].reverse().find((message) => message.role === 'user');
-          const shouldTrimRequestHistory = Boolean(user && !isTemporaryChatRef.current && latestUserMessage);
-
-          return {
-            body: {
-              id: chatId,
-              messages: shouldTrimRequestHistory && latestUserMessage ? [latestUserMessage] : messages,
-              model: selectedModelRef.current,
-              reasoningEffort: reasoningEffortRef.current,
-              visionEnabled: visionEnabledRef.current,
-              group: selectedGroupRef.current,
-              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-              isCustomInstructionsEnabled: isCustomInstructionsEnabledRef.current,
-              extremeSearchProvider: extremeSearchProviderRef.current,
-              sessionEnabledSources: sessionEnabledSourcesRef.current,
-              isTemporaryChat: isTemporaryChatRef.current,
-              ...(initialChatId ? { chat_id: initialChatId } : {}),
-              ...body,
-            },
-          };
-        },
-      }),
+      transport,
       experimental_throttle: 100,
       onData: (dataPart) => {
         console.log('onData<Client>', dataPart);
@@ -633,7 +644,9 @@ const ChatInterface = memo(
             return exists ? current.map((m) => (m.id === message.id ? message : m)) : [...current, message];
           });
         }
-        setDataStream((ds) => (ds ? [...ds, dataPart] : []));
+        if (dataPart.type === 'data-mcp_elicitation' || dataPart.type === 'data-mcp_elicitation_done') {
+          setDataStream((current) => [...current, dataPart]);
+        }
       },
       onFinish: async ({ message }) => {
         console.log('onFinish<Client>', message.parts);
@@ -866,12 +879,16 @@ const ChatInterface = memo(
       if (activeElicitation) return;
       if (!dataStream?.length) return;
 
+      const doneIds = new Set(
+        dataStream.flatMap((part) => (part.type === 'data-mcp_elicitation_done' ? [part.data.elicitationId] : [])),
+      );
       for (let i = dataStream.length - 1; i >= 0; i -= 1) {
         const part = dataStream[i];
         if (!part) continue;
         if (part.type !== 'data-mcp_elicitation') continue;
         const candidate = part.data as ElicitationData;
         if (!candidate?.elicitationId) continue;
+        if (doneIds.has(candidate.elicitationId)) continue;
         if (dismissedElicitationIdsRef.current.has(candidate.elicitationId)) continue;
         if (openedElicitationIdsRef.current.has(candidate.elicitationId)) continue;
         openedElicitationIdsRef.current.add(candidate.elicitationId);
@@ -907,13 +924,15 @@ const ChatInterface = memo(
       refetchOnWindowFocus: false,
     });
 
-    // Keep local title in sync with server via React Query
-    useEffect(() => {
-      if (chatMeta?.title && chatMeta.title !== localChatTitle && !isEditingTitle) {
+    // Same rule for the title the chat-meta query fetches.
+    const [syncedMetaTitle, setSyncedMetaTitle] = useState(chatMeta?.title);
+    if (chatMeta?.title !== syncedMetaTitle) {
+      setSyncedMetaTitle(chatMeta?.title);
+      if (chatMeta?.title) {
         setLocalChatTitle(chatMeta.title);
-        setTitleInput(chatMeta.title);
+        if (!isEditDialogOpen) setTitleInput(chatMeta.title);
       }
-    }, [chatMeta?.title, isEditingTitle, localChatTitle]);
+    }
 
     // Handle text highlighting and quoting
     const handleHighlight = useCallback(
@@ -921,15 +940,14 @@ const ChatInterface = memo(
         const quotedText = `> ${text.replace(/\n/g, '\n> ')}\n\n`;
         setInput((prev: string) => prev + quotedText);
 
-        // Focus the input after adding the quote
-        setTimeout(() => {
-          const inputElement = document.querySelector('textarea[placeholder*="Ask"]') as HTMLTextAreaElement;
-          if (inputElement) {
-            inputElement.focus();
-            // Move cursor to end
-            inputElement.setSelectionRange(inputElement.value.length, inputElement.value.length);
-          }
-        }, 100);
+        // After the quote has rendered into the composer, focus it with the
+        // cursor at the end.
+        requestAnimationFrame(() => {
+          const inputElement = inputRef.current;
+          if (!inputElement) return;
+          inputElement.focus();
+          inputElement.setSelectionRange(inputElement.value.length, inputElement.value.length);
+        });
       },
       [setInput],
     );
@@ -1139,6 +1157,15 @@ const ChatInterface = memo(
       dispatch({ type: 'SET_SUGGESTED_QUESTIONS', payload: questions });
     }, []);
 
+    const setAttachments = useCallback(
+      (attachments: React.SetStateAction<ChatState['attachments']>) =>
+        dispatch({ type: 'SET_ATTACHMENTS', payload: attachments }),
+      [],
+    );
+    const setHasSubmitted = useCallback(
+      (hasSubmitted: React.SetStateAction<boolean>) => dispatch({ type: 'SET_HAS_SUBMITTED', payload: hasSubmitted }),
+      [],
+    );
     const startTransitioning = useCallback(() => setIsTransitioning(true), []);
 
     // Handle example selection from ExampleCategories
@@ -1630,11 +1657,7 @@ const ChatInterface = memo(
                       input={input}
                       setInput={setInput}
                       attachments={chatState.attachments}
-                      setAttachments={(attachments) => {
-                        const newAttachments =
-                          typeof attachments === 'function' ? attachments(chatState.attachments) : attachments;
-                        dispatch({ type: 'SET_ATTACHMENTS', payload: newAttachments });
-                      }}
+                      setAttachments={setAttachments}
                       fileInputRef={fileInputRef}
                       inputRef={inputRef}
                       stop={stop}
@@ -1656,11 +1679,7 @@ const ChatInterface = memo(
                       onHermesMessageSent={handleHermesMessageSent}
                       showExperimentalModels={messages.length === 0}
                       status={uiStatus}
-                      setHasSubmitted={(hasSubmitted) => {
-                        const newValue =
-                          typeof hasSubmitted === 'function' ? hasSubmitted(chatState.hasSubmitted) : hasSubmitted;
-                        dispatch({ type: 'SET_HAS_SUBMITTED', payload: newValue });
-                      }}
+                      setHasSubmitted={setHasSubmitted}
                       isTemporaryChatEnabled={isTemporaryChat}
                       isTemporaryChat={isTemporaryChat}
                       isTemporaryChatLocked={isTemporaryChatLocked}

@@ -22,22 +22,27 @@ interface Attachment {
 }
 
 export type ChatAction =
-  | { type: 'SET_HAS_SUBMITTED'; payload: boolean }
+  | { type: 'SET_HAS_SUBMITTED'; payload: React.SetStateAction<boolean> }
   | { type: 'SET_HAS_MANUALLY_SCROLLED'; payload: boolean }
   | { type: 'SET_SHOW_ANNOUNCEMENT_DIALOG'; payload: boolean }
   | { type: 'SET_HAS_SHOWN_ANNOUNCEMENT_DIALOG'; payload: boolean }
   | { type: 'SET_COMMAND_DIALOG_OPEN'; payload: boolean }
   | { type: 'SET_ANY_DIALOG_OPEN'; payload: boolean }
   | { type: 'SET_SUGGESTED_QUESTIONS'; payload: string[] }
-  | { type: 'SET_ATTACHMENTS'; payload: Attachment[] }
+  | { type: 'SET_ATTACHMENTS'; payload: React.SetStateAction<Attachment[]> }
   | { type: 'SET_VISIBILITY_TYPE'; payload: 'public' | 'private' }
   | { type: 'RESET_SUGGESTED_QUESTIONS' }
   | { type: 'RESET_UI_STATE' };
 
 export const chatReducer = (state: ChatState, action: ChatAction): ChatState => {
   switch (action.type) {
+    // Updaters run here, on the current state: an upload that finishes while
+    // another one is in flight adds to it instead of overwriting it.
     case 'SET_HAS_SUBMITTED':
-      return { ...state, hasSubmitted: action.payload };
+      return {
+        ...state,
+        hasSubmitted: typeof action.payload === 'function' ? action.payload(state.hasSubmitted) : action.payload,
+      };
 
     case 'SET_HAS_MANUALLY_SCROLLED':
       return { ...state, hasManuallyScrolled: action.payload };
@@ -58,7 +63,10 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
       return { ...state, suggestedQuestions: action.payload };
 
     case 'SET_ATTACHMENTS':
-      return { ...state, attachments: action.payload };
+      return {
+        ...state,
+        attachments: typeof action.payload === 'function' ? action.payload(state.attachments) : action.payload,
+      };
 
     case 'SET_VISIBILITY_TYPE':
       return { ...state, selectedVisibilityType: action.payload };

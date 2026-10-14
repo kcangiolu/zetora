@@ -213,6 +213,78 @@ interface MessagePartRendererProps {
   annotations?: DataUIPart<CustomUIDataTypes>[];
 }
 
+// Ticks every second, aligned to the start of each second.
+const LiveClock = memo(function LiveClock({ timezone }: { timezone?: string }) {
+  const [time, setTime] = useState(() => new Date());
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    // Sync with the nearest second
+    const now = new Date();
+    const delay = 1000 - now.getMilliseconds();
+
+    // Initial sync
+    const timeout = setTimeout(() => {
+      setTime(new Date());
+
+      // Then start the interval
+      timerRef.current = setInterval(() => {
+        setTime(new Date());
+      }, 1000);
+    }, delay);
+
+    return () => {
+      clearTimeout(timeout);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, []);
+
+  // Format the time according to the specified timezone
+  const resolvedTimezone = timezone || new Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric',
+    hour12: true,
+    timeZone: resolvedTimezone,
+  });
+
+  const formattedParts = formatter.formatToParts(time);
+  const timeParts = {
+    hour: formattedParts.find((part) => part.type === 'hour')?.value || '12',
+    minute: formattedParts.find((part) => part.type === 'minute')?.value || '00',
+    second: formattedParts.find((part) => part.type === 'second')?.value || '00',
+    dayPeriod: formattedParts.find((part) => part.type === 'dayPeriod')?.value || 'AM',
+  };
+
+  return (
+    <div className="mt-3">
+      <div className="flex items-baseline">
+        <div className="text-4xl sm:text-5xl md:text-6xl font-light tracking-tighter tabular-nums text-neutral-900 dark:text-white">
+          {timeParts.hour.padStart(2, '0')}
+        </div>
+        <div className="mx-1 sm:mx-2 text-4xl sm:text-5xl md:text-6xl font-light text-neutral-400 dark:text-neutral-500">
+          :
+        </div>
+        <div className="text-4xl sm:text-5xl md:text-6xl font-light tracking-tighter tabular-nums text-neutral-900 dark:text-white">
+          {timeParts.minute.padStart(2, '0')}
+        </div>
+        <div className="mx-1 sm:mx-2 text-4xl sm:text-5xl md:text-6xl font-light text-neutral-400 dark:text-neutral-500">
+          :
+        </div>
+        <div className="text-4xl sm:text-5xl md:text-6xl font-light tracking-tighter tabular-nums text-neutral-900 dark:text-white">
+          {timeParts.second.padStart(2, '0')}
+        </div>
+        <div className="ml-2 sm:ml-4 text-xl sm:text-2xl font-light self-center text-neutral-400 dark:text-neutral-500">
+          {timeParts.dayPeriod}
+        </div>
+      </div>
+    </div>
+  );
+});
+
 export const MessagePartRenderer = memo<MessagePartRendererProps>(
   ({
     part,
@@ -272,7 +344,10 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
       },
       [message.id, setMessages, user],
     );
-    const { speak, stop: stopSpeech, isSpeaking, isLoading } = useSpeech();
+    const speech = useSpeech();
+    const isReadingThis = speech.speakingId === message.id;
+    const isSpeaking = isReadingThis && speech.isSpeaking;
+    const isLoading = isReadingThis && speech.isLoading;
     const [inlineElicitationVersion, setInlineElicitationVersion] = useState(0);
     const ignoredInlineElicitationIdsRef = useRef<Set<string>>(new Set());
     const router = useRouter();
@@ -922,10 +997,10 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                           size="icon"
                           onClick={() => {
                             if (isSpeaking || isLoading) {
-                              stopSpeech();
+                              speech.stop();
                             } else {
                               const speakable = extractSpeakableText(cleanText);
-                              if (speakable) speak(speakable);
+                              if (speakable) speech.speak(speakable, message.id);
                             }
                           }}
                           className={cn(
@@ -2178,80 +2253,6 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                   </div>
                 );
               case 'output-available':
-                // Live Clock component that updates every second
-                const LiveClock = memo(() => {
-                  const [time, setTime] = useState(() => new Date());
-                  const timerRef = useRef<NodeJS.Timeout | null>(null);
-
-                  useEffect(() => {
-                    // Sync with the nearest second
-                    const now = new Date();
-                    const delay = 1000 - now.getMilliseconds();
-
-                    // Initial sync
-                    const timeout = setTimeout(() => {
-                      setTime(new Date());
-
-                      // Then start the interval
-                      timerRef.current = setInterval(() => {
-                        setTime(new Date());
-                      }, 1000);
-                    }, delay);
-
-                    return () => {
-                      clearTimeout(timeout);
-                      if (timerRef.current) {
-                        clearInterval(timerRef.current);
-                      }
-                    };
-                  }, []);
-
-                  // Format the time according to the specified timezone
-                  const timezone = part.output.timezone || new Intl.DateTimeFormat().resolvedOptions().timeZone;
-                  const formatter = new Intl.DateTimeFormat('en-US', {
-                    hour: 'numeric',
-                    minute: 'numeric',
-                    second: 'numeric',
-                    hour12: true,
-                    timeZone: timezone,
-                  });
-
-                  const formattedParts = formatter.formatToParts(time);
-                  const timeParts = {
-                    hour: formattedParts.find((part) => part.type === 'hour')?.value || '12',
-                    minute: formattedParts.find((part) => part.type === 'minute')?.value || '00',
-                    second: formattedParts.find((part) => part.type === 'second')?.value || '00',
-                    dayPeriod: formattedParts.find((part) => part.type === 'dayPeriod')?.value || 'AM',
-                  };
-
-                  return (
-                    <div className="mt-3">
-                      <div className="flex items-baseline">
-                        <div className="text-4xl sm:text-5xl md:text-6xl font-light tracking-tighter tabular-nums text-neutral-900 dark:text-white">
-                          {timeParts.hour.padStart(2, '0')}
-                        </div>
-                        <div className="mx-1 sm:mx-2 text-4xl sm:text-5xl md:text-6xl font-light text-neutral-400 dark:text-neutral-500">
-                          :
-                        </div>
-                        <div className="text-4xl sm:text-5xl md:text-6xl font-light tracking-tighter tabular-nums text-neutral-900 dark:text-white">
-                          {timeParts.minute.padStart(2, '0')}
-                        </div>
-                        <div className="mx-1 sm:mx-2 text-4xl sm:text-5xl md:text-6xl font-light text-neutral-400 dark:text-neutral-500">
-                          :
-                        </div>
-                        <div className="text-4xl sm:text-5xl md:text-6xl font-light tracking-tighter tabular-nums text-neutral-900 dark:text-white">
-                          {timeParts.second.padStart(2, '0')}
-                        </div>
-                        <div className="ml-2 sm:ml-4 text-xl sm:text-2xl font-light self-center text-neutral-400 dark:text-neutral-500">
-                          {timeParts.dayPeriod}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                });
-
-                LiveClock.displayName = 'LiveClock';
-
                 return (
                   <div key={`${messageIndex}-${partIndex}-tool`} className="w-full my-6">
                     <div className="bg-white dark:bg-neutral-950 rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-800">
@@ -2267,7 +2268,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                                 {part.output.timezone || new Intl.DateTimeFormat().resolvedOptions().timeZone}
                               </div>
                             </div>
-                            <LiveClock />
+                            <LiveClock timezone={part.output.timezone} />
                             <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-2">
                               {part.output.formatted?.date}
                             </p>

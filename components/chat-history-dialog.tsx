@@ -2,7 +2,6 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { redirect } from 'next/navigation';
 import { usePathname, useRouter } from 'next/navigation';
 import { CommandDialog, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
 import { HermesModeDot } from '@/components/ui/hermes-mode-dot';
@@ -747,7 +746,7 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
 
         // Smart redirect logic: only redirect to home if deleting current chat
         if (currentChatId === id) {
-          redirect('/');
+          router.push('/');
         }
         // If not current chat, stay in the dialog
       } catch (error) {
@@ -756,7 +755,7 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
         sileo.error({ title: 'Failed to delete chat. Please try again.' });
       }
     },
-    [deleteMutation, currentChatId],
+    [deleteMutation, currentChatId, router],
   );
 
   // Cancel deletion
@@ -910,9 +909,9 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
 
     // If current chat is in the deleted list, redirect to home
     if (currentChatId && selectedChatIds.has(currentChatId)) {
-      redirect('/');
+      router.push('/');
     }
-  }, [selectedChatIds, bulkDeleteMutation, currentChatId]);
+  }, [selectedChatIds, bulkDeleteMutation, currentChatId, router]);
 
   const cancelBulkDelete = useCallback(() => {
     setDeletingBulk(false);
@@ -1224,7 +1223,7 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
   // Redirect to sign in page
   const handleSignIn = () => {
     onOpenChange(false);
-    redirect('/sign-in');
+    router.push('/sign-in');
   };
 
   // Show sign in prompt if user is not logged in

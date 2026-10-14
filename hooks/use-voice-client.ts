@@ -528,7 +528,14 @@ export function useVoiceClient(options: VoiceClientOptions = {}): UseVoiceClient
       audioContextRef.current = null;
     }
     if (wsRef.current) {
-      wsRef.current.close();
+      // Detached first: the close event of a socket being torn down must not
+      // run cleanup again against the session that replaces it.
+      const ws = wsRef.current;
+      ws.onopen = null;
+      ws.onmessage = null;
+      ws.onerror = null;
+      ws.onclose = null;
+      ws.close();
       wsRef.current = null;
     }
 
@@ -999,6 +1006,7 @@ export function useVoiceClient(options: VoiceClientOptions = {}): UseVoiceClient
       };
 
       ws.onerror = (err) => {
+        if (wsRef.current !== ws) return;
         console.error('WebSocket error:', err);
         if (!intentionalDisconnectRef.current) {
           setError('Connection error');
@@ -1007,6 +1015,7 @@ export function useVoiceClient(options: VoiceClientOptions = {}): UseVoiceClient
       };
 
       ws.onclose = () => {
+        if (wsRef.current !== ws) return;
         cleanup();
       };
     } catch (err) {

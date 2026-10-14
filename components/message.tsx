@@ -1,5 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
-import React, { memo, useState, useCallback, useRef, useEffect } from 'react';
+import React, { memo, useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -414,8 +414,13 @@ interface MessageProps {
 // survives Virtuoso unmounting and remounting the edited item.
 export interface MessageEditDraft {
   content: string;
-  hasAttachmentEdits: boolean;
+  // The attachments as edited, or null while they are unchanged. Applied to
+  // the message only on submit, so Cancel leaves it as it was.
+  fileParts: EditorFilePart[] | null;
 }
+
+// File parts carry the original file name next to the AI SDK fields.
+type EditorFilePart = Extract<ChatMessage['parts'][number], { type: 'file' }> & { name?: string };
 
 // Message Editor Component
 interface MessageEditorProps {
@@ -505,16 +510,24 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
       ?.map((part) => (part.type === 'text' ? part.text : ''))
       .join('')
       .trim() || '';
+  const originalFileParts = useMemo(
+    () => (message.parts ?? []).filter((part): part is EditorFilePart => part.type === 'file'),
+    [message.parts],
+  );
   const draftContent = draft?.content ?? originalContent;
-  const hasAttachmentEdits = draft?.hasAttachmentEdits ?? false;
-  const updateDraft = useCallback(
-    (changes: Partial<MessageEditDraft>) =>
+  const fileParts = draft?.fileParts ?? originalFileParts;
+  const hasAttachmentEdits = draft?.fileParts != null;
+  const updateDraftContent = useCallback(
+    (content: string) => setDraft((current) => ({ content, fileParts: current?.fileParts ?? null })),
+    [setDraft],
+  );
+  const updateFileParts = useCallback(
+    (update: (parts: EditorFilePart[]) => EditorFilePart[]) =>
       setDraft((current) => ({
         content: current?.content ?? originalContent,
-        hasAttachmentEdits: current?.hasAttachmentEdits ?? false,
-        ...changes,
+        fileParts: update(current?.fileParts ?? originalFileParts),
       })),
-    [setDraft, originalContent],
+    [setDraft, originalContent, originalFileParts],
   );
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -533,7 +546,7 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
   };
 
   const handleInput = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-    updateDraft({ content: event.target.value });
+    updateDraftContent(event.target.value);
     adjustHeight();
   };
 
@@ -565,7 +578,7 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
         return;
       }
 
-      const currentFileCount = message.parts?.filter((part) => part.type === 'file').length ?? 0;
+      const currentFileCount = fileParts.length;
       const imageFiles: File[] = [];
       const pdfFiles: File[] = [];
       const documentFiles: File[] = [];
@@ -648,28 +661,15 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
         }
 
         if (uploadedAttachments.length > 0) {
-          const newFileParts = uploadedAttachments.map((attachment) => ({
-            type: 'file' as const,
-            url: attachment.url,
-            name: attachment.name,
-            mediaType: attachment.contentType || attachment.mediaType || '',
-          }));
-
-          setMessages((currentMessages) => {
-            const messageIndex = currentMessages.findIndex((m) => m.id === message.id);
-            if (messageIndex === -1) return currentMessages;
-            const currentMessage = currentMessages[messageIndex];
-            const currentParts = Array.isArray(currentMessage.parts) ? currentMessage.parts : [];
-            const updatedMessage = {
-              ...currentMessage,
-              parts: insertFileParts(currentParts, newFileParts),
-            };
-            const updatedMessages = [...currentMessages];
-            updatedMessages[messageIndex] = updatedMessage;
-            return updatedMessages;
-          });
-
-          updateDraft({ hasAttachmentEdits: true });
+          const newFileParts = uploadedAttachments.map(
+            (attachment): EditorFilePart => ({
+              type: 'file',
+              url: attachment.url,
+              name: attachment.name,
+              mediaType: attachment.contentType || attachment.mediaType || '',
+            }),
+          );
+          updateFileParts((current) => [...current, ...newFileParts]);
           sileo.success({
             title: `${uploadedAttachments.length} file${uploadedAttachments.length > 1 ? 's' : ''} uploaded successfully`,
           });
@@ -683,7 +683,7 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
         onFinish();
       }
     },
-    [message.id, message.parts, setMessages, uploadFile, updateDraft],
+    [fileParts.length, uploadFile, updateFileParts],
   );
 
   const handleFileChange = useCallback(
@@ -759,7 +759,9 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
         const index = messages.findIndex((m) => m.id === message.id);
 
         if (index !== -1) {
-          const originalParts = Array.isArray(message.parts) ? message.parts : [];
+          const originalParts = (Array.isArray(message.parts) ? message.parts : []).filter(
+            (part) => part.type !== 'file',
+          );
 
           // Replace existing text part(s) with a single updated text part, preserving non-text parts and order
           const updatedTextPart = { type: 'text', text: draftContent } as ChatMessage['parts'][number];
@@ -783,7 +785,7 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
 
           const updatedMessage: ChatMessage = {
             ...message,
-            parts: mergedParts,
+            parts: insertFileParts(mergedParts, fileParts),
           };
 
           const before = messages.slice(0, index);
@@ -836,29 +838,11 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
         />
 
         {/* Show editable attachments inside editor */}
-        {message.parts && message.parts.filter((part) => part.type === 'file').length > 0 && (
+        {fileParts.length > 0 && (
           <div className="mt-3">
             <EditableAttachmentsBadge
-              attachments={message.parts.filter((part) => part.type === 'file') as unknown as Attachment[]}
-              onRemoveAttachment={(index) => {
-                const updatedAttachments = message.parts.filter(
-                  (_: ChatMessage['parts'][number], i: number) => i !== index,
-                );
-                setMessages((messages) => {
-                  const messageIndex = messages.findIndex((m) => m.id === message.id);
-                  if (messageIndex !== -1) {
-                    const updatedMessage = {
-                      ...message,
-                      parts: updatedAttachments,
-                    };
-                    const updatedMessages = [...messages];
-                    updatedMessages[messageIndex] = updatedMessage;
-                    return updatedMessages;
-                  }
-                  return messages;
-                });
-                updateDraft({ hasAttachmentEdits: true });
-              }}
+              attachments={fileParts as unknown as Attachment[]}
+              onRemoveAttachment={(index) => updateFileParts((current) => current.filter((_, i) => i !== index))}
             />
           </div>
         )}
@@ -1474,6 +1458,7 @@ const EditableAttachmentsBadge = ({
               className="group flex items-center gap-1.5 max-w-xs rounded-full pl-1 pr-2 py-1 bg-muted dark:bg-muted border border-border dark:border-border"
             >
               <button
+                type="button"
                 onClick={() => {
                   setSelectedIndex(i);
                   setIsOpen(true);
@@ -1511,6 +1496,7 @@ const EditableAttachmentsBadge = ({
               </button>
 
               <Button
+                type="button"
                 variant="ghost"
                 size="icon"
                 onClick={() => onRemoveAttachment(i)}

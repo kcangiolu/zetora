@@ -1,12 +1,15 @@
 'use client';
 
-import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
 
 const PCM_SAMPLE_RATE = 24000;
 
 interface SpeechState {
-  speak: (text: string) => Promise<void>;
+  // `id` names what is being read (a message id), so each Read Aloud button
+  // can tell whether the playback is its own.
+  speak: (text: string, id: string) => Promise<void>;
   stop: () => void;
+  speakingId: string | null;
   isSpeaking: boolean;
   isLoading: boolean;
   error: string | null;
@@ -15,6 +18,7 @@ interface SpeechState {
 const SpeechContext = createContext<SpeechState | null>(null);
 
 export function SpeechProvider({ children }: { children: ReactNode }) {
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,16 +36,18 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
       audioContextRef.current.close();
       audioContextRef.current = null;
     }
+    setSpeakingId(null);
     setIsSpeaking(false);
     setIsLoading(false);
   }, []);
 
   const speak = useCallback(
-    async (text: string) => {
+    async (text: string, id: string) => {
       stop();
       abortRef.current = false;
 
       try {
+        setSpeakingId(id);
         setIsLoading(true);
         setIsSpeaking(true);
         setError(null);
@@ -98,11 +104,13 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
 
         await audioContext.close();
         audioContextRef.current = null;
+        setSpeakingId(null);
         setIsSpeaking(false);
       } catch (err) {
         if (abortRef.current) return;
         const e = err instanceof Error ? err : new Error('Speech synthesis failed');
         setError(e.message);
+        setSpeakingId(null);
         setIsSpeaking(false);
         setIsLoading(false);
       }
@@ -110,9 +118,12 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
     [stop],
   );
 
-  return (
-    <SpeechContext.Provider value={{ speak, stop, isSpeaking, isLoading, error }}>{children}</SpeechContext.Provider>
+  const value = useMemo(
+    () => ({ speak, stop, speakingId, isSpeaking, isLoading, error }),
+    [speak, stop, speakingId, isSpeaking, isLoading, error],
   );
+
+  return <SpeechContext.Provider value={value}>{children}</SpeechContext.Provider>;
 }
 
 export function useSpeechContext(): SpeechState {

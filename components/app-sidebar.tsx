@@ -3,6 +3,7 @@
 import React, { memo, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 import {
   PlusIcon,
   GearIcon,
@@ -421,22 +422,7 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
   const [lookoutEnabled] = useSyncedPreferences<boolean>('zetora-lookout-enabled', true);
   const [voiceEnabled] = useSyncedPreferences<boolean>('zetora-voice-enabled', true);
   const [appsEnabled] = useSyncedPreferences<boolean>('zetora-apps-enabled', true);
-  const [isRecentCollapsed, setIsRecentCollapsed] = React.useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    try {
-      const stored = window.localStorage.getItem('zetora-recent-collapsed');
-      return stored ? JSON.parse(stored) : false;
-    } catch {
-      return false;
-    }
-  });
-  React.useEffect(() => {
-    try {
-      window.localStorage.setItem('zetora-recent-collapsed', JSON.stringify(isRecentCollapsed));
-    } catch {
-      // ignore
-    }
-  }, [isRecentCollapsed]);
+  const [isRecentCollapsed, setIsRecentCollapsed] = useLocalStorage<boolean>('zetora-recent-collapsed', false);
 
   const { state, isMobile, setOpenMobile } = useSidebar();
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = React.useState(false);
@@ -470,6 +456,7 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
   }, [isMobile, setOpenMobile]);
 
   const pathname = usePathname();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [renameTarget, setRenameTarget] = React.useState<{ id: string; title?: string | null } | null>(null);
   const [renameValue, setRenameValue] = React.useState('');
@@ -637,6 +624,9 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
         });
         closeRenameDialog();
         invalidateRecentChats();
+        queryClient.setQueriesData<{ title: string } | null>({ queryKey: ['chat-meta', renameTarget.id] }, (meta) =>
+          meta ? { ...meta, title: next } : meta,
+        );
       } else {
         sileo.error({
           title: 'Failed to rename chat',
@@ -704,6 +694,9 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
       });
       closeDeleteDialog();
       invalidateRecentChats();
+      if (pathname === `/search/${deleteTarget.id}`) {
+        router.push('/');
+      }
     } catch (error) {
       console.error('Delete chat error:', error);
       sileo.error({ title: 'Failed to delete chat' });
