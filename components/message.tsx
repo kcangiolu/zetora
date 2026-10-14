@@ -7,6 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { MarkdownRenderer } from '@/components/markdown';
 import { sileo } from 'sileo';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
@@ -1229,9 +1230,9 @@ export const Message: React.FC<MessageProps> = ({
                   >
                     <div className="bg-accent/80 rounded-md px-4 py-2.5">
                       <div
-                        className={`font-sans font-normal max-w-none ${getDynamicFontSize(combinedUserText)} text-foreground dark:text-foreground whitespace-pre-wrap wrap-break-word`}
+                        className={`font-sans font-normal max-w-none ${getDynamicFontSize(combinedUserText)} text-foreground dark:text-foreground wrap-break-word`}
                       >
-                        {combinedUserText}
+                        <MarkdownRenderer content={combinedUserText} isUserMessage />
                       </div>
                       {fileAttachments.length > 0 && (
                         <div className="mt-2">
