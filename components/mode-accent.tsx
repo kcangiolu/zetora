@@ -4,10 +4,8 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 
 // Colored border + one-shot activation pulse for the Agent mode (backed by
-// Hermes — see lib/hermes/) — the one mode/button Kenny kept from the old
-// Zetora Agent project. First-party and single-purpose on purpose: there is
-// exactly one mode that gets an accent, so no registry/extension mechanism
-// is needed here. CSS lives in app/globals.css (.mode-accent-border /
+// Hermes, see lib/hermes/). Only this mode gets an accent, so there is no
+// registry. CSS lives in app/globals.css (.mode-accent-border /
 // .mode-accent-spread), driven by the --accent-c1..c5 vars below.
 const AGENT_MODE_ID = 'hermes';
 

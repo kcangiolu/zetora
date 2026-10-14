@@ -261,13 +261,10 @@ export function getSearchGroups(searchProvider: SearchProvider = 'exa') {
       // A generic agent mark: the Hermes Agent project has no icon-scale logo (its favicon
       // is the ⚕ glyph, its brand mark a detailed illustration unreadable at 16px).
       icon: Robot01Icon,
-      // Always present in the build; only actually selectable once the user has an
-      // enrolled connector — that per-user check happens where this list is rendered
-      // (components/ui/form-component/index.tsx), not here. Labeled "Agent" (not
-      // "Hermes") in the plus menu — this is the one mode/button Kenny kept from the
-      // old Zetora Agent project, now backed by the Hermes relay instead of an
-      // in-house execution backend; the colored accent animation lives in
-      // components/mode-accent.tsx, scoped to this id only.
+      // Always present in the build; only selectable once the user has an enrolled
+      // connector, checked where this list is rendered
+      // (components/ui/form-component/index.tsx). Labeled "Agent" rather than
+      // "Hermes"; its accent animation lives in components/mode-accent.tsx.
       show: true,
       requireAuth: true,
     },
