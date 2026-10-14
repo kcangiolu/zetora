@@ -34,7 +34,7 @@ export async function routeWithAutoRouter({
       return { success: false, error: 'User not found' };
     }
 
-    const routerPrefs = await getCachedUserPreferencesByUserId(user.id).catch(() => null);
+    const routerPrefs = await getCachedUserPreferencesByUserId(user.id);
     const routerPrefsMap = (routerPrefs?.preferences ?? {}) as Record<string, string>;
 
     const trimmedQuery = query.trim();

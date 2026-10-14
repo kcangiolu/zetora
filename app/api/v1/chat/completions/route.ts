@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
   const messages = personaSystem ? rawMessages.slice(1) : rawMessages;
   const baseSystem = personaSystem + VOICE_TOOL_INSTRUCTIONS;
 
-  const record = await getCachedUserPreferencesByUserId(userId).catch(() => null);
+  const record = await getCachedUserPreferencesByUserId(userId);
   const prefs = (record?.preferences ?? null) as Record<string, string> | null;
   const model = await resolveTertiaryModel('voice', prefs, userId);
   const modelId = getTaskModel('voice', prefs);

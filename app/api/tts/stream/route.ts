@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     return new Response(null, { status: 204 });
   }
 
-  const prefs = await getCachedUserPreferencesByUserId(userId).catch(() => null);
+  const prefs = await getCachedUserPreferencesByUserId(userId);
   const p = prefs?.preferences ?? {};
   const ttsProvider = p['zetora-tts-provider'] || 'elevenlabs';
 

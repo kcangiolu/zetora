@@ -7,9 +7,7 @@ import {
   PROVIDER_ORDER,
   canonicalModelId,
   findModel,
-  getFilteredModels,
   getProviderName,
-  isModelRestrictedInRegion,
   supportsCanvasMode,
   type Model,
   type ModelProvider,
@@ -22,7 +20,6 @@ import { ProcessorIcon } from '@/components/ui/processor-icon';
 import { cn, SearchGroupId } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ComprehensiveUserData } from '@/hooks/use-user-data';
-import { getUserCountryCode } from '@/app/actions';
 import { Eye, Brain, FilePdf } from '@phosphor-icons/react';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { StarIcon } from '@hugeicons/core-free-icons';
@@ -299,26 +296,6 @@ const ProviderIcon = ({
 };
 
 let modelSwitcherOpenCache = false;
-let cachedCountryCode: string | null = null;
-let countryCodeRequest: Promise<string | null> | null = null;
-
-async function getCountryCodeOnce(): Promise<string | null> {
-  if (cachedCountryCode !== null) return cachedCountryCode;
-  if (countryCodeRequest) return countryCodeRequest;
-
-  countryCodeRequest = getUserCountryCode()
-    .then((code) => {
-      cachedCountryCode = code;
-      return code;
-    })
-    .catch(() => null)
-    .finally(() => {
-      countryCodeRequest = null;
-    });
-
-  return countryCodeRequest;
-}
-
 interface ModelSwitcherProps {
   selectedModel: string;
   setSelectedModel: (value: string) => void;
@@ -342,21 +319,7 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
     autoRoutedModel,
     inputRef: externalInputRef,
   }) => {
-    const [countryCode, setCountryCode] = useState<string | null>(null);
-
-    // Fetch country code on mount
-    useEffect(() => {
-      let mounted = true;
-      getCountryCodeOnce().then((code) => {
-        if (mounted) setCountryCode(code);
-      });
-      return () => {
-        mounted = false;
-      };
-    }, []);
-
-    const { models, getModel } = useModels();
-    const availableModels = useMemo(() => getFilteredModels(models, countryCode || undefined), [models, countryCode]);
+    const { models: availableModels, getModel } = useModels();
 
     // Group key for sidebar tabs - each custom provider gets its own virtual key
     // (e.g. 'custom:abc123') instead of being collapsed into a single 'custom' tab
@@ -657,33 +620,6 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
     // on the user's "Default Model" preference when they've set one instead
     // of the instance's default (mirrors resolveModel's server-side
     // fallback in ai/providers.ts).
-    const [preferredDefaultModel, , preferredDefaultModelResolved] = useSyncedPreferences<string>(
-      'zetora-default-model',
-      '',
-    );
-    useEffect(() => {
-      if (user === undefined) return;
-      if (!preferredDefaultModelResolved) return;
-
-      const effectiveDefaultModel = preferredDefaultModel || DEFAULT_MODEL_ALIAS;
-      const isCurrentModelRestricted = isModelRestrictedInRegion(getModel(selectedModel), countryCode || undefined);
-
-      if (isCurrentModelRestricted && selectedModel !== effectiveDefaultModel) {
-        console.log(
-          `Auto-switching from restricted model '${selectedModel}' to '${effectiveDefaultModel}' - model not available in region ${countryCode}`,
-        );
-        setSelectedModel(effectiveDefaultModel);
-      }
-    }, [
-      selectedModel,
-      setSelectedModel,
-      countryCode,
-      user,
-      preferredDefaultModel,
-      preferredDefaultModelResolved,
-      getModel,
-    ]);
-
     const handleModelChange = useCallback(
       (value: string) => {
         const model = availableModels.find((m) => m.value === value);

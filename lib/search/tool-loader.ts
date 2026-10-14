@@ -3,7 +3,7 @@ import 'server-only';
 import type { SkillId } from '@/lib/utils';
 import { anonymizeToolInput, type AnonymizeContext } from '@/lib/anonymizer/pseudonymize';
 import { isMemoryEnabled } from '@/lib/memory/settings';
-import { isSearchToolAvailable } from '@/lib/instance/capabilities';
+import { isToolAvailable } from '@/lib/instance/capabilities';
 
 // Defense in depth for the anonymization layer: when it's active the model
 // only ever sees pseudonyms, so its tool-call args are already tokenized —
@@ -50,7 +50,7 @@ export async function loadConfiguredTools({
   enabledSkillIds,
 }: LoadConfiguredToolsParams): Promise<Record<string, any>> {
   const tools: Record<string, any> = {};
-  const uniqueToolNames = [...new Set(activeToolNames)].filter(isSearchToolAvailable);
+  const uniqueToolNames = [...new Set(activeToolNames)].filter(isToolAvailable);
 
   await Promise.all(
     uniqueToolNames.map(async (toolName) => {

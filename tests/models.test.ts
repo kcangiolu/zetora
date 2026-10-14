@@ -4,10 +4,8 @@ import {
   canonicalModelId,
   findModel,
   getAcceptedFileTypes,
-  getFilteredModels,
   getProviderName,
   getReasoningControl,
-  isModelRestrictedInRegion,
   supportsCanvasMode,
   type Model,
 } from '@/ai/models';
@@ -51,16 +49,6 @@ describe('findModel', () => {
   it('finds nothing for an unknown or missing id', () => {
     expect(findModel(models, 'openai:gpt-1')).toBeUndefined();
     expect(findModel(models, undefined)).toBeUndefined();
-  });
-});
-
-describe('region restrictions', () => {
-  it('hides OpenAI and Anthropic models in restricted regions only', () => {
-    expect(isModelRestrictedInRegion(gpt, 'cn')).toBe(true);
-    expect(isModelRestrictedInRegion(kimi, 'CN')).toBe(false);
-    expect(isModelRestrictedInRegion(gpt, 'FR')).toBe(false);
-    expect(getFilteredModels([sonnet, gpt, kimi], 'RU')).toEqual([kimi]);
-    expect(getFilteredModels([sonnet, gpt, kimi])).toHaveLength(3);
   });
 });
 

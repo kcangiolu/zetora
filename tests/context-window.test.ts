@@ -58,7 +58,7 @@ describe('resolveContextWindow (custom providers)', () => {
     mockGetCustomProviders.mockResolvedValue([llamaProvider]);
     stubFetchOnce({ ok: true, json: async () => ({ default_generation_settings: { n_ctx: 65536 } }) });
 
-    const window = await resolveContextWindow('custom-local-llama-model-a', 'user-1');
+    const { tokens: window } = await resolveContextWindow('custom-local-llama-model-a', 'user-1');
     expect(window).toBe(65536);
   });
 
@@ -66,7 +66,7 @@ describe('resolveContextWindow (custom providers)', () => {
     mockGetCustomProviders.mockResolvedValue([llamaProvider]);
     stubFetchOnce({ ok: true, json: async () => ({ n_ctx: 4096 }) });
 
-    const window = await resolveContextWindow('custom-local-llama-model-b', 'user-1');
+    const { tokens: window } = await resolveContextWindow('custom-local-llama-model-b', 'user-1');
     expect(window).toBe(4096);
   });
 
@@ -77,7 +77,7 @@ describe('resolveContextWindow (custom providers)', () => {
       json: async () => ({ model_info: { 'qwen2.context_length': 32768, 'qwen2.other_field': 1 } }),
     });
 
-    const window = await resolveContextWindow('custom-local-ollama-model-c', 'user-1');
+    const { tokens: window } = await resolveContextWindow('custom-local-ollama-model-c', 'user-1');
     expect(window).toBe(32768);
   });
 
@@ -95,7 +95,7 @@ describe('resolveContextWindow (custom providers)', () => {
       }),
     });
 
-    const window = await resolveContextWindow('custom-openrouter-anthropic/claude-sonnet', 'user-1');
+    const { tokens: window } = await resolveContextWindow('custom-openrouter-anthropic/claude-sonnet', 'user-1');
     expect(window).toBe(200_000);
   });
 
@@ -105,7 +105,7 @@ describe('resolveContextWindow (custom providers)', () => {
     ]);
     stubFetchOnce({ ok: true, json: async () => ({ data: [{ id: 'mixtral-a', max_model_len: 32_768 }] }) });
 
-    const window = await resolveContextWindow('custom-vllm-box-mixtral-a', 'user-1');
+    const { tokens: window } = await resolveContextWindow('custom-vllm-box-mixtral-a', 'user-1');
     expect(window).toBe(32_768);
   });
 
@@ -115,7 +115,7 @@ describe('resolveContextWindow (custom providers)', () => {
     ]);
     const fetchMock = stubFetchOnce({ ok: true, json: async () => ({ data: [{ id: 'mixtral-b' }] }) });
 
-    const window = await resolveContextWindow('custom-vllm-box-mixtral-b', 'user-1');
+    const { tokens: window } = await resolveContextWindow('custom-vllm-box-mixtral-b', 'user-1');
     expect(window).toBe(DEFAULT_CUSTOM_CONTEXT_WINDOW);
     expect(fetchMock).toHaveBeenCalled();
   });
@@ -126,7 +126,7 @@ describe('resolveContextWindow (custom providers)', () => {
     ]);
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNREFUSED')));
 
-    const window = await resolveContextWindow('custom-vllm-box-mixtral-c', 'user-1');
+    const { tokens: window } = await resolveContextWindow('custom-vllm-box-mixtral-c', 'user-1');
     expect(window).toBe(DEFAULT_CUSTOM_CONTEXT_WINDOW);
   });
 
@@ -134,13 +134,28 @@ describe('resolveContextWindow (custom providers)', () => {
     mockGetCustomProviders.mockResolvedValue([llamaProvider]);
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNREFUSED')));
 
-    const window = await resolveContextWindow('custom-local-llama-model-d', 'user-1');
+    const { tokens: window } = await resolveContextWindow('custom-local-llama-model-d', 'user-1');
     expect(window).toBe(DEFAULT_CUSTOM_CONTEXT_WINDOW);
+  });
+
+  it('marks the default as not known and probes again on the next request', async () => {
+    mockGetCustomProviders.mockResolvedValue([llamaProvider]);
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('timeout')));
+    await expect(resolveContextWindow('custom-local-llama-model-f', 'user-1')).resolves.toEqual({
+      tokens: DEFAULT_CUSTOM_CONTEXT_WINDOW,
+      known: false,
+    });
+
+    stubFetchOnce({ ok: true, json: async () => ({ default_generation_settings: { n_ctx: 32768 } }) });
+    await expect(resolveContextWindow('custom-local-llama-model-f', 'user-1')).resolves.toEqual({
+      tokens: 32768,
+      known: true,
+    });
   });
 
   it('falls back to the default when the model id does not match any known provider', async () => {
     mockGetCustomProviders.mockResolvedValue([llamaProvider]);
-    const window = await resolveContextWindow('custom-unknown-provider-model', 'user-1');
+    const { tokens: window } = await resolveContextWindow('custom-unknown-provider-model', 'user-1');
     expect(window).toBe(DEFAULT_CUSTOM_CONTEXT_WINDOW);
   });
 

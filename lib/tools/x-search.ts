@@ -9,6 +9,10 @@ import { getBetterAllOptions } from '@/lib/better-all';
 
 import { createLogger } from '@/lib/logger';
 
+// xAI's X search tool only runs on xAI's own models; the model here only
+// drives the tool, so a fast non-reasoning one is enough.
+export const X_SEARCH_MODEL_ID = 'grok-4-1-fast-non-reasoning';
+
 const log = createLogger('x-search');
 
 interface CitationSource {
@@ -114,7 +118,7 @@ export function xSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>) {
             // are not directly supported in the new xai.tools.xSearch API.
 
             const { text, sources } = await generateText({
-              model: xai.responses('grok-4-1-fast-non-reasoning'),
+              model: xai.responses(X_SEARCH_MODEL_ID),
               system: `You are a helpful assistant that searches for X content with all the tools available to you. Do not use user search tool. Max limit of results is 30. You can search for the thread or the content of the post. You can also search for the content of the post using thread fetch tool. Go deep to find the latest information on the topic. NO NEED TO WRITE A SINGLE WORD AFTER RUNNING THE TOOLs AT ALL COSTS!!`,
               messages: [
                 {

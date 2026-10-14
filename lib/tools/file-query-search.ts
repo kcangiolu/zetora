@@ -14,6 +14,7 @@ import { getBetterAllOptions } from '@/lib/better-all';
 import { getFileEmbeddingModel } from '@/ai/embeddings';
 
 import { createLogger } from '@/lib/logger';
+import { isRerankAvailable } from '@/lib/search/rerank';
 import { fetchAttachment } from '@/lib/net/attachment-fetch';
 
 const log = createLogger('file-query-search');
@@ -165,7 +166,7 @@ async function searchFiles(
   });
 
   // Rerank if enabled and we have results
-  if (shouldRerank && allResults.length > 0) {
+  if (shouldRerank && isRerankAvailable() && allResults.length > 0) {
     const { ranking } = await rerank({
       model: cohere.reranking('rerank-v4.0-pro'),
       query,

@@ -1,6 +1,5 @@
 'use server';
 
-import { geolocation } from '@vercel/functions';
 import { UIMessage, generateText, Output } from 'ai';
 import type { ModelMessage } from 'ai';
 import { getChatWithUserById } from '@/lib/db/queries';
@@ -56,57 +55,5 @@ export async function getChatMeta(chatId: string) {
   } catch (error) {
     log.error('Error in getChatMeta:', error);
     return null;
-  }
-}
-
-// Get user's country code from geolocation
-export async function getUserCountryCode() {
-  'use server';
-
-  try {
-    const headersList = await headers();
-
-    const request = {
-      headers: headersList,
-    };
-
-    const locationData = geolocation(request);
-
-    return locationData.country || null;
-  } catch (error) {
-    log.error('Error getting geolocation:', error);
-    return null;
-  }
-}
-
-// Server action to get user's geolocation using Vercel
-export async function getUserLocation() {
-  try {
-    const headersList = await headers();
-
-    const request = {
-      headers: headersList,
-    };
-
-    const locationData = geolocation(request);
-
-    return {
-      country: locationData.country || '',
-      countryCode: locationData.country || '',
-      city: locationData.city || '',
-      region: locationData.region || '',
-      isIndia: locationData.country === 'IN',
-      loading: false,
-    };
-  } catch (error) {
-    log.error('Failed to get location from Vercel:', error);
-    return {
-      country: 'Unknown',
-      countryCode: '',
-      city: '',
-      region: '',
-      isIndia: false,
-      loading: false,
-    };
   }
 }

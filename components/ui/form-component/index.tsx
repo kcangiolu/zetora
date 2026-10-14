@@ -42,7 +42,6 @@ import TextRotate from '@/components/ui/text-rotate';
 import { AppsIcon } from '@/components/icons/apps-icon';
 import { UseChatHelpers } from '@ai-sdk/react';
 import { ChatMessage } from '@/lib/types';
-import { useLocation } from '@/hooks/use-location';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 import { useInstanceCapabilities } from '@/hooks/use-instance-capabilities';
 import { isSearchGroupAvailable, pickSearchProvider } from '@/lib/search/providers';
@@ -268,7 +267,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [plusMenuCanScroll, setPlusMenuCanScroll] = useState(true);
   const plusMenuScrollRef = useRef<HTMLDivElement>(null);
-  const location = useLocation();
   const isMobile = useIsMobile();
   const haptics = useWebHaptics();
 

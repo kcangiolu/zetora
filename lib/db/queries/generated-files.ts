@@ -74,10 +74,24 @@ export async function getGeneratedFilesByUserId({
   };
 }
 
-export async function deleteGeneratedFileById({ id, userId }: { id: string; userId: string }) {
-  const [row] = await maindb
-    .delete(generatedFile)
-    .where(and(eq(generatedFile.id, id), eq(generatedFile.userId, userId)))
-    .returning();
-  return row ?? null;
+// The storage object is removed inside the transaction: if storage fails the
+// row stays, the request errors and the user can retry, instead of a file
+// that looks deleted but is still served. S3 treats a missing key as deleted.
+export async function deleteGeneratedFileById({
+  id,
+  userId,
+  removeObject,
+}: {
+  id: string;
+  userId: string;
+  removeObject: (key: string) => Promise<unknown>;
+}) {
+  return maindb.transaction(async (tx) => {
+    const [row] = await tx
+      .delete(generatedFile)
+      .where(and(eq(generatedFile.id, id), eq(generatedFile.userId, userId)))
+      .returning();
+    if (row) await removeObject(row.key);
+    return row ?? null;
+  });
 }

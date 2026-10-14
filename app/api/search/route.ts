@@ -46,7 +46,6 @@ import { ChatSDKError } from '@/lib/errors';
 import { after } from 'next/server';
 import { CustomInstructions, Message as DbMessage } from '@/lib/db/schema';
 import { v7 as uuidv7 } from 'uuid';
-import { geolocation } from '@vercel/functions';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { markdownJoinerTransform } from '@/lib/parser';
@@ -209,10 +208,6 @@ export async function POST(req: Request) {
     return new ChatSDKError('bad_request:api', 'A user message is required').toResponse();
   }
 
-  opStart = Date.now();
-  const { latitude, longitude } = geolocation(req);
-  recordTiming('geolocation_lookup', opStart);
-
   const streamId = 'stream-' + uuidv7();
 
   // Initialize model - will be updated by auto-router if needed
@@ -224,8 +219,6 @@ export async function POST(req: Request) {
     requestedModel,
     group,
     specialMode,
-    latitude,
-    longitude,
     isAutoRouted,
     autoRouterEnabled,
   });
@@ -927,16 +920,20 @@ export async function POST(req: Request) {
           ? `\n\nThe user's custom instructions are as follows and YOU MUST FOLLOW THEM AT ALL COSTS: ${customInstructions?.content}`
           : '\n') +
         (memoryContext?.systemBlock ?? '') +
-        (latitude && longitude && userPreferencesResult?.preferences?.['zetora-location-metadata-enabled'] === true
-          ? `\n\nThe user's location is ${latitude}, ${longitude}.`
-          : '') +
         dateTimeContext;
       const staticSettings = await getStreamTextStaticSettings({
         specialMode,
         isXmlParsedCustomModel,
       });
 
-      const contextWindow = await contextWindowPromise;
+      const { tokens: contextWindow, known: contextWindowKnown } = await contextWindowPromise;
+      if (!contextWindowKnown) {
+        dataStream.write({
+          type: 'data-context_window_unknown',
+          data: { tokens: contextWindow },
+          transient: true,
+        });
+      }
       const outputReserve = getMaxOutputTokens(model);
       const contextBudget = computeContextBudget(contextWindow, outputReserve);
       const systemTokens = estimateTokenCount(baseSystem);

@@ -1,6 +1,8 @@
 import 'server-only';
 import { cohere } from '@ai-sdk/cohere';
 import { createCustomProvider, getCustomProviders, parseCustomModelId } from '@/lib/custom-providers';
+import { ModelUnavailableError } from '@/ai/catalog/task-models';
+import { isConfigured } from '@/ai/catalog/env';
 
 // Shared by both consumers below: resolves a `zetora-embedding-provider`
 // preference value (a "custom-{providerId}-{modelName}" id) to an AI SDK
@@ -21,19 +23,32 @@ async function resolveCustomEmbeddingModel(selectedId: string | undefined) {
 // Qdrant is enabled).
 export async function getEmbeddingModel(preferences: Record<string, unknown>) {
   if (preferences['zetora-embedding-enabled'] !== true) return null;
-  return resolveCustomEmbeddingModel(preferences['zetora-embedding-provider'] as string | undefined);
+  const model = await resolveCustomEmbeddingModel(preferences['zetora-embedding-provider'] as string | undefined);
+  if (!model) {
+    throw new ModelUnavailableError(
+      'Search Embedding is on but its model is not available: pick one in Settings → Search.',
+    );
+  }
+  return model;
 }
 
-// Used by file_query_search / extreme_search's document indexing — these
-// always need *some* embedding model (there's no "skip embedding" fallback
-// like hybrid-search has), so this always returns one: the user's custom
-// provider when `zetora-file-embedding-provider` is 'custom' and one is
-// configured, Cohere embed-v4.0 otherwise (the original, still-default
-// behavior — requires COHERE_API_KEY).
+// Used by file_query_search / extreme_search's document indexing, which
+// always need an embedding model: the user's custom one when
+// `zetora-file-embedding-provider` is 'custom', Cohere embed-v4.0 otherwise.
 export async function getFileEmbeddingModel(preferences: Record<string, unknown> | null | undefined) {
   if (preferences?.['zetora-file-embedding-provider'] === 'custom') {
     const custom = await resolveCustomEmbeddingModel(preferences['zetora-embedding-provider'] as string | undefined);
-    if (custom) return custom;
+    if (!custom) {
+      throw new ModelUnavailableError(
+        'File search is set to a custom embedding model that is not available: pick one in Settings → Search.',
+      );
+    }
+    return custom;
+  }
+  if (!isConfigured(process.env.COHERE_API_KEY)) {
+    throw new ModelUnavailableError(
+      'Searching files needs an embedding model: set COHERE_API_KEY, or pick a custom embedding model in Settings → Search.',
+    );
   }
   return cohere.embedding('embed-v4.0');
 }

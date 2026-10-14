@@ -331,6 +331,9 @@ export type CustomUIDataTypes = {
   // disabled, or a compaction attempt just failed) — makes the previously
   // silent drop visible.
   context_excluded_count: { count: number };
+  // A custom model's context window could not be read from its backend, so
+  // this turn was budgeted on the conservative default.
+  context_window_unknown: { tokens: number };
   // A Hermes Agent `prompt` action (approval/clarify/choice) rendered as native buttons —
   // see components/message-parts/hermes-prompt.tsx. `promptId` is gateway-minted and
   // opaque; echoed back verbatim in the button click's prompt_response. `expiresAt`

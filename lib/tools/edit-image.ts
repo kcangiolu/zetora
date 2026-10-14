@@ -60,11 +60,14 @@ export const editImageTool = tool({
       };
     }
 
-    let extraBody: Record<string, unknown> = {};
+    let extraBody: Record<string, unknown>;
     try {
       extraBody = JSON.parse((prefs['zetora-image-edit-request-body'] as string | undefined) || '{}');
     } catch {
-      extraBody = {};
+      return {
+        success: false as const,
+        error: 'The extra request body in Settings → Image Editing is not valid JSON.',
+      };
     }
 
     let sourceImage: Awaited<ReturnType<typeof fetchAttachment>>;

@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+// Hermes is off unless the build turns it on.
+process.env.NEXT_PUBLIC_HERMES_ENABLED = 'true';
+
 const { getCurrentUser, getHermesConnectorByUserId } = vi.hoisted(() => ({
   getCurrentUser: vi.fn(),
   getHermesConnectorByUserId: vi.fn(),

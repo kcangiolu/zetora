@@ -60,10 +60,8 @@ describe('email', () => {
       SMTP_PASS: '',
       SMTP_FROM: 'Zetora <noreply@example.com>',
     });
-    const result = await sendVerificationEmail({ to: 'a@example.com', url: 'https://example.com' });
-    expect(result).toEqual({
-      success: false,
-      error: 'Email is not configured: set SMTP_USER, SMTP_PASS (see .env.example)',
-    });
+    await expect(sendVerificationEmail({ to: 'a@example.com', url: 'https://example.com' })).rejects.toThrow(
+      'Email is not configured: set SMTP_USER, SMTP_PASS (see .env.example)',
+    );
   });
 });

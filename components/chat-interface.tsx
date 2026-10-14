@@ -603,6 +603,12 @@ const ChatInterface = memo(
             sileo.error({ title: 'Context compaction failed', description: dataPart.data.message });
           }
         }
+        if (dataPart.type === 'data-context_window_unknown') {
+          sileo.info({
+            title: 'Context window unknown',
+            description: `The model's server did not report its context size, so this answer was limited to ${dataPart.data.tokens.toLocaleString()} tokens of history.`,
+          });
+        }
         // pruneToContextBudget actually dropped messages this turn
         // (compaction disabled, or a compaction attempt just failed) —
         // makes the previously silent drop visible.

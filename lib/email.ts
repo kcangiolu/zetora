@@ -38,20 +38,22 @@ function getSmtpTransporter(): Transporter {
   return smtpTransporter;
 }
 
-async function sendEmail(params: SendEmailParams): Promise<{ success: boolean; id?: string; error?: string }> {
+// Throws when the email cannot be sent, so the caller can tell the user:
+// a sign-up that says "check your inbox" for a mail that never left is worse
+// than an error.
+async function sendEmail(params: SendEmailParams): Promise<{ id: string }> {
+  const transporter = getSmtpTransporter();
   try {
-    const transporter = getSmtpTransporter();
     const info = await transporter.sendMail({
       from: serverEnv.SMTP_FROM,
       to: params.to,
       subject: params.subject,
       html: await render(params.react),
     });
-    log.debug(`✅ Email sent: ${params.subject}`);
-    return { success: true, id: info.messageId };
+    return { id: info.messageId };
   } catch (error) {
-    log.error(`❌ Failed to send email "${params.subject}":`, error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    log.error(`Failed to send email "${params.subject}":`, error);
+    throw new Error('The email could not be sent: check the SMTP settings', { cause: error });
   }
 }
 

@@ -109,17 +109,13 @@ export async function testEmailDelivery() {
       return { success: false, error: 'No email address associated with your account' };
     }
 
-    const result = await sendLookoutCompletionEmail({
+    await sendLookoutCompletionEmail({
       to: user.email,
       chatTitle: 'Test Email',
       assistantResponse: 'This is a test email from Zetora. Your email provider is configured correctly.',
       chatId: 'test',
     });
-
-    if (result.success) {
-      return { success: true };
-    }
-    return { success: false, error: result.error || 'Unknown error' };
+    return { success: true };
   } catch (error) {
     log.error('Error testing email delivery:', error);
     return {

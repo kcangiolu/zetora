@@ -11,7 +11,6 @@ export type PreferenceKey =
   | 'zetora-blur-personal-info'
   | 'zetora-custom-instructions-enabled'
   | 'zetora-scroll-to-latest-on-open'
-  | 'zetora-location-metadata-enabled'
   | 'zetora-auto-router-enabled'
   | 'zetora-auto-router-config'
   | 'zetora-anonymization-enabled'
@@ -265,7 +264,6 @@ function collectLocalStoragePreferences(): Partial<Record<PreferenceKey, Prefere
     'zetora-blur-personal-info',
     'zetora-custom-instructions-enabled',
     'zetora-scroll-to-latest-on-open',
-    'zetora-location-metadata-enabled',
     'zetora-auto-router-enabled',
     'zetora-auto-router-config',
     'zetora-preferred-models',

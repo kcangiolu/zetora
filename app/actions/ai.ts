@@ -64,7 +64,7 @@ export async function suggestQuestions(rawHistory: unknown) {
   }
   const history = suggestionHistorySchema.parse(rawHistory);
 
-  const suggestPrefs = await getCachedUserPreferencesByUserId(suggestUser.id).catch(() => null);
+  const suggestPrefs = await getCachedUserPreferencesByUserId(suggestUser.id);
   const suggestPrefsMap = (suggestPrefs?.preferences ?? {}) as Record<string, string>;
 
   if (suggestPrefs?.preferences?.['zetora-tertiary-followup-enabled'] === false) {
@@ -208,7 +208,7 @@ Output requirements:
 - Return ONLY the improved prompt text, in plain text.
 - No quotes, no commentary, no markdown, and no preface.`;
 
-    const enhancePrefs = await getCachedUserPreferencesByUserId(auth.userId).catch(() => null);
+    const enhancePrefs = await getCachedUserPreferencesByUserId(auth.userId);
     const enhancePrefsMap = (enhancePrefs?.preferences ?? {}) as Record<string, string>;
 
     const { text } = await generateText({

@@ -24,11 +24,6 @@ export function GeneralTab({
   isCustomInstructionsEnabled?: boolean;
   setIsCustomInstructionsEnabledAction?: (value: boolean | ((val: boolean) => boolean)) => void;
 }) {
-  const [locationMetadataEnabled, setLocationMetadataEnabled] = useSyncedPreferences<boolean>(
-    'zetora-location-metadata-enabled',
-    false,
-  );
-
   const [scrollToLatestOnOpen, setScrollToLatestOnOpen] = useSyncedPreferences<boolean>(
     'zetora-scroll-to-latest-on-open',
     false,
@@ -207,21 +202,6 @@ export function GeneralTab({
             </div>
           </div>
         )}
-
-        {/* Location Metadata toggle */}
-        <div className="flex items-center justify-between py-3.5 gap-6">
-          <div className="min-w-0">
-            <p className="text-sm font-medium">Location Metadata</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Include approximate location for location-aware answers
-            </p>
-          </div>
-          <Switch
-            id="location-metadata"
-            checked={locationMetadataEnabled}
-            onCheckedChange={setLocationMetadataEnabled}
-          />
-        </div>
 
         <div className="flex items-center justify-between py-3.5 gap-6">
           <div className="min-w-0">

@@ -71,7 +71,7 @@ export async function manualCompactChat({ chatId, model }: { chatId: string; mod
     return { success: false, reason: 'not-enough-history' };
   }
 
-  const contextWindow = await resolveContextWindow(model, user.id);
+  const { tokens: contextWindow } = await resolveContextWindow(model, user.id);
   const contextBudget = computeContextBudget(contextWindow, getMaxOutputTokens(model));
 
   const outcome = await maybeCompactContext({

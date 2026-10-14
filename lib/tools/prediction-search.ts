@@ -7,6 +7,7 @@ import { Valyu } from 'valyu-js';
 import { cohere } from '@ai-sdk/cohere';
 
 import { createLogger } from '@/lib/logger';
+import { isRerankAvailable } from '@/lib/search/rerank';
 
 const log = createLogger('prediction-search');
 
@@ -289,7 +290,7 @@ export function predictionSearchTool(dataStream?: UIMessageStreamWriter<ChatMess
 
         // Rerank results using Cohere for better relevance
         let activeMarkets = filteredMarkets;
-        if (filteredMarkets.length > 1) {
+        if (filteredMarkets.length > 1 && isRerankAvailable()) {
           try {
             const { ranking } = await rerank({
               model: cohere.reranking('rerank-v4.0-fast'),

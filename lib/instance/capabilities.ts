@@ -69,10 +69,33 @@ const SEARCH_TOOL_FUNCTIONS: Record<string, SearchFunction> = {
   extreme_search: 'extremeSearch',
 };
 
-// False for a search tool this instance has no provider for: it is never offered.
-export function isSearchToolAvailable(toolName: string): boolean {
+// Tools that call a cloud API with the instance's own key.
+const TOOL_KEYS_CONFIGURED: Record<string, () => boolean> = {
+  stock_chart: () => isConfigured(serverEnv.VALYU_API_KEY),
+  currency_converter: () => isConfigured(serverEnv.VALYU_API_KEY),
+  prediction_search: () => isConfigured(serverEnv.VALYU_API_KEY),
+  coin_data: () => isConfigured(serverEnv.COINGECKO_API_KEY),
+  coin_data_by_contract: () => isConfigured(serverEnv.COINGECKO_API_KEY),
+  coin_ohlc: () => isConfigured(serverEnv.COINGECKO_API_KEY),
+  x_search: () => isConfigured(serverEnv.XAI_API_KEY),
+  youtube_search: () => isConfigured(serverEnv.SUPADATA_API_KEY),
+  spotify_search: () => isConfigured(serverEnv.SPOTIFY_CLIENT_ID) && isConfigured(serverEnv.SPOTIFY_CLIENT_SECRET),
+  movie_or_tv_search: () => isConfigured(serverEnv.TMDB_API_KEY),
+  trending_movies: () => isConfigured(serverEnv.TMDB_API_KEY),
+  trending_tv: () => isConfigured(serverEnv.TMDB_API_KEY),
+  find_place_on_map: () => isConfigured(serverEnv.GOOGLE_MAPS_API_KEY),
+  nearby_places_search: () => isConfigured(serverEnv.GOOGLE_MAPS_API_KEY),
+  get_weather_data: () => isConfigured(serverEnv.OPENWEATHER_API_KEY),
+  track_flight: () => isConfigured(serverEnv.AMADEUS_API_KEY) && isConfigured(serverEnv.AMADEUS_API_SECRET),
+  code_context: () => isConfigured(serverEnv.EXA_API_KEY),
+};
+
+// False for a tool this instance cannot run: a search tool with no provider,
+// or a tool whose API key is not set. Such a tool is never offered.
+export function isToolAvailable(toolName: string): boolean {
   const fn = SEARCH_TOOL_FUNCTIONS[toolName];
-  return !fn || searchProvidersFor(fn, getAvailableSearchProviders()).length > 0;
+  if (fn && searchProvidersFor(fn, getAvailableSearchProviders()).length === 0) return false;
+  return TOOL_KEYS_CONFIGURED[toolName]?.() ?? true;
 }
 
 export function resolveSearchProvider<F extends SearchFunction>(

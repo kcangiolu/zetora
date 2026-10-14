@@ -6,6 +6,7 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
 import { createLogger } from '@/lib/logger';
+import { isRerankAvailable } from '@/lib/search/rerank';
 
 const log = createLogger('spotify-search');
 
@@ -279,7 +280,7 @@ async function rerankResults<T>(
   createDocument: (item: T) => string,
   topN?: number,
 ): Promise<T[]> {
-  if (items.length === 0) return items;
+  if (items.length === 0 || !isRerankAvailable()) return items;
 
   try {
     const documents = items.map(createDocument);

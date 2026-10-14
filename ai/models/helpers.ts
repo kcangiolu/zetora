@@ -75,16 +75,3 @@ export function getAcceptedFileTypes(model: Model | undefined): string {
 export function supportsCanvasMode(model: Model | undefined): boolean {
   return model?.structuredOutput === true && model.value !== AUTO_MODEL_ID;
 }
-
-// OpenAI and Anthropic don't serve these regions.
-const RESTRICTED_REGIONS = ['CN', 'KP', 'RU']; // China, North Korea, Russia
-const REGION_RESTRICTED_PROVIDERS = new Set<ModelProvider>(['openai', 'anthropic']);
-
-export function isModelRestrictedInRegion(model: Model | undefined, countryCode?: string): boolean {
-  if (!model || !countryCode || !RESTRICTED_REGIONS.includes(countryCode.toUpperCase())) return false;
-  return REGION_RESTRICTED_PROVIDERS.has(model.provider);
-}
-
-export function getFilteredModels(models: Model[], countryCode?: string): Model[] {
-  return models.filter((model) => !isModelRestrictedInRegion(model, countryCode));
-}

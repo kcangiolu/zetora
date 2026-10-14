@@ -91,7 +91,6 @@
     "@vectorstores/readers": "^0.1.8",
     "@vectorstores/vercel": "^0.1.1",
     "@vercel/config": "^0.0.38",
-    "@vercel/functions": "^3.4.3",
     "@visx/curve": "^3.12.0",
     "@visx/event": "^3.12.0",
     "@visx/grid": "^3.12.0",

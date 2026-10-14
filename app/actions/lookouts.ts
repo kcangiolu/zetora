@@ -648,5 +648,3 @@ export async function testLookoutAction({ id }: { id: string }) {
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
-
-// Server action to get user's geolocation using Vercel

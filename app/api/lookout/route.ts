@@ -27,7 +27,7 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { verifyLookoutRequest } from '@/lib/lookout-auth';
-import { isSearchToolAvailable } from '@/lib/instance/capabilities';
+import { isToolAvailable } from '@/lib/instance/capabilities';
 import type { SearchProvider } from '@/lib/utils';
 
 // Import search tools
@@ -277,7 +277,7 @@ function getToolsForSearchMode(
   const toolNames = SEARCH_MODE_TOOLS[searchMode] || SEARCH_MODE_TOOLS.extreme;
   const tools: Record<string, any> = {};
 
-  for (const toolName of toolNames.filter(isSearchToolAvailable)) {
+  for (const toolName of toolNames.filter(isToolAvailable)) {
     // Check if it's a tool that needs dataStream
     if (toolName === 'extreme_search') {
       tools[toolName] = extremeSearchTool(dataStream, []);

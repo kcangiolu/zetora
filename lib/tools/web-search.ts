@@ -17,6 +17,7 @@ import { resolveFallbackSearchProvider, resolveSearchProvider } from '@/lib/inst
 import type { SearchProviderFor } from '@/lib/search/providers';
 
 import { createLogger } from '@/lib/logger';
+import { isConfigured } from '@/ai/catalog/env';
 
 const log = createLogger('web-search');
 
@@ -105,6 +106,32 @@ const isSearchResultImages = (item: SearchResultImages | Document): item is Sear
 const getImageUrl = (item: SearchResultImages): string | undefined => {
   return item.imageUrl || item.url;
 };
+
+// Image results from Firecrawl, used by the strategies whose provider
+// returns none. Skipped without a Firecrawl key, so a query never goes to a
+// service the instance did not set up. Images are an extra: a failure is
+// logged and the search goes on without them.
+async function searchFirecrawlImages(
+  firecrawl: FirecrawlApp,
+  query: string,
+  limit: number,
+): Promise<Array<{ url: string; description: string }>> {
+  if (!isConfigured(serverEnv.FIRECRAWL_API_KEY)) return [];
+  try {
+    const response = await firecrawl.search(query, {
+      sources: ['images'],
+      limit,
+      scrapeOptions: { storeInCache: true },
+    });
+    return (response.images ?? [])
+      .filter(isSearchResultImages)
+      .map((item) => ({ url: getImageUrl(item) || '', description: cleanTitle(item.title || '') }))
+      .filter((item) => item.url);
+  } catch (error) {
+    log.error(`Firecrawl image search failed for query "${query}":`, error);
+    return [];
+  }
+}
 
 const processDomains = (domains?: (string | null)[]): string[] | undefined => {
   if (!domains || domains.length === 0) return undefined;
@@ -204,18 +231,7 @@ class ParallelSearchStrategy implements SearchStrategy {
                 });
               },
               firecrawlImages: async function () {
-                return firecrawl
-                  .search(query, {
-                    sources: ['images'],
-                    limit: 3,
-                    scrapeOptions: {
-                      storeInCache: true,
-                    },
-                  })
-                  .catch((error) => {
-                    log.error(`Firecrawl error for query "${query}":`, error);
-                    return { images: [] } as Partial<Document> as any;
-                  });
+                return searchFirecrawlImages(firecrawl, query, 3);
               },
               results: async function () {
                 const singleResponse = await this.$.singleResponse;
@@ -230,14 +246,7 @@ class ParallelSearchStrategy implements SearchStrategy {
                 }));
               },
               images: async function () {
-                const firecrawlImages = await this.$.firecrawlImages;
-                return ((firecrawlImages as any)?.images || [])
-                  .filter(isSearchResultImages)
-                  .map((item: any) => ({
-                    url: getImageUrl(item) || '',
-                    description: cleanTitle(item.title || ''),
-                  }))
-                  .filter((item: any) => item.url);
+                return this.$.firecrawlImages;
               },
             },
             getBetterAllOptions(),
@@ -536,18 +545,7 @@ class ExaSearchStrategy implements SearchStrategy {
               );
             },
             firecrawlImages: async function () {
-              return firecrawl
-                .search(query, {
-                  sources: ['images'],
-                  limit: 8,
-                  scrapeOptions: {
-                    storeInCache: true,
-                  },
-                })
-                .catch((error) => {
-                  log.error(`Firecrawl image search error for query "${query}":`, error);
-                  return { images: [] } as Partial<Document> as any;
-                });
+              return searchFirecrawlImages(firecrawl, query, 8);
             },
             results: async function () {
               const data = await this.$.data;
@@ -562,14 +560,7 @@ class ExaSearchStrategy implements SearchStrategy {
               );
             },
             images: async function () {
-              const firecrawlImages = await this.$.firecrawlImages;
-              return ((firecrawlImages as any)?.images || [])
-                .filter(isSearchResultImages)
-                .map((item: any) => ({
-                  url: getImageUrl(item) || '',
-                  description: cleanTitle(item.title || ''),
-                }))
-                .filter((item: any) => item.url);
+              return this.$.firecrawlImages;
             },
           },
           getBetterAllOptions(),

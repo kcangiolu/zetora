@@ -80,17 +80,15 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Ownership-checked by userId in the WHERE clause, not just the id.
-    const deleted = await deleteGeneratedFileById({ id: validated.data.id, userId: session.user.id });
+    const { client: storageClient, bucketName: storageBucket } = getStorageClient();
+    const deleted = await deleteGeneratedFileById({
+      id: validated.data.id,
+      userId: session.user.id,
+      removeObject: (key) => storageClient.send(new DeleteObjectCommand({ Bucket: storageBucket, Key: key })),
+    });
     if (!deleted) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
-
-    const { client: storageClient, bucketName: storageBucket } = getStorageClient();
-    await storageClient.send(new DeleteObjectCommand({ Bucket: storageBucket, Key: deleted.key })).catch((e) => {
-      // The DB row is already gone — log and move on rather than leaving the
-      // user stuck if the bucket object was already removed out-of-band.
-      log.error('Failed to delete generated file object from storage:', e);
-    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

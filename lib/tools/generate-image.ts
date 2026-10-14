@@ -55,11 +55,14 @@ export const generateImageTool = tool({
       };
     }
 
-    let extraBody: Record<string, unknown> = {};
+    let extraBody: Record<string, unknown>;
     try {
       extraBody = JSON.parse((prefs['zetora-image-gen-request-body'] as string | undefined) || '{}');
     } catch {
-      extraBody = {};
+      return {
+        success: false as const,
+        error: 'The extra request body in Settings → Image Generation is not valid JSON.',
+      };
     }
 
     const base = provider.baseURL.endsWith('/v1') ? provider.baseURL : `${provider.baseURL}/v1`;

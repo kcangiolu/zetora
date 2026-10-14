@@ -6,6 +6,9 @@
 // ----> Return all collected sources and research data to the user
 
 import { createLogger } from '@/lib/logger';
+import { isRerankAvailable } from '@/lib/search/rerank';
+import { isToolAvailable } from '@/lib/instance/capabilities';
+import { X_SEARCH_MODEL_ID } from '@/lib/tools/x-search';
 import { fetchAttachment } from '@/lib/net/attachment-fetch';
 import { getLinkMetadata } from '@/lib/link-metadata';
 import { resolveFallbackSearchProvider, resolveSearchProvider } from '@/lib/instance/capabilities';
@@ -195,7 +198,7 @@ async function searchFilesForQuery(
     getBetterAllOptions(),
   );
 
-  if (shouldRerank && allResults.length > 0) {
+  if (shouldRerank && isRerankAvailable() && allResults.length > 0) {
     const { ranking } = await rerank({
       model: cohere.reranking('rerank-v4.0-pro'),
       query,
@@ -824,9 +827,15 @@ ${hasFilesForPlanning ? '- Include file search steps when the uploaded files are
   }
 
   const hasFiles = supportedFiles.length > 0 && fileRetrievers.size > 0;
-  const baseActiveTools = hasFiles
-    ? ['codeRunner', 'webSearch', 'browsePage', 'xSearch', 'thinking', 'fileQuery', 'done']
-    : ['codeRunner', 'webSearch', 'browsePage', 'xSearch', 'thinking', 'done'];
+  const baseActiveTools = [
+    'codeRunner',
+    'webSearch',
+    'browsePage',
+    ...(isToolAvailable('x_search') ? ['xSearch'] : []),
+    'thinking',
+    ...(hasFiles ? ['fileQuery'] : []),
+    'done',
+  ];
 
   // Local custom models are far slower per step (single-slot llama.cpp,
   // full prompt re-processing every round) — tighter step and retry budgets,
@@ -1680,7 +1689,7 @@ ${JSON.stringify(plan)}
               }
 
               const { text, sources } = await generateText({
-                model: xai.responses('grok-4-1-fast-non-reasoning'),
+                model: xai.responses(X_SEARCH_MODEL_ID),
                 system: `You are a helpful assistant that searches for X content with all the tools available to you. Do not use user search tool. Max limit of results is 30. You can search for the thread or the content of the post. You can also search for the content of the post using thread fetch tool. NO NEED TO WRITE A SINGLE WORD AFTER RUNNING THE TOOLs AT ALL COSTS!!`,
                 messages: [
                   {

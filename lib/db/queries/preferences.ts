@@ -99,7 +99,6 @@ export async function upsertUserPreferences({
     'zetora-blur-personal-info'?: boolean;
     'zetora-custom-instructions-enabled'?: boolean;
     'zetora-scroll-to-latest-on-open'?: boolean;
-    'zetora-location-metadata-enabled'?: boolean;
     'zetora-auto-router-enabled'?: boolean;
     'zetora-auto-router-config'?: {
       routes: Array<{

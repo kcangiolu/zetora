@@ -22,7 +22,7 @@ const contextWindowCache = new Map<string, { value: number; expiresAt: number }>
 
 // Best-effort, never throws — same guarantee as detectModelVision() in
 // lib/custom-providers.ts, which this mirrors.
-async function probeCustomContextWindow(provider: CustomProviderConfig, modelName: string): Promise<number> {
+async function probeCustomContextWindow(provider: CustomProviderConfig, modelName: string): Promise<number | null> {
   const { backendKind } = provider;
   try {
     if (backendKind === 'llamacpp') {
@@ -74,10 +74,12 @@ async function probeCustomContextWindow(provider: CustomProviderConfig, modelNam
   } catch (err) {
     log.warn(`[context-window] Probe failed for ${modelName} (${backendKind ?? 'unknown'}):`, err);
   }
-  return DEFAULT_CUSTOM_CONTEXT_WINDOW;
+  return null;
 }
 
-async function getCustomContextWindowCached(provider: CustomProviderConfig, modelName: string): Promise<number> {
+// Only a value the backend reported is cached: a probe that timed out is
+// retried on the next request instead of pinning the model to the default.
+async function getCustomContextWindowCached(provider: CustomProviderConfig, modelName: string): Promise<number | null> {
   const cacheKey = `${provider.id}::${modelName}`;
   const cached = contextWindowCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
@@ -85,26 +87,35 @@ async function getCustomContextWindowCached(provider: CustomProviderConfig, mode
   }
 
   const value = await probeCustomContextWindow(provider, modelName);
-  contextWindowCache.set(cacheKey, { value, expiresAt: Date.now() + CONTEXT_WINDOW_CACHE_TTL_MS });
+  if (value !== null) {
+    contextWindowCache.set(cacheKey, { value, expiresAt: Date.now() + CONTEXT_WINDOW_CACHE_TTL_MS });
+  }
   return value;
 }
 
+export interface ResolvedContextWindow {
+  tokens: number;
+  // False when a custom model's window could not be read and the
+  // conservative default is used: the caller tells the user, since the
+  // default can mean pruning far more history than the model needs.
+  known: boolean;
+}
+
 // Resolves the real context window for any model id — catalog or custom
-// (`custom-{providerId}-{modelName}`). Never throws: any failure (unknown
-// model, unreachable backend, malformed response) falls back to a
-// conservative default rather than blocking the request.
-export async function resolveContextWindow(modelId: string, userId?: string): Promise<number> {
+// (`custom-{providerId}-{modelName}`). Never throws: an unknown custom model
+// or an unreachable backend gets the default, marked as not known.
+export async function resolveContextWindow(modelId: string, userId?: string): Promise<ResolvedContextWindow> {
   if (!modelId.startsWith('custom-')) {
-    return getCatalogContextWindow(modelId);
+    return { tokens: getCatalogContextWindow(modelId), known: true };
   }
 
   try {
     const providers = await getCustomProviders(userId);
     const parsed = parseCustomModelId(modelId, providers);
-    if (!parsed) return DEFAULT_CUSTOM_CONTEXT_WINDOW;
-    return await getCustomContextWindowCached(parsed.provider, parsed.modelName);
+    const tokens = parsed ? await getCustomContextWindowCached(parsed.provider, parsed.modelName) : null;
+    return tokens === null ? { tokens: DEFAULT_CUSTOM_CONTEXT_WINDOW, known: false } : { tokens, known: true };
   } catch (err) {
     log.warn(`[context-window] Failed to resolve context window for ${modelId}:`, err);
-    return DEFAULT_CUSTOM_CONTEXT_WINDOW;
+    return { tokens: DEFAULT_CUSTOM_CONTEXT_WINDOW, known: false };
   }
 }

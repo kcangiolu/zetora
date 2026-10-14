@@ -19,7 +19,7 @@ export const POST = withError(async (request) => {
     return Response.json({ error: 'No audio file found in form data.' }, { status: 400 });
   }
 
-  const prefs = await getCachedUserPreferencesByUserId(userId).catch(() => null);
+  const prefs = await getCachedUserPreferencesByUserId(userId);
   const p = prefs?.preferences ?? {};
   const sttProvider = p['zetora-stt-provider'] || 'elevenlabs';
 

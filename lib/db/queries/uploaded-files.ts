@@ -92,12 +92,26 @@ export async function getUploadedFilesByUserId({
   };
 }
 
-export async function deleteUploadedFileByUrl({ url, userId }: { url: string; userId: string }) {
-  const [row] = await maindb
-    .delete(uploadedFile)
-    .where(and(eq(uploadedFile.url, url), eq(uploadedFile.userId, userId)))
-    .returning();
-  return row ?? null;
+// The storage object is removed inside the transaction: if storage fails the
+// row stays, the request errors and the user can retry, instead of a file
+// that looks deleted but is still served. S3 treats a missing key as deleted.
+export async function deleteUploadedFileByUrl({
+  url,
+  userId,
+  removeObject,
+}: {
+  url: string;
+  userId: string;
+  removeObject: (key: string) => Promise<unknown>;
+}) {
+  return maindb.transaction(async (tx) => {
+    const [row] = await tx
+      .delete(uploadedFile)
+      .where(and(eq(uploadedFile.url, url), eq(uploadedFile.userId, userId)))
+      .returning();
+    if (row) await removeObject(row.key);
+    return row ?? null;
+  });
 }
 
 // Ties each uploaded file to the chat of the first user message carrying it.
