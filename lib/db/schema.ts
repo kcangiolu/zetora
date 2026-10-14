@@ -932,3 +932,5 @@ export type BuildSession = InferSelectModel<typeof buildSession>;
 export type PiiAlias = InferSelectModel<typeof piiAlias>;
 export type GeneratedFile = InferSelectModel<typeof generatedFile>;
 export type UploadedFile = InferSelectModel<typeof uploadedFile>;
+// Named apart from the DOM's global PushSubscription type to avoid shadowing it.
+export type StoredPushSubscription = InferSelectModel<typeof pushSubscription>;

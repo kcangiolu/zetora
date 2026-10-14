@@ -48,6 +48,18 @@ export async function getPushSubscriptionsByUserId(userId: string) {
   }
 }
 
+export async function getPushSubscriptionByEndpoint({ userId, endpoint }: { userId: string; endpoint: string }) {
+  try {
+    const [subscription] = await maindb
+      .select()
+      .from(pushSubscription)
+      .where(and(eq(pushSubscription.userId, userId), eq(pushSubscription.endpoint, endpoint)));
+    return subscription ?? null;
+  } catch (error) {
+    throw new ChatSDKError('bad_request:database', 'Failed to fetch push subscription');
+  }
+}
+
 export async function deletePushSubscriptionByEndpoint({ userId, endpoint }: { userId: string; endpoint: string }) {
   try {
     const [deleted] = await maindb

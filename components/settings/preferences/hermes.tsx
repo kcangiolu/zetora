@@ -24,6 +24,7 @@ export function HermesTab({ user }: { user: SettingsUser }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRevoking, setIsRevoking] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isSendingTest, setIsSendingTest] = useState(false);
 
   const { data: statusData, isLoading: isStatusLoading, isError: isStatusError } = useQuery({
     queryKey: ['hermesConnectorStatus', user?.id],
@@ -102,6 +103,32 @@ export function HermesTab({ user }: { user: SettingsUser }) {
       });
     }
   };
+
+  const handleSendTest = async () => {
+    setIsSendingTest(true);
+    try {
+      await push.sendTest();
+      sileo.success({
+        title: 'Test notification sent',
+        description:
+          'Nothing showed up? Check that your browser is allowed to show notifications in your system settings and that Do Not Disturb is off.',
+      });
+    } catch (error) {
+      sileo.error({
+        title: 'Failed to send test notification',
+        description: error instanceof Error ? error.message : 'Please try again',
+      });
+    } finally {
+      setIsSendingTest(false);
+    }
+  };
+
+  const pushDescription = {
+    supported: "Get notified when Hermes replies and Zetora isn't open",
+    'ios-needs-install':
+      'On iPhone and iPad, add Zetora to your Home Screen (Share → Add to Home Screen), then enable notifications from there',
+    unsupported: 'Not supported in this browser',
+  }[push.support];
 
   return (
     <div className="space-y-4">
@@ -212,11 +239,7 @@ export function HermesTab({ user }: { user: SettingsUser }) {
               <Bell className="h-3.5 w-3.5" />
               Notifications
             </p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {push.isSupported
-                ? "Get notified when Hermes replies and Zetora isn't open"
-                : 'Not supported in this browser'}
-            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">{pushDescription}</p>
           </div>
           <Switch
             id="hermes-push-notifications"
@@ -225,6 +248,12 @@ export function HermesTab({ user }: { user: SettingsUser }) {
             onCheckedChange={handleTogglePush}
           />
         </div>
+        {push.isSubscribed && (
+          <Button variant="outline" size="sm" onClick={handleSendTest} disabled={isSendingTest} className="h-8 mt-3">
+            {isSendingTest ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+            Send test notification
+          </Button>
+        )}
       </div>
     </div>
   );
