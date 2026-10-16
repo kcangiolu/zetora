@@ -361,7 +361,7 @@ function TertiaryModelControls({
           Default : {defaultModelLabel}
         </span>
       )}
-      <ModelSelectorDialog selectedModel={model} onModelSelect={handleSelect} className="w-[180px] h-8" compact />
+      <ModelSelectorDialog selectedModel={model} onModelSelect={handleSelect} className="w-[180px] h-8" />
       {/* Capability for the system default model isn't known here (no
           model id, just a display label) — only show once the user has
           picked a specific model for this task. */}

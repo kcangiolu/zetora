@@ -337,7 +337,6 @@ export function AiModelsTab({
                           onModelSelect={(v) => updateAutoRouterRoute(index, { model: v })}
                           excludeModels={[AUTO_MODEL_ID]}
                                       className="w-full h-7"
-                          compact
                         />
                       </div>
                       <Textarea

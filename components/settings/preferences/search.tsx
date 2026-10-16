@@ -340,7 +340,6 @@ export function SearchTab({ customProviders }: { customProviders: CustomProvider
                       onModelSelect={handleEmbeddingModelSelect}
                       source="custom"
                       className="w-[180px] h-8"
-                      compact
                     />
                     {selectedEmbeddingProvider && (
                       <Button
@@ -454,7 +453,6 @@ export function SearchTab({ customProviders }: { customProviders: CustomProvider
                   onModelSelect={handleEmbeddingModelSelect}
                   source="custom"
                   className="w-[180px] h-8"
-                  compact
                 />
                 {selectedEmbeddingProvider && (
                   <Button
