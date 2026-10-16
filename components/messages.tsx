@@ -6,12 +6,11 @@ import { EnhancedErrorDisplay } from '@/components/message';
 import { MessagePartRenderer } from '@/components/message-parts';
 import { MarkdownRenderer } from '@/components/markdown';
 import { StreamingIndicator } from '@/components/streaming-indicator';
-import { deleteTrailingMessages } from '@/app/actions';
-import { sileo } from 'sileo';
 import { Attachment, ChatMessage, CustomUIDataTypes } from '@/lib/types';
 import { UseChatHelpers } from '@ai-sdk/react';
 import { ComprehensiveUserData } from '@/lib/user-data-server';
 import { cn } from '@/lib/utils';
+import { useTurnActions } from '@/hooks/use-turn-actions';
 
 // react-virtuoso logs "Zero-sized element" as an ERROR, its lowest prop-settable
 // level, for an assistant row that has no token yet. The row grows once content
@@ -295,99 +294,16 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     return -1;
   }, [memoizedMessages, status, error, isHermesChat]);
 
-  // Memoize the retry handler
-  const handleRetry = useCallback(async () => {
-    if (isHermesChat) {
-      sileo.error({
-        title: 'Retry is not available here',
-        description: 'Use the /retry command in your Agent chat instead.',
-      });
-      return;
-    }
-    try {
-      const messages = messagesRef.current;
-      const lastUserMessage = messages.findLast((m) => m.role === 'user');
-      if (!lastUserMessage) return;
-
-      // Step 1: Stop any in-flight stream first to prevent the old response's
-      // onFinish from saving stale messages to DB after we delete them
-      await stop();
-
-      // Step 2: Small delay to allow the abort to propagate and any in-flight
-      // server-side onFinish to complete before we delete
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Step 3: Delete trailing messages if user is authenticated
-      if (user && lastUserMessage.id) {
-        await deleteTrailingMessages({
-          id: lastUserMessage.id,
-        });
-      }
-
-      // Step 4: Update local state to remove assistant messages
-      const newMessages = [];
-      for (let i = 0; i < messages.length; i++) {
-        newMessages.push(messages[i]);
-        if (messages[i].id === lastUserMessage.id) {
-          break;
-        }
-      }
-
-      // Step 5: Update UI state
-      setMessages(newMessages);
-      setSuggestedQuestions([]);
-
-      // Step 6: Regenerate, bypassing the cache for this one request
-      if (skipCacheRef) skipCacheRef.current = true;
-      await regenerate();
-    } catch (error) {
-      console.error('Error in retry:', error);
-    }
-  }, [user, setMessages, setSuggestedQuestions, regenerate, stop, skipCacheRef, isHermesChat]);
-
-  // Memoize the delete handler - same as retry but without regenerating,
-  // for when the user just wants to remove an orphaned/empty last turn
-  // (e.g. after manually stopping generation before any content arrived).
-  const handleDelete = useCallback(async () => {
-    // Same append-only rule as handleRetry above, and the reason is stronger here: this
-    // deletes rows the agent still has in its own session history, so the two sides would
-    // silently disagree about what was said.
-    if (isHermesChat) {
-      sileo.error({
-        title: 'Deleting is not available here',
-        description: 'Agent conversations are append-only — use /undo in your Agent chat instead.',
-      });
-      return;
-    }
-    try {
-      const messages = messagesRef.current;
-      const lastUserMessage = messages.findLast((m) => m.role === 'user');
-      if (!lastUserMessage) return;
-
-      // Step 1: Stop any in-flight stream first to prevent the old response's
-      // onFinish from saving stale messages to DB after we delete them
-      await stop();
-
-      // Step 2: Small delay to allow the abort to propagate and any in-flight
-      // server-side onFinish to complete before we delete
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Step 3: Delete trailing messages if user is authenticated
-      if (user && lastUserMessage.id) {
-        await deleteTrailingMessages({
-          id: lastUserMessage.id,
-        });
-      }
-
-      // Step 4: Update local state to remove the user message and anything after it
-      const lastUserMessageIndex = messages.findIndex((m) => m.id === lastUserMessage.id);
-      setMessages(messages.slice(0, lastUserMessageIndex));
-      setSuggestedQuestions([]);
-    } catch (error) {
-      console.error('Error in delete:', error);
-      sileo.error({ title: 'Failed to delete message' });
-    }
-  }, [user, setMessages, setSuggestedQuestions, stop, isHermesChat]);
+  const { retryLastTurn: handleRetry, deleteLastTurn: handleDelete } = useTurnActions({
+    getMessages,
+    setMessages,
+    setSuggestedQuestions,
+    regenerate,
+    stop,
+    isSignedIn: Boolean(user),
+    isHermesChat,
+    skipCacheRef,
+  });
 
   // Handle rendering of message parts - using the new MessagePartRenderer component
   const renderPart = useCallback(
@@ -426,10 +342,9 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
           onToggleImageHidden={onToggleImageHidden}
           onVisibilityChange={onVisibilityChange}
           setMessages={setMessages}
-          setSuggestedQuestions={setSuggestedQuestions}
-          regenerate={regenerate}
+          onRetryLastTurn={handleRetry}
+          onDeleteLastTurn={handleDelete}
           isHermesChat={isHermesChat}
-          stop={stop}
           sendMessage={sendMessage}
           onHighlight={onHighlight}
           annotations={annotations}
@@ -449,10 +364,9 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
       onToggleImageHidden,
       onVisibilityChange,
       setMessages,
-      setSuggestedQuestions,
-      regenerate,
+      handleRetry,
+      handleDelete,
       isHermesChat,
-      stop,
       sendMessage,
       reasoningVisibilityMap,
       reasoningFullscreenMap,

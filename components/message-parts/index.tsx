@@ -7,7 +7,7 @@ import { ChatTextHighlighter } from '@/components/chat-text-highlighter';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
-import { deleteTrailingMessages, branchOutChat, updateMessageParts } from '@/app/actions';
+import { branchOutChat, updateMessageParts } from '@/app/actions';
 import { sileo } from 'sileo';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
@@ -208,12 +208,11 @@ interface MessagePartRendererProps {
   onToggleImageHidden?: (imageUrl: string, hidden: boolean) => void;
   onVisibilityChange?: (visibility: 'public' | 'private') => void;
   setMessages: UseChatHelpers<ChatMessage>['setMessages'];
-  setSuggestedQuestions: (questions: string[]) => void;
-  regenerate: UseChatHelpers<ChatMessage>['regenerate'];
-  // See messages.tsx's own isHermesChat comment: regenerate() always targets
-  // /api/search, which a Hermes-mode chat never uses.
+  // Stable callbacks from useTurnActions (the memo comparator ignores callbacks).
+  onRetryLastTurn: () => Promise<void>;
+  onDeleteLastTurn: () => Promise<void>;
+  // Hermes chats are append-only and never go through /api/search: no response actions.
   isHermesChat?: boolean;
-  stop: UseChatHelpers<ChatMessage>['stop'];
   sendMessage: UseChatHelpers<ChatMessage>['sendMessage'];
   onHighlight?: (text: string) => void;
   annotations?: DataUIPart<CustomUIDataTypes>[];
@@ -314,10 +313,9 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
     onToggleImageHidden,
     onVisibilityChange,
     setMessages,
-    setSuggestedQuestions,
-    regenerate,
+    onRetryLastTurn,
+    onDeleteLastTurn,
     isHermesChat = false,
-    stop,
     sendMessage,
     onHighlight,
     annotations,
@@ -818,51 +816,9 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                           disabled={isRegenerating}
                           onClick={async () => {
                             if (isRegenerating) return;
-                            if (isHermesChat) {
-                              sileo.error({
-                                title: 'Retry is not available here',
-                                description: 'Use the /retry command in your Agent chat instead.',
-                              });
-                              return;
-                            }
-
+                            setIsRegenerating(true);
                             try {
-                              setIsRegenerating(true);
-                              const messages = getMessages();
-                              const lastUserMessage = messages.findLast((m) => m.role === 'user');
-                              if (!lastUserMessage) return;
-
-                              // Step 1: Stop any in-flight stream first to prevent the old response's
-                              // onFinish from saving stale messages to DB after we delete them
-                              await stop();
-
-                              // Step 2: Small delay to allow the abort to propagate and any in-flight
-                              // server-side onFinish to complete before we delete
-                              await new Promise((resolve) => setTimeout(resolve, 100));
-
-                              // Step 3: Delete trailing messages from DB
-                              if (user && lastUserMessage.id) {
-                                await deleteTrailingMessages({
-                                  id: lastUserMessage.id,
-                                });
-                              }
-
-                              // Step 4: Update local state to remove assistant messages
-                              const newMessages = [];
-                              for (let i = 0; i < messages.length; i++) {
-                                newMessages.push(messages[i]);
-                                if (messages[i].id === lastUserMessage.id) {
-                                  break;
-                                }
-                              }
-
-                              setMessages(newMessages);
-                              setSuggestedQuestions([]);
-
-                              // Step 5: Regenerate
-                              await regenerate();
-                            } catch (error) {
-                              console.error('Error in reload:', error);
+                              await onRetryLastTurn();
                             } finally {
                               setIsRegenerating(false);
                             }
@@ -891,34 +847,9 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                           disabled={isDeletingMessage}
                           onClick={async () => {
                             if (isDeletingMessage) return;
-
+                            setIsDeletingMessage(true);
                             try {
-                              setIsDeletingMessage(true);
-
-                              const messages = getMessages();
-                              const lastUserMessage = messages.findLast((m) => m.role === 'user');
-                              if (!lastUserMessage) return;
-
-                              // Step 1: Stop any in-flight stream first to prevent the old response's
-                              // onFinish from saving stale messages to DB after we delete them
-                              await stop();
-
-                              // Step 2: Small delay to allow the abort to propagate and any in-flight
-                              // server-side onFinish to complete before we delete
-                              await new Promise((resolve) => setTimeout(resolve, 100));
-
-                              // Step 3: Delete the user message and everything after it (this response) from the DB
-                              if (user && lastUserMessage.id) {
-                                await deleteTrailingMessages({ id: lastUserMessage.id });
-                              }
-
-                              // Step 4: Update local state to remove the user message and this response
-                              const lastUserMessageIndex = messages.findIndex((m) => m.id === lastUserMessage.id);
-                              setMessages(messages.slice(0, lastUserMessageIndex));
-                              setSuggestedQuestions([]);
-                            } catch (error) {
-                              console.error('Error deleting message:', error);
-                              sileo.error({ title: 'Failed to delete message' });
+                              await onDeleteLastTurn();
                             } finally {
                               setIsDeletingMessage(false);
                             }
