@@ -6,10 +6,11 @@
 // ----> Return all collected sources and research data to the user
 
 import { createLogger } from '@/lib/logger';
-import { getFaviconUrl } from '@/lib/url';
+import { getFaviconUrl, getHostFaviconUrl } from '@/lib/url';
 import { isRerankAvailable } from '@/lib/search/rerank';
 import { isToolAvailable } from '@/lib/instance/capabilities';
 import { X_SEARCH_MODEL_ID } from '@/lib/tools/x-search';
+import { hydrateXPosts, resolveXSearchDateRange, sanitizeXHandles } from '@/lib/tools/x-citations';
 import { fetchAttachment } from '@/lib/net/attachment-fetch';
 import { getLinkMetadata } from '@/lib/link-metadata';
 import { resolveFallbackSearchProvider, resolveSearchProvider } from '@/lib/instance/capabilities';
@@ -25,7 +26,6 @@ import { resolveTertiaryModel } from '@/ai/tertiary';
 import { EXTREME_WALL_CLOCK_MS, SEARXNG_TIMEOUT_MS, isPastDeadline } from '@/lib/timeouts';
 import { ChatMessage } from '../types';
 import FirecrawlApp from '@mendable/firecrawl-js';
-import { getTweet } from 'react-tweet/api';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { xai } from '@ai-sdk/xai';
@@ -54,11 +54,6 @@ import { type SearchProviderStrategy, SearchCategory, FastCrwSearchStrategy } fr
 import type { UserPreferenceValues } from '@/lib/db/schema';
 
 const log = createLogger('extreme-search');
-
-interface CitationSource {
-  sourceType?: string;
-  url?: string;
-}
 
 const pythonLibsAvailable = [
   'numpy',
@@ -279,7 +274,7 @@ async function getMetadataFallbackResults(urls: string[], logPrefix: string): Pr
             url,
             content,
             publishedDate: '',
-            favicon: data.favicon || `https://www.google.com/s2/favicons?domain=${parsedUrl.hostname}&sz=128`,
+            favicon: data.favicon || getHostFaviconUrl(parsedUrl.hostname),
             description: data.description,
             canonical: data.canonical,
             ogUrl: data.ogUrl,
@@ -327,7 +322,7 @@ export class ExaContentStrategy implements ContentExtractionStrategy {
           url: r.url,
           content: r.text!,
           publishedDate: r.publishedDate || '',
-          favicon: r.favicon || `https://www.google.com/s2/favicons?domain=${new URL(r.url).hostname}&sz=128`,
+          favicon: r.favicon || getFaviconUrl(r.url),
         }));
     } catch (error) {
       log.error('[Exa] getContents error:', error);
@@ -362,7 +357,7 @@ export class FirecrawlContentStrategy implements ContentExtractionStrategy {
                   url,
                   content: scrapeResponse.markdown.slice(0, this.maxContentChars),
                   publishedDate: (scrapeResponse.metadata?.publishedDate as string) || '',
-                  favicon: `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=128`,
+                  favicon: getFaviconUrl(url),
                 };
               }
               return null;
@@ -475,7 +470,7 @@ class ExaSearchStrategy implements SearchProviderStrategy {
         url: r.url,
         content: '',
         publishedDate: r.publishedDate || '',
-        favicon: r.favicon || `https://www.google.com/s2/favicons?domain=${new URL(r.url).hostname}&sz=128`,
+        favicon: r.favicon || getFaviconUrl(r.url),
       })) as SearchResult[];
 
       log.info(`[Exa] searchWeb returning ${mappedResults.length} results`);
@@ -567,7 +562,7 @@ export class FirecrawlSearchStrategy implements SearchProviderStrategy {
         url: r.url,
         content: '',
         publishedDate: '',
-        favicon: `https://www.google.com/s2/favicons?domain=${new URL(r.url).hostname}&sz=128`,
+        favicon: getFaviconUrl(r.url),
       }));
     } catch (error) {
       log.error('[Firecrawl] search error:', error);
@@ -1540,7 +1535,7 @@ ${JSON.stringify(plan)}
                   }
 
                   const hostname = getHostnameForUrl(url);
-                  const favicon = `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`;
+                  const favicon = getHostFaviconUrl(hostname);
 
                   // Same primary/content-fallback/metadata-fallback settings as
                   // webSearch's content step — browsePage is just a single-URL,
@@ -1642,23 +1637,9 @@ ${JSON.stringify(plan)}
         ) => {
           log.debug('X search queries:', { queries, startDate, endDate, includeXHandles, excludeXHandles });
 
-          const sanitizeHandle = (handle: string) => handle.replace(/^@+/, '').trim();
-          const extractTweetId = (url: string) => url.match(/status\/(\d+)/)?.[1] || null;
-          const canonicalTweetLink = (tweetId: string | null, fallback: string | undefined) =>
-            tweetId ? `https://x.com/i/status/${tweetId}` : fallback || '';
-          const toYMD = (d: Date) => d.toISOString().slice(0, 10);
-
-          const normalizedInclude = Array.isArray(includeXHandles)
-            ? includeXHandles.map(sanitizeHandle).filter(Boolean)
-            : undefined;
-          const normalizedExclude = Array.isArray(excludeXHandles)
-            ? excludeXHandles.map(sanitizeHandle).filter(Boolean)
-            : undefined;
-
-          const today = new Date();
-          const daysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000);
-          const effectiveStart = startDate && startDate.trim().length > 0 ? startDate : toYMD(daysAgo);
-          const effectiveEnd = endDate && endDate.trim().length > 0 ? endDate : toYMD(today);
+          const normalizedInclude = sanitizeXHandles(includeXHandles);
+          const normalizedExclude = sanitizeXHandles(excludeXHandles);
+          const { start: effectiveStart, end: effectiveEnd } = resolveXSearchDateRange(startDate, endDate);
           const total = queries.length;
 
           const searchPromises = queries.map(async (query: string, index: number) => {
@@ -1713,87 +1694,22 @@ ${JSON.stringify(plan)}
 
               log.debug(`[X search data for "${query}"]:`, text);
 
-              const citations = (Array.isArray(sources) ? sources : []) as CitationSource[];
-              let xSources: any[] = [];
-
-              if (citations.length > 0) {
-                const seenCitationUrls = new Set<string>();
-                const uniqueCitations = citations
-                  .filter((link) => link.sourceType === 'url')
-                  .filter((link) => {
-                    const url = link.url || '';
-                    const tweetId = extractTweetId(url);
-                    const key = tweetId || url;
-                    if (key && !seenCitationUrls.has(key)) {
-                      seenCitationUrls.add(key);
-                      return true;
-                    }
-                    return false;
-                  });
-
-                const tweetFetchPromises = uniqueCitations.map(async (link) => {
-                  try {
-                    const tweetUrl = link.url || '';
-                    const tweetId = extractTweetId(tweetUrl);
-
-                    if (!tweetId) return null;
-
-                    const tweetData = await getTweet(tweetId);
-                    if (!tweetData) return null;
-
-                    const tweetText = tweetData.text;
-                    if (!tweetText) return null;
-
-                    const userHandle = tweetData.user?.screen_name || 'unknown';
-                    const createdAt = tweetData.created_at || '';
-
-                    return {
-                      text: tweetText,
-                      link: canonicalTweetLink(tweetId, tweetUrl),
-                      id: tweetId,
-                      author: `@${userHandle}`,
-                      publishedDate: createdAt,
-                      title: `Post from @${userHandle}`,
-                    };
-                  } catch (error) {
-                    log.error(`Error fetching tweet data for ${link.url}:`, error);
-                    return null;
-                  }
-                });
-
-                const tweetResults = await Promise.all(tweetFetchPromises);
-
-                const validTweets = tweetResults.filter((result) => result !== null);
-
-                const seenSourceLinks = new Set<string>();
-                const uniqueTweets = validTweets.filter((tweet) => {
-                  const key = tweet?.link || tweet?.id;
-                  if (tweet && key && !seenSourceLinks.has(key)) {
-                    seenSourceLinks.add(key);
-                    return true;
-                  }
-                  return false;
-                });
-
-                xSources.push(...uniqueTweets);
-              }
+              const xSources = await hydrateXPosts(sources);
 
               // Push X search results into the outer allSources for research.sources
-              xSources.forEach((source: any) => {
-                if (source.link) {
-                  allSources.push({
-                    title: source.title || source.author || 'X post',
-                    url: source.link,
-                    content: source.text || '',
-                    publishedDate: source.publishedDate || '',
-                    favicon: `https://www.google.com/s2/favicons?domain=x.com&sz=128`,
-                  });
-                }
+              xSources.forEach((source) => {
+                allSources.push({
+                  title: source.title,
+                  url: source.link,
+                  content: source.text,
+                  publishedDate: source.publishedDate,
+                  favicon: getFaviconUrl(source.link),
+                });
               });
 
-              const enrichedCitations = xSources.map((source: any) => ({
+              const enrichedCitations = xSources.map((source) => ({
                 url: source.link,
-                title: source.title || source.author || 'X post',
+                title: source.title,
                 description: source.text,
                 tweet_id: source.id,
                 author: source.author,

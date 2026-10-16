@@ -1,7 +1,7 @@
 'use client';
 
 import { useOptimizedScroll } from '@/hooks/use-optimized-scroll';
-import { getFaviconUrl } from '@/lib/url';
+import { getDisplayHostname, getFaviconUrl, getHostFaviconUrl } from '@/lib/url';
 import type { extremeSearchTool, Research } from '@/lib/tools/extreme-search';
 import type { UIToolInvocation } from 'ai';
 import React, { useEffect, useState, memo, useMemo, useRef, useCallback } from 'react';
@@ -1482,12 +1482,7 @@ const ExtremeSearchComponent = ({
                             }}
                           >
                             {unifiedGroupSources.map((source, index) => {
-                              let hostname = '';
-                              try {
-                                hostname = new URL(source.url).hostname.replace('www.', '');
-                              } catch {
-                                hostname = source.url;
-                              }
+                              const hostname = getDisplayHostname(source.url) || source.url;
                               return (
                                 <a
                                   key={index}
@@ -1496,15 +1491,11 @@ const ExtremeSearchComponent = ({
                                   className="flex items-center gap-2.5 px-2 py-1.5 text-[12px] hover:bg-accent/50 rounded-sm transition-colors"
                                 >
                                   <img
-                                    src={
-                                      source.favicon ||
-                                      `https://www.google.com/s2/favicons?sz=128&domain=${encodeURIComponent(hostname)}`
-                                    }
+                                    src={source.favicon || getHostFaviconUrl(hostname)}
                                     alt=""
                                     className="h-4 w-4 rounded shrink-0"
                                     onError={(e) => {
-                                      (e.currentTarget as HTMLImageElement).src =
-                                        'https://www.google.com/s2/favicons?sz=128&domain=example.com';
+                                      (e.currentTarget as HTMLImageElement).src = getHostFaviconUrl('example.com');
                                       (e.currentTarget as HTMLImageElement).style.filter = 'grayscale(100%)';
                                     }}
                                   />
@@ -1710,12 +1701,7 @@ const ExtremeSearchComponent = ({
                               const url = typeof citation === 'string' ? citation : citation.url;
                               let title = typeof citation === 'object' ? citation.title : '';
                               if (!title) title = 'X post';
-                              let hostname = '';
-                              try {
-                                hostname = new URL(url || '').hostname.replace('www.', '');
-                              } catch {
-                                hostname = url || '';
-                              }
+                              const hostname = getDisplayHostname(url) || url || '';
                               return (
                                 <a
                                   key={index}
@@ -1724,16 +1710,11 @@ const ExtremeSearchComponent = ({
                                   className="flex items-center gap-2.5 px-2 py-1.5 text-[12px] hover:bg-accent/50 rounded-sm transition-colors"
                                 >
                                   <img
-                                    src={
-                                      hostname
-                                        ? `https://www.google.com/s2/favicons?sz=128&domain=${encodeURIComponent(hostname)}`
-                                        : 'https://www.google.com/s2/favicons?sz=128&domain=example.com'
-                                    }
+                                    src={getHostFaviconUrl(hostname || 'example.com')}
                                     alt=""
                                     className="h-4 w-4 rounded shrink-0"
                                     onError={(e) => {
-                                      (e.currentTarget as HTMLImageElement).src =
-                                        'https://www.google.com/s2/favicons?sz=128&domain=example.com';
+                                      (e.currentTarget as HTMLImageElement).src = getHostFaviconUrl('example.com');
                                       (e.currentTarget as HTMLImageElement).style.filter = 'grayscale(100%)';
                                     }}
                                   />
@@ -2183,7 +2164,7 @@ const ExtremeSearchComponent = ({
                                 className="inline-flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-0.5 text-[10px] text-foreground"
                               >
                                 <img
-                                  src={`https://www.google.com/s2/favicons?domain=${hostname}&sz=16`}
+                                  src={getHostFaviconUrl(hostname, 16)}
                                   alt=""
                                   className="h-2.5 w-2.5 rounded-sm object-contain"
                                   onError={(e) => {
@@ -2214,9 +2195,7 @@ const ExtremeSearchComponent = ({
                               return (
                                 <div key={index} className="flex items-start gap-2 text-[11px]">
                                   <img
-                                    src={
-                                      result.favicon || `https://www.google.com/s2/favicons?domain=${hostname}&sz=16`
-                                    }
+                                    src={result.favicon || getHostFaviconUrl(hostname, 16)}
                                     alt=""
                                     className="h-3.5 w-3.5 rounded-sm object-contain shrink-0 mt-0.5"
                                     onError={(e) => {

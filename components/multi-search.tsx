@@ -8,6 +8,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Spinner } from '@/components/ui/spinner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
+import { getDisplayHostname, getFaviconUrl } from '@/lib/url';
 import { CustomUIDataTypes, DataQueryCompletionPart } from '@/lib/types';
 import type { DataUIPart } from 'ai';
 import { Sparkles as SparklesIcon } from 'lucide-react';
@@ -101,21 +102,11 @@ type NormalizedMultiSearchArgs = {
 // Constants
 const PREVIEW_IMAGE_COUNT = 5;
 
-// Utility function for favicon
-const getFaviconUrl = (url: string) => {
-  try {
-    const domain = new URL(url).hostname;
-    return `https://www.google.com/s2/favicons?sz=128&domain=${domain}`;
-  } catch {
-    return null;
-  }
-};
-
 // Source Card Component
 const SourceCard: React.FC<{ result: SearchResult; onClick?: () => void }> = React.memo(({ result, onClick }) => {
   const [imageLoaded, setImageLoaded] = React.useState(false);
   const faviconUrl = React.useMemo(() => getFaviconUrl(result.url), [result.url]);
-  const hostname = React.useMemo(() => new URL(result.url).hostname.replace('www.', ''), [result.url]);
+  const hostname = React.useMemo(() => getDisplayHostname(result.url) || result.url, [result.url]);
 
   return (
     <div

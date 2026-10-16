@@ -9,6 +9,7 @@ import { allSettled } from 'better-all';
 import { scrapeWithFastCrwForBrowsePage } from './self-hosted-content';
 
 import { createLogger } from '@/lib/logger';
+import { getFaviconUrl } from '@/lib/url';
 import { resolveFallbackSearchProvider, resolveSearchProvider } from '@/lib/instance/capabilities';
 import type { SearchProviderFor } from '@/lib/search/providers';
 
@@ -291,7 +292,7 @@ async function retrieveWithParallel(url: string): Promise<RetrieveContent | null
     title: extractResult.title || url.split('/').pop() || 'Retrieved Content',
     description: extractResult.full_content.slice(0, 200) + '...',
     publishedDate: extractResult.publish_date || undefined,
-    favicon: `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=128`,
+    favicon: getFaviconUrl(url),
     language: 'en',
   };
 }
@@ -317,7 +318,7 @@ async function retrieveWithFirecrawl(url: string): Promise<RetrieveContent | nul
     image:
       (typeof scrapeResponse.metadata?.image === 'string' ? scrapeResponse.metadata.image : undefined) ||
       (typeof scrapeResponse.metadata?.ogImage === 'string' ? scrapeResponse.metadata.ogImage : undefined),
-    favicon: `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=128`,
+    favicon: getFaviconUrl(url),
     language: scrapeResponse.metadata?.language || 'en',
   };
 }

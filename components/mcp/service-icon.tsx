@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { getHostFaviconUrl } from '@/lib/url';
 
 // Second-level TLDs that need 3 parts kept (e.g. mospi.gov.in → gov.in is the TLD)
 const SLD_TLDS = new Set([
@@ -41,8 +42,7 @@ function rootDomain(serverUrl: string): string {
 function faviconUrl(serverUrl: string): string {
   const domain = rootDomain(serverUrl);
   if (!domain) return '';
-  const google = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
-  return `/api/proxy-image?url=${encodeURIComponent(google)}`;
+  return `/api/proxy-image?url=${encodeURIComponent(getHostFaviconUrl(domain))}`;
 }
 
 // The favicon of the MCP server's root domain, or its initials when the URL

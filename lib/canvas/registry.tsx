@@ -55,6 +55,7 @@ import {
 } from '@/components/reui/timeline';
 import { canvasCatalog } from './catalog';
 import { cn } from '../utils';
+import { getDisplayHostname, getHostFaviconUrl } from '../url';
 
 // =============================================================================
 // Registry — styled to match Zetora's design language
@@ -289,12 +290,7 @@ export const { registry } = defineRegistry(canvasCatalog, {
     },
 
     Link: ({ props }) => {
-      let domain = '';
-      try {
-        domain = new URL(props.href).hostname.replace(/^www\./, '');
-      } catch {
-        /* ignore */
-      }
+      const domain = getDisplayHostname(props.href);
       return (
         <a
           href={props.href}
@@ -302,13 +298,7 @@ export const { registry } = defineRegistry(canvasCatalog, {
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border/40 bg-muted/20 hover:bg-muted/40 transition-colors text-[11px] text-foreground no-underline"
         >
-          <img
-            src={`https://www.google.com/s2/favicons?domain=${domain}&sz=16`}
-            alt=""
-            width={12}
-            height={12}
-            className="rounded-sm shrink-0"
-          />
+          <img src={getHostFaviconUrl(domain, 16)} alt="" width={12} height={12} className="rounded-sm shrink-0" />
           <span className="text-muted-foreground">{domain || props.text}</span>
         </a>
       );
@@ -789,12 +779,7 @@ export const { registry } = defineRegistry(canvasCatalog, {
     },
 
     SourceCard: ({ props }) => {
-      let domain = '';
-      try {
-        domain = new URL(props.url).hostname.replace(/^www\./, '');
-      } catch {
-        /* ignore */
-      }
+      const domain = getDisplayHostname(props.url);
       return (
         <a
           href={props.url}
@@ -803,7 +788,7 @@ export const { registry } = defineRegistry(canvasCatalog, {
           className="group flex items-start gap-3 rounded-lg border border-border/40 p-3 hover:bg-muted/20 transition-colors"
         >
           <img
-            src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`}
+            src={getHostFaviconUrl(domain, 32)}
             alt=""
             width={16}
             height={16}
@@ -885,14 +870,9 @@ export function sanitizeInlineHtml(text: string): string {
       .replace(/&lt;(\/?(strong|em|b|i|code|br|mark|u|s|sub|sup))&gt;/gi, '<$1>')
       // Convert markdown links [text](url) to pill anchors with favicon
       .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, (_match, label, url) => {
-        let domain = '';
-        try {
-          domain = new URL(url).hostname.replace(/^www\./, '');
-        } catch {
-          /* ignore */
-        }
+        const domain = getDisplayHostname(url);
         const favicon = domain
-          ? `<img src="https://www.google.com/s2/favicons?domain=${domain}&amp;sz=128" width="12" height="12" style="border-radius:50%;display:inline;vertical-align:middle;margin-right:3px" alt="" />`
+          ? `<img src="${getHostFaviconUrl(domain).replace(/&/g, '&amp;')}" width="12" height="12" style="border-radius:50%;display:inline;vertical-align:middle;margin-right:3px" alt="" />`
           : '';
         return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 px-1.5 py-0.25 rounded-md border border-border/40 bg-muted/30 text-[11px] text-foreground hover:bg-muted/60 no-underline transition-colors align-baseline">${favicon}${label}</a>`;
       })

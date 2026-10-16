@@ -8,6 +8,7 @@
 // stacks where thoroughness matters more than speed).
 
 import { createLogger } from '@/lib/logger';
+import { getDisplayHostname } from '@/lib/url';
 
 const log = createLogger('web-search-limits');
 
@@ -71,14 +72,6 @@ export function normalizeUrl(rawUrl: string): string {
   }
 }
 
-function domainOf(rawUrl: string): string {
-  try {
-    return new URL(rawUrl).hostname.replace(/^www\./, '');
-  } catch {
-    return rawUrl;
-  }
-}
-
 // Truncates at the last word boundary before the limit; prefixes the
 // publication date so the model can weigh recency without extra fields.
 export function formatSnippet(result: SearchResultItem, maxChars: number = SNIPPET_MAX_CHARS): string {
@@ -122,7 +115,7 @@ export function dedupeAndCapSearches<T extends SearchEntry>(
       const urlKey = normalizeUrl(result.url);
       if (seenUrls.has(urlKey)) continue;
 
-      const domain = domainOf(result.url);
+      const domain = getDisplayHostname(result.url) || result.url;
       if ((domainCounts.get(domain) ?? 0) >= perDomainCap) continue;
 
       seenUrls.add(urlKey);

@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Cambio } from 'cambio';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { getDisplayHostname, getHostFaviconUrl } from '@/lib/url';
 import {
   SpotifyIcon,
   getPlatformFromUrl,
@@ -70,13 +71,7 @@ const LinkPreviewContent = ({ href, title }: { href: string; title?: string }) =
   const [googleFaviconError, setGoogleFaviconError] = useState(false);
   const [proxyError, setProxyError] = useState(false);
 
-  const domain = useMemo(() => {
-    try {
-      return new URL(href).hostname.replace('www.', '');
-    } catch {
-      return '';
-    }
-  }, [href]);
+  const domain = useMemo(() => getDisplayHostname(href), [href]);
 
   if (!domain) return null;
 
@@ -87,7 +82,7 @@ const LinkPreviewContent = ({ href, title }: { href: string; title?: string }) =
   const displayTitle = metadata?.title && !isAccessDenied ? metadata.title : title;
 
   const metadataFavicon = metadata?.favicon;
-  const googleFavicon = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+  const googleFavicon = getHostFaviconUrl(domain);
 
   // Determine favicon source based on error states
   let favicon: string;
@@ -163,13 +158,7 @@ const LinkPreviewContent = ({ href, title }: { href: string; title?: string }) =
 };
 
 export const LinkPreview = React.memo(({ href, title }: { href: string; title?: string }) => {
-  const domain = useMemo(() => {
-    try {
-      return new URL(href).hostname.replace('www.', '');
-    } catch {
-      return '';
-    }
-  }, [href]);
+  const domain = useMemo(() => getDisplayHostname(href), [href]);
 
   const displayDomain = getDisplayDomain(domain);
 
@@ -341,7 +330,7 @@ const CitationItem = React.memo(
   }) => {
     const [faviconError, setFaviconError] = useState(false);
     const [proxyError, setProxyError] = useState(false);
-    const googleFavicon = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+    const googleFavicon = getHostFaviconUrl(domain);
     const proxiedFavicon = `/api/proxy-image?url=${encodeURIComponent(googleFavicon)}`;
     const platform = getPlatformFromUrl(url);
 
@@ -425,14 +414,7 @@ CitationItem.displayName = 'CitationItem';
 export const CitationGroup = React.memo(({ urls, texts, elementKey }: CitationGroupProps) => {
   const isMobile = useIsMobile();
   const [isOpen, setIsOpen] = useState(false);
-  const firstDomain = useMemo(() => {
-    try {
-      const hostname = new URL(urls[0]).hostname.replace('www.', '');
-      return getDisplayDomain(hostname);
-    } catch {
-      return getDisplayDomain(urls[0]);
-    }
-  }, [urls]);
+  const firstDomain = useMemo(() => getDisplayDomain(getDisplayHostname(urls[0]) || urls[0]), [urls]);
 
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLSpanElement>) => {
@@ -471,12 +453,7 @@ export const CitationGroup = React.memo(({ urls, texts, elementKey }: CitationGr
       </div>
       <div className="max-h-[320px] overflow-y-auto divide-y divide-border/20">
         {urls.map((url, index) => {
-          let domain = '';
-          try {
-            domain = new URL(url).hostname.replace('www.', '');
-          } catch {
-            domain = url;
-          }
+          const domain = getDisplayHostname(url) || url;
 
           const displayDomain = getDisplayDomain(domain);
 

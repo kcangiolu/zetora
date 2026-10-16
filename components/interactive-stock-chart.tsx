@@ -35,6 +35,7 @@ import { Chart03Icon } from '@hugeicons/core-free-icons';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MarkdownRenderer } from '@/components/markdown';
+import { getDisplayHostname, getFaviconUrl } from '@/lib/url';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 // Currency symbol mapping with modern design tokens
@@ -1972,7 +1973,7 @@ const InteractiveStockChart = React.memo(
                                 <div className="flex items-center gap-1.5">
                                   <div className="relative w-3 h-3 rounded-sm overflow-hidden">
                                     <img
-                                      src={`https://www.google.com/s2/favicons?sz=128&domain=${new URL(news.url).hostname}`}
+                                      src={getFaviconUrl(news.url)}
                                       alt=""
                                       className="w-3 h-3 object-contain"
                                       onError={(e) => {
@@ -1982,7 +1983,7 @@ const InteractiveStockChart = React.memo(
                                     />
                                   </div>
                                   <span className="text-[9px] text-muted-foreground/60 truncate max-w-[80px]">
-                                    {new URL(news.url).hostname.replace('www.', '')}
+                                    {getDisplayHostname(news.url)}
                                   </span>
                                 </div>
                                 {news.published_date && (
@@ -2040,7 +2041,7 @@ const InteractiveStockChart = React.memo(
                                 <div className="flex items-center gap-1.5">
                                   <div className="relative w-3 h-3 rounded-sm overflow-hidden">
                                     <img
-                                      src={`https://www.google.com/s2/favicons?sz=128&domain=${new URL(news.url).hostname}`}
+                                      src={getFaviconUrl(news.url)}
                                       alt=""
                                       className="w-3 h-3 object-contain"
                                       onError={(e) => {
@@ -2050,7 +2051,7 @@ const InteractiveStockChart = React.memo(
                                     />
                                   </div>
                                   <span className="text-[9px] text-muted-foreground/60 truncate max-w-[80px]">
-                                    {new URL(news.url).hostname.replace('www.', '')}
+                                    {getDisplayHostname(news.url)}
                                   </span>
                                 </div>
                                 {news.published_date ? (

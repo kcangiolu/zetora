@@ -123,6 +123,7 @@ import { HermesPromptCard } from './hermes-prompt';
 import { HermesMediaCard } from './hermes-media';
 import { DynamicToolInvocationCard, DynamicToolStepper, CanvasSpecRenderer, CodeContextTool } from './tools';
 import type { McpTimelineEntry } from './tools';
+import { getDisplayHostname, getHostFaviconUrl } from '@/lib/url';
 
 // Non-empty text of a message, one entry per text part, for exports.
 function getMessageTextParts(message: ChatMessage): string[] {
@@ -388,14 +389,9 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
           const url = sourcePart.url?.trim();
           if (!url) return acc;
 
-          let hostname = url;
-          try {
-            hostname = new URL(url).hostname.replace(/^www\./, '');
-          } catch {}
+          const hostname = getDisplayHostname(url) || url;
 
-          const favicon = `/api/proxy-image?url=${encodeURIComponent(
-            `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`,
-          )}`;
+          const favicon = `/api/proxy-image?url=${encodeURIComponent(getHostFaviconUrl(hostname, 64))}`;
 
           const rawTitle = sourcePart.title?.trim() || '';
           const displayTitle =

@@ -10,8 +10,20 @@ function safeHostname(url: string | null | undefined): string {
   }
 }
 
-// The site's favicon, from Google's favicon service.
-export function getFaviconUrl(url: string | null | undefined): string {
+// The hostname without its leading "www.", for display.
+export function getDisplayHostname(url: string | null | undefined): string {
+  return safeHostname(url).replace(/^www\./, '');
+}
+
+type FaviconSize = 16 | 32 | 64 | 128;
+
+// A host's favicon, from Google's favicon service.
+export function getHostFaviconUrl(hostname: string, size: FaviconSize = 128): string {
+  return `https://www.google.com/s2/favicons?sz=${size}&domain=${encodeURIComponent(hostname)}`;
+}
+
+// The favicon of the site a URL points to.
+export function getFaviconUrl(url: string | null | undefined, size: FaviconSize = 128): string {
   const hostname = safeHostname(url);
-  return hostname ? `https://www.google.com/s2/favicons?sz=128&domain=${encodeURIComponent(hostname)}` : '';
+  return hostname ? getHostFaviconUrl(hostname, size) : '';
 }

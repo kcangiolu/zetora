@@ -1,23 +1,17 @@
 import { generateText, tool, stepCountIs } from 'ai';
 import { z } from 'zod';
-import { getTweet } from 'react-tweet/api';
 import { xai } from '@ai-sdk/xai';
 import { UIMessageStreamWriter } from 'ai';
 import { ChatMessage } from '@/lib/types';
-import { all } from 'better-all';
 
 import { createLogger } from '@/lib/logger';
+import { dedupeCitations, hydrateXPosts, resolveXSearchDateRange, sanitizeXHandles } from '@/lib/tools/x-citations';
 
 // xAI's X search tool only runs on xAI's own models; the model here only
 // drives the tool, so a fast non-reasoning one is enough.
 export const X_SEARCH_MODEL_ID = 'grok-4-1-fast-non-reasoning';
 
 const log = createLogger('x-search');
-
-interface CitationSource {
-  sourceType?: string;
-  url?: string;
-}
 
 export function xSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>) {
   return tool({
@@ -67,23 +61,9 @@ export function xSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>) {
       ),
     execute: async ({ queries, startDate, endDate, includeXHandles, excludeXHandles }) => {
       try {
-        const sanitizeHandle = (handle: string) => handle.replace(/^@+/, '').trim();
-
-        const normalizedInclude = Array.isArray(includeXHandles)
-          ? includeXHandles.map(sanitizeHandle).filter(Boolean)
-          : undefined;
-        const normalizedExclude = Array.isArray(excludeXHandles)
-          ? excludeXHandles.map(sanitizeHandle).filter(Boolean)
-          : undefined;
-
-        const toYMD = (d: Date) => d.toISOString().slice(0, 10);
-        const extractTweetId = (url: string) => url.match(/status\/(\d+)/)?.[1] || null;
-        const canonicalTweetLink = (tweetId: string | null, fallback: string | undefined) =>
-          tweetId ? `https://x.com/i/status/${tweetId}` : fallback || '';
-        const today = new Date();
-        const daysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000);
-        const effectiveStart = startDate && startDate.trim().length > 0 ? startDate : toYMD(daysAgo);
-        const effectiveEnd = endDate && endDate.trim().length > 0 ? endDate : toYMD(today);
+        const normalizedInclude = sanitizeXHandles(includeXHandles);
+        const normalizedExclude = sanitizeXHandles(excludeXHandles);
+        const { start: effectiveStart, end: effectiveEnd } = resolveXSearchDateRange(startDate, endDate);
 
         log.debug('[X search - queries]:', queries);
         log.debug('[X search - includeHandles]:', normalizedInclude, '[excludeHandles]:', normalizedExclude);
@@ -137,80 +117,8 @@ export function xSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>) {
 
             log.debug(`[X search data for "${query}"]: `, text);
 
-            const citations = (Array.isArray(sources) ? sources : []) as CitationSource[];
-            let allSources = [];
-
-            if (citations.length > 0) {
-              // Deduplicate citations within this query by URL
-              const seenCitationUrls = new Set<string>();
-              const uniqueCitations = citations
-                .filter((link) => link.sourceType === 'url')
-                .filter((link) => {
-                  const url = link.url || '';
-                  const tweetId = extractTweetId(url);
-                  const key = tweetId || url;
-                  if (key && !seenCitationUrls.has(key)) {
-                    seenCitationUrls.add(key);
-                    return true;
-                  }
-                  return false;
-                });
-
-              const tweetFetchPromises = uniqueCitations.map(async (link) => {
-                try {
-                  const tweetUrl = link.url || '';
-                  const tweetId = extractTweetId(tweetUrl);
-
-                  if (!tweetId) return null;
-
-                  const tweetData = await getTweet(tweetId);
-                  if (!tweetData) return null;
-
-                  const text = tweetData.text;
-                  if (!text) return null;
-
-                  return {
-                    text: text,
-                    link: canonicalTweetLink(tweetId, tweetUrl),
-                    id: tweetId,
-                  };
-                } catch (error) {
-                  log.error(`Error fetching tweet data for ${link.sourceType === 'url' ? link.url : ''}:`, error);
-                  return null;
-                }
-              });
-
-              const tweetResults = await Promise.all(tweetFetchPromises);
-
-              const validTweets = tweetResults.filter((result) => result !== null);
-
-              // Deduplicate allSources within this query by link
-              const seenSourceLinks = new Set<string>();
-              const uniqueTweets = validTweets.filter((tweet) => {
-                const key = tweet?.link || tweet?.id;
-                if (tweet && key && !seenSourceLinks.has(key)) {
-                  seenSourceLinks.add(key);
-                  return true;
-                }
-                return false;
-              });
-
-              allSources.push(...uniqueTweets);
-            }
-
-            // Deduplicate citations by URL
-            const seenCitationKeys = new Set<string>();
-            const uniqueCitationsForReturn = citations.filter((citation) => {
-              if (citation.sourceType !== 'url') return true;
-              const url = citation.url || '';
-              const tweetId = extractTweetId(url);
-              const key = tweetId || url;
-              if (key && !seenCitationKeys.has(key)) {
-                seenCitationKeys.add(key);
-                return true;
-              }
-              return false;
-            });
+            const allSources = await hydrateXPosts(sources);
+            const uniqueCitationsForReturn = dedupeCitations(sources);
 
             const sourcesCount = allSources.length;
 

@@ -25,6 +25,7 @@ import {
   preloadCitationMetadata,
 } from './citation-previews';
 import { SpotifyIcon, getFilePreviewDefinition, getPlatformFromUrl, getDisplayDomain } from './shared';
+import { getDisplayHostname } from '@/lib/url';
 
 interface MarkdownRendererProps {
   content: string;
@@ -315,13 +316,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
         }
 
         // Default citation rendering
-        let displayDomain = '';
-        try {
-          const url = new URL(href);
-          displayDomain = getDisplayDomain(url.hostname.replace('www.', ''));
-        } catch {
-          displayDomain = getDisplayDomain(href);
-        }
+        const displayDomain = getDisplayDomain(getDisplayHostname(href) || href);
         return renderHoverCard(href, displayDomain, true, citationText, key);
       },
       [renderHoverCard],

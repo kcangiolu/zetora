@@ -8,6 +8,7 @@ import { Drawer, DrawerContent } from '@/components/ui/drawer';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
+import { getDisplayHostname, getFaviconUrl } from '@/lib/url';
 import { Globe, ArrowUpRight, TextIcon, ChevronDown, Layers } from 'lucide-react';
 import { LightningIcon } from '@phosphor-icons/react';
 
@@ -55,30 +56,14 @@ const getProxiedImageUrl = (url: string) => {
   return needsProxy ? `/api/proxy-image?url=${encodeURIComponent(url)}` : url;
 };
 
-// Get favicon URL
-const getFaviconUrl = (url: string, favicon?: string) => {
-  if (favicon) {
-    return getProxiedImageUrl(favicon);
-  }
-  try {
-    const domain = new URL(url).hostname;
-    return `https://www.google.com/s2/favicons?sz=128&domain=${domain}`;
-  } catch {
-    return null;
-  }
-};
+const getResultFaviconUrl = (url: string, favicon?: string) =>
+  favicon ? getProxiedImageUrl(favicon) : getFaviconUrl(url);
 
 // Source Card Component - For multi-URL display
 const SourceCard: React.FC<{ result: RetrieveResult; onClick?: () => void }> = React.memo(({ result, onClick }) => {
   const [imageLoaded, setImageLoaded] = React.useState(false);
-  const faviconUrl = React.useMemo(() => getFaviconUrl(result.url, result.favicon), [result.url, result.favicon]);
-  const hostname = React.useMemo(() => {
-    try {
-      return new URL(result.url).hostname.replace('www.', '');
-    } catch {
-      return result.url;
-    }
-  }, [result.url]);
+  const faviconUrl = React.useMemo(() => getResultFaviconUrl(result.url, result.favicon), [result.url, result.favicon]);
+  const hostname = React.useMemo(() => getDisplayHostname(result.url) || result.url, [result.url]);
 
   return (
     <div
@@ -150,13 +135,7 @@ const RetrieveSingleResult: React.FC<{ result: RetrieveResponse }> = ({ result }
     );
   }
 
-  const hostname = (() => {
-    try {
-      return new URL(singleResult.url).hostname.replace('www.', '');
-    } catch {
-      return singleResult.url;
-    }
-  })();
+  const hostname = getDisplayHostname(singleResult.url) || singleResult.url;
 
   return (
     <div className="rounded-xl border border-border/60 my-4 overflow-hidden bg-card/30">
@@ -188,13 +167,13 @@ const RetrieveSingleResult: React.FC<{ result: RetrieveResponse }> = ({ result }
                 height={48}
                 unoptimized
                 onError={(e) => {
-                  e.currentTarget.src = `https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(singleResult.url)}`;
+                  e.currentTarget.src = getFaviconUrl(singleResult.url, 64);
                 }}
               />
             ) : (
               <Image
                 className="w-full h-full object-contain rounded-lg"
-                src={`https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(singleResult.url)}`}
+                src={getFaviconUrl(singleResult.url, 64)}
                 alt=""
                 width={48}
                 height={48}
@@ -277,14 +256,8 @@ const RetrieveSingleResult: React.FC<{ result: RetrieveResponse }> = ({ result }
 
 // Enhanced Source Card for Multi-URL
 const EnhancedSourceCard: React.FC<{ result: RetrieveResult; index: number }> = React.memo(({ result }) => {
-  const faviconUrl = React.useMemo(() => getFaviconUrl(result.url, result.favicon), [result.url, result.favicon]);
-  const hostname = React.useMemo(() => {
-    try {
-      return new URL(result.url).hostname.replace('www.', '');
-    } catch {
-      return result.url;
-    }
-  }, [result.url]);
+  const faviconUrl = React.useMemo(() => getResultFaviconUrl(result.url, result.favicon), [result.url, result.favicon]);
+  const hostname = React.useMemo(() => getDisplayHostname(result.url) || result.url, [result.url]);
 
   return (
     <div className="px-3.5 py-2.5 hover:bg-muted/10 transition-colors group">
@@ -316,7 +289,7 @@ const EnhancedSourceCard: React.FC<{ result: RetrieveResult; index: number }> = 
                 height={14}
                 unoptimized
                 onError={(e) => {
-                  e.currentTarget.src = `https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(result.url)}`;
+                  e.currentTarget.src = getFaviconUrl(result.url, 64);
                 }}
               />
             )}

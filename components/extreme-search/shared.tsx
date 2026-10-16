@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Cambio } from 'cambio';
 import { cn } from '@/lib/utils';
+import { getDisplayHostname, getFaviconUrl } from '@/lib/url';
 import dynamic from 'next/dynamic';
 import { Spinner } from '@/components/ui/spinner';
 
@@ -191,16 +192,6 @@ export interface ExtremeSearchSource {
   author?: string;
 }
 
-// Utility function for favicon (matching multi-search)
-const getFaviconUrl = (url: string) => {
-  try {
-    const domain = new URL(url).hostname;
-    return `https://www.google.com/s2/favicons?sz=128&domain=${domain}`;
-  } catch {
-    return null;
-  }
-};
-
 // Source Card Component for Extreme Search (minimal design)
 export const ExtremeSourceCard: React.FC<{
   source: ExtremeSearchSource;
@@ -209,12 +200,7 @@ export const ExtremeSourceCard: React.FC<{
   const [imageLoaded, setImageLoaded] = React.useState(false);
   const faviconUrl = source.favicon || getFaviconUrl(source.url);
 
-  let hostname = '';
-  try {
-    hostname = new URL(source.url).hostname.replace('www.', '');
-  } catch {
-    hostname = source.url;
-  }
+  const hostname = getDisplayHostname(source.url) || source.url;
 
   return (
     <div

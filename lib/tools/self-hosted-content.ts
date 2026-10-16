@@ -6,6 +6,7 @@ import { FASTCRW_SCRAPE_TIMEOUT_MS, withAbort } from '@/lib/timeouts';
 
 import { createLogger } from '@/lib/logger';
 import { getLinkMetadata } from '@/lib/link-metadata';
+import { getHostFaviconUrl } from '@/lib/url';
 
 const log = createLogger('selfhosted-content');
 
@@ -93,7 +94,7 @@ async function scrapeWithFastCrw(
       url,
       content: markdown.slice(0, maxContentChars),
       publishedDate: data?.data?.metadata?.publishedDate || data?.metadata?.publishedDate || '',
-      favicon: `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`,
+      favicon: getHostFaviconUrl(hostname),
     };
   } catch (error) {
     log.error(`[SelfHostedContent] fastCRW scrape error for ${url}:`, error);
@@ -124,7 +125,7 @@ async function scrapeWithNotte(url: string, maxContentChars: number = SEARCH_CON
       url,
       content: result.markdown.slice(0, maxContentChars),
       publishedDate: '',
-      favicon: `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`,
+      favicon: getHostFaviconUrl(hostname),
     };
   } catch (error) {
     log.error(`[SelfHostedContent] Notte error for ${url}:`, error);
@@ -145,7 +146,7 @@ async function scrapeWithMetadata(url: string): Promise<SearchResult | null> {
     url,
     content: content || title,
     publishedDate: '',
-    favicon: data.favicon || `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`,
+    favicon: data.favicon || getHostFaviconUrl(hostname),
     description: data.description,
     canonical: data.canonical,
     ogUrl: data.ogUrl,
