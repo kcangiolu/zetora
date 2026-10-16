@@ -190,7 +190,7 @@ export const message = pgTable(
     index('message_chatId_idx').on(table.chatId),
     index('message_chatId_createdAt_idx').on(table.chatId, table.createdAt),
     // NOTE: the GIN index on search_vector is intentionally NOT declared here.
-    // It's created by hand via CREATE INDEX CONCURRENTLY (see create_indexes.sql)
+    // It's created by hand via CREATE INDEX CONCURRENTLY (see drizzle/create_indexes.sql)
     // to avoid locking this hot table during migration.
   ],
 );

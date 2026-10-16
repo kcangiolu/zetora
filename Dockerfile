@@ -16,8 +16,8 @@ WORKDIR /app
 
 # Copy package files and install dependencies using pnpm
 # pnpm is used for faster and more efficient package management
-COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml* ./
-RUN corepack enable pnpm && pnpm i;
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN corepack enable pnpm && pnpm install --frozen-lockfile
 
 # Stage 2: Building the application
 # This stage builds the Next.js application
@@ -99,6 +99,5 @@ FROM base AS migrate
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY drizzle/ ./drizzle/
-COPY create_indexes.sql ./
 COPY scripts/migrate.js scripts/backfill-uploaded-files.js ./scripts/
 CMD ["node", "scripts/migrate.js"]

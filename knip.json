@@ -3,12 +3,10 @@
   "ignore": [
     "public/pcm-processor-worklet.js",
     "public/sw.js",
-    "scripts/migrate.js",
     "scripts/backfill-uploaded-files.js",
     "components/ui/**",
     "hermes-relay-service/**"
   ],
-  "ignoreBinaries": ["vc"],
   "ignoreDependencies": [
     "postcss-load-config"
   ]

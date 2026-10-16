@@ -12,6 +12,7 @@ export const serverEnv = createEnv({
     GOOGLE_AGENT_PLATFORM_API_KEY: z.string().optional().default('placeholder'),
     GOOGLE_AGENT_PLATFORM_PROJECT: z.string().optional(),
     DAYTONA_API_KEY: z.string().optional(),
+    DAYTONA_SNAPSHOT: z.string().optional(),
     SANDBOX_PROVIDER: z.enum(['daytona', 'docker']).optional(),
     S3_ENDPOINT: z.string().optional(),
     S3_ACCESS_KEY_ID: z.string().optional(),

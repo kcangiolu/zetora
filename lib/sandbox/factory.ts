@@ -16,7 +16,12 @@ export function getSandboxProvider(): SandboxProvider {
       if (!serverEnv.DAYTONA_API_KEY) {
         throw new Error('Code execution: SANDBOX_PROVIDER=daytona needs DAYTONA_API_KEY (see .env.example)');
       }
-      return new DaytonaSandboxProvider(serverEnv.DAYTONA_API_KEY);
+      if (!serverEnv.DAYTONA_SNAPSHOT) {
+        throw new Error(
+          'Code execution: SANDBOX_PROVIDER=daytona needs DAYTONA_SNAPSHOT, created by scripts/create-daytona-snapshot.py',
+        );
+      }
+      return new DaytonaSandboxProvider(serverEnv.DAYTONA_API_KEY, serverEnv.DAYTONA_SNAPSHOT);
     default:
       throw new Error('Code execution is not configured: set SANDBOX_PROVIDER to docker or daytona (see .env.example)');
   }

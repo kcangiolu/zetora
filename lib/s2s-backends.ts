@@ -2,12 +2,12 @@ export const VOICE_S2S_BACKENDS = [
   {
     value: 'cloud' as const,
     label: 'Cloud (xAI Realtime)',
-    description: 'Speech-to-speech via xAI Grok Realtime, voix Ara/Rex/…',
+    description: 'Speech-to-speech via xAI Grok Realtime, voices Ara, Rex…',
   },
   {
     value: 'local' as const,
     label: 'Self-hosted',
-    description: 'STT/LLM/TTS auto-hébergés (Whisper, modèle sélectionné, Custom TTS Server)',
+    description: 'Self-hosted STT, LLM and TTS (Whisper, the selected model, a custom TTS server)',
   },
 ] as const;
 

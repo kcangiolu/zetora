@@ -2,15 +2,15 @@
 
 A fork of [Scira](https://github.com/zaidmukaddam/scira) by Zaid Mukaddam, extended into an agentic research platform.
 
-Research at the speed of thought. The agentic research platform that plans, retrieves, and cites — so you can think faster.
+Zetora is a self-hostable chat and research app: a model of your choice answers with live web search and other tools, and cites the sources it used.
 
 Runs either way, your choice: entirely against managed cloud providers with zero extra infrastructure (the default — see [All-Cloud Configuration](#all-cloud-configuration)), or as a fully [self-hosted stack](#self-hosted-stack) where every cloud dependency has a local, opt-in alternative. Per-service, not all-or-nothing — self-host just your file storage while keeping cloud search, say.
 
 ## How It Works
 
-1. **Ask anything** — Type a question, upload a PDF, or paste a URL. Toggle sources and skills, or let Auto decide the strategy for you.
-2. **Zetora plans & retrieves** — The agent breaks your question into sub-tasks, searches live sources, and cross-checks the evidence.
-3. **Get cited answers** — Receive a grounded answer with inline citations. Click any source to verify it yourself.
+1. You ask a question, optionally with files or URLs. Sources and skills can be toggled per session, or left to the Auto strategy.
+2. The model plans the steps, calls the search and data tools it needs, and reads the results.
+3. The answer carries inline citations linking to each source.
 
 ## Features
 
@@ -27,15 +27,15 @@ Runs either way, your choice: entirely against managed cloud providers with zero
 
 ### Sources & Special Modes
 
-Zetora no longer asks you to pick a search mode before every message. All former modes (Web, X, Academic, Reddit, GitHub, Stocks, Crypto, Prediction, YouTube, Spotify, Code, Extreme, Chat, …) are now **always-on sources** you can toggle per session or hide globally in Customize — the agent (or the **Auto** strategy) picks the right ones for each question.
+Sources (Web, X, Academic, Reddit, GitHub, Stocks, Crypto, Prediction, YouTube, Spotify, Code, Extreme, Chat, …) are **always on**: toggle them per session or hide them globally in Customize, and the agent (or the **Auto** strategy) picks the right ones for each question.
 
 A few modes remain **exclusive per-message selections**, because they replace the whole toolset for that turn:
 
-| Special mode    | Description                                                                            |
-| --------------- | -------------------------------------------------------------------------------------- |
-| **Memory**      | Your personal memory companion: an editable profile plus facts learned from your chats |
-| **Apps (MCP)**  | Use tools from your connected MCP apps                                                 |
-| **Canvas**      | Research and generate interactive dashboards and visual reports                        |
+| Special mode   | Description                                                                            |
+| -------------- | -------------------------------------------------------------------------------------- |
+| **Memory**     | Your personal memory companion: an editable profile plus facts learned from your chats |
+| **Apps (MCP)** | Use tools from your connected MCP apps                                                 |
+| **Canvas**     | Research and generate interactive dashboards and visual reports                        |
 
 **Voice** (real-time conversational AI, with a fully local speech-to-speech backend) lives on its own dedicated page.
 
@@ -145,7 +145,9 @@ Pick one row, set `COMPOSE_PROFILES` in `.env` to its value, then point the matc
 
 Zetora only offers what the instance has. A search provider shows up in Settings and in the chat's sources once its API key or URL is set; Hybrid Search once `QDRANT_URL` is; Data protection once `ANONYMIZER_API_URL` is; the local voice backend once `VOICE_S2S_URL` is. With the bundled containers, these URLs are the Docker service names given in `.env.example`. Each search function picks the user's choice when the instance has it, else the first available provider in a fixed order: the self-hosted services, then Exa, Firecrawl and Parallel. A function with no provider at all is not offered, and Settings says what it needs. Fallback providers are off unless the user turns them on.
 
-All services share the `zetora-network` Docker network and resolve each other by service name. Most services are bound to `127.0.0.1`; only `zetora.app` (port 3333), Silo's API port, and `s2s-service` publish beyond loopback (for reverse-proxy and browser access).
+All services share the `zetora-network` Docker network and resolve each other by service name. Most services are bound to `127.0.0.1`; only `zetora.app` (port 3333), Silo's API port, `s2s-service` and `hermes-relay-service` publish beyond loopback (for reverse-proxy, browser and gateway access).
+
+The `sandbox` service runs as root with the host's Docker socket, which amounts to root access on the host. Enable it only on a host dedicated to this stack, or use Daytona.
 
 Beyond the bundled infrastructure, Zetora also adds:
 
@@ -165,18 +167,18 @@ Beyond the bundled infrastructure, Zetora also adds:
 
 If you'd rather not run the bundled services, Zetora can run entirely against managed/cloud providers. Don't start the corresponding compose services and set the matching environment variables instead:
 
-| Self-hosted service | Cloud alternative                 | Configuration                                                                                                                                   |
-| ------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Postgres            | Vercel Postgres / Neon / Supabase | `DATABASE_URL` (+ optional `READ_DB_1`/`READ_DB_2` read replicas)                                                                               |
-| Redis               | Upstash Redis                     | `REDIS_URL`                                                                                                                                     |
-| Silo                | Cloudflare R2 / AWS S3            | `S3_ENDPOINT`, keys, bucket, `S3_PUBLIC_URL` and `S3_REGION` of the service (examples in `.env.example`)                                        |
-| Qdrant              | — (disabled)                      | leave `QDRANT_URL` unset: Settings then hides Hybrid Search                                                                                     |
-| SearXNG             | Exa / Firecrawl / Parallel        | the provider's API key (`EXA_API_KEY`, …); only providers whose key or URL is set are offered                                                   |
-| fastCRW             | Firecrawl                         | `FIRECRAWL_API_KEY`; only providers whose key or URL is set are offered                                                                         |
-| Sandbox             | Daytona                           | `SANDBOX_PROVIDER=daytona` with `DAYTONA_API_KEY`                                                                                               |
-| Presidio            | — (disabled)                      | leave `ANONYMIZER_API_URL` unset: Settings then hides Data protection                                                                           |
-| Voice pipeline      | ElevenLabs / xAI Realtime         | leave `VOICE_S2S_URL` unset: Settings then only offers the cloud backend                                                                        |
-| BullMQ              | Upstash QStash                    | `LOOKOUT_SCHEDULER=qstash` with `QSTASH_TOKEN` (the only option on hosts with no long-running process, such as Vercel)                        |
+| Self-hosted service | Cloud alternative                 | Configuration                                                                                                                   |
+| ------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Postgres            | Vercel Postgres / Neon / Supabase | `DATABASE_URL` (+ optional `READ_DB_1`/`READ_DB_2` read replicas)                                                               |
+| Redis               | Upstash Redis                     | `REDIS_URL`                                                                                                                     |
+| Silo                | Cloudflare R2 / AWS S3            | `S3_ENDPOINT`, keys, bucket, `S3_PUBLIC_URL` and `S3_REGION` of the service (examples in `.env.example`)                        |
+| Qdrant              | — (disabled)                      | leave `QDRANT_URL` unset: Settings then hides Hybrid Search                                                                     |
+| SearXNG             | Exa / Firecrawl / Parallel        | the provider's API key (`EXA_API_KEY`, …); only providers whose key or URL is set are offered                                   |
+| fastCRW             | Firecrawl                         | `FIRECRAWL_API_KEY`; only providers whose key or URL is set are offered                                                         |
+| Sandbox             | Daytona                           | `SANDBOX_PROVIDER=daytona` with `DAYTONA_API_KEY` and `DAYTONA_SNAPSHOT` (created once by `scripts/create-daytona-snapshot.py`) |
+| Presidio            | — (disabled)                      | leave `ANONYMIZER_API_URL` unset: Settings then hides Data protection                                                           |
+| Voice pipeline      | ElevenLabs / xAI Realtime         | leave `VOICE_S2S_URL` unset: Settings then only offers the cloud backend                                                        |
+| BullMQ              | Upstash QStash                    | `LOOKOUT_SCHEDULER=qstash` with `QSTASH_TOKEN` (the only option on hosts with no long-running process, such as Vercel)          |
 
 See `.env.example` for the full catalog of provider and feature environment variables.
 
@@ -240,9 +242,9 @@ Use this for day-to-day development. It runs the Next.js app directly on your ma
    - `DATABASE_URL` — a Postgres connection string. You can use the self-hosted Postgres for this: start it alone with `docker compose up -d postgres` (reads `.env`) and connect to `postgresql://postgres:<POSTGRES_PASSWORD>@localhost:5432/zetora`.
    - `BETTER_AUTH_SECRET` — generate with `openssl rand -base64 32`.
    - At least one AI provider key (e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY`).
-4. Apply database migrations (reads `DATABASE_URL` from `.env.local` via `drizzle.config.ts`):
+4. Apply database migrations and create the indexes (reads `DATABASE_URL` from `.env.local`, same runner as the `db-migrate` container):
    ```bash
-   pnpm drizzle-kit migrate
+   pnpm db:migrate
    ```
 5. Start the dev server:
    ```bash
@@ -261,7 +263,7 @@ Use this to deploy Zetora on a server. By default it runs against cloud provider
    git clone https://github.com/kcangiolu/zetora.git
    cd zetora
    ```
-2. Create `.env` (gitignored — never commit it). Fill in at least:
+2. Create `.env` from the template (`cp .env.example .env`; it is gitignored, never commit it). Fill in at least:
    - **Domain**: `NEXT_PUBLIC_APP_URL`, `BETTER_AUTH_BASE_URL`, `ALLOWED_ORIGINS` — set to your public URL (e.g. `https://zetora.example.com`).
    - **Core secrets**: `BETTER_AUTH_SECRET` (generate with `openssl rand -base64 32`), `POSTGRES_PASSWORD`.
    - **Silo** (`minio` profile): `MINIO_ROOT_PASSWORD` (and optionally `MINIO_ROOT_USER`, `S3_PUBLIC_URL`).

@@ -28,6 +28,15 @@ describe('getSandboxProvider', () => {
     });
     expect(() => getSandboxProvider()).toThrow('needs DAYTONA_API_KEY');
   });
+
+  it('requires the snapshot when Daytona is chosen', async () => {
+    const { getSandboxProvider } = await load<Module>('@/lib/sandbox/factory', {
+      SANDBOX_PROVIDER: 'daytona',
+      DAYTONA_API_KEY: 'key',
+      DAYTONA_SNAPSHOT: '',
+    });
+    expect(() => getSandboxProvider()).toThrow('needs DAYTONA_SNAPSHOT');
+  });
 });
 
 describe('getLookoutScheduler', () => {

@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import type { ChatMessage, CustomUIDataTypes } from '@/lib/types';
+import { createLogger } from '@/lib/logger';
 import { UseChatHelpers } from '@ai-sdk/react';
 import {
   AppBridge,
@@ -363,8 +364,10 @@ function getSafeToolUiResourceUri(candidate: unknown): string | undefined {
   }
 }
 
+const mcpAppLog = createLogger('mcp-app');
+
 function logMcpAppDebug(event: string, details?: Record<string, unknown>) {
-  console.debug('[mcp-app]', event, details ?? {});
+  mcpAppLog.debug(event, details ?? {});
 }
 
 export function extractMcpAppRenderData(output: unknown): McpAppRenderData | null {

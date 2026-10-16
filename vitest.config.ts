@@ -13,7 +13,6 @@ export default defineConfig({
       include: [
         'lib/speakable-text.ts',
         'lib/parser.ts',
-        'lib/discount.ts',
         'lib/search-utils.ts',
         'lib/utils.ts',
         'lib/rate-limit.ts',

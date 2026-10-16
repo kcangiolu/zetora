@@ -15,7 +15,7 @@ allowBuilds:
 # npm-only and silently ignored by pnpm — this is the field pnpm actually
 # reads (pnpm.io/settings).
 overrides:
-  react-is: ^19.0.0-rc-69d4b800-20241021
+  react-is: ^19.2.7
   '@types/node': ^25.5.0
   path-to-regexp: '>=6.3.0'
   tar: '>=7.5.16'

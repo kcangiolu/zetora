@@ -1,5 +1,4 @@
 import { Daytona } from '@daytonaio/sdk';
-import { SNAPSHOT_NAME } from '@/lib/constants';
 import type { SandboxProvider, SandboxResult } from './types';
 import { wrapCodeForFileCapture, parseFileMarker } from './file-capture';
 
@@ -8,11 +7,14 @@ import { createLogger } from '@/lib/logger';
 const log = createLogger('daytona-provider');
 
 export class DaytonaSandboxProvider implements SandboxProvider {
-  constructor(private apiKey: string) {}
+  constructor(
+    private apiKey: string,
+    private snapshot: string,
+  ) {}
 
   async execute(code: string, _timeoutMs?: number, installLibs: string[] = []): Promise<SandboxResult> {
     const daytona = new Daytona({ apiKey: this.apiKey, target: 'us' });
-    const sandbox = await daytona.create({ snapshot: SNAPSHOT_NAME });
+    const sandbox = await daytona.create({ snapshot: this.snapshot });
 
     try {
       if (installLibs.length > 0) {

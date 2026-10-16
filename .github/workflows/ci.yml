@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # env/server.ts (t3-env) hard-requires these two; dummy values are enough
+      # for lint, typecheck, tests and build.
+      DATABASE_URL: postgresql://user:pass@localhost:5432/ci
+      BETTER_AUTH_SECRET: ci-placeholder-secret
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # unpdf's optional `canvas` dependency compiles through node-gyp.
+      - name: Install canvas build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends \
+            build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev pkg-config python3
+
+      # Version read from package.json's packageManager field.
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Dead code check
+        run: pnpm knip
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      # Compose needs the env_file to exist; its content doesn't matter for a
+      # syntax and interpolation check.
+      - name: Validate docker-compose
+        env:
+          POSTGRES_PASSWORD: ci-placeholder
+        run: |
+          touch .env
+          docker compose -f docker-compose.yml config -q

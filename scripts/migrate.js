@@ -25,7 +25,7 @@ try {
   console.log('[migrate] Drizzle migrations complete.');
 
   console.log('[migrate] Creating performance indexes...');
-  const indexSql = readFileSync(join(root, 'create_indexes.sql'), 'utf8');
+  const indexSql = readFileSync(join(root, 'drizzle/create_indexes.sql'), 'utf8');
   // Each CREATE INDEX CONCURRENTLY must run outside a transaction.
   // client.query() never opens one implicitly — this is safe.
   const statements = indexSql

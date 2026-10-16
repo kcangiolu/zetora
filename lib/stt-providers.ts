@@ -2,14 +2,14 @@ export const STT_PROVIDERS = [
   {
     value: 'elevenlabs' as const,
     label: 'ElevenLabs',
-    description: 'Scribe v2 — transcription haute précision',
+    description: 'Scribe v2, high-accuracy transcription',
     requiresApiKey: true,
     defaultModel: 'scribe_v2',
   },
   {
     value: 'openai-compatible' as const,
     label: 'Custom (OpenAI-compatible)',
-    description: 'Parakeet, Whisper local, ou tout serveur /v1/audio/transcriptions',
+    description: 'Parakeet, local Whisper, or any /v1/audio/transcriptions server',
     requiresApiKey: false,
     defaultModel: 'whisper-1',
   },

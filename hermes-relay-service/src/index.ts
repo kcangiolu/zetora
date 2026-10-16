@@ -22,6 +22,10 @@ import { isAuthorizedInternalCaller } from './internalAuth.js';
 const wss = new WebSocketServer({ noServer: true });
 
 const server = createServer((req, res) => {
+  if (req.method === 'GET' && req.url === '/health') {
+    res.writeHead(200).end('ok');
+    return;
+  }
   if (req.method === 'POST' && req.url === '/relay/enroll') {
     void handleEnroll(req, res);
     return;

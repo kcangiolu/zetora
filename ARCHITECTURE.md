@@ -10,7 +10,7 @@ Zetora is a self-hosted, AI-powered agentic search engine — a fork of [Scira](
 | Language                | TypeScript (strict), checked with `tsgo` (`@typescript/native-preview`)                                                                 |
 | AI                      | Vercel AI SDK v6 (`ai`) + many providers (`@ai-sdk/*`, OpenRouter, Ollama, custom OpenAI-compatible providers)                          |
 | UI                      | Tailwind CSS v4, Shadcn/Radix UI, Framer Motion, ECharts/visx/Recharts                                                                  |
-| Auth                    | Better Auth (GitHub / Google / Twitter OAuth)                                                                                           |
+| Auth                    | Better Auth (email + password, optional GitHub / Google / Twitter / Microsoft OAuth, 2FA)                                               |
 | ORM / DB                | Drizzle ORM + PostgreSQL 17 (migrations in `drizzle/migrations`)                                                                        |
 | Caching / rate limiting | Redis (`ioredis` / `redis`), sliding-window rate limiting via Redis sorted sets                                                         |
 | Object storage          | Any S3-compatible service: bundled Silo (MinIO fork), Cloudflare R2, AWS S3... (`S3_*`)                                                 |
@@ -19,90 +19,101 @@ Zetora is a self-hosted, AI-powered agentic search engine — a fork of [Scira](
 | Long-term memory        | Native, in Postgres (`lib/memory`) — bio + facts, no extra service                                                                      |
 | Job scheduling          | BullMQ + dedicated Redis (self-hosted alternative to QStash) — powers "Lookouts" (scheduled searches)                                   |
 | Code sandbox            | Docker-based code interpreter (`onyxdotapp/code-interpreter`) or Daytona (SaaS)                                                         |
-| Voice                   | Qwen3 TTS (GPU, FastAPI, `tts-service/`) and NVIDIA Parakeet STT (`stt-service/`); ElevenLabs as SaaS alternative                       |
-| Email                   | Resend or SMTP (nodemailer), templates in `components/emails` (react-email)                                                             |
+| Voice                   | Qwen3 TTS (`tts-service/`), NVIDIA Parakeet STT (`stt-service/`), speech-to-speech relay (`s2s-service/`); ElevenLabs / xAI as SaaS     |
+| Email                   | SMTP (nodemailer), templates in `components/emails` (react-email)                                                                       |
 
 ## Repository layout
 
 ```
 app/                    Next.js App Router
-  (auth)/ (content)/ (search)/   Route groups (sign-in, legal pages, main search UI)
+  (auth)/ (content)/ (search)/   Route groups (sign-in, About/Privacy, main search UI)
   api/                  API routes (see below)
-  actions/              Server actions (chat, history, usage…)
-  lookout/ new/ search/ searches/ settings/ share/ voice/  Pages
+  actions/              Server actions (chats, user, preferences, push…)
+  apps/ lookout/ new/ search/ searches/ settings/ share/ voice/  Pages
 ai/                     AI provider layer
   catalog/              Model catalog built from models.dev: labs/hosts config, routing, reasoning options, role models
   providers.ts          Resolves a model id to its provider chain (lab API, then aggregators) or a custom provider
+  native-models/        Native llama.cpp and Ollama language models
   models/               Client-safe model types and helpers
-  xml-tool-middleware.ts XML tool-call parsing middleware for models without native tool support
-components/             React components (chat interface, search results, charts, maps…)
+components/             React components (chat interface, message parts, search results, charts, maps…)
 contexts/ hooks/        React contexts and hooks
 env/server.ts           t3-env schema — all server env vars validated with Zod
 lib/
-  db/                   Drizzle schema (26 KB) + queries (63 KB)
-  tools/                ~40 AI tools (web search, extreme search, stock charts, flights, YouTube, Reddit, X, maps, code interpreter…)
-  search/               Search orchestration (group-config 144 KB, tool-loader, auto-router)
-  services/             BullMQ service (lookout scheduling)
-  mcp/                  MCP client, OAuth flows, credential encryption
-  sandbox/              Sandbox providers (docker / daytona)
-  vector/               Qdrant integration (content indexer, hybrid search, cache cleanup)
+  db/                   Drizzle schema and queries (one module per domain in queries/)
+  tools/                AI tools (web search, extreme search, stock charts, flights, YouTube, Reddit, X, maps, code interpreter…)
+  search/               Search orchestration (search groups, tool loader, auto-router, context budget)
   memory/               Native long-term memory (bio + facts: injection, per-turn update, consolidation)
-  canvas/               Canvas rendering registry (json-render)
+  mcp/                  MCP client, OAuth flows, credential encryption
+  sandbox/              Code execution providers (docker / daytona)
+  vector/               Qdrant integration (content indexer, hybrid search, cache cleanup)
+  anonymizer/           Optional PII pseudonymization before prompts leave the instance
+  hermes/               Hermes Agent connector (experimental, behind NEXT_PUBLIC_HERMES_ENABLED)
+  canvas/ skills/       Canvas rendering registry, skill catalog
+  net/                  Outbound fetch guards (public-URL checks, capped downloads)
+  services/             BullMQ (lookout scheduling)
   auth.ts               Better Auth configuration
-drizzle/migrations/     SQL migrations (0000 → 0010)
-tts-service/            Python Qwen3-TTS FastAPI service (GPU)
+drizzle/                SQL migrations (drizzle/migrations) and create_indexes.sql
+tts-service/ stt-service/ s2s-service/   Python voice services
+presidio-service/       PII detection service for the anonymizer
+hermes-relay-service/   Relay between users' Hermes gateways and the app
 searxng/                SearXNG settings
-scripts/migrate.js      Migration runner used by the db-migrate container
+scripts/                Migration runner (db-migrate container), Daytona snapshot setup
 public/                 Static assets
 ```
 
 ## API routes (`app/api`)
 
-| Route                                                   | Purpose                                                                   |
-| ------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `search` (POST)                                         | Main chat/search endpoint — streams AI responses with tools (73 KB route) |
-| `search/[id]/stream`, `search/[id]/stop`                | Resumable stream reconnect / stop                                         |
-| `auth/[...all]`                                         | Better Auth handler                                                       |
-| `upload`, `clean_images`, `proxy-image`                 | File upload (S3/R2/Blob), image cleaning/proxying                         |
-| `export/docx`, `export/pdf`                             | Chat export                                                               |
-| `lookout`                                               | Scheduled search execution (BullMQ/QStash callback)                       |
-| `mcp/*`                                                 | MCP server CRUD, OAuth flows, elicitation, apps bridge                    |
-| `models`                                                | Model picker catalog and the instance's default/fast models               |
-| `custom-providers*`                                     | Custom OpenAI-compatible provider management (detect, models)             |
-| `tts/stream`, `transcribe`                              | Voice synthesis / transcription                                           |
-| `suggest`, `raycast`, `preferences`                     | Misc features                                                             |
+| Route                                             | Purpose                                                           |
+| ------------------------------------------------- | ----------------------------------------------------------------- |
+| `search` (POST)                                   | Main chat/search endpoint — streams AI responses with tools       |
+| `search/[id]/stream`, `search/[id]/stop`          | Resumable stream reconnect / stop                                 |
+| `auth/[...all]`                                   | Better Auth handler                                               |
+| `upload`, `downloads`, `proxy-image`              | File uploads, generated files, image proxying                     |
+| `export/docx`, `export/pdf`                       | Chat export                                                       |
+| `lookout`                                         | Scheduled search execution (BullMQ/QStash callback)               |
+| `mcp/*`                                           | MCP server CRUD, OAuth flows, elicitation, apps bridge            |
+| `models`, `instance/capabilities`                 | Model picker catalog, what this instance has configured           |
+| `custom-providers*`                               | Custom OpenAI-compatible provider management (detect, models)     |
+| `tts/stream`, `transcribe`, `voice/local-session` | Voice synthesis, transcription, local speech-to-speech sessions   |
+| `v1/chat/completions`                             | OpenAI-compatible endpoint (used by the speech-to-speech service) |
+| `hermes/*`, `internal/hermes/*`                   | Hermes Agent connector (user side / relay side)                   |
+| `og/*`, `link-metadata`                           | Share images, link previews                                       |
+| `diagnostics/services`                            | Health of the configured services, for Settings                   |
+| `suggest`, `raycast`, `preferences`               | Misc features                                                     |
 
 ## Environment & configuration
 
-- `env/server.ts` validates all server env vars (t3-env + Zod). Only `DATABASE_URL` and `BETTER_AUTH_SECRET` are hard-required; everything else defaults to `"placeholder"` and degrades the matching feature.
+- `env/server.ts` validates all server env vars (t3-env + Zod). Only `DATABASE_URL` and `BETTER_AUTH_SECRET` are needed to boot; a feature whose configuration is missing fails with an error naming the variable to set.
 - `.env.example` documents every variable; `.env` feeds Docker, `.env.local` feeds `pnpm dev` and `drizzle-kit`.
-- `next.config.ts` sets `output: 'standalone'` (for the Docker runner stage), React Compiler, security headers (X-Frame-Options, nosniff, Referrer-Policy) and MathJax font aliases for both Turbopack and Webpack.
+- `next.config.ts` sets `output: 'standalone'` (for the Docker runner stage), React Compiler, security headers and MathJax font aliases for both Turbopack and Webpack.
 
 ## Docker stack (`docker-compose.yml`)
 
-All services live on the `zetora-network` bridge; only `zetora.app` (port 3333) is meant to be exposed. Everything else binds to `127.0.0.1`.
+All services live on the `zetora-network` bridge. By default only Postgres, Redis, the migrations and the app start; every other service is behind a profile (see the table atop `docker-compose.yml`). Internal services bind to `127.0.0.1`; the ones a browser or a remote gateway must reach are published on all interfaces and meant to sit behind a reverse proxy with TLS.
 
-| Service                           | Image                                                      | Host port      | Role                                                                                                                            |
-| --------------------------------- | ---------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `zetora.app`                      | built from `Dockerfile` (target `runner`)                  | 3333           | Next.js app                                                                                                                     |
-| `db-migrate`                      | same image, target `migrate`                               | —              | Runs Drizzle migrations, exits                                                                                                  |
-| `postgres`                        | postgres:17-alpine                                         | 5432           | Primary DB                                                                                                                      |
-| `redis`                           | redis:7-alpine                                             | 6379           | Cache / sessions / rate limits                                                                                                  |
-| `minio` (+ `minio-create-bucket`) | pgsty/silo                                                 | 9010→9000/9001 | S3 storage + console — API port (9010) is public-reachable, not loopback-only: put TLS in front and point `S3_PUBLIC_URL` at it |
-| `qdrant`                          | qdrant                                                     | 6333/6334      | Vector cache                                                                                                                    |
-| `searxng` (+ `searxng-redis`)     | searxng                                                    | 8090→8080      | Metasearch                                                                                                                      |
-| `fastcrw`                         | ghcr.io/us/crw                                             | 3004→3000      | Scraper/search (Firecrawl-compatible)                                                                                           |
-| `sandbox`                         | onyxdotapp/code-interpreter                                | 8003→8000      | Python code execution (docker.sock)                                                                                             |
-| `bullmq-redis`                    | redis:7-alpine (port 6381, AOF)                            | 6381           | BullMQ backing store                                                                                                            |
-| `bullboard`                       | nauverse/bull-board                                        | 3001           | Queue dashboard                                                                                                                 |
-| `qwen3-tts`                       | built from `tts-service/` (GPU, `profiles: [tts]`, opt-in) | 8585→8080      | Text-to-speech                                                                                                                  |
-| `stt-service`                     | built from `stt-service/` (GPU, `profiles: [voice]`)       | 9002→8080      | Speech-to-text (NVIDIA Parakeet)                                                                                                |
+| Service                           | Image                                   | Profile  | Host port             | Role                                                    |
+| --------------------------------- | --------------------------------------- | -------- | --------------------- | ------------------------------------------------------- |
+| `zetora.app`                      | `Dockerfile`, target `runner`           | —        | 3333                  | Next.js app                                             |
+| `db-migrate`                      | `Dockerfile`, target `migrate`          | —        | —                     | Runs Drizzle migrations and `create_indexes.sql`, exits |
+| `postgres`                        | postgres:17-alpine                      | —        | 127.0.0.1:5432        | Primary DB                                              |
+| `redis`                           | redis:7-alpine                          | —        | 127.0.0.1:6379        | Cache, resumable streams, rate limits                   |
+| `minio` (+ `minio-create-bucket`) | pgsty/silo                              | minio    | 9010, 127.0.0.1:9001  | S3 storage (API public for direct downloads) + console  |
+| `qdrant`                          | qdrant/qdrant                           | qdrant   | 127.0.0.1:6333/6334   | Vector cache, hybrid search                             |
+| `searxng` (+ `searxng-redis`)     | searxng/searxng                         | searxng  | 127.0.0.1:8090        | Metasearch                                              |
+| `fastcrw` (+ `chrome`)            | ghcr.io/us/crw, chromedp/headless-shell | fastcrw  | 127.0.0.1:3004        | Scraper/search (Firecrawl-compatible)                   |
+| `sandbox`                         | onyxdotapp/code-interpreter             | sandbox  | 127.0.0.1:8003        | Python code execution (root, host Docker socket)        |
+| `presidio-api`                    | `presidio-service/`                     | presidio | 127.0.0.1:8004        | PII detection for the anonymizer                        |
+| `bullmq-redis` (+ `bullboard`)    | redis:7-alpine, nauverse/bull-board     | bullmq   | 127.0.0.1:6381, :3001 | Lookout job queue and its dashboard                     |
+| `qwen3-tts`                       | `tts-service/` (NVIDIA GPU)             | tts      | 127.0.0.1:8585        | Text-to-speech                                          |
+| `stt-service`                     | `stt-service/` (NVIDIA GPU)             | voice    | 127.0.0.1:9002        | Speech-to-text (NVIDIA Parakeet)                        |
+| `s2s-service`                     | `s2s-service/`                          | voice    | 8100                  | Local speech-to-speech relay (browser WebSocket)        |
+| `hermes-relay-service`            | `hermes-relay-service/`                 | hermes   | 8201                  | Relay for users' Hermes gateways                        |
 
-Build flow: `Dockerfile` has `deps` → `builder` (Next.js build with placeholder secrets) → `runner` (standalone output) and a `migrate` target (drizzle migrations + `create_indexes.sql`).
+The `selfhosted` profile groups the CPU-only services, from `minio` to `bullmq`. Third-party images are pinned to a version. `Dockerfile` stages: `deps` → `builder` (Next.js build with placeholder secrets) → `runner` (standalone output), plus `migrate`.
 
 ## Key flows
 
-1. **Search/chat**: `POST /api/search` → auth + rate limiting → model selection (`ai/providers.ts`, `lib/search/auto-router.ts`) → `streamText` with tools loaded per search group (`lib/search/group-config.ts`, `tool-loader.ts`) → results streamed to the client (resumable via `ai-resumable-stream` + Redis); chats persisted through Drizzle (`lib/db/queries.ts`).
+1. **Search/chat**: `POST /api/search` → auth + rate limiting → model selection (`ai/providers.ts`, `lib/search/auto-router.ts`) → `streamText` with tools loaded per search group (`lib/search/group-config.ts`, `tool-loader.ts`) → results streamed to the client (resumable via `ai-resumable-stream` + Redis); chats persisted through Drizzle (`lib/db/queries/`).
 2. **Web search tools**: SearXNG/fastCRW first when configured, SaaS providers otherwise; scraped content can be embedded and cached in Qdrant (`lib/vector`).
 3. **Lookouts**: user-scheduled searches; BullMQ repeatable jobs (`lib/services/bullmq.ts`) call back into `/api/lookout` (QStash used instead when BullMQ is disabled).
 4. **Memory** (`lib/memory`): a user-editable bio and atomic facts in Postgres. The bio and core facts go into the system prompt; other facts are matched lexically against the message and appended to it. After each answer, the conversation's own model (or a dedicated one) proposes memory changes through structured output, validated in code (new facts stay candidates until confirmed in another chat); a weekly consolidation merges and re-tiers them.
@@ -111,13 +122,13 @@ Build flow: `Dockerfile` has `deps` → `builder` (Next.js build with placeholde
 ## Security & resilience notes
 
 - **Server-side proxies** (`/api/proxy-image`) never accept the upstream URL from a client header. The image proxy allows only http(s), blocks private/reserved IP ranges (re-checked on every redirect hop), and restricts responses to `image/*` capped at 10 MB with a 10 s timeout.
-- **Scheduled search callbacks** (`/api/lookout`) require the `CRON_SECRET` shared secret (sent as `x-lookout-secret`, or `Upstash-Forward-x-lookout-secret` through QStash). The endpoint returns 503 when the secret is unset so a forgotten env var fails closed. `/api/clean_images` follows the same rule.
+- **Scheduled search callbacks** (`/api/lookout`) require the `CRON_SECRET` shared secret (sent as `x-lookout-secret`, or `Upstash-Forward-x-lookout-secret` through QStash). The endpoint returns 503 when the secret is unset so a forgotten env var fails closed.
 - **Rate limiting** (`lib/rate-limit.ts`) is built lazily and fails closed: if `REDIS_URL` isn't configured, unauthenticated requests are denied rather than crashing the route.
 - **SQL**: all Drizzle `sql` template interpolations are parameterized (no `sql.raw`), so raw string concatenation is not a SQL-injection vector.
-- **Headers** (`next.config.ts`): `X-Frame-Options: DENY` (except public legal pages), `nosniff`, `Referrer-Policy`, HSTS and a `Permissions-Policy`. Optimized SVGs are served inert (CSP sandbox + `Content-Disposition: attachment`). A global page CSP is intentionally **not** set: the app loads many third-party scripts/styles (maps, charts, embeds) and a strict policy would need per-source auditing — tracked as future work.
+- **Headers** (`next.config.ts`): `X-Frame-Options: DENY` (except public legal pages), `nosniff`, `Referrer-Policy`, HSTS and a `Permissions-Policy`. Optimized SVGs are served inert (CSP sandbox + `Content-Disposition: attachment`). `proxy.ts` sets a per-request nonce CSP (`lib/csp.ts`), currently in report-only mode until every page has been checked against it.
 - **Auth origins**: Better Auth `trustedOrigins`/`allowedOrigins` derive from `NEXT_PUBLIC_APP_URL`, `BETTER_AUTH_BASE_URL` and the optional `ALLOWED_ORIGINS` list, so a self-hosted fork works without code edits.
 - **Custom AI providers** are stored per-user in that user's preferences (`zetora-custom-providers`); the only instance-wide source is the admin-controlled `CUSTOM_AI_PROVIDERS` env var — there is no cross-user overwrite.
-- **Environment validation**: `env/server.ts` (t3-env + Zod) validates every server var at startup; only `DATABASE_URL` and `BETTER_AUTH_SECRET` are required, everything else degrades its feature and logs a `[env]` warning when left at the `"placeholder"` default.
+- **Environment validation**: `env/server.ts` (t3-env + Zod) validates every server var at startup and logs an `[env]` warning for each one left at its `"placeholder"` default.
 
 ## Tooling
 
@@ -125,4 +136,5 @@ Build flow: `Dockerfile` has `deps` → `builder` (Next.js build with placeholde
 - `pnpm typecheck` — `tsgo` (TypeScript native preview).
 - `pnpm test` / `test:coverage` — Vitest unit tests for pure/business-logic modules (`tests/`).
 - `pnpm build` — Next.js standalone build.
-- CI runs all four on push/PR to `main` via `.gitea/workflows/ci.yml` (Gitea Actions must be enabled on the repo and a runner registered for it to execute).
+- `pnpm knip` — unused files, exports and dependencies.
+- CI (`.github/workflows/ci.yml`) runs lint, knip, typecheck, tests, build and a `docker compose config` check on every push and pull request to `main`.

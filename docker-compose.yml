@@ -29,7 +29,6 @@
 #          ${DATA_DIR}/searxng \
 #          ${DATA_DIR}/whisper \
 #          ${DATA_DIR}/fastcrw \
-#          ${DATA_DIR}/fastcrw-app \
 #          ${DATA_DIR}/qwen3-tts/huggingface \
 #          ${DATA_DIR}/qwen3-tts/output \
 #          ${DATA_DIR}/qwen3-tts/voices \
@@ -71,11 +70,11 @@
 # All services share the `zetora-network` network and resolve each other by
 # service name (e.g. the app reaches Postgres at `postgres:5432`).
 #
-# Internal-only services (postgres, redis, qdrant, searxng, sandbox,
-# bullmq-redis, bullboard, stt-service) are bound to 127.0.0.1 — put a
-# reverse proxy in front of zetora.app (port 3333) for your domain, and use
-# an SSH tunnel if you need direct access to an admin UI (Silo console,
-# Bullboard, SearXNG, Qdrant dashboard).
+# Internal-only services (postgres, redis, qdrant, searxng, fastcrw, sandbox,
+# presidio-api, bullmq-redis, bullboard, qwen3-tts, stt-service) are bound to
+# 127.0.0.1 — put a reverse proxy in front of zetora.app (port 3333) for your
+# domain, and use an SSH tunnel if you need direct access to an admin UI
+# (Silo console, Bullboard, SearXNG, Qdrant dashboard).
 # =============================================================================
 
 services:
@@ -89,7 +88,7 @@ services:
     env_file:
       - .env
     environment:
-      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/zetora
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/zetora
     depends_on:
       postgres:
         condition: service_healthy
@@ -104,13 +103,13 @@ services:
 
   zetora.app:
     # Pulled from the registry only — this file has no `build:` sections on
-    # purpose (see the header comment). Images are built by
-    # .gitea/workflows/docker.yml, or locally by docker-compose.build.yml;
-    # both pass the NEXT_PUBLIC_* build-args.
+    # purpose (see the header comment). Images are built by the project's
+    # CI, or locally by docker-compose.build.yml; both pass the NEXT_PUBLIC_*
+    # build-args.
     image: ${ZETORA_APP_IMAGE:-zetora-app:local}
     container_name: zetora-app
     ports:
-      # NOT loopback-restricted, same reasoning as minio/s2s-service above:
+      # NOT loopback-restricted, same reasoning as minio/s2s-service below:
       # some reverse-proxy topologies run on a different host. If yours runs
       # on this same host, change this to '127.0.0.1:3333:3333' — and either
       # way, do NOT set TRUSTED_PROXY=true (see .env.example) unless you've
@@ -129,7 +128,7 @@ services:
       # The optional services the app offers (SEARXNG_URL, FASTCRW_URL,
       # QDRANT_URL, ANONYMIZER_API_URL) are not fixed here: set each in .env
       # to the service you run, see .env.example.
-      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/zetora
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/zetora
       - REDIS_URL=redis://redis:6379
       - DOCKER_SANDBOX_URL=http://sandbox:8000
       - S2S_SERVICE_URL=http://s2s-service:8080
@@ -180,7 +179,7 @@ services:
       - ${DATA_DIR}/postgres:/var/lib/postgresql/data
     environment:
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       - POSTGRES_DB=zetora
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U postgres']
@@ -298,7 +297,7 @@ services:
   # ---------------------------------------------------------------------------
   qdrant:
     profiles: ['qdrant', 'selfhosted']
-    image: qdrant/qdrant:latest
+    image: qdrant/qdrant:v1.19.2
     container_name: zetora-qdrant
     ports:
       - '127.0.0.1:6333:6333'
@@ -329,11 +328,10 @@ services:
   # ---------------------------------------------------------------------------
   searxng:
     profiles: ['searxng', 'selfhosted']
-    image: searxng/searxng:latest
+    image: searxng/searxng:2026.10.13-22c64b8d3
     container_name: zetora-searxng
     ports:
-      # Host port 8080 is taken by another stack on this box (immich) — the
-      # container still listens on 8080, only the host side moves.
+      # Host port 8090 rather than 8080, a port many other stacks claim.
       - '127.0.0.1:8090:8080'
     volumes:
       - ${DATA_DIR}/searxng:/etc/searxng:rw
@@ -366,7 +364,7 @@ services:
 
   searxng-redis:
     profiles: ['searxng', 'selfhosted']
-    image: redis:alpine
+    image: redis:7-alpine
     container_name: zetora-searxng-redis
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
@@ -392,19 +390,19 @@ services:
   # at loopback:9222 but never installs LightPanda itself — the `crw-server
   # setup` step that downloads it has to run at least once, and needs
   # somewhere writable to put it. `command` below runs setup (idempotent,
-  # tolerated if it fails) then execs the server; the rest of the image stays
-  # read-only. `chrome` is the vendor-recommended second-tier fallback for
-  # pages that crash LightPanda's JS engine (heavy SPA hydration).
+  # tolerated if it fails) from the writable /root volume, then execs the
+  # server; the rest of the image stays read-only. `chrome` is the
+  # vendor-recommended second-tier fallback for pages that crash LightPanda's
+  # JS engine (heavy SPA hydration).
   # ---------------------------------------------------------------------------
   fastcrw:
     profiles: ['fastcrw', 'selfhosted']
-    image: ghcr.io/us/crw:latest
+    image: ghcr.io/us/crw:0.37.2
     container_name: zetora-fastcrw
     # The image serves its HTTP API on port 3000 and ignores CRW_PORT, so map
     # the host port to 3000 and point FASTCRW_URL at :3000 (see zetora.app).
     ports:
-      # Host port 3003 is taken by another stack on this box (Gitea) — the
-      # container still listens on 3000, only the host side moves.
+      # Host port 3004, clear of the 3000-3003 range dev servers usually take.
       - '127.0.0.1:3004:3000'
     # Chrome's DevTools handler rejects CDP requests whose Host header isn't
     # "localhost" or a literal IP (DNS-rebinding protection) — the compose
@@ -412,15 +410,16 @@ services:
     # boot instead of hardcoding one (container IPs aren't stable across
     # recreates on the default bridge network).
     #
-    # `crw-server setup` only installs the LightPanda binary and writes a
-    # config.local.toml pinning renderer.mode to "lightpanda" alone (dropping
-    # chrome from the ladder) — override mode back to "auto" via env. It also
+    # `crw-server setup` installs the LightPanda binary and writes a
+    # config.local.toml into its working directory. Run from /root, that file
+    # stays out of the server's /app and the image's own config applies; mode
+    # is still forced to "auto" so chrome stays in the ladder. Setup also
     # doesn't start LightPanda itself ("Start the server with JS rendering:
     # lightpanda serve ... & crw-server" is printed, not run), so spawn it as
     # a background subprocess before exec'ing crw-server.
     command: >
       sh -c "
-      crw-server setup || true;
+      (cd /root && crw-server setup) || true;
       export CRW_RENDERER__MODE=auto;
       export CRW_RENDERER__CHROME__WS_URL=\"ws://$$(getent hosts chrome | awk '{print $$1}'):9222/\";
       /root/.local/bin/lightpanda serve --host 127.0.0.1 --port 9222 &
@@ -431,13 +430,6 @@ services:
       # (HOME=/root) — mount the whole home dir rather than guessing at one
       # subpath.
       - ${DATA_DIR}/fastcrw:/root
-      # `setup` also writes config.local.toml into its CWD (/app), regardless
-      # of CRW_USER_CONFIG_DIR. /app is otherwise part of the read-only image
-      # layer, so this volume is pre-seeded (once, by hand) with copies of
-      # the image's own config.default.toml/config.docker.toml to avoid
-      # shadowing them — see the fastcrw section of the deployment plan for
-      # how it was populated.
-      - ${DATA_DIR}/fastcrw-app:/app
     environment:
       - CRW_NO_AUTH=true
       # Without this, /v1/search always returns {"success":false,"errorCode":"search_disabled"} —
@@ -479,7 +471,7 @@ services:
     # a loopback-only debugging port, bridged to 0.0.0.0:9222 via socat — do
     # not pass --remote-debugging-port ourselves, it overrides the internal
     # port the entrypoint's own socat bridge forwards to and breaks it.
-    image: chromedp/headless-shell:latest
+    image: chromedp/headless-shell:156.0.8078.12
     container_name: zetora-chrome
     tmpfs:
       - /tmp
@@ -505,11 +497,13 @@ services:
 
   # ---------------------------------------------------------------------------
   # Sandbox (Code Interpreter tool — SANDBOX_PROVIDER=docker)
-  # Requires access to the host's Docker socket.
+  # Runs as root with the host's Docker socket, which is equivalent to root on
+  # the host: it starts one throwaway container per execution. Enable it only
+  # on a host dedicated to this stack, or use Daytona instead.
   # ---------------------------------------------------------------------------
   sandbox:
     profiles: ['sandbox', 'selfhosted']
-    image: onyxdotapp/code-interpreter
+    image: onyxdotapp/code-interpreter:0.4.9
     container_name: zetora-sandbox
     user: root
     ports:
@@ -551,18 +545,10 @@ services:
     deploy:
       resources:
         limits:
-          # 1G OOM-killed this on every start: it loads both en_core_web_lg
-          # and fr_core_news_lg (spaCy's large models, ~550MB each on disk)
-          # into memory at once during startup, well before it ever answers
-          # a health check — the container never got a chance to be "slow",
-          # it was killed outright.
-          #
-          # cpus was 1 until 2026-07-26: /detect used to run analyze()
-          # straight on uvicorn's single event loop (fully serialized), so
-          # extra cores did nothing. Now that main.py offloads it to a
-          # thread pool, concurrent requests can actually use more than one
-          # core — bumped to match the pool size (see _analyze_pool in
-          # presidio-service/main.py).
+          # Startup loads en_core_web_lg and fr_core_news_lg (spaCy's large
+          # models, ~550MB each) at once; less memory gets it OOM-killed
+          # before its first health check. cpus matches the analyze() thread
+          # pool (_analyze_pool in presidio-service/main.py).
           cpus: '4'
           memory: 3G
     restart: unless-stopped
@@ -606,19 +592,31 @@ services:
 
   bullboard:
     profiles: ['bullmq', 'selfhosted']
-    image: nauverse/bull-board:latest
+    image: nauverse/bull-board:v1.3.6
     container_name: zetora-bullboard
     ports:
       - '127.0.0.1:3001:3001'
     environment:
       - PORT=3001
-      - REDIS_HOST=bullmq-redis
-      - REDIS_PORT=6381
-      - REDIS_PASSWORD=${BULLMQ_REDIS_PASSWORD:-}
+      # The image reads REDIS_URL only, not REDIS_HOST/PORT/PASSWORD.
+      - REDIS_URL=redis://:${BULLMQ_REDIS_PASSWORD:-}@bullmq-redis:6381
       - BULL_PREFIX=bull
     depends_on:
       bullmq-redis:
         condition: service_healthy
+    healthcheck:
+      # Bun-only image, no shell or curl.
+      test:
+        [
+          'CMD',
+          'bun',
+          '-e',
+          "fetch('http://localhost:3001').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks:
       - zetora-network
     deploy:
@@ -632,9 +630,9 @@ services:
   # Qwen3 TTS (text-to-speech, NVIDIA GPU required)
   # ---------------------------------------------------------------------------
   qwen3-tts:
-    # Opt-in: not started by a plain `docker compose up -d`. It shares the
-    # GPU with llama.cpp, so keeping it resident starves the LLM of VRAM and
-    # tanks decode speed. Start on demand with:
+    # Opt-in: not started by a plain `docker compose up -d`. On a GPU shared
+    # with a local LLM, keeping it resident takes VRAM the LLM needs. Start
+    # on demand with:
     #   docker compose --profile tts up -d qwen3-tts
     # Or set COMPOSE_PROFILES=tts in .env to keep the container running.
     # The model itself still lazy-loads on first request and unloads after
@@ -644,7 +642,7 @@ services:
     container_name: zetora-qwen3-tts
     runtime: nvidia
     ports:
-      - '8585:8080'
+      - '127.0.0.1:8585:8080'
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
@@ -685,13 +683,10 @@ services:
 
   # ---------------------------------------------------------------------------
   # STT (speech-to-text, OpenAI-compatible /v1/audio/transcriptions)
-  # NVIDIA Parakeet TDT 0.6B v3 via transformers — plain PyTorch, no NeMo
-  # toolkit, no flash-attention, so unlike the previous Whisper/
-  # faster-whisper-server setup it doesn't depend on a third-party
-  # CTranslate2 build's CUDA-arch coverage: it reuses the exact torch/CUDA
-  # wheels already verified working on both the RTX 3090 and RTX 5060 Ti for
+  # NVIDIA Parakeet TDT 0.6B v3 via transformers: plain PyTorch, no NeMo
+  # toolkit and no flash-attention, on the same torch/CUDA wheels as
   # qwen3-tts. Multilingual with automatic language detection (25 European
-  # languages incl. French, ~5% WER) and smaller than Whisper medium.
+  # languages, ~5% WER).
   # The model itself lazy-loads on first request and unloads after 5min
   # idle; set EAGER_LOAD=true below to load it at container start instead.
   # ---------------------------------------------------------------------------
@@ -708,8 +703,7 @@ services:
       - EAGER_LOAD=${STT_EAGER_LOAD:-false}
       - DISABLE_IDLE_UNLOAD=${STT_DISABLE_IDLE_UNLOAD:-false}
     volumes:
-      # Legacy directory name from the previous whisper-stt service — it's
-      # just the HF cache dir, no need to migrate an existing deployment.
+      # Hugging Face model cache.
       - ${DATA_DIR}/whisper:/root/.cache/huggingface
     networks:
       - zetora-network
@@ -725,7 +719,7 @@ services:
   # cloud/xAI Realtime backend). CPU-only: Silero VAD is the only model that
   # runs here — STT/LLM/TTS are resolved by the app itself via callbacks to
   # /api/transcribe, /api/v1/chat/completions and /api/tts/stream. See
-  # s2s-service/server.py and the voice s2s plan for the full design.
+  # s2s-service/server.py.
   # ---------------------------------------------------------------------------
   s2s-service:
     profiles: ['voice']
@@ -733,12 +727,9 @@ services:
     container_name: zetora-s2s
     ports:
       # NOT loopback-restricted: the browser connects to this over
-      # VOICE_S2S_URL through your reverse proxy (see docker-compose.yml's
-      # own comment on that var), so the proxy has to be able to reach it.
-      # If your proxy runs in its own container/host (e.g. SWAG on a LAN
-      # IP), a loopback-only bind here 502s every /s2s/ request even though
-      # curl from the Docker host itself works fine. Same class of bug as
-      # MinIO's API port — see its comment below.
+      # VOICE_S2S_URL through your reverse proxy (see that variable on
+      # zetora.app), which may run on another host. Same reasoning as
+      # Silo's API port.
       - '8100:8080'
     environment:
       - APP_URL=http://zetora-app:3333
@@ -779,16 +770,26 @@ services:
       # NOT loopback-restricted, same reasoning as minio/s2s-service above: this
       # is the endpoint users' own Hermes gateways dial into from anywhere, so a
       # reverse proxy in front of it (or this port directly) must be reachable
-      # from outside the Docker host. Host side is 8201, not 8200: some hosts
-      # already have something else bound to 8200 (e.g. a backup tool) — the
-      # container's own internal port stays 8200, only the host publish differs,
-      # so ZETORA_INTERNAL_URL/compose-network callers are unaffected. Override
-      # via ${ZETORA_HERMES_RELAY_HOST_PORT} if 8201 collides too.
+      # from outside the Docker host. The host port defaults to 8201 and is
+      # set with ${ZETORA_HERMES_RELAY_HOST_PORT}; callers on the compose
+      # network use the container's own 8200.
       - '${ZETORA_HERMES_RELAY_HOST_PORT:-8201}:8200'
     environment:
       - HERMES_RELAY_PORT=8200
       - ZETORA_INTERNAL_URL=http://zetora-app:3333
       - HERMES_RELAY_INTERNAL_SECRET=${HERMES_RELAY_INTERNAL_SECRET}
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:8200/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     # No depends_on: zetora.app, deliberately — matching every other sidecar
     # here (s2s-service etc.): local dev runs the app via `next dev` on the
     # host, not this container, so a hard startup dependency on it would break
