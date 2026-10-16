@@ -1,197 +1,33 @@
-import { rerank, tool, EmbeddingModel, UIMessageStreamWriter } from 'ai';
+import { tool, UIMessageStreamWriter } from 'ai';
 import { z } from 'zod';
-import { VectorStoreIndex, BaseRetriever } from '@vectorstores/core';
-import { PDFReader } from '@vectorstores/readers/pdf';
-import { CSVReader } from '@vectorstores/readers/csv';
-import { DocxReader } from '@vectorstores/readers/docx';
-import { TextFileReader } from '@vectorstores/readers/text';
-import { ExcelReader } from '@/lib/tools/readers/excel-reader';
-import { vercelEmbedding } from '@vectorstores/vercel';
-import { cohere } from '@ai-sdk/cohere';
-import { all, allSettled } from 'better-all';
 import { ChatMessage } from '@/lib/types';
-import { getBetterAllOptions } from '@/lib/better-all';
 import { getFileEmbeddingModel } from '@/ai/embeddings';
+import type { UserPreferenceValues } from '@/lib/db/schema';
 
 import { createLogger } from '@/lib/logger';
-import { isRerankAvailable } from '@/lib/search/rerank';
-import { fetchAttachment } from '@/lib/net/attachment-fetch';
+import {
+  buildFileRetrievers,
+  getFileDisplayName,
+  isSearchableFile,
+  searchFiles,
+  type FileContext,
+  type FileQueryResult,
+} from '@/lib/tools/file-retrieval';
 
 const log = createLogger('file-query-search');
-
-const FILE_READERS = {
-  'application/pdf': () => new PDFReader(),
-  'text/csv': () => new CSVReader(),
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': () => new DocxReader(),
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': () =>
-    new ExcelReader({
-      sheetSpecifier: 0,
-      concatRows: true,
-      fieldSeparator: ',',
-      keyValueSeparator: ':',
-    }),
-  'application/vnd.ms-excel': () =>
-    new ExcelReader({
-      sheetSpecifier: 0,
-      concatRows: true,
-      fieldSeparator: ',',
-      keyValueSeparator: ':',
-    }),
-} as const;
-
-type SupportedMimeType = keyof typeof FILE_READERS;
-
-function isKnownStructuredMimeType(mimeType: string): mimeType is SupportedMimeType {
-  return mimeType in FILE_READERS;
-}
-
-// Generic text files (any extension, uploaded without a recognized document
-// type) — covered by app/api/upload's isTextLikeType. Any of these decode
-// with the plain TextFileReader rather than a format-specific one.
-function isTextLikeMimeType(mimeType: string): boolean {
-  return (
-    mimeType.startsWith('text/') ||
-    mimeType === 'application/json' ||
-    mimeType === 'application/xml' ||
-    mimeType === 'application/octet-stream' ||
-    mimeType === ''
-  );
-}
-
-function isSupportedMimeType(mimeType: string): boolean {
-  return isKnownStructuredMimeType(mimeType) || isTextLikeMimeType(mimeType);
-}
-
-interface FileContext {
-  url: string;
-  contentType: string;
-  name?: string;
-}
-
-interface FileQueryResult {
-  fileName: string;
-  content: string;
-  score: number;
-}
 
 interface QuerySearchResult {
   query: string;
   results: FileQueryResult[];
 }
 
-async function createRetriever(file: FileContext, embeddingModel: EmbeddingModel): Promise<BaseRetriever> {
-  const mimeType = file.contentType;
-
-  if (!isSupportedMimeType(mimeType)) {
-    throw new Error(`Unsupported file type: ${mimeType}. Supported types: ${Object.keys(FILE_READERS).join(', ')}`);
-  }
-
-  const { bytes: content } = await fetchAttachment(file.url);
-  const reader = isKnownStructuredMimeType(mimeType) ? FILE_READERS[mimeType]() : new TextFileReader();
-  const documents = await reader.loadDataAsContent(content);
-
-  // Create vector store index
-  const index = await VectorStoreIndex.fromDocuments(documents, {
-    embedFunc: vercelEmbedding(embeddingModel),
-  });
-
-  // Create retriever with higher similarity top K for more results
-  return index.asRetriever({ similarityTopK: 10 });
-}
-
-async function buildRetrieversByUrl(files: FileContext[], embeddingModel: EmbeddingModel) {
-  const tasks = files.reduce(
-    (acc, file, index) => {
-      const fileKey = `${index}:${file.name || new URL(file.url).pathname.split('/').pop() || 'unknown'}`;
-      acc[fileKey] = async function () {
-        const retriever = await createRetriever(file, embeddingModel);
-        return [file.url, retriever] as const;
-      };
-      return acc;
-    },
-    {} as Record<string, () => Promise<readonly [string, BaseRetriever]>>,
-  );
-
-  const settled = await allSettled(tasks, getBetterAllOptions());
-  const retrieversByUrl = new Map<string, BaseRetriever>();
-
-  for (const [fileKey, result] of Object.entries(settled)) {
-    if (result.status === 'fulfilled') {
-      const [url, retriever] = result.value;
-      retrieversByUrl.set(url, retriever);
-      continue;
-    }
-    log.error(`Error indexing file ${fileKey}:`, result.reason);
-  }
-
-  return retrieversByUrl;
-}
-
-async function searchFiles(
-  query: string,
-  supportedFiles: FileContext[],
-  retrieversByUrl: Map<string, BaseRetriever>,
-  maxResults: number = 5,
-  shouldRerank: boolean = false,
-): Promise<FileQueryResult[]> {
-  const fileTasks = supportedFiles.reduce(
-    (tasks, file, index) => {
-      const retriever = retrieversByUrl.get(file.url);
-      if (!retriever) return tasks;
-
-      const fileKey = `${index}:${file.name || new URL(file.url).pathname.split('/').pop() || 'unknown'}`;
-      tasks[fileKey] = async function () {
-        const nodes = await retriever.retrieve({ query });
-
-        return nodes.map((nodeWithScore) => {
-          const node = nodeWithScore.node as any;
-          return {
-            fileName: file.name || new URL(file.url).pathname.split('/').pop() || 'unknown',
-            content: node.text || node.getContent?.() || '',
-            score: nodeWithScore.score || 0,
-          };
-        });
-      };
-
-      return tasks;
-    },
-    {} as Record<string, () => Promise<FileQueryResult[]>>,
-  );
-
-  const settledResultsByFile = await allSettled(fileTasks, getBetterAllOptions());
-  const allResults = Object.entries(settledResultsByFile).flatMap(([fileKey, settled]) => {
-    if (settled.status === 'fulfilled') return settled.value;
-    log.error(`Error searching file ${fileKey}:`, settled.reason);
-    return [];
-  });
-
-  // Rerank if enabled and we have results
-  if (shouldRerank && isRerankAvailable() && allResults.length > 0) {
-    const { ranking } = await rerank({
-      model: cohere.reranking('rerank-v4.0-pro'),
-      query,
-      documents: allResults.map((r) => r.content),
-      topN: maxResults,
-    });
-
-    return ranking.map((r) => ({
-      ...allResults[r.originalIndex],
-      score: r.score,
-    }));
-  }
-
-  // Sort by score and take top results
-  allResults.sort((a, b) => b.score - a.score);
-  return allResults.slice(0, maxResults);
-}
-
 export function createFileQuerySearchTool(
   files: FileContext[],
   dataStream?: UIMessageStreamWriter<ChatMessage>,
-  userPreferences?: Record<string, unknown>,
+  userPreferences?: UserPreferenceValues,
 ) {
   // Filter to only supported files
-  const supportedFiles = files.filter((f) => isSupportedMimeType(f.contentType));
+  const supportedFiles = files.filter(isSearchableFile);
 
   if (supportedFiles.length === 0) {
     // Return a dummy tool that explains no files are available
@@ -203,7 +39,7 @@ export function createFileQuerySearchTool(
       execute: async () => {
         return {
           success: false,
-          error: 'No supported files available. Supported file types: PDF, CSV, DOCX, XLSX',
+          error: 'No supported files available. Supported file types: PDF, CSV, DOCX, XLSX and text files',
           searches: [],
           filesSearched: [],
         };
@@ -212,7 +48,7 @@ export function createFileQuerySearchTool(
   }
 
   return tool({
-    description: `Query uploaded files to find relevant information. Use this tool to search through the content of uploaded documents (${supportedFiles.map((f) => f.name || 'file').join(', ')}). Supports multiple queries for comprehensive search. This tool uses semantic search to find the most relevant content based on your queries.`,
+    description: `Query uploaded files to find relevant information. Use this tool to search through the content of uploaded documents (${supportedFiles.map(getFileDisplayName).join(', ')}). Supports multiple queries for comprehensive search. This tool uses semantic search to find the most relevant content based on your queries.`,
     inputSchema: z.object({
       queries: z
         .array(z.string())
@@ -228,12 +64,12 @@ export function createFileQuerySearchTool(
         .default(false)
         .describe('Whether to rerank results with Cohere for improved relevance (adds ~100-300ms latency)'),
     }),
-    execute: async ({ queries, maxResults = 10, rerank: shouldRerank = false }) => {
+    execute: async ({ queries, maxResults = 10, rerank: shouldRerank = false }, { abortSignal }) => {
       try {
         log.debug('🔍 [FileQuerySearch] Reranking:', shouldRerank);
         // Index first (independent step), then search and return results.
         const embeddingModel = await getFileEmbeddingModel(userPreferences);
-        const retrieversByUrl = await buildRetrieversByUrl(supportedFiles, embeddingModel);
+        const retrievers = await buildFileRetrievers(supportedFiles, embeddingModel);
 
         const searchPromises = queries.map(async (query, index) => {
           try {
@@ -250,7 +86,14 @@ export function createFileQuerySearchTool(
               },
             });
 
-            const results = await searchFiles(query, supportedFiles, retrieversByUrl, maxResults, shouldRerank);
+            const results = await searchFiles({
+              query,
+              files: supportedFiles,
+              retrievers,
+              maxResults,
+              rerank: shouldRerank,
+              abortSignal,
+            });
 
             // Send completion notification
             dataStream?.write({
@@ -295,7 +138,7 @@ export function createFileQuerySearchTool(
           success: true,
           searches,
           totalResults,
-          filesSearched: supportedFiles.map((f) => f.name || 'file'),
+          filesSearched: supportedFiles.map(getFileDisplayName),
           reranked: shouldRerank,
         };
       } catch (error) {

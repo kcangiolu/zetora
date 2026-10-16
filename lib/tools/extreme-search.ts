@@ -7,18 +7,24 @@
 
 import { createLogger } from '@/lib/logger';
 import { getFaviconUrl, getHostFaviconUrl } from '@/lib/url';
-import { isRerankAvailable } from '@/lib/search/rerank';
 import { isToolAvailable } from '@/lib/instance/capabilities';
 import { X_SEARCH_MODEL_ID } from '@/lib/tools/x-search';
 import { hydrateXPosts, resolveXSearchDateRange, sanitizeXHandles } from '@/lib/tools/x-citations';
-import { fetchAttachment } from '@/lib/net/attachment-fetch';
+import {
+  buildFileRetrievers,
+  getFileDisplayName,
+  isSearchableFile,
+  searchFiles,
+  type FileQueryResult,
+  type FileRetrievers,
+} from '@/lib/tools/file-retrieval';
 import { getLinkMetadata } from '@/lib/link-metadata';
 import { resolveFallbackSearchProvider, resolveSearchProvider } from '@/lib/instance/capabilities';
 import type { SearchProviderFor } from '@/lib/search/providers';
 import Exa from 'exa-js';
 import { getSandboxProvider } from '@/lib/sandbox';
 import { Output, generateText, hasToolCall, stepCountIs, tool } from 'ai';
-import type { EmbeddingModel, UIMessageStreamWriter } from 'ai';
+import type { UIMessageStreamWriter } from 'ai';
 import { getFileEmbeddingModel } from '@/ai/embeddings';
 import { z } from 'zod';
 import { serverEnv } from '@/env/server';
@@ -32,14 +38,6 @@ import { xai } from '@ai-sdk/xai';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { getStorageClient } from '@/lib/storage';
 import { nanoid } from 'nanoid';
-import { VectorStoreIndex, BaseRetriever } from '@vectorstores/core';
-import { PDFReader } from '@vectorstores/readers/pdf';
-import { CSVReader } from '@vectorstores/readers/csv';
-import { DocxReader } from '@vectorstores/readers/docx';
-import { ExcelReader } from '@/lib/tools/readers/excel-reader';
-import { vercelEmbedding } from '@vectorstores/vercel';
-import { cohere } from '@ai-sdk/cohere';
-import { rerank } from 'ai';
 import { OpenAIResponsesProviderOptions } from '@ai-sdk/openai';
 import { AnthropicProviderOptions } from '@ai-sdk/anthropic';
 import Parallel from 'parallel-web';
@@ -82,135 +80,11 @@ const pythonLibsAvailable = [
   'selenium',
 ];
 
-// File query search helpers
-const FILE_READERS = {
-  'application/pdf': () => new PDFReader(),
-  'text/csv': () => new CSVReader(),
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': () => new DocxReader(),
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': () =>
-    new ExcelReader({ sheetSpecifier: 0, concatRows: true, fieldSeparator: ',', keyValueSeparator: ':' }),
-  'application/vnd.ms-excel': () =>
-    new ExcelReader({ sheetSpecifier: 0, concatRows: true, fieldSeparator: ',', keyValueSeparator: ':' }),
-} as const;
-
-type SupportedMimeType = keyof typeof FILE_READERS;
-
-function isSupportedMimeType(mimeType: string): mimeType is SupportedMimeType {
-  return mimeType in FILE_READERS;
-}
-
-interface FileQueryResult {
-  fileName: string;
-  content: string;
-  score: number;
-}
-
 interface ChartArtifact {
   png?: string;
   url?: string;
   title?: string;
   [key: string]: unknown;
-}
-
-async function createFileRetriever(
-  file: { url: string; contentType: string; name?: string },
-  embeddingModel: EmbeddingModel,
-): Promise<BaseRetriever> {
-  const mimeType = file.contentType;
-  if (!isSupportedMimeType(mimeType)) {
-    throw new Error(`Unsupported file type: ${mimeType}`);
-  }
-
-  const { bytes: content } = await fetchAttachment(file.url);
-  const reader = FILE_READERS[mimeType]();
-  const documents = await reader.loadDataAsContent(content);
-
-  const index = await VectorStoreIndex.fromDocuments(documents, {
-    embedFunc: vercelEmbedding(embeddingModel),
-  });
-
-  return index.asRetriever({ similarityTopK: 10 });
-}
-
-async function buildFileRetrievers(
-  files: { url: string; contentType: string; name?: string }[],
-  preferences: UserPreferenceValues | null,
-) {
-  const retrieversByUrl = new Map<string, BaseRetriever>();
-  const embeddingModel = await getFileEmbeddingModel(preferences);
-
-  await all(
-    Object.fromEntries(
-      files.map((file, index) => [
-        `file:${index}`,
-        async () => {
-          try {
-            const retriever = await createFileRetriever(file, embeddingModel);
-            retrieversByUrl.set(file.url, retriever);
-          } catch (error) {
-            log.error(`Error indexing file ${file.name}:`, error);
-          }
-        },
-      ]),
-    ),
-    getBetterAllOptions(),
-  );
-
-  return retrieversByUrl;
-}
-
-async function searchFilesForQuery(
-  query: string,
-  files: { url: string; contentType: string; name?: string }[],
-  retrieversByUrl: Map<string, BaseRetriever>,
-  maxResults: number = 5,
-  shouldRerank: boolean = false,
-): Promise<FileQueryResult[]> {
-  const allResults: FileQueryResult[] = [];
-
-  await all(
-    Object.fromEntries(
-      files.map((file, index) => [
-        `file:${index}`,
-        async () => {
-          const retriever = retrieversByUrl.get(file.url);
-          if (!retriever) return;
-
-          try {
-            const nodes = await retriever.retrieve({ query });
-            for (const nodeWithScore of nodes) {
-              const node = nodeWithScore.node as any;
-              allResults.push({
-                fileName: file.name || new URL(file.url).pathname.split('/').pop() || 'unknown',
-                content: node.text || node.getContent?.() || '',
-                score: nodeWithScore.score || 0,
-              });
-            }
-          } catch (error) {
-            log.error(`Error searching file ${file.name}:`, error);
-          }
-        },
-      ]),
-    ),
-    getBetterAllOptions(),
-  );
-
-  if (shouldRerank && isRerankAvailable() && allResults.length > 0) {
-    const { ranking } = await rerank({
-      model: cohere.reranking('rerank-v4.0-pro'),
-      query,
-      documents: allResults.map((r) => r.content),
-      topN: maxResults,
-    });
-
-    return ranking.map((r) => ({
-      ...allResults[r.originalIndex],
-      score: r.score,
-    }));
-  }
-
-  allResults.sort((a, b) => b.score - a.score);
-  return allResults.slice(0, maxResults);
 }
 
 function isHttpUrl(url: string) {
@@ -721,8 +595,8 @@ async function extremeSearch(
   );
 
   // Filter supported files early for planner and later file indexing
-  const supportedFiles = files.filter((f) => isSupportedMimeType(f.contentType));
-  const fileNames = supportedFiles.map((f) => f.name || 'unnamed file').join(', ');
+  const supportedFiles = files.filter(isSearchableFile);
+  const fileNames = supportedFiles.map(getFileDisplayName).join(', ');
   const hasFilesForPlanning = supportedFiles.length > 0;
 
   if (dataStream) {
@@ -818,11 +692,11 @@ ${hasFilesForPlanning ? '- Include file search steps when the uploaded files are
   let toolResults: any[] = [];
 
   // Index files for file query search if available
-  let fileRetrievers = new Map<string, BaseRetriever>();
+  let fileRetrievers: FileRetrievers = new Map();
 
   if (supportedFiles.length > 0) {
     log.info(`Indexing ${supportedFiles.length} files for file query search`);
-    fileRetrievers = await buildFileRetrievers(supportedFiles, preferences);
+    fileRetrievers = await buildFileRetrievers(supportedFiles, await getFileEmbeddingModel(preferences));
   }
 
   const hasFiles = supportedFiles.length > 0 && fileRetrievers.size > 0;
@@ -1092,8 +966,8 @@ ${JSON.stringify(plan)}
       },
       ...(hasFiles
         ? {
-            fileQuery: {
-              description: `Search through uploaded files (${supportedFiles.map((f) => f.name || 'file').join(', ')}) to find relevant information using semantic search.`,
+            fileQuery: tool({
+              description: `Search through uploaded files (${supportedFiles.map(getFileDisplayName).join(', ')}) to find relevant information using semantic search.`,
               inputSchema: z.object({
                 queries: z
                   .array(z.string())
@@ -1101,89 +975,70 @@ ${JSON.stringify(plan)}
                   .max(3)
                   .describe('Array of search queries (1-3) to find information in the uploaded files'),
               }),
-              execute: async ({ queries }, { toolCallId }) => {
+              execute: async ({ queries }, { toolCallId, abortSignal: toolAbortSignal }) => {
                 log.debug('File query search:', queries);
 
                 const total = queries.length;
-                const normalizedQueries = queries as string[];
-                const searchTasks = normalizedQueries.reduce(
-                  (
-                    tasks: Record<string, () => Promise<{ query: string; results: FileQueryResult[] }>>,
-                    query: string,
-                    index: number,
-                  ) => {
-                    tasks[`query-${index}`] = async () => {
-                      const queryId = `${toolCallId}-${index}`;
+                const searchResults = await Promise.all(
+                  queries.map(async (query, index): Promise<{ query: string; results: FileQueryResult[] }> => {
+                    const queryId = `${toolCallId}-${index}`;
 
-                      if (dataStream) {
-                        dataStream.write({
-                          type: 'data-extreme_search',
-                          data: {
-                            kind: 'file_query',
-                            fileQueryId: queryId,
-                            query,
-                            index,
-                            total,
-                            status: 'started',
-                          },
-                        });
-                      }
+                    dataStream?.write({
+                      type: 'data-extreme_search',
+                      data: { kind: 'file_query', fileQueryId: queryId, query, index, total, status: 'started' },
+                    });
 
-                      try {
-                        const results = await searchFilesForQuery(query, supportedFiles, fileRetrievers, 5, false);
+                    try {
+                      const results = await searchFiles({
+                        query,
+                        files: supportedFiles,
+                        retrievers: fileRetrievers,
+                        maxResults: 5,
+                        rerank: false,
+                        abortSignal: toolAbortSignal,
+                      });
 
-                        if (dataStream) {
-                          dataStream.write({
-                            type: 'data-extreme_search',
-                            data: {
-                              kind: 'file_query',
-                              fileQueryId: queryId,
-                              query,
-                              index,
-                              total,
-                              status: 'completed',
-                              results,
-                            },
-                          });
-                        }
+                      dataStream?.write({
+                        type: 'data-extreme_search',
+                        data: {
+                          kind: 'file_query',
+                          fileQueryId: queryId,
+                          query,
+                          index,
+                          total,
+                          status: 'completed',
+                          results,
+                        },
+                      });
 
-                        return { query, results };
-                      } catch (error) {
-                        log.error(`File query error for "${query}":`, error);
+                      return { query, results };
+                    } catch (error) {
+                      log.error(`File query error for "${query}":`, error);
 
-                        if (dataStream) {
-                          dataStream.write({
-                            type: 'data-extreme_search',
-                            data: {
-                              kind: 'file_query',
-                              fileQueryId: queryId,
-                              query,
-                              index,
-                              total,
-                              status: 'error',
-                              results: [],
-                            },
-                          });
-                        }
+                      dataStream?.write({
+                        type: 'data-extreme_search',
+                        data: {
+                          kind: 'file_query',
+                          fileQueryId: queryId,
+                          query,
+                          index,
+                          total,
+                          status: 'error',
+                          results: [],
+                        },
+                      });
 
-                        return { query, results: [] };
-                      }
-                    };
-                    return tasks;
-                  },
-                  {},
+                      return { query, results: [] };
+                    }
+                  }),
                 );
-                const searchResultsByQuery = await all(searchTasks, getBetterAllOptions());
-                const searchResults = normalizedQueries.map((query, index) => searchResultsByQuery[`query-${index}`]);
 
                 // Push file query results into the outer allSources for research.sources
                 searchResults.forEach(({ results }) => {
                   results.forEach((fileResult) => {
-                    const matchingFile = supportedFiles.find((f) => (f.name || 'file') === fileResult.fileName);
-                    if (!matchingFile) return;
                     allSources.push({
                       title: fileResult.fileName,
-                      url: matchingFile.url,
+                      url: fileResult.fileUrl,
                       content: fileResult.content,
                       publishedDate: '',
                       favicon: '',
@@ -1194,10 +1049,10 @@ ${JSON.stringify(plan)}
                 return {
                   success: true,
                   searches: searchResults,
-                  filesSearched: supportedFiles.map((f) => f.name || 'file'),
+                  filesSearched: supportedFiles.map(getFileDisplayName),
                 };
               },
-            },
+            }),
           }
         : {}),
       codeRunner: {
