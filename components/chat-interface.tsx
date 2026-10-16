@@ -35,13 +35,12 @@ import {
   ChevronDown,
   X,
   Check,
-  AlertCircle,
   ExternalLink,
   FoldVertical,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
-import { deleteChat, updateChatTitle, setImageContextVisibility, manualCompactChat } from '@/app/actions';
+import { setImageContextVisibility, manualCompactChat } from '@/app/actions';
 import { ButtonGroup } from '@/components/ui/button-group';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
@@ -85,6 +84,8 @@ import { DefaultChatTransport } from 'ai';
 import { ChatMessage } from '@/lib/types';
 import { placeCompactionSummary } from '@/lib/compaction-summary';
 import type { ElicitationData } from '@/components/mcp-elicitation-modal';
+import { useChatActions } from '@/hooks/use-chat-actions';
+import { getChatIdFromPath } from '@/lib/chat-route';
 
 interface ChatInterfaceProps {
   initialChatId?: string;
@@ -120,6 +121,9 @@ const ChatInterface = memo(
   }: ChatInterfaceProps): React.JSX.Element => {
     const router = useRouter();
     const pathname = usePathname();
+    // The chat open on this page; null for a new chat until its first message.
+    const openChatId = initialChatId || getChatIdFromPath(pathname);
+    const { renameChat, deleteChats } = useChatActions();
     const queryClient = useQueryClient();
     const { state } = useSidebar();
     const [query] = useQueryState('query', parseAsString.withDefault(''));
@@ -323,11 +327,10 @@ const ChatInterface = memo(
     }
 
     const handleStartEditTitle = useCallback(() => {
-      const currentChatId = initialChatId || (pathname?.startsWith('/search/') ? pathname.split('/')[2] : null);
-      if (!currentChatId) return;
+      if (!openChatId) return;
       setTitleInput(localChatTitle || '');
       setIsEditDialogOpen(true);
-    }, [initialChatId, localChatTitle, pathname]);
+    }, [openChatId, localChatTitle]);
 
     const handleCancelEditTitle = useCallback(() => {
       setIsEditDialogOpen(false);
@@ -335,86 +338,32 @@ const ChatInterface = memo(
     }, [localChatTitle]);
 
     const handleSaveTitle = useCallback(async () => {
-      const currentChatId = initialChatId || (pathname?.startsWith('/search/') ? pathname.split('/')[2] : null);
-      if (!currentChatId) return;
-      const next = titleInput.trim();
-      if (!next) {
-        sileo.error({
-          title: 'Title cannot be empty',
-          description: 'Please enter a valid title',
-          icon: <AlertCircle className="h-4 w-4" />,
-        });
-        return;
-      }
-      if (next.length > 100) {
-        sileo.error({
-          title: 'Title is too long (max 100 characters)',
-          description: 'Please shorten your title',
-          icon: <AlertCircle className="h-4 w-4" />,
-        });
-        return;
-      }
+      if (!openChatId) return;
+      setIsSavingTitle(true);
       try {
-        setIsSavingTitle(true);
-        const updated = await updateChatTitle(currentChatId, next);
-        if (updated) {
-          setLocalChatTitle(next);
-          queryClient.setQueriesData<{ title: string } | null>({ queryKey: ['chat-meta', currentChatId] }, (meta) =>
-            meta ? { ...meta, title: next } : meta,
-          );
-          sileo.success({
-            title: 'Title updated',
-            description: 'The chat title has been updated',
-            icon: <Pencil className="h-4 w-4" />,
-          });
+        if (await renameChat(openChatId, titleInput)) {
+          setLocalChatTitle(titleInput.trim());
           setIsEditDialogOpen(false);
-        } else {
-          sileo.error({
-            title: 'Failed to update title',
-            description: 'Please try again',
-            icon: <X className="h-4 w-4" />,
-          });
         }
-      } catch (e) {
-        sileo.error({
-          title: 'Failed to update title',
-          description: 'Please try again',
-          icon: <X className="h-4 w-4" />,
-        });
       } finally {
         setIsSavingTitle(false);
       }
-    }, [initialChatId, titleInput, pathname, queryClient]);
+    }, [openChatId, titleInput, renameChat]);
 
     const handleOpenDelete = useCallback(() => {
-      const currentChatId = initialChatId || (pathname?.startsWith('/search/') ? pathname.split('/')[2] : null);
-      if (!currentChatId) return;
+      if (!openChatId) return;
       setIsDeleteOpen(true);
-    }, [initialChatId, pathname]);
+    }, [openChatId]);
 
     const handleConfirmDelete = useCallback(async () => {
-      const currentChatId = initialChatId || (pathname?.startsWith('/search/') ? pathname.split('/')[2] : null);
-      if (!currentChatId) return;
+      if (!openChatId) return;
+      setIsDeleting(true);
       try {
-        setIsDeleting(true);
-        await deleteChat(currentChatId);
-        sileo.success({
-          title: 'Chat deleted',
-          description: 'The chat has been permanently removed',
-          icon: <Trash2 className="h-4 w-4" />,
-        });
-        setIsDeleteOpen(false);
-        router.push('/');
-      } catch (e) {
-        sileo.error({
-          title: 'Failed to delete chat',
-          description: 'Please try again',
-          icon: <X className="h-4 w-4" />,
-        });
+        if (await deleteChats([openChatId])) setIsDeleteOpen(false);
       } finally {
         setIsDeleting(false);
       }
-    }, [initialChatId, pathname, router]);
+    }, [openChatId, deleteChats]);
 
     const lastSubmittedQueryRef = useRef(initialState.query);
     const messagesRef = useRef<MessagesHandle>(null);
@@ -452,11 +401,7 @@ const ChatInterface = memo(
 
     type VisibilityType = 'public' | 'private';
 
-    // Only consider it an existing chat if we have an actual chat ID (not empty string or undefined-like values)
-    const routeChatId = pathname?.startsWith('/search/') ? pathname.split('/')[2] : null;
-    const isExistingChat = Boolean(
-      initialChatId || (routeChatId && routeChatId !== 'undefined' && routeChatId !== 'null'),
-    );
+    const isExistingChat = Boolean(openChatId);
     const isTemporaryChat = isTemporaryChatEnabled && !isExistingChat;
 
     // useChat keeps the transport it got first, so the request reads the
@@ -902,9 +847,8 @@ const ChatInterface = memo(
     // Compute active chat id used in header and data fetching (after messages/chatId exist)
     const effectiveChatId = useMemo(() => {
       if (isTemporaryChat) return null;
-      const routeChatId = pathname?.startsWith('/search/') ? pathname.split('/')[2] : null;
-      return initialChatId || routeChatId || (messages.length > 0 ? chatId : null);
-    }, [initialChatId, pathname, messages.length, chatId, isTemporaryChat]);
+      return openChatId || (messages.length > 0 ? chatId : null);
+    }, [openChatId, messages.length, chatId, isTemporaryChat]);
 
     const shouldShowHeader = Boolean(user && effectiveChatId);
     const canEditHeader = Boolean(isOwner && shouldShowHeader);
@@ -1648,18 +1592,18 @@ const ChatInterface = memo(
             </div>
           </div>
         </SidebarInset>
-        {!isTemporaryChat && (initialChatId || (pathname?.startsWith('/search/') ? pathname.split('/')[2] : null)) && (
+        {!isTemporaryChat && openChatId && (
           <ShareDialog
             isOpen={isShareOpen}
             onOpenChange={setIsShareOpen}
-            chatId={initialChatId || (pathname?.startsWith('/search/') ? pathname.split('/')[2] : null)}
+            chatId={openChatId}
             selectedVisibilityType={chatState.selectedVisibilityType}
             onVisibilityChange={handleVisibilityChange}
             isOwner={isOwner}
             user={user}
           />
         )}
-        {!isTemporaryChat && (initialChatId || (pathname?.startsWith('/search/') ? pathname.split('/')[2] : null)) && (
+        {!isTemporaryChat && openChatId && (
           <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
             <DialogContent className="sm:max-w-[420px]">
               <DialogHeader>

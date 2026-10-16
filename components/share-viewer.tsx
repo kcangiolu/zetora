@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { forkChat } from '@/app/actions';
 import { Attachment, ChatMessage } from '@/lib/types';
 import { ZetoraLogo } from '@/components/logos/zetora-logo';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 
 interface ShareViewerProps {
   chatId: string;
@@ -31,27 +32,17 @@ export function ShareViewer({ chatId, chatTitle, shareUrl, messages, isSignedIn,
   const [shareMessages, setShareMessages] = useState(messages);
   const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([]);
 
-  const handleCopyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      sileo.success({
-        title: 'Link copied',
-        description: 'You can now paste it anywhere',
-        icon: <Copy className="h-4 w-4" />,
-        button: {
-          title: 'Open link',
-          onClick: () => window.open(shareUrl, '_blank', 'noopener,noreferrer'),
-        },
-      });
-    } catch (error) {
-      console.error('Failed to copy link:', error);
-      sileo.error({
-        title: 'Failed to copy link',
-        description: 'Please try again',
-        icon: <Copy className="h-4 w-4" />,
-      });
-    }
-  };
+  const { copy } = useCopyToClipboard();
+  const handleCopyLink = () =>
+    copy(shareUrl, {
+      title: 'Link copied',
+      description: 'You can now paste it anywhere',
+      icon: <Copy className="h-4 w-4" />,
+      button: {
+        title: 'Open link',
+        onClick: () => window.open(shareUrl, '_blank', 'noopener,noreferrer'),
+      },
+    });
 
   const handleFork = () => {
     if (!isSignedIn) {

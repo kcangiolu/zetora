@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { Loader2, ShieldCheck, ShieldOff, Copy, Download, Check } from 'lucide-react';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 
 type Step = 'idle' | 'password' | 'enroll' | 'disable-password';
 
@@ -31,7 +32,7 @@ export function TwoFactorSettings({ enabled: initialEnabled, isMobile }: TwoFact
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopyToClipboard();
 
   const [totpURI, setTotpURI] = useState('');
   const [qrDataUrl, setQrDataUrl] = useState('');
@@ -57,7 +58,6 @@ export function TwoFactorSettings({ enabled: initialEnabled, isMobile }: TwoFact
     setTotpURI('');
     setQrDataUrl('');
     setBackupCodes([]);
-    setCopied(false);
   }
 
   async function handleStartEnroll(e: React.FormEvent) {
@@ -123,9 +123,7 @@ export function TwoFactorSettings({ enabled: initialEnabled, isMobile }: TwoFact
   }
 
   async function handleCopyBackupCodes() {
-    await navigator.clipboard.writeText(backupCodes.join('\n'));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    await copy(backupCodes.join('\n'), null);
   }
 
   function handleDownloadBackupCodes() {

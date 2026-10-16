@@ -6,6 +6,7 @@ import { allSettled } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
 import { createLogger } from '@/lib/logger';
+import { formatClockDuration } from '@/lib/format';
 
 const log = createLogger('youtube-search');
 
@@ -123,14 +124,8 @@ function generateChaptersFromTranscriptChunks(
 
   const interval = Math.max(10, Math.floor(totalDurationSec / targetCount));
 
-  const formatTime = (secondsTotal: number) => {
-    const seconds = Math.max(1, Math.floor(secondsTotal)); // avoid 0:00 which UI filters out
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
-  };
+  // Never 0:00, which the UI filters out.
+  const formatTime = (secondsTotal: number) => formatClockDuration(Math.max(1, secondsTotal));
 
   const chapters: string[] = [];
   const usedTimes = new Set<number>();

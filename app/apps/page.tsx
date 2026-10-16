@@ -53,6 +53,7 @@ import {
 } from 'lucide-react';
 import { AppsIcon } from '@/components/icons/apps-icon';
 import { ServiceIcon } from '@/components/mcp/service-icon';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 
 function getTransportType(url: string): 'sse' | 'http' {
   const lower = url.toLowerCase();
@@ -107,6 +108,8 @@ function AppsContent() {
     clean.searchParams.delete('message');
     window.history.replaceState({}, '', clean.toString());
   }, [searchParams]);
+
+  const { copy } = useCopyToClipboard();
 
   // Asked from the server: it is the URI actually sent to OAuth providers,
   // which MCP_OAUTH_CALLBACK_ORIGIN can point away from this page's origin.
@@ -1001,12 +1004,7 @@ function AppsContent() {
                       disabled={!oauthCallbackUri}
                       onClick={async () => {
                         if (!oauthCallbackUri) return;
-                        try {
-                          await navigator.clipboard.writeText(oauthCallbackUri);
-                          sileo.success({ title: 'Copied redirect URI' });
-                        } catch {
-                          sileo.error({ title: 'Copy failed' });
-                        }
+                        await copy(oauthCallbackUri, 'Copied redirect URI');
                       }}
                     >
                       Copy

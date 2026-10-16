@@ -5,6 +5,7 @@ import { useMediaQuery } from '@/hooks/use-media-query';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
 import Image from 'next/image';
+import { formatHoursMinutes } from '@/lib/format';
 
 interface MediaDetails {
   id: number;
@@ -57,12 +58,6 @@ const TMDBResult = ({ result }: TMDBResultProps) => {
       month: 'long',
       day: 'numeric',
     });
-  };
-
-  const formatRuntime = (minutes: number) => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return `${hours}h ${mins}m`;
   };
 
   const DetailContent = () => (
@@ -120,7 +115,7 @@ const TMDBResult = ({ result }: TMDBResultProps) => {
                 {(media.runtime || media.episode_run_time?.[0]) && (
                   <div className="flex items-center gap-1.5">
                     <Clock className="w-4 h-4" />
-                    <span>{formatRuntime(media.runtime || media.episode_run_time?.[0] || 0)}</span>
+                    <span>{formatHoursMinutes(media.runtime || media.episode_run_time?.[0] || 0)}</span>
                   </div>
                 )}
               </div>

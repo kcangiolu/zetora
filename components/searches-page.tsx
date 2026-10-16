@@ -51,15 +51,7 @@ import {
 } from 'lucide-react';
 import { sileo } from 'sileo';
 import Link from 'next/link';
-import {
-  bulkDeleteChats,
-  getAllChatsWithPreview,
-  searchChatsByTitle,
-  updateChatPinned,
-  updateChatTitle,
-  deleteChat,
-  updateChatVisibility,
-} from '@/app/actions';
+import { getAllChatsWithPreview, searchChatsByTitle, updateChatPinned, updateChatVisibility } from '@/app/actions';
 import { formatDistanceToNow, isToday, isYesterday, isThisWeek, isThisMonth, differenceInDays } from 'date-fns';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -67,6 +59,7 @@ import { FolderLibraryIcon, Search01Icon } from '@hugeicons/core-free-icons';
 import { cn } from '@/lib/utils';
 import { useModels } from '@/hooks/use-models';
 import { DropdownMenuCheckboxItem, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
+import { useChatActions } from '@/hooks/use-chat-actions';
 
 interface Chat {
   id: string;
@@ -210,6 +203,7 @@ export function SearchesPage({ userId }: SearchesPageProps) {
   const [isChangingVisibility, setIsChangingVisibility] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const { renameChat, deleteChats } = useChatActions();
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(searchQuery), 300);
@@ -288,20 +282,15 @@ export function SearchesPage({ userId }: SearchesPageProps) {
     if (selectedChatIds.size === 0) return;
     setIsDeleting(true);
     try {
-      const ids = Array.from(selectedChatIds);
-      const result = await bulkDeleteChats(ids);
-      sileo.success({ title: `${result.deletedCount} chat${result.deletedCount > 1 ? 's' : ''} deleted` });
-      setSelectedChatIds(new Set());
-      setIsSelectMode(false);
-      setShowDeleteDialog(false);
-      queryClient.invalidateQueries({ queryKey: ['searches', userId] });
-      queryClient.invalidateQueries({ queryKey: ['recent-chats', userId] });
-    } catch {
-      sileo.error({ title: 'Failed to delete chats. Please try again.' });
+      if (await deleteChats(Array.from(selectedChatIds))) {
+        setSelectedChatIds(new Set());
+        setIsSelectMode(false);
+        setShowDeleteDialog(false);
+      }
     } finally {
       setIsDeleting(false);
     }
-  }, [selectedChatIds, userId, queryClient]);
+  }, [selectedChatIds, deleteChats]);
 
   const allDisplayedSelected = displayedChats.length > 0 && displayedChats.every((c) => selectedChatIds.has(c.id));
   const someDisplayedSelected = displayedChats.some((c) => selectedChatIds.has(c.id)) && !allDisplayedSelected;
@@ -322,18 +311,15 @@ export function SearchesPage({ userId }: SearchesPageProps) {
     }
     setIsRenaming(true);
     try {
-      await updateChatTitle(renamingChat.id, newTitle.trim());
-      sileo.success({ title: 'Chat renamed successfully' });
-      queryClient.invalidateQueries({ queryKey: ['searches', userId] });
-      setShowRenameDialog(false);
-      setRenamingChat(null);
-      setNewTitle('');
-    } catch {
-      sileo.error({ title: 'Failed to rename chat. Please try again.' });
+      if (await renameChat(renamingChat.id, newTitle)) {
+        setShowRenameDialog(false);
+        setRenamingChat(null);
+        setNewTitle('');
+      }
     } finally {
       setIsRenaming(false);
     }
-  }, [renamingChat, newTitle, userId, queryClient]);
+  }, [renamingChat, newTitle, renameChat]);
 
   const handleDeleteClick = useCallback((chat: Chat) => {
     setChatToDelete({ id: chat.id, title: chat.title });
@@ -345,18 +331,14 @@ export function SearchesPage({ userId }: SearchesPageProps) {
     if (!chatToDelete) return;
     setDeletingChatId(chatToDelete.id);
     try {
-      await deleteChat(chatToDelete.id);
-      sileo.success({ title: 'Chat deleted' });
-      queryClient.invalidateQueries({ queryKey: ['searches', userId] });
-      queryClient.invalidateQueries({ queryKey: ['recent-chats', userId] });
-      setShowSingleDeleteDialog(false);
-      setChatToDelete(null);
-    } catch {
-      sileo.error({ title: 'Failed to delete chat. Please try again.' });
+      if (await deleteChats([chatToDelete.id])) {
+        setShowSingleDeleteDialog(false);
+        setChatToDelete(null);
+      }
     } finally {
       setDeletingChatId(null);
     }
-  }, [chatToDelete, userId, queryClient]);
+  }, [chatToDelete, deleteChats]);
 
   const handleShareClick = useCallback((chat: Chat) => {
     setChatToShare({ id: chat.id, title: chat.title, visibility: chat.visibility });

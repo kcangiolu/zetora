@@ -39,6 +39,7 @@ import { all, allSettled } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
 import { createLogger } from '@/lib/logger';
+import { CHAT_TITLE_MAX_LENGTH } from '@/lib/constants';
 
 const log = createLogger('chats');
 
@@ -330,7 +331,7 @@ export async function setImageContextVisibility({
 export async function updateChatTitle(chatId: string, title: string) {
   'use server';
 
-  if (!chatId || !title.trim()) return null;
+  if (!chatId || !title.trim() || title.trim().length > CHAT_TITLE_MAX_LENGTH) return null;
 
   try {
     await assertOwnsChat(chatId);

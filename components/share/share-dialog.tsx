@@ -19,6 +19,7 @@ import { ExternalLink } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 
 interface ShareDialogProps {
   isOpen: boolean;
@@ -39,7 +40,7 @@ export function ShareDialog({
   isOwner = true,
   user,
 }: ShareDialogProps) {
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopyToClipboard();
   const [isChangingVisibility, setIsChangingVisibility] = useState(false);
   const [choice, setChoice] = useState<'public' | 'private'>(selectedVisibilityType);
   const [isShared, setIsShared] = useState<boolean>(selectedVisibilityType === 'public');
@@ -51,39 +52,20 @@ export function ShareDialog({
   const shareUrl = chatId ? `${appOrigin}/share/${chatId}` : '';
 
   useEffect(() => {
-    if (!isOpen) {
-      setCopied(false);
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
     setChoice(selectedVisibilityType);
     setIsShared(selectedVisibilityType === 'public');
   }, [selectedVisibilityType]);
 
-  const handleCopyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      sileo.success({
-        title: 'Link copied to clipboard',
-        description: 'You can now paste it anywhere',
-        icon: <Copy className="h-4 w-4" />,
-        button: {
-          title: 'Open link',
-          onClick: () => window.open(shareUrl, '_blank', 'noopener,noreferrer'),
-        },
-      });
-      setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.error('Failed to copy to clipboard:', error);
-      sileo.error({
-        title: 'Failed to copy link',
-        description: 'Please try again',
-        icon: <XLogoIcon className="h-4 w-4" weight="fill" />,
-      });
-    }
-  };
+  const handleCopyLink = () =>
+    copy(shareUrl, {
+      title: 'Link copied to clipboard',
+      description: 'You can now paste it anywhere',
+      icon: <Copy className="h-4 w-4" />,
+      button: {
+        title: 'Open link',
+        onClick: () => window.open(shareUrl, '_blank', 'noopener,noreferrer'),
+      },
+    });
 
   const handleShareAndCopy = async () => {
     setIsChangingVisibility(true);

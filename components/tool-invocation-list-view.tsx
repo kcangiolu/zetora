@@ -13,6 +13,7 @@ import { Card, CardContent } from '@/components/ui/card';
 
 // Icons
 import { ChevronDown, Copy, Loader2, MapPin, XCircle } from 'lucide-react';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 
 export const SearchLoadingState = ({
   icon: Icon,
@@ -365,19 +366,13 @@ const Check = ({ className }: { className?: string }) => (
 );
 
 const CopyButton = memo(({ text }: { text: string }) => {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  const { copied, copy } = useCopyToClipboard();
 
   return (
     <Button
       variant="ghost"
       size="icon"
-      onClick={handleCopy}
+      onClick={() => copy(text, null)}
       className={cn(
         'h-7 w-7 transition-colors duration-150',
         copied

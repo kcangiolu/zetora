@@ -5,7 +5,6 @@ import { AppsIcon } from '@/components/icons/apps-icon';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { sileo } from 'sileo';
 import { cn } from '@/lib/utils';
 import { Spinner } from '../ui/spinner';
 import type { ChatMessage } from '@/lib/types';
@@ -26,6 +25,7 @@ import {
   type McpAppRenderData,
   type InlineElicitationData,
 } from './mcp';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 
 export type McpTimelineEntry =
   | { kind: 'tool'; part: DynamicToolUIPart; originalIndex: number; id: string }
@@ -592,6 +592,7 @@ export function CanvasSpecRenderer({
 
 export const CodeContextTool: React.FC<{ args: any; result: any }> = ({ args, result }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const { copy } = useCopyToClipboard();
 
   if (!result) {
     return (
@@ -636,10 +637,7 @@ export const CodeContextTool: React.FC<{ args: any; result: any }> = ({ args, re
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => {
-                    navigator.clipboard.writeText(responseText);
-                    sileo.success({ title: 'Code context copied to clipboard' });
-                  }}
+                  onClick={() => copy(responseText, 'Code context copied to clipboard')}
                   className="h-6 w-6 p-0 hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 >
                   <CopyIcon className="h-[15px] w-[15px] text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200" />

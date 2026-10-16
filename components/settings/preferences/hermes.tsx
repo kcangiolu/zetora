@@ -17,13 +17,14 @@ import {
 } from '@/app/actions';
 import { usePushSubscription } from '@/hooks/use-push-subscription';
 import type { SettingsUser } from '../shared';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 
 export function HermesTab({ user }: { user: SettingsUser }) {
   const queryClient = useQueryClient();
   const [enrollCommand, setEnrollCommand] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRevoking, setIsRevoking] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopyToClipboard();
   const [isSendingTest, setIsSendingTest] = useState(false);
 
   const { data: statusData, isLoading: isStatusLoading, isError: isStatusError } = useQuery({
@@ -59,14 +60,7 @@ export function HermesTab({ user }: { user: SettingsUser }) {
 
   const handleCopy = async () => {
     if (!enrollCommand) return;
-    try {
-      await navigator.clipboard.writeText(enrollCommand);
-      setCopied(true);
-      sileo.success({ title: 'Command copied to clipboard', icon: <Copy className="h-4 w-4" /> });
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      sileo.error({ title: 'Failed to copy', description: 'Please copy it manually' });
-    }
+    await copy(enrollCommand, 'Command copied to clipboard');
   };
 
   const handleRevoke = async () => {

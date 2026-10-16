@@ -7,6 +7,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
+import { formatClockDuration } from '@/lib/format';
 
 // Transcript chunk type from Supadata
 interface TranscriptChunk {
@@ -139,11 +140,7 @@ const formatDuration = (durationSeconds?: number): string | null => {
   if (typeof durationSeconds !== 'number' || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
     return null;
   }
-  const hours = Math.floor(durationSeconds / 3600);
-  const minutes = Math.floor((durationSeconds % 3600) / 60);
-  const seconds = Math.floor(durationSeconds % 60);
-  const pad = (n: number) => n.toString().padStart(2, '0');
-  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${minutes}:${pad(seconds)}`;
+  return formatClockDuration(durationSeconds);
 };
 
 const formatCount = (value?: string | number): string | null => {

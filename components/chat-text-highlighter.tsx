@@ -2,6 +2,7 @@
 
 import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 
 interface ChatTextHighlighterProps {
   children: React.ReactNode;
@@ -21,29 +22,7 @@ export const ChatTextHighlighter: React.FC<ChatTextHighlighterProps> = ({ childr
   const containerRef = useRef<HTMLDivElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
 
-  const handleCopy = useCallback(async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch (err) {
-      console.error('Copy failed:', err);
-      // Fallback method
-      const textArea = document.createElement('textarea');
-      textArea.value = text;
-      textArea.style.position = 'fixed';
-      textArea.style.left = '-999999px';
-      textArea.style.top = '-999999px';
-      document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
-      try {
-        document.execCommand('copy');
-      } catch (fallbackErr) {
-        console.error('Fallback copy failed:', fallbackErr);
-      }
-      document.body.removeChild(textArea);
-    }
-  }, []);
-
+  const { copy } = useCopyToClipboard();
   const handleQuote = useCallback(
     (text: string) => {
       if (onHighlight) {
@@ -137,7 +116,7 @@ export const ChatTextHighlighter: React.FC<ChatTextHighlighterProps> = ({ childr
           <div className="flex gap-1">
             <button
               onClick={async () => {
-                await handleCopy(popup.text);
+                await copy(popup.text);
                 closePopup();
               }}
               className="px-2 py-1 text-xs font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"

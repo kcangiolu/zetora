@@ -6,10 +6,11 @@ import { ReactRenderer } from 'marked-react';
 import { Lexer } from 'marked';
 import React, { useCallback, useMemo, useState, useRef, lazy, Suspense, useEffect, use } from 'react';
 import { cn } from '@/lib/utils';
-import { Check, Copy, WrapText, ArrowLeftRight, ChevronDown, ChevronUp, X, Eye, Code2 } from 'lucide-react';
+import { Check, Copy, WrapText, ArrowLeftRight, ChevronDown, ChevronUp, Eye, Code2 } from 'lucide-react';
 import { sileo } from 'sileo';
 import type { CitationLink, CitationGroup } from './shared';
 import { parseTaggedLinkContent } from './shared';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 
 const geistMono = Geist_Mono({
   subsets: ['latin'],
@@ -179,7 +180,7 @@ const CodeBlockInner: React.FC<CodeBlockInnerProps> = ({
   elementKey,
   allowPlainTextFallback = false,
 }) => {
-  const [isCopied, setIsCopied] = useState(false);
+  const { copied: isCopied, copy } = useCopyToClipboard();
   const [isWrapped, setIsWrapped] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { resolvedTheme } = useTheme();
@@ -272,21 +273,15 @@ const CodeBlockInner: React.FC<CodeBlockInnerProps> = ({
     return isLightTheme ? zetoraLightTheme : zetoraDarkTheme;
   }, [mounted, resolvedTheme]);
 
-  const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(children);
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000);
-      sileo.success({
+  const handleCopy = useCallback(
+    () =>
+      copy(children, {
         title: 'Code copied to clipboard',
         description: 'You can now paste it anywhere',
         icon: <Copy className="h-4 w-4" />,
-      });
-    } catch (error) {
-      console.error('Failed to copy code:', error);
-      sileo.error({ title: 'Failed to copy code' });
-    }
-  }, [children]);
+      }),
+    [children, copy],
+  );
 
   const toggleWrap = useCallback(() => {
     setIsWrapped((prev) => {
@@ -1260,27 +1255,17 @@ export const useProcessedContent = (content: string) => {
 };
 
 export const InlineCode: React.FC<{ code: string; elementKey: string }> = React.memo(({ code }) => {
-  const [isCopied, setIsCopied] = useState(false);
+  const { copied: isCopied, copy } = useCopyToClipboard();
 
-  const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(code);
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 1500);
-      sileo.success({
+  const handleCopy = useCallback(
+    () =>
+      copy(code, {
         title: 'Code copied to clipboard',
         description: 'You can now paste it anywhere',
         icon: <Copy className="h-4 w-4" />,
-      });
-    } catch (error) {
-      console.error('Failed to copy code:', error);
-      sileo.error({
-        title: 'Failed to copy code',
-        description: 'Please try again or copy manually',
-        icon: <X className="h-4 w-4" />,
-      });
-    }
-  }, [code]);
+      }),
+    [code, copy],
+  );
 
   return (
     <code

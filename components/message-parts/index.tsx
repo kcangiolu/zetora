@@ -124,6 +124,7 @@ import { HermesMediaCard } from './hermes-media';
 import { DynamicToolInvocationCard, DynamicToolStepper, CanvasSpecRenderer, CodeContextTool } from './tools';
 import type { McpTimelineEntry } from './tools';
 import { getDisplayHostname, getHostFaviconUrl } from '@/lib/url';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 
 // Non-empty text of a message, one entry per text part, for exports.
 function getMessageTextParts(message: ChatMessage): string[] {
@@ -324,6 +325,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
     const [isRegenerating, setIsRegenerating] = useState(false);
     const [isBranchingOut, setIsBranchingOut] = useState(false);
     const [isDeletingMessage, setIsDeletingMessage] = useState(false);
+    const { copy } = useCopyToClipboard();
     // Edit-in-place (no regenerate) for a message's final text or reasoning —
     // unlike MessageEditor (user messages), this never deletes trailing
     // messages or calls regenerate, it only overwrites the stored part(s).
@@ -893,14 +895,13 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => {
-                          navigator.clipboard.writeText(cleanText);
-                          sileo.success({
+                        onClick={() =>
+                          copy(cleanText, {
                             title: 'Copied to clipboard',
                             description: 'You can now paste it anywhere',
                             icon: <Copy className="h-4 w-4" />,
-                          });
-                        }}
+                          })
+                        }
                         className={actionIconButtonClassName}
                       >
                         <CopyIcon className="h-[18px] w-[18px]" />

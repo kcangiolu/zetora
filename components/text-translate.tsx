@@ -19,6 +19,7 @@ import {
   TranscriptViewerPlayPauseButton,
   TranscriptViewerScrubBar,
 } from '@/components/ui/transcript-viewer';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 
 interface TextTranslateToolArgs {
   text?: string;
@@ -50,15 +51,6 @@ function getLanguageName(languageCode: string): string {
     return displayNames.of(languageCode) || languageCode;
   } catch {
     return languageCode;
-  }
-}
-
-async function copyToClipboard(text: string, label: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-    sileo.success({ title: `${label} copied` });
-  } catch {
-    sileo.error({ title: 'Failed to copy' });
   }
 }
 
@@ -177,6 +169,7 @@ export function TextTranslate({ args, result, className }: TextTranslateProps) {
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { copy } = useCopyToClipboard();
 
   const fromCode = normalizeLanguageCode(result?.detectedLanguage || args?.from);
   const toCode = normalizeLanguageCode(args?.to);
@@ -347,7 +340,7 @@ export function TextTranslate({ args, result, className }: TextTranslateProps) {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => copyToClipboard(originalText, 'Original')}
+                    onClick={() => copy(originalText, 'Original copied')}
                     className="h-8 w-8"
                     aria-label="Copy original text"
                   >
@@ -384,7 +377,7 @@ export function TextTranslate({ args, result, className }: TextTranslateProps) {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => copyToClipboard(translatedText, 'Translation')}
+                      onClick={() => copy(translatedText, 'Translation copied')}
                       className="h-8 w-8"
                       aria-label="Copy translation"
                     >

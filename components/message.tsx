@@ -62,6 +62,7 @@ import { Attachment, ChatMessage, ChatTools, CustomUIDataTypes } from '@/lib/typ
 import { UseChatHelpers } from '@ai-sdk/react';
 import { ComprehensiveUserData } from '@/lib/user-data-server';
 import { cn } from '@/lib/utils';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 // Enhanced Error Display Component
 interface EnhancedErrorDisplayProps {
   error: any;
@@ -906,6 +907,7 @@ export const Message = memo(function Message({
 
   // State for expanding/collapsing long user messages
   const [isExpanded, setIsExpanded] = useState(false);
+  const { copy } = useCopyToClipboard();
   // State to track if the message exceeds max height
   const [exceedsMaxHeight, setExceedsMaxHeight] = useState(false);
   // Collapses the reasoning/tool-call steps of an assistant turn under a
@@ -1040,15 +1042,14 @@ export const Message = memo(function Message({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(
+                        onClick={() =>
+                          copy(
                             message.parts
                               ?.map((part) => (part.type === 'text' ? part.text : ''))
                               .join('')
                               .trim() || '',
-                          );
-                          sileo.success({ title: 'Copied to clipboard' });
-                        }}
+                          )
+                        }
                         className="p-1.5 rounded-full hover:bg-accent/80 text-muted-foreground/60 hover:text-muted-foreground transition-colors"
                         aria-label="Copy message"
                       >
@@ -1276,6 +1277,7 @@ const EditableAttachmentsBadge = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const { copy } = useCopyToClipboard();
   // Every entry here already came from a `type === 'file'` message part
   // (see callers), including generic text files with an arbitrary
   // extension — no content-type filtering needed.
@@ -1376,10 +1378,7 @@ const EditableAttachmentsBadge = ({
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => {
-                    navigator.clipboard.writeText(fileAttachments[selectedIndex].url);
-                    sileo.success({ title: 'File URL copied to clipboard' });
-                  }}
+                  onClick={() => copy(fileAttachments[selectedIndex].url, 'File URL copied to clipboard')}
                   className="h-8 w-8 rounded-md text-muted-foreground dark:text-muted-foreground"
                   title="Copy link"
                 >
@@ -1653,6 +1652,7 @@ const getDocumentType = (attachment: Attachment): 'csv' | 'docx' | 'xlsx' | 'pdf
 const AttachmentsBadge = ({ attachments }: { attachments: Attachment[] }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const { copy } = useCopyToClipboard();
   // Every entry here already came from a `type === 'file'` message part
   // (see callers), including generic text files with an arbitrary
   // extension — no content-type filtering needed.
@@ -1746,10 +1746,7 @@ const AttachmentsBadge = ({ attachments }: { attachments: Attachment[] }) => {
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => {
-                    navigator.clipboard.writeText(fileAttachments[selectedIndex].url);
-                    sileo.success({ title: 'File URL copied to clipboard' });
-                  }}
+                  onClick={() => copy(fileAttachments[selectedIndex].url, 'File URL copied to clipboard')}
                   className="h-8 w-8 rounded-md text-muted-foreground dark:text-muted-foreground"
                   title="Copy link"
                 >

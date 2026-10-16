@@ -29,7 +29,6 @@ import {
   Keyboard,
   X,
   Check,
-  AlertCircle,
   MessageSquare,
   ExternalLink,
   LogOut,
@@ -47,10 +46,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  deleteChat,
   getRecentChats,
   updateChatPinned,
-  updateChatTitle,
   updateChatVisibility,
 } from '@/app/actions';
 import {
@@ -95,6 +92,7 @@ import {
 import { ShareDialog } from '@/components/share/share-dialog';
 import { sileo } from 'sileo';
 import { signOut } from '@/lib/auth-client';
+import { useChatActions } from '@/hooks/use-chat-actions';
 
 type VisibilityType = 'public' | 'private';
 
@@ -450,6 +448,7 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
   const pathname = usePathname();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { renameChat, deleteChats } = useChatActions();
   const [renameTarget, setRenameTarget] = React.useState<{ id: string; title?: string | null } | null>(null);
   const [renameValue, setRenameValue] = React.useState('');
   const [isRenaming, setIsRenaming] = React.useState(false);
@@ -585,54 +584,9 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
 
   const handleRenameSubmit = async () => {
     if (!renameTarget) return;
-    const next = renameValue.trim();
-
-    if (!next) {
-      sileo.error({
-        title: 'Title cannot be empty',
-        description: 'Please enter a valid title',
-        icon: <AlertCircle className="h-4 w-4" />,
-      });
-      return;
-    }
-
-    if (next.length > 100) {
-      sileo.error({
-        title: 'Title is too long (max 100 characters)',
-        description: 'Please shorten your title',
-        icon: <AlertCircle className="h-4 w-4" />,
-      });
-      return;
-    }
-
     setIsRenaming(true);
     try {
-      const updated = await updateChatTitle(renameTarget.id, next);
-      if (updated) {
-        sileo.success({
-          title: 'Chat renamed',
-          description: 'The chat title has been updated',
-          icon: <Pencil className="h-4 w-4" />,
-        });
-        closeRenameDialog();
-        invalidateRecentChats();
-        queryClient.setQueriesData<{ title: string } | null>({ queryKey: ['chat-meta', renameTarget.id] }, (meta) =>
-          meta ? { ...meta, title: next } : meta,
-        );
-      } else {
-        sileo.error({
-          title: 'Failed to rename chat',
-          description: 'Please try again',
-          icon: <X className="h-4 w-4" />,
-        });
-      }
-    } catch (error) {
-      console.error('Rename chat error:', error);
-      sileo.error({
-        title: 'Failed to rename chat',
-        description: 'Please try again',
-        icon: <X className="h-4 w-4" />,
-      });
+      if (await renameChat(renameTarget.id, renameValue)) closeRenameDialog();
     } finally {
       setIsRenaming(false);
     }
@@ -678,20 +632,7 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
     if (!deleteTarget) return;
     setIsDeleting(true);
     try {
-      await deleteChat(deleteTarget.id);
-      sileo.success({
-        title: 'Chat deleted',
-        description: 'The chat has been permanently removed',
-        icon: <Trash2 className="h-4 w-4" />,
-      });
-      closeDeleteDialog();
-      invalidateRecentChats();
-      if (pathname === `/search/${deleteTarget.id}`) {
-        router.push('/');
-      }
-    } catch (error) {
-      console.error('Delete chat error:', error);
-      sileo.error({ title: 'Failed to delete chat' });
+      if (await deleteChats([deleteTarget.id])) closeDeleteDialog();
     } finally {
       setIsDeleting(false);
     }

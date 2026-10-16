@@ -39,20 +39,20 @@ import {
   differenceInMonths,
   differenceInYears,
 } from 'date-fns';
-import { deleteChat, getUserChats, loadMoreChats, updateChatPinned, updateChatTitle } from '@/app/actions';
+import { getUserChats, loadMoreChats, updateChatPinned } from '@/app/actions';
 import { Button } from './ui/button';
 import { sileo } from 'sileo';
 import { User } from '@/lib/db/schema';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
-import { allSettled } from 'better-all';
-import { getBetterAllOptions } from '@/lib/better-all';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Spinner } from '@/components/ui/spinner';
 import { useChatPrefetch } from '@/hooks/use-chat-prefetch';
 import { Kbd } from '@/components/ui/kbd';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
+import { useChatActions } from '@/hooks/use-chat-actions';
+import { getChatIdFromPath } from '@/lib/chat-route';
 
 // Constants
 const SCROLL_THRESHOLD = 0.5; // Load more at 50% scrolled
@@ -344,11 +344,11 @@ function advancedSearch(chat: Chat, query: string, mode: SearchMode): boolean {
 export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialogProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const rawChatId = pathname?.startsWith('/search/') ? pathname.split('/')[2] : null;
-  const currentChatId = rawChatId && isValidChatId(rawChatId) ? rawChatId : null;
+  const currentChatId = getChatIdFromPath(pathname);
   const isMac = useMemo(() => navigator.platform.toUpperCase().includes('MAC'), []);
 
   const queryClient = useQueryClient();
+  const { renameChat, deleteChats } = useChatActions();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMode, setSearchMode] = useState<SearchMode>('all');
   const [chatType, setChatType] = useState<ChatModeFilter>('all');
@@ -526,95 +526,11 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
     };
   }, [user?.id, refetch]);
 
-  // Handle mutations with React Query
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await deleteChat(id);
-    },
-    onSuccess: (_, id) => {
-      sileo.success({ title: 'Chat deleted' });
-      // Update cache after successful deletion
-      queryClient.setQueryData(['chats', user?.id], (oldData: any) => {
-        if (!oldData) return oldData;
-        return {
-          ...oldData,
-          pages: oldData.pages.map((page: any) => ({
-            ...page,
-            chats: page.chats.filter((chat: Chat) => chat.id !== id),
-          })),
-        };
-      });
-    },
-    onError: (error) => {
-      console.error('Failed to delete chat:', error);
-      sileo.error({ title: 'Failed to delete chat. Please try again.' });
-      queryClient.invalidateQueries({ queryKey: ['chats', user?.id] });
-    },
-  });
-
-  // Bulk delete mutation
-  const bulkDeleteMutation = useMutation({
-    mutationFn: async (ids: string[]) => {
-      const tasks = Object.fromEntries(ids.map((id) => [`chat:${id}`, async () => deleteChat(id)]));
-      const settled = await allSettled(tasks, getBetterAllOptions());
-      const anyRejected = Object.values(settled).some((r) => r.status === 'rejected');
-      if (anyRejected) {
-        throw new Error('Failed to delete chats');
-      }
-    },
-    onSuccess: (_, ids) => {
-      const count = ids.length;
-      sileo.success({ title: `${count} chat${count > 1 ? 's' : ''} deleted` });
-      // Update cache after successful deletion
-      queryClient.setQueryData(['chats', user?.id], (oldData: any) => {
-        if (!oldData) return oldData;
-        return {
-          ...oldData,
-          pages: oldData.pages.map((page: any) => ({
-            ...page,
-            chats: page.chats.filter((chat: Chat) => !ids.includes(chat.id)),
-          })),
-        };
-      });
-      // Clear selection and exit bulk mode
-      setSelectedChatIds(new Set());
-      setBulkSelectMode(false);
-      setDeletingBulk(false);
-    },
-    onError: (error) => {
-      console.error('Failed to delete chats:', error);
-      sileo.error({ title: 'Failed to delete chats. Please try again.' });
-      queryClient.invalidateQueries({ queryKey: ['chats', user?.id] });
-      setDeletingBulk(false);
-    },
-  });
-
+  // Thin wrappers over useChatActions: the dialog reads their pending state.
+  const deleteMutation = useMutation({ mutationFn: (id: string) => deleteChats([id]) });
+  const bulkDeleteMutation = useMutation({ mutationFn: deleteChats });
   const updateTitleMutation = useMutation({
-    mutationFn: async ({ id, title }: { id: string; title: string }) => {
-      return await updateChatTitle(id, title);
-    },
-    onSuccess: (updatedChat, { id, title }) => {
-      if (updatedChat) {
-        sileo.success({ title: 'Title updated' });
-        // Update cache after successful title update
-        queryClient.setQueryData(['chats', user?.id], (oldData: any) => {
-          if (!oldData) return oldData;
-          return {
-            ...oldData,
-            pages: oldData.pages.map((page: any) => ({
-              ...page,
-              chats: page.chats.map((chat: Chat) => (chat.id === id ? { ...chat, title: title } : chat)),
-            })),
-          };
-        });
-      } else {
-        sileo.error({ title: 'Failed to update title. Please try again.' });
-      }
-    },
-    onError: (error) => {
-      console.error('Failed to update chat title:', error);
-      sileo.error({ title: 'Failed to update title. Please try again.' });
-    },
+    mutationFn: ({ id, title }: { id: string; title: string }) => renameChat(id, title),
   });
 
   const pinMutation = useMutation({
@@ -728,21 +644,9 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
       e.stopPropagation();
       setDeletingChatId(null);
 
-      try {
-        await deleteMutation.mutateAsync(id);
-
-        // Smart redirect logic: only redirect to home if deleting current chat
-        if (currentChatId === id) {
-          router.push('/');
-        }
-        // If not current chat, stay in the dialog
-      } catch (error) {
-        // Error handling is done in mutation callbacks, but we should reset state
-        console.error('Delete chat error:', error);
-        sileo.error({ title: 'Failed to delete chat. Please try again.' });
-      }
+      await deleteMutation.mutateAsync(id);
     },
-    [deleteMutation, currentChatId, router],
+    [deleteMutation],
   );
 
   // Cancel deletion
@@ -773,23 +677,9 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
     async (e: React.MouseEvent | React.KeyboardEvent, id: string) => {
       e.stopPropagation();
 
-      if (!editingTitle.trim()) {
-        sileo.error({ title: 'Title cannot be empty' });
-        return;
-      }
-
-      if (editingTitle.trim().length > 100) {
-        sileo.error({ title: 'Title is too long (max 100 characters)' });
-        return;
-      }
-
-      try {
-        await updateTitleMutation.mutateAsync({ id, title: editingTitle.trim() });
+      if (await updateTitleMutation.mutateAsync({ id, title: editingTitle })) {
         setEditingChatId(null);
         setEditingTitle('');
-      } catch (error) {
-        // Error handling is done in mutation callbacks
-        console.error('Save title error:', error);
       }
     },
     [editingTitle, updateTitleMutation],
@@ -891,14 +781,12 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
   );
 
   const confirmBulkDelete = useCallback(async () => {
-    const idsToDelete = Array.from(selectedChatIds);
-    await bulkDeleteMutation.mutateAsync(idsToDelete);
-
-    // If current chat is in the deleted list, redirect to home
-    if (currentChatId && selectedChatIds.has(currentChatId)) {
-      router.push('/');
+    if (await bulkDeleteMutation.mutateAsync(Array.from(selectedChatIds))) {
+      setSelectedChatIds(new Set());
+      setBulkSelectMode(false);
     }
-  }, [selectedChatIds, bulkDeleteMutation, currentChatId, router]);
+    setDeletingBulk(false);
+  }, [selectedChatIds, bulkDeleteMutation]);
 
   const cancelBulkDelete = useCallback(() => {
     setDeletingBulk(false);

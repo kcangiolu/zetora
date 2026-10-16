@@ -2,3 +2,6 @@
 // everything, but is still capped at a generous daily message count to stop
 // runaway/looping usage. No tier notion — this applies uniformly.
 export const ABUSE_DAILY_LIMIT = 500;
+
+// Longest title a user can give a chat.
+export const CHAT_TITLE_MAX_LENGTH = 100;

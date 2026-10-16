@@ -6,6 +6,7 @@ import { RefreshCw, Home, TriangleAlert, ChevronDown, ChevronUp, Copy } from 'lu
 import { Button } from '@/components/ui/button';
 import { Be_Vietnam_Pro, Baumans, Geist } from 'next/font/google';
 import { AnimatePresence, motion } from 'framer-motion';
+import { writeClipboardText } from '@/hooks/use-copy-to-clipboard';
 
 const beVietnamPro = Be_Vietnam_Pro({
   subsets: ['latin'],
@@ -58,11 +59,12 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(details);
+      await writeClipboardText(details);
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     } catch {
-      // swallow
+      // No toaster is mounted in the root error boundary: the label staying
+      // on "Copy" is the only feedback.
     }
   };
 

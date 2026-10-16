@@ -10,6 +10,7 @@ import type {
   SpotifyAlbumResult,
   SpotifyPlaylistResult,
 } from '@/lib/tools/spotify-search';
+import { formatClockDuration } from '@/lib/format';
 
 // Icons
 const Icons = {
@@ -71,12 +72,7 @@ const Icons = {
 };
 
 // Format duration from milliseconds to mm:ss
-const formatDuration = (ms: number): string => {
-  const totalSeconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-};
+const formatDuration = (ms: number): string => formatClockDuration(ms / 1000);
 
 // Format follower count
 const formatFollowers = (count: number): string => {

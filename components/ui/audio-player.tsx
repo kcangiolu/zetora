@@ -24,6 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { formatClockDuration } from '@/lib/format';
 
 enum ReadyState {
   HAVE_NOTHING = 0,
@@ -38,17 +39,6 @@ enum NetworkState {
   NETWORK_IDLE = 1,
   NETWORK_LOADING = 2,
   NETWORK_NO_SOURCE = 3,
-}
-
-function formatTime(seconds: number) {
-  const hrs = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-
-  const formattedMins = mins < 10 ? `0${mins}` : mins;
-  const formattedSecs = secs < 10 ? `0${secs}` : secs;
-
-  return hrs > 0 ? `${hrs}:${formattedMins}:${formattedSecs}` : `${mins}:${formattedSecs}`;
 }
 
 interface AudioPlayerItem<TData = unknown> {
@@ -323,7 +313,7 @@ export const AudioPlayerTime = ({ className, ...otherProps }: HTMLProps<HTMLSpan
   const time = useAudioPlayerTime();
   return (
     <span {...otherProps} className={cn('text-muted-foreground text-sm tabular-nums', className)}>
-      {formatTime(time)}
+      {formatClockDuration(time)}
     </span>
   );
 };
@@ -333,7 +323,7 @@ export const AudioPlayerDuration = ({ className, ...otherProps }: HTMLProps<HTML
   return (
     <span {...otherProps} className={cn('text-muted-foreground text-sm tabular-nums', className)}>
       {player.duration !== null && player.duration !== undefined && !Number.isNaN(player.duration)
-        ? formatTime(player.duration)
+        ? formatClockDuration(player.duration)
         : '--:--'}
     </span>
   );

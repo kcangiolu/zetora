@@ -2,6 +2,7 @@
 
 import { Plane, Clock, AlertCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { formatHoursMinutes } from '@/lib/format';
 
 interface FlightApiResponse {
   data: Array<{
@@ -124,13 +125,7 @@ export function FlightTracker({ data }: FlightTrackerProps) {
     return '';
   };
 
-  const formatDuration = (minutes: number | null): string => {
-    if (!minutes) return '';
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    if (hours === 0) return `${mins}m`;
-    return `${hours}h ${mins}m`;
-  };
+  const formatDuration = (minutes: number | null): string => (minutes ? formatHoursMinutes(minutes) : '');
 
   const mapStatus = (status: string) => {
     const normalized = (status ?? '').toLowerCase();
