@@ -1,8 +1,6 @@
 import React, { Fragment, useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { sileo } from 'sileo';
-import { all } from 'better-all';
-import { getBetterAllOptions } from '@/lib/better-all';
 import { useDebouncer } from '@tanstack/react-pacer';
 import { Button } from '@/components/ui/button';
 import { parseStartWithCommand } from '@/lib/chat-commands';
@@ -20,7 +18,6 @@ import {
   Plus,
   Ghost,
   AlertCircle,
-  FileText,
 } from 'lucide-react';
 import { MagicEditIcon } from '@/components/ui/magic-edit-icon';
 import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogDescription } from '@/components/ui/dialog';
@@ -65,13 +62,9 @@ import {
   MAX_INPUT_CHARS,
   ArrowUpIcon,
   StopIcon,
-  getMaxSizeForFile,
-  getOversizedFileReason,
-  MAX_UPLOADED_IMAGE_SIZE,
   AttachmentPreview,
 } from './attachment-utils';
-import { compressImageForUpload } from './image-compression';
-import { uploadFileToStorage } from '@/lib/upload-client';
+import { selectUploadableFiles, uploadFiles } from './upload-files';
 
 interface TypewriterResumeCache {
   target: string;
@@ -1269,148 +1262,35 @@ const FormComponent: React.FC<FormComponentProps> = ({
     [dynamicSearchGroups, user, selectedGroup, setSelectedGroup, handleGroupSelect, haptics],
   );
 
-  const uploadFile = useCallback(async (file: File): Promise<Attachment> => {
-    try {
-      const isImage = file.type.startsWith('image/');
-      const fileToUpload = isImage ? await compressImageForUpload(file) : file;
+  // Shared by the file picker, drop and paste.
+  const attachFiles = useCallback(
+    async (files: File[]) => {
+      const uploadable = selectUploadableFiles(files, attachments.length);
+      if (uploadable.length === 0) return;
 
-      if (isImage && fileToUpload.size > MAX_UPLOADED_IMAGE_SIZE) {
-        throw new Error(
-          `Still over ${MAX_UPLOADED_IMAGE_SIZE / (1024 * 1024)}MB after compression — try a smaller or simpler image, or an animated GIF/HEIC photo that can't be auto-compressed.`,
-        );
+      setUploadQueue(uploadable.map((file, i) => file.name || `Pasted Image ${i + 1}`));
+      try {
+        const uploaded = await uploadFiles(uploadable);
+        if (uploaded.length > 0) {
+          setAttachments((currentAttachments) => [...currentAttachments, ...uploaded]);
+        }
+      } finally {
+        setUploadQueue([]);
       }
-
-      const { url, name, contentType } = await uploadFileToStorage(fileToUpload);
-      return {
-        name,
-        contentType,
-        url,
-        size: fileToUpload.size,
-      };
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      sileo.error({
-        title: `Failed to upload ${file.name}`,
-        description: error instanceof Error ? error.message : 'Unknown error',
-        icon: <X className="h-4 w-4" />,
-      });
-      throw error;
-    }
-  }, []);
+    },
+    [attachments.length, setAttachments],
+  );
 
   const handleFileChange = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(event.target.files || []);
-      if (files.length === 0) {
-        return;
-      }
-
-      const imageFiles: File[] = [];
-      const pdfFiles: File[] = [];
-      const documentFiles: File[] = []; // CSV, DOCX, XLSX for file_query_search
-      const textFiles: File[] = []; // any other extension — inlined or RAG'd server-side if it decodes as text
-      const oversizedFiles: File[] = [];
-
-      // Supported document types for file_query_search tool
-      const documentMimeTypes = [
-        'text/csv',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-        'application/vnd.ms-excel', // .xls
-      ];
-
-      files.forEach((file) => {
-        if (file.size > getMaxSizeForFile(file)) {
-          oversizedFiles.push(file);
-          return;
-        }
-
-        if (file.type.startsWith('image/')) {
-          imageFiles.push(file);
-        } else if (file.type === 'application/pdf') {
-          pdfFiles.push(file);
-        } else if (documentMimeTypes.includes(file.type)) {
-          documentFiles.push(file);
-        } else {
-          // Any other extension is accepted here — whether it's actually
-          // text is only known once the server tries to decode it.
-          textFiles.push(file);
-        }
-      });
-
-      if (oversizedFiles.length > 0) {
-        oversizedFiles.forEach((file) => {
-          sileo.error({
-            title: `${file.name} is too large`,
-            description: getOversizedFileReason(file),
-            icon: <AlertCircle className="h-4 w-4" />,
-          });
-        });
-      }
-
-      if (imageFiles.length === 0 && pdfFiles.length === 0 && documentFiles.length === 0 && textFiles.length === 0) {
-        event.target.value = '';
-        return;
-      }
-
-      // PDFs are always processed via file_query_search tool (works with any model)
-      // No need to switch models - PDF content is extracted and searched via the tool
-      let validFiles: File[] = [...imageFiles, ...documentFiles, ...pdfFiles, ...textFiles];
-
-      const totalAttachments = attachments.length + validFiles.length;
-      if (totalAttachments > MAX_FILES) {
-        sileo.error({ title: `You can only attach up to ${MAX_FILES} files.` });
-        event.target.value = '';
-        return;
-      }
-
-      if (validFiles.length === 0) {
-        console.error('No valid files to upload');
-        event.target.value = '';
-        return;
-      }
-
-      setUploadQueue(validFiles.map((file) => file.name));
-
       try {
-        const uploadedAttachments: Attachment[] = [];
-        for (const file of validFiles) {
-          try {
-            const attachment = await uploadFile(file);
-            uploadedAttachments.push(attachment);
-          } catch (err) {
-            console.error(`Failed to upload ${file.name}:`, err);
-          }
-        }
-
-        if (uploadedAttachments.length > 0) {
-          setAttachments((currentAttachments) => [...currentAttachments, ...uploadedAttachments]);
-
-          sileo.success({
-            title: `${uploadedAttachments.length} file${uploadedAttachments.length > 1 ? 's' : ''} uploaded successfully`,
-            description: 'Your files are ready to use',
-            icon: <Upload className="h-4 w-4" />,
-          });
-        } else {
-          sileo.error({
-            title: 'No files were successfully uploaded',
-            description: 'Please check your files and try again',
-            icon: <X className="h-4 w-4" />,
-          });
-        }
-      } catch (error) {
-        console.error('Error uploading files!', error);
-        sileo.error({
-          title: 'Failed to upload one or more files',
-          description: 'Please try again',
-          icon: <X className="h-4 w-4" />,
-        });
+        await attachFiles(files);
       } finally {
-        setUploadQueue([]);
         event.target.value = '';
       }
     },
-    [attachments.length, setAttachments, uploadFile],
+    [attachFiles],
   );
 
   const removeAttachment = useCallback(
@@ -1469,171 +1349,28 @@ const FormComponent: React.FC<FormComponentProps> = ({
       e.stopPropagation();
       setIsDragging(false);
 
-      const allFiles = Array.from(e.dataTransfer.files);
-
-      if (allFiles.length === 0) {
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length === 0) {
         sileo.error({ title: 'No files detected in drop' });
         return;
       }
-
-      sileo.info({ title: `Detected ${allFiles.length} dropped files` });
-
-      const imageFiles: File[] = [];
-      const pdfFiles: File[] = [];
-      const documentFiles: File[] = []; // CSV, DOCX, XLSX for file_query_search
-      const textFiles: File[] = []; // any other extension — inlined or RAG'd server-side if it decodes as text
-      const oversizedFiles: File[] = [];
-
-      // Supported document types for file_query_search tool
-      const documentMimeTypes = [
-        'text/csv',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-        'application/vnd.ms-excel', // .xls
-      ];
-
-      allFiles.forEach((file) => {
-        if (file.size > getMaxSizeForFile(file)) {
-          oversizedFiles.push(file);
-          return;
-        }
-
-        if (file.type.startsWith('image/')) {
-          imageFiles.push(file);
-        } else if (file.type === 'application/pdf') {
-          pdfFiles.push(file);
-        } else if (documentMimeTypes.includes(file.type)) {
-          documentFiles.push(file);
-        } else {
-          // Any other extension is accepted here — whether it's actually
-          // text is only known once the server tries to decode it.
-          textFiles.push(file);
-        }
-      });
-
-      if (oversizedFiles.length > 0) {
-        oversizedFiles.forEach((file) => {
-          sileo.error({
-            title: `${file.name} is too large`,
-            description: getOversizedFileReason(file),
-            icon: <AlertCircle className="h-4 w-4" />,
-          });
-        });
-      }
-
-      if (imageFiles.length === 0 && pdfFiles.length === 0 && documentFiles.length === 0 && textFiles.length === 0) {
-        sileo.error({
-          title: 'No valid files to upload',
-          icon: <FileText className="h-4 w-4" />,
-        });
-        return;
-      }
-
-      // PDFs are always processed via file_query_search tool (works with any model)
-      // No need to switch models - PDF content is extracted and searched via the tool
-      let validFiles: File[] = [...imageFiles, ...documentFiles, ...pdfFiles, ...textFiles];
-
-      const totalAttachments = attachments.length + validFiles.length;
-      if (totalAttachments > MAX_FILES) {
-        sileo.error({ title: `You can only attach up to ${MAX_FILES} files.` });
-        return;
-      }
-
-      if (validFiles.length === 0) {
-        console.error('No valid files to upload after filtering');
-        sileo.error({ title: 'No valid files to upload' });
-        return;
-      }
-
-      setUploadQueue(validFiles.map((file) => file.name));
-      sileo.info({ title: `Starting upload of ${validFiles.length} files...` });
-
-      setTimeout(async () => {
-        try {
-          const uploadedAttachments: Attachment[] = [];
-          for (const file of validFiles) {
-            try {
-              const attachment = await uploadFile(file);
-              uploadedAttachments.push(attachment);
-            } catch (err) {
-              console.error(`Failed to upload ${file.name}:`, err);
-            }
-          }
-
-          if (uploadedAttachments.length > 0) {
-            setAttachments((currentAttachments) => [...currentAttachments, ...uploadedAttachments]);
-
-            sileo.success({
-              title: `${uploadedAttachments.length} file${uploadedAttachments.length > 1 ? 's' : ''} uploaded successfully`,
-            });
-          } else {
-            sileo.error({ title: 'No files were successfully uploaded' });
-          }
-        } catch (error) {
-          console.error('Error during file upload:', error);
-          sileo.error({ title: 'Upload failed. Please check console for details.' });
-        } finally {
-          setUploadQueue([]);
-        }
-      }, 100);
+      await attachFiles(files);
     },
-    [attachments.length, setAttachments, uploadFile],
+    [attachFiles],
   );
 
   const handlePaste = useCallback(
     async (e: React.ClipboardEvent) => {
-      const items = Array.from(e.clipboardData.items);
-      const imageItems = items.filter((item) => item.type.startsWith('image/'));
-
-      if (imageItems.length === 0) return;
+      const files = Array.from(e.clipboardData.items)
+        .filter((item) => item.type.startsWith('image/'))
+        .map((item) => item.getAsFile())
+        .filter((file): file is File => file !== null);
+      if (files.length === 0) return;
 
       e.preventDefault();
-
-      const totalAttachments = attachments.length + imageItems.length;
-      if (totalAttachments > MAX_FILES) {
-        sileo.error({ title: `You can only attach up to ${MAX_FILES} files.` });
-        return;
-      }
-
-      const files = imageItems.map((item) => item.getAsFile()).filter(Boolean) as File[];
-      const oversizedFiles = files.filter((file) => file.size > getMaxSizeForFile(file));
-
-      if (oversizedFiles.length > 0) {
-        oversizedFiles.forEach((file) => {
-          sileo.error({
-            title: `${file.name || 'Pasted image'} is too large`,
-            description: getOversizedFileReason(file),
-            icon: <AlertCircle className="h-4 w-4" />,
-          });
-        });
-
-        const validFiles = files.filter((file) => file.size <= getMaxSizeForFile(file));
-        if (validFiles.length === 0) return;
-      }
-
-      const filesToUpload =
-        oversizedFiles.length > 0 ? files.filter((file) => file.size <= getMaxSizeForFile(file)) : files;
-
-      setUploadQueue(filesToUpload.map((file, i) => file.name || `Pasted Image ${i + 1}`));
-
-      try {
-        const uploadMap = await all(
-          Object.fromEntries(filesToUpload.map((file, index) => [`file:${index}`, async () => uploadFile(file)])),
-          getBetterAllOptions(),
-        );
-        const uploadedAttachments = filesToUpload.map((_, index) => uploadMap[`file:${index}`]);
-
-        setAttachments((currentAttachments) => [...currentAttachments, ...uploadedAttachments]);
-
-        sileo.success({ title: 'Image pasted successfully' });
-      } catch (error) {
-        console.error('Error uploading pasted files!', error);
-        sileo.error({ title: 'Failed to upload pasted image. Please try again.' });
-      } finally {
-        setUploadQueue([]);
-      }
+      await attachFiles(files);
     },
-    [attachments.length, setAttachments, uploadFile],
+    [attachFiles],
   );
 
   useEffect(() => {

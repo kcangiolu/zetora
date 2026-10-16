@@ -8,12 +8,7 @@ import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { MarkdownRenderer } from '@/components/markdown';
 import { sileo } from 'sileo';
-import { all } from 'better-all';
-import { getBetterAllOptions } from '@/lib/better-all';
-import { checkImageModeration } from '@/app/actions';
-import { getOversizedFileReason, MAX_UPLOADED_IMAGE_SIZE } from '@/components/ui/form-component/attachment-utils';
-import { compressImageForUpload } from '@/components/ui/form-component/image-compression';
-import { uploadFileToStorage } from '@/lib/upload-client';
+import { selectUploadableFiles, uploadFiles } from '@/components/ui/form-component/upload-files';
 import {
   ChevronDown,
   ChevronLeft,
@@ -434,27 +429,10 @@ interface MessageEditorProps {
   user?: ComprehensiveUserData | null;
 }
 
-const MAX_EDITOR_FILES = 4;
-const MAX_EDITOR_IMAGE_SIZE = 5 * 1024 * 1024;
-const MAX_EDITOR_DOCUMENT_SIZE = 50 * 1024 * 1024;
 // No restriction beyond the browser's own file picker — any other extension
 // is still accepted server-side (see isTextLikeType in app/api/upload) and
 // routed to inline/RAG based on whether it decodes as text.
 const EDITOR_ACCEPTED_FILE_TYPES = undefined;
-const EDITOR_DOCUMENT_MIME_TYPES = [
-  'text/csv',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/vnd.ms-excel',
-];
-
-function isImageFile(file: File): boolean {
-  return file.type.startsWith('image/');
-}
-
-function getMaxSizeForFile(file: File): number {
-  return isImageFile(file) ? MAX_EDITOR_IMAGE_SIZE : MAX_EDITOR_DOCUMENT_SIZE;
-}
 
 function insertFileParts(
   parts: ChatMessage['parts'][number][],
@@ -478,15 +456,6 @@ function insertFileParts(
   }
 
   return updatedParts;
-}
-
-function fileToDataURL(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (event) => resolve(event.target?.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 }
 
 const MessageEditor: React.FC<MessageEditorProps> = ({
@@ -548,148 +517,40 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
     adjustHeight();
   };
 
-  const uploadFile = useCallback(async (file: File): Promise<Attachment> => {
-    try {
-      const isImage = file.type.startsWith('image/');
-      const fileToUpload = isImage ? await compressImageForUpload(file) : file;
-
-      if (isImage && fileToUpload.size > MAX_UPLOADED_IMAGE_SIZE) {
-        throw new Error(
-          `Still over ${MAX_UPLOADED_IMAGE_SIZE / (1024 * 1024)}MB after compression — try a smaller or simpler image, or an animated GIF/HEIC photo that can't be auto-compressed.`,
-        );
-      }
-
-      const { url, name, contentType } = await uploadFileToStorage(fileToUpload);
-      return { name, contentType, url };
-    } catch (error) {
-      sileo.error({
-        title: `Failed to upload ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      });
-      throw error;
-    }
-  }, []);
-
   const handleFilesUpload = useCallback(
-    async (files: File[], onFinish: () => void) => {
-      if (files.length === 0) {
-        onFinish();
-        return;
-      }
-
-      const currentFileCount = fileParts.length;
-      const imageFiles: File[] = [];
-      const pdfFiles: File[] = [];
-      const documentFiles: File[] = [];
-      const textFiles: File[] = []; // any other extension — inlined or RAG'd server-side if it decodes as text
-      const oversizedFiles: File[] = [];
-
-      files.forEach((file) => {
-        if (file.size > getMaxSizeForFile(file)) {
-          oversizedFiles.push(file);
-          return;
-        }
-
-        if (file.type.startsWith('image/')) {
-          imageFiles.push(file);
-        } else if (file.type === 'application/pdf') {
-          pdfFiles.push(file);
-        } else if (EDITOR_DOCUMENT_MIME_TYPES.includes(file.type)) {
-          documentFiles.push(file);
-        } else {
-          textFiles.push(file);
-        }
-      });
-
-      if (oversizedFiles.length > 0) {
-        oversizedFiles.forEach((file) => {
-          sileo.error({ title: `${file.name} is too large`, description: getOversizedFileReason(file) });
-        });
-      }
-
-      const validFiles: File[] = [...imageFiles, ...documentFiles, ...pdfFiles, ...textFiles];
-      if (validFiles.length === 0) {
-        onFinish();
-        return;
-      }
-
-      const totalAttachments = currentFileCount + validFiles.length;
-      if (totalAttachments > MAX_EDITOR_FILES) {
-        sileo.error({ title: `You can only attach up to ${MAX_EDITOR_FILES} files.` });
-        onFinish();
-        return;
-      }
-
-      if (imageFiles.length > 0) {
-        try {
-          sileo.info({ title: 'Checking images for safety...' });
-          const imageMap = await all(
-            Object.fromEntries(imageFiles.map((file, index) => [`img:${index}`, async () => fileToDataURL(file)])),
-            getBetterAllOptions(),
-          );
-          const imageDataURLs = imageFiles.map((_, index) => imageMap[`img:${index}`]);
-          const moderationResult = await checkImageModeration(imageDataURLs);
-          if (moderationResult !== 'safe') {
-            const [status, category] = moderationResult.split('\n');
-            if (status === 'unsafe') {
-              sileo.error({
-                title: `Image content violates safety guidelines (${category}). Please choose different images.`,
-              });
-              onFinish();
-              return;
-            }
-          }
-        } catch (error) {
-          sileo.error({ title: 'Unable to verify image safety. Please try again.' });
-          onFinish();
-          return;
-        }
-      }
+    async (files: File[]) => {
+      const uploadable = selectUploadableFiles(files, fileParts.length);
+      if (uploadable.length === 0) return;
 
       setIsUploading(true);
-
       try {
-        const uploadedAttachments: Attachment[] = [];
-        for (const file of validFiles) {
-          try {
-            const attachment = await uploadFile(file);
-            uploadedAttachments.push(attachment);
-          } catch (error) {
-            // Continue uploading remaining files
-          }
-        }
-
-        if (uploadedAttachments.length > 0) {
-          const newFileParts = uploadedAttachments.map(
-            (attachment): EditorFilePart => ({
+        const uploaded = await uploadFiles(uploadable);
+        if (uploaded.length > 0) {
+          const newFileParts = uploaded.map(
+            (file): EditorFilePart => ({
               type: 'file',
-              url: attachment.url,
-              name: attachment.name,
-              mediaType: attachment.contentType || attachment.mediaType || '',
+              url: file.url,
+              name: file.name,
+              mediaType: file.contentType,
             }),
           );
           updateFileParts((current) => [...current, ...newFileParts]);
-          sileo.success({
-            title: `${uploadedAttachments.length} file${uploadedAttachments.length > 1 ? 's' : ''} uploaded successfully`,
-          });
-        } else {
-          sileo.error({ title: 'No files were successfully uploaded' });
         }
-      } catch (error) {
-        sileo.error({ title: 'Failed to upload one or more files. Please try again.' });
       } finally {
         setIsUploading(false);
-        onFinish();
       }
     },
-    [fileParts.length, uploadFile, updateFileParts],
+    [fileParts.length, updateFileParts],
   );
 
   const handleFileChange = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(event.target.files || []);
-      await handleFilesUpload(files, () => {
+      try {
+        await handleFilesUpload(files);
+      } finally {
         event.target.value = '';
-      });
+      }
     },
     [handleFilesUpload],
   );
@@ -725,7 +586,7 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
       setIsDragActive(false);
       if (isUploading || isSubmitting) return;
       const files = Array.from(event.dataTransfer.files || []);
-      await handleFilesUpload(files, () => {});
+      await handleFilesUpload(files);
     },
     [handleFilesUpload, isSubmitting, isUploading],
   );

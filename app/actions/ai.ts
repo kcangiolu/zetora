@@ -2,7 +2,6 @@
 
 import { serverEnv } from '@/env/server';
 import { generateText } from 'ai';
-import type { ModelMessage } from 'ai';
 import { z } from 'zod';
 import { jsonrepair } from 'jsonrepair';
 import { getUser } from '@/lib/auth-utils';
@@ -35,7 +34,6 @@ import {
 import { db, maindb } from '@/lib/db';
 import { chat, message, buildSession, type User } from '@/lib/db/schema';
 import { eq, desc, ilike, and, asc, inArray, notExists } from 'drizzle-orm';
-import { groq } from '@ai-sdk/groq';
 import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 import type { CharacterAlignmentResponseModel } from '@elevenlabs/elevenlabs-js/api/types/CharacterAlignmentResponseModel';
 import { usageCountCache, createMessageCountKey } from '@/lib/performance-cache';
@@ -146,34 +144,6 @@ Respond with ONLY the JSON object below, no markdown code fences or extra commen
     log.error('[suggestQuestions] Failed to generate follow-up questions:', error);
     return { questions: [] };
   }
-}
-
-const moderationImagesSchema = z
-  .array(z.string().max(10 * 1024 * 1024))
-  .min(1)
-  .max(10);
-
-export async function checkImageModeration(rawImages: unknown) {
-  if (!(await getUser())) {
-    throw new Error('Authentication required');
-  }
-  const images = moderationImagesSchema.parse(rawImages);
-
-  const messages: ModelMessage[] = images.map((image) => ({
-    role: 'user',
-    content: [{ type: 'image', image: image }],
-  }));
-
-  const { text } = await generateText({
-    model: groq('meta-llama/llama-guard-4-12b'),
-    messages,
-    providerOptions: {
-      groq: {
-        service_tier: 'flex',
-      },
-    },
-  });
-  return text;
 }
 
 export async function enhancePrompt(raw: string) {
