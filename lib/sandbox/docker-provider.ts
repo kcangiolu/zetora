@@ -4,6 +4,10 @@ import { ConcurrencyLimiter } from './concurrency-limiter';
 import type { SandboxProvider, SandboxResult } from './types';
 import { wrapCodeForFileCapture, parseFileMarker } from './file-capture';
 
+// The sandbox enforces timeoutMs on the code itself; the request gets a
+// margin on top for queueing and output transfer.
+const SANDBOX_RESPONSE_MARGIN_MS = 30_000;
+
 const CHART_MARKER = '__CHART__:';
 const log = createLogger('docker-provider');
 
@@ -37,6 +41,7 @@ export class DockerSandboxProvider implements SandboxProvider {
     const wrappedCode = wrapCodeForFileCapture(this.wrapCodeForCharts(code));
 
     const res = await fetch(`${this.baseUrl}/v1/execute`, {
+      signal: AbortSignal.timeout(timeoutMs + SANDBOX_RESPONSE_MARGIN_MS),
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

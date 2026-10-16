@@ -3,7 +3,7 @@ import 'server-only';
 import { cache } from 'react';
 import { and, asc, desc, eq, gt, gte, isNull, lt, or, sql, type SQL } from 'drizzle-orm';
 import { user, chat, message, type Message, stream, buildSession, hermesConversation } from '../schema';
-import { ChatSDKError } from '../../errors';
+import { ChatSDKError, databaseError } from '../../errors';
 import { db, maindb } from '../index';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
@@ -35,7 +35,7 @@ export async function saveChat({
       visibility,
     });
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to save chat' + error);
+    throw databaseError('Failed to save chat', error);
   }
 }
 
@@ -64,7 +64,7 @@ export async function deleteChatById({ id }: { id: string }) {
       return chatsDeleted;
     });
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to delete chat by id');
+    throw databaseError('Failed to delete chat by id', error);
   }
 }
 
@@ -168,7 +168,7 @@ export async function getChatsByUserId({
       hasMore,
     };
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to get chats by user id');
+    throw databaseError('Failed to get chats by user id', error);
   }
 }
 
@@ -213,7 +213,7 @@ export async function getRecentChatsByUserId({ userId, limit = 8 }: { userId: st
       hasMore,
     };
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to get recent chats by user id');
+    throw databaseError('Failed to get recent chats by user id', error);
   }
 }
 
@@ -228,7 +228,7 @@ export const getChatByIdForValidation = cache(
         .limit(1);
       return selectedChat || null;
     } catch (error) {
-      throw new ChatSDKError('bad_request:database', 'Failed to get chat by id');
+      throw databaseError('Failed to get chat by id', error);
     }
   },
 );
@@ -244,7 +244,7 @@ export const getChatById = cache(async ({ id }: { id: string }) => {
     log.debug(`⏱️  [DB-DETAIL] getChatById: Query (with cache) took ${cacheQueryTime.toFixed(2)}s`);
     return selectedChat || null;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to get chat by id');
+    throw databaseError('Failed to get chat by id', error);
   }
 });
 
@@ -267,8 +267,7 @@ export async function getChatWithUserById({ id }: { id: string }) {
       .where(eq(chat.id, id));
     return result;
   } catch (error) {
-    log.debug('Error getting chat with user by id', error);
-    return null;
+    throw databaseError('Failed to get chat with user by id', error);
   }
 }
 
@@ -316,7 +315,7 @@ export async function saveUserTurnMessage({
       .set({ updatedAt: sql`clock_timestamp()` })
       .where(eq(chat.id, chatId));
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to save user turn message');
+    throw databaseError('Failed to save user turn message', error);
   }
 }
 
@@ -426,7 +425,7 @@ export async function saveMessages({ messages }: { messages: Array<Message> }) {
       return lastInsertResult;
     });
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to save messages');
+    throw databaseError('Failed to save messages', error);
   }
 }
 
@@ -463,7 +462,7 @@ export const getMessagesByChatId = cache(
         .limit(limit)
         .offset(offset);
     } catch (error) {
-      throw new ChatSDKError('bad_request:database', 'Failed to get messages by chat id');
+      throw databaseError('Failed to get messages by chat id', error);
     }
   },
 );
@@ -472,7 +471,7 @@ export async function getMessageById({ id }: { id: string }) {
   try {
     return await maindb.select().from(message).where(eq(message.id, id)).limit(1);
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to get message by id');
+    throw databaseError('Failed to get message by id', error);
   }
 }
 
@@ -480,7 +479,7 @@ export async function updateMessagePartsById({ id, parts }: { id: string; parts:
   try {
     return await maindb.update(message).set({ parts }).where(eq(message.id, id));
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to update message parts');
+    throw databaseError('Failed to update message parts', error);
   }
 }
 
@@ -490,7 +489,7 @@ export async function updateMessageHermesReaction({ id, emoji }: { id: string; e
   try {
     return await maindb.update(message).set({ hermesReaction: emoji }).where(eq(message.id, id));
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to update message reaction');
+    throw databaseError('Failed to update message reaction', error);
   }
 }
 
@@ -540,7 +539,7 @@ export async function upsertCompactionSummaryMessage({
       .returning();
     return inserted;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to upsert compaction summary message');
+    throw databaseError('Failed to upsert compaction summary message', error);
   }
 }
 
@@ -550,7 +549,7 @@ export async function deleteMessagesByChatIdAfterTimestamp({ chatId, timestamp }
     // This prevents race conditions where messages could be inserted between select and delete
     return await maindb.delete(message).where(and(eq(message.chatId, chatId), gte(message.createdAt, timestamp)));
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to delete messages by chat id after timestamp');
+    throw databaseError('Failed to delete messages by chat id after timestamp', error);
   }
 }
 
@@ -582,7 +581,7 @@ export async function updateChatVisibilityById({
       error: error instanceof Error ? error.message : error,
       stack: error instanceof Error ? error.stack : undefined,
     });
-    throw new ChatSDKError('bad_request:database', 'Failed to update chat visibility by id');
+    throw databaseError('Failed to update chat visibility by id', error);
   }
 }
 
@@ -595,7 +594,7 @@ export async function updateChatTitleById({ chatId, title }: { chatId: string; t
       .returning();
     return updatedChat;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to update chat title by id');
+    throw databaseError('Failed to update chat title by id', error);
   }
 }
 
@@ -604,6 +603,6 @@ export async function updateChatPinnedById({ chatId, isPinned }: { chatId: strin
     const [updatedChat] = await db.update(chat).set({ isPinned }).where(eq(chat.id, chatId)).returning();
     return updatedChat;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to update chat pinned state by id');
+    throw databaseError('Failed to update chat pinned state by id', error);
   }
 }

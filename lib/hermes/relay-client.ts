@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { serverEnv } from '@/env/server';
+import { INTERNAL_SERVICE_TIMEOUT_MS } from '@/lib/timeouts';
 
 // The only place in zetora-app that calls OUT to hermes-relay-service (the reverse of
 // lib/hermes/internal-auth.ts, which gates calls coming IN from it). Same shared-secret
@@ -13,6 +14,7 @@ export interface DeliverResult {
 
 export async function deliverToGateway(params: { gatewayId: string; event: Record<string, unknown> }): Promise<DeliverResult> {
   const res = await fetch(`${serverEnv.HERMES_RELAY_SERVICE_URL}/control/deliver`, {
+    signal: AbortSignal.timeout(INTERNAL_SERVICE_TIMEOUT_MS),
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -21,9 +23,9 @@ export async function deliverToGateway(params: { gatewayId: string; event: Recor
     body: JSON.stringify(params),
   });
 
-  try {
-    return (await res.json()) as DeliverResult;
-  } catch {
-    return { success: false, error: `hermes-relay-service returned ${res.status}` };
+  const body = (await res.json().catch(() => null)) as DeliverResult | null;
+  if (!res.ok || !body) {
+    return { success: false, error: body?.error ?? `hermes-relay-service returned ${res.status}` };
   }
+  return body;
 }

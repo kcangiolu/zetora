@@ -1,5 +1,6 @@
 import 'server-only';
 import type { QdrantFilter } from './qdrant-filters';
+import { INTERNAL_SERVICE_TIMEOUT_MS } from '@/lib/timeouts';
 
 interface SearchResult {
   id: string | number;
@@ -14,10 +15,13 @@ export function getQdrantClient() {
 
   return {
     async createCollection(name: string, vectorSize: number) {
-      const exists = await fetch(`${QDRANT_URL}/collections/${name}`);
+      const exists = await fetch(`${QDRANT_URL}/collections/${name}`, {
+        signal: AbortSignal.timeout(INTERNAL_SERVICE_TIMEOUT_MS),
+      });
       if (exists.ok) return;
 
       const res = await fetch(`${QDRANT_URL}/collections/${name}`, {
+        signal: AbortSignal.timeout(INTERNAL_SERVICE_TIMEOUT_MS),
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -39,6 +43,7 @@ export function getQdrantClient() {
       points: { id: string | number; vector: number[]; payload?: Record<string, any> }[],
     ) {
       const res = await fetch(`${QDRANT_URL}/collections/${collectionName}/points?wait=true`, {
+        signal: AbortSignal.timeout(INTERNAL_SERVICE_TIMEOUT_MS),
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ points }),
@@ -71,6 +76,7 @@ export function getQdrantClient() {
       }
 
       const res = await fetch(`${QDRANT_URL}/collections/${collectionName}/points/search`, {
+        signal: AbortSignal.timeout(INTERNAL_SERVICE_TIMEOUT_MS),
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -90,16 +96,23 @@ export function getQdrantClient() {
     },
 
     async deleteCollection(name: string) {
-      await fetch(`${QDRANT_URL}/collections/${name}`, { method: 'DELETE' });
+      await fetch(`${QDRANT_URL}/collections/${name}`, {
+        signal: AbortSignal.timeout(INTERNAL_SERVICE_TIMEOUT_MS),
+        method: 'DELETE',
+      });
     },
 
     async collectionExists(name: string): Promise<boolean> {
-      const res = await fetch(`${QDRANT_URL}/collections/${name}`);
+      const res = await fetch(`${QDRANT_URL}/collections/${name}`, {
+        signal: AbortSignal.timeout(INTERNAL_SERVICE_TIMEOUT_MS),
+      });
       return res.ok;
     },
 
     async count(collectionName: string): Promise<number> {
-      const res = await fetch(`${QDRANT_URL}/collections/${collectionName}`);
+      const res = await fetch(`${QDRANT_URL}/collections/${collectionName}`, {
+        signal: AbortSignal.timeout(INTERNAL_SERVICE_TIMEOUT_MS),
+      });
       if (!res.ok) return 0;
       const data = await res.json();
       return data.result?.points_count ?? 0;

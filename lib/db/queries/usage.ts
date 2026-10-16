@@ -2,7 +2,7 @@ import 'server-only';
 
 import { and, eq, gte, lt, sql } from 'drizzle-orm';
 import { chat, message, messageUsage } from '../schema';
-import { ChatSDKError } from '../../errors';
+import { ChatSDKError, databaseError } from '../../errors';
 import { db, maindb } from '../index';
 import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
 
@@ -31,7 +31,7 @@ async function getMessageUsageByUserId({ userId }: { userId: string }) {
 
     return usage;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to get message usage');
+    throw databaseError('Failed to get message usage', error);
   }
 }
 
@@ -72,7 +72,7 @@ export async function incrementMessageUsage({ userId }: { userId: string }) {
 
     return result;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to increment message usage');
+    throw databaseError('Failed to increment message usage', error);
   }
 }
 

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   ChatSDKError,
+  databaseError,
   getMessageByErrorCode,
   getErrorActions,
   getErrorIcon,
@@ -30,6 +31,7 @@ describe('ChatSDKError', () => {
     ['not_found:chat', 404],
     ['rate_limit:api', 429],
     ['offline:chat', 503],
+    ['internal:database', 500],
   ] as const)('%s maps to HTTP %d', (code, status) => {
     expect(new ChatSDKError(code).statusCode).toBe(status);
   });
@@ -47,12 +49,27 @@ describe('ChatSDKError', () => {
 
   it('toResponse hides details and logs for database-surface errors', async () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const res = new ChatSDKError('bad_request:database', 'SELECT failed').toResponse();
+    const res = new ChatSDKError('internal:database', 'SELECT failed').toResponse();
     expect(spy).toHaveBeenCalledOnce();
     const body = await res.json();
     expect(body.code).toBe('');
     expect(body.message).toBe('Something went wrong. Please try again later.');
     expect(JSON.stringify(body)).not.toContain('SELECT failed');
+  });
+});
+
+describe('databaseError', () => {
+  it('wraps a driver failure as a 500 that keeps the original error', () => {
+    const original = new Error('connection refused');
+    const err = databaseError('Failed to get chat', original);
+    expect(err.statusCode).toBe(500);
+    expect(err.cause).toBe('Failed to get chat');
+    expect(err.originalError).toBe(original);
+  });
+
+  it('passes through a ChatSDKError raised inside the query', () => {
+    const notFound = new ChatSDKError('not_found:database', 'missing');
+    expect(databaseError('Failed to get chats', notFound)).toBe(notFound);
   });
 });
 

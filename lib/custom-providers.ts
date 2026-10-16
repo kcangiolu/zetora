@@ -8,6 +8,7 @@ import { upsertUserPreferences } from '@/lib/db/queries';
 
 import { createLogger } from '@/lib/logger';
 import { guardedPublicFetch } from '@/lib/net/public-url';
+import { globalCache } from '@/lib/lru-ttl-cache';
 
 const log = createLogger('custom-providers');
 
@@ -69,12 +70,15 @@ export interface CustomModelInfo {
   vision: boolean;
 }
 
-// In-memory cache for detected models keyed by baseURL
-const modelsCache = new Map<string, { models: string[]; expiresAt: number }>();
 const MODELS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+// Bounded: keys come from user-supplied provider URLs and API keys.
+const PROBE_CACHE_MAX = 500;
 
-// In-memory cache for per-model vision capability, keyed by providerId::modelName
-const visionCache = new Map<string, { vision: boolean; expiresAt: number }>();
+// Detected models, keyed by baseURL and API key
+const modelsCache = globalCache<string[]>('__zetoraCustomModelsCache', PROBE_CACHE_MAX);
+
+// Per-model vision capability, keyed by providerId::modelName
+const visionCache = globalCache<boolean>('__zetoraCustomVisionCache', PROBE_CACHE_MAX);
 
 // `userId` lets server-to-server callers (e.g. the voice s2s LLM stage, which
 // authenticates via a Bearer token instead of a browser session cookie) pass
@@ -179,9 +183,7 @@ export function fetchCustomProvider(url: string, init?: RequestInit): Promise<Re
 export async function detectModels(baseURL: string, apiKey?: string): Promise<string[]> {
   const cacheKey = `${baseURL}::${apiKey ?? ''}`;
   const cached = modelsCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.models;
-  }
+  if (cached) return cached;
 
   const url = `${baseURL.replace(/\/$/, '')}/models`;
   const response = await fetchCustomProvider(url, {
@@ -200,13 +202,12 @@ export async function detectModels(baseURL: string, apiKey?: string): Promise<st
   const data = await response.json();
   const models: string[] = Array.isArray(data?.data) ? data.data.map((m: { id: string }) => m.id) : [];
 
-  modelsCache.set(cacheKey, { models, expiresAt: Date.now() + MODELS_CACHE_TTL_MS });
+  modelsCache.set(cacheKey, models, MODELS_CACHE_TTL_MS);
   return models;
 }
 
-// In-memory cache for detected backend kinds, keyed by baseURL — same TTL
-// and shape as the model-list cache above.
-const backendKindCache = new Map<string, { kind: CustomBackendKind; expiresAt: number }>();
+// Detected backend kinds, keyed by baseURL — same TTL as the model-list cache above.
+const backendKindCache = globalCache<CustomBackendKind>('__zetoraCustomBackendKindCache', PROBE_CACHE_MAX);
 
 export function deriveRootURL(baseURL: string): string {
   return baseURL.replace(/\/$/, '').replace(/\/v1$/, '');
@@ -219,13 +220,11 @@ export function deriveRootURL(baseURL: string): string {
 // to 'unknown' (mask-only), never breaks anything.
 export async function detectBackendKind(baseURL: string): Promise<CustomBackendKind> {
   const cached = backendKindCache.get(baseURL);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.kind;
-  }
+  if (cached) return cached;
 
   const root = deriveRootURL(baseURL);
   const kind = await probeBackendKind(root);
-  backendKindCache.set(baseURL, { kind, expiresAt: Date.now() + MODELS_CACHE_TTL_MS });
+  backendKindCache.set(baseURL, kind, MODELS_CACHE_TTL_MS);
   return kind;
 }
 
@@ -282,9 +281,7 @@ async function detectModelVision(
 ): Promise<boolean> {
   const cacheKey = `${providerId}::${modelName}`;
   const cached = visionCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.vision;
-  }
+  if (cached !== undefined) return cached;
 
   let vision = false;
   try {
@@ -310,7 +307,7 @@ async function detectModelVision(
     // Unreachable or unsupported — leave vision false.
   }
 
-  visionCache.set(cacheKey, { vision, expiresAt: Date.now() + MODELS_CACHE_TTL_MS });
+  visionCache.set(cacheKey, vision, MODELS_CACHE_TTL_MS);
   return vision;
 }
 

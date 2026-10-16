@@ -1,4 +1,6 @@
 import { createLogger } from '@/lib/logger';
+import { FASTCRW_SEARCH_TIMEOUT_MS } from '@/lib/timeouts';
+import { getFaviconUrl } from '@/lib/url';
 
 const log = createLogger('fastcrw-search');
 
@@ -73,6 +75,7 @@ export class FastCrwSearchStrategy implements SearchProviderStrategy {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(FASTCRW_SEARCH_TIMEOUT_MS),
       });
 
       if (!response.ok) {
@@ -86,7 +89,7 @@ export class FastCrwSearchStrategy implements SearchProviderStrategy {
         url: r.url,
         content: r.snippet || r.description || '',
         publishedDate: '',
-        favicon: `https://www.google.com/s2/favicons?domain=${new URL(r.url).hostname}&sz=128`,
+        favicon: getFaviconUrl(r.url),
       })) as FastCrwSearchResult[];
 
       log.debug(`[FastCRW] search returning ${mappedResults.length} results`);

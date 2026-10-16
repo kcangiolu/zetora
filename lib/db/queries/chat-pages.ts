@@ -2,7 +2,7 @@ import 'server-only';
 
 import { eq } from 'drizzle-orm';
 import { chat, type User, message, type Message, type Chat } from '../schema';
-import { ChatSDKError } from '../../errors';
+import { ChatSDKError, databaseError } from '../../errors';
 import { maindb } from '../index';
 
 import { createLogger } from '@/lib/logger';
@@ -55,6 +55,6 @@ export async function getChatWithUserAndInitialMessages({ id }: { id: string }):
     };
   } catch (error) {
     log.error('Error in getChatWithUserAndInitialMessages:', error);
-    throw new ChatSDKError('bad_request:database', 'Failed to get chat with user and messages');
+    throw databaseError('Failed to get chat with user and messages', error);
   }
 }

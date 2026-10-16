@@ -5,6 +5,7 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
 import { createLogger } from '@/lib/logger';
+import { EXTERNAL_API_TIMEOUT_MS } from '@/lib/timeouts';
 
 const log = createLogger('crypto-tools');
 
@@ -48,6 +49,7 @@ export const coinDataTool = tool({
       const url = `https://api.coingecko.com/api/v3/coins/${coinId}?${params.toString()}`;
 
       const response = await fetch(url, {
+        signal: AbortSignal.timeout(EXTERNAL_API_TIMEOUT_MS),
         headers: {
           Accept: 'application/json',
           'x-cg-demo-api-key': serverEnv.COINGECKO_API_KEY,
@@ -121,6 +123,7 @@ export const coinDataByContractTool = tool({
       const url = `https://api.coingecko.com/api/v3/coins/${platformId}/contract/${contractAddress}?${params.toString()}`;
 
       const response = await fetch(url, {
+        signal: AbortSignal.timeout(EXTERNAL_API_TIMEOUT_MS),
         headers: {
           Accept: 'application/json',
           'x-cg-demo-api-key': serverEnv.COINGECKO_API_KEY,
@@ -180,6 +183,7 @@ export const coinOhlcTool = tool({
             return fetch(
               `https://api.coingecko.com/api/v3/coins/${coinId}/ohlc?vs_currency=${vsCurrency}&days=${days}`,
               {
+                signal: AbortSignal.timeout(EXTERNAL_API_TIMEOUT_MS),
                 headers: {
                   Accept: 'application/json',
                   'x-cg-demo-api-key': serverEnv.COINGECKO_API_KEY,
@@ -191,6 +195,7 @@ export const coinOhlcTool = tool({
             return fetch(
               `https://api.coingecko.com/api/v3/coins/${coinId}?localization=false&tickers=true&market_data=true&community_data=true&developer_data=true&sparkline=false`,
               {
+                signal: AbortSignal.timeout(EXTERNAL_API_TIMEOUT_MS),
                 headers: {
                   Accept: 'application/json',
                   'x-cg-demo-api-key': serverEnv.COINGECKO_API_KEY,

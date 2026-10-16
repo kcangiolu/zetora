@@ -3,6 +3,11 @@ import Redis from 'ioredis';
 
 import { serverEnv } from '@/env/server';
 import { createLogger } from '@/lib/logger';
+import { SEARCH_REQUEST_TIMEOUT_MS } from '@/lib/timeouts';
+
+// A lookout run is a whole search, bounded on the server by
+// SEARCH_REQUEST_TIMEOUT_MS; the worker waits a little longer for its answer.
+const LOOKOUT_RUN_TIMEOUT_MS = SEARCH_REQUEST_TIMEOUT_MS + 60_000;
 
 const log = createLogger('bullmq');
 
@@ -152,6 +157,7 @@ export function startLookoutWorker(): Worker<LookoutJobData> {
       const { destination, body, headers } = job.data;
 
       const response = await fetch(destination, {
+        signal: AbortSignal.timeout(LOOKOUT_RUN_TIMEOUT_MS),
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify(body),

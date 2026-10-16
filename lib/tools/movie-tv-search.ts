@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { serverEnv } from '@/env/server';
 
 import { createLogger } from '@/lib/logger';
+import { EXTERNAL_API_TIMEOUT_MS } from '@/lib/timeouts';
 
 const log = createLogger('movie-tv-search');
 
@@ -21,6 +22,7 @@ export const movieTvSearchTool = tool({
           query,
         )}&language=en-US&page=1&include_adult=false`,
         {
+          signal: AbortSignal.timeout(EXTERNAL_API_TIMEOUT_MS),
           method: 'GET',
           headers: {
             Authorization: `Bearer ${TMDB_API_KEY}`,
@@ -47,6 +49,7 @@ export const movieTvSearchTool = tool({
       const detailsResponse = await fetch(
         `${TMDB_BASE_URL}/${firstResult.media_type}/${firstResult.id}?language=en-US`,
         {
+          signal: AbortSignal.timeout(EXTERNAL_API_TIMEOUT_MS),
           headers: {
             Authorization: `Bearer ${TMDB_API_KEY}`,
             accept: 'application/json',
@@ -59,6 +62,7 @@ export const movieTvSearchTool = tool({
       const creditsResponse = await fetch(
         `${TMDB_BASE_URL}/${firstResult.media_type}/${firstResult.id}/credits?language=en-US`,
         {
+          signal: AbortSignal.timeout(EXTERNAL_API_TIMEOUT_MS),
           headers: {
             Authorization: `Bearer ${TMDB_API_KEY}`,
             accept: 'application/json',

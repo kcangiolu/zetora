@@ -3,7 +3,7 @@ import 'server-only';
 import { cache } from 'react';
 import { desc, eq } from 'drizzle-orm';
 import { lookout } from '../schema';
-import { ChatSDKError } from '../../errors';
+import { ChatSDKError, databaseError } from '../../errors';
 import { db, maindb } from '../index';
 import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
 
@@ -53,7 +53,7 @@ export async function createLookout({
     return newLookout;
   } catch (error) {
     log.error('❌ Failed to create lookout:', error);
-    throw new ChatSDKError('bad_request:database', 'Failed to create lookout');
+    throw databaseError('Failed to create lookout', error);
   }
 }
 
@@ -62,7 +62,7 @@ export const getLookoutsByUserId = cache(async ({ userId }: { userId: string }) 
   try {
     return await maindb.select().from(lookout).where(eq(lookout.userId, userId)).orderBy(desc(lookout.createdAt));
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to get lookouts by user id');
+    throw databaseError('Failed to get lookouts by user id', error);
   }
 });
 
@@ -81,7 +81,7 @@ export const getLookoutById = cache(async ({ id }: { id: string }) => {
     return selectedLookout;
   } catch (error) {
     log.error('❌ Error fetching lookout by ID:', id, error);
-    throw new ChatSDKError('bad_request:database', 'Failed to get lookout by id');
+    throw databaseError('Failed to get lookout by id', error);
   }
 });
 
@@ -121,7 +121,7 @@ export async function updateLookout({
 
     return updatedLookout;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to update lookout');
+    throw databaseError('Failed to update lookout', error);
   }
 }
 
@@ -141,7 +141,7 @@ export async function updateLookoutStatus({
 
     return updatedLookout;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to update lookout status');
+    throw databaseError('Failed to update lookout status', error);
   }
 }
 
@@ -201,7 +201,7 @@ export async function updateLookoutLastRun({
 
     return updatedLookout;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to update lookout last run');
+    throw databaseError('Failed to update lookout last run', error);
   }
 }
 
@@ -212,6 +212,6 @@ export async function deleteLookout({ id }: { id: string }) {
 
     return deletedLookout;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to delete lookout');
+    throw databaseError('Failed to delete lookout', error);
   }
 }

@@ -178,7 +178,7 @@ export async function loadConfiguredTools({
         }
         case 'extreme_search': {
           const { extremeSearchTool } = await import('@/lib/tools/extreme-search');
-          const built = extremeSearchTool(dataStream, contextFiles, includeMcpTools ? mcpDynamicTools : {});
+          const built = extremeSearchTool(dataStream, contextFiles);
           tools.extreme_search = anonymizeContext ? withEgressAnonymization(built, anonymizeContext) : built;
           return;
         }

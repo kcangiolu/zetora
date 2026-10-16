@@ -2,7 +2,7 @@ import 'server-only';
 
 import { and, eq, gt } from 'drizzle-orm';
 import { hermesConnector, hermesConversation, message } from '../schema';
-import { ChatSDKError } from '../../errors';
+import { ChatSDKError, databaseError } from '../../errors';
 import { maindb } from '../index';
 import { resolveHermesChatLock, type HermesChatLock } from '@/lib/hermes/chat-mode';
 
@@ -43,7 +43,7 @@ export async function createHermesConnector(input: CreateHermesConnectorInput) {
 
     return created;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to create Hermes connector');
+    throw databaseError('Failed to create Hermes connector', error);
   }
 }
 
@@ -52,7 +52,7 @@ export async function getHermesConnectorByUserId(userId: string) {
     const [connector] = await maindb.select().from(hermesConnector).where(eq(hermesConnector.userId, userId)).limit(1);
     return connector ?? null;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to fetch Hermes connector');
+    throw databaseError('Failed to fetch Hermes connector', error);
   }
 }
 
@@ -65,7 +65,7 @@ export async function getHermesConnectorByGatewayId(gatewayId: string) {
       .limit(1);
     return connector ?? null;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to fetch Hermes connector');
+    throw databaseError('Failed to fetch Hermes connector', error);
   }
 }
 
@@ -84,7 +84,7 @@ export async function getPendingHermesConnectorByEnrollmentTokenHash(enrollmentT
       .limit(1);
     return connector ?? null;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to fetch pending Hermes connector');
+    throw databaseError('Failed to fetch pending Hermes connector', error);
   }
 }
 
@@ -115,7 +115,7 @@ export async function markHermesConnectorEnrolled({
       .returning();
     return updated ?? null;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to enroll Hermes connector');
+    throw databaseError('Failed to enroll Hermes connector', error);
   }
 }
 
@@ -141,7 +141,7 @@ export async function updateHermesConnectorConnectionStatus({
       .returning();
     return updated ?? null;
   } catch (error_) {
-    throw new ChatSDKError('bad_request:database', 'Failed to update Hermes connector status');
+    throw databaseError('Failed to update Hermes connector status', error_);
   }
 }
 
@@ -159,7 +159,7 @@ export async function revokeHermesConnector({ id, userId }: { id: string; userId
       .returning();
     return updated ?? null;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to revoke Hermes connector');
+    throw databaseError('Failed to revoke Hermes connector', error);
   }
 }
 
@@ -168,7 +168,7 @@ export async function createHermesConversation({ chatId, connectorId }: { chatId
     const [created] = await maindb.insert(hermesConversation).values({ chatId, connectorId }).returning();
     return created;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to create Hermes conversation');
+    throw databaseError('Failed to create Hermes conversation', error);
   }
 }
 
@@ -180,7 +180,7 @@ export async function getHermesConversationsByConnectorId(connectorId: string) {
   try {
     return await maindb.select().from(hermesConversation).where(eq(hermesConversation.connectorId, connectorId));
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to fetch Hermes conversations');
+    throw databaseError('Failed to fetch Hermes conversations', error);
   }
 }
 
@@ -193,7 +193,7 @@ export async function getHermesConversationByChatId(chatId: string) {
       .limit(1);
     return conversation ?? null;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to fetch Hermes conversation');
+    throw databaseError('Failed to fetch Hermes conversation', error);
   }
 }
 
@@ -214,6 +214,6 @@ export async function getHermesChatLock(chatId: string): Promise<HermesChatLock>
       .limit(1);
     return resolveHermesChatLock({ hasHermesConversation: false, hasMessages: Boolean(existingMessage) });
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to resolve Hermes chat lock');
+    throw databaseError('Failed to resolve Hermes chat lock', error);
   }
 }

@@ -2,7 +2,7 @@ import 'server-only';
 
 import { eq } from 'drizzle-orm';
 import { customInstructions } from '../schema';
-import { ChatSDKError } from '../../errors';
+import { ChatSDKError, databaseError } from '../../errors';
 import { db, maindb } from '../index';
 import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
 
@@ -38,7 +38,7 @@ export async function createCustomInstructions({ userId, content }: { userId: st
 
     return newInstructions;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to create custom instructions');
+    throw databaseError('Failed to create custom instructions', error);
   }
 }
 
@@ -55,7 +55,7 @@ export async function updateCustomInstructions({ userId, content }: { userId: st
 
     return updatedInstructions;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to update custom instructions');
+    throw databaseError('Failed to update custom instructions', error);
   }
 }
 
@@ -68,7 +68,7 @@ export async function deleteCustomInstructions({ userId }: { userId: string }) {
 
     return deletedInstructions;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to delete custom instructions');
+    throw databaseError('Failed to delete custom instructions', error);
   }
 }
 

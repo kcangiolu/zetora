@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { serverEnv } from '@/env/server';
 
 import { createLogger } from '@/lib/logger';
+import { EXTERNAL_API_TIMEOUT_MS } from '@/lib/timeouts';
 
 const log = createLogger('trending-movies');
 
@@ -15,6 +16,7 @@ export const trendingMoviesTool = tool({
 
     try {
       const response = await fetch(`${TMDB_BASE_URL}/trending/movie/day?language=en-US`, {
+        signal: AbortSignal.timeout(EXTERNAL_API_TIMEOUT_MS),
         headers: {
           Authorization: `Bearer ${TMDB_API_KEY}`,
           accept: 'application/json',

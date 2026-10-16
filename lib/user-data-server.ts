@@ -9,6 +9,7 @@ import { headers } from 'next/headers';
 import { getCustomInstructionsByUserId, getUserPreferencesByUserId } from './db/queries';
 import type { CustomInstructions, UserPreferences } from './db/schema';
 import { sessionCache, createSessionKey } from './performance-cache';
+import { globalCache } from './lru-ttl-cache';
 
 // Reverse mapping: userId → Set of session tokens, so we can invalidate all sessions when user data changes
 const userSessionTokens = new Map<string, Set<string>>();
@@ -56,58 +57,6 @@ const USER_DATA_CACHE_MAX = 2000;
 const LIGHTWEIGHT_AUTH_CACHE_MAX = 3000;
 const CUSTOM_INSTRUCTIONS_CACHE_MAX = 2000;
 const USER_PREFERENCES_CACHE_MAX = 2000;
-
-type CacheEntry<T> = { value: T; expiresAt: number };
-
-class LruTtlCache<T> {
-  private map = new Map<string, CacheEntry<T>>();
-  private readonly maxSize: number;
-
-  constructor(maxSize: number) {
-    this.maxSize = maxSize;
-  }
-
-  get(key: string): T | undefined {
-    const entry = this.map.get(key);
-    if (!entry) return undefined;
-    if (entry.expiresAt <= Date.now()) {
-      this.map.delete(key);
-      return undefined;
-    }
-    // Refresh LRU position
-    this.map.delete(key);
-    this.map.set(key, entry);
-    return entry.value;
-  }
-
-  set(key: string, value: T, ttlMs: number): void {
-    if (this.map.has(key)) {
-      this.map.delete(key);
-    }
-    this.map.set(key, { value, expiresAt: Date.now() + ttlMs });
-    if (this.map.size > this.maxSize) {
-      const firstKey = this.map.keys().next().value;
-      if (firstKey) this.map.delete(firstKey);
-    }
-  }
-
-  delete(key: string): void {
-    this.map.delete(key);
-  }
-
-  clear(): void {
-    this.map.clear();
-  }
-}
-
-// Caches must live on globalThis: in dev (and with route-level code splitting)
-// this module can be instantiated once per route entry, so a plain module-level
-// cache cleared by /api/preferences would NOT clear the instance used by
-// /api/search — stale preferences would then be served for up to the TTL.
-function globalCache<T>(key: string, maxSize: number): LruTtlCache<T> {
-  const store = globalThis as unknown as Record<string, LruTtlCache<T> | undefined>;
-  return (store[key] ??= new LruTtlCache<T>(maxSize));
-}
 
 const userDataCache = globalCache<ComprehensiveUserData>('__zetoraUserDataCache', USER_DATA_CACHE_MAX);
 const lightweightAuthCache = globalCache<LightweightUserAuth>(

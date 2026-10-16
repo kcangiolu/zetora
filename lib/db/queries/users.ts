@@ -3,7 +3,7 @@ import 'server-only';
 import { cache } from 'react';
 import { eq } from 'drizzle-orm';
 import { user, type User } from '../schema';
-import { ChatSDKError } from '../../errors';
+import { ChatSDKError, databaseError } from '../../errors';
 import { db } from '../index';
 import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
 
@@ -14,6 +14,6 @@ export const getUserById = cache(async (id: string): Promise<User | null> => {
     const [selectedUser] = await db.select().from(user).where(eq(user.id, id)).limit(1);
     return selectedUser || null;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to get user by id');
+    throw databaseError('Failed to get user by id', error);
   }
 });

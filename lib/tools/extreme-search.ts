@@ -6,6 +6,7 @@
 // ----> Return all collected sources and research data to the user
 
 import { createLogger } from '@/lib/logger';
+import { getFaviconUrl } from '@/lib/url';
 import { isRerankAvailable } from '@/lib/search/rerank';
 import { isToolAvailable } from '@/lib/instance/capabilities';
 import { X_SEARCH_MODEL_ID } from '@/lib/tools/x-search';
@@ -21,7 +22,7 @@ import { getFileEmbeddingModel } from '@/ai/embeddings';
 import { z } from 'zod';
 import { serverEnv } from '@/env/server';
 import { resolveTertiaryModel } from '@/ai/tertiary';
-import { EXTREME_WALL_CLOCK_MS, isPastDeadline } from '@/lib/timeouts';
+import { EXTREME_WALL_CLOCK_MS, SEARXNG_TIMEOUT_MS, isPastDeadline } from '@/lib/timeouts';
 import { ChatMessage } from '../types';
 import FirecrawlApp from '@mendable/firecrawl-js';
 import { getTweet } from 'react-tweet/api';
@@ -405,7 +406,7 @@ export class ParallelContentStrategy implements ContentExtractionStrategy {
           url: r.url,
           content: String(r.full_content).slice(0, this.maxContentChars),
           publishedDate: r.publish_date || '',
-          favicon: `https://www.google.com/s2/favicons?domain=${new URL(r.url).hostname}&sz=128`,
+          favicon: getFaviconUrl(r.url),
         }));
     } catch (error) {
       log.error('[Parallel] getContents error:', error);
@@ -510,7 +511,9 @@ class SearXNGSearchStrategy implements SearchProviderStrategy {
         safesearch: '1',
       });
 
-      const response = await fetch(`${this.baseUrl}/search?${params.toString()}`);
+      const response = await fetch(`${this.baseUrl}/search?${params.toString()}`, {
+        signal: AbortSignal.timeout(SEARXNG_TIMEOUT_MS),
+      });
 
       if (!response.ok) {
         throw new Error(`SearXNG returned ${response.status}`);
@@ -525,7 +528,7 @@ class SearXNGSearchStrategy implements SearchProviderStrategy {
           url: r.url,
           content: '',
           publishedDate: r.publishedDate || '',
-          favicon: `https://www.google.com/s2/favicons?domain=${new URL(r.url).hostname}&sz=128`,
+          favicon: getFaviconUrl(r.url),
         })) as SearchResult[];
 
       log.info(`[SearXNG] search returning ${mappedResults.length} results`);
@@ -682,8 +685,8 @@ async function extremeSearch(
   prompt: string,
   dataStream: UIMessageStreamWriter<ChatMessage> | undefined,
   files: FileContext[] = [],
-  _mcpDynamicTools: Record<string, any> = {},
   preferences: Record<string, string> | null = null,
+  abortSignal?: AbortSignal,
 ): Promise<Research> {
   const allSources: SearchResult[] = [];
 
@@ -753,6 +756,7 @@ async function extremeSearch(
 
   const { output: result } = await generateText({
     model: await resolveTertiaryModel('extreme-planner', preferences),
+    abortSignal,
     output: Output.object({ schema: planSchema }),
     prompt: `
 Plan out the research for the following topic: ${prompt}.
@@ -850,6 +854,8 @@ ${hasFilesForPlanning ? '- Include file search steps when the uploaded files are
   // Create the autonomous research agent with tools
   const { text: _ } = await generateText({
     model: await resolveTertiaryModel('extreme-agent', preferences),
+    // Stop in the chat aborts the whole run, the agent's tool calls included.
+    abortSignal,
     stopWhen: [stepCountIs(isCustomAgentModel ? 25 : 75), hasToolCall('done'), () => isPastDeadline(agentDeadline)],
     activeTools: baseActiveTools as any,
     maxRetries: 2,
@@ -1636,7 +1642,10 @@ ${JSON.stringify(plan)}
             .optional()
             .describe('The X handles to exclude in the search (max 10). Cannot be used with includeXHandles.'),
         }),
-        execute: async ({ queries, startDate, endDate, includeXHandles, excludeXHandles }, { toolCallId }) => {
+        execute: async (
+          { queries, startDate, endDate, includeXHandles, excludeXHandles },
+          { toolCallId, abortSignal: toolAbortSignal },
+        ) => {
           log.debug('X search queries:', { queries, startDate, endDate, includeXHandles, excludeXHandles });
 
           const sanitizeHandle = (handle: string) => handle.replace(/^@+/, '').trim();
@@ -1690,6 +1699,7 @@ ${JSON.stringify(plan)}
 
               const { text, sources } = await generateText({
                 model: xai.responses(X_SEARCH_MODEL_ID),
+                abortSignal: toolAbortSignal,
                 system: `You are a helpful assistant that searches for X content with all the tools available to you. Do not use user search tool. Max limit of results is 30. You can search for the thread or the content of the post. You can also search for the content of the post using thread fetch tool. NO NEED TO WRITE A SINGLE WORD AFTER RUNNING THE TOOLs AT ALL COSTS!!`,
                 messages: [
                   {
@@ -1971,7 +1981,6 @@ ${JSON.stringify(plan)}
 export function extremeSearchTool(
   dataStream: UIMessageStreamWriter<ChatMessage> | undefined,
   files: Array<{ url: string; contentType: string; name?: string }> = [],
-  mcpDynamicTools: Record<string, any> = {},
 ) {
   return tool({
     description: `Use this tool to conduct an extreme search on a given topic using Exa for content extraction.${files.length > 0 ? ` Has access to ${files.length} uploaded file(s) for document search.` : ''}`,
@@ -1982,12 +1991,12 @@ export function extremeSearchTool(
           "This should take the user's exact prompt. Extract from the context but do not infer or change in any way.",
         ),
     }),
-    execute: async ({ prompt }, { experimental_context }) => {
+    execute: async ({ prompt }, { experimental_context, abortSignal }) => {
       log.debug('extremeSearch called', { prompt, filesCount: files.length });
 
       const ctx = experimental_context as { userPreferences?: Record<string, string> } | undefined;
       const extremePrefs = (ctx?.userPreferences ?? null) as Record<string, string> | null;
-      const research = await extremeSearch(prompt, dataStream, files, mcpDynamicTools, extremePrefs);
+      const research = await extremeSearch(prompt, dataStream, files, extremePrefs, abortSignal);
 
       return {
         research: {

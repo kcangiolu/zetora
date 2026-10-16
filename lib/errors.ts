@@ -2,7 +2,14 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger('errors');
 
-export type ErrorType = 'bad_request' | 'unauthorized' | 'forbidden' | 'not_found' | 'rate_limit' | 'offline';
+export type ErrorType =
+  | 'bad_request'
+  | 'unauthorized'
+  | 'forbidden'
+  | 'not_found'
+  | 'rate_limit'
+  | 'offline'
+  | 'internal';
 
 export type Surface = 'chat' | 'auth' | 'api' | 'stream' | 'database' | 'history' | 'model';
 
@@ -24,8 +31,10 @@ export class ChatSDKError extends Error {
   public type: ErrorType;
   public surface: Surface;
   public statusCode: number;
+  // The underlying failure (a driver error, say). Logged, never sent to the client.
+  public originalError?: unknown;
 
-  constructor(errorCode: ErrorCode, cause?: string) {
+  constructor(errorCode: ErrorCode, cause?: string, originalError?: unknown) {
     super();
 
     const [type, surface] = errorCode.split(':');
@@ -35,19 +44,21 @@ export class ChatSDKError extends Error {
     this.surface = surface as Surface;
     this.message = getMessageByErrorCode(errorCode);
     this.statusCode = getStatusCodeByType(this.type);
+    this.originalError = originalError;
   }
 
   public toResponse() {
     const code: ErrorCode = `${this.type}:${this.surface}`;
     const visibility = visibilityBySurface[this.surface];
 
-    const { message, cause, statusCode } = this;
+    const { message, cause, statusCode, originalError } = this;
 
     if (visibility === 'log') {
       log.error({
         code,
         message,
         cause,
+        originalError,
       });
 
       return Response.json(
@@ -118,9 +129,19 @@ function getStatusCodeByType(type: ErrorType) {
       return 429;
     case 'offline':
       return 503;
+    case 'internal':
+      return 500;
     default:
       return 500;
   }
+}
+
+// For a query's catch block: a ChatSDKError raised inside the try (not_found…)
+// passes through unchanged, anything else is a server-side failure that keeps
+// the original error for the logs.
+export function databaseError(message: string, error: unknown): ChatSDKError {
+  if (error instanceof ChatSDKError) return error;
+  return new ChatSDKError('internal:database', message, error);
 }
 
 // Utility functions for error handling

@@ -127,7 +127,10 @@ export function runMemoryTurnUpdate({
   })().catch((error) => log.error('Memory turn update failed:', error instanceof Error ? error.message : error));
 }
 
-const consolidatingUsers = new Set<string>();
+// On globalThis so that every bundle that imports this module (chat route,
+// settings action) sees the same in-flight set.
+const consolidatingUsers = ((globalThis as { __zetoraConsolidatingUsers?: Set<string> }).__zetoraConsolidatingUsers ??=
+  new Set<string>());
 
 function requireChatModel(chatModel: LanguageModel | undefined): LanguageModel {
   if (!chatModel) {

@@ -2,7 +2,7 @@ import 'server-only';
 
 import { and, desc, eq, isNotNull, or } from 'drizzle-orm';
 import { userMcpServer } from '../schema';
-import { ChatSDKError } from '../../errors';
+import { ChatSDKError, databaseError } from '../../errors';
 import { maindb } from '../index';
 import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
 
@@ -55,7 +55,7 @@ export async function createUserMcpServer(input: UserMcpServerInput) {
 
     return created;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to create MCP server');
+    throw databaseError('Failed to create MCP server', error);
   }
 }
 
@@ -87,7 +87,7 @@ export async function getUserMcpServersByUserId({
       )
       .orderBy(desc(userMcpServer.createdAt));
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to fetch MCP servers');
+    throw databaseError('Failed to fetch MCP servers', error);
   }
 }
 
@@ -100,7 +100,7 @@ export async function getUserMcpServerById({ id, userId }: { id: string; userId:
       .limit(1);
     return server ?? null;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to fetch MCP server');
+    throw databaseError('Failed to fetch MCP server', error);
   }
 }
 
@@ -145,7 +145,7 @@ export async function updateUserMcpServer({
       .returning();
     return updated ?? null;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to update MCP server');
+    throw databaseError('Failed to update MCP server', error);
   }
 }
 
@@ -157,7 +157,7 @@ export async function deleteUserMcpServer({ id, userId }: { id: string; userId: 
       .returning();
     return deleted ?? null;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to delete MCP server');
+    throw databaseError('Failed to delete MCP server', error);
   }
 }
 

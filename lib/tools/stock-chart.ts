@@ -4,9 +4,6 @@ import { Valyu } from 'valyu-js';
 import { tavily } from '@tavily/core';
 import Exa from 'exa-js';
 import { serverEnv } from '@/env/server';
-import { allSettled } from 'better-all';
-import { getBetterAllOptions } from '@/lib/better-all';
-
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('stock-chart');
@@ -371,16 +368,26 @@ interface SECFiling {
   requestedFilingType?: string;
 }
 
-interface SECFilingPromise {
+type ValyuSearchResults = Awaited<ReturnType<Valyu['search']>>['results'];
+
+interface SecFilingResults {
   company: string;
   filingType: string;
-  index: number;
+  results: ValyuSearchResults | null;
 }
 
-interface FinancialPromise {
-  type: 'statistics' | 'balance' | 'income' | 'cash' | 'dividends' | 'insider' | 'gainers' | 'losers' | 'active';
-  company?: string;
-  index: number;
+type CompanyFinancialKind = 'statistics' | 'balance' | 'income' | 'cash' | 'dividends' | 'insider';
+type MarketMoverKind = 'gainers' | 'losers' | 'active';
+
+interface CompanyFinancialResult {
+  kind: CompanyFinancialKind;
+  company: string;
+  content: unknown;
+}
+
+interface MarketMoverResult {
+  kind: MarketMoverKind;
+  content: unknown;
 }
 
 interface FinancialDataBundle {
@@ -393,24 +400,62 @@ interface FinancialDataBundle {
   marketMovers: { gainers: MarketMover[]; losers: MarketMover[]; most_active: MarketMover[] };
 }
 
-function buildSecFilings(params: {
-  allResults: any[];
-  secPromises: SECFilingPromise[];
-  isLargeDataRequest: boolean;
-}): SECFiling[] {
-  if (params.secPromises.length === 0) return [];
+// Valyu reports failures in the response body instead of throwing.
+async function valyuSearch(
+  valyu: Valyu,
+  query: string,
+  source: string,
+  responseLength?: 'short' | 'max',
+): Promise<ValyuSearchResults> {
+  const response = await valyu.search(query, {
+    searchType: 'proprietary',
+    isToolCall: true,
+    includedSources: [`valyu/${source}`],
+    maxPrice: 100,
+    ...(responseLength ? { responseLength } : {}),
+  });
+  if (!response.success) throw new Error(response.error ?? `Valyu search on ${source} failed`);
+  return response.results;
+}
 
-  const rawFilings: any[] = [];
-  params.secPromises.forEach(({ company, filingType, index }) => {
-    const response = params.allResults[index];
-    if (!response || !Array.isArray(response.results)) return;
-    const filings = response.results.map((result: any) => ({
+const recordSchema = z.record(z.string(), z.unknown());
+const recordListSchema = z.array(recordSchema);
+
+// Financial datasets come back as the first result's structured content. Only
+// the container shape is checked: a text answer or an error string in place of
+// the dataset is rejected instead of being rendered as data.
+function parseFirstContent(results: ValyuSearchResults, schema: z.ZodType): unknown {
+  const content = results[0]?.content;
+  if (content === undefined) return undefined;
+  return schema.parse(content);
+}
+
+// Every request is awaited through `attempt`, so one failing source neither
+// sinks the others nor disappears silently: its label ends up in the output.
+function createRequestTracker() {
+  const failedSources: string[] = [];
+  return {
+    failedSources,
+    async attempt<T>(label: string, request: () => Promise<T>): Promise<T | null> {
+      try {
+        return await request();
+      } catch (error) {
+        log.error('Stock chart request failed:', label, error);
+        failedSources.push(label);
+        return null;
+      }
+    },
+  };
+}
+
+function buildSecFilings(params: { secResults: SecFilingResults[]; isLargeDataRequest: boolean }): SECFiling[] {
+  const rawFilings: any[] = params.secResults.flatMap(({ company, filingType, results }) =>
+    (results ?? []).map((result) => ({
       ...result,
       requestedCompany: company,
       requestedFilingType: filingType,
-    }));
-    rawFilings.push(...filings);
-  });
+    })),
+  );
 
   const maxFilingLength = params.isLargeDataRequest ? 15000 : 50000;
   return rawFilings
@@ -430,8 +475,8 @@ function buildSecFilings(params: {
 }
 
 function extractFinancialData(params: {
-  allResults: any[];
-  financialPromises: FinancialPromise[];
+  companyResults: CompanyFinancialResult[];
+  moverResults: MarketMoverResult[];
 }): FinancialDataBundle {
   const bundle: FinancialDataBundle = {
     companyStatistics: {},
@@ -443,41 +488,36 @@ function extractFinancialData(params: {
     marketMovers: { gainers: [], losers: [], most_active: [] },
   };
 
-  params.financialPromises.forEach(({ type, company, index }) => {
-    const response = params.allResults[index];
-    if (!response || !response.results || !response.results[0]) return;
-
-    const result = response.results[0];
-    switch (type) {
+  for (const { kind, company, content } of params.companyResults) {
+    if (content === undefined) continue;
+    switch (kind) {
       case 'statistics':
-        if (company) bundle.companyStatistics[company] = result.content as unknown as CompanyStatistics;
-        return;
+        bundle.companyStatistics[company] = content as CompanyStatistics;
+        break;
       case 'balance':
-        if (company) bundle.balanceSheets[company] = result.content as unknown as BalanceSheetItem[];
-        return;
+        bundle.balanceSheets[company] = content as BalanceSheetItem[];
+        break;
       case 'income':
-        if (company) bundle.incomeStatements[company] = result.content as unknown as IncomeStatementItem[];
-        return;
+        bundle.incomeStatements[company] = content as IncomeStatementItem[];
+        break;
       case 'cash':
-        if (company) bundle.cashFlows[company] = result.content as unknown as CashFlowItem[];
-        return;
+        bundle.cashFlows[company] = content as CashFlowItem[];
+        break;
       case 'dividends':
-        if (company) bundle.dividendsData[company] = result.content as unknown as DividendData[];
-        return;
+        bundle.dividendsData[company] = content as DividendData[];
+        break;
       case 'insider':
-        if (company) bundle.insiderTransactions[company] = result.content as unknown as InsiderTransaction[];
-        return;
-      case 'gainers':
-        bundle.marketMovers.gainers = (result.content as unknown as MarketMover[]).slice(0, 10);
-        return;
-      case 'losers':
-        bundle.marketMovers.losers = (result.content as unknown as MarketMover[]).slice(0, 10);
-        return;
-      case 'active':
-        bundle.marketMovers.most_active = (result.content as unknown as MarketMover[]).slice(0, 10);
-        return;
+        bundle.insiderTransactions[company] = content as InsiderTransaction[];
+        break;
     }
-  });
+  }
+
+  for (const { kind, content } of params.moverResults) {
+    if (content === undefined) continue;
+    const movers = (content as MarketMover[]).slice(0, 10);
+    if (kind === 'active') bundle.marketMovers.most_active = movers;
+    else bundle.marketMovers[kind] = movers;
+  }
 
   return bundle;
 }
@@ -618,325 +658,190 @@ export const stockChartTool = tool({
       financial_period,
     });
 
-    // Financial extras are no longer gated behind a Pro tier — any
-    // connected account gets whatever it asked for.
-    const actualIncludeEarnings = true;
-    const actualIncludeStatistics = include_statistics;
-    const actualIncludeBalanceSheet = include_balance_sheet;
-    const actualIncludeIncomeStatement = include_income_statement;
-    const actualIncludeCashFlow = include_cash_flow;
-    const actualIncludeDividends = include_dividends;
-    const actualIncludeInsiderTransactions = include_insider_transactions;
-    const actualIncludeMarketMovers = include_market_movers;
-    const actualFilingTypes = filing_types;
-
-    // Initialize all API clients
     const tvly = tavily({ apiKey: serverEnv.TAVILY_API_KEY });
     const exa = new Exa(serverEnv.EXA_API_KEY);
     const valyu = new Valyu(serverEnv.VALYU_API_KEY);
+    const tracker = createRequestTracker();
 
     // Calculate if we expect a lot of data to be returned
     const hasMultipleDataSources = [
-      actualIncludeStatistics,
-      actualIncludeBalanceSheet,
-      actualIncludeIncomeStatement,
-      actualIncludeCashFlow,
-      actualIncludeDividends,
-      actualIncludeInsiderTransactions,
-      actualIncludeMarketMovers,
+      include_statistics,
+      include_balance_sheet,
+      include_income_statement,
+      include_cash_flow,
+      include_dividends,
+      include_insider_transactions,
+      include_market_movers,
     ].filter(Boolean).length;
 
     const isLargeDataRequest =
       hasMultipleDataSources >= 3 ||
-      (actualFilingTypes && actualFilingTypes.length > 0 && hasMultipleDataSources >= 2) ||
+      (filing_types && filing_types.length > 0 && hasMultipleDataSources >= 2) ||
       companies.length > 2;
 
     // Use shorter response length for SEC filings when we expect large amounts of data
     const secResponseLength = isLargeDataRequest ? 'short' : 'max';
 
-    // Build all API promises to run in parallel
-    const allPromises: Promise<any>[] = [];
-    const promiseMap = new Map<string, number>();
-    let promiseIndex = 0;
+    // 1. Tavily news, once per query and topic
+    const newsTasks = news_queries.flatMap((query) =>
+      (['finance', 'news'] as const).map(async (topic) => ({
+        query,
+        topic,
+        response: await tracker.attempt(`Tavily ${topic} news: ${query}`, () =>
+          tvly.search(query, { topic, days: 7, maxResults: 3, searchDepth: 'advanced' }),
+        ),
+      })),
+    );
 
-    // 1. Tavily news search promises
-    const tavilyPromises: { query: string; topic: string; index: number }[] = [];
-    for (const query of news_queries) {
-      tavilyPromises.push({ query, topic: 'finance', index: promiseIndex });
-      allPromises.push(
-        tvly.search(query, {
-          topic: 'finance',
-          days: 7,
-          maxResults: 3,
-          searchDepth: 'advanced',
-        }),
-      );
-      promiseMap.set(`tavily-finance-${query}`, promiseIndex++);
-
-      tavilyPromises.push({ query, topic: 'news', index: promiseIndex });
-      allPromises.push(
-        tvly.search(query, {
-          topic: 'news',
-          days: 7,
-          maxResults: 3,
-          searchDepth: 'advanced',
-        }),
-      );
-      promiseMap.set(`tavily-news-${query}`, promiseIndex++);
-    }
-
-    // 2. Exa financial reports promises
-    const exaPromises: { company: string; index: number }[] = [];
-    companies.forEach((company) => {
-      exaPromises.push({ company, index: promiseIndex });
-      allPromises.push(
+    // 2. Exa financial reports
+    const reportTasks = companies.map(async (company) => ({
+      company,
+      response: await tracker.attempt(`Exa financial reports: ${company}`, () =>
         exa.search(`${company} financial report analysis`, {
           category: 'financial report',
           type: 'instant',
           numResults: 10,
         }),
-      );
-      promiseMap.set(`exa-${company}`, promiseIndex++);
-    });
+      ),
+    }));
 
-    // 3. Valyu core data promises (stock prices and earnings)
-    const stockQuery = `What are the stock prices for ${companies.join(' and ')} for time period ${time_period}?`;
+    // 3. Valyu stock prices and earnings
+    const stockTask = tracker.attempt('Valyu stock prices', () =>
+      valyuSearch(
+        valyu,
+        `What are the stock prices for ${companies.join(' and ')} for time period ${time_period}?`,
+        'valyu-stocks-US',
+      ),
+    );
+    const earningsTask = tracker.attempt('Valyu earnings', () =>
+      valyuSearch(
+        valyu,
+        `What are the earnings for ${companies.join(' and ')} for time period ${time_period}?`,
+        'valyu-earnings-US',
+      ),
+    );
 
-    allPromises.push(
-      valyu.search(stockQuery, {
-        searchType: 'proprietary',
-        isToolCall: true,
-        includedSources: ['valyu/valyu-stocks-US'],
-        maxPrice: 100,
+    // 4. SEC filings
+    const secTasks = (filing_types ?? []).flatMap((filingType) =>
+      companies.map(async (company) => {
+        const secQuery =
+          sections && sections.length > 0
+            ? `${company} sec filing ${filingType} ${sections.join(' and ')} for the time period "${time_period}"`
+            : `Get the full ${filingType} filing for ${company} for the time period "${time_period}"`;
+        return {
+          company,
+          filingType,
+          results: await tracker.attempt(`Valyu SEC ${filingType}: ${company}`, () =>
+            valyuSearch(valyu, secQuery, 'valyu-sec-filings', secResponseLength),
+          ),
+        };
       }),
     );
-    promiseMap.set('valyu-stocks', promiseIndex++);
 
-    // Only fetch earnings if user is pro
-    if (actualIncludeEarnings) {
-      const earningsQuery = `What are the earnings for ${companies.join(' and ')} for time period ${time_period}?`;
-      allPromises.push(
-        valyu.search(earningsQuery, {
-          searchType: 'proprietary',
-          isToolCall: true,
-          includedSources: ['valyu/valyu-earnings-US'],
-          maxPrice: 100,
-        }),
+    // 5. Optional financial datasets, one request per company
+    const withPeriod = (query: string) => (financial_period ? `${query} ${financial_period}` : query);
+    const insiderTimeHint = time_period.trim().length > 0 ? time_period : 'recent';
+    const companyRequests: Array<{
+      kind: CompanyFinancialKind;
+      enabled: boolean | undefined;
+      source: string;
+      schema: z.ZodType;
+      query: (company: string) => string;
+    }> = [
+      {
+        kind: 'statistics',
+        enabled: include_statistics,
+        source: 'valyu-statistics-US',
+        schema: recordSchema,
+        query: (company) => `${company} company statistics`,
+      },
+      {
+        kind: 'balance',
+        enabled: include_balance_sheet,
+        source: 'valyu-balance-sheet-US',
+        schema: recordListSchema,
+        query: (company) => withPeriod(`${company} balance sheet`),
+      },
+      {
+        kind: 'income',
+        enabled: include_income_statement,
+        source: 'valyu-income-statement-US',
+        schema: recordListSchema,
+        query: (company) => withPeriod(`${company} income statement`),
+      },
+      {
+        kind: 'cash',
+        enabled: include_cash_flow,
+        source: 'valyu-cash-flow-US',
+        schema: recordListSchema,
+        query: (company) => withPeriod(`${company} cash flow`),
+      },
+      {
+        kind: 'dividends',
+        enabled: include_dividends,
+        source: 'valyu-dividends-US',
+        schema: recordListSchema,
+        query: (company) => `${company} dividends ${time_period}`,
+      },
+      {
+        kind: 'insider',
+        enabled: include_insider_transactions,
+        source: 'valyu-insider-transactions-US',
+        schema: recordListSchema,
+        query: (company) => `${company} insider transactions ${insiderTimeHint}`,
+      },
+    ];
+    const companyFinancialTasks = companyRequests
+      .filter((request) => request.enabled)
+      .flatMap(({ kind, source, schema, query }) =>
+        companies.map(
+          async (company): Promise<CompanyFinancialResult> => ({
+            kind,
+            company,
+            content: await tracker.attempt(`Valyu ${kind}: ${company}`, async () =>
+              parseFirstContent(await valyuSearch(valyu, query(company), source), schema),
+            ),
+          }),
+        ),
       );
-      promiseMap.set('valyu-earnings', promiseIndex++);
-    }
 
-    // 4. SEC filings promises
-    const secPromises: SECFilingPromise[] = [];
-    if (actualFilingTypes && actualFilingTypes.length > 0) {
-      companies.forEach((company) => {
-        actualFilingTypes.forEach((filingType) => {
-          let secQuery = `Get the full ${filingType} filing for ${company} for the time period "${time_period}"`;
-          if (sections && sections.length > 0) {
-            secQuery = `${company} sec filing ${filingType} ${sections.join(' and ')} for the time period "${time_period}"`;
-          }
-
-          secPromises.push({ company, filingType, index: promiseIndex });
-          allPromises.push(
-            valyu.search(secQuery, {
-              searchType: 'proprietary',
-              isToolCall: true,
-              includedSources: ['valyu/valyu-sec-filings'],
-              responseLength: secResponseLength,
-              maxPrice: 100,
-            }),
-          );
-          promiseMap.set(`sec-${company}-${filingType}`, promiseIndex++);
-        });
-      });
-    }
-
-    // 5. Additional financial data promises
-    const financialPromises: FinancialPromise[] = [];
-
-    // Company statistics
-    if (actualIncludeStatistics) {
-      companies.forEach((company) => {
-        financialPromises.push({ type: 'statistics', company, index: promiseIndex });
-        allPromises.push(
-          valyu.search(`${company} company statistics`, {
-            searchType: 'proprietary',
-            isToolCall: true,
-            includedSources: ['valyu/valyu-statistics-US'],
-            maxPrice: 100,
+    // 6. Market movers
+    const moverQueries: Array<[MarketMoverKind, string]> = [
+      ['gainers', 'top market gainers today stocks'],
+      ['losers', 'top market losers today stocks'],
+      ['active', 'most active stocks today'],
+    ];
+    const moverTasks = include_market_movers
+      ? moverQueries.map(
+          async ([kind, query]): Promise<MarketMoverResult> => ({
+            kind,
+            content: await tracker.attempt(`Valyu market ${kind}`, async () =>
+              parseFirstContent(await valyuSearch(valyu, query, 'valyu-market-movers-US'), recordListSchema),
+            ),
           }),
-        );
-        promiseMap.set(`stats-${company}`, promiseIndex++);
-      });
-    }
+        )
+      : [];
 
-    // Balance sheets
-    if (actualIncludeBalanceSheet) {
-      companies.forEach((company) => {
-        const buildFinancialQuery = (company: string, statement: string) => {
-          if (financial_period) {
-            return `${company} ${statement} ${financial_period}`;
-          }
-          return `${company} ${statement}`;
-        };
-
-        financialPromises.push({ type: 'balance', company, index: promiseIndex });
-        allPromises.push(
-          valyu.search(buildFinancialQuery(company, 'balance sheet'), {
-            searchType: 'proprietary',
-            isToolCall: true,
-            includedSources: ['valyu/valyu-balance-sheet-US'],
-            maxPrice: 100,
-          }),
-        );
-        promiseMap.set(`balance-${company}`, promiseIndex++);
-      });
-    }
-
-    // Income statements
-    if (actualIncludeIncomeStatement) {
-      companies.forEach((company) => {
-        const buildFinancialQuery = (company: string, statement: string) => {
-          if (financial_period) {
-            return `${company} ${statement} ${financial_period}`;
-          }
-          return `${company} ${statement}`;
-        };
-
-        financialPromises.push({ type: 'income', company, index: promiseIndex });
-        allPromises.push(
-          valyu.search(buildFinancialQuery(company, 'income statement'), {
-            searchType: 'proprietary',
-            isToolCall: true,
-            includedSources: ['valyu/valyu-income-statement-US'],
-            maxPrice: 100,
-          }),
-        );
-        promiseMap.set(`income-${company}`, promiseIndex++);
-      });
-    }
-
-    // Cash flows
-    if (actualIncludeCashFlow) {
-      companies.forEach((company) => {
-        const buildFinancialQuery = (company: string, statement: string) => {
-          if (financial_period) {
-            return `${company} ${statement} ${financial_period}`;
-          }
-          return `${company} ${statement}`;
-        };
-
-        financialPromises.push({ type: 'cash', company, index: promiseIndex });
-        allPromises.push(
-          valyu.search(buildFinancialQuery(company, 'cash flow'), {
-            searchType: 'proprietary',
-            isToolCall: true,
-            includedSources: ['valyu/valyu-cash-flow-US'],
-            maxPrice: 100,
-          }),
-        );
-        promiseMap.set(`cash-${company}`, promiseIndex++);
-      });
-    }
-
-    // Dividends
-    if (actualIncludeDividends) {
-      companies.forEach((company) => {
-        financialPromises.push({ type: 'dividends', company, index: promiseIndex });
-        allPromises.push(
-          valyu.search(`${company} dividends ${time_period}`, {
-            searchType: 'proprietary',
-            isToolCall: true,
-            includedSources: ['valyu/valyu-dividends-US'],
-            maxPrice: 100,
-          }),
-        );
-        promiseMap.set(`dividends-${company}`, promiseIndex++);
-      });
-    }
-
-    // Insider transactions
-    if (actualIncludeInsiderTransactions) {
-      companies.forEach((company) => {
-        const timeHint = time_period && time_period.trim().length > 0 ? time_period : 'recent';
-        financialPromises.push({ type: 'insider', company, index: promiseIndex });
-        allPromises.push(
-          valyu.search(`${company} insider transactions ${timeHint}`, {
-            searchType: 'proprietary',
-            isToolCall: true,
-            includedSources: ['valyu/valyu-insider-transactions-US'],
-            maxPrice: 100,
-          }),
-        );
-        promiseMap.set(`insider-${company}`, promiseIndex++);
-      });
-    }
-
-    // Market movers
-    if (actualIncludeMarketMovers) {
-      financialPromises.push({ type: 'gainers', index: promiseIndex });
-      allPromises.push(
-        valyu.search('top market gainers today stocks', {
-          searchType: 'proprietary',
-          isToolCall: true,
-          includedSources: ['valyu/valyu-market-movers-US'],
-          maxPrice: 100,
-        }),
-      );
-      promiseMap.set('gainers', promiseIndex++);
-
-      financialPromises.push({ type: 'losers', index: promiseIndex });
-      allPromises.push(
-        valyu.search('top market losers today stocks', {
-          searchType: 'proprietary',
-          isToolCall: true,
-          includedSources: ['valyu/valyu-market-movers-US'],
-          maxPrice: 100,
-        }),
-      );
-      promiseMap.set('losers', promiseIndex++);
-
-      financialPromises.push({ type: 'active', index: promiseIndex });
-      allPromises.push(
-        valyu.search('most active stocks today', {
-          searchType: 'proprietary',
-          isToolCall: true,
-          includedSources: ['valyu/valyu-market-movers-US'],
-          maxPrice: 100,
-        }),
-      );
-      promiseMap.set('active', promiseIndex++);
-    }
-
-    // Execute all promises in parallel
-    log.debug(`Executing ${allPromises.length} API calls in parallel...`);
-    const indexToKey = new Map<number, string>(Array.from(promiseMap.entries()).map(([key, index]) => [index, key]));
-    const buildTaskMap = (promises: Promise<any>[]) =>
-      Object.fromEntries(promises.map((promise, index) => [`task:${index}`, async () => promise]));
-    const getTaskLabel = (index: number) => indexToKey.get(index) ?? `task:${index}`;
-
-    const settledResults = await allSettled(buildTaskMap(allPromises), getBetterAllOptions());
-    const allResults = allPromises.map((_, index) => {
-      const result = settledResults[`task:${index}`];
-      if (result?.status === 'fulfilled') return result.value;
-      log.error('Stock chart request failed:', getTaskLabel(index), result?.reason);
-      return { results: [] };
-    });
+    const [newsResponses, reportResponses, stockResults, earningsResults, secResults, companyResults, moverResults] =
+      await Promise.all([
+        Promise.all(newsTasks),
+        Promise.all(reportTasks),
+        stockTask,
+        earningsTask,
+        Promise.all(secTasks),
+        Promise.all(companyFinancialTasks),
+        Promise.all(moverTasks),
+      ]);
 
     // Process results
-    function buildNewsResults(
-      results: any[],
-      tavily: { query: string; topic: string; index: number }[],
-      exa: { company: string; index: number }[],
-    ): NewsGroup[] {
+    function buildNewsResults(): NewsGroup[] {
       const newsGroups: NewsGroup[] = [];
       const urlSet = new Set<string>();
 
-      tavily.forEach(({ query, topic, index }) => {
-        const result = results[index];
-        if (!result?.results) return;
+      newsResponses.forEach(({ query, topic, response }) => {
+        if (!response?.results) return;
 
-        const processedResults = result.results
+        const processedResults = response.results
           .filter((item: any) => {
             if (urlSet.has(item.url)) return false;
             urlSet.add(item.url);
@@ -961,11 +866,10 @@ export const stockChartTool = tool({
       });
 
       const exaUrlSet = new Set<string>();
-      exa.forEach(({ company, index }) => {
-        const result = results[index];
-        if (!result?.results || result.results.length === 0) return;
+      reportResponses.forEach(({ company, response }) => {
+        if (!response?.results || response.results.length === 0) return;
 
-        const processedResults = result.results
+        const processedResults = response.results
           .filter((item: any) => {
             if (exaUrlSet.has(item.url)) return false;
             exaUrlSet.add(item.url);
@@ -992,15 +896,9 @@ export const stockChartTool = tool({
       return newsGroups;
     }
 
-    const news_results = buildNewsResults(allResults, tavilyPromises, exaPromises);
+    const news_results = buildNewsResults();
 
-    // Process Valyu stock and earnings results
-    let valyuResults: ValyuResult[] = [];
-    let valyuEarningsResults: ValyuEarningsResult[] = [];
-
-    const stockResponse = allResults[promiseMap.get('valyu-stocks')!];
-
-    log.debug('Valyu stock response:', stockResponse);
+    log.debug('Valyu stock results:', stockResults);
 
     function isValyuOHLCArray(value: unknown): value is ValyuOHLC[] {
       return (
@@ -1064,29 +962,18 @@ export const stockChartTool = tool({
       return undefined;
     }
 
-    // Process stock data
-    if (stockResponse && Array.isArray(stockResponse.results)) {
-      valyuResults = (stockResponse.results as unknown[]).filter(isValyuResult) as ValyuResult[];
-      log.debug('Parsed Valyu stock results count:', valyuResults.length);
-      if (valyuResults.length > 0) {
-        try {
-          const tickersPreview = valyuResults
-            .slice(0, 5)
-            .map((r) => getTickerFromResult(r) || r.metadata?.ticker || r.title);
-          log.debug('Sample stock result identifiers:', tickersPreview);
-        } catch (e) {
-          log.debug('Could not preview tickers from Valyu results');
-        }
-      }
+    const stockCandidates: unknown[] = stockResults ?? [];
+    const valyuResults = stockCandidates.filter(isValyuResult);
+    log.debug('Parsed Valyu stock results count:', valyuResults.length);
+    if (valyuResults.length > 0) {
+      const tickersPreview = valyuResults
+        .slice(0, 5)
+        .map((r) => getTickerFromResult(r) || r.metadata?.ticker || r.title);
+      log.debug('Sample stock result identifiers:', tickersPreview);
     }
 
-    // Process earnings data (only if user is pro)
-    const earningsResponse = actualIncludeEarnings ? allResults[promiseMap.get('valyu-earnings') || -1] : null;
-    if (earningsResponse && Array.isArray(earningsResponse.results)) {
-      valyuEarningsResults = (earningsResponse.results as unknown[]).filter(
-        isValyuEarningsResult,
-      ) as ValyuEarningsResult[];
-    }
+    const earningsCandidates: unknown[] = earningsResults ?? [];
+    const valyuEarningsResults = earningsCandidates.filter(isValyuEarningsResult);
 
     // Create chart elements using resolved tickers from Valyu
     const elements = valyuResults.map((result) => {
@@ -1159,7 +1046,7 @@ export const stockChartTool = tool({
     }
 
     // Fetch SEC filings from Valyu
-    const secFilings = buildSecFilings({ allResults, secPromises, isLargeDataRequest });
+    const secFilings = buildSecFilings({ secResults, isLargeDataRequest });
     if (secFilings.length > 0) {
       log.debug('SEC filings fetched:', secFilings.length);
       log.debug('Using response length:', secResponseLength, '| Large data request:', isLargeDataRequest);
@@ -1173,10 +1060,17 @@ export const stockChartTool = tool({
       dividendsData,
       insiderTransactions,
       marketMovers,
-    } = extractFinancialData({ allResults, financialPromises });
+    } = extractFinancialData({ companyResults, moverResults });
+
+    const { failedSources } = tracker;
+    const failureNote =
+      failedSources.length > 0
+        ? ` ${failedSources.length} source(s) failed and are missing from this result: ${failedSources.join('; ')}.`
+        : '';
 
     return {
-      message: `Fetched historical prices and earnings from Valyu for ${elements.length} companies over ${time_period}${sections && sections.length > 0 ? `, including SEC filing sections: ${sections.join(', ')}` : ''}`,
+      message: `Fetched historical prices and earnings from Valyu for ${elements.length} companies over ${time_period}${sections && sections.length > 0 ? `, including SEC filing sections: ${sections.join(', ')}` : ''}.${failureNote}`,
+      failed_sources: failedSources,
       chart: chartData,
       currency_symbols: outputCurrencyCodes,
       news_results: news_results,

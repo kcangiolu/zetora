@@ -5,6 +5,7 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
 import { createLogger } from '@/lib/logger';
+import { EXTERNAL_API_TIMEOUT_MS } from '@/lib/timeouts';
 
 const log = createLogger('map-tools');
 
@@ -67,7 +68,7 @@ export const findPlaceOnMapTool = tool({
         throw new Error('Either query or coordinates (latitude/longitude) must be provided');
       }
 
-      const response = await fetch(url);
+      const response = await fetch(url, { signal: AbortSignal.timeout(EXTERNAL_API_TIMEOUT_MS) });
       const data = await response.json();
 
       if (data.status === 'OVER_QUERY_LIMIT') {
@@ -162,7 +163,7 @@ export const nearbyPlacesSearchTool = tool({
         const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
           location,
         )}&key=${googleApiKey}`;
-        const geocodeResponse = await fetch(geocodeUrl);
+        const geocodeResponse = await fetch(geocodeUrl, { signal: AbortSignal.timeout(EXTERNAL_API_TIMEOUT_MS) });
         const geocodeData = await geocodeResponse.json();
         log.debug('Geocode data:', geocodeData);
 
@@ -188,7 +189,7 @@ export const nearbyPlacesSearchTool = tool({
         nearbyUrl += `&keyword=${encodeURIComponent(keyword)}`;
       }
 
-      const response = await fetch(nearbyUrl);
+      const response = await fetch(nearbyUrl, { signal: AbortSignal.timeout(EXTERNAL_API_TIMEOUT_MS) });
       const data = await response.json();
 
       if (data.status !== 'OK') {
@@ -204,7 +205,7 @@ export const nearbyPlacesSearchTool = tool({
       const placePromises: Array<Promise<any>> = placesSlice.map(async (place: any) => {
         try {
           const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,formatted_address,formatted_phone_number,website,rating,reviews,opening_hours,photos,price_level,types&key=${googleApiKey}`;
-          const detailsResponse = await fetch(detailsUrl);
+          const detailsResponse = await fetch(detailsUrl, { signal: AbortSignal.timeout(EXTERNAL_API_TIMEOUT_MS) });
           const details = await detailsResponse.json();
 
           let detailsData = details.status === 'OK' ? details.result : {};

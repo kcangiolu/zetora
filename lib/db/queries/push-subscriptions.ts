@@ -2,7 +2,7 @@ import 'server-only';
 
 import { and, eq } from 'drizzle-orm';
 import { pushSubscription } from '../schema';
-import { ChatSDKError } from '../../errors';
+import { ChatSDKError, databaseError } from '../../errors';
 import { maindb } from '../index';
 
 export interface CreatePushSubscriptionInput {
@@ -36,7 +36,7 @@ export async function createPushSubscription(input: CreatePushSubscriptionInput)
       .returning();
     return created;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to save push subscription');
+    throw databaseError('Failed to save push subscription', error);
   }
 }
 
@@ -44,7 +44,7 @@ export async function getPushSubscriptionsByUserId(userId: string) {
   try {
     return await maindb.select().from(pushSubscription).where(eq(pushSubscription.userId, userId));
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to fetch push subscriptions');
+    throw databaseError('Failed to fetch push subscriptions', error);
   }
 }
 
@@ -56,7 +56,7 @@ export async function getPushSubscriptionByEndpoint({ userId, endpoint }: { user
       .where(and(eq(pushSubscription.userId, userId), eq(pushSubscription.endpoint, endpoint)));
     return subscription ?? null;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to fetch push subscription');
+    throw databaseError('Failed to fetch push subscription', error);
   }
 }
 
@@ -68,7 +68,7 @@ export async function deletePushSubscriptionByEndpoint({ userId, endpoint }: { u
       .returning();
     return deleted ?? null;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to delete push subscription');
+    throw databaseError('Failed to delete push subscription', error);
   }
 }
 
@@ -76,6 +76,6 @@ export async function touchPushSubscriptionLastUsed(endpoint: string) {
   try {
     await maindb.update(pushSubscription).set({ lastUsedAt: new Date() }).where(eq(pushSubscription.endpoint, endpoint));
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to update push subscription');
+    throw databaseError('Failed to update push subscription', error);
   }
 }

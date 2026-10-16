@@ -1,12 +1,107 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import { serverEnv } from '@/env/server';
-import { all } from 'better-all';
-import { getBetterAllOptions } from '@/lib/better-all';
 
 import { createLogger } from '@/lib/logger';
+import { EXTERNAL_API_TIMEOUT_MS } from '@/lib/timeouts';
 
 const log = createLogger('flight-tracker');
+
+const AMADEUS_API = 'https://api.amadeus.com';
+
+let cachedToken: { value: string; expiresAt: number } | null = null;
+
+// Amadeus client-credentials token, reused until shortly before it expires
+// (they last about 30 minutes).
+async function getAmadeusToken(): Promise<string> {
+  if (cachedToken && cachedToken.expiresAt > Date.now()) return cachedToken.value;
+
+  const response = await fetch(`${AMADEUS_API}/v1/security/oauth2/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: serverEnv.AMADEUS_API_KEY,
+      client_secret: serverEnv.AMADEUS_API_SECRET,
+    }),
+    signal: AbortSignal.timeout(EXTERNAL_API_TIMEOUT_MS),
+  });
+  if (!response.ok) {
+    throw new Error(`Amadeus authentication failed: ${response.status} ${response.statusText}`);
+  }
+  const { access_token, expires_in } = (await response.json()) as { access_token: string; expires_in: number };
+  cachedToken = { value: access_token, expiresAt: Date.now() + (expires_in - 60) * 1000 };
+  return access_token;
+}
+
+function amadeusGet(path: string, params: Record<string, string>, accessToken: string): Promise<Response> {
+  return fetch(`${AMADEUS_API}${path}?${new URLSearchParams(params)}`, {
+    headers: { Accept: 'application/vnd.amadeus+json', Authorization: `Bearer ${accessToken}` },
+    signal: AbortSignal.timeout(EXTERNAL_API_TIMEOUT_MS),
+  });
+}
+
+// The parts of Amadeus's schedule API response this tool reads.
+interface AmadeusPointTimes {
+  timings?: Array<{ value?: string; type?: string }>;
+  terminal?: { code?: string };
+  gate?: { mainGate?: string };
+  status?: unknown;
+}
+interface AmadeusFlightPoint {
+  iataCode: string;
+  departure?: AmadeusPointTimes;
+  arrival?: AmadeusPointTimes;
+  status?: unknown;
+}
+interface AmadeusLeg {
+  boardPointIataCode: string;
+  offPointIataCode: string;
+  scheduledLegDuration?: string;
+  aircraftEquipment?: { aircraftType?: string };
+  status?: unknown;
+  executionStatus?: unknown;
+}
+interface AmadeusSegment {
+  boardPointIataCode: string;
+  offPointIataCode: string;
+  scheduledSegmentDuration?: string;
+  partnership?: { operatingFlight?: { carrierCode: string; flightNumber: number } };
+  status?: unknown;
+  stage?: unknown;
+}
+interface AmadeusDatedFlight {
+  scheduledDepartureDate: string;
+  flightPoints: AmadeusFlightPoint[];
+  legs?: AmadeusLeg[];
+  segments?: AmadeusSegment[];
+  status?: unknown;
+  flightStatus?: unknown;
+}
+
+interface FlightEndpoint {
+  airport: string;
+  airport_code: string;
+  timezone: string;
+  iata: string;
+  terminal: string | null;
+  gate: string | null;
+  delay: number | null;
+  scheduled: string;
+}
+interface FlightLegData {
+  flight_date: string;
+  flight_status: string;
+  departure: FlightEndpoint;
+  arrival: FlightEndpoint;
+  airline: { name: string; iata: string };
+  flight: { number: string; iata: string; duration: number | null };
+  amadeus_data: {
+    aircraft_type?: string;
+    operating_flight?: { carrierCode: string; flightNumber: number };
+    segment_duration?: string;
+  };
+}
 
 const preferredTimingTypes = ['actual', 'estimated', 'scheduled'] as const;
 
@@ -25,7 +120,7 @@ const getPreferredTimingValue = (timings?: Array<{ value?: string; type?: string
   return timings[0]?.value ?? null;
 };
 
-const getPointTiming = (point: any, direction: 'departure' | 'arrival'): string | null =>
+const getPointTiming = (point: AmadeusFlightPoint | undefined, direction: 'departure' | 'arrival'): string | null =>
   getPreferredTimingValue(point?.[direction]?.timings);
 
 const getStatusValue = (value: any): string | null => {
@@ -61,7 +156,7 @@ const getStatusValue = (value: any): string | null => {
   return null;
 };
 
-const getPointStatus = (point?: any): string | null => {
+const getPointStatus = (point?: AmadeusFlightPoint): string | null => {
   if (!point) return null;
 
   return (
@@ -76,11 +171,11 @@ const determineFlightStatus = ({
   arrivalPoint,
   matchingSegment,
 }: {
-  flight: any;
-  leg: any;
-  departurePoint?: any;
-  arrivalPoint?: any;
-  matchingSegment?: any;
+  flight: AmadeusDatedFlight;
+  leg: AmadeusLeg;
+  departurePoint?: AmadeusFlightPoint;
+  arrivalPoint?: AmadeusFlightPoint;
+  matchingSegment?: AmadeusSegment;
 }): string => {
   const candidates = [
     getPointStatus(arrivalPoint),
@@ -119,53 +214,28 @@ export const flightTrackerTool = tool({
     scheduledDepartureDate: string;
   }) => {
     log.debug(`[Tracking flight]: ${carrierCode} ${flightNumber} on ${scheduledDepartureDate}`);
-    const tokenResponse = await fetch('https://api.amadeus.com/v1/security/oauth2/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        grant_type: 'client_credentials',
-        client_id: serverEnv.AMADEUS_API_KEY,
-        client_secret: serverEnv.AMADEUS_API_SECRET,
-      }),
-    });
-
-    const tokenData = await tokenResponse.json();
-    log.debug(tokenData);
-
-    const accessToken = tokenData.access_token;
 
     try {
-      const response = await fetch(
-        `https://api.amadeus.com/v2/schedule/flights?carrierCode=${carrierCode}&flightNumber=${flightNumber}&scheduledDepartureDate=${scheduledDepartureDate}`,
-        {
-          headers: {
-            Accept: 'application/vnd.amadeus+json',
-            Authorization: `Bearer ${accessToken}`,
-          },
-        },
+      const accessToken = await getAmadeusToken();
+      const response = await amadeusGet(
+        '/v2/schedule/flights',
+        { carrierCode, flightNumber, scheduledDepartureDate },
+        accessToken,
       );
 
       if (!response.ok) {
         throw new Error(`Amadeus API error: ${response.status} ${response.statusText}`);
       }
 
-      const data = await response.json();
-
-      log.debug(`[Flight data]: ${JSON.stringify(data, null, 2)}`);
+      const data = (await response.json()) as { data?: AmadeusDatedFlight[] };
 
       // Look up airline name
       let airlineName = carrierCode;
       try {
-        const airlineResponse = await fetch(
-          `https://api.amadeus.com/v1/reference-data/airlines?airlineCodes=${carrierCode}`,
-          {
-            headers: {
-              Accept: 'application/vnd.amadeus+json',
-              Authorization: `Bearer ${accessToken}`,
-            },
-          },
+        const airlineResponse = await amadeusGet(
+          '/v1/reference-data/airlines',
+          { airlineCodes: carrierCode },
+          accessToken,
         );
 
         if (airlineResponse.ok) {
@@ -186,7 +256,7 @@ export const flightTrackerTool = tool({
 
         // Collect all unique airport codes
         const airportCodes = new Set<string>();
-        legs.forEach((leg: any) => {
+        legs.forEach((leg) => {
           if (leg.boardPointIataCode) airportCodes.add(leg.boardPointIataCode);
           if (leg.offPointIataCode) airportCodes.add(leg.offPointIataCode);
         });
@@ -195,14 +265,16 @@ export const flightTrackerTool = tool({
         const airportNames: Record<string, string> = {};
         const airportLookupPromises = Array.from(airportCodes).map(async (code) => {
           try {
-            const airportResponse = await fetch(
-              `https://api.amadeus.com/v1/reference-data/locations?subType=AIRPORT&keyword=${code}&page[limit]=1&sort=analytics.travelers.score&view=FULL`,
+            const airportResponse = await amadeusGet(
+              '/v1/reference-data/locations',
               {
-                headers: {
-                  Accept: 'application/vnd.amadeus+json',
-                  Authorization: `Bearer ${accessToken}`,
-                },
+                subType: 'AIRPORT',
+                keyword: code,
+                'page[limit]': '1',
+                sort: 'analytics.travelers.score',
+                view: 'FULL',
               },
+              accessToken,
             );
 
             if (airportResponse.ok) {
@@ -222,14 +294,9 @@ export const flightTrackerTool = tool({
           }
         });
 
-        // Wait for all airport lookups to complete
-        await all(
-          Object.fromEntries(airportLookupPromises.map((promise, index) => [`a:${index}`, async () => promise])),
-          getBetterAllOptions(),
-        );
+        await Promise.all(airportLookupPromises);
 
-        // Build flight data for each leg
-        const flightData: any[] = [];
+        const flightData: FlightLegData[] = [];
 
         for (let legIndex = 0; legIndex < legs.length; legIndex++) {
           const leg = legs[legIndex];
@@ -238,25 +305,25 @@ export const flightTrackerTool = tool({
 
           // Use the segment that matches this leg (segments have timing info)
           const matchingSegment = segments.find(
-            (seg: any) => seg.boardPointIataCode === boardPoint && seg.offPointIataCode === offPoint,
+            (seg) => seg.boardPointIataCode === boardPoint && seg.offPointIataCode === offPoint,
           );
 
           // Find flight points - a flight point can have both departure and arrival
           // For departure, find the flight point at boardPoint that has departure info
-          let departurePoint = flight.flightPoints.find((fp: any) => fp.iataCode === boardPoint && fp.departure);
+          let departurePoint = flight.flightPoints.find((fp) => fp.iataCode === boardPoint && fp.departure);
           // If not found, try any flight point at boardPoint (might have both arrival and departure)
           if (!departurePoint) {
-            const fp = flight.flightPoints.find((fp: any) => fp.iataCode === boardPoint);
+            const fp = flight.flightPoints.find((fp) => fp.iataCode === boardPoint);
             if (fp?.departure) {
               departurePoint = fp;
             }
           }
 
           // For arrival, find the flight point at offPoint that has arrival info
-          let arrivalPoint = flight.flightPoints.find((fp: any) => fp.iataCode === offPoint && fp.arrival);
+          let arrivalPoint = flight.flightPoints.find((fp) => fp.iataCode === offPoint && fp.arrival);
           // If not found, try any flight point at offPoint
           if (!arrivalPoint) {
-            const fp = flight.flightPoints.find((fp: any) => fp.iataCode === offPoint);
+            const fp = flight.flightPoints.find((fp) => fp.iataCode === offPoint);
             if (fp?.arrival) {
               arrivalPoint = fp;
             }
@@ -365,10 +432,7 @@ export const flightTrackerTool = tool({
           });
         }
 
-        return {
-          data: flightData,
-          amadeus_response: data,
-        };
+        return { data: flightData };
       }
 
       return { data: [], error: 'No flight data found' };

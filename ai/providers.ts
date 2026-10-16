@@ -206,10 +206,19 @@ import {
   shouldUseNativeCustomProvider,
   type CustomProviderConfig,
 } from '@/lib/custom-providers';
+import { globalCache } from '@/lib/lru-ttl-cache';
 import { LlamaCppNativeLanguageModel } from './native-models/llamacpp-model';
 import { OllamaNativeLanguageModel } from './native-models/ollama-model';
 
-const customProviderInstances = new Map<string, ReturnType<typeof createOpenAICompatible>>();
+// Provider clients are cheap to rebuild; the bound only matters because keys
+// embed user-supplied URLs and API keys.
+const PROVIDER_INSTANCE_CACHE_MAX = 200;
+const PROVIDER_INSTANCE_TTL_MS = 60 * 60 * 1000;
+
+const customProviderInstances = globalCache<ReturnType<typeof createOpenAICompatible>>(
+  '__zetoraCustomProviderInstances',
+  PROVIDER_INSTANCE_CACHE_MAX,
+);
 
 async function getOrCreateProvider(providerId: string, userId?: string) {
   const providers = await getCustomProviders(userId);
@@ -217,9 +226,8 @@ async function getOrCreateProvider(providerId: string, userId?: string) {
   if (!config) throw new Error(`Custom provider ${providerId} not found`);
 
   const cacheKey = `${providerId}::${config.baseURL}::${config.apiKey ?? ''}`;
-  if (customProviderInstances.has(cacheKey)) {
-    return customProviderInstances.get(cacheKey)!;
-  }
+  const cached = customProviderInstances.get(cacheKey);
+  if (cached) return cached;
   const provider = createOpenAICompatible({
     name: config.id,
     baseURL: config.baseURL,
@@ -230,11 +238,14 @@ async function getOrCreateProvider(providerId: string, userId?: string) {
     supportsStructuredOutputs: config.backendKind === 'vllm',
     fetch: customProviderFetch(config.baseURL),
   });
-  customProviderInstances.set(cacheKey, provider);
+  customProviderInstances.set(cacheKey, provider, PROVIDER_INSTANCE_TTL_MS);
   return provider;
 }
 
-const llamaCppModelInstances = new Map<string, LlamaCppNativeLanguageModel>();
+const llamaCppModelInstances = globalCache<LlamaCppNativeLanguageModel>(
+  '__zetoraLlamaCppModelInstances',
+  PROVIDER_INSTANCE_CACHE_MAX,
+);
 
 function getOrCreateLlamaCppModel(config: CustomProviderConfig, modelName: string) {
   const cacheKey = `${config.id}::${config.baseURL}::${config.apiKey ?? ''}::${modelName}`;
@@ -247,11 +258,14 @@ function getOrCreateLlamaCppModel(config: CustomProviderConfig, modelName: strin
     apiKey: config.apiKey,
     fetch: customProviderFetch(config.baseURL),
   });
-  llamaCppModelInstances.set(cacheKey, model);
+  llamaCppModelInstances.set(cacheKey, model, PROVIDER_INSTANCE_TTL_MS);
   return model;
 }
 
-const ollamaModelInstances = new Map<string, OllamaNativeLanguageModel>();
+const ollamaModelInstances = globalCache<OllamaNativeLanguageModel>(
+  '__zetoraOllamaModelInstances',
+  PROVIDER_INSTANCE_CACHE_MAX,
+);
 
 function getOrCreateOllamaModel(config: CustomProviderConfig, modelName: string) {
   const cacheKey = `${config.id}::${config.baseURL}::${config.apiKey ?? ''}::${modelName}`;
@@ -264,7 +278,7 @@ function getOrCreateOllamaModel(config: CustomProviderConfig, modelName: string)
     apiKey: config.apiKey,
     fetch: customProviderFetch(config.baseURL),
   });
-  ollamaModelInstances.set(cacheKey, model);
+  ollamaModelInstances.set(cacheKey, model, PROVIDER_INSTANCE_TTL_MS);
   return model;
 }
 

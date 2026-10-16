@@ -2,7 +2,7 @@ import 'server-only';
 
 import { eq } from 'drizzle-orm';
 import { userPreferences } from '../schema';
-import { ChatSDKError } from '../../errors';
+import { ChatSDKError, databaseError } from '../../errors';
 import { maindb } from '../index';
 import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
 
@@ -212,6 +212,6 @@ export async function upsertUserPreferences({
       }
     });
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to upsert user preferences');
+    throw databaseError('Failed to upsert user preferences', error);
   }
 }

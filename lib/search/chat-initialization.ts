@@ -1,5 +1,5 @@
 import { createLogger } from '@/lib/logger';
-import { ChatSDKError } from '@/lib/errors';
+import { ChatSDKError, databaseError } from '@/lib/errors';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { createStreamId, getHermesChatLock, saveNewChatWithStream } from '@/lib/db/queries';
@@ -94,7 +94,7 @@ export function initializeChatAndChecks({
   if (isTemporaryChat) {
     const criticalChecksPromise = checkAbuseGuardrail().catch((error) => {
       if (error instanceof ChatSDKError) throw error;
-      throw new ChatSDKError('bad_request:api', 'Failed to verify user access');
+      throw new ChatSDKError('internal:api', 'Failed to verify user access', error);
     });
 
     return {
@@ -141,7 +141,7 @@ export function initializeChatAndChecks({
     return abuseCheck;
   })().catch((error) => {
     if (error instanceof ChatSDKError) throw error;
-    throw new ChatSDKError('bad_request:api', 'Failed to verify user access');
+    throw new ChatSDKError('internal:api', 'Failed to verify user access', error);
   });
 
   criticalChecksPromise = withTiming('chat_init.criticalResult_wait', criticalChecksPromise);
@@ -207,9 +207,8 @@ export function initializeChatAndChecks({
         }
       })
       .catch((error) => {
-        if (error instanceof ChatSDKError) throw error;
         log.error('Chat initialization failed:', error);
-        throw new ChatSDKError('bad_request:database', 'Failed to initialize chat');
+        throw databaseError('Failed to initialize chat', error);
       }),
   );
 

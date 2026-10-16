@@ -7,6 +7,7 @@ import { getBetterAllOptions } from '@/lib/better-all';
 
 import { createLogger } from '@/lib/logger';
 import { isRerankAvailable } from '@/lib/search/rerank';
+import { EXTERNAL_API_TIMEOUT_MS } from '@/lib/timeouts';
 
 const log = createLogger('spotify-search');
 
@@ -108,6 +109,7 @@ async function getAccessToken(): Promise<string> {
   const clientSecret = serverEnv.SPOTIFY_CLIENT_SECRET;
 
   const response = await fetch('https://accounts.spotify.com/api/token', {
+    signal: AbortSignal.timeout(EXTERNAL_API_TIMEOUT_MS),
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -154,6 +156,7 @@ async function spotifySearch(
   }
 
   const response = await fetch(`https://api.spotify.com/v1/search?${params}`, {
+    signal: AbortSignal.timeout(EXTERNAL_API_TIMEOUT_MS),
     headers: {
       Authorization: `Bearer ${token}`,
     },

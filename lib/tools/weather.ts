@@ -5,6 +5,7 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
 import { createLogger } from '@/lib/logger';
+import { EXTERNAL_API_TIMEOUT_MS } from '@/lib/timeouts';
 
 const log = createLogger('weather');
 
@@ -49,6 +50,7 @@ export const weatherTool = tool({
           `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
             location,
           )}&count=1&language=en&format=json`,
+          { signal: AbortSignal.timeout(EXTERNAL_API_TIMEOUT_MS) },
         );
 
         const geocodingData = await geocodingResponse.json();
@@ -68,6 +70,7 @@ export const weatherTool = tool({
           try {
             const reverseGeocodeResponse = await fetch(
               `https://api.openweathermap.org/geo/1.0/reverse?lat=${lat}&lon=${lng}&limit=1&appid=${serverEnv.OPENWEATHER_API_KEY}`,
+              { signal: AbortSignal.timeout(EXTERNAL_API_TIMEOUT_MS) },
             );
             const reverseGeocodeData = await reverseGeocodeResponse.json();
 
@@ -92,14 +95,20 @@ export const weatherTool = tool({
       const { weatherResponse, airPollutionResponse, openMeteoResponse } = await all(
         {
           async weatherResponse() {
-            return fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lng}&appid=${apiKey}`);
+            return fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lng}&appid=${apiKey}`, {
+              signal: AbortSignal.timeout(EXTERNAL_API_TIMEOUT_MS),
+            });
           },
           async airPollutionResponse() {
-            return fetch(`https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lng}&appid=${apiKey}`);
+            return fetch(
+              `https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lng}&appid=${apiKey}`,
+              { signal: AbortSignal.timeout(EXTERNAL_API_TIMEOUT_MS) },
+            );
           },
           async openMeteoResponse() {
             return fetch(
               `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=temperature_2m_max,temperature_2m_min,weathercode,precipitation_probability_max,windspeed_10m_max,relative_humidity_2m_max&timezone=auto&forecast_days=16`,
+              { signal: AbortSignal.timeout(EXTERNAL_API_TIMEOUT_MS) },
             );
           },
         },
@@ -123,6 +132,7 @@ export const weatherTool = tool({
 
       const airPollutionForecastResponse = await fetch(
         `https://api.openweathermap.org/data/2.5/air_pollution/forecast?lat=${lat}&lon=${lng}&appid=${apiKey}`,
+        { signal: AbortSignal.timeout(EXTERNAL_API_TIMEOUT_MS) },
       );
       const airPollutionForecastData = await airPollutionForecastResponse.json();
 

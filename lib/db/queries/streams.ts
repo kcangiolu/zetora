@@ -3,7 +3,7 @@ import 'server-only';
 import { cache } from 'react';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { chat, message, stream } from '../schema';
-import { ChatSDKError } from '../../errors';
+import { ChatSDKError, databaseError } from '../../errors';
 import { db, maindb } from '../index';
 import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
 
@@ -20,7 +20,7 @@ export async function createStreamId({ streamId, chatId }: { streamId: string; c
     // assistant response as stale.
     await db.insert(stream).values({ id: streamId, chatId, createdAt: sql`clock_timestamp()` });
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to create stream id');
+    throw databaseError('Failed to create stream id', error);
   }
 }
 
@@ -84,7 +84,7 @@ export const getStreamIdsByChatId = cache(async ({ chatId }: { chatId: string })
 
     return streamIds.map(({ id }) => id);
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to get stream ids by chat id');
+    throw databaseError('Failed to get stream ids by chat id', error);
   }
 });
 
@@ -107,7 +107,7 @@ export async function getLatestStreamIdByChatId({ chatId }: { chatId: string }):
 
     return latestStream?.id ?? null;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to get latest stream id by chat id');
+    throw databaseError('Failed to get latest stream id by chat id', error);
   }
 }
 
@@ -126,6 +126,6 @@ export async function getLatestUserMessageIdByChatId({ chatId }: { chatId: strin
 
     return latestUserMessage?.id ?? null;
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to get latest user message id by chat id');
+    throw databaseError('Failed to get latest user message id by chat id', error);
   }
 }
