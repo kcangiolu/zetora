@@ -15,6 +15,7 @@ import {
   getFileDisplayName,
   isSearchableFile,
   searchFiles,
+  type FileContext,
   type FileQueryResult,
   type FileRetrievers,
 } from '@/lib/tools/file-retrieval';
@@ -29,9 +30,11 @@ import { getFileEmbeddingModel } from '@/ai/embeddings';
 import { z } from 'zod';
 import { serverEnv } from '@/env/server';
 import { resolveTertiaryModel } from '@/ai/tertiary';
-import { EXTREME_WALL_CLOCK_MS, SEARXNG_TIMEOUT_MS, isPastDeadline } from '@/lib/timeouts';
+import { EXA_SEARCH_TIMEOUT_MS, EXTREME_WALL_CLOCK_MS, isPastDeadline, withTimeout } from '@/lib/timeouts';
+import { searxngSearch, searxngTimeRange } from '@/lib/search/searxng-client';
+import { fastCrwSearch } from '@/lib/search/fastcrw-client';
 import { ChatMessage } from '../types';
-import FirecrawlApp from '@mendable/firecrawl-js';
+import FirecrawlApp, { type SearchResultWeb } from '@mendable/firecrawl-js';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { xai } from '@ai-sdk/xai';
@@ -48,7 +51,6 @@ import {
   type ContentExtractionStrategy,
   type SearchResult,
 } from './self-hosted-content';
-import { type SearchProviderStrategy, SearchCategory, FastCrwSearchStrategy } from './fastcrw-search';
 import type { UserPreferenceValues } from '@/lib/db/schema';
 
 const log = createLogger('extreme-search');
@@ -292,119 +294,116 @@ export type Research = {
   charts: any[];
 };
 
-// Exa search strategy
+enum SearchCategory {
+  NEWS = 'news',
+  COMPANY = 'company',
+  RESEARCH_PAPER = 'research paper',
+  FINANCIAL_REPORT = 'financial report',
+}
+
+export interface ExtremeSearchOptions {
+  category?: SearchCategory;
+  includeDomains?: string[];
+  startDate?: string;
+  abortSignal?: AbortSignal;
+}
+
+// Deep research fetches page content in a second step, so its searches only
+// return links (content is empty) and never throw: a failed provider gives
+// no results, which lets the caller try the fallback provider.
+interface SearchProviderStrategy {
+  search(query: string, options: ExtremeSearchOptions): Promise<SearchResult[]>;
+}
+
+const EXTREME_SEARCH_RESULT_LIMIT = 8;
+
+function withSiteFilter(query: string, includeDomains?: string[]): string {
+  if (!includeDomains?.length) return query;
+  return `${query} ${includeDomains.map((domain) => `site:${domain}`).join(' OR ')}`;
+}
+
+function linkResult(r: { url: string; title?: string; publishedDate?: string; favicon?: string }): SearchResult {
+  return {
+    title: r.title || '',
+    url: r.url,
+    content: '',
+    publishedDate: r.publishedDate || '',
+    favicon: r.favicon || getFaviconUrl(r.url),
+  };
+}
+
+const EXA_CATEGORIES = ['news', 'company', 'research paper', 'financial report'] as const;
+
 class ExaSearchStrategy implements SearchProviderStrategy {
   constructor(private exa: Exa) {}
 
-  async search(
-    query: string,
-    category?: SearchCategory,
-    include_domains?: string[],
-    startDate?: string,
-  ): Promise<SearchResult[]> {
-    log.info(`[Exa] searchWeb called with query: "${query}", category: ${category}, startDate: ${startDate}`);
+  async search(query: string, { category, includeDomains, startDate }: ExtremeSearchOptions): Promise<SearchResult[]> {
     try {
-      // Format dates for Exa (ISO format)
-      const startPublishedDate = startDate ? new Date(startDate).toISOString() : undefined;
-      const endPublishedDate = startDate ? new Date().toISOString() : undefined;
-
-      // Valid Exa categories (matching the Exa API type)
-      type ExaCategory =
-        | 'news'
-        | 'company'
-        | 'research paper'
-        | 'financial report'
-        | 'pdf'
-        | 'personal site'
-        | 'people';
-      const validExaCategories: ExaCategory[] = [
-        'news',
-        'company',
-        'research paper',
-        'financial report',
-        'pdf',
-        'personal site',
-        'people',
-      ];
-      const exaCategory =
-        category && validExaCategories.includes(category as ExaCategory) ? (category as ExaCategory) : undefined;
-
-      const { results } = await this.exa.search(query, {
-        numResults: 8,
-        type: 'auto',
-        ...(exaCategory && { category: exaCategory }),
-        ...(include_domains && { include_domains }),
-        ...(startPublishedDate && { startPublishedDate }),
-        ...(endPublishedDate && { endPublishedDate }),
-      });
-      log.info(`[Exa] searchWeb received ${results.length} results from Exa API`);
-
-      const mappedResults = results.map((r) => ({
-        title: r.title || '',
-        url: r.url,
-        content: '',
-        publishedDate: r.publishedDate || '',
-        favicon: r.favicon || getFaviconUrl(r.url),
-      })) as SearchResult[];
-
-      log.info(`[Exa] searchWeb returning ${mappedResults.length} results`);
-      return mappedResults;
+      // exa-js takes no abort signal: the timeout only stops the wait.
+      const { results } = await withTimeout(
+        this.exa.search(query, {
+          numResults: EXTREME_SEARCH_RESULT_LIMIT,
+          type: 'auto',
+          ...(category && EXA_CATEGORIES.includes(category) && { category }),
+          ...(includeDomains && { includeDomains }),
+          ...(startDate && {
+            startPublishedDate: new Date(startDate).toISOString(),
+            endPublishedDate: new Date().toISOString(),
+          }),
+        }),
+        EXA_SEARCH_TIMEOUT_MS,
+        `Exa search timed out for query "${query}"`,
+      );
+      return results.map((r) => linkResult({ ...r, title: r.title ?? undefined }));
     } catch (error) {
-      log.error('[Exa] Error in searchWeb:', error);
+      log.error('[Exa] search error:', error);
       return [];
     }
   }
 }
 
-// SearXNG search strategy (single-query variant for extreme search)
 class SearXNGSearchStrategy implements SearchProviderStrategy {
   constructor(private baseUrl: string) {}
 
   async search(
     query: string,
-    category?: SearchCategory,
-    include_domains?: string[],
-    startDate?: string,
+    { category, includeDomains, startDate, abortSignal }: ExtremeSearchOptions,
   ): Promise<SearchResult[]> {
-    log.info(`[SearXNG] search called with query: "${query}", category: ${category}, startDate: ${startDate}`);
     try {
-      const siteFilter = include_domains?.length
-        ? ' ' + include_domains.map((domain) => `site:${domain}`).join(' OR ')
-        : '';
-
-      const params = new URLSearchParams({
-        q: `${query}${siteFilter}`,
-        format: 'json',
-        pageno: '1',
-        language: 'en',
-        time_range: category === SearchCategory.NEWS ? 'week' : '',
-        safesearch: '1',
-      });
-
-      const response = await fetch(`${this.baseUrl}/search?${params.toString()}`, {
-        signal: AbortSignal.timeout(SEARXNG_TIMEOUT_MS),
-      });
-
-      if (!response.ok) {
-        throw new Error(`SearXNG returned ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      const mappedResults = (data.results || [])
-        .slice(0, 8)
-        .map((r: { url: string; title?: string; content?: string; publishedDate?: string }) => ({
-          title: r.title || '',
-          url: r.url,
-          content: '',
-          publishedDate: r.publishedDate || '',
-          favicon: getFaviconUrl(r.url),
-        })) as SearchResult[];
-
-      log.info(`[SearXNG] search returning ${mappedResults.length} results`);
-      return mappedResults;
+      const hits = await searxngSearch(
+        this.baseUrl,
+        {
+          q: withSiteFilter(query, includeDomains),
+          language: 'all',
+          time_range: searxngTimeRange(category === SearchCategory.NEWS ? 'news' : 'general', startDate),
+        },
+        abortSignal,
+      );
+      return hits.slice(0, EXTREME_SEARCH_RESULT_LIMIT).map(linkResult);
     } catch (error) {
-      log.error('[SearXNG] Error in search:', error);
+      log.error('[SearXNG] search error:', error);
+      return [];
+    }
+  }
+}
+
+class FastCrwSearchStrategy implements SearchProviderStrategy {
+  constructor(private baseUrl: string) {}
+
+  async search(query: string, { category, includeDomains, abortSignal }: ExtremeSearchOptions): Promise<SearchResult[]> {
+    try {
+      const hits = await fastCrwSearch(
+        this.baseUrl,
+        {
+          query: withSiteFilter(query, includeDomains),
+          limit: EXTREME_SEARCH_RESULT_LIMIT,
+          ...(category === SearchCategory.NEWS && { category: 'news' as const }),
+        },
+        abortSignal,
+      );
+      return hits.map(linkResult);
+    } catch (error) {
+      log.error('[fastCRW] search error:', error);
       return [];
     }
   }
@@ -413,31 +412,16 @@ class SearXNGSearchStrategy implements SearchProviderStrategy {
 export class FirecrawlSearchStrategy implements SearchProviderStrategy {
   constructor(private firecrawl: FirecrawlApp) {}
 
-  async search(
-    query: string,
-    _category?: SearchCategory,
-    include_domains?: string[],
-    _startDate?: string,
-  ): Promise<SearchResult[]> {
+  async search(query: string, { includeDomains }: ExtremeSearchOptions): Promise<SearchResult[]> {
     try {
-      const siteFilter = include_domains?.length
-        ? ' ' + include_domains.map((domain) => `site:${domain}`).join(' OR ')
-        : '';
-
-      const firecrawlResults = await this.firecrawl.search(`${query}${siteFilter}`, {
-        limit: 8,
+      const firecrawlResults = await this.firecrawl.search(withSiteFilter(query, includeDomains), {
+        limit: EXTREME_SEARCH_RESULT_LIMIT,
         scrapeOptions: { storeInCache: true },
       });
 
-      if (!firecrawlResults.web || !Array.isArray(firecrawlResults.web)) return [];
-
-      return firecrawlResults.web.map((r: any) => ({
-        title: r.title || r.url,
-        url: r.url,
-        content: '',
-        publishedDate: '',
-        favicon: getFaviconUrl(r.url),
-      }));
+      return (firecrawlResults.web ?? [])
+        .filter((r): r is SearchResultWeb => 'url' in r && typeof r.url === 'string')
+        .map((r) => linkResult({ url: r.url, title: r.title || r.url }));
     } catch (error) {
       log.error('[Firecrawl] search error:', error);
       return [];
@@ -454,30 +438,24 @@ export interface ExtremeProviderClients {
   parallel: Parallel;
 }
 
+function buildExtremeSearchStrategy(
+  provider: ExtremeSearchProvider,
+  clients: ExtremeProviderClients,
+): SearchProviderStrategy {
+  // Providers come from resolveSearchProvider, so their URL is configured.
+  if (provider === 'firecrawl') return new FirecrawlSearchStrategy(clients.firecrawl);
+  if (provider === 'searxng') return new SearXNGSearchStrategy(serverEnv.SEARXNG_URL!);
+  if (provider === 'fastcrw') return new FastCrwSearchStrategy(serverEnv.FASTCRW_URL!);
+  return new ExaSearchStrategy(clients.exa);
+}
+
 export async function runExtremeSearchProvider(
   provider: ExtremeSearchProvider,
   clients: ExtremeProviderClients,
   query: string,
-  category?: SearchCategory,
-  include_domains?: string[],
-  startDate?: string,
+  options: ExtremeSearchOptions = {},
 ): Promise<SearchResult[]> {
-  if (provider === 'firecrawl') {
-    return new FirecrawlSearchStrategy(clients.firecrawl).search(query, category, include_domains, startDate);
-  }
-  // Providers come from resolveSearchProvider, so their URL is configured.
-  if (provider === 'searxng') {
-    return new SearXNGSearchStrategy(serverEnv.SEARXNG_URL!.replace(/\/$/, '')).search(
-      query,
-      category,
-      include_domains,
-      startDate,
-    );
-  }
-  if (provider === 'fastcrw') {
-    return new FastCrwSearchStrategy(serverEnv.FASTCRW_URL!).search(query, category, include_domains, startDate);
-  }
-  return new ExaSearchStrategy(clients.exa).search(query, category, include_domains, startDate);
+  return buildExtremeSearchStrategy(provider, clients).search(query, options);
 }
 
 function buildExtremeContentStrategy(
@@ -504,7 +482,7 @@ export async function runExtremeContentExtraction(
   fallbackProvider: ExtremeContentProvider | null,
   metadataEnabled: boolean,
   clients: ExtremeProviderClients,
-  maxContentChars: number = 3000,
+  { maxContentChars = 3000, abortSignal }: { maxContentChars?: number; abortSignal?: AbortSignal } = {},
 ): Promise<SearchResult[]> {
   if (links.length === 0) return [];
 
@@ -515,6 +493,7 @@ export async function runExtremeContentExtraction(
     try {
       const primaryResults = await buildExtremeContentStrategy(provider, clients, maxContentChars).getContents(
         remaining,
+        abortSignal,
       );
       results.push(...primaryResults);
       const resolved = new Set(primaryResults.map((r) => r.url));
@@ -528,6 +507,7 @@ export async function runExtremeContentExtraction(
     try {
       const fallbackResults = await buildExtremeContentStrategy(fallbackProvider, clients, maxContentChars).getContents(
         remaining,
+        abortSignal,
       );
       results.push(...fallbackResults);
       const resolved = new Set(fallbackResults.map((r) => r.url));
@@ -543,12 +523,6 @@ export async function runExtremeContentExtraction(
   }
 
   return results;
-}
-
-interface FileContext {
-  url: string;
-  contentType: string;
-  name?: string;
 }
 
 async function extremeSearch(
@@ -1184,8 +1158,14 @@ ${JSON.stringify(plan)}
               'The start date for filtering search results in YYYY-MM-DD format. Results will be filtered to show only content published after this date. Default to 3 days ago if not specified.',
             ),
         }),
-        execute: async ({ queries, category, includeDomains, startDate }, { toolCallId }) => {
+        execute: async ({ queries, category, includeDomains, startDate }, { toolCallId, abortSignal: toolAbortSignal }) => {
           log.debug('Web search queries:', { queries, category, startDate });
+          const searchOptions: ExtremeSearchOptions = {
+            category,
+            includeDomains,
+            startDate,
+            abortSignal: toolAbortSignal,
+          };
 
           const total = queries.length;
           const searchPromises = queries.map(async (query: string, index: number) => {
@@ -1205,24 +1185,10 @@ ${JSON.stringify(plan)}
               });
             }
 
-            let results = await runExtremeSearchProvider(
-              searchProvider,
-              extremeClients,
-              query,
-              category,
-              includeDomains,
-              startDate,
-            );
+            let results = await runExtremeSearchProvider(searchProvider, extremeClients, query, searchOptions);
             if (results.length === 0 && searchFallbackProvider) {
               log.debug(`Extreme search: ${searchProvider} returned no results, falling back to ${searchFallbackProvider}`);
-              results = await runExtremeSearchProvider(
-                searchFallbackProvider,
-                extremeClients,
-                query,
-                category,
-                includeDomains,
-                startDate,
-              );
+              results = await runExtremeSearchProvider(searchFallbackProvider, extremeClients, query, searchOptions);
             }
             log.info(`Found ${results.length} results for query "${query}"`);
 
@@ -1268,6 +1234,7 @@ ${JSON.stringify(plan)}
                   contentFallbackProvider,
                   metadataEnabled,
                   extremeClients,
+                  { abortSignal: toolAbortSignal },
                 );
 
                 if (contentsResults && contentsResults.length > 0) {
@@ -1350,7 +1317,7 @@ ${JSON.stringify(plan)}
             .describe('Array of 1-5 URLs to scrape for full rendered content'),
           reason: z.string().optional().describe('Brief reason for reading the page in full'),
         }),
-        execute: async ({ urls, reason }, { toolCallId }) => {
+        execute: async ({ urls, reason }, { toolCallId, abortSignal: toolAbortSignal }) => {
           log.info('[BrowsePage] Browsing URLs:', urls, 'Reason:', reason);
 
           const browseId = toolCallId;
@@ -1403,7 +1370,7 @@ ${JSON.stringify(plan)}
                     contentFallbackProvider,
                     metadataEnabled,
                     extremeClients,
-                    BROWSE_PAGE_CONTENT_MAX_CHARS,
+                    { maxContentChars: BROWSE_PAGE_CONTENT_MAX_CHARS, abortSignal: toolAbortSignal },
                   );
 
                   const title = browseResult?.title || hostname;

@@ -10,7 +10,9 @@ import { all } from 'better-all';
 import { createLogger } from '@/lib/logger';
 import { resolveFallbackSearchProvider, resolveSearchProvider } from '@/lib/instance/capabilities';
 import type { SearchProviderFor } from '@/lib/search/providers';
-import { FASTCRW_SEARCH_TIMEOUT_MS, GITHUB_API_TIMEOUT_MS, SEARXNG_TIMEOUT_MS, withAbort } from '@/lib/timeouts';
+import { GITHUB_API_TIMEOUT_MS, withAbort } from '@/lib/timeouts';
+import { fastCrwSearch } from '@/lib/search/fastcrw-client';
+import { searxngSearch } from '@/lib/search/searxng-client';
 
 const log = createLogger('github-search');
 
@@ -141,59 +143,26 @@ async function enrichGithubResultsWithApi(
   });
 }
 
-interface FastCrwSearchApiResponse {
-  success: boolean;
-  // fastCRW's `data` is `{ results: [...] }`, not the array itself, despite the
-  // Firecrawl-compatible framing.
-  data: {
-    results: Array<{
-      url: string;
-      title: string;
-      snippet: string;
-      description: string;
-      score: number;
-      category: string;
-    }>;
-  };
-}
-
 async function searchGithubWithFastCrw(
   baseUrl: string,
   query: string,
   limit: number,
   abortSignal?: AbortSignal,
 ): Promise<GitHubResult[]> {
-  const response = await fetch(`${baseUrl}/v1/search`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: `${query} site:github.com`, limit }),
-    signal: withAbort(abortSignal, FASTCRW_SEARCH_TIMEOUT_MS),
-  });
+  const hits = await fastCrwSearch(baseUrl, { query: `${query} site:github.com`, limit }, abortSignal);
 
-  if (!response.ok) {
-    throw new Error(`fastCRW returned ${response.status}`);
-  }
-
-  const data: FastCrwSearchApiResponse = await response.json();
-
-  return (data.data?.results || [])
+  return hits
     .filter((r) => isGitHubRepoUrl(r.url))
     .map((r) => {
       const authorMatch = r.url.match(/github\.com\/([^/]+)/);
       const out: GitHubResult = {
         url: r.url,
         title: r.title || r.url,
-        content: r.snippet || r.description || '',
+        content: r.content,
       };
       if (authorMatch) out.author = authorMatch[1];
       return out;
     });
-}
-
-interface SearxngResult {
-  url: string;
-  title: string;
-  content: string;
 }
 
 async function searchGithubWithSearxng(
@@ -202,24 +171,9 @@ async function searchGithubWithSearxng(
   limit: number,
   abortSignal?: AbortSignal,
 ): Promise<GitHubResult[]> {
-  const params = new URLSearchParams({
-    q: query,
-    engines: 'github',
-    format: 'json',
-    safesearch: '1',
-  });
+  const hits = await searxngSearch(baseUrl, { q: query, engines: 'github' }, abortSignal);
 
-  const response = await fetch(`${baseUrl.replace(/\/$/, '')}/search?${params.toString()}`, {
-    signal: withAbort(abortSignal, SEARXNG_TIMEOUT_MS),
-  });
-
-  if (!response.ok) {
-    throw new Error(`SearXNG returned ${response.status}`);
-  }
-
-  const data: { results?: SearxngResult[] } = await response.json();
-
-  return (data.results || [])
+  return hits
     .filter((r) => isGitHubRepoUrl(r.url))
     .slice(0, limit)
     .map((r) => {

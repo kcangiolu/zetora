@@ -9,7 +9,8 @@ import Firecrawl, { SearchResultWeb } from '@mendable/firecrawl-js';
 import Exa from 'exa-js';
 
 import { createLogger } from '@/lib/logger';
-import { FASTCRW_SEARCH_TIMEOUT_MS, SEARXNG_TIMEOUT_MS, withAbort } from '@/lib/timeouts';
+import { fastCrwSearch } from '@/lib/search/fastcrw-client';
+import { searxngSearch } from '@/lib/search/searxng-client';
 import { resolveFallbackSearchProvider, resolveSearchProvider } from '@/lib/instance/capabilities';
 import type { SearchProviderFor } from '@/lib/search/providers';
 
@@ -17,22 +18,6 @@ const log = createLogger('academic-search');
 
 const firecrawl = new Firecrawl({ apiKey: serverEnv.FIRECRAWL_API_KEY });
 const exa = new Exa(serverEnv.EXA_API_KEY);
-
-interface FastCrwSearchApiResponse {
-  success: boolean;
-  // fastCRW's `data` is `{ results: [...] }`, not the array itself, despite the
-  // Firecrawl-compatible framing.
-  data: {
-    results: Array<{
-      url: string;
-      title: string;
-      snippet: string;
-      description: string;
-      score: number;
-      category: string;
-    }>;
-  };
-}
 
 type AcademicResult = { url: string; title: string; summary: string };
 
@@ -48,24 +33,8 @@ async function searchAcademicWithFastCrw(
   limit: number,
   abortSignal?: AbortSignal,
 ): Promise<AcademicResult[]> {
-  const response = await fetch(`${baseUrl}/v1/search`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: `${query} ${ACADEMIC_QUERY_HINT}`, limit }),
-    signal: withAbort(abortSignal, FASTCRW_SEARCH_TIMEOUT_MS),
-  });
-
-  if (!response.ok) {
-    throw new Error(`fastCRW returned ${response.status}`);
-  }
-
-  const data: FastCrwSearchApiResponse = await response.json();
-
-  return (data.data?.results || []).map((r) => ({
-    url: r.url,
-    title: r.title || '',
-    summary: r.snippet || r.description || '',
-  }));
+  const hits = await fastCrwSearch(baseUrl, { query: `${query} ${ACADEMIC_QUERY_HINT}`, limit }, abortSignal);
+  return hits.map((r) => ({ url: r.url, title: r.title, summary: r.content }));
 }
 
 async function searchAcademicWithSearxng(
@@ -74,24 +43,9 @@ async function searchAcademicWithSearxng(
   limit: number,
   abortSignal?: AbortSignal,
 ): Promise<AcademicResult[]> {
-  const params = new URLSearchParams({
-    q: query,
-    categories: 'science',
-    format: 'json',
-    safesearch: '1',
-  });
+  const hits = await searxngSearch(baseUrl, { q: query, categories: 'science' }, abortSignal);
 
-  const response = await fetch(`${baseUrl.replace(/\/$/, '')}/search?${params.toString()}`, {
-    signal: withAbort(abortSignal, SEARXNG_TIMEOUT_MS),
-  });
-
-  if (!response.ok) {
-    throw new Error(`SearXNG returned ${response.status}`);
-  }
-
-  const data: { results?: Array<{ url: string; title: string; content: string }> } = await response.json();
-
-  return (data.results || []).slice(0, limit).map((r) => ({
+  return hits.slice(0, limit).map((r) => ({
     url: r.url,
     title: r.title || '',
     summary: r.content || '',

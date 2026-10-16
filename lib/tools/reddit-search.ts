@@ -10,7 +10,8 @@ import { all } from 'better-all';
 import { createLogger } from '@/lib/logger';
 import { resolveFallbackSearchProvider, resolveSearchProvider } from '@/lib/instance/capabilities';
 import type { SearchProviderFor } from '@/lib/search/providers';
-import { FASTCRW_SEARCH_TIMEOUT_MS, SEARXNG_TIMEOUT_MS, withAbort } from '@/lib/timeouts';
+import { fastCrwSearch } from '@/lib/search/fastcrw-client';
+import { searxngSearch } from '@/lib/search/searxng-client';
 
 const log = createLogger('reddit-search');
 
@@ -132,35 +133,15 @@ async function searchRedditWithFirecrawl(query: string, maxResults: number): Pro
   });
 }
 
-interface SearxngResult {
-  url: string;
-  title: string;
-  content: string;
-}
-
 async function searchRedditWithSearxng(
   baseUrl: string,
   query: string,
   maxResults: number,
   abortSignal?: AbortSignal,
 ): Promise<RedditResult[]> {
-  const params = new URLSearchParams({
-    q: `${query} site:reddit.com`,
-    format: 'json',
-    safesearch: '1',
-  });
+  const hits = await searxngSearch(baseUrl, { q: `${query} site:reddit.com` }, abortSignal);
 
-  const response = await fetch(`${baseUrl.replace(/\/$/, '')}/search?${params.toString()}`, {
-    signal: withAbort(abortSignal, SEARXNG_TIMEOUT_MS),
-  });
-
-  if (!response.ok) {
-    throw new Error(`SearXNG returned ${response.status}`);
-  }
-
-  const data: { results?: SearxngResult[] } = await response.json();
-
-  return (data.results || []).slice(0, maxResults).map((r) => {
+  return hits.slice(0, maxResults).map((r) => {
     const { subreddit, isRedditPost } = parseRedditUrl(r.url);
     return {
       url: r.url,
@@ -173,42 +154,17 @@ async function searchRedditWithSearxng(
   });
 }
 
-interface FastCrwSearchApiResponse {
-  success: boolean;
-  data: {
-    results: Array<{
-      url: string;
-      title: string;
-      snippet: string;
-      description: string;
-      score: number;
-      category: string;
-    }>;
-  };
-}
-
 async function searchRedditWithFastCrw(
   baseUrl: string,
   query: string,
   maxResults: number,
   abortSignal?: AbortSignal,
 ): Promise<RedditResult[]> {
-  const response = await fetch(`${baseUrl}/v1/search`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: `${query} site:reddit.com`, limit: maxResults }),
-    signal: withAbort(abortSignal, FASTCRW_SEARCH_TIMEOUT_MS),
-  });
+  const hits = await fastCrwSearch(baseUrl, { query: `${query} site:reddit.com`, limit: maxResults }, abortSignal);
 
-  if (!response.ok) {
-    throw new Error(`fastCRW returned ${response.status}`);
-  }
-
-  const data: FastCrwSearchApiResponse = await response.json();
-
-  return (data.data?.results || []).map((r) => {
+  return hits.map((r) => {
     const { subreddit, isRedditPost } = parseRedditUrl(r.url);
-    const content = r.snippet || r.description || '';
+    const content = r.content;
     return {
       url: r.url,
       title: r.title || r.url,

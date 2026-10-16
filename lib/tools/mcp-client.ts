@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { kvGet, kvSet, kvDel } from '@/lib/redis';
+import { withTimeout } from '@/lib/timeouts';
 
 const DEFAULT_MCP_SERVER_LIMIT = Number.MAX_SAFE_INTEGER;
 const MCP_TOOL_LOAD_TIMEOUT_MS = 20000;
@@ -76,21 +77,6 @@ function toSafeSlug(value: string) {
       .replace(/^_+|_+$/g, '')
       .slice(0, 24) || 'server'
   );
-}
-
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error(message)), timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
 }
 
 function waitForElicitation(elicitationId: string): Promise<ElicitResult> {

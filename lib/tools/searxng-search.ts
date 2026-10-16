@@ -1,7 +1,7 @@
 import type { UIMessageStreamWriter } from 'ai';
 import type { ChatMessage } from '../types';
 import type { SearchStrategy } from './web-search';
-import { SEARXNG_TIMEOUT_MS, withAbort } from '@/lib/timeouts';
+import { searxngSearch, searxngTimeRange } from '@/lib/search/searxng-client';
 import { mergeArchiveResults } from '@/lib/vector/archive-merge';
 
 import { createLogger } from '@/lib/logger';
@@ -10,38 +10,13 @@ import type { UserPreferenceValues } from '@/lib/db/schema';
 
 const log = createLogger('searxng-search');
 
-interface SearXNGResult {
-  url: string;
-  title: string;
-  content: string;
-  engine: string;
-  score: number;
-  publishedDate?: string;
-}
-
-// SearXNG only supports coarse time ranges — pick the smallest one that
-// still covers the requested start date (other strategies filter exactly).
-function resolveTimeRange(topic: 'general' | 'news', startDate?: string | null): string {
-  if (startDate) {
-    const start = new Date(startDate);
-    if (!Number.isNaN(start.getTime())) {
-      const ageDays = (Date.now() - start.getTime()) / (24 * 60 * 60 * 1000);
-      if (ageDays <= 1) return 'day';
-      if (ageDays <= 7) return 'week';
-      if (ageDays <= 31) return 'month';
-      return 'year';
-    }
-  }
-  return topic === 'news' ? 'week' : '';
-}
-
 export class SearXNGSearchStrategy implements SearchStrategy {
   private baseUrl: string;
   private preferences?: UserPreferenceValues;
   private userId?: string;
 
   constructor(baseUrl: string, preferences?: Record<string, unknown>, userId?: string) {
-    this.baseUrl = baseUrl.replace(/\/$/, '');
+    this.baseUrl = baseUrl;
     this.preferences = preferences;
     this.userId = userId;
   }
@@ -76,32 +51,19 @@ export class SearXNGSearchStrategy implements SearchStrategy {
         });
 
         try {
-          const params = new URLSearchParams({
-            q: query,
-            format: 'json',
-            pageno: '1',
-            // 'all' disables SearXNG's language filter, so a non-English query
-            // gets results in its own language.
-            language: options.language ?? 'all',
-            time_range: resolveTimeRange(topic, options.startDates?.[i]),
-            safesearch: '1',
-          });
-
-          const response = await fetch(`${this.baseUrl}/search?${params.toString()}`, {
-            signal: withAbort(options.abortSignal, SEARXNG_TIMEOUT_MS),
-          });
-
-          if (!response.ok) {
-            throw new Error(`SearXNG returned ${response.status}`);
-          }
-
-          const data = await response.json();
-
-          const sortedResults = [...(data.results || [])].sort(
-            (a: SearXNGResult, b: SearXNGResult) => (b.score ?? 0) - (a.score ?? 0),
+          const hits = await searxngSearch(
+            this.baseUrl,
+            {
+              q: query,
+              language: options.language ?? 'all',
+              time_range: searxngTimeRange(topic, options.startDates?.[i]),
+            },
+            options.abortSignal,
           );
 
-          const results = sortedResults.slice(0, maxResults).map((r: SearXNGResult) => ({
+          const sortedResults = [...hits].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+
+          const results = sortedResults.slice(0, maxResults).map((r) => ({
             url: r.url,
             title: r.title,
             content: r.content || '',

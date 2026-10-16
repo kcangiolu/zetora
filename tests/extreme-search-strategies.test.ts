@@ -101,7 +101,7 @@ describe('FirecrawlSearchStrategy', () => {
       }),
     };
     const strategy = new FirecrawlSearchStrategy(firecrawl as any);
-    const results = await strategy.search('query', undefined, ['example.com']);
+    const results = await strategy.search('query', { includeDomains: ['example.com'] });
     expect(firecrawl.search).toHaveBeenCalledWith('query site:example.com', expect.anything());
     expect(results).toHaveLength(1);
   });
@@ -187,5 +187,36 @@ describe('runExtremeSearchProvider', () => {
     const results = await runExtremeSearchProvider('firecrawl', clients, 'query');
     expect(firecrawl.search).toHaveBeenCalled();
     expect(results).toHaveLength(1);
+  });
+});
+
+describe('runExtremeSearchProvider with SearXNG', () => {
+  it('applies the site filter, the date range and the abort signal', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-16T12:00:00Z'));
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ results: [{ url: 'https://a.com/x', title: 'A', content: 'c' }] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const clients = { exa: {}, firecrawl: {}, parallel: {} } as unknown as ExtremeProviderClients;
+
+    const results = await runExtremeSearchProvider('searxng', clients, 'query', {
+      includeDomains: ['example.com'],
+      startDate: '2026-10-12',
+      abortSignal: controller.signal,
+    });
+
+    const url = new URL(fetchMock.mock.calls[0][0] as string);
+    expect(url.searchParams.get('q')).toBe('query site:example.com');
+    expect(url.searchParams.get('time_range')).toBe('week');
+    controller.abort();
+    expect((fetchMock.mock.calls[0][1].signal as AbortSignal).aborted).toBe(true);
+    expect(results).toEqual([
+      { title: 'A', url: 'https://a.com/x', content: '', publishedDate: '', favicon: expect.stringContaining('a.com') },
+    ]);
+    vi.useRealTimers();
   });
 });

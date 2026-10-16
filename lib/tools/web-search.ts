@@ -12,7 +12,7 @@ import { SearXNGSearchStrategy } from './searxng-search';
 import { FastCrwWebSearchStrategy } from './fastcrw-web-search';
 import { clampSearchInput, dedupeAndCapSearches, enrichBestQualityResults } from './web-search-limits';
 import { SelfHostedContentStrategy } from './self-hosted-content';
-import { EXA_SEARCH_TIMEOUT_MS } from '@/lib/timeouts';
+import { EXA_SEARCH_TIMEOUT_MS, withTimeout } from '@/lib/timeouts';
 import { resolveFallbackSearchProvider, resolveSearchProvider } from '@/lib/instance/capabilities';
 import type { SearchProviderFor } from '@/lib/search/providers';
 
@@ -20,21 +20,6 @@ import { createLogger } from '@/lib/logger';
 import { isConfigured } from '@/ai/catalog/env';
 
 const log = createLogger('web-search');
-
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error(message)), timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
-}
 
 // Singleton clients - initialized lazily and reused across requests
 let _searchClients: {
