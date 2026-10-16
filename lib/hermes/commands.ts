@@ -1,9 +1,6 @@
-// Mirrored from Hermes Agent's gateway/relay/command_manifest.py
-// (~/.hermes/hermes-agent, read directly — 2026-09-20), the relay lane's own
-// Discord-command-tree mirror. Every other platform connector maintains its own copy
-// of Hermes's command set the same way (there's no generic command-manifest broadcast
-// to non-Discord relay connectors, confirmed by reading that file) — this list WILL
-// drift if Hermes adds/renames a command, and needs a manual re-sync when it does.
+// Mirrored from Hermes Agent's gateway/relay/command_manifest.py. Hermes broadcasts no
+// command manifest to relay connectors, so this copy needs a manual re-sync whenever
+// Hermes adds or renames a command.
 export interface HermesCommand {
   name: string;
   description: string;

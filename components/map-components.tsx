@@ -178,7 +178,7 @@ const MapComponent = memo(
       // Clear existing markers (avoid duplicates)
       markersRef.current.forEach((marker) => marker.remove());
       markersRef.current = [];
-      // Also remove any stray root-level markers in case of legacy leftovers
+      // Also remove markers added to the map outside markersRef
       mapInstance.current.eachLayer((layer: L.Layer) => {
         if (layer instanceof L.Marker) {
           mapInstance.current?.removeLayer(layer);

@@ -104,16 +104,10 @@ interface OutboundAction {
 
 type MessagePart = { type: string; [key: string]: unknown };
 
-// Hermes's own contract: `timeout_s` is advisory-only on the wire and, verified against
-// gateway/relay/adapter.py's _send_prompt, is simply never sent for the prompt kinds
-// currently in use here (slash-confirm's send_slash_confirm, exec approval's
-// send_exec_approval, clarify's send_clarify all omit it). This fallback matches
-// tools/slash_confirm.py's own DEFAULT_TIMEOUT_SECONDS — the shortest of the several
-// internal expiry mechanisms a prompt can be subject to Hermes-side (the relay's own
-// _pending_prompts registry defaults to a full hour) — so a stale button gets flagged
-// well before Hermes silently no-ops a press instead of running the action. Clicking
-// past this is never a dead end regardless: Hermes's slash-command text fallback
-// ("reply /approve, /always, or /cancel") always still works.
+// Hermes never sends `timeout_s` for the prompt kinds used here (slash-confirm, exec
+// approval, clarify). This matches tools/slash_confirm.py's DEFAULT_TIMEOUT_SECONDS, the
+// shortest expiry a prompt has Hermes-side, so a stale button is flagged before a press
+// is silently ignored. Typing /approve, /always or /cancel still works after it.
 const DEFAULT_PROMPT_TIMEOUT_S = 300;
 
 // The agent's response time: from the user message this reply answers to the reply's
@@ -132,16 +126,10 @@ async function secondsSinceTriggeringMessage(
   return (now.getTime() - trigger.createdAt.getTime()) / 1000;
 }
 
-// Called by hermes-relay-service when the gateway sends an `outbound` frame (the agent's
-// send/edit/typing/draft/prompt/react/send_media actions — verified against
-// gateway/relay/adapter.py's RelayAdapter directly, not the prose doc: `send` at
-// RelayAdapter.send, `edit` at .edit_message, `typing` at .send_typing, `draft` at
-// .send_draft, `prompt` at ._send_prompt, `react` at ._react, `send_media` at
-// .send_media). `follow_up`/threads are each a bigger, separately-scoped feature
-// (proactive session_key routing) — not handled here. `task_card`/`task_card_stop` are
-// deliberately absent: the gateway only ever emits them when the turn's source platform
-// is Slack (run.py's _native_slack_task_cards gate), and a Zetora conversation arrives as
-// Platform.RELAY — advertising them would be an op nothing can send.
+// Called by hermes-relay-service for each `outbound` frame from the gateway: the agent's
+// send/edit/typing/draft/prompt/react/send_media actions (RelayAdapter in
+// gateway/relay/adapter.py). `follow_up` and threads are not handled. `task_card` ops are
+// Slack-only on the gateway side, so they never reach a relay conversation.
 export async function POST(req: NextRequest) {
   const disabled = assertHermesEnabled();
   if (disabled) return disabled;
@@ -167,13 +155,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'unknown_gateway' });
     }
 
-    // Resolved by action.chat_id, NOT by connectorId alone: a connector can own many
-    // hermesConversation rows (one per Zetora chat that ever used Agent mode — see
-    // /api/hermes/send/route.ts's createHermesConversation), so a connector-wide lookup
-    // picks an ARBITRARY one and silently misroutes every reply to whichever chat that
-    // happened to be, regardless of which chat this action is actually about. chat_id is
-    // present on every outbound op per the contract table, and echoes back verbatim the
-    // Zetora chatId this route itself sent as SessionSource.chat_id in /api/hermes/send.
+    // Resolved by action.chat_id, not connectorId: a connector owns one hermesConversation
+    // per chat that used Agent mode. chat_id is on every outbound op and echoes the chatId
+    // /api/hermes/send sent as SessionSource.chat_id.
     if (!action.chat_id) {
       return NextResponse.json({ success: false, error: 'missing_chat_id' });
     }
@@ -191,16 +175,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (action.op === 'draft') {
-      // The progressive-streaming lane (gateway/stream_consumer.py's _send_draft_frame).
-      // Ephemeral by contract, exactly like `typing`: a draft frame carries the reply's
-      // text SO FAR, is superseded by the next frame, and is NOT the message — the
-      // turn-final arrives separately as a real `send` (Hermes only converts the final
-      // into a sealing draft frame for stream-is-the-message platforms, which is
-      // Slack-only: adapter.py's draft_stream_is_message). So nothing here is persisted,
-      // and nothing here pushes a notification — the `send` that follows does both.
-      //
-      // The gateway BLOCKS on this response for every frame (ws_transport.py's
-      // _request_response), so this path must stay a single publish.
+      // Progressive streaming: a draft carries the reply's text so far and is replaced
+      // by the next one. The final reply comes as a real `send`, which persists and
+      // notifies, so nothing is stored here. The gateway waits on this response for
+      // every frame, so this path must stay a single publish.
       await publishHermesEvent(conversation.chatId, {
         kind: 'draft',
         draftId: action.draft_id ?? 0,

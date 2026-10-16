@@ -117,7 +117,7 @@ function clampBudget(spec: ReasoningSpec, budget: number): number {
 }
 
 // 'auto' normally leaves the provider's default alone, except where that
-// default doesn't think at all (Groq's default effort on Qwen, verified live).
+// default doesn't think at all (Groq's default effort on Qwen).
 const AUTO_EFFORT: Partial<Record<Dialect, Exclude<ReasoningEffort, 'auto' | 'off'>>> = { groq: 'medium' };
 
 function plan(spec: ReasoningSpec, requested: ReasoningEffort, dialect: Dialect): Plan {

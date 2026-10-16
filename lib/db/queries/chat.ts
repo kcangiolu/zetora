@@ -272,14 +272,10 @@ export async function getChatWithUserById({ id }: { id: string }) {
 }
 
 /**
- * Saves the user message that opens a turn, stamped with the DB server's own
- * clock (clock_timestamp()) rather than the app host's new Date().
- *
- * getLatestUserMessageIdByChatId orders by createdAt to detect whether a
- * newer turn has started before persisting an in-flight assistant response.
- * If this row's createdAt came from an app instance with a skewed clock
- * (e.g. a cold start before NTP sync), it could look "newest" forever and
- * cause every later assistant response in the chat to be dropped as stale.
+ * Saves the user message that opens a turn, stamped with the DB server's clock
+ * (clock_timestamp()). getLatestUserMessageIdByChatId orders by createdAt to
+ * detect a newer turn; an app host's skewed clock would make this row look
+ * newest forever and drop every later assistant response as stale.
  */
 export async function saveUserTurnMessage({
   chatId,

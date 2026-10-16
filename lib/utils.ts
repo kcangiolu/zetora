@@ -86,19 +86,9 @@ export type SkillId =
   | 'pdf'
   | 'xlsx';
 
-// Modes that still require an explicit, exclusive per-message selection —
-// they fully replace the base Sources+Skills tool set for that turn instead
-// of layering on top of it. Every other former "mode" (web, code, academic,
-// extreme, ...) is now an always-on Source/Skill filtered by user
-// preference rather than something picked before sending a message. Four
-// modes remain exclusive: mcp/canvas read from raw
-// external systems or replace the whole response pipeline; deep-research and
-// extreme-search instead force a specific research methodology or tool
-// (bypassing the model's own skill-selection) for a single message — see
-// lib/search/groups/deep-research.ts and extreme-search.ts.
-// 'hermes' is exclusive for a different reason than the others: it doesn't call an LLM
-// at all (see app/api/hermes/send/route.ts) — a Hermes turn bypasses the whole
-// Sources/Skills/tool pipeline rather than forcing one methodology within it.
+// Modes picked explicitly for one message, replacing the Sources+Skills tool set
+// (see lib/search/group-config.ts). 'hermes' skips the LLM pipeline entirely: the
+// message goes to the user's Hermes agent (app/api/hermes/send/route.ts).
 export type SpecialModeId = 'mcp' | 'canvas' | 'deep-research' | 'extreme-search' | 'hermes';
 
 // Search provider information for dynamic descriptions

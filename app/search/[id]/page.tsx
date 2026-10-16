@@ -129,9 +129,6 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const { id } = params;
 
-  console.log('🔍 [PAGE] Starting optimized chat page load for:', id);
-  const pageStartTime = Date.now();
-
   const { user, chatBundle, primaryFallback, hiddenImageUrls, hermesConversation } = await all(
     {
       user: async function () {
@@ -174,9 +171,6 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
 
   if (!chat) notFound();
 
-  console.log('Chat: ', chat);
-  console.log('Messages from DB: ', messagesFromDb);
-
   // Check visibility and ownership
   let effectiveUser = user;
   if (chat.visibility === 'private') {
@@ -206,9 +200,6 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
 
   // Determine if the current user owns this chat
   const isOwner = effectiveUser ? effectiveUser.id === chat.userId : false;
-
-  const pageLoadTime = (Date.now() - pageStartTime) / 1000;
-  console.log(`⏱️  [PAGE] Total page load time: ${pageLoadTime.toFixed(2)}s`);
 
   return (
     <ChatInterface

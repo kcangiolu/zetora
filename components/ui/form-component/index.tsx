@@ -119,7 +119,6 @@ export interface FormComponentProps {
   showExperimentalModels: boolean;
   status: UseChatHelpers<ChatMessage>['status'];
   setHasSubmitted: React.Dispatch<React.SetStateAction<boolean>>;
-  usageData?: { messageCount: number; extremeSearchCount: number; error: string | null } | null;
   isTemporaryChatEnabled: boolean;
   isTemporaryChat: boolean;
   isTemporaryChatLocked: boolean;
@@ -189,7 +188,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
   setMessages,
   status,
   setHasSubmitted,
-  usageData,
   isTemporaryChatEnabled,
   isTemporaryChat,
   isTemporaryChatLocked,
@@ -210,8 +208,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const [appsEnabledPref] = useSyncedPreferences<boolean>('zetora-apps-enabled', true);
   const [canvasEnabledPref] = useSyncedPreferences<boolean>('zetora-canvas-enabled', true);
   // Gates the deep-research/extreme-search forced-mode entries below: a
-  // disabled skill can no longer be forced, same list Settings > Skills
-  // writes to (components/settings/skills.tsx).
+  // disabled skill can't be forced. Same list Settings > Skills writes to.
   const [disabledSkillsPref] = useSyncedPreferences<string[]>('zetora-disabled-skills', []);
   const mcpEnabled = mcpEnvEnabled && appsEnabledPref;
   const canvasEnabled = canvasEnvEnabled && canvasEnabledPref;
@@ -333,10 +330,8 @@ const FormComponent: React.FC<FormComponentProps> = ({
   );
 
   // Sources: always-on tools filtered by user preference, not a mode to pick.
-  // Falls back to the pre-migration key so existing curation isn't silently
-  // reset to "all enabled" for users who hid sources before this preference existed.
-  // This is the permanent, account-wide list owned by Preferences > Customize —
-  // the chat picker below only ever reads it, it never writes to it.
+  // An empty list falls back to the older zetora-visible-modes key. Owned by
+  // Preferences > Customize; the chat picker below only reads it.
   const [enabledSourcesPref] = useSyncedPreferences<string[]>('zetora-enabled-sources', []);
   const globalEnabledSources =
     enabledSourcesPref.length > 0
@@ -456,13 +451,8 @@ const FormComponent: React.FC<FormComponentProps> = ({
     user,
   ]);
 
-  // One-time cleanup for stale localStorage values from before Sources/Skills
-  // replaced single-purpose modes (e.g. a returning user whose selectedGroup
-  // is still 'web' or 'reddit' from before this migration) — anything that
-  // isn't one of the four remaining exclusive special modes falls back to
-  // the base Sources+Skills path ('auto'). Also covers a mode the user just
-  // hid via Preferences > Tools while it was active — it shouldn't stay
-  // selected once its shortcut has disappeared from the + menu.
+  // A stored group that isn't an exclusive special mode (an old value such as
+  // 'web'), or a mode the user has since hidden, falls back to 'auto'.
   useEffect(() => {
     const isKnownMode = BASE_VALID_SPECIAL_MODES.has(selectedGroup);
     if (!isKnownMode) {
@@ -474,18 +464,10 @@ const FormComponent: React.FC<FormComponentProps> = ({
       (selectedGroup === 'mcp' && !mcpEnabled) ||
       (selectedGroup === 'deep-research' && disabledSkillsPref.includes('deep-research')) ||
       (selectedGroup === 'extreme-search' && disabledSkillsPref.includes('extreme-search')) ||
-      // This branch writes to a GLOBAL, cross-chat preference, and it judges on a value
-      // that arrives asynchronously — so it only fires on a positive signal, never on the
-      // absence of one. Two guards, both for bugs seen live:
-      //   isHermesConnectorStatusResolved — the query must actually have answered. An
-      //   unresolved query (still loading, disabled because `user` hasn't landed yet, or
-      //   errored) leaves hermesEnabled false, and without this the reset fired right then
-      //   and permanently wrote 'auto'. Nothing ever writes 'hermes' back, so a chat that
-      //   WAS correctly in Agent mode got silently kicked out of it for good.
-      //   !isHermesLocked — this component is handed the lock-adjusted group but writes the
-      //   raw stored one. A committed Agent chat therefore kept trying to rewrite the
-      //   preference belonging to every OTHER chat. A locked chat has no preference to tidy.
-      // The other five checks read synchronous local state and need neither guard.
+      // Writes a global, cross-chat preference from an async value, so it needs a positive
+      // signal: the connector query must have answered (loading or errored reads as
+      // "disabled"), and a chat locked to Agent mode must not rewrite every other chat's
+      // preference. The other checks read synchronous state.
       (selectedGroup === 'hermes' &&
         !isHermesLocked &&
         isHermesConnectorStatusResolved &&
@@ -1321,14 +1303,8 @@ const FormComponent: React.FC<FormComponentProps> = ({
     async (event: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(event.target.files || []);
       if (files.length === 0) {
-        console.log('No files selected in file input');
         return;
       }
-
-      console.log(
-        'Files selected:',
-        files.map((f) => `${f.name} (${f.type})`),
-      );
 
       const imageFiles: File[] = [];
       const pdfFiles: File[] = [];
@@ -1374,7 +1350,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
       }
 
       if (imageFiles.length === 0 && pdfFiles.length === 0 && documentFiles.length === 0 && textFiles.length === 0) {
-        console.log('No supported files found');
         event.target.value = '';
         return;
       }
@@ -1382,11 +1357,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
       // PDFs are always processed via file_query_search tool (works with any model)
       // No need to switch models - PDF content is extracted and searched via the tool
       let validFiles: File[] = [...imageFiles, ...documentFiles, ...pdfFiles, ...textFiles];
-
-      console.log(
-        'Valid files for upload:',
-        validFiles.map((f) => f.name),
-      );
 
       const totalAttachments = attachments.length + validFiles.length;
       if (totalAttachments > MAX_FILES) {
@@ -1404,21 +1374,15 @@ const FormComponent: React.FC<FormComponentProps> = ({
       setUploadQueue(validFiles.map((file) => file.name));
 
       try {
-        console.log('Starting upload of', validFiles.length, 'files');
-
         const uploadedAttachments: Attachment[] = [];
         for (const file of validFiles) {
           try {
-            console.log(`Uploading file: ${file.name} (${file.type})`);
             const attachment = await uploadFile(file);
             uploadedAttachments.push(attachment);
-            console.log(`Successfully uploaded: ${file.name}`);
           } catch (err) {
             console.error(`Failed to upload ${file.name}:`, err);
           }
         }
-
-        console.log('Upload completed for', uploadedAttachments.length, 'files');
 
         if (uploadedAttachments.length > 0) {
           setAttachments((currentAttachments) => [...currentAttachments, ...uploadedAttachments]);
@@ -1507,10 +1471,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
       setIsDragging(false);
 
       const allFiles = Array.from(e.dataTransfer.files);
-      console.log(
-        'Raw files dropped:',
-        allFiles.map((f) => `${f.name} (${f.type})`),
-      );
 
       if (allFiles.length === 0) {
         sileo.error({ title: 'No files detected in drop' });
@@ -1534,8 +1494,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
       ];
 
       allFiles.forEach((file) => {
-        console.log(`Processing file: ${file.name} (${file.type})`);
-
         if (file.size > getMaxSizeForFile(file)) {
           oversizedFiles.push(file);
           return;
@@ -1554,15 +1512,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
         }
       });
 
-      console.log(
-        `Images: ${imageFiles.length}, PDFs: ${pdfFiles.length}, Documents: ${documentFiles.length}, Text: ${textFiles.length}, Oversized: ${oversizedFiles.length}`,
-      );
-
       if (oversizedFiles.length > 0) {
-        console.log(
-          'Oversized files:',
-          oversizedFiles.map((f) => `${f.name} (${f.size} bytes)`),
-        );
         oversizedFiles.forEach((file) => {
           sileo.error({
             title: `${file.name} is too large`,
@@ -1584,11 +1534,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
       // No need to switch models - PDF content is extracted and searched via the tool
       let validFiles: File[] = [...imageFiles, ...documentFiles, ...pdfFiles, ...textFiles];
 
-      console.log(
-        'Files to upload:',
-        validFiles.map((f) => `${f.name} (${f.type})`),
-      );
-
       const totalAttachments = attachments.length + validFiles.length;
       if (totalAttachments > MAX_FILES) {
         sileo.error({ title: `You can only attach up to ${MAX_FILES} files.` });
@@ -1606,21 +1551,15 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
       setTimeout(async () => {
         try {
-          console.log('Beginning upload of', validFiles.length, 'files');
-
           const uploadedAttachments: Attachment[] = [];
           for (const file of validFiles) {
             try {
-              console.log(`Uploading file: ${file.name} (${file.type})`);
               const attachment = await uploadFile(file);
               uploadedAttachments.push(attachment);
-              console.log(`Successfully uploaded: ${file.name}`);
             } catch (err) {
               console.error(`Failed to upload ${file.name}:`, err);
             }
           }
-
-          console.log('Upload completed for', uploadedAttachments.length, 'files');
 
           if (uploadedAttachments.length > 0) {
             setAttachments((currentAttachments) => [...currentAttachments, ...uploadedAttachments]);
@@ -1661,10 +1600,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
       const oversizedFiles = files.filter((file) => file.size > getMaxSizeForFile(file));
 
       if (oversizedFiles.length > 0) {
-        console.log(
-          'Oversized files:',
-          oversizedFiles.map((f) => `${f.name} (${f.size} bytes)`),
-        );
         oversizedFiles.forEach((file) => {
           sileo.error({
             title: `${file.name || 'Pasted image'} is too large`,

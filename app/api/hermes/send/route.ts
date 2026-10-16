@@ -32,11 +32,9 @@ interface SendBody {
   attachments?: HermesAttachmentRef[];
 }
 
-// Outbound path: a Zetora user's message (or a HermesPromptCard button click) to their
-// own Hermes agent. Deliberately its own route, not app/api/search — that route is ~1380
-// lines of streamText/tool/provider machinery a Hermes turn never touches (see the
-// implementation plan's rationale). This route only ever talks to hermes-relay-service,
-// never to an LLM.
+// Outbound path: a user's message (or a HermesPromptCard button click) to their own
+// Hermes agent. Its own route rather than app/api/search, whose model and tool
+// machinery a Hermes turn never uses: it only talks to hermes-relay-service.
 export async function POST(req: NextRequest) {
   const disabled = assertHermesEnabled();
   if (disabled) return disabled;
@@ -149,8 +147,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to save message' }, { status: 500 });
   }
 
-  // Wire shape verified against gateway/relay/ws_transport.py's _event_from_wire, not
-  // guessed from the prose doc — see hermes-relay-service/README.md.
+  // Wire shape of gateway/relay/ws_transport.py's _event_from_wire (see
+  // hermes-relay-service/README.md).
   const event: Record<string, unknown> = {
     text,
     message_type: hermesMessageTypeFor(media.map((m) => m.mime)),
@@ -164,7 +162,7 @@ export async function POST(req: NextRequest) {
     },
   };
   if (media.length > 0) {
-    // Both fields, always. _media_types_from_wire treats media_urls (flat, legacy) and
+    // Both fields, always. _media_types_from_wire treats media_urls (flat) and
     // media (rich) as INDEPENDENT wire fields and pairs them BY URL, so sending only one
     // costs every attachment its MIME — and the MIME is what routes an image to vision and
     // a PDF to the file tools. The gateway then downloads each URL to a local temp path

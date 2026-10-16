@@ -30,16 +30,11 @@ export interface CustomProviderConfig {
   // (llama.cpp: mirostat/cache_prompt; vLLM: guided-decoding fields...). Keys
   // are backend-specific — see ai/native-models/ and getCustomReasoningOverrides.
   nativeParams?: Record<string, unknown>;
-  // Forces a llamacpp/ollama-classified provider back onto the
-  // OpenAI-compatible shim instead of the native /completion or /api/chat
-  // providers — reproduces the exact pre-native-provider behavior (see
-  // shouldUseNativeCustomProvider). Gains: image attachments without the
-  // per-turn hasImages routing bounce, the server rendering its own chat
-  // template (no client-side Jinja re-implementation to get subtly wrong per
-  // model), reasoning control via the generic reasoning_effort string.
-  // Loses: real prefill (/startwith), grammar, mirostat/native sampling
-  // knobs, direct cache_prompt control. No effect on 'vllm'/'openai'/
-  // 'unknown' providers, which already always use the shim.
+  // Sends a llamacpp/ollama provider through the OpenAI-compatible shim
+  // instead of its native API (see shouldUseNativeCustomProvider): the server
+  // renders its own chat template and handles images, at the cost of prefill
+  // (/startwith), grammar and native sampling knobs. Other backends always
+  // use the shim.
   enrichedShim?: boolean;
 }
 

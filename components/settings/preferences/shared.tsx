@@ -450,16 +450,10 @@ export const SOURCE_CATALOG_IDS = [
   'spotify',
 ];
 
-// Shared editor for the per-skill "custom instructions" textarea + named
-// presets, used identically by the Image Generation and Image Editing
-// sections below. The default (built-in) instructions are always applied
-// server-side — this only edits the text appended on top of them — so we
-// surface them read-only here, auto-expanded while no custom prompt is set.
-//
-// Presets bundle the model name together with the custom instructions text,
-// but picking one from the dropdown only stages it — nothing is written to
-// the live systemPrompt/model fields until "Apply" is clicked, so there's no
-// ambiguity about whether a preset actually took effect.
+// Custom-instructions editor shared by the Image Generation and Image Editing
+// sections. The built-in instructions always apply server-side, so they are
+// shown read-only; this only edits the text appended to them. Picking a preset
+// (model + instructions) only stages it until "Apply" writes it.
 export function ImagePromptPresetEditor({
   skillLabel,
   defaultInstructions,

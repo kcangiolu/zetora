@@ -23,20 +23,12 @@ export function resolveHermesChatLock({
   return hasMessages ? 'search' : null;
 }
 
-// Splits two things that used to be one value, which is what made the Agent-mode UI
-// unreliable: whether this chat IS a Hermes chat (a fact about stored data — drives how
-// its messages render), versus which lane the NEXT message should take (a UI selector,
-// backed by a global localStorage preference shared across every chat).
-//
-// Deriving the first from the second meant a chat's messages rendered differently
-// depending on a cross-chat preference that async queries could silently overwrite —
-// hence the action toolbar appearing on Hermes messages, and the live stream detaching.
-//
-// sessionLock covers the one case with no server truth yet: a brand-new chat that just sent
-// its first message, Agent or search. Its URL is swapped in with history.replaceState, so
-// nothing remounts and no server render ever runs for it — without this, a chat that began
-// with a search turn kept offering Agent until reloaded. The server lock wins whenever it
-// exists: it is the stored fact, and a session lock can only ever agree with it.
+// Keeps apart whether this chat IS a Hermes chat (stored fact, drives rendering) and which
+// lane the next message takes (a UI selector backed by a cross-chat localStorage
+// preference): rendering must never depend on that shared preference.
+// sessionLock covers a brand-new chat that just sent its first message: its URL is swapped
+// with history.replaceState, so no server render runs and there is no server lock yet. The
+// server lock wins whenever it exists.
 export function resolveHermesChatMode({
   serverLock,
   sessionLock,

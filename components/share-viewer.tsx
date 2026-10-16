@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState, useTransition } from 'react';
+import React, { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { sileo } from 'sileo';
@@ -29,15 +29,7 @@ export function ShareViewer({ chatId, chatTitle, shareUrl, messages, isSignedIn,
   const { state } = useSidebar();
   const [isForking, startTransition] = useTransition();
   const [shareMessages, setShareMessages] = useState(messages);
-  const [input, setInput] = useState('');
   const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([]);
-
-  const lastUserMessageIndex = useMemo(() => {
-    for (let index = shareMessages.length - 1; index >= 0; index -= 1) {
-      if (shareMessages[index]?.role === 'user') return index;
-    }
-    return -1;
-  }, [shareMessages]);
 
   const handleCopyLink = async () => {
     try {
@@ -127,9 +119,6 @@ export function ShareViewer({ chatId, chatTitle, shareUrl, messages, isSignedIn,
         <div className="w-full flex-1 flex flex-col min-h-0">
           <Messages
             messages={shareMessages}
-            lastUserMessageIndex={lastUserMessageIndex}
-            input={input}
-            setInput={setInput}
             setMessages={setShareMessages}
             regenerate={async () => {}}
             stop={async () => {}}
@@ -140,7 +129,6 @@ export function ShareViewer({ chatId, chatTitle, shareUrl, messages, isSignedIn,
             error={null}
             selectedVisibilityType="public"
             chatId={chatId}
-            initialMessages={messages}
             isOwner={false}
             bottomSpacerClassName="mb-4"
             attachmentsRenderer={(attachments: Attachment[]) => <ShareAttachmentsBadge attachments={attachments} />}

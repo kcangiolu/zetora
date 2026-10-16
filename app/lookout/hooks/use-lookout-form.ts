@@ -43,13 +43,10 @@ export interface LookoutFormHookReturn {
 }
 
 export function useLookoutForm(detectedTimezone: string = DEFAULT_FORM_VALUES.TIMEZONE): LookoutFormHookReturn {
-  console.log('🎯 Form hook received detectedTimezone:', detectedTimezone);
-
   // Form state
   const [selectedFrequency, setSelectedFrequency] = React.useState<string>(DEFAULT_FORM_VALUES.FREQUENCY);
   const [selectedTime, setSelectedTime] = React.useState<string>(DEFAULT_FORM_VALUES.TIME);
   const [selectedTimezone, setSelectedTimezone] = React.useState<string>(detectedTimezone);
-  console.log('🔧 Initial selectedTimezone state:', detectedTimezone);
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [selectedDayOfWeek, setSelectedDayOfWeek] = React.useState<string>(DEFAULT_FORM_VALUES.DAY_OF_WEEK);
   const [selectedSearchMode, setSelectedSearchMode] = React.useState<string>(DEFAULT_FORM_VALUES.SEARCH_MODE);
@@ -59,9 +56,7 @@ export function useLookoutForm(detectedTimezone: string = DEFAULT_FORM_VALUES.TI
 
   // Update timezone when detected timezone changes
   React.useEffect(() => {
-    console.log('⚡ useEffect triggered - detectedTimezone:', detectedTimezone, 'editingLookout:', !!editingLookout);
     if (!editingLookout) {
-      console.log('📝 Setting selectedTimezone to:', detectedTimezone);
       setSelectedTimezone(detectedTimezone);
     }
   }, [detectedTimezone, editingLookout]);

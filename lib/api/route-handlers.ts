@@ -10,8 +10,8 @@ import { createLogger } from '@/lib/logger';
 const log = createLogger('route-handlers');
 
 /**
- * Composable wrappers for App Router route handlers. They centralize the
- * auth gate + try/catch boilerplate that used to be copy-pasted per route.
+ * Composable wrappers for App Router route handlers: the auth gate and the
+ * try/catch every route needs.
  *
  * Not for streaming or signature-verified routes (search, lookout, auth,
  * webhooks) — those own their response lifecycle.
@@ -68,7 +68,7 @@ export function withError<Ctx extends RouteContext = RouteContext>(
   };
 }
 
-/** Session-authenticated route: 401 with the legacy `{ error }` body when signed out. */
+/** Session-authenticated route: 401 with an `{ error }` body when signed out. */
 export function withAuth<Ctx extends RouteContext = RouteContext>(
   handler: Handler<Ctx & { user: User }>,
   options?: RouteErrorOptions,

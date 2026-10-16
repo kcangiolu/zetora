@@ -48,16 +48,12 @@ const deepseekDirect = isConfigured(process.env.DEEPSEEK_API_KEY)
     })
   : null;
 
-// Separate instance, used only by /startwith on direct DeepSeek models.
-// DeepSeek's real prefill ("Chat Prefix Completion") needs the /beta
-// endpoint plus a `prefix: true` field on the trailing assistant message —
-// @ai-sdk/deepseek's hand-rolled message converter has no escape hatch for
-// that field, but the generic openai-compatible shim spreads
-// `message.providerOptions.openaiCompatible` verbatim onto the built message
-// (verified against its source), so it's the one that can actually send
-// `prefix`. Never used for normal chat — deepseekDirect above still handles
-// that — so the shim's known structured-output weakness never applies:
-// /startwith always forces tools:{} and a single plain-text step.
+// Used only by /startwith on direct DeepSeek models. DeepSeek's prefill needs
+// the /beta endpoint and `prefix: true` on the trailing assistant message,
+// which @ai-sdk/deepseek cannot send; the openai-compatible shim copies
+// `providerOptions.openaiCompatible` onto the message, so it can. /startwith
+// runs without tools in one plain-text step, so the shim's weak structured
+// output never matters; normal chat stays on deepseekDirect.
 const deepseekBetaDirect = openaiCompatible(
   'deepseek-beta',
   'https://api.deepseek.com/beta',
@@ -353,16 +349,11 @@ export async function resolveModel(
       const providerConfig = providers.find((p) => p.id === model.providerId);
       backendKind = providerConfig?.backendKind;
 
-      // The native llama.cpp (/completion) and Ollama (/api/chat) providers
-      // are text-only for now (see ai/native-models/*-prompt.ts's
-      // partsToText) — a vision-capable model still needs the
-      // OpenAI-compatible route for any turn that actually attaches an
-      // image, or the image silently vanishes even though detectModelVision
-      // correctly told the UI this model supports it. shouldUseNativeCustomProvider
-      // is the single shared decision — lib/reasoning-effort.ts and
-      // lib/chat-commands-server.ts must reach the same conclusion for the
-      // same provider/request, or the reasoning-override shape and
-      // /startwith support end up disagreeing with what actually got called.
+      // The native llama.cpp and Ollama providers are text-only (partsToText in
+      // ai/native-models/*-prompt.ts), so a turn with an image takes the
+      // OpenAI-compatible route. shouldUseNativeCustomProvider is the one shared
+      // decision: lib/reasoning-effort.ts and lib/chat-commands-server.ts must
+      // agree with it about which route a request takes.
       if (providerConfig && shouldUseNativeCustomProvider(backendKind, providerConfig.enrichedShim, hasImages)) {
         if (backendKind === 'llamacpp') {
           resolved = getOrCreateLlamaCppModel(providerConfig, model.modelName);

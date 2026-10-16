@@ -21,15 +21,10 @@ export interface StartWithStrategy {
   modelOverride?: LanguageModelV3;
 }
 
-// Real prefill (pushing a trailing assistant message the model continues
-// verbatim) only works on backends we've verified honor it, and only once
-// reasoning is forced off — otherwise the prefix lands inside the hidden
-// <think>/thinking block instead of the visible answer (confirmed live
-// against a Qwen3 GGUF on llama.cpp: enable_thinking:false was required for
-// the prefix to actually surface). No system-prompt fallback: a trailing
-// assistant message on a backend that doesn't support continuation is just
-// treated as a stale previous turn, which wouldn't reliably honor the prefix
-// either — callers should reject the request outright when unsupported.
+// Prefill (a trailing assistant message the model continues verbatim) only on backends
+// known to honor it, with reasoning forced off so the prefix lands in the visible answer
+// rather than the hidden thinking block. Unsupported backends get no fallback: callers
+// reject the request.
 export function getStartWithStrategy(
   modelId: string,
   customProviders: CustomProviderConfig[],
@@ -63,9 +58,7 @@ export function getStartWithStrategy(
     return { supported: true, providerOptions: { anthropic: { thinking: { type: 'disabled' } } } };
   }
 
-  // DeepSeek's beta endpoint disables reasoning automatically in prefix mode
-  // (confirmed live: reasoning_content comes back null) — no provider-level
-  // override needed here, unlike the backends above.
+  // DeepSeek's beta endpoint turns reasoning off by itself in prefix mode.
   const deepSeekModel = getDeepSeekStartWithModel(modelId);
   if (deepSeekModel) {
     return {

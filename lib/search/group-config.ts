@@ -8,18 +8,11 @@ import * as canvasGroup from './groups/canvas';
 import * as deepResearchGroup from './groups/deep-research';
 import * as extremeSearchGroup from './groups/extreme-search';
 
-// Sources (web, code, academic, reddit, ...) are no longer individual
-// "groups" the model is exclusively restricted to — they're always-on tools
-// filtered by the zetora-enabled-sources preference (see getBaseConfig
-// below and app/api/search/route.ts). Four modes still fully replace the
-// base tool set for a turn: mcp reads from the user's MCP apps or canvas
-// changes the
-// whole response pipeline, so "run this one thing exclusively" is the right
-// model; deep-research and extreme-search instead let the user force a
-// specific research methodology or the dedicated extreme_search tool for a
-// single message, bypassing the model's own skill-selection in
-// groups/auto.ts (see app/api/search/route.ts for the
-// zetora-disabled-skills re-validation that gates these two).
+// Sources are always-on tools filtered by the zetora-enabled-sources preference (see
+// getBaseConfig). These modes replace the base tool set for one message: mcp and canvas
+// change the whole pipeline; deep-research and extreme-search force one methodology,
+// bypassing skill selection (re-validated against zetora-disabled-skills in
+// app/api/search/route.ts).
 const specialGroups = {
   mcp: mcpGroup,
   canvas: canvasGroup,
@@ -27,13 +20,8 @@ const specialGroups = {
   'extreme-search': extremeSearchGroup,
 };
 
-// Direct property access, not a mapped Object.entries(specialGroups) derivation
-// as this used to read: knip's static analysis can't trace an export through
-// `Object.entries(nsImport).map(([, g]) => g.tools)`, so deepResearchGroup's
-// and extremeSearchGroup's `tools`/`instructions` were reported as unused
-// dead code despite being read right here — a false positive that broke the
-// dead-code CI check. Spelling out each group by name is what makes every
-// export's use traceable again, by knip and by a human reader alike.
+// Spelled out per group rather than mapped from Object.entries(specialGroups): knip
+// can't trace exports read through that mapping and reports them as unused.
 const specialGroupTools = {
   mcp: mcpGroup.tools,
   canvas: canvasGroup.tools,

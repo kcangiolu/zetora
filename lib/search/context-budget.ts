@@ -12,16 +12,10 @@ const MAX_OUTPUT_RESERVE_FRACTION = 0.5; // never let the output reserve alone e
 // local context windows especially) instead of triggering pruneToContextBudget.
 const ESTIMATED_TOKENS_PER_IMAGE = 1100;
 
-// Below this estimated-token floor, running pruneMessages() (strip old
-// reasoning/tool-call noise) isn't worth the pass — most conversations never
-// get here. Above it, stripping is unconditionally worth doing regardless of
-// how many *turns* produced the bulk — a single 'auto'-mode turn's tool-call
-// trace (skill/retrieve/web_search/... fan-out) can blow past this before a
-// 2nd user message is ever sent, which a turn-count-based gate would miss
-// entirely. Deliberately provider-agnostic and fixed rather than a fraction
-// of the real per-model budget: at the call site (app/api/search/route.ts,
-// before auto-routing resolves the final `model`) the real contextWindow
-// isn't known yet.
+// Estimated tokens above which pruneMessages() strips old reasoning/tool-call noise.
+// Token-based, not turn-based: one tool-heavy turn can pass it. Fixed rather than a
+// share of the model's window, which isn't known yet where it is checked (before
+// auto-routing in app/api/search/route.ts).
 export const PRUNE_TOKEN_THRESHOLD = 40_000;
 
 // Fraction of the per-turn context budget at which resolvePrepareStepOverride

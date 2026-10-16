@@ -1,4 +1,3 @@
-// Renamed from 'zetora_search_index' when user-scoped filtering was added —
-// old points carry no user_id payload and would otherwise leak across users.
-// The old collection is abandoned; its cache is cheap to rebuild.
+// Versioned: every point here carries a user_id payload for user-scoped filtering.
+// Points without one (the unversioned collection) would leak across users.
 export const SEARCH_INDEX_COLLECTION = 'zetora_search_index_v2';

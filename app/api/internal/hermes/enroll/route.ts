@@ -10,17 +10,11 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger('api-internal-hermes-enroll');
 
-// Called by hermes-relay-service's /relay/enroll HTTP endpoint, itself called by the
-// user's own `hermes gateway enroll` CLI. Exchanges a short-lived enrollment token
-// (generated in the Settings > Hermes tab, see app/actions/hermes.ts) for a long-lived
-// per-gateway secret. The plaintext secret is returned exactly once, here — after this
-// call it only ever exists encrypted (hermesConnector.gatewaySecretEncrypted) or on the
-// user's own machine.
-//
-// `gatewayId` is chosen by the CALLER (the CLI's --gateway-id, defaulting to
-// gw-<hostname> — see hermes_cli/gateway_enroll.py), not by us: we accept and store
-// whatever it presents at redemption time, verified against source, not guessed from
-// the prose doc.
+// Called by hermes-relay-service's /relay/enroll, itself called by `hermes gateway
+// enroll`. Exchanges a short-lived enrollment token (Settings > Hermes) for a per-gateway
+// secret, returned in plaintext only here; afterwards it exists only encrypted
+// (hermesConnector.gatewaySecretEncrypted) or on the user's machine. `gatewayId` is the
+// caller's choice (the CLI's --gateway-id, gw-<hostname> by default) and stored as is.
 export async function POST(req: NextRequest) {
   const disabled = assertHermesEnabled();
   if (disabled) return disabled;

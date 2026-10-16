@@ -3,18 +3,11 @@ import { getPendingHermesConnectorByEnrollmentTokenHash } from '@/lib/db/queries
 import { hashEnrollmentToken } from '@/lib/hermes/crypto';
 import { assertHermesEnabled } from '@/lib/hermes/feature-flag';
 
-// Deliberately public / unauthenticated — this is the "ambient token endpoint" mode of
-// Hermes's gateway.idp.token_url (gateway/relay/__init__.py's _resolve_relay_identity_token,
-// mode 1b: "possession of the (typically loopback) endpoint is the credential"). The
-// user's own `hermes gateway enroll` CLI GETs this URL (configured via
-// GATEWAY_RELAY_IDP_TOKEN_URL) before POSTing to hermes-relay-service's /relay/enroll, and
-// presents whatever this returns as that request's Authorization bearer.
-//
-// The URL's <token> path segment IS the enrollment token from Settings > Hermes — so
-// simply knowing the URL (which only that Zetora user was shown, once) is already the
-// credential. Echoing it back as the access_token adds no separate secret to manage: the
-// enroll POST's body carries the same token explicitly, so this only needs to prove the
-// token is still a live, pending enrollment before the CLI bothers dialing the connector.
+// Public on purpose: Hermes's "ambient token endpoint" mode for gateway.idp.token_url,
+// where possessing the URL is the credential. `hermes gateway enroll` GETs it
+// (GATEWAY_RELAY_IDP_TOKEN_URL) and sends the result as the bearer of /relay/enroll.
+// The <token> segment is the enrollment token shown once in Settings > Hermes, so this
+// only checks it is still a pending enrollment and echoes it back as the access_token.
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const disabled = assertHermesEnabled();
   if (disabled) return disabled;

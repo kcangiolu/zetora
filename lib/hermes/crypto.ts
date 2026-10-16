@@ -59,7 +59,7 @@ export function generateGatewaySecret() {
 
 // Recomputes the relay contract's WS-upgrade bearer signature and compares it in constant
 // time against what the gateway presented. Mirrors gateway/relay/auth.py's make_token /
-// verify_signature EXACTLY (verified by reading that file, not guessed from the doc):
+// verify_signature exactly:
 // sig is a HEX HMAC-SHA256 digest (hmac.new(...).hexdigest()), not base64 — and `exp` is a
 // unix-SECONDS integer, with 0 meaning "never expires" (checked by the caller, not here).
 // The secret has to be stored reversibly (encryptGatewaySecret/decryptGatewaySecret)

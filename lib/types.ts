@@ -327,9 +327,8 @@ export type CustomUIDataTypes = {
   // The compaction LLM call itself failed/timed out this turn — the request
   // still completed via the pre-existing drop fallback (pruneToContextBudget).
   context_compaction_warning: { message: string };
-  // pruneToContextBudget actually dropped messages this turn (compaction
-  // disabled, or a compaction attempt just failed) — makes the previously
-  // silent drop visible.
+  // pruneToContextBudget dropped messages this turn (compaction disabled, or a
+  // compaction attempt failed); tells the user instead of dropping silently.
   context_excluded_count: { count: number };
   // A custom model's context window could not be read from its backend, so
   // this turn was budgeted on the conservative default.

@@ -410,18 +410,6 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
   // Flatten all chats from all pages
   const allChats = data?.pages.flatMap((page) => page.chats) || [];
 
-  // Debug logging for loading state (dev only)
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('📊 Loading state:', {
-        isFetchingNextPage,
-        hasNextPage,
-        allChatsCount: allChats.length,
-        isLoading,
-      });
-    }
-  }, [isFetchingNextPage, hasNextPage, allChats.length, isLoading]);
-
   // Clear delete confirmation state when dialog closes
   useEffect(() => {
     if (!open) {

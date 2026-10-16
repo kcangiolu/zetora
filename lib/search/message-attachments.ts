@@ -39,13 +39,9 @@ export const DOCUMENT_MIME_TYPES = [
 // and everything else (decoded as text later). Each category dedupes by URL
 // independently, preserving message order.
 //
-// Images produced by generate_image/edit_image never arrive as a `file`
-// part — the tool result is plain JSON containing an imageUrl — so they're
-// picked up separately here and reported in contextGeneratedImages too.
-// Unlike uploaded images, nothing elsewhere in the message array already
-// carries their bytes/URL as a model content part, so stripFilePartsForModel
-// has nothing to keep for them; the caller must inject a fresh image part
-// (see appendGeneratedImagePartsToLastUserMessage) to make them visible.
+// Images from generate_image/edit_image arrive as an imageUrl in a tool result, not as
+// a `file` part, so they are collected separately into contextGeneratedImages; the
+// caller injects them as image parts (appendGeneratedImagePartsToLastUserMessage).
 export function collectAttachments(
   messages: Array<{ id?: string; role?: string; parts?: unknown }>,
   hiddenImageUrls?: Set<string>,

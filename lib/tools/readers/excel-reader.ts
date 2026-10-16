@@ -56,7 +56,7 @@ export class ExcelReader extends FileReader {
     // `interface Buffer extends ArrayBuffer {}` instead of importing Node's
     // real Buffer type, so with the newer resizable-ArrayBuffer members in
     // lib.esnext, a real Buffer (a Uint8Array view, not an ArrayBuffer
-    // itself) no longer satisfies it structurally — an upstream typing bug,
+    // itself) doesn't satisfy it structurally — an upstream typing bug,
     // not a runtime issue (load() genuinely accepts a Buffer).
     await workbook.xlsx.load(Buffer.from(fileContent) as unknown as Parameters<typeof workbook.xlsx.load>[0]);
 

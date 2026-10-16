@@ -144,9 +144,8 @@ async function enrichGithubResultsWithApi(
 
 interface FastCrwSearchApiResponse {
   success: boolean;
-  // fastCRW's own /v1/search wraps its result list one level deeper than the
-  // Firecrawl-compatible shape you'd expect — verified live: the top-level
-  // `data` field is `{ results: [...] }`, not the array itself.
+  // fastCRW's `data` is `{ results: [...] }`, not the array itself, despite the
+  // Firecrawl-compatible framing.
   data: {
     results: Array<{
       url: string;

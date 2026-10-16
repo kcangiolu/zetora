@@ -18,8 +18,6 @@ import {
   getPlatformFromUrl,
   getDisplayDomain,
   getFilePreviewDefinition,
-  getAppPreviewHref,
-  getAppPreviewScreenshotSrc,
   getAppPreviewDescription,
 } from './shared';
 
@@ -197,16 +195,13 @@ export const LinkPreview = React.memo(({ href, title }: { href: string; title?: 
 LinkPreview.displayName = 'LinkPreview';
 
 export const AppLinkPreview = React.memo(({ href, title }: { href: string; title?: string }) => {
-  const previewHref = useMemo(() => getAppPreviewHref(href), [href]);
-  const screenshotSrc = useMemo(() => getAppPreviewScreenshotSrc(href), [href]);
   const previewDescription = useMemo(() => getAppPreviewDescription(href), [href]);
   const previewTitle = title?.trim() && title.trim() !== href ? title.trim() : 'Open deployed app';
-  const [hasScreenshotError, setHasScreenshotError] = useState(false);
 
   return (
     <span className="inline-flex w-full max-w-full align-middle my-1">
       <Link
-        href={previewHref}
+        href={href}
         target="_blank"
         rel="noopener noreferrer"
         className="group inline-flex w-full max-w-[420px] flex-col overflow-hidden rounded-xl border border-border/60 bg-muted/40 no-underline transition-colors hover:bg-muted"
@@ -215,21 +210,10 @@ export const AppLinkPreview = React.memo(({ href, title }: { href: string; title
           className="relative block w-full overflow-hidden border-b border-border/60 bg-muted/70"
           style={{ aspectRatio: '16/10' }}
         >
-          {hasScreenshotError || !screenshotSrc ? (
-            <span className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[radial-gradient(circle_at_top,#ffffff14,transparent_55%),linear-gradient(180deg,#0f172a,#111827)] text-white/85">
-              <Globe className="size-8 opacity-60" />
-              <span className="px-4 text-center text-[11px] leading-relaxed text-white/50">Live app</span>
-            </span>
-          ) : (
-            <Image
-              src={screenshotSrc}
-              alt={previewTitle}
-              fill
-              unoptimized
-              className="object-fill object-top transition-transform duration-300 group-hover:scale-[1.02] m-0!"
-              onError={() => setHasScreenshotError(true)}
-            />
-          )}
+          <span className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[radial-gradient(circle_at_top,#ffffff14,transparent_55%),linear-gradient(180deg,#0f172a,#111827)] text-white/85">
+            <Globe className="size-8 opacity-60" />
+            <span className="px-4 text-center text-[11px] leading-relaxed text-white/50">Live app</span>
+          </span>
           <span className="absolute inset-x-0 bottom-0 h-16 bg-linear-to-t from-black/35 to-transparent" />
         </span>
         <span className="flex items-center gap-2 px-3 py-2.5">

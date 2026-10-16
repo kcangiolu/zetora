@@ -212,10 +212,6 @@ export const ReasoningPartView: React.FC<ReasoningPartViewProps> = React.memo(
     onSaveEdit,
   }) => {
     const scrollRef = useRef<HTMLDivElement>(null);
-    // Stays expanded by default (even after the model finishes reasoning) — the
-    // user collapses it manually via the header. Height is capped with an
-    // internal scrollbar (below) so a long block doesn't dominate the page.
-    const autoExpanded = true;
 
     // isThinking drives the header spinner and label. For token-by-token models
     // (e.g. Minimax) isComplete flickers true/false between every token because
@@ -269,7 +265,9 @@ export const ReasoningPartView: React.FC<ReasoningPartViewProps> = React.memo(
     }, [part.text, isThinking]);
 
     const hasNonEmptyReasoning = part.text && !isEmptyContent(part.text);
-    const isExpanded = expandedOverride ?? autoExpanded;
+    // Expanded until the user collapses it, even after reasoning ends; the
+    // height cap below keeps a long block from dominating the page.
+    const isExpanded = expandedOverride ?? true;
 
     // Hide empty reasoning only once we're done thinking; during streaming we still want the "Thinking" UI.
     if (!hasNonEmptyReasoning && !isThinking) {

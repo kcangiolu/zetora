@@ -103,8 +103,8 @@ export const serverEnv = createEnv({
     // matches s2s-service's published port for local dev (`next dev`);
     // docker-compose.yml overrides it to the Docker service name for prod.
     S2S_SERVICE_URL: z.string().url().optional().default('http://localhost:8100'),
-    // Set to false to close new account creation (email/password and social)
-    // once an external gate (e.g. Authelia) is no longer in front of the app.
+    // Set to false to close new account creation (email/password and social),
+    // e.g. when the app is not behind an external gate such as Authelia.
     // NB: z.coerce.boolean() would treat the string "false" as truthy, so this
     // parses explicitly instead (see the SMTP_SECURE footgun above).
     ALLOW_SIGNUPS: z

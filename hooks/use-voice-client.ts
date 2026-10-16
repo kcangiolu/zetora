@@ -995,13 +995,8 @@ export function useVoiceClient(options: VoiceClientOptions = {}): UseVoiceClient
             break;
           }
 
-          default: {
-            if (process.env.NODE_ENV !== 'production') {
-              // Useful while iterating; avoids spamming prod logs.
-              console.log('Unknown message type:', type, message);
-            }
+          default:
             break;
-          }
         }
       };
 

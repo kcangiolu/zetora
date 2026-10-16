@@ -248,18 +248,12 @@ export function deriveReasoningDelimiters(
   if (sentinelIdx === -1) return null;
   if (renderB.indexOf(REASONING_PROBE_SENTINEL, sentinelIdx + 1) !== -1) return null; // ambiguous, appears >1x
 
-  // renderB must equal renderA with a single contiguous insertion (of a
-  // known length: the two renders only differ in the `reasoning` field) at
-  // some position k — i.e. renderA.slice(0,k) === renderB.slice(0,k) AND
-  // renderA.slice(k) === renderB.slice(k + insertedLength). Naive prefix and
-  // suffix scans done independently can each overshoot by a few characters
-  // when the delimiter shares a short leading substring with whatever
-  // follows it — e.g. this exact template's `<|channel>` and `<|tool_call>`
-  // both start with `<|`, which is the norm for this class of template
-  // (every special token uses the same punctuation), not a rare edge case.
-  // Requiring both conditions to hold together, and taking the smallest
-  // valid k, resolves that ambiguity — confirmed against the real motivating
-  // template's exact output (see tests/llamacpp-reasoning-delimiters.test.ts).
+  // renderB must equal renderA with one contiguous insertion at some k:
+  // renderA.slice(0,k) === renderB.slice(0,k) AND renderA.slice(k) ===
+  // renderB.slice(k + insertedLength). Independent prefix/suffix scans
+  // overshoot when special tokens share punctuation (`<|channel>` and
+  // `<|tool_call>` both start with `<|`); checking both at once and taking
+  // the smallest k does not (tests/llamacpp-reasoning-delimiters.test.ts).
   const insertedLength = renderB.length - renderA.length;
   if (insertedLength <= REASONING_PROBE_SENTINEL.length) return null; // no room for open+close at all
 
@@ -273,21 +267,10 @@ export function deriveReasoningDelimiters(
   }
   if (insertionPoint === -1) return null; // not a single localized insertion — bail rather than guess
 
-  // Trim incidental whitespace (the template's own dedent/newline
-  // conventions around the tag) off the captured span, keeping only the
-  // control-token core. Confirmed against this exact template's own
-  // strip_thinking() Jinja macro — the one piece of ground truth for "what
-  // the model's reasoning wrap really is" — which matches on the bare
-  // '<channel|>'/'<|channel>' tokens with no surrounding whitespace
-  // requirement at all. Untrimmed, live generations that omit the newline
-  // (common — the model doesn't always reproduce the exact formatting a
-  // static template render happens to produce) never match `close`, so the
-  // stream never leaves reasoning mode and the entire real answer after it
-  // gets misclassified as reasoning and hidden from the user (confirmed live
-  // against the running server: empty text-delta output, full answer stuck
-  // in reasoning-delta). Trimming is a strict widening of what matches, so
-  // it can only fix missed matches, never introduce new ones on delimiters
-  // that were already whitespace-free.
+  // Keep only the bare control tokens, as the template's own strip_thinking()
+  // macro does. Generations often omit the template's surrounding newlines;
+  // an untrimmed `close` would then never match, and the whole answer would
+  // stay hidden as reasoning. Trimming only widens what matches.
   const open = renderB.slice(insertionPoint, sentinelIdx).trim();
   const close = renderB.slice(sentinelIdx + REASONING_PROBE_SENTINEL.length, insertionPoint + insertedLength).trim();
   if (open.length === 0 || close.length === 0) return null;

@@ -31,7 +31,7 @@ export function CustomizeTab() {
   );
   const [visibleModesLegacy] = useSyncedPreferences<string[]>('zetora-visible-modes', []);
   const [enabledSourcesPref, setEnabledSources] = useSyncedPreferences<string[]>('zetora-enabled-sources', []);
-  // Fall back to the pre-migration key so existing curation isn't silently reset to "all enabled".
+  // An empty list falls back to the older zetora-visible-modes key, keeping earlier choices.
   const enabledSources =
     enabledSourcesPref.length > 0
       ? enabledSourcesPref

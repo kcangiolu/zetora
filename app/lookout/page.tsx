@@ -123,14 +123,11 @@ export default function LookoutPage() {
   React.useEffect(() => {
     try {
       const systemTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      console.log('🌍 Detected system timezone:', systemTimezone);
 
       // Check if the detected timezone is in our options list
       const matchingOption = timezoneOptions.find((option) => option.value === systemTimezone);
-      console.log('📍 Found matching option:', matchingOption);
 
       if (matchingOption) {
-        console.log('✅ Using exact match:', systemTimezone);
         setDetectedTimezone(systemTimezone);
       } else {
         // Try to find a close match based on common patterns
@@ -178,11 +175,9 @@ export default function LookoutPage() {
           }
         }
 
-        console.log('🔄 Using fallback timezone:', fallbackTimezone);
         setDetectedTimezone(fallbackTimezone);
       }
     } catch {
-      console.log('❌ Timezone detection failed, using UTC');
       setDetectedTimezone('UTC');
     }
   }, []);

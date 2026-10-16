@@ -11,19 +11,12 @@ const CHANNEL_PREFIX = 'hermes:chat:';
 const ACTIVE_VIEWER_PREFIX = 'hermes:active:';
 const ACTIVE_VIEWER_TTL_S = 30;
 
-// A dedicated pub/sub channel per Hermes chat — deliberately NOT ai-resumable-stream's
-// createResumableUIMessageStream, which is built around one bounded LLM generation turn
-// (startStream/resumeStream/stopStream per streamId). A Hermes conversation has no such
-// bounded turn: messages arrive asynchronously, indefinitely, from an external agent. This
-// reuses the SAME Redis connection pair (getResumableStreamClients()) for consistency, but
-// a purpose-built pub/sub layer, not that abstraction.
-//
-// node-redis's subscriber client delivers one callback invocation per `subscribe()` call
-// on a channel; rather than depend on its exact multi-listener-per-channel semantics, this
-// subscribes ONCE (via a single psubscribe covering every chat) and fans out locally
-// through a plain EventEmitter keyed by chatId — every SSE request for a chat just adds a
-// listener here, independent of how many others are already listening to the same or a
-// different chat.
+// A pub/sub channel per Hermes chat, on the resumable-stream Redis clients but not on
+// ai-resumable-stream itself: that library models one bounded LLM turn, while Hermes
+// messages arrive asynchronously and indefinitely.
+// One psubscribe covers every chat and fans out locally through an EventEmitter keyed by
+// chatId, so each SSE request only adds a listener, independent of node-redis's
+// per-channel listener semantics.
 const localEvents = new EventEmitter();
 localEvents.setMaxListeners(0);
 

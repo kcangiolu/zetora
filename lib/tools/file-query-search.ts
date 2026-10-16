@@ -226,9 +226,7 @@ export function createFileQuerySearchTool(
         .boolean()
         .optional()
         .default(false)
-        .describe(
-          'Whether to rerank results using Cohere rerank-v3.5 for improved relevance (adds ~100-300ms latency)',
-        ),
+        .describe('Whether to rerank results with Cohere for improved relevance (adds ~100-300ms latency)'),
     }),
     execute: async ({ queries, maxResults = 10, rerank: shouldRerank = false }) => {
       try {

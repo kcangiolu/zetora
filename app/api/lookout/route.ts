@@ -223,10 +223,8 @@ const STATIC_TOOLS: Record<string, any> = {
   text_translate: textTranslateTool,
 };
 
-// Tool factories that need dataStream parameter. `preferences` is threaded
-// through too — academic/reddit/github search all read their configured
-// provider/fallback from it (lib/tools/{academic,reddit,github}-search.ts);
-// omitting it here silently ignored those settings for every Lookout run.
+// Tool factories that need dataStream. `preferences` is passed too: academic,
+// reddit and github search read their configured provider and fallback from it.
 const DATASTREAM_TOOL_FACTORIES: Record<
   string,
   (dataStream: UIMessageStreamWriter<ChatMessage>, preferences?: Record<string, unknown>) => any

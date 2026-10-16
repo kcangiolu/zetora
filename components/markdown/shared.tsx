@@ -141,15 +141,6 @@ function parseUrlLike(href: string): URL | null {
   }
 }
 
-export function getAppPreviewHref(href: string): string {
-  // if (href.startsWith('/')) return href;
-  return href;
-}
-
-export function getAppPreviewScreenshotSrc(href: string): string | null {
-  return `/api/app-preview/screenshot?url=${encodeURIComponent(getAppPreviewHref(href))}`;
-}
-
 export function getAppPreviewDescription(href: string): string {
   const url = parseUrlLike(href);
   if (!url) return href;

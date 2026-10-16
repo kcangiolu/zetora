@@ -223,16 +223,10 @@ function markPreferencesMigrated(userId: string): void {
   localStorage.setItem(`${MIGRATION_KEY_PREFIX}${userId}`, 'true');
 }
 
-// Every useSyncedPreferences instance (one per preference key) independently
-// runs a "migrate on first load" effect gated on this same per-user
-// localStorage flag. Navigating somewhere that mounts many keys at once
-// (e.g. Settings, which touches dozens) fires all those effects in the same
-// React commit, before any of them has had a chance to write the flag — so
-// every instance sees "not migrated yet" and each independently POSTs +
-// invalidates the shared preferences query, and each invalidation re-renders
-// every other instance, which repeats the same race. This module-level
-// promise cache collapses that fan-out to one migration per user no matter
-// how many hook instances mount simultaneously.
+// Each useSyncedPreferences instance runs the first-load migration, gated on a
+// per-user localStorage flag. Pages that mount many keys at once (Settings) run
+// them all in one commit, before any writes the flag; this shared promise keeps
+// it to one migration per user.
 const migrationInFlight = new Map<string, Promise<void>>();
 
 function migrateOnce(userId: string, queryClient: QueryClient): void {
@@ -542,9 +536,8 @@ export function useSyncedPreferences<T extends PreferenceValue>(
 
   // No unmount cleanup for the debounce timer on purpose: a pending save must still reach
   // the DB when the component goes away right after a change (e.g. leaving Settings within
-  // DEBOUNCE_MS of a toggle). Clearing it there kept the new value in localStorage only,
-  // so the UI showed it while the server kept acting on the old one. The callback only
-  // touches refs and the query cache, so running it after unmount is safe.
+  // DEBOUNCE_MS of a toggle). The callback only touches refs and the query cache, so
+  // running it after unmount is safe.
 
   return [localValue, setValue, isResolved];
 }

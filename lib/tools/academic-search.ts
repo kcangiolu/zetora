@@ -21,8 +21,8 @@ const exa = new Exa(serverEnv.EXA_API_KEY);
 
 interface FastCrwSearchApiResponse {
   success: boolean;
-  // Verified live: fastCRW's top-level `data` field is `{ results: [...] }`,
-  // not the array itself, despite the Firecrawl-compatible framing.
+  // fastCRW's `data` is `{ results: [...] }`, not the array itself, despite the
+  // Firecrawl-compatible framing.
   data: {
     results: Array<{
       url: string;

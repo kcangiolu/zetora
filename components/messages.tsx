@@ -13,23 +13,15 @@ import { UseChatHelpers } from '@ai-sdk/react';
 import { ComprehensiveUserData } from '@/lib/user-data-server';
 import { cn } from '@/lib/utils';
 
-// react-virtuoso logs "Zero-sized element, this should not happen" at its
-// hardcoded max log level (ERROR) whenever a row measures 0px on its first
-// layout pass — which is exactly what a just-appended, not-yet-streamed
-// assistant message row legitimately does before its first token arrives.
-// It's not a real bug (the row gets remeasured and grows once content
-// streams in) and ERROR is already virtuoso's default/ceiling level, so
-// there's no less-noisy `logLevel` prop value to opt into instead — this
-// global is virtuoso's own documented-in-source escape hatch for it.
+// react-virtuoso logs "Zero-sized element" as an ERROR, its lowest prop-settable
+// level, for an assistant row that has no token yet. The row grows once content
+// streams in, so silence it through virtuoso's own global switch.
 if (typeof window !== 'undefined') {
   (window as unknown as { VIRTUOSO_LOG_LEVEL?: number }).VIRTUOSO_LOG_LEVEL = 4;
 }
 
 interface MessagesProps {
   messages: ChatMessage[];
-  lastUserMessageIndex: number;
-  input: string;
-  setInput: (value: string) => void;
   setMessages: UseChatHelpers<ChatMessage>['setMessages'];
   regenerate: UseChatHelpers<ChatMessage>['regenerate'];
   stop: UseChatHelpers<ChatMessage>['stop'];
@@ -42,13 +34,11 @@ interface MessagesProps {
   selectedVisibilityType?: 'public' | 'private'; // Add visibility type
   chatId?: string; // Add chatId prop
   onVisibilityChange?: (visibility: 'public' | 'private') => void; // Add visibility change handler
-  initialMessages?: any[]; // Add initial messages prop to detect existing chat
   isOwner?: boolean; // Add ownership prop
   hiddenImageUrls?: Set<string>;
   onToggleImageHidden?: (imageUrl: string, hidden: boolean) => void;
   onHighlight?: (text: string) => void; // Add highlight handler
   attachmentsRenderer?: (attachments: Attachment[]) => React.ReactNode;
-  hasSubmitted?: boolean;
   isTransitioning?: boolean;
   onBeforeSubmit?: () => void;
   skipCacheRef?: React.MutableRefObject<boolean>;
@@ -163,7 +153,6 @@ const NO_SUGGESTED_QUESTIONS: string[] = [];
 const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function MessagesImpl(
   {
     messages,
-    lastUserMessageIndex,
     setMessages,
     suggestedQuestions,
     setSuggestedQuestions,
@@ -173,7 +162,6 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     selectedVisibilityType = 'private',
     chatId,
     onVisibilityChange,
-    initialMessages,
     isOwner,
     hiddenImageUrls,
     onToggleImageHidden,
@@ -182,7 +170,6 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     sendMessage,
     regenerate,
     stop,
-    hasSubmitted,
     isTransitioning,
     onBeforeSubmit,
     skipCacheRef,
@@ -578,7 +565,6 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
           <Message
             message={message}
             index={index}
-            lastUserMessageIndex={lastUserMessageIndex}
             renderPart={renderPart}
             status={status}
             setMessages={setMessages}
@@ -605,11 +591,8 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
             setEditDraft={setEditDraft}
             shouldReduceHeight={
               message.role === 'assistant'
-                ? // Always reduced for a Hermes reply: the reserved viewport exists to give a
-                  // STREAMING answer room to grow into, and a Hermes reply never streams — it
-                  // arrives complete in one SSE frame. Left on, it is permanent dead space
-                  // under the agent's last message, and the typing indicator (rendered after
-                  // the list, in Footer) ends up a full screen below it.
+                ? // Always reduced for a Hermes reply: the reserved height leaves room for a
+                  // streaming answer, and a Hermes reply arrives complete in one frame.
                   isHermesChat ||
                   isTransitioning ||
                   status === 'submitted' ||
@@ -630,7 +613,6 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     },
     [
       memoizedMessages,
-      lastUserMessageIndex,
       renderPart,
       status,
       setMessages,

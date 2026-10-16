@@ -21,19 +21,12 @@ export interface HermesMediaRef {
 // never see must not look like it was sent.
 export const HERMES_MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 
-// Whether `url` is an object in OUR storage, under THIS user's own prefix.
-//
-// This is a security check, not tidiness: whatever Zetora puts in the inbound event's
-// `media_urls` is downloaded by the gateway (gateway/relay/adapter.py's
-// _localize_inbound_media), without a bearer for a public URL. Without this, a forged
-// request body turns the agent into a fetcher for arbitrary URLs.
-//
-// Origin is compared as an origin, never as a string prefix — `https://storage.test` must
-// not match `https://storage.test.evil.com` (same reasoning as isOwnR2Url in
-// app/api/upload/route.ts). The path check then pins the object to the uploader's own
-// prefix, the one app/api/upload/route.ts writes: `zetora/users/<userId>/`. WHATWG URL
-// parsing normalises `..` segments before we look, so a traversal attempt can only ever
-// fail the prefix test.
+// Whether `url` is an object in our storage, under this user's own prefix. Security
+// check: the gateway downloads every `media_urls` entry, so without it a forged request
+// would turn the agent into a fetcher for arbitrary URLs.
+// Origins are compared as origins, not string prefixes (`storage.test` must not match
+// `storage.test.evil.com`); the path must sit under `zetora/users/<userId>/`, the prefix
+// app/api/upload/route.ts writes. URL parsing normalises `..` before the prefix test.
 function isOwnedStorageUrl(url: string, userId: string, storagePublicUrl: string): boolean {
   let parsed: URL;
   let base: URL;

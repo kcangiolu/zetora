@@ -18,8 +18,8 @@ interface FastCrwApiResult {
 
 interface FastCrwApiResponse {
   success: boolean;
-  // Verified live: fastCRW's top-level `data` field is `{ results: [...] }`,
-  // not the array itself, despite the Firecrawl-compatible framing.
+  // fastCRW's `data` is `{ results: [...] }`, not the array itself, despite the
+  // Firecrawl-compatible framing.
   data: { results: FastCrwApiResult[] };
 }
 

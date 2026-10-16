@@ -373,7 +373,6 @@ function MissingAssistantResponseNotice({
 interface MessageProps {
   message: ChatMessage;
   index: number;
-  lastUserMessageIndex: number;
   renderPart: (
     part: ChatMessage['parts'][number],
     messageIndex: number,
@@ -1015,7 +1014,6 @@ function summarizeToolCalls(parts: ChatMessage['parts'] | undefined): ToolCallSu
 export const Message = memo(function Message({
   message,
   index,
-  lastUserMessageIndex,
   renderPart,
   status,
   setMessages,
@@ -1799,10 +1797,6 @@ const AttachmentsBadge = ({ attachments }: { attachments: Attachment[] }) => {
   // (see callers), including generic text files with an arbitrary
   // extension — no content-type filtering needed.
   const fileAttachments = attachments;
-
-  React.useEffect(() => {
-    console.log('fileAttachments', fileAttachments);
-  }, [fileAttachments]);
 
   if (fileAttachments.length === 0) return null;
 

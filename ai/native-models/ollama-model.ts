@@ -302,15 +302,10 @@ export class OllamaNativeLanguageModel implements LanguageModelV3 {
               controller.enqueue({ type: 'text-delta', id: 'txt-0', delta: message.content });
             }
 
-            // Every Ollama version observed sends each function call whole in
-            // a single chunk rather than incremental argument deltas — emit
-            // the full start/delta/end/call sequence back-to-back per call.
-            // Reasoning models commonly go straight from `thinking` to
-            // `tool_calls` with no `content` chunk in between (confirmed live
-            // against gemma4-65k:e4b/Ollama 0.31.1), so reasoning-end can't
-            // wait for the content branch above — close it here too, or it
-            // stays open until flush() and ends up sequenced after the tool
-            // call events instead of before them.
+            // Ollama sends each function call whole in one chunk, so emit the
+            // full start/delta/end/call sequence per call. Reasoning models often
+            // go straight from `thinking` to `tool_calls`, so close reasoning
+            // here too, or reasoning-end would only come after the tool calls.
             if ((message?.tool_calls?.length ?? 0) > 0 && isActiveReasoning) {
               controller.enqueue({ type: 'reasoning-end', id: 'reasoning-0' });
               isActiveReasoning = false;

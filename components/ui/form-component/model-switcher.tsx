@@ -625,7 +625,6 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
         const model = availableModels.find((m) => m.value === value);
         if (!model) return;
 
-        console.log('Selected model:', model.value);
         setSelectedModel(model.value.trim());
         haptics.trigger('selection');
 

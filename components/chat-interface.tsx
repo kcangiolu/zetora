@@ -543,7 +543,6 @@ const ChatInterface = memo(
       transport,
       experimental_throttle: 100,
       onData: (dataPart) => {
-        console.log('onData<Client>', dataPart);
         // Handle auto-routed model info from server
         if (dataPart.type === 'data-auto_routed_model') {
           const autoRouteData = dataPart.data;
@@ -620,9 +619,8 @@ const ChatInterface = memo(
             description: `The model's server did not report its context size, so this answer was limited to ${dataPart.data.tokens.toLocaleString()} tokens of history.`,
           });
         }
-        // pruneToContextBudget actually dropped messages this turn
-        // (compaction disabled, or a compaction attempt just failed) —
-        // makes the previously silent drop visible.
+        // pruneToContextBudget dropped messages this turn (compaction disabled
+        // or failed): tell the user.
         if (dataPart.type === 'data-context_excluded_count') {
           const count = dataPart.data?.count;
           if (count) {
@@ -649,7 +647,6 @@ const ChatInterface = memo(
         }
       },
       onFinish: async ({ message }) => {
-        console.log('onFinish<Client>', message.parts);
         // Keep post-finish work minimal so the chat settles quickly after streaming.
         if (user) {
           // Refetch chats cache to refresh sidebar (use refetch to bypass staleTime)
@@ -688,7 +685,6 @@ const ChatInterface = memo(
       onError: (error) => {
         // Don't show toast for ChatSDK errors as they will be handled by the enhanced error display
         if (error instanceof ChatSDKError) {
-          console.log('ChatSDK Error:', error.type, error.surface, error.message);
           return;
         }
 
@@ -952,14 +948,6 @@ const ChatInterface = memo(
       [setInput],
     );
 
-    // Debug error structure
-    if (error) {
-      console.log('[useChat error]:', error);
-      console.log('[error type]:', typeof error);
-      console.log('[error message]:', error.message);
-      console.log('[error instance]:', error instanceof Error, error instanceof ChatSDKError);
-    }
-
     useAutoResume({
       // Never in a Hermes chat: resumeStream() re-attaches to /api/search's resumable
       // stream, which a Hermes turn never creates — so the hook's "last message is the
@@ -972,12 +960,6 @@ const ChatInterface = memo(
       resumeStream,
       clearError,
     });
-
-    useEffect(() => {
-      if (status) {
-        console.log('[status]:', status);
-      }
-    }, [status]);
 
     // Removed header/recents invalidation effects; chat meta now refetches based on messages.length via query key
 
@@ -996,7 +978,6 @@ const ChatInterface = memo(
         }
 
         initializedRef.current = true;
-        console.log('[initial query]:', initialState.query);
 
         // Send the message first
         sendMessageWithAutoRouting({
@@ -1099,15 +1080,6 @@ const ChatInterface = memo(
       }
     }, [uiStatus]);
 
-    const lastUserMessageIndex = useMemo(() => {
-      for (let i = messages.length - 1; i >= 0; i--) {
-        if (messages[i].role === 'user') {
-          return i;
-        }
-      }
-      return -1;
-    }, [messages]);
-
     // Reset isTransitioning as soon as the last message becomes an assistant message
     useEffect(() => {
       const lastMessage = messages[messages.length - 1];
@@ -1197,33 +1169,15 @@ const ChatInterface = memo(
     // Handle visibility change
     const handleVisibilityChange = useCallback(
       async (visibility: VisibilityType) => {
-        console.log('🔄 handleVisibilityChange called with:', { chatId, visibility });
-
         if (!chatId) {
-          console.warn('⚠️ handleVisibilityChange: No chatId provided, returning early');
+          console.warn('handleVisibilityChange: no chatId, ignored');
           return;
         }
 
         try {
-          console.log('📡 Calling updateChatVisibility with:', { chatId, visibility });
           const result = await updateChatVisibility(chatId, visibility);
-          console.log('✅ updateChatVisibility response:', result);
-          console.log('🔍 Result structure analysis:', {
-            result,
-            typeof_result: typeof result,
-            has_result: !!result,
-            has_success: result?.success,
-            success_value: result?.success,
-            has_rowCount: result?.rowCount !== undefined,
-            rowCount_value: result?.rowCount,
-            rowCount_type: typeof result?.rowCount,
-            keys: result ? Object.keys(result) : 'no result',
-          });
-
-          // Check if the update was successful - be more forgiving with validation
           if (result && result.success) {
             dispatch({ type: 'SET_VISIBILITY_TYPE', payload: visibility });
-            console.log('🔄 Dispatched SET_VISIBILITY_TYPE with:', visibility);
 
             const appOrigin =
               (process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ??
@@ -1244,38 +1198,26 @@ const ChatInterface = memo(
                   }
                 : {}),
             });
-            console.log('🍞 Success toast shown:', `Chat is now ${visibility}`);
 
             // Refetch cache to refresh the list with updated visibility (bypass staleTime)
             if (user) {
               queryClient.refetchQueries({ queryKey: ['recent-chats', user.id] });
             }
-            console.log('🗑️ Cache refetched');
           } else {
-            console.error('❌ Update failed - unsuccessful result:', {
-              result,
-              success_check: result?.success,
-            });
+            console.error('Chat visibility update failed:', result);
             sileo.error({
               title: 'Failed to update chat visibility',
               description: 'Please try again',
               icon: <X className="h-4 w-4" />,
             });
-            console.log('🍞 Error toast shown: Failed to update chat visibility');
           }
         } catch (error) {
-          console.error('❌ Error updating chat visibility:', {
-            chatId,
-            visibility,
-            error: error instanceof Error ? error.message : error,
-            stack: error instanceof Error ? error.stack : undefined,
-          });
+          console.error('Chat visibility update failed:', error);
           sileo.error({
             title: 'Failed to update chat visibility',
             description: 'Please try again',
             icon: <X className="h-4 w-4" />,
           });
-          console.log('🍞 Error toast shown: Failed to update chat visibility');
         }
       },
       [chatId, queryClient, user],
@@ -1590,9 +1532,6 @@ const ChatInterface = memo(
                     onAtBottomChange={handleAtBottomChange}
                     skipCacheRef={skipCacheRef}
                     messages={messages as ChatMessage[]}
-                    lastUserMessageIndex={lastUserMessageIndex}
-                    input={input}
-                    setInput={setInput}
                     setMessages={setMessages}
                     sendMessage={sendMessageWithAutoRouting}
                     regenerate={regenerate}
@@ -1609,12 +1548,10 @@ const ChatInterface = memo(
                     selectedVisibilityType={chatState.selectedVisibilityType}
                     chatId={initialChatId || (messages.length > 0 ? chatId : undefined)}
                     onVisibilityChange={handleVisibilityChange}
-                    initialMessages={initialMessages}
                     isOwner={isOwner}
                     hiddenImageUrls={hiddenImageUrls}
                     onToggleImageHidden={handleToggleImageHidden}
                     onHighlight={handleHighlight}
-                    hasSubmitted={chatState.hasSubmitted}
                     isTransitioning={isTransitioning}
                     onBeforeSubmit={startTransitioning}
                   />

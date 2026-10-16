@@ -24,7 +24,6 @@ export const ChatTextHighlighter: React.FC<ChatTextHighlighterProps> = ({ childr
   const handleCopy = useCallback(async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      console.log('Text copied:', text);
     } catch (err) {
       console.error('Copy failed:', err);
       // Fallback method
@@ -38,7 +37,6 @@ export const ChatTextHighlighter: React.FC<ChatTextHighlighterProps> = ({ childr
       textArea.select();
       try {
         document.execCommand('copy');
-        console.log('Fallback copy succeeded');
       } catch (fallbackErr) {
         console.error('Fallback copy failed:', fallbackErr);
       }

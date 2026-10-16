@@ -4,7 +4,7 @@ import { getFaviconUrl } from '@/lib/url';
 
 const log = createLogger('fastcrw-search');
 
-/** @public part of the fastCRW provider port — not yet selected by the search-provider resolution in ai/providers.ts */
+/** @public */
 export interface FastCrwSearchResult {
   title: string;
   url: string;
@@ -15,8 +15,8 @@ export interface FastCrwSearchResult {
 
 interface FastCrwApiResponse {
   success: boolean;
-  // Verified live: fastCRW's top-level `data` field is `{ results: [...] }`,
-  // not the array itself, despite the Firecrawl-compatible framing.
+  // fastCRW's `data` is `{ results: [...] }`, not the array itself, despite the
+  // Firecrawl-compatible framing.
   data: {
     results: Array<{
       url: string;
@@ -45,7 +45,6 @@ export interface SearchProviderStrategy {
   ): Promise<FastCrwSearchResult[]>;
 }
 
-/** @public part of the fastCRW provider port — not yet selected by the search-provider resolution in ai/providers.ts */
 export class FastCrwSearchStrategy implements SearchProviderStrategy {
   constructor(private baseUrl: string) {}
 

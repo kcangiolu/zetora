@@ -10,18 +10,11 @@ import {
   wrapGenerate as parserWrapGenerate,
 } from '@ai-sdk-tool/parser';
 
-// The stock morphXmlToolMiddleware throws RXMLDuplicateStringTagError when a
-// scalar (non-array) parameter tag appears more than once — which local
-// models routinely do (e.g. repeating <language>fr</language> once per
-// <queries> entry instead of once overall). That throw propagates out of the
-// parser and, combined with emitRawToolCallTextOnError below, leaks the
-// entire raw <web_search>...</web_search> block to the user instead of
-// executing the tool. Build our own protocol instance with lenient parsing
-// (keep the first occurrence) instead of the preconfigured singleton, whose
-// parseOptions can't be overridden after construction. Only wrapStream/
-// wrapGenerate need this — transformParams (system prompt + schema encoding)
-// doesn't consume parseOptions, so morphXmlToolMiddleware.transformParams is
-// still used unchanged below.
+// Local models often repeat a scalar parameter tag (e.g. <language> once per
+// <queries> entry). The stock morphXmlToolMiddleware throws on that, and with
+// emitRawToolCallTextOnError the raw tool-call XML reaches the user. This
+// protocol instance keeps the first occurrence instead; only wrapStream/
+// wrapGenerate parse, so the stock transformParams is still used below.
 const lenientMorphXmlProtocol = morphXmlProtocol({
   parseOptions: { throwOnDuplicateStringTags: false },
 });
@@ -62,21 +55,12 @@ export function hoistSystemMessagesToFront(prompt: PromptMessage[]): PromptMessa
   return [...systemMessages, ...nonSystem];
 }
 
-// The 3-layer parserChain above re-wraps the same underlying text stream
-// three times, and each layer independently re-emits its own text-start/
-// text-end boundary around the content it passes through — so a single real
-// text run can surface as several redundant text-start/text-delta/text-end
-// triples with DIFFERENT random ids, all describing the same content.
-// Consumers stacked on top that track "the current open text id" as a single
-// slot (extractReasoningMiddleware's delayedTextStart, used by every
-// reasoning-mask middleware in lib/reasoning-effort.ts) get a second
-// text-start before the first was ever forwarded, silently drop the first
-// one, and later choke on its now-orphaned text-end — surfacing downstream
-// as `AI_UIMessageStreamError: Received text-end for missing text part`,
-// which crashes the whole response (confirmed live: "failed to pipe
-// response", 500). Force every text-start/text-delta/text-end through a
-// single canonical id per open run, so at most one text part is ever open at
-// a time and nothing downstream can lose track of it.
+// Each layer of parserChain re-emits its own text-start/text-end with a new
+// id, so one text run can arrive as several overlapping text parts.
+// Consumers that track a single open text id (extractReasoningMiddleware, used
+// by lib/reasoning-effort.ts) then hit an orphaned text-end and the stream
+// fails with "Received text-end for missing text part". Use one canonical id
+// per open run, so at most one text part is ever open.
 export function normalizeTextBoundaries(
   stream: ReadableStream<LanguageModelV3StreamPart>,
 ): ReadableStream<LanguageModelV3StreamPart> {

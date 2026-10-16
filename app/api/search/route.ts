@@ -173,10 +173,9 @@ export async function POST(req: Request) {
   recordTiming('parse_request_body', opStart);
 
   // Sources (web, code, academic, ...) are always-on tools filtered by user
-  // preference now, not exclusive modes — only these still fully replace the
-  // base tool set for a turn. Any other/legacy `group` value (old single-
-  // purpose modes, 'auto', or absent) falls through to the base Sources+
-  // Skills path.
+  // preference; only these modes replace the base tool set for a turn. Any
+  // other `group` value ('auto', a retired mode id, or absent) takes the base
+  // Sources+Skills path.
   const SPECIAL_MODE_IDS = new Set(['mcp', 'canvas', 'deep-research', 'extreme-search']);
   // `let` because deep-research/extreme-search get re-validated against
   // zetora-disabled-skills once preferences are available below and
@@ -311,7 +310,7 @@ export async function POST(req: Request) {
   // client-side only — a crafted/replayed request could still send
   // group: 'deep-research' after the user disabled that skill. Re-validate
   // against the just-resolved preferences here and silently fall back to the
-  // base Auto config, same as an unrecognized/legacy group id already does.
+  // base Auto config, same as an unrecognized group id.
   if (specialMode === 'deep-research' || specialMode === 'extreme-search') {
     const disabledSkillIds = new Set(
       (userPreferencesResult?.preferences?.['zetora-disabled-skills'] as string[] | undefined) ?? [],
@@ -373,16 +372,11 @@ export async function POST(req: Request) {
       ? [...normalizedPersistedMessages, ...newIncomingMessages]
       : incomingMessages;
 
-  // Phase 1 of context compaction (lib/search/context-compaction.ts): if this
-  // chat already has a compaction summary, every message it covers is
-  // redundant with it — filter them out of what even enters the rest of the
-  // pipeline (PRUNE_TOKEN_THRESHOLD gate, attachment collection, budget calc)
-  // rather than re-processing them on every request. The summary message's
-  // own createdAt IS the cutoff (see schema comment on message.isCompactionSummary).
-  // Cheap and unconditional — doesn't need contextBudget, which isn't known
-  // until after auto-routing further down. `initialMessageIds` below
-  // deliberately uses the unfiltered array: compacted-away messages are still
-  // visible client-side and must never be mistaken for "new" in onFinish.
+  // Context compaction, phase 1 (lib/search/context-compaction.ts): messages
+  // covered by an existing summary (created before the summary's createdAt)
+  // are dropped before the rest of the pipeline sees them. `initialMessageIds`
+  // below keeps the unfiltered array: compacted-away messages are still shown
+  // client-side and must not be mistaken for "new" in onFinish.
   const compactionSummaryMessage = rawHydratedMessages.find((m) => m.metadata?.isCompactionSummary);
   const compactionCutoffTime = compactionSummaryMessage
     ? new Date(compactionSummaryMessage.metadata!.createdAt).getTime()
@@ -938,11 +932,9 @@ export async function POST(req: Request) {
       const contextBudget = computeContextBudget(contextWindow, outputReserve);
       const systemTokens = estimateTokenCount(baseSystem);
 
-      // Context compaction, phase 2 (phase 1 — filtering out messages already
-      // covered by an existing summary — already happened when hydratedMessages
-      // was built): now that contextBudget is known, decide whether the oldest
-      // turns should be summarized instead of dropped. See
-      // lib/search/context-compaction.ts.
+      // Context compaction, phase 2: with contextBudget known, decide whether
+      // the oldest turns are summarized instead of dropped.
+      // See lib/search/context-compaction.ts.
       const compactionOutcome = isTemporaryChat
         ? ({ ranCompaction: false } as const)
         : await maybeCompactContext({
@@ -1114,10 +1106,9 @@ export async function POST(req: Request) {
           const cumulativeTokens = steps.reduce((sum, step) => sum + (step.usage?.totalTokens ?? 0), 0);
 
           return resolvePrepareStepOverride({
-            // No exclusive special mode means the base Sources+Skills path,
-            // which behaves like the old Auto mode (keeps tools armed across
-            // steps for the skill-load-then-research loop) — synthesize the
-            // 'auto' sentinel resolvePrepareStepOverride already expects.
+            // The base Sources+Skills path keeps tools armed across steps (for
+            // the skill-load-then-research loop), which is what the 'auto'
+            // sentinel means to resolvePrepareStepOverride.
             group: specialMode ?? 'auto',
             isXmlParsedCustomModel,
             latestStepHasToolRoundTrip,
@@ -1141,14 +1132,10 @@ export async function POST(req: Request) {
             return null;
           }
 
-          // The 'tool-repair' tertiary task is user-configurable to any
-          // custom/local provider (see resolveTertiaryModel), which may not
-          // support structured output — Output.object then throws
-          // AI_NoOutputGeneratedError. Since this callback previously had no
-          // try/catch, that exception propagated out of streamText and killed
-          // the whole response mid-stream instead of just leaving the
-          // original tool-call error in place. Returning null tells the SDK
-          // the repair failed, which is exactly what happens for NoSuchToolError above.
+          // The 'tool-repair' model can be any custom provider, which may not
+          // support structured output (Output.object then throws). An exception
+          // here would abort the whole stream; returning null just reports the
+          // repair as failed, as for NoSuchToolError above.
           try {
             const { output: repairedArgs } = await generateText({
               model: await resolveTertiaryModel('tool-repair', cachePreferences, lightweightUser?.userId),
@@ -1206,8 +1193,7 @@ export async function POST(req: Request) {
 
           try {
             if (lightweightUser?.userId && event.finishReason === 'stop') {
-              // Anti-abuse guardrail counter — the only usage tracking left
-              // now that Pro/Max-specific limits are gone.
+              // Anti-abuse guardrail counter.
               try {
                 await incrementMessageUsage({ userId: lightweightUser.userId });
               } catch (error) {

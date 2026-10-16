@@ -10,8 +10,9 @@ export async function register() {
 
     if (process.env.LOOKOUT_SCHEDULER === 'bullmq') {
       const { startLookoutWorker } = await import('@/lib/services/bullmq');
+      const { createLogger } = await import('@/lib/logger');
       startLookoutWorker();
-      console.log('[Zetora] BullMQ Lookout Worker started');
+      createLogger('instrumentation').info('BullMQ lookout worker started');
     }
   }
 }

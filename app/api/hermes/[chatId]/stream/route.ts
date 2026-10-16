@@ -7,15 +7,9 @@ import { isHermesEnabled } from '@/lib/hermes/feature-flag';
 const ACTIVE_VIEWER_REFRESH_MS = 20_000;
 
 // Live delivery of Hermes agent-event frames (new messages, connection-status changes) to
-// an open browser tab. Deliberately NOT ai-resumable-stream — see lib/hermes/realtime.ts's
-// comment on why a Hermes conversation doesn't fit that bounded-turn abstraction. Plain
-// standard-SSE framing (`data: <json>\n\n`), consumed client-side by the browser's native
-// EventSource (hooks/use-hermes-stream.ts) rather than the `ai` package's
-// createUIMessageStream/JsonToSseTransformStream wire protocol — that protocol is built
-// for a bounded LLM generation turn (start/finish/tool-call framing) with its own
-// client-side reader wired into useChat's resumption path; adopting its wire shape here
-// without that reader would mean hand-rolling a parser for protocol semantics this
-// endpoint doesn't need, for no benefit over plain SSE.
+// an open tab, as plain SSE read by the browser's EventSource (hooks/use-hermes-stream.ts).
+// Not ai-resumable-stream or the `ai` UI-message protocol: both model a bounded LLM turn,
+// which a Hermes conversation is not (see lib/hermes/realtime.ts).
 export async function GET(req: Request, { params }: { params: Promise<{ chatId: string }> }) {
   if (!isHermesEnabled()) {
     return new ChatSDKError('not_found:api').toResponse();

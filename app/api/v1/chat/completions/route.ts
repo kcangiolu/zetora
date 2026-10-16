@@ -15,7 +15,7 @@ import { createLogger } from '@/lib/logger';
 const log = createLogger('v1-chat-completions');
 
 // Small curated toolset for spoken conversations — kept intentionally narrow so
-// the prompt stays light and turns stay low-latency (see the voice search plan).
+// the prompt stays light and turns stay low-latency.
 const VOICE_TOOL_NAMES = ['web_search', 'retrieve', 'get_weather_data', 'datetime'];
 
 // Server-side tool guidance appended to the caller's spoken persona. Deliberately

@@ -65,11 +65,9 @@ export async function createHermesEnrollmentAction() {
   }
 }
 
-// Throws on failure instead of returning a connector-less result. Enrollment state is read
-// straight off this, and a failure payload carrying `connector: null` is indistinguishable
-// from a genuine "never enrolled" — which is what silently kicked live Agent chats out of
-// Agent mode: React Query caches a resolved failure as real data, with no error state and
-// no retry, while a thrown error surfaces as isError and is retried.
+// Throws on failure instead of returning a connector-less result: a resolved
+// `connector: null` reads as "never enrolled" and React Query caches it as data, while a
+// thrown error surfaces as isError and is retried.
 export async function getHermesConnectorStatusAction() {
   'use server';
 

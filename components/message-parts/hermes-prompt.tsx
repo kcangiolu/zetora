@@ -24,13 +24,9 @@ const STYLE_CLASSES: Record<string, string> = {
 export function HermesPromptCard({ chatId, prompt }: { chatId: string; prompt: HermesPromptData }) {
   const [answeredOptionId, setAnsweredOptionId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  // expiresAt is undefined for a message saved before this field existed — treat that as
-  // "expiry unknown", never expired, rather than guessing. See agent-event/route.ts's
-  // comment on where the deadline itself comes from (Hermes never sends timeout_s for any
-  // prompt kind currently in use, so this is our own conservative estimate, not a wire
-  // guarantee — a "no longer waiting" reply from Hermes past this point is still possible
-  // even before it fires, and clicking never dead-ends regardless: Hermes's own
-  // slash-command text fallback keeps working either way).
+  // A missing expiresAt means "unknown", never expired. The deadline is our own estimate
+  // (see agent-event/route.ts), not one Hermes sends, so clicking stays possible either
+  // way: Hermes's slash-command text fallback still works.
   const [isExpired, setIsExpired] = useState(() => prompt.expiresAt != null && Date.now() >= prompt.expiresAt);
   const sendHermesMessage = useHermesSend(chatId);
 

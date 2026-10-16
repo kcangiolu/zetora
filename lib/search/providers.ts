@@ -19,7 +19,7 @@ export const SEARCH_FUNCTION_PROVIDERS = {
   academic: ['searxng', 'fastcrw', 'exa', 'firecrawl'],
   // Extracts a single URL's content, so no SearXNG.
   retrieve: ['fastcrw', 'exa', 'firecrawl', 'parallel'],
-  // Exa's index carries essentially no reddit.com content (verified live).
+  // Exa's index carries essentially no reddit.com content.
   reddit: ['searxng', 'fastcrw', 'firecrawl', 'parallel'],
 } as const satisfies Record<string, readonly SearchProviderId[]>;
 

@@ -1983,7 +1983,7 @@ export function extremeSearchTool(
   files: Array<{ url: string; contentType: string; name?: string }> = [],
 ) {
   return tool({
-    description: `Use this tool to conduct an extreme search on a given topic using Exa for content extraction.${files.length > 0 ? ` Has access to ${files.length} uploaded file(s) for document search.` : ''}`,
+    description: `Use this tool to conduct an extreme search on a given topic: plans the research, runs many searches and reads the sources.${files.length > 0 ? ` Has access to ${files.length} uploaded file(s) for document search.` : ''}`,
     inputSchema: z.object({
       prompt: z
         .string()

@@ -47,6 +47,15 @@ const eslintConfig = [
     },
   },
   {
+    // Diagnostics go through createLogger (lib/logger.ts); only warnings and
+    // errors may hit the console directly.
+    files: ['**/*.ts', '**/*.tsx'],
+    ignores: ['lib/logger.ts'],
+    rules: {
+      'no-console': ['warn', { allow: ['warn', 'error'] }],
+    },
+  },
+  {
     // eslint-config-next parses plain JS with Next's compiled Babel parser,
     // whose scope manager lacks the addGlobals API required by ESLint 10.
     // All application code is TypeScript, so parse the few root-level JS

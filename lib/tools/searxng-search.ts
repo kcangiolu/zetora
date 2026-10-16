@@ -79,8 +79,8 @@ export class SearXNGSearchStrategy implements SearchStrategy {
             q: query,
             format: 'json',
             pageno: '1',
-            // 'all' disables SearXNG's language filter — hard-coding 'en' here
-            // used to force English-language results for non-English queries.
+            // 'all' disables SearXNG's language filter, so a non-English query
+            // gets results in its own language.
             language: options.language ?? 'all',
             time_range: resolveTimeRange(topic, options.startDates?.[i]),
             safesearch: '1',
@@ -141,12 +141,9 @@ export class SearXNGSearchStrategy implements SearchStrategy {
       }),
     );
 
-    // Hybrid step: surface previously indexed (Qdrant) content as a
-    // separate, clearly labeled "[archive]" entry. It never replaces or
-    // blends into the live SearXNG results for the query the model asked —
-    // otherwise the model treats stale/unrelated indexed pages as if its own
-    // search had found them (this is how a topic from a past conversation
-    // used to leak into an unrelated one).
+    // Hybrid step: indexed (Qdrant) content comes back as a separate "[archive]"
+    // entry, never mixed into the live results, or the model would treat stale
+    // pages from past conversations as results of its own search.
     const allSearxngResults = searches.flatMap((s) => s.results);
     const hybridSearchAvailable = isHybridSearchAvailable();
     if (

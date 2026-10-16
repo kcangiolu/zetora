@@ -691,10 +691,9 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
         .replace(/<\|end_of_box\|>/g, '')
         .replace(/<\|im_end\|>/g, '');
 
-      // No backdrop-blur — up to 8 of these mount per assistant message, and each one
-      // forces a fresh re-composite of whatever scrolls behind it every frame. A flat,
-      // slightly more opaque background (bumped from /40 to compensate for losing the
-      // blur that used to soften it) reads the same without the scroll-jank cost.
+      // No backdrop-blur: up to 8 of these mount per assistant message and each would
+      // re-composite what scrolls behind it every frame. A slightly more opaque flat
+      // background looks the same without the scroll jank.
       const actionIconButtonClassName =
         'h-8 w-8 rounded-sm border border-border bg-background/60 text-muted-foreground shadow-none transition-colors hover:bg-accent/60 hover:text-foreground';
 
@@ -3253,7 +3252,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
             return <DynamicToolInvocationCard part={part} compact={true} />;
         }
       } else {
-        // Legacy tool invocation without state - show as loading or fallback
+        // Tool part without a state field: dump it raw
         console.warn('Legacy tool part without state:', part);
         return (
           <div
@@ -3266,13 +3265,6 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
         );
       }
     }
-
-    // Log unhandled part types for debugging
-    console.log(
-      'Unhandled part type:',
-      typeof part === 'object' && part !== null && 'type' in part ? part.type : 'unknown',
-      part,
-    );
 
     return null;
   },
