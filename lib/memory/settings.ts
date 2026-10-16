@@ -1,6 +1,8 @@
+import type { UserPreferenceValues } from '@/lib/db/schema';
+
 // Memory-related user preferences, read the same way on every code path.
 
-type Preferences = Record<string, unknown> | null | undefined;
+type Preferences = UserPreferenceValues | null | undefined;
 
 // Master switch (Settings → Memories): when off, nothing is injected and
 // nothing is learned.

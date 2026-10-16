@@ -6,7 +6,6 @@ import FirecrawlApp from '@mendable/firecrawl-js';
 import Parallel from 'parallel-web';
 import { Supadata } from '@supadata/js';
 import { allSettled } from 'better-all';
-import { getBetterAllOptions } from '@/lib/better-all';
 import { scrapeWithFastCrwForBrowsePage } from './self-hosted-content';
 
 import { createLogger } from '@/lib/logger';
@@ -676,11 +675,7 @@ export const retrieveTool = tool({
         ),
       );
 
-      const taskMap = await allSettled(
-        Object.fromEntries(urlPromises.map((promise, index) => [`u:${index}`, async () => promise])),
-        getBetterAllOptions(),
-      );
-      const settledResults = url.map((_, index) => taskMap[`u:${index}`]);
+      const settledResults = await Promise.allSettled(urlPromises);
 
       // Aggregate results
       const successfulResults: any[] = [];

@@ -44,6 +44,9 @@ const eslintConfig = [
       'react-hooks/immutability': 'warn',
       'react-hooks/error-boundaries': 'warn',
       'react-hooks/incompatible-library': 'warn',
+      // Images come from arbitrary external hosts (favicons, thumbnails, tool
+      // results); next/image would need every one listed in remotePatterns.
+      '@next/next/no-img-element': 'off',
     },
   },
   {

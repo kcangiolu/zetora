@@ -286,11 +286,7 @@ export function createFileQuerySearchTool(
           }
         });
 
-        const searchMap = await all(
-          Object.fromEntries(searchPromises.map((promise, index) => [`q:${index}`, async () => promise])),
-          getBetterAllOptions(),
-        );
-        const searches = queries.map((_, index) => searchMap[`q:${index}`]);
+        const searches = await Promise.all(searchPromises);
 
         // Calculate total results
         const totalResults = searches.reduce((sum, s) => sum + s.results.length, 0);

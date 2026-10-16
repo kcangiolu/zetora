@@ -125,7 +125,6 @@ export function HermesMediaCard({ media }: { media: HermesMediaData }) {
   return (
     <div className="space-y-1.5">
       {mediaKind === 'image' && (
-        // eslint-disable-next-line @next/next/no-img-element -- external/self-hosted media, not a Next-optimizable local asset
         <img src={url} alt={caption ?? filename ?? 'Image from Hermes'} className="max-w-full rounded-lg" />
       )}
       {(mediaKind === 'voice' || mediaKind === 'audio') && <HermesVoicePlayer url={url} />}

@@ -6,6 +6,7 @@ import { mergeArchiveResults } from '@/lib/vector/archive-merge';
 
 import { createLogger } from '@/lib/logger';
 import { isHybridSearchAvailable } from '@/lib/instance/capabilities';
+import type { UserPreferenceValues } from '@/lib/db/schema';
 
 const log = createLogger('searxng-search');
 
@@ -36,7 +37,7 @@ function resolveTimeRange(topic: 'general' | 'news', startDate?: string | null):
 
 export class SearXNGSearchStrategy implements SearchStrategy {
   private baseUrl: string;
-  private preferences?: Record<string, unknown>;
+  private preferences?: UserPreferenceValues;
   private userId?: string;
 
   constructor(baseUrl: string, preferences?: Record<string, unknown>, userId?: string) {

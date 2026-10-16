@@ -3,6 +3,7 @@ import 'server-only';
 import { ARCH_ROUTER_MODEL } from '@/ai/models/helpers';
 import { TASK_ENV_KEYS, TASK_LABELS, TERTIARY_TASKS, getTaskPreferenceKey, type TertiaryTask } from '@/ai/models/tasks';
 import { getCatalogEntry } from './store';
+import type { UserPreferenceValues } from '@/lib/db/schema';
 
 // A model that was asked for but cannot run. Its message is meant for the
 // user as is.
@@ -41,7 +42,7 @@ export function getUnavailableTaskModels(): Partial<Record<TertiaryTask, string>
 
 // The model a task runs on: the user's pick, else the instance's. Throws when
 // there is neither.
-export function getTaskModel(task: TertiaryTask, preferences: Record<string, unknown> | null | undefined): string {
+export function getTaskModel(task: TertiaryTask, preferences: UserPreferenceValues | null | undefined): string {
   const picked = preferences?.[getTaskPreferenceKey(task)];
   if (typeof picked === 'string' && picked) return picked;
   const modelId = getTaskModelId(task);

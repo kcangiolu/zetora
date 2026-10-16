@@ -211,7 +211,6 @@ export function TwoFactorSettings({ enabled: initialEnabled, isMobile }: TwoFact
             </p>
             <div className="flex justify-center bg-white rounded-lg p-3 w-fit mx-auto">
               {qrDataUrl && (
-                // eslint-disable-next-line @next/next/no-img-element -- client-generated data: URI, not an optimizable asset
                 <img src={qrDataUrl} alt="Authenticator QR code" width={180} height={180} />
               )}
             </div>

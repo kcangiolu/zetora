@@ -1971,7 +1971,6 @@ const InteractiveStockChart = React.memo(
                               <div className="px-2.5 py-1.5 border-t border-border/20 flex items-center justify-between bg-muted/10">
                                 <div className="flex items-center gap-1.5">
                                   <div className="relative w-3 h-3 rounded-sm overflow-hidden">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img
                                       src={`https://www.google.com/s2/favicons?sz=128&domain=${new URL(news.url).hostname}`}
                                       alt=""
@@ -2040,7 +2039,6 @@ const InteractiveStockChart = React.memo(
                               <div className="px-2.5 py-1.5 border-t border-border/20 flex items-center justify-between bg-muted/10">
                                 <div className="flex items-center gap-1.5">
                                   <div className="relative w-3 h-3 rounded-sm overflow-hidden">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img
                                       src={`https://www.google.com/s2/favicons?sz=128&domain=${new URL(news.url).hostname}`}
                                       alt=""

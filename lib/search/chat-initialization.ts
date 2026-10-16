@@ -5,22 +5,24 @@ import { getBetterAllOptions } from '@/lib/better-all';
 import { createStreamId, getHermesChatLock, saveNewChatWithStream } from '@/lib/db/queries';
 import { getMessageCountByUserIdAction } from '@/lib/search/server-helpers';
 import { ABUSE_DAILY_LIMIT } from '@/lib/constants';
+import type { ModelMessage, TextPart } from 'ai';
+import type { ChatMessage } from '@/lib/types';
 
 const log = createLogger('chat-initialization');
 
 export interface CriticalChecksResult {
   canProceed: boolean;
-  error?: any;
+  error?: ChatSDKError;
   messageCount?: number;
 }
 
 export interface ChatInitializationParams {
-  chatQueryPromise: Promise<any>;
+  chatQueryPromise: Promise<{ id: string; userId: string } | null>;
   lightweightUser: { userId: string; email: string } | null;
   id: string;
   streamId: string;
-  selectedVisibilityType: any;
-  messages: any[];
+  selectedVisibilityType: 'public' | 'private' | null | undefined;
+  messages: ChatMessage[];
   isTemporaryChat: boolean;
   enableDetailedTiming?: boolean;
 }
@@ -30,17 +32,15 @@ export interface ChatInitializationParams {
 // notices below, all of which need the model to see a URL or inlined
 // content even though the raw file part itself gets stripped from the
 // request sent to the model.
-export function appendToLastUserMessage(messages: any[], instruction: string): void {
+export function appendToLastUserMessage(messages: ModelMessage[], instruction: string): void {
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i];
     if (msg.role === 'user') {
       if (Array.isArray(msg.content)) {
-        const lastTextIndex = msg.content.findLastIndex((p: any) => p.type === 'text');
+        const lastTextIndex = msg.content.findLastIndex((p) => p.type === 'text');
         if (lastTextIndex >= 0) {
-          msg.content[lastTextIndex] = {
-            ...msg.content[lastTextIndex],
-            text: msg.content[lastTextIndex].text + instruction,
-          };
+          const lastText = msg.content[lastTextIndex] as TextPart;
+          msg.content[lastTextIndex] = { ...lastText, text: lastText.text + instruction };
         } else {
           msg.content.push({ type: 'text', text: instruction.trim() });
         }
@@ -106,7 +106,7 @@ export function initializeChatAndChecks({
   // Validate ownership once and get chat data
   const validatedChatPromise = withTiming(
     'chat_init.existingChat_wait',
-    chatQueryPromise.then(async (existingChat: any) => {
+    chatQueryPromise.then(async (existingChat) => {
       if (existingChat && existingChat.userId !== user.userId) {
         throw new ChatSDKError('forbidden:chat', 'This chat belongs to another user');
       }
@@ -188,7 +188,7 @@ export function initializeChatAndChecks({
             chatId: id,
             userId: user.userId,
             title: 'New Chat',
-            visibility: selectedVisibilityType,
+            visibility: selectedVisibilityType ?? 'private',
             streamId,
           });
           // Fire off title generation without blocking chat creation

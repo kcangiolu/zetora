@@ -130,10 +130,7 @@ export async function consolidateMemoryNow(): Promise<{ started: boolean; error?
   const userId = await requireUserId();
   const record = await getUserPreferencesByUserId({ userId });
   try {
-    const started = await runMemoryConsolidation(
-      userId,
-      (record?.preferences ?? null) as Record<string, unknown> | null,
-    );
+    const started = await runMemoryConsolidation(userId, record?.preferences ?? null);
     return { started };
   } catch (error) {
     if (error instanceof ModelUnavailableError) return { started: false, error: error.message };

@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 import React, { memo, useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

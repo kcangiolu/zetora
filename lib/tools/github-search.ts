@@ -6,7 +6,6 @@ import { ChatMessage } from '@/lib/types';
 import Firecrawl from '@mendable/firecrawl-js';
 import { serverEnv } from '@/env/server';
 import { all } from 'better-all';
-import { getBetterAllOptions } from '@/lib/better-all';
 
 import { createLogger } from '@/lib/logger';
 import { resolveFallbackSearchProvider, resolveSearchProvider } from '@/lib/instance/capabilities';
@@ -455,11 +454,7 @@ export function githubSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>
         }
       });
 
-      const searchMap = await all(
-        Object.fromEntries(searchPromises.map((promise, index) => [`q:${index}`, async () => promise])),
-        getBetterAllOptions(),
-      );
-      const searches = queries.map((_, index) => searchMap[`q:${index}`]);
+      const searches = await Promise.all(searchPromises);
 
       return {
         searches,

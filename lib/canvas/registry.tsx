@@ -302,7 +302,6 @@ export const { registry } = defineRegistry(canvasCatalog, {
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border/40 bg-muted/20 hover:bg-muted/40 transition-colors text-[11px] text-foreground no-underline"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={`https://www.google.com/s2/favicons?domain=${domain}&sz=16`}
             alt=""
@@ -319,14 +318,12 @@ export const { registry } = defineRegistry(canvasCatalog, {
       <figure className="w-full">
         <Cambio.Root motion="smooth">
           <Cambio.Trigger className="w-full rounded-lg border border-border/40 overflow-hidden bg-muted/10 cursor-zoom-in">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={props.src} alt={props.alt} className="w-full h-auto" loading="lazy" />
           </Cambio.Trigger>
           <Cambio.Portal>
             <Cambio.Backdrop className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm" />
             <Cambio.Popup className="fixed inset-0 z-50 flex items-center justify-center p-4">
               <div className="relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={props.src} alt={props.alt} className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg" />
                 <Cambio.Close className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50 text-white backdrop-blur-sm hover:bg-black/70 transition-colors">
                   <XIcon className="h-3.5 w-3.5" />
@@ -805,7 +802,6 @@ export const { registry } = defineRegistry(canvasCatalog, {
           rel="noopener noreferrer"
           className="group flex items-start gap-3 rounded-lg border border-border/40 p-3 hover:bg-muted/20 transition-colors"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`}
             alt=""

@@ -2,7 +2,6 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { serverEnv } from '@/env/server';
 import { all } from 'better-all';
-import { getBetterAllOptions } from '@/lib/better-all';
 
 import { createLogger } from '@/lib/logger';
 import { EXTERNAL_API_TIMEOUT_MS } from '@/lib/timeouts';
@@ -317,13 +316,7 @@ export const nearbyPlacesSearchTool = tool({
           };
         }
       });
-      const placeMap = await all(
-        Object.fromEntries(
-          placePromises.map((promise: Promise<any>, index: number) => [`p:${index}`, async () => promise]),
-        ),
-        getBetterAllOptions(),
-      );
-      const detailedPlaces = placesSlice.map((_: any, index: number) => placeMap[`p:${index}`]);
+      const detailedPlaces = await Promise.all(placePromises);
 
       const sortedPlaces = detailedPlaces.sort((a: any, b: any) => (a.distance || 0) - (b.distance || 0));
 

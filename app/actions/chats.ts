@@ -3,7 +3,6 @@
 import { getCurrentUser } from './user';
 import { generateTitleFromUserMessage } from '@/lib/search/chat-title';
 
-import { UIMessage } from 'ai';
 import type { ModelMessage } from 'ai';
 import { getUser } from '@/lib/auth-utils';
 import {
@@ -422,8 +421,8 @@ export async function branchOutChat({
   userMessage,
   assistantMessage,
 }: {
-  userMessage: UIMessage;
-  assistantMessage: UIMessage;
+  userMessage: ChatMessage;
+  assistantMessage: ChatMessage;
 }) {
   'use server';
 
@@ -448,10 +447,10 @@ export async function branchOutChat({
         id: newUserMessageId,
         role: 'user' as const,
         parts: userMessage.parts,
-        attachments: (userMessage as any).experimental_attachments ?? [],
+        attachments: [],
         createdAt: new Date(),
-        model: (userMessage as any).metadata?.model || null,
-        inputTokens: (userMessage as any).metadata?.inputTokens ?? null,
+        model: userMessage.metadata?.model || null,
+        inputTokens: userMessage.metadata?.inputTokens ?? null,
         outputTokens: null,
         totalTokens: null,
         completionTime: null,
@@ -468,11 +467,11 @@ export async function branchOutChat({
         parts: assistantMessage.parts,
         attachments: [],
         createdAt: new Date(),
-        model: (assistantMessage as any).metadata?.model || null,
-        inputTokens: (assistantMessage as any).metadata?.inputTokens ?? null,
-        outputTokens: (assistantMessage as any).metadata?.outputTokens ?? null,
-        totalTokens: (assistantMessage as any).metadata?.totalTokens ?? null,
-        completionTime: (assistantMessage as any).metadata?.completionTime ?? null,
+        model: assistantMessage.metadata?.model || null,
+        inputTokens: assistantMessage.metadata?.inputTokens ?? null,
+        outputTokens: assistantMessage.metadata?.outputTokens ?? null,
+        totalTokens: assistantMessage.metadata?.totalTokens ?? null,
+        completionTime: assistantMessage.metadata?.completionTime ?? null,
         searchVector: null,
         isCompactionSummary: false,
         compactionReplacedCount: null,

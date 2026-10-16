@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 'use client';
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
@@ -408,7 +407,7 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
   });
 
   // Flatten all chats from all pages
-  const allChats = data?.pages.flatMap((page) => page.chats) || [];
+  const allChats = useMemo(() => data?.pages.flatMap((page) => page.chats) ?? [], [data]);
 
   // Clear delete confirmation state when dialog closes
   useEffect(() => {

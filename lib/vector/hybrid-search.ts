@@ -69,7 +69,7 @@ async function rerankResults(
   }
 
   try {
-    const model = await resolveTertiaryModel('default', preferences as Record<string, string>);
+    const model = await resolveTertiaryModel('default', preferences);
 
     const documentsBlock = candidates
       .map((c, i) => `Document ${i}: ${c.title}\n${c.content.slice(0, 1000)}\n---`)

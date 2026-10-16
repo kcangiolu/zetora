@@ -60,7 +60,6 @@ export function ServiceIcon({
 }) {
   const src = faviconUrl(url);
   return src ? (
-    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
       alt=""

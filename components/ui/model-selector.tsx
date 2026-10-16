@@ -456,7 +456,7 @@ export function ModelSelectorDialog({
     } else {
       setFocusedIndex(-1);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- focus the selection only when the popover opens, not on every list change while open
   }, [open]);
 
   // Scroll focused model into view

@@ -4,6 +4,9 @@ import type { SkillId } from '@/lib/utils';
 import { anonymizeToolInput, type AnonymizeContext } from '@/lib/anonymizer/pseudonymize';
 import { isMemoryEnabled } from '@/lib/memory/settings';
 import { isToolAvailable } from '@/lib/instance/capabilities';
+import type { UserPreferenceValues } from '@/lib/db/schema';
+import type { ToolSet, UIMessageStreamWriter } from 'ai';
+import type { ChatMessage } from '@/lib/types';
 
 // Defense in depth for the anonymization layer: when it's active the model
 // only ever sees pseudonyms, so its tool-call args are already tokenized —
@@ -23,15 +26,15 @@ function withEgressAnonymization<T extends { execute?: (...args: any[]) => any }
 
 interface LoadConfiguredToolsParams {
   activeToolNames: string[];
-  dataStream: any;
+  dataStream: UIMessageStreamWriter<ChatMessage> | undefined;
   timezone: string | undefined;
   contextFiles: Array<{ url: string; contentType: string; name?: string }>;
   includeMcpTools: boolean;
-  mcpDynamicTools: Record<string, any>;
+  mcpDynamicTools: ToolSet;
   lightweightUser: { userId: string; email: string } | null;
   // The chat a remembered fact comes from; null outside a persisted chat.
   chatId?: string | null;
-  userPreferences?: Record<string, unknown>;
+  userPreferences?: UserPreferenceValues;
   anonymizeContext?: AnonymizeContext | null;
   enabledSkillIds?: SkillId[];
 }
@@ -48,8 +51,8 @@ export async function loadConfiguredTools({
   userPreferences,
   anonymizeContext,
   enabledSkillIds,
-}: LoadConfiguredToolsParams): Promise<Record<string, any>> {
-  const tools: Record<string, any> = {};
+}: LoadConfiguredToolsParams): Promise<ToolSet> {
+  const tools: ToolSet = {};
   const uniqueToolNames = [...new Set(activeToolNames)].filter(isToolAvailable);
 
   await Promise.all(

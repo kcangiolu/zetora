@@ -46,26 +46,29 @@ export function normalizeError(err: unknown): string {
   return 'Something went wrong. Please try again.';
 }
 
-export type SearchGroupId =
-  | 'auto'
-  | 'web'
-  | 'x'
-  | 'academic'
-  | 'youtube'
-  | 'spotify'
-  | 'reddit'
-  | 'github'
-  | 'stocks'
-  | 'chat'
-  | 'extreme'
-  | 'crypto'
-  | 'code'
-  | 'mcp'
-  | 'prediction'
-  | 'canvas'
-  | 'deep-research'
-  | 'extreme-search'
-  | 'hermes';
+export const SEARCH_GROUP_IDS = [
+  'auto',
+  'web',
+  'x',
+  'academic',
+  'youtube',
+  'spotify',
+  'reddit',
+  'github',
+  'stocks',
+  'chat',
+  'extreme',
+  'crypto',
+  'code',
+  'mcp',
+  'prediction',
+  'canvas',
+  'deep-research',
+  'extreme-search',
+  'hermes',
+] as const;
+
+export type SearchGroupId = (typeof SEARCH_GROUP_IDS)[number];
 
 // Research skills loadable via the 'skill' tool, available on every message
 // (subject to the zetora-disabled-skills preference).

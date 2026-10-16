@@ -11,9 +11,6 @@ import {
   tool,
   stepCountIs,
   JsonToSseTransformStream,
-  TextPart,
-  ImagePart,
-  FilePart,
   InferUIMessageChunk,
   AsyncIterableStream,
   wrapLanguageModel,
@@ -196,9 +193,8 @@ export async function POST(req: Request) {
       : [];
 
   const userQueryText = requestLastUserMessage
-    ? (requestLastUserMessage.parts as any[])
-        .filter((p) => p.type === 'text')
-        .map((p) => p.text as string)
+    ? requestLastUserMessage.parts
+        .flatMap((p) => (p.type === 'text' ? [p.text] : []))
         .join(' ')
         .trim()
     : '';
@@ -425,7 +421,7 @@ export async function POST(req: Request) {
   const requestLastUserMessageId: string | null = requestLastUserMessage?.id ?? null;
 
   const userMessageCount = hydratedMessages.filter((message: any) => message.role === 'user').length;
-  const cachePreferences = (userPreferencesResult?.preferences ?? {}) as Record<string, string>;
+  const cachePreferences = userPreferencesResult?.preferences ?? {};
 
   // Converted once regardless of the pruning decision below.
   const convertedMessages = await convertToModelMessages(hydratedMessages, {
@@ -541,8 +537,9 @@ export async function POST(req: Request) {
 
   // Detect images in last user message for auto-routing
   const lastUserMessage = [...hydratedMessages].reverse().find((msg) => msg.role === 'user');
-  const lastUserParts = (lastUserMessage?.parts as (TextPart | ImagePart | FilePart)[]) ?? [];
-  const hasImages = lastUserParts.some((part) => part.type === 'file' && (part as any).mediaType?.startsWith('image/'));
+  const hasImages = (lastUserMessage?.parts ?? []).some(
+    (part) => part.type === 'file' && part.mediaType.startsWith('image/'),
+  );
 
   // Auto-routing logic - run on server side if auto router is selected
   if (isAutoRouted && autoRouterEnabled && requestedModel === AUTO_MODEL_ID) {
@@ -551,7 +548,7 @@ export async function POST(req: Request) {
     for (let i = hydratedMessages.length - 1; i >= 0; i--) {
       const msg = hydratedMessages[i];
       if (msg.role === 'user') {
-        const parts = (msg.parts as (TextPart | ImagePart | FilePart)[]) ?? [];
+        const parts = msg.parts ?? [];
         for (let j = parts.length - 1; j >= 0; j--) {
           const part = parts[j];
           if (part.type === 'text' && part.text) {
@@ -706,7 +703,7 @@ export async function POST(req: Request) {
         mcpDynamicTools,
         lightweightUser,
         chatId: isTemporaryChat ? null : id,
-        userPreferences: (userPreferencesResult?.preferences ?? {}) as Record<string, unknown>,
+        userPreferences: userPreferencesResult?.preferences ?? {},
         anonymizeContext,
         enabledSkillIds,
       });
@@ -942,7 +939,7 @@ export async function POST(req: Request) {
             hydratedMessages,
             estimatedTokens: estimateTokenCount(processedMessages),
             contextBudget,
-            preferences: userPreferencesResult?.preferences as Record<string, string> | undefined,
+            preferences: userPreferencesResult?.preferences,
             userId: lightweightUser?.userId,
           });
 
@@ -1347,7 +1344,6 @@ export async function POST(req: Request) {
 
       await saveMessages({
         messages: messagesToPersist.map((message: ChatMessage) => {
-          const attachments = (message as any).experimental_attachments ?? [];
           const createdAt =
             typeof message.metadata?.createdAt === 'string' ? new Date(message.metadata.createdAt) : new Date();
 
@@ -1356,7 +1352,7 @@ export async function POST(req: Request) {
             role: message.role,
             parts: message.parts,
             createdAt,
-            attachments,
+            attachments: [],
             chatId: id,
             model: message.metadata?.model ?? model,
             completionTime: message.metadata?.completionTime ?? finalUsageMetadata.completionTime,

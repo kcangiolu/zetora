@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { resolveTertiaryModel } from '@/ai/tertiary';
 
 import { createLogger } from '@/lib/logger';
+import type { UserPreferenceValues } from '@/lib/db/schema';
 
 const log = createLogger('text-translate');
 
@@ -83,7 +84,7 @@ const detectedLanguageSchema = z.object({
   detectedLanguage: z.string().describe('ISO 639-1 language code (2-letter).'),
 });
 
-async function detectLanguageCode(text: string, preferences: Record<string, string> | null): Promise<string> {
+async function detectLanguageCode(text: string, preferences: UserPreferenceValues | null): Promise<string> {
   try {
     const { output } = await generateText({
       model: await resolveTertiaryModel('lang-detect', preferences),
@@ -117,7 +118,7 @@ export const textTranslateTool = tool({
     const context = experimental_context as ToolContext | undefined;
     const images = context?.images ?? [];
     const hasImages = images.length > 0;
-    const translatePrefs = (context?.userPreferences ?? null) as Record<string, string> | null;
+    const translatePrefs = (context?.userPreferences ?? null) as UserPreferenceValues | null;
     log.debug('[text-translate] Has images:', hasImages, 'Image count:', images.length);
 
     const targetLanguageCode = normalizeLanguageCode(to);

@@ -289,11 +289,7 @@ class ParallelSearchStrategy implements SearchStrategy {
         }
       });
 
-      const perQueryMap = await all(
-        Object.fromEntries(perQueryPromises.map((promise, index) => [`q:${index}`, async () => promise])),
-        getBetterAllOptions(),
-      );
-      const searchResults = limitedQueries.map((_, index) => perQueryMap[`q:${index}`]);
+      const searchResults = await Promise.all(perQueryPromises);
       return { searches: searchResults };
     } catch (error) {
       log.error('Parallel AI batch orchestration error:', error);
@@ -467,11 +463,7 @@ class FirecrawlSearchStrategy implements SearchStrategy {
       }
     });
 
-    const searchMap = await all(
-      Object.fromEntries(searchPromises.map((promise, index) => [`q:${index}`, async () => promise])),
-      getBetterAllOptions(),
-    );
-    const searchResults = queries.map((_, index) => searchMap[`q:${index}`]);
+    const searchResults = await Promise.all(searchPromises);
     return { searches: searchResults };
   }
 }
@@ -608,11 +600,7 @@ class ExaSearchStrategy implements SearchStrategy {
       }
     });
 
-    const searchMap = await all(
-      Object.fromEntries(searchPromises.map((promise, index) => [`q:${index}`, async () => promise])),
-      getBetterAllOptions(),
-    );
-    const searchResults = queries.map((_, index) => searchMap[`q:${index}`]);
+    const searchResults = await Promise.all(searchPromises);
     return { searches: searchResults };
   }
 }

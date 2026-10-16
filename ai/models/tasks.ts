@@ -57,6 +57,8 @@ export const TASK_ENV_KEYS: Record<TertiaryTask, string | null> = {
 };
 
 // Where each task's model is saved in the user's preferences.
-export function getTaskPreferenceKey(task: TertiaryTask): string {
-  return task === 'default' ? 'zetora-default-model' : `zetora-tertiary-${task}-model`;
+export type TaskPreferenceKey = 'zetora-default-model' | `zetora-tertiary-${Exclude<TertiaryTask, 'default'>}-model`;
+
+export function getTaskPreferenceKey(task: TertiaryTask): TaskPreferenceKey {
+  return task === 'default' ? 'zetora-default-model' : (`zetora-tertiary-${task}-model` as const);
 }

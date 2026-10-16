@@ -76,7 +76,6 @@ export function DiagnosticsSection() {
       // Sequential on purpose: a stampede of simultaneous pings to every
       // local service right after a fresh `docker compose up` is the exact
       // scenario this panel exists to diagnose — don't add to the load.
-      // eslint-disable-next-line no-await-in-loop
       await testMutation.mutateAsync(service.id).catch(() => null);
     }
   };

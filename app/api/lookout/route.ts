@@ -651,7 +651,6 @@ export async function POST(req: Request) {
       role: 'user' as const,
       content: prompt,
       parts: [{ type: 'text' as const, text: prompt }],
-      experimental_attachments: [],
     };
     const initialMessageIds = new Set([userMessage.id]);
 
@@ -715,7 +714,7 @@ export async function POST(req: Request) {
           searchMode,
           dataStream,
           searchProvider,
-          userPrefs?.preferences as Record<string, unknown> | undefined,
+          userPrefs?.preferences,
           userResult.id,
         );
         const activeToolNames = Object.keys(tools);
@@ -727,7 +726,7 @@ export async function POST(req: Request) {
         const result = streamText({
           model: await resolveTertiaryModel(
             'default',
-            (userPrefs?.preferences ?? {}) as Record<string, string>,
+            userPrefs?.preferences ?? {},
             userResult.id,
           ),
           messages: await convertToModelMessages([userMessage]),
@@ -739,7 +738,7 @@ export async function POST(req: Request) {
           toolChoice: 'auto',
           tools,
           experimental_context: {
-            userPreferences: (userPrefs?.preferences ?? {}) as Record<string, string>,
+            userPreferences: userPrefs?.preferences ?? {},
             userId: userResult.id,
           },
           providerOptions: {
@@ -937,7 +936,6 @@ export async function POST(req: Request) {
           .insert(messageTable)
           .values(
             newMessages.map((message) => {
-              const attachments = (message as any).experimental_attachments ?? [];
               const createdAt =
                 typeof message.metadata?.createdAt === 'string' ? new Date(message.metadata.createdAt) : new Date();
 
@@ -946,7 +944,7 @@ export async function POST(req: Request) {
                 role: message.role,
                 parts: message.parts,
                 createdAt,
-                attachments,
+                attachments: [],
                 chatId,
                 model: modelId,
                 completionTime: message.metadata?.completionTime ?? 0,

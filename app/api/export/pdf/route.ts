@@ -96,7 +96,7 @@ function wrapText(text: string, widthFn: (s: string) => number, maxWidth: number
   return lines;
 }
 
-function measureTextWidth(font: any, text: string, size: number, fallbackMultiplier = 0.5) {
+function measureTextWidth(font: PDFFont, text: string, size: number, fallbackMultiplier = 0.5) {
   try {
     return font.widthOfTextAtSize(text, size);
   } catch {
@@ -302,7 +302,7 @@ export async function POST(req: NextRequest) {
     const pageHeight = 842; // A4 height in points
 
     // Check if a character is supported by a font
-    const isSupportedByFont = (ch: string, testFont: any): boolean => {
+    const isSupportedByFont = (ch: string, testFont: PDFFont): boolean => {
       if (!testFont) return false;
       try {
         const width = testFont.widthOfTextAtSize(ch, 10);
@@ -314,7 +314,7 @@ export async function POST(req: NextRequest) {
     };
 
     // Draw text with font fallback support (tries main font, then symbol fonts)
-    const drawTextWithFallback = (text: string, x: number, y: number, size: number, mainFont: any, color: any) => {
+    const drawTextWithFallback = (text: string, x: number, y: number, size: number, mainFont: PDFFont, color: RGB) => {
       if (!text) return;
 
       let currentX = x;
@@ -356,7 +356,7 @@ export async function POST(req: NextRequest) {
     };
 
     // Sanitize text to remove completely unsupported glyphs
-    const sanitizeForFont = (text: string, testFont: any): string => {
+    const sanitizeForFont = (text: string, testFont: PDFFont): string => {
       if (!text) return '';
       return Array.from(text)
         .map((ch) => {
@@ -481,7 +481,7 @@ export async function POST(req: NextRequest) {
     const maxLineWidth = pageWidth - margin * 2;
 
     // Calculate text width with Geist font
-    const widthOf = (f: any, size: number) => (s: string) => {
+    const widthOf = (f: PDFFont, size: number) => (s: string) => {
       if (!s) return 0;
       let totalWidth = 0;
 
@@ -520,7 +520,7 @@ export async function POST(req: NextRequest) {
     const citationIndex = new Map<string, number>();
     const citationText = new Map<string, string>();
 
-    const drawWrapped = (text: string, opts: { font: any; size: number; indent?: number }) => {
+    const drawWrapped = (text: string, opts: { font: PDFFont; size: number; indent?: number }) => {
       const indent = opts.indent ?? 0;
       const wFn = widthOf(opts.font, opts.size);
       const lines = wrapText(text, wFn, maxLineWidth - indent);
@@ -560,7 +560,7 @@ export async function POST(req: NextRequest) {
       _drawH?: number;
       _drawW?: number;
     };
-    const flattenInline = (tokens: any[] | undefined, baseFont: any, baseSize: number): Seg[] => {
+    const flattenInline = (tokens: any[] | undefined, baseFont: PDFFont, baseSize: number): Seg[] => {
       if (!tokens || !Array.isArray(tokens)) return [];
       const segs: Seg[] = [];
       const sanitize = (s: string) => (s || '').replace(/\r?\n/g, ' ');
@@ -735,7 +735,7 @@ export async function POST(req: NextRequest) {
         .replace(/\\Delta\b/g, 'Delta');
 
     // Parse inline math in plain text: handle $...$ and \(...\), leave others
-    function splitMathInline(input: string, baseFont: any, baseSize: number): Seg[] {
+    function splitMathInline(input: string, baseFont: PDFFont, baseSize: number): Seg[] {
       const segs: Seg[] = [];
       const s = input || '';
       let i = 0;
@@ -1487,7 +1487,7 @@ export async function POST(req: NextRequest) {
       const colWidth = Math.floor(maxLineWidth / nCols);
 
       // Build inline segments for a cell, preserving link citations
-      const buildTableSegmentsFromText = (text: string, baseFont: any, baseSize: number): Seg[] => {
+      const buildTableSegmentsFromText = (text: string, baseFont: PDFFont, baseSize: number): Seg[] => {
         const hasLatexCommand = /\\[A-Za-z]+/.test(text);
         const hasMathDelim = /\$|\\\(|\\\[/.test(text);
         if (hasLatexCommand && !hasMathDelim) {
@@ -1496,7 +1496,7 @@ export async function POST(req: NextRequest) {
         return splitMathInline(text, baseFont, baseSize);
       };
 
-      const toSegments = (cell: any, baseFont: any, baseSize: number): Seg[] => {
+      const toSegments = (cell: any, baseFont: PDFFont, baseSize: number): Seg[] => {
         if (Array.isArray(cell?.tokens)) {
           const segs: Seg[] = [];
           for (const tt of cell.tokens) {
@@ -1597,7 +1597,7 @@ export async function POST(req: NextRequest) {
       };
 
       // Measure row height and pre-wrapped lines for rendering
-      const measureRow = (cells: Seg[][], usedFont: any, usedSize: number) => {
+      const measureRow = (cells: Seg[][], usedFont: PDFFont, usedSize: number) => {
         const wraps: Seg[][][] = [];
         const lineHeights: number[][] = [];
         const lineGapInCell = Math.max(2, Math.round(usedSize * 0.2));
@@ -1625,7 +1625,7 @@ export async function POST(req: NextRequest) {
           rowHeight: number;
           lineGapInCell: number;
         },
-        usedFont: any,
+        usedFont: PDFFont,
         usedSize: number,
         shaded = false,
       ) => {

@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 import React, { Fragment, useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { sileo } from 'sileo';

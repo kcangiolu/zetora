@@ -51,6 +51,7 @@ import {
   type SearchResult,
 } from './self-hosted-content';
 import { type SearchProviderStrategy, SearchCategory, FastCrwSearchStrategy } from './fastcrw-search';
+import type { UserPreferenceValues } from '@/lib/db/schema';
 
 const log = createLogger('extreme-search');
 
@@ -138,7 +139,7 @@ async function createFileRetriever(
 
 async function buildFileRetrievers(
   files: { url: string; contentType: string; name?: string }[],
-  preferences: Record<string, unknown> | null,
+  preferences: UserPreferenceValues | null,
 ) {
   const retrieversByUrl = new Map<string, BaseRetriever>();
   const embeddingModel = await getFileEmbeddingModel(preferences);
@@ -685,7 +686,7 @@ async function extremeSearch(
   prompt: string,
   dataStream: UIMessageStreamWriter<ChatMessage> | undefined,
   files: FileContext[] = [],
-  preferences: Record<string, string> | null = null,
+  preferences: UserPreferenceValues | null = null,
   abortSignal?: AbortSignal,
 ): Promise<Research> {
   const allSources: SearchResult[] = [];
@@ -695,26 +696,25 @@ async function extremeSearch(
   const firecrawl = new FirecrawlApp({ apiKey: serverEnv.FIRECRAWL_API_KEY });
   const parallel = new Parallel({ apiKey: serverEnv.PARALLEL_API_KEY });
 
-  const prefs = preferences as Record<string, unknown> | null;
-  const metadataEnabled = prefs?.['zetora-fallback-metadata'] !== false;
+  const metadataEnabled = preferences?.['zetora-fallback-metadata'] !== false;
 
-  const searchProvider = resolveSearchProvider('extremeSearch', prefs?.['zetora-extreme-search-provider']);
+  const searchProvider = resolveSearchProvider('extremeSearch', preferences?.['zetora-extreme-search-provider']);
   if (!searchProvider) throw new Error('No Extreme Search provider is configured on this instance');
   const searchFallbackProvider =
-    prefs?.['zetora-extreme-search-fallback-enabled'] === true
+    preferences?.['zetora-extreme-search-fallback-enabled'] === true
       ? resolveFallbackSearchProvider(
           'extremeSearch',
-          prefs?.['zetora-extreme-search-fallback-provider'],
+          preferences?.['zetora-extreme-search-fallback-provider'],
           searchProvider,
         )
       : null;
 
-  const contentProvider = resolveSearchProvider('extremeContent', prefs?.['zetora-extreme-content-provider']);
+  const contentProvider = resolveSearchProvider('extremeContent', preferences?.['zetora-extreme-content-provider']);
   const contentFallbackProvider =
-    contentProvider && prefs?.['zetora-extreme-content-fallback-enabled'] === true
+    contentProvider && preferences?.['zetora-extreme-content-fallback-enabled'] === true
       ? resolveFallbackSearchProvider(
           'extremeContent',
-          prefs?.['zetora-extreme-content-fallback-provider'],
+          preferences?.['zetora-extreme-content-fallback-provider'],
           contentProvider,
         )
       : null;
@@ -832,20 +832,20 @@ ${hasFilesForPlanning ? '- Include file search steps when the uploaded files are
 
   const hasFiles = supportedFiles.length > 0 && fileRetrievers.size > 0;
   const baseActiveTools = [
-    'codeRunner',
-    'webSearch',
-    'browsePage',
-    ...(isToolAvailable('x_search') ? ['xSearch'] : []),
-    'thinking',
-    ...(hasFiles ? ['fileQuery'] : []),
-    'done',
+    'codeRunner' as const,
+    'webSearch' as const,
+    'browsePage' as const,
+    ...(isToolAvailable('x_search') ? (['xSearch'] as const) : []),
+    'thinking' as const,
+    ...(hasFiles ? (['fileQuery'] as const) : []),
+    'done' as const,
   ];
 
   // Local custom models are far slower per step (single-slot llama.cpp,
   // full prompt re-processing every round) — tighter step and retry budgets,
   // plus a wall-clock deadline so a run can never grow unbounded.
   const isCustomAgentModel = Boolean(
-    (preferences as Record<string, unknown> | null)?.['zetora-tertiary-extreme-agent-model']
+    preferences?.['zetora-tertiary-extreme-agent-model']
       ?.toString()
       ?.startsWith('custom-'),
   );
@@ -857,7 +857,7 @@ ${hasFilesForPlanning ? '- Include file search steps when the uploaded files are
     // Stop in the chat aborts the whole run, the agent's tool calls included.
     abortSignal,
     stopWhen: [stepCountIs(isCustomAgentModel ? 25 : 75), hasToolCall('done'), () => isPastDeadline(agentDeadline)],
-    activeTools: baseActiveTools as any,
+    activeTools: baseActiveTools,
     maxRetries: 2,
     system: `
 You are an autonomous deep research analyst. Your goal run a focused research plan thoroughly with the given tools.
@@ -1484,13 +1484,7 @@ ${JSON.stringify(plan)}
             };
           });
 
-          const searchMap = await all(
-            Object.fromEntries(
-              searchPromises.map((promise: Promise<any>, index: number) => [`q:${index}`, async () => promise]),
-            ),
-            getBetterAllOptions(),
-          );
-          const searches = queries.map((_: string, index: number) => searchMap[`q:${index}`]);
+          const searches = await Promise.all(searchPromises);
 
           return { searches };
         },
@@ -1767,11 +1761,7 @@ ${JSON.stringify(plan)}
                   }
                 });
 
-                const tweetMap = await all(
-                  Object.fromEntries(tweetFetchPromises.map((promise, idx) => [`t:${idx}`, async () => promise])),
-                  getBetterAllOptions(),
-                );
-                const tweetResults = tweetFetchPromises.map((_, idx) => tweetMap[`t:${idx}`]);
+                const tweetResults = await Promise.all(tweetFetchPromises);
 
                 const validTweets = tweetResults.filter((result) => result !== null);
 
@@ -1874,13 +1864,7 @@ ${JSON.stringify(plan)}
             }
           });
 
-          const searchMap = await all(
-            Object.fromEntries(
-              searchPromises.map((promise: Promise<any>, index: number) => [`q:${index}`, async () => promise]),
-            ),
-            getBetterAllOptions(),
-          );
-          const searches = queries.map((_: string, index: number) => searchMap[`q:${index}`]);
+          const searches = await Promise.all(searchPromises);
 
           return {
             searches,
@@ -1995,7 +1979,7 @@ export function extremeSearchTool(
       log.debug('extremeSearch called', { prompt, filesCount: files.length });
 
       const ctx = experimental_context as { userPreferences?: Record<string, string> } | undefined;
-      const extremePrefs = (ctx?.userPreferences ?? null) as Record<string, string> | null;
+      const extremePrefs = ctx?.userPreferences ?? null;
       const research = await extremeSearch(prompt, dataStream, files, extremePrefs, abortSignal);
 
       return {

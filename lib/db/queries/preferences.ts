@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { eq } from 'drizzle-orm';
-import { userPreferences } from '../schema';
+import { userPreferences, type UserPreferenceValues } from '../schema';
 import { ChatSDKError, databaseError } from '../../errors';
 import { maindb } from '../index';
 import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
@@ -91,67 +91,7 @@ export async function upsertUserPreferences({
   preferences,
 }: {
   userId: string;
-  preferences: Partial<{
-    'zetora-search-provider'?: 'exa' | 'parallel' | 'firecrawl' | 'searxng' | 'fastcrw';
-    'zetora-extreme-content-provider'?: 'exa' | 'firecrawl' | 'fastcrw' | 'notte' | 'parallel';
-    'zetora-group-order'?: string[];
-    'zetora-model-order-global'?: string[];
-    'zetora-blur-personal-info'?: boolean;
-    'zetora-custom-instructions-enabled'?: boolean;
-    'zetora-scroll-to-latest-on-open'?: boolean;
-    'zetora-auto-router-enabled'?: boolean;
-    'zetora-auto-router-config'?: {
-      routes: Array<{
-        name: string;
-        description: string;
-        model: string;
-      }>;
-    };
-    'zetora-custom-providers'?: Array<{
-      id: string;
-      name: string;
-      baseURL: string;
-      apiKey?: string;
-      disableAutoDetect?: boolean;
-      anonymize?: boolean;
-    }>;
-    'zetora-anonymization-enabled'?: boolean;
-    'zetora-anonymization-custom-terms'?: string[];
-    'zetora-anonymization-fail-open'?: boolean;
-    'zetora-anonymization-language'?: 'en' | 'fr';
-    'zetora-anonymization-ner-enabled'?: boolean;
-    'zetora-default-model'?: string;
-    'zetora-default-provider'?: string;
-    'zetora-embedding-enabled'?: boolean;
-    'zetora-file-embedding-provider'?: 'cohere' | 'custom';
-    'zetora-xml-tool-parsing-enabled'?: boolean;
-    'zetora-fallback-firecrawl-content'?: boolean;
-    'zetora-fallback-metadata'?: boolean;
-    'zetora-fallback-notte'?: boolean;
-    'zetora-fallback-exa-browse'?: boolean;
-    'zetora-fallback-search-firecrawl'?: boolean;
-    'zetora-fallback-retrieve-parallel'?: boolean;
-    'zetora-fallback-retrieve-firecrawl'?: boolean;
-    'zetora-fallback-retrieve-fastcrw'?: boolean;
-    'zetora-fallback-retrieve-exa'?: boolean;
-    'zetora-search-fallback-provider'?: 'firecrawl' | 'exa' | 'parallel' | 'searxng' | 'fastcrw' | 'none';
-    'zetora-voice-s2s-backend'?: 'cloud' | 'local';
-    'zetora-tertiary-voice-model'?: string;
-    'zetora-tertiary-voice-provider'?: string;
-    'zetora-memory-curator-enabled'?: boolean;
-    'zetora-tertiary-memory-curator-model'?: string;
-    'zetora-tertiary-memory-curator-provider'?: string;
-    'zetora-image-gen-custom-provider-id'?: string;
-    'zetora-image-gen-model'?: string;
-    'zetora-image-gen-request-body'?: string;
-    'zetora-image-gen-system-prompt'?: string;
-    'zetora-image-gen-prompt-presets'?: Array<{ id: string; name: string; prompt: string; model?: string }>;
-    'zetora-image-edit-custom-provider-id'?: string;
-    'zetora-image-edit-model'?: string;
-    'zetora-image-edit-request-body'?: string;
-    'zetora-image-edit-system-prompt'?: string;
-    'zetora-image-edit-prompt-presets'?: Array<{ id: string; name: string; prompt: string; model?: string }>;
-  }>;
+  preferences: UserPreferenceValues;
 }) {
   try {
     // Encrypt secret fields (custom-provider API keys) before they

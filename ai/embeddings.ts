@@ -3,6 +3,7 @@ import { cohere } from '@ai-sdk/cohere';
 import { createCustomProvider, getCustomProviders, parseCustomModelId } from '@/lib/custom-providers';
 import { ModelUnavailableError } from '@/ai/catalog/task-models';
 import { isConfigured } from '@/ai/catalog/env';
+import type { UserPreferenceValues } from '@/lib/db/schema';
 
 // Shared by both consumers below: resolves a `zetora-embedding-provider`
 // preference value (a "custom-{providerId}-{modelName}" id) to an AI SDK
@@ -35,7 +36,7 @@ export async function getEmbeddingModel(preferences: Record<string, unknown>) {
 // Used by file_query_search / extreme_search's document indexing, which
 // always need an embedding model: the user's custom one when
 // `zetora-file-embedding-provider` is 'custom', Cohere embed-v4.0 otherwise.
-export async function getFileEmbeddingModel(preferences: Record<string, unknown> | null | undefined) {
+export async function getFileEmbeddingModel(preferences: UserPreferenceValues | null | undefined) {
   if (preferences?.['zetora-file-embedding-provider'] === 'custom') {
     const custom = await resolveCustomEmbeddingModel(preferences['zetora-embedding-provider'] as string | undefined);
     if (!custom) {

@@ -3,130 +3,9 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useUser } from '@/contexts/user-context';
+import type { UserPreferenceValues } from '@/lib/db/schema';
 
-export type PreferenceKey =
-  | 'zetora-search-provider'
-  | 'zetora-group-order'
-  | 'zetora-model-order-global'
-  | 'zetora-blur-personal-info'
-  | 'zetora-custom-instructions-enabled'
-  | 'zetora-scroll-to-latest-on-open'
-  | 'zetora-auto-router-enabled'
-  | 'zetora-auto-router-config'
-  | 'zetora-anonymization-enabled'
-  | 'zetora-anonymization-custom-terms'
-  | 'zetora-anonymization-fail-open'
-  | 'zetora-anonymization-language'
-  | 'zetora-anonymization-ner-enabled'
-  | 'zetora-preferred-models'
-  | 'zetora-visible-modes'
-  | 'zetora-enabled-sources'
-  | 'zetora-disabled-skills'
-  | 'zetora-default-group'
-  | 'zetora-extreme-search-provider'
-  | 'zetora-extreme-search-fallback-enabled'
-  | 'zetora-extreme-search-fallback-provider'
-  | 'zetora-extreme-content-provider'
-  | 'zetora-extreme-content-fallback-enabled'
-  | 'zetora-extreme-content-fallback-provider'
-  | 'zetora-search-stack'
-  | 'zetora-embedding-provider'
-  | 'zetora-embedding-model'
-  | 'zetora-file-embedding-provider'
-  | 'zetora-qdrant-enabled'
-  | 'zetora-tertiary-chat-title-model'
-  | 'zetora-tertiary-chat-title-provider'
-  | 'zetora-tertiary-chat-title-effort'
-  | 'zetora-tertiary-chat-title-enabled'
-  | 'zetora-tertiary-followup-model'
-  | 'zetora-tertiary-followup-provider'
-  | 'zetora-tertiary-followup-effort'
-  | 'zetora-tertiary-followup-enabled'
-  | 'zetora-tertiary-enhance-model'
-  | 'zetora-tertiary-enhance-provider'
-  | 'zetora-tertiary-enhance-effort'
-  | 'zetora-tertiary-tool-repair-model'
-  | 'zetora-tertiary-tool-repair-provider'
-  | 'zetora-tertiary-tool-repair-effort'
-  | 'zetora-tertiary-auto-router-model'
-  | 'zetora-tertiary-auto-router-provider'
-  | 'zetora-tertiary-auto-router-effort'
-  | 'zetora-tertiary-translate-text-model'
-  | 'zetora-tertiary-translate-text-provider'
-  | 'zetora-tertiary-translate-text-effort'
-  | 'zetora-tertiary-translate-vision-model'
-  | 'zetora-tertiary-translate-vision-provider'
-  | 'zetora-tertiary-translate-vision-effort'
-  | 'zetora-tertiary-lang-detect-model'
-  | 'zetora-tertiary-lang-detect-provider'
-  | 'zetora-tertiary-lang-detect-effort'
-  | 'zetora-tertiary-extreme-planner-model'
-  | 'zetora-tertiary-extreme-planner-provider'
-  | 'zetora-tertiary-extreme-planner-effort'
-  | 'zetora-tertiary-extreme-agent-model'
-  | 'zetora-tertiary-extreme-agent-provider'
-  | 'zetora-tertiary-extreme-agent-effort'
-  | 'zetora-default-model'
-  | 'zetora-default-provider'
-  | 'zetora-default-effort'
-  | 'zetora-embedding-enabled'
-  | 'zetora-hybrid-search-enabled'
-  | 'zetora-content-indexing-enabled'
-  | 'zetora-rerank-enabled'
-  | 'zetora-xml-tool-parsing-enabled'
-  | 'zetora-lookout-enabled'
-  | 'zetora-voice-enabled'
-  | 'zetora-apps-enabled'
-  | 'zetora-canvas-enabled'
-  | 'zetora-fallback-metadata'
-  | 'zetora-fallback-notte'
-  | 'zetora-fallback-search-firecrawl'
-  | 'zetora-retrieve-provider'
-  | 'zetora-retrieve-fallback-enabled'
-  | 'zetora-retrieve-fallback-provider'
-  | 'zetora-reddit-search-provider'
-  | 'zetora-reddit-search-fallback-enabled'
-  | 'zetora-reddit-search-fallback-provider'
-  | 'zetora-search-fallback-provider'
-  | 'zetora-github-search-provider'
-  | 'zetora-github-search-fallback-enabled'
-  | 'zetora-github-search-fallback-provider'
-  | 'zetora-academic-search-provider'
-  | 'zetora-academic-search-fallback-enabled'
-  | 'zetora-academic-search-fallback-provider'
-  | 'zetora-tts-provider'
-  | 'zetora-tts-custom-provider-id'
-  | 'zetora-tts-openai-model'
-  | 'zetora-tts-openai-voice'
-  | 'zetora-tts-openai-language'
-  | 'zetora-stt-provider'
-  | 'zetora-stt-custom-provider-id'
-  | 'zetora-stt-openai-model'
-  | 'zetora-image-gen-custom-provider-id'
-  | 'zetora-image-gen-model'
-  | 'zetora-image-gen-request-body'
-  | 'zetora-image-edit-custom-provider-id'
-  | 'zetora-image-edit-model'
-  | 'zetora-image-edit-request-body'
-  | 'zetora-image-gen-system-prompt'
-  | 'zetora-image-gen-prompt-presets'
-  | 'zetora-image-edit-system-prompt'
-  | 'zetora-image-edit-prompt-presets'
-  | 'zetora-voice-s2s-backend'
-  | 'zetora-tertiary-voice-model'
-  | 'zetora-tertiary-voice-provider'
-  | 'zetora-tertiary-voice-effort'
-  | 'zetora-memory-enabled'
-  | 'zetora-memory-curator-enabled'
-  | 'zetora-tertiary-memory-curator-model'
-  | 'zetora-tertiary-memory-curator-provider'
-  | 'zetora-tertiary-memory-curator-effort'
-  | 'zetora-tertiary-context-compaction-enabled'
-  | 'zetora-tertiary-context-compaction-model'
-  | 'zetora-tertiary-context-compaction-provider'
-  | 'zetora-tertiary-context-compaction-effort'
-  | 'zetora-system-prompt-override'
-  | 'zetora-system-prompt-presets';
+export type PreferenceKey = keyof UserPreferenceValues;
 
 type AutoRouterConfig = {
   routes: Array<{
@@ -266,7 +145,6 @@ function collectLocalStoragePreferences(): Partial<Record<PreferenceKey, Prefere
     'zetora-disabled-skills',
     'zetora-default-group',
     'zetora-extreme-content-provider',
-    'zetora-search-stack',
     'zetora-embedding-provider',
     'zetora-embedding-model',
     'zetora-qdrant-enabled',
@@ -352,16 +230,10 @@ export function useSyncedPreferences<T extends PreferenceValue>(
 
     const stored = getStoredValue(key, defaultValue);
     if (hasChanged(stored, defaultValue)) {
-      // Intentional: this is the client-only sync from an external system
-      // (localStorage) the hydration-mismatch fix above requires — not a
-      // derived-state anti-pattern.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- client-only sync from localStorage after hydration
       applyLocalValue(stored);
     }
-    // Runs once per mount (per preference key) — intentionally not re-run when
-    // `defaultValue` changes, since callers often pass a fresh array/object
-    // literal each render and re-running would fight the debounced DB sync.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per key: callers pass fresh defaultValue literals, re-running would fight the DB sync
   }, [key]);
 
   // Fetch preferences from DB

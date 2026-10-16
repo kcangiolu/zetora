@@ -110,10 +110,7 @@ function useAnimation(
         cancelAnimationFrame(frameIdRef.current);
       }
     };
-    // Depend on the individual options fields instead of `options` itself —
-    // callers pass a fresh object literal each render, so tracking the whole
-    // object would restart the animation loop every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- callers pass a fresh options literal each render; tracking it whole would restart the loop
   }, [frames, isPlaying, options.fps, options.loop, options.onFrame]);
 
   useEffect(() => {

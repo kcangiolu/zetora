@@ -1,4 +1,4 @@
-import { ModelMessage } from 'ai';
+import type { FileUIPart, ImagePart, ModelMessage, TextPart, UserContent, UserModelMessage } from 'ai';
 import { fetchAttachment } from '@/lib/net/attachment-fetch';
 
 export type AttachmentRef = { url: string; contentType: string; name?: string };
@@ -26,6 +26,32 @@ export type GeneratedImageRef = ContextImageRef & {
   seed?: number;
 };
 
+// Zetora's file parts carry the original file name next to the SDK's fields.
+type NamedFilePart = FileUIPart & { name?: string };
+
+type ImageToolPart = {
+  type: 'tool-generate_image' | 'tool-edit_image';
+  state: string;
+  toolCallId?: string;
+  output?: { success?: boolean; imageUrl?: string; prompt?: string; seed?: number };
+};
+
+type MessagePartLike = { type: string } & Record<string, unknown>;
+
+function isFilePart(part: MessagePartLike): part is NamedFilePart & MessagePartLike {
+  return part.type === 'file';
+}
+
+function isImageToolPart(part: MessagePartLike): part is ImageToolPart & MessagePartLike {
+  return part.type === 'tool-generate_image' || part.type === 'tool-edit_image';
+}
+
+function isUserMessage(msg: ModelMessage): msg is UserModelMessage {
+  return msg.role === 'user';
+}
+
+type UserContentPart = Exclude<UserContent, string>[number];
+
 export const DOCUMENT_MIME_TYPES = [
   'application/pdf',
   'text/csv',
@@ -43,7 +69,7 @@ export const DOCUMENT_MIME_TYPES = [
 // a `file` part, so they are collected separately into contextGeneratedImages; the
 // caller injects them as image parts (appendGeneratedImagePartsToLastUserMessage).
 export function collectAttachments(
-  messages: Array<{ id?: string; role?: string; parts?: unknown }>,
+  messages: ReadonlyArray<{ id?: string; role?: string; parts?: ReadonlyArray<MessagePartLike> }>,
   hiddenImageUrls?: Set<string>,
 ): {
   contextFiles: AttachmentRef[];
@@ -68,10 +94,9 @@ export function collectAttachments(
   let turnIndex = 0;
   for (const msg of messages) {
     if (msg.role === 'user') turnIndex++;
-    const parts = (msg.parts as any[]) ?? [];
-    for (const part of parts) {
-      if (part.type === 'file') {
-        const filePart = part as any;
+    for (const part of msg.parts ?? []) {
+      if (isFilePart(part)) {
+        const filePart = part;
         const mediaType = filePart.mediaType || '';
         const url = filePart.url || '';
         if (!url) continue;
@@ -97,8 +122,8 @@ export function collectAttachments(
           seenOtherUrls.add(url);
           otherFileParts.push({ url, contentType: mediaType, name: filePart.name });
         }
-      } else if (part.type === 'tool-generate_image' || part.type === 'tool-edit_image') {
-        const toolPart = part as any;
+      } else if (isImageToolPart(part)) {
+        const toolPart = part;
         if (toolPart.state !== 'output-available' || !toolPart.output?.success) continue;
         const url = toolPart.output.imageUrl || '';
         if (!url || hiddenImageUrls?.has(url)) continue;
@@ -132,14 +157,10 @@ function documentMime(mediaType: string): boolean {
 // injected as text by the route). Images are the only part kept in the
 // content array, and only when Vision is on.
 export function stripFilePartsForModel(messages: ModelMessage[], visionEnabled: boolean): ModelMessage[] {
-  return messages.map((msg: any) => {
-    if (msg.role === 'user' && Array.isArray(msg.content)) {
-      const filteredContent = msg.content.filter((part: any) => {
-        if (part.type === 'file') {
-          const mediaType = part.mimeType || part.mediaType || '';
-          if (mediaType.startsWith('image/')) return visionEnabled;
-          return false;
-        }
+  return messages.map((msg) => {
+    if (isUserMessage(msg) && Array.isArray(msg.content)) {
+      const filteredContent = msg.content.filter((part) => {
+        if (part.type === 'file') return part.mediaType.startsWith('image/') && visionEnabled;
         return true;
       });
       return { ...msg, content: filteredContent };
@@ -163,9 +184,9 @@ export function appendGeneratedImagePartsToLastUserMessage(
 ): void {
   if (images.length === 0) return;
   for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i] as any;
-    if (msg.role !== 'user') continue;
-    const labeledParts = images.flatMap((img, idx) => [
+    const msg = messages[i];
+    if (!isUserMessage(msg)) continue;
+    const labeledParts = images.flatMap((img, idx): Array<TextPart | ImagePart> => [
       { type: 'text', text: buildGeneratedImageLabel(img, idx, images.length, currentTurnIndex) },
       { type: 'image', image: img.url, mediaType: img.contentType },
     ]);
@@ -214,10 +235,10 @@ export function labelUploadedImagesInPlace(
   const total = uploadedImages.length;
   const ordinalByUrl = new Map(uploadedImages.map((img, idx) => [img.url, idx + 1]));
 
-  for (const msg of messages as any[]) {
-    if (msg.role !== 'user' || !Array.isArray(msg.content)) continue;
+  for (const msg of messages) {
+    if (!isUserMessage(msg) || !Array.isArray(msg.content)) continue;
     let touched = false;
-    const labeled: any[] = [];
+    const labeled: UserContentPart[] = [];
     for (const part of msg.content) {
       // convertToModelMessages puts a file part's URL in `data`.
       if (part.type === 'file' && typeof part.data === 'string' && ordinalByUrl.has(part.data)) {
@@ -294,20 +315,20 @@ export function reconcileImageReferencesAfterPruning({
       : '';
 
   for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i] as any;
-    if (msg.role !== 'user') continue;
+    const msg = messages[i];
+    if (!isUserMessage(msg)) continue;
 
     if (Array.isArray(msg.content)) {
       if (droppedGeneratedUrls.size > 0) {
-        const kept: any[] = [];
+        const kept: UserContentPart[] = [];
         for (let idx = 0; idx < msg.content.length; idx++) {
           const part = msg.content[idx];
           const next = msg.content[idx + 1];
-          if (part.type === 'text' && next?.type === 'image' && droppedGeneratedUrls.has(next.image)) {
+          if (part.type === 'text' && next?.type === 'image' && isDroppedImage(next, droppedGeneratedUrls)) {
             idx++; // also skip the paired image part
             continue;
           }
-          if (part.type === 'image' && droppedGeneratedUrls.has(part.image)) continue;
+          if (part.type === 'image' && isDroppedImage(part, droppedGeneratedUrls)) continue;
           kept.push(part);
         }
         msg.content = kept;
@@ -315,20 +336,25 @@ export function reconcileImageReferencesAfterPruning({
       // Not just "the last text part": once generated-image labels sit after
       // it in the array, that would grab a label instead of the text part
       // that actually holds the instruction blob.
-      const targetIndex = msg.content.findIndex(
-        (p: any) => p.type === 'text' && typeof p.text === 'string' && p.text.includes(previousImageInstruction),
+      const target = msg.content.find(
+        (p): p is TextPart => p.type === 'text' && p.text.includes(previousImageInstruction),
       );
-      if (targetIndex >= 0) {
-        msg.content[targetIndex] = {
-          ...msg.content[targetIndex],
-          text: msg.content[targetIndex].text.split(previousImageInstruction).join(newImageInstruction),
-        };
+      if (target) {
+        msg.content = msg.content.map((p) =>
+          p === target ? { ...target, text: target.text.split(previousImageInstruction).join(newImageInstruction) } : p,
+        );
       }
     } else if (typeof msg.content === 'string') {
       msg.content = msg.content.split(previousImageInstruction).join(newImageInstruction);
     }
     return;
   }
+}
+
+// Generated images are added with their URL as a string (see
+// appendGeneratedImagePartsToLastUserMessage).
+function isDroppedImage(part: ImagePart, droppedUrls: Set<string>): boolean {
+  return typeof part.image === 'string' && droppedUrls.has(part.image);
 }
 
 // Whether an "other" attachment is actually text is only known once we try to

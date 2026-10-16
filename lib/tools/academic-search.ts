@@ -4,7 +4,6 @@ import { serverEnv } from '@/env/server';
 import { UIMessageStreamWriter } from 'ai';
 import { ChatMessage } from '@/lib/types';
 import { all } from 'better-all';
-import { getBetterAllOptions } from '@/lib/better-all';
 
 import Firecrawl, { SearchResultWeb } from '@mendable/firecrawl-js';
 import Exa from 'exa-js';
@@ -255,11 +254,7 @@ export function academicSearchTool(
           }
         });
 
-        const searchMap = await all(
-          Object.fromEntries(searchPromises.map((promise, index) => [`q:${index}`, async () => promise])),
-          getBetterAllOptions(),
-        );
-        const searches = queries.map((_, index) => searchMap[`q:${index}`]);
+        const searches = await Promise.all(searchPromises);
 
         return {
           searches,

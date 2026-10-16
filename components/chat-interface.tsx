@@ -12,7 +12,7 @@ import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { UserCircleIcon } from '@hugeicons/core-free-icons';
 import { PlusIcon } from '@phosphor-icons/react';
 import { useRouter, usePathname } from 'next/navigation';
-import { parseAsString, useQueryState } from 'nuqs';
+import { parseAsString, parseAsStringLiteral, useQueryState } from 'nuqs';
 import { sileo } from 'sileo';
 import { v7 as uuidv7 } from 'uuid';
 
@@ -74,7 +74,7 @@ import { useSessionPreference } from '@/hooks/use-session-preference';
 
 // Utility and type imports
 import { ChatSDKError } from '@/lib/errors';
-import { cn, SearchGroupId } from '@/lib/utils';
+import { cn, SEARCH_GROUP_IDS, SearchGroupId } from '@/lib/utils';
 import { AUTO_MODEL_ID, DEFAULT_MODEL_ALIAS } from '@/ai/models';
 import { useModels } from '@/hooks/use-models';
 
@@ -124,7 +124,8 @@ const ChatInterface = memo(
     const { state } = useSidebar();
     const [query] = useQueryState('query', parseAsString.withDefault(''));
     const [q] = useQueryState('q', parseAsString.withDefault(''));
-    const [groupParam] = useQueryState('group', parseAsString.withDefault(''));
+    // An unknown ?group= value parses to null and is ignored.
+    const [groupParam] = useQueryState('group', parseAsStringLiteral(SEARCH_GROUP_IDS));
     const [input, setInput] = useLocalStorage<string>('zetora-draft-input', '');
     const [localChatTitle, setLocalChatTitle] = useState<string>(chatTitle || (initialChatId ? 'Chat' : 'New Chat'));
     const [hiddenImageUrls, setHiddenImageUrls] = useState<Set<string>>(() => new Set(initialHiddenImageUrls ?? []));
@@ -213,14 +214,12 @@ const ChatInterface = memo(
       'zetora-default-group',
       'auto' as SearchGroupId,
     );
-    const initialGroupDefault = (
-      groupParam ? (groupParam as unknown as SearchGroupId) : defaultGroupPreference
-    ) as SearchGroupId;
+    const initialGroupDefault = groupParam ?? defaultGroupPreference;
     const [selectedGroup, setSelectedGroup] = useLocalStorage<SearchGroupId>(
       'zetora-selected-group',
       initialGroupDefault,
     );
-    const rawSelectedGroup = (groupParam ? (groupParam as unknown as SearchGroupId) : selectedGroup) as SearchGroupId;
+    const rawSelectedGroup = groupParam ?? selectedGroup;
     // Set the moment this chat's first message is submitted, by whichever lane sent it — the
     // first message decides, so a later one never changes it. A brand-new chat gets no
     // server render (its URL is swapped in with history.replaceState, nothing remounts), so

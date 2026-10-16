@@ -1,6 +1,5 @@
 'use client';
 
-/* eslint-disable @next/next/no-img-element */
 import React, { useState, useMemo } from 'react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';

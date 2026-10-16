@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { ReasoningUIPart } from 'ai';
+import type { DynamicToolUIPart, ReasoningUIPart } from 'ai';
 import { MarkdownRenderer } from '@/components/markdown';
 import { AppsIcon } from '@/components/icons/apps-icon';
 import { Button } from '@/components/ui/button';
@@ -28,20 +28,26 @@ import {
 } from './mcp';
 
 export type McpTimelineEntry =
-  | { kind: 'tool'; part: any; originalIndex: number; id: string }
+  | { kind: 'tool'; part: DynamicToolUIPart; originalIndex: number; id: string }
   | { kind: 'reasoning'; text: string; state?: ReasoningUIPart['state']; id: string }
   | { kind: 'text'; text: string; id: string };
+
+// MCP tool inputs are arbitrary JSON; only an object can be shown as pills.
+function asToolInput(input: unknown): Record<string, unknown> | undefined {
+  return input && typeof input === 'object' && !Array.isArray(input) ? (input as Record<string, unknown>) : undefined;
+}
 
 export const DynamicToolInvocationCard = ({
   part,
   compact = false,
   sendMessage,
 }: {
-  part: any;
+  part: DynamicToolUIPart;
   compact?: boolean;
   sendMessage?: UseChatHelpers<ChatMessage>['sendMessage'];
 }) => {
   const toolLabel = formatDynamicToolName(part.type, part.toolName);
+  const toolInput = asToolInput(part.input);
   const hasRawOutput = 'output' in part && part.output !== undefined;
   const isStreaming = part.state === 'input-streaming' || part.state === 'input-available';
   const isError = part.state === 'output-error';
@@ -65,9 +71,9 @@ export const DynamicToolInvocationCard = ({
           </span>
           <Spinner className="h-3 w-3 text-muted-foreground/40 shrink-0 ml-auto" />
         </div>
-        {part.input && Object.keys(part.input).length > 0 && (
+        {toolInput && Object.keys(toolInput).length > 0 && (
           <div className="px-4 pb-4">
-            <McpInputPill input={part.input} />
+            <McpInputPill input={toolInput} />
           </div>
         )}
       </div>
@@ -133,16 +139,16 @@ export const DynamicToolInvocationCard = ({
           {appOutput ? (
             <McpAppOutputBlock
               app={appOutput}
-              toolInput={part.input}
+              toolInput={toolInput}
               toolOutput={part.output}
               sendMessage={sendMessage}
             />
           ) : (
             <>
               {/* Input pills */}
-              {part.input && Object.keys(part.input).length > 0 && (
+              {toolInput && Object.keys(toolInput).length > 0 && (
                 <div className="px-3.5 py-2 border-b border-border/30">
-                  <McpInputPill input={part.input} />
+                  <McpInputPill input={toolInput} />
                 </div>
               )}
               {/* Approval card or raw output */}
@@ -417,7 +423,7 @@ export const DynamicToolStepper = ({
                   <McpAppOutputBlock
                     key={entry.id ?? idx}
                     app={appData}
-                    toolInput={entry.part.input}
+                    toolInput={asToolInput(entry.part.input)}
                     toolOutput={entry.part.output}
                     sendMessage={sendMessage}
                   />

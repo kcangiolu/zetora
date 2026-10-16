@@ -1,6 +1,6 @@
 import React, { memo, useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import isEqual from 'fast-deep-equal';
-import { ReasoningUIPart, DataUIPart, isStaticToolUIPart } from 'ai';
+import { ReasoningUIPart, DataUIPart, isStaticToolUIPart, type DynamicToolUIPart } from 'ai';
 import { ReasoningPartView } from '@/components/reasoning-part';
 import { MarkdownRenderer } from '@/components/markdown';
 import { ChatTextHighlighter } from '@/components/chat-text-highlighter';
@@ -123,6 +123,11 @@ import { HermesPromptCard } from './hermes-prompt';
 import { HermesMediaCard } from './hermes-media';
 import { DynamicToolInvocationCard, DynamicToolStepper, CanvasSpecRenderer, CodeContextTool } from './tools';
 import type { McpTimelineEntry } from './tools';
+
+// Non-empty text of a message, one entry per text part, for exports.
+function getMessageTextParts(message: ChatMessage): string[] {
+  return message.parts.flatMap((p) => (p.type === 'text' && p.text.trim() ? [p.text.trim()] : []));
+}
 
 type SourceUIPart = {
   type: 'source-url';
@@ -353,12 +358,9 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
     const router = useRouter();
     const queryClient = useQueryClient();
     const isMobile = useIsMobile();
-    // inlineElicitationVersion isn't read in the body — it's a manual
-    // invalidation counter that forces recomputation when
-    // ignoredInlineElicitationIdsRef.current (a ref) changes.
     const inlineElicitations = useMemo(
       () => getPendingInlineElicitations(dataStream ?? [], ignoredInlineElicitationIdsRef.current),
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- inlineElicitationVersion invalidates the memo when the ignored-ids ref changes
       [dataStream, inlineElicitationVersion],
     );
     const meta = message?.metadata;
@@ -446,7 +448,6 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                 {index + 1}
               </div>
               <div className="flex h-7 w-7 items-center justify-center rounded-md border border-border/50 bg-background/80 shrink-0 overflow-hidden">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={favicon}
                   alt=""
@@ -1064,8 +1065,8 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
 
                                 // Branch out the chat
                                 const result = await branchOutChat({
-                                  userMessage: userMessage as any,
-                                  assistantMessage: message as any,
+                                  userMessage,
+                                  assistantMessage: message,
                                 });
 
                                 if (result.success && result.chatId) {
@@ -1125,10 +1126,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                         className="cursor-pointer gap-2"
                         onClick={async () => {
                           try {
-                            const textParts = (message.parts || [])
-                              .filter((p) => p.type === 'text' && (p as any).text)
-                              .map((p: any) => String(p.text).trim())
-                              .filter((s: string) => s.length > 0);
+                            const textParts = getMessageTextParts(message);
                             const content = textParts.join('\n\n');
                             if (!content) {
                               sileo.error({
@@ -1144,7 +1142,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                               content,
                               meta: {
                                 modelLabel: modelLabel || null,
-                                createdAt: (message as any)?.createdAt || Date.now(),
+                                createdAt: message.metadata?.createdAt ?? Date.now(),
                               },
                             };
 
@@ -1188,10 +1186,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                         className="cursor-pointer gap-2"
                         onClick={async () => {
                           try {
-                            const textParts = (message.parts || [])
-                              .filter((p) => p.type === 'text' && (p as any).text)
-                              .map((p: any) => String(p.text).trim())
-                              .filter((s: string) => s.length > 0);
+                            const textParts = getMessageTextParts(message);
                             const content = textParts.join('\n\n');
                             if (!content) {
                               sileo.error({
@@ -1207,7 +1202,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                               content,
                               meta: {
                                 modelLabel: modelLabel || null,
-                                createdAt: (message as any)?.createdAt || Date.now(),
+                                createdAt: message.metadata?.createdAt ?? Date.now(),
                               },
                             };
 
@@ -1251,10 +1246,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                         className="cursor-pointer gap-2"
                         onClick={() => {
                           try {
-                            const textParts = (message.parts || [])
-                              .filter((p) => p.type === 'text' && (p as any).text)
-                              .map((p: any) => String(p.text).trim())
-                              .filter((s: string) => s.length > 0);
+                            const textParts = getMessageTextParts(message);
                             const content = textParts.join('\n\n');
                             if (!content) {
                               sileo.error({
@@ -1505,7 +1497,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
     if (part.type === 'reasoning') {
       const mcpDynamicToolIndices = parts
         .map((messagePart, index) =>
-          messagePart.type === 'dynamic-tool' && (messagePart as any).toolName?.startsWith('mcp_') ? index : -1,
+          messagePart.type === 'dynamic-tool' && messagePart.toolName.startsWith('mcp_') ? index : -1,
         )
         .filter((index) => index >= 0);
 
@@ -1528,8 +1520,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
           (messagePart, index) =>
             index > lastMcpToolIndex &&
             messagePart.type === 'text' &&
-            typeof (messagePart as any).text === 'string' &&
-            (messagePart as any).text.trim().length > 50,
+            messagePart.text.trim().length > 50,
         );
         const mcpTimelineEndIndex = finalTextIndex === -1 ? parts.length - 1 : finalTextIndex - 1;
 
@@ -1594,7 +1585,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
       );
       const parallelTool = hasParallelToolInvocation
         ? (() => {
-            const firstToolPart = parts.find((p: ChatMessage['parts'][number]) => isToolPartType(p.type)) as any;
+            const firstToolPart = parts.find((p: ChatMessage['parts'][number]) => isToolPartType(p.type));
             if (!firstToolPart) return null;
             if (firstToolPart.type === 'dynamic-tool')
               return formatDynamicToolName('dynamic-tool', firstToolPart.toolName);
@@ -1709,7 +1700,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
     if (part.type === 'dynamic-tool') {
       const mcpDynamicToolIndices = parts
         .map((messagePart, index) =>
-          messagePart.type === 'dynamic-tool' && (messagePart as any).toolName?.startsWith('mcp_') ? index : -1,
+          messagePart.type === 'dynamic-tool' && messagePart.toolName.startsWith('mcp_') ? index : -1,
         )
         .filter((index) => index >= 0);
 
@@ -1732,11 +1723,10 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
           (messagePart, index) =>
             index > lastMcpToolIndex &&
             messagePart.type === 'text' &&
-            typeof (messagePart as any).text === 'string' &&
-            (messagePart as any).text.trim().length > 50,
+            messagePart.text.trim().length > 50,
         );
         const mcpTimelineEndIndex = finalTextIndex === -1 ? parts.length - 1 : finalTextIndex - 1;
-        const currentPartIsMcpTool = (part as any).toolName?.startsWith('mcp_');
+        const currentPartIsMcpTool = part.toolName.startsWith('mcp_');
 
         if (!currentPartIsMcpTool) {
           return <DynamicToolInvocationCard part={part} />;
@@ -1750,9 +1740,9 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
         let cursor = mcpTimelineStartIndex;
 
         while (cursor <= mcpTimelineEndIndex) {
-          const currentPart = parts[cursor] as any;
+          const currentPart = parts[cursor];
 
-          if (currentPart?.type === 'dynamic-tool' && currentPart?.toolName?.startsWith('mcp_')) {
+          if (currentPart?.type === 'dynamic-tool' && currentPart.toolName.startsWith('mcp_')) {
             entries.push({
               kind: 'tool',
               part: currentPart,
@@ -1876,26 +1866,26 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
         }
       }
 
-      const isUngroupedDynamicTool = (messagePart: unknown) =>
-        (messagePart as { type?: string }).type === 'dynamic-tool';
+      const isUngroupedDynamicTool = (messagePart: ChatMessage['parts'][number]): messagePart is DynamicToolUIPart =>
+        messagePart.type === 'dynamic-tool';
 
       const firstDynamicToolIndex = parts.findIndex(isUngroupedDynamicTool);
       if (partIndex !== firstDynamicToolIndex) {
         return null;
       }
 
-      const dynamicSequenceEntries = parts
-        .map((messagePart, index) =>
-          isUngroupedDynamicTool(messagePart)
-            ? {
-                kind: 'tool' as const,
+      const dynamicSequenceEntries = parts.flatMap((messagePart, index): McpTimelineEntry[] =>
+        isUngroupedDynamicTool(messagePart)
+          ? [
+              {
+                kind: 'tool',
                 part: messagePart,
                 originalIndex: index,
-                id: (messagePart as any).toolCallId || `dynamic-tool-${messageIndex}-${index}`,
-              }
-            : null,
-        )
-        .filter((entry): entry is { kind: 'tool'; part: any; originalIndex: number; id: string } => Boolean(entry));
+                id: messagePart.toolCallId || `dynamic-tool-${messageIndex}-${index}`,
+              },
+            ]
+          : [],
+      );
 
       if (dynamicSequenceEntries.length > 1) {
         return (
@@ -2592,11 +2582,11 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                         ? {
                             ...xSearchOutput,
                             searches:
-                              xSearchOutput.searches?.map((search: any) => ({
+                              xSearchOutput.searches?.map((search) => ({
                                 ...search,
                                 query: search.query || '',
                                 sources:
-                                  search.sources?.filter((s: any): s is NonNullable<typeof s> => s !== null) || [],
+                                  search.sources?.filter((s): s is NonNullable<typeof s> => s !== null) || [],
                                 citations: (search.citations ?? []).map(normalizeCitation).filter(Boolean),
                               })) || [],
                             dateRange: xSearchOutput.dateRange || '',
@@ -2638,7 +2628,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                 };
 
                 const normalizedResults = Array.isArray(part.output?.results)
-                  ? part.output.results.map((video: any) => {
+                  ? part.output.results.map((video) => {
                       if (!video) return video;
                       if (video.stats) return video;
                       const views = parseLegacyCount(video.views);
@@ -2750,8 +2740,8 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
 
                     {/* Results list */}
                     <div className="">
-                      {results.map((memory: any, index: number) => (
-                        <div key={memory.id || memory.uuid || index} className="px-4 py-2">
+                      {results.map((memory, index) => (
+                        <div key={memory.id || index} className="px-4 py-2">
                           <p className="text-xs text-[hsl(var(--muted-foreground))] line-clamp-2">
                             • {memory.memory}
                           </p>

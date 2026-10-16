@@ -70,7 +70,6 @@ const SourceLogo: React.FC<{ source: 'Polymarket' | 'Kalshi'; className?: string
   }
   return (
     <div className={cn('flex items-center justify-center rounded-full overflow-hidden', className)}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/kalshi-logo.svg" alt="Kalshi" width={20} height={20} className="object-contain" />
     </div>
   );

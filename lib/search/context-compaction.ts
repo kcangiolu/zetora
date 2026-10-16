@@ -11,6 +11,7 @@ import {
 } from '@/lib/search/context-budget';
 import { upsertCompactionSummaryMessage } from '@/lib/db/queries/chat';
 import { createLogger } from '@/lib/logger';
+import type { UserPreferenceValues } from '@/lib/db/schema';
 
 const log = createLogger('context-compaction');
 
@@ -68,7 +69,7 @@ export async function maybeCompactContext({
   hydratedMessages: ChatMessage[];
   estimatedTokens: number;
   contextBudget: number;
-  preferences: Record<string, unknown> | null | undefined;
+  preferences: UserPreferenceValues | null | undefined;
   userId?: string;
 }): Promise<CompactionOutcome> {
   if (preferences?.['zetora-tertiary-context-compaction-enabled'] === false) {
@@ -114,7 +115,7 @@ export async function maybeCompactContext({
 
     const compactionModel = await resolveTertiaryModel(
       'context-compaction',
-      (preferences as Record<string, string>) ?? null,
+      preferences ?? null,
       userId,
     );
     const foldInTokens = estimateTokenCount(promptMessages);

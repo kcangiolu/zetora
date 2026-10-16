@@ -65,7 +65,7 @@ export async function suggestQuestions(rawHistory: unknown) {
   const history = suggestionHistorySchema.parse(rawHistory);
 
   const suggestPrefs = await getCachedUserPreferencesByUserId(suggestUser.id);
-  const suggestPrefsMap = (suggestPrefs?.preferences ?? {}) as Record<string, string>;
+  const suggestPrefsMap = suggestPrefs?.preferences ?? {};
 
   if (suggestPrefs?.preferences?.['zetora-tertiary-followup-enabled'] === false) {
     return { questions: [] };
@@ -209,7 +209,7 @@ Output requirements:
 - No quotes, no commentary, no markdown, and no preface.`;
 
     const enhancePrefs = await getCachedUserPreferencesByUserId(auth.userId);
-    const enhancePrefsMap = (enhancePrefs?.preferences ?? {}) as Record<string, string>;
+    const enhancePrefsMap = enhancePrefs?.preferences ?? {};
 
     const { text } = await generateText({
       model: await resolveTertiaryModel('enhance', enhancePrefsMap, auth.userId),

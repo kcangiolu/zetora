@@ -5,6 +5,7 @@ import { fetchCustomProvider } from '@/lib/custom-providers';
 import { fetchAttachment } from '@/lib/net/attachment-fetch';
 
 import { createLogger } from '@/lib/logger';
+import type { UserPreferenceValues } from '@/lib/db/schema';
 
 const log = createLogger('edit-image');
 
@@ -16,7 +17,7 @@ interface CustomProviderConfig {
 }
 
 interface ToolContext {
-  userPreferences?: Record<string, unknown>;
+  userPreferences?: UserPreferenceValues;
   userId?: string;
   chatId?: string;
   images?: { url: string; contentType: string; name?: string }[];
@@ -48,8 +49,8 @@ export const editImageTool = tool({
       return { success: false as const, error: 'No image to edit — attach an image first.' };
     }
 
-    const providerId = prefs['zetora-image-edit-custom-provider-id'] as string | undefined;
-    const model = (prefs['zetora-image-edit-model'] as string | undefined) || '';
+    const providerId = prefs['zetora-image-edit-custom-provider-id'];
+    const model = prefs['zetora-image-edit-model'] || '';
     const customProviders = (prefs['zetora-custom-providers'] ?? []) as CustomProviderConfig[];
     const provider = customProviders.find((p) => p.id === providerId);
 
@@ -62,7 +63,7 @@ export const editImageTool = tool({
 
     let extraBody: Record<string, unknown>;
     try {
-      extraBody = JSON.parse((prefs['zetora-image-edit-request-body'] as string | undefined) || '{}');
+      extraBody = JSON.parse(prefs['zetora-image-edit-request-body'] || '{}');
     } catch {
       return {
         success: false as const,

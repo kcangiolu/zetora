@@ -35,7 +35,7 @@ export async function routeWithAutoRouter({
     }
 
     const routerPrefs = await getCachedUserPreferencesByUserId(user.id);
-    const routerPrefsMap = (routerPrefs?.preferences ?? {}) as Record<string, string>;
+    const routerPrefsMap = routerPrefs?.preferences ?? {};
 
     const trimmedQuery = query.trim();
     if (!trimmedQuery) {

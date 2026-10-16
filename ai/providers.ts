@@ -205,6 +205,7 @@ import {
 import { globalCache } from '@/lib/lru-ttl-cache';
 import { LlamaCppNativeLanguageModel } from './native-models/llamacpp-model';
 import { OllamaNativeLanguageModel } from './native-models/ollama-model';
+import type { UserPreferenceValues } from '@/lib/db/schema';
 
 // Provider clients are cheap to rebuild; the bound only matters because keys
 // embed user-supplied URLs and API keys.
@@ -287,7 +288,7 @@ function getOrCreateOllamaModel(config: CustomProviderConfig, modelName: string)
 // data for the same request (see lib/search/tool-loader.ts).
 export async function getAnonymizeContext(
   modelId: string,
-  preferences?: Record<string, unknown> | null,
+  preferences?: UserPreferenceValues | null,
   userId?: string,
 ): Promise<import('@/lib/anonymizer/pseudonymize').AnonymizeContext | null> {
   if (!userId) return null;
@@ -315,7 +316,7 @@ export async function getAnonymizeContext(
 
 export async function resolveModel(
   modelId: string,
-  preferences?: Record<string, unknown> | null,
+  preferences?: UserPreferenceValues | null,
   userId?: string,
   hasImages = false,
 ): Promise<LanguageModelV3> {

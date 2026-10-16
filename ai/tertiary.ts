@@ -10,6 +10,7 @@ import {
   getCatalogReasoningOverrides,
   reasoningMaskMiddleware,
 } from '@/lib/reasoning-effort';
+import type { UserPreferenceValues } from '@/lib/db/schema';
 
 // Merges a reasoning-effort providerOptions override into whatever the
 // caller's own generateText/streamText call passes, per provider key — so a
@@ -59,31 +60,30 @@ const TASK_RECOMMENDED_EFFORT: Record<TertiaryTask, ReasoningEffort> = {
 };
 
 // Mirrors getTaskPreferenceKey (ai/models/tasks.ts).
-function effortPrefKey(task: TertiaryTask): string {
-  return task === 'default' ? 'zetora-default-effort' : `zetora-tertiary-${task}-effort`;
+function effortPrefKey(
+  task: TertiaryTask,
+): 'zetora-default-effort' | `zetora-tertiary-${Exclude<TertiaryTask, 'default'>}-effort` {
+  return task === 'default' ? 'zetora-default-effort' : (`zetora-tertiary-${task}-effort` as const);
 }
 
 export async function resolveTertiaryModel(
   task: TertiaryTask,
-  preferences: Record<string, string> | null,
+  preferences: UserPreferenceValues | null,
   userId?: string,
 ) {
-  const prefs = preferences as Record<string, unknown> | null;
 
   // resolveModel handles catalog and custom-{providerId}-{name} ids alike,
   // and (given userId) applies the same anonymization/xml-parsing wrapping
   // it would for the main chat model.
-  const effectiveModelId = getTaskModel(task, prefs);
-  let resolved = await resolveModel(effectiveModelId, prefs, userId);
+  const effectiveModelId = getTaskModel(task, preferences);
+  let resolved = await resolveModel(effectiveModelId, preferences, userId);
 
   // extreme-agent forces toolChoice: 'required' on every step of its research
   // loop (lib/tools/extreme-search.ts), which several providers reject while
   // thinking (DeepSeek, Kimi, Qwen...) — so its thinking is always off. There's
   // no UI control for this task's effort (Settings hides it).
   const effort: ReasoningEffort =
-    task === 'extreme-agent'
-      ? 'off'
-      : ((preferences?.[effortPrefKey(task)] as ReasoningEffort | undefined) ?? TASK_RECOMMENDED_EFFORT[task]);
+    task === 'extreme-agent' ? 'off' : (preferences?.[effortPrefKey(task)] ?? TASK_RECOMMENDED_EFFORT[task]);
 
   let applyMaskMiddleware = false;
 

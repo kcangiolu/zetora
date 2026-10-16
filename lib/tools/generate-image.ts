@@ -4,6 +4,7 @@ import { rehostGeneratedImage } from '@/lib/generated-file-storage';
 import { fetchCustomProvider } from '@/lib/custom-providers';
 
 import { createLogger } from '@/lib/logger';
+import type { UserPreferenceValues } from '@/lib/db/schema';
 
 const log = createLogger('generate-image');
 
@@ -15,7 +16,7 @@ interface CustomProviderConfig {
 }
 
 interface ToolContext {
-  userPreferences?: Record<string, unknown>;
+  userPreferences?: UserPreferenceValues;
   userId?: string;
   chatId?: string;
 }
@@ -43,8 +44,8 @@ export const generateImageTool = tool({
     const context = experimental_context as ToolContext | undefined;
     const prefs = context?.userPreferences ?? {};
 
-    const providerId = prefs['zetora-image-gen-custom-provider-id'] as string | undefined;
-    const model = (prefs['zetora-image-gen-model'] as string | undefined) || '';
+    const providerId = prefs['zetora-image-gen-custom-provider-id'];
+    const model = prefs['zetora-image-gen-model'] || '';
     const customProviders = (prefs['zetora-custom-providers'] ?? []) as CustomProviderConfig[];
     const provider = customProviders.find((p) => p.id === providerId);
 
@@ -57,7 +58,7 @@ export const generateImageTool = tool({
 
     let extraBody: Record<string, unknown>;
     try {
-      extraBody = JSON.parse((prefs['zetora-image-gen-request-body'] as string | undefined) || '{}');
+      extraBody = JSON.parse(prefs['zetora-image-gen-request-body'] || '{}');
     } catch {
       return {
         success: false as const,

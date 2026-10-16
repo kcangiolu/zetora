@@ -5,7 +5,6 @@ import { xai } from '@ai-sdk/xai';
 import { UIMessageStreamWriter } from 'ai';
 import { ChatMessage } from '@/lib/types';
 import { all } from 'better-all';
-import { getBetterAllOptions } from '@/lib/better-all';
 
 import { createLogger } from '@/lib/logger';
 
@@ -181,11 +180,7 @@ export function xSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>) {
                 }
               });
 
-              const tweetMap = await all(
-                Object.fromEntries(tweetFetchPromises.map((promise, index) => [`t:${index}`, async () => promise])),
-                getBetterAllOptions(),
-              );
-              const tweetResults = tweetFetchPromises.map((_, index) => tweetMap[`t:${index}`]);
+              const tweetResults = await Promise.all(tweetFetchPromises);
 
               const validTweets = tweetResults.filter((result) => result !== null);
 
@@ -267,11 +262,7 @@ export function xSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>) {
           }
         });
 
-        const searchMap = await all(
-          Object.fromEntries(searchPromises.map((promise, index) => [`q:${index}`, async () => promise])),
-          getBetterAllOptions(),
-        );
-        const searches = queries.map((_, index) => searchMap[`q:${index}`]);
+        const searches = await Promise.all(searchPromises);
 
         // Deduplicate posts across all queries based on tweet URL
         const seenUrls = new Set<string>();

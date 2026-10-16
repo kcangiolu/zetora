@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
   const baseSystem = personaSystem + VOICE_TOOL_INSTRUCTIONS;
 
   const record = await getCachedUserPreferencesByUserId(userId);
-  const prefs = (record?.preferences ?? null) as Record<string, string> | null;
+  const prefs = record?.preferences ?? null;
   const model = await resolveTertiaryModel('voice', prefs, userId);
   const modelId = getTaskModel('voice', prefs);
 
@@ -72,11 +72,9 @@ export async function POST(req: NextRequest) {
   // resolveTertiaryModel already wraps them in the XML tool middleware. They need
   // their tool schemas armed on every step (see prepare-step.ts) or raw
   // <web_search> XML would be spoken.
-  const isXmlParsedCustomModel =
-    modelId.startsWith('custom-') &&
-    (prefs as Record<string, unknown> | null)?.['zetora-xml-tool-parsing-enabled'] === true;
+  const isXmlParsedCustomModel = modelId.startsWith('custom-') && prefs?.['zetora-xml-tool-parsing-enabled'] === true;
 
-  const anonymizeContext = await getAnonymizeContext(modelId, prefs as Record<string, unknown> | null, userId);
+  const anonymizeContext = await getAnonymizeContext(modelId, prefs, userId);
 
   const tools = await loadConfiguredTools({
     activeToolNames: VOICE_TOOL_NAMES,
@@ -86,7 +84,7 @@ export async function POST(req: NextRequest) {
     includeMcpTools: false,
     mcpDynamicTools: {},
     lightweightUser: { userId, email: '' },
-    userPreferences: (prefs ?? {}) as Record<string, unknown>,
+    userPreferences: prefs ?? {},
     anonymizeContext,
   });
 

@@ -21,10 +21,11 @@ import { hasDedicatedMemoryModel, isAutoMemoryEnabled } from './settings';
 import { selectRelevantEntries } from './text-match';
 
 import { createLogger } from '@/lib/logger';
+import type { UserPreferenceValues } from '@/lib/db/schema';
 
 const log = createLogger('memory');
 
-type Preferences = Record<string, unknown> | null | undefined;
+type Preferences = UserPreferenceValues | null | undefined;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const REVIEW_CANDIDATES_MAX = 30;
@@ -89,7 +90,7 @@ export function runMemoryTurnUpdate({
 
     const request = hasDedicatedMemoryModel(preferences)
       ? {
-          model: await resolveTertiaryModel('memory-curator', preferences as Record<string, string>, userId),
+          model: await resolveTertiaryModel('memory-curator', preferences ?? null, userId),
           messages: [
             { role: 'user', content: `<conversation>\n${turnText}\n</conversation>\n\n${instruction}` },
           ] satisfies ModelMessage[],
@@ -169,7 +170,7 @@ export async function runMemoryConsolidation(
   try {
     // Resolved first: without a model, nothing is touched.
     const model = hasDedicatedMemoryModel(preferences)
-      ? await resolveTertiaryModel('memory-curator', preferences as Record<string, string>, userId)
+      ? await resolveTertiaryModel('memory-curator', preferences ?? null, userId)
       : requireChatModel(chatModel);
 
     // Marked up front: a failing model call must wait for the next interval,

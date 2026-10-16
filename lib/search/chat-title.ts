@@ -26,7 +26,7 @@ export async function generateTitleFromUserMessage({ message, userId }: { messag
   log.debug('Prompt: ', prompt);
 
   const titlePrefs = await getCachedUserPreferencesByUserId(userId);
-  const titlePrefsMap = (titlePrefs?.preferences ?? {}) as Record<string, string>;
+  const titlePrefsMap = titlePrefs?.preferences ?? {};
 
   if (titlePrefs?.preferences?.['zetora-tertiary-chat-title-enabled'] === false) {
     return UNTITLED_CHAT_TITLE;
