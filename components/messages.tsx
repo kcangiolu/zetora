@@ -584,6 +584,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
 
   return (
     <MessageActionsProvider value={messageActions}>
+      <div className={cn(bottomSpacerClassName, 'flex-1 min-h-0 flex flex-col')}>
         <Virtuoso
           ref={virtuosoRef}
           style={{ height: '100%', overflowX: 'hidden' }}
@@ -596,6 +597,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
           context={footerContext}
           components={VIRTUOSO_COMPONENTS}
         />
+      </div>
     </MessageActionsProvider>
   );
 });
