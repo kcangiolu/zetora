@@ -11,7 +11,7 @@ export type ErrorType =
   | 'offline'
   | 'internal';
 
-export type Surface = 'chat' | 'auth' | 'api' | 'stream' | 'database' | 'history' | 'model';
+export type Surface = 'chat' | 'auth' | 'api' | 'stream' | 'database' | 'history' | 'model' | 'moderation';
 
 export type ErrorCode = `${ErrorType}:${Surface}`;
 
@@ -25,6 +25,7 @@ export const visibilityBySurface: Record<Surface, ErrorVisibility> = {
   api: 'response',
   history: 'response',
   model: 'response',
+  moderation: 'response',
 };
 
 export class ChatSDKError extends Error {
@@ -106,6 +107,11 @@ export function getMessageByErrorCode(errorCode: ErrorCode): string {
       return 'You need to sign in to access this AI model.';
     case 'bad_request:model':
       return "/startwith isn't supported by this model — try a llama.cpp/Ollama custom model, or an Anthropic model.";
+
+    case 'forbidden:moderation':
+      return "An attached image was blocked by this instance's content moderation.";
+    case 'internal:moderation':
+      return "This instance's content moderation couldn't check the attached images, so the message wasn't sent.";
 
     case 'forbidden:api':
       return 'Access denied';

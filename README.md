@@ -105,7 +105,7 @@ Zetora names no models itself. It lists the providers it integrates, and the mod
 - **Auto** — Zetora's router picks a model per message based on the task
 - **Custom providers** — Add any OpenAI-compatible endpoint (e.g. Ollama, local inference servers), including models that return tool calls as XML
 
-Adding a lab is a single entry in [`ai/catalog/config.ts`](ai/catalog/config.ts). One `ZETORA_MODEL_*` variable per function (chat, titles, follow-up questions, Extreme Search…) sets the model everyone gets by default (see `.env.example`); each user can pick another one in Settings. There is no fallback: a function with neither does not run, and Settings shows it in red.
+Adding a lab is a single entry in [`ai/catalog/config.ts`](ai/catalog/config.ts). One `ZETORA_MODEL_*` variable per function (chat, titles, follow-up questions, Extreme Search…) sets the model everyone gets by default (see `.env.example`); each user can pick another one in Settings. There is no fallback: a function with neither does not run, and Settings shows it in red. Image moderation is the exception: `ZETORA_MODEL_IMAGE_MODERATION` names the vision model that checks every image users send, users cannot change it, and leaving it empty turns moderation off.
 
 ## Self-Hosted Stack
 

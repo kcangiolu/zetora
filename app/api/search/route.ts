@@ -40,6 +40,7 @@ import {
   getHiddenContextImageUrlsByChatId,
 } from '@/lib/db/queries';
 import { ChatSDKError } from '@/lib/errors';
+import { getImageModerationModelId, moderateImages, type ImageModerationVerdict } from '@/lib/image-moderation';
 import { after } from 'next/server';
 import { CustomInstructions, Message as DbMessage } from '@/lib/db/schema';
 import { v7 as uuidv7 } from 'uuid';
@@ -238,6 +239,41 @@ export async function POST(req: Request) {
   const gateError = checkModelAccess({ lightweightUser });
   if (gateError) {
     return gateError.toResponse();
+  }
+
+  // Checked before anything is saved, so a blocked image never reaches the
+  // chat model or the history. A moderation failure blocks the message too.
+  const requestImageUrls = requestLastUserMessage.parts.flatMap((part) =>
+    part.type === 'file' && part.mediaType.startsWith('image/') ? [part.url] : [],
+  );
+  if (requestImageUrls.length > 0) {
+    let moderationModelId: string | undefined;
+    try {
+      moderationModelId = getImageModerationModelId();
+    } catch (error) {
+      if (error instanceof ModelUnavailableError) {
+        return new ChatSDKError('not_found:model', error.message).toResponse();
+      }
+      throw error;
+    }
+    if (moderationModelId) {
+      opStart = Date.now();
+      let verdict: ImageModerationVerdict;
+      try {
+        verdict = await moderateImages(moderationModelId, requestImageUrls, req.signal);
+      } catch (error) {
+        log.error('Image moderation failed:', error);
+        return new ChatSDKError(
+          'internal:moderation',
+          error instanceof Error ? error.message : String(error),
+          error,
+        ).toResponse();
+      }
+      recordTiming('image_moderation', opStart);
+      if (!verdict.safe) {
+        return new ChatSDKError('forbidden:moderation', verdict.category).toResponse();
+      }
+    }
   }
 
 
