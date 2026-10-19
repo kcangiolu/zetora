@@ -54,6 +54,13 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
+      - name: Hermes relay checks
+        working-directory: hermes-relay-service
+        run: |
+          npm ci
+          npx tsc -p tsconfig.json --noEmit
+          npm test
+
       - name: Build
         run: pnpm build
 
