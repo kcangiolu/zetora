@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { SpecialModeId } from '@/lib/utils';
+import type { SpecialModeId } from '@/lib/search/search-groups';
 
 import * as autoGroup from './groups/auto';
 import * as mcpGroup from './groups/mcp';

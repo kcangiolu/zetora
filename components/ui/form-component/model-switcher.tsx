@@ -18,7 +18,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useModels } from '@/hooks/use-models';
 import { ComprehensiveUserData } from '@/hooks/use-user-data';
 import { ChatMessage } from '@/lib/types';
-import { cn, SearchGroupId } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import { SearchGroupId } from '@/lib/search/search-groups';
 
 // Survives the composer remounting (e.g. moving from a new chat to its page)
 // so an open switcher stays open.

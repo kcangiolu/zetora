@@ -5,7 +5,8 @@ import { CheckIcon, Ghost } from 'lucide-react';
 
 import { FlexibleIcon } from '@/components/ui/flexible-icon';
 import type { HermesCommand } from '@/lib/hermes/commands';
-import { cn, type SearchGroup, type SearchGroupId } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import { type SearchGroup, type SearchGroupId } from '@/lib/search/search-groups';
 
 import { HermesCommandMenu } from './hermes-command-menu';
 import type { TriggerChar } from './trigger-text';

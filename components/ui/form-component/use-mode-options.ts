@@ -9,7 +9,7 @@ import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 import type { HermesChatLock } from '@/lib/hermes/chat-mode';
 import { isHermesEnabled } from '@/lib/hermes/enabled';
 import { isSearchGroupAvailable, pickSearchProvider } from '@/lib/search/providers';
-import { getSearchGroups, type SearchGroupId } from '@/lib/utils';
+import { getSearchGroups, type SearchGroupId } from '@/lib/search/search-groups';
 
 // The single-purpose search tools, always on and filtered by the zetora-enabled-sources
 // preference. Apps, Canvas and the Agent stay exclusive modes since they replace the

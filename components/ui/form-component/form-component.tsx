@@ -26,7 +26,8 @@ import type { HermesChatLock } from '@/lib/hermes/chat-mode';
 import { filterHermesCommands, type HermesCommand } from '@/lib/hermes/commands';
 import type { ReasoningEffort } from '@/lib/reasoning-effort-types';
 import { ChatMessage } from '@/lib/types';
-import { cn, SearchGroup, SearchGroupId } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import { SearchGroup, SearchGroupId } from '@/lib/search/search-groups';
 
 import { ActiveModeBadge } from './active-mode-badge';
 import {

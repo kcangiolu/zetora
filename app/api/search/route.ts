@@ -31,7 +31,7 @@ import { getBetterAllOptions } from '@/lib/better-all';
 import { markdownJoinerTransform } from '@/lib/parser';
 import { ChatMessage } from '@/lib/types';
 import { getGroupConfig, getBaseConfig } from '@/lib/search/group-config';
-import type { SpecialModeId } from '@/lib/utils';
+import type { SpecialModeId } from '@/lib/search/search-groups';
 import { filterActiveTools, getEnabledSkillIds } from '@/lib/search/tool-filter';
 import { getLightweightUser } from '@/lib/search/server-helpers';
 import { getCachedCustomInstructionsByUserId, getCachedUserPreferencesByUserId } from '@/lib/user-data-server';

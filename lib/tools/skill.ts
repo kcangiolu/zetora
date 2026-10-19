@@ -1,7 +1,7 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import { getAllSkills, getSkill } from '@/lib/skills/registry';
-import type { SkillId } from '@/lib/utils';
+import type { SkillId } from '@/lib/search/search-groups';
 
 // Built from the caller's server-computed enabled set (auth + per-user
 // disabled-skills prefs), not a static constant — this is the enforcement

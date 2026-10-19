@@ -1,4 +1,4 @@
-import type { SearchGroupId } from '@/lib/utils';
+import type { SearchGroupId } from '@/lib/search/search-groups';
 
 // Which lane a chat is permanently committed to, decided by its FIRST message. Resolved
 // server-side (app/search/[id]/page.tsx) and handed to the client as a plain prop, so the

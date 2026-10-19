@@ -1,6 +1,6 @@
 import 'server-only';
 import type { SkillDefinition } from './types';
-import type { SkillId } from '@/lib/utils';
+import type { SkillId } from '@/lib/search/search-groups';
 import { IMAGE_GENERATION_DEFAULT_INSTRUCTIONS, IMAGE_EDITING_DEFAULT_INSTRUCTIONS } from './image-prompt-defaults';
 
 const skills: Record<SkillId, SkillDefinition> = {

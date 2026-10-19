@@ -12,7 +12,8 @@ import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { Kbd } from '@/components/ui/kbd';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { cn, type SearchGroupId } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import { type SearchGroupId } from '@/lib/search/search-groups';
 
 import type { ModeOptions } from './use-mode-options';
 

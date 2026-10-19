@@ -1,7 +1,7 @@
 import { getModelEntry } from '@/ai/catalog/models';
 import { getReasoningProviderOptions } from '@/ai/catalog/reasoning';
 import type { SharedV3ProviderOptions } from '@ai-sdk/provider';
-import type { SpecialModeId } from '@/lib/utils';
+import type { SpecialModeId } from '@/lib/search/search-groups';
 import type { GroqProviderOptions } from '@ai-sdk/groq';
 import type { OpenAIResponsesProviderOptions } from '@ai-sdk/openai';
 import type { AnthropicProviderOptions } from '@ai-sdk/anthropic';

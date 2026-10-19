@@ -4,7 +4,8 @@ import { X } from 'lucide-react';
 
 import { FlexibleIcon } from '@/components/ui/flexible-icon';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { cn, type SearchGroup } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import { type SearchGroup } from '@/lib/search/search-groups';
 
 // The forced mode next to the "+" button. Clicking it opens the menu to switch, its ✕
 // clears it; a chat committed to the Agent shows the badge locked.

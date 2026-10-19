@@ -1,8 +1,8 @@
-import type { SkillId } from '@/lib/utils';
+import type { SkillId } from '@/lib/search/search-groups';
 
 // Client-safe metadata for the Settings → Skills directory — no 'instructions'
 // text (that's the actual prompt engineering, kept server-only in registry.ts,
-// same separation as getSearchGroups() in lib/utils.ts vs lib/search/groups/*.ts).
+// same separation as getSearchGroups() in lib/search/search-groups.ts vs lib/search/groups/*.ts).
 export interface SkillCatalogEntry {
   id: SkillId;
   name: string;

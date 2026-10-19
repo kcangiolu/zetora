@@ -73,7 +73,8 @@ import { useSessionPreference } from '@/hooks/use-session-preference';
 
 // Utility and type imports
 import { ChatSDKError } from '@/lib/errors';
-import { cn, SEARCH_GROUP_IDS, SearchGroupId } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import { SEARCH_GROUP_IDS, SearchGroupId } from '@/lib/search/search-groups';
 import { AUTO_MODEL_ID, DEFAULT_MODEL_ALIAS } from '@/ai/models';
 import { useModels } from '@/hooks/use-models';
 

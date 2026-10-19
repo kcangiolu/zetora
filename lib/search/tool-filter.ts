@@ -1,6 +1,6 @@
 import { toolGroupMap } from '@/lib/search/groups/auto';
 import { getAllSkillIds, getAllSkills } from '@/lib/skills/registry';
-import type { SkillId, SpecialModeId } from '@/lib/utils';
+import type { SkillId, SpecialModeId } from '@/lib/search/search-groups';
 
 // Tools that belong to exactly one skill and aren't already gated by a
 // zetora-enabled-sources group (e.g. edit_image -> image-editing) get tied to

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeError, getWebSearchDescription, getSearchGroups, cn } from '@/lib/utils';
+import { normalizeError, cn } from '@/lib/utils';
+import { getWebSearchDescription, getSearchGroups } from '@/lib/search/search-groups';
 
 describe('normalizeError', () => {
   it('maps websocket failures to a connection message', () => {

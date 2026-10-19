@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { SkillId } from '@/lib/utils';
+import type { SkillId } from '@/lib/search/search-groups';
 import { anonymizeToolInput, type AnonymizeContext } from '@/lib/anonymizer/pseudonymize';
 import { isMemoryEnabled } from '@/lib/memory/settings';
 import { isToolAvailable } from '@/lib/instance/capabilities';

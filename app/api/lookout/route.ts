@@ -21,7 +21,7 @@ import { getSystemPromptForSearchMode, getToolsForSearchMode } from '@/lib/looko
 import { getResumableStreamClients } from '@/lib/redis';
 import type { ChatMessage } from '@/lib/types';
 import { getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
-import type { SearchProvider } from '@/lib/utils';
+import type { SearchProvider } from '@/lib/search/search-groups';
 
 const log = createLogger('lookout');
 

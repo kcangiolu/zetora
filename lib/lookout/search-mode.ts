@@ -29,7 +29,7 @@ import {
   youtubeSearchTool,
 } from '@/lib/tools';
 import type { ChatMessage } from '@/lib/types';
-import type { SearchProvider } from '@/lib/utils';
+import type { SearchProvider } from '@/lib/search/search-groups';
 
 // Static tool instances (already created, don't need to be called as functions)
 const STATIC_TOOLS: Record<string, any> = {
