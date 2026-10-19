@@ -6,13 +6,7 @@ import { Cloud, Droplets, Thermometer, Wind } from 'lucide-react';
 import Image from 'next/image';
 
 // Custom chart components (visx-based)
-import { LineChart } from '@/components/charts/line-chart';
-import { Line } from '@/components/charts/line';
-import { AreaChart } from '@/components/charts/area-chart';
-import { Area } from '@/components/charts/area';
-import { Grid } from '@/components/charts/grid';
-import { ChartTooltip } from '@/components/charts/tooltip';
-import type { TooltipRow } from '@/components/charts/tooltip/tooltip-content';
+import { WeatherTrendChart } from '@/components/weather-trend-chart';
 import { useLocale } from '@/contexts/locale-context';
 
 // Chart colors using CSS variables for theme support
@@ -188,6 +182,9 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
   const [selectedDay, setSelectedDay] = useState<string>('');
   const [weatherTab, setWeatherTab] = useState('chart');
   const locale = useLocale();
+  const formatDay = (date: Date) =>
+    date.toLocaleDateString(locale, { weekday: 'short', month: 'short', day: 'numeric' });
+  const formatHour = (date: Date) => date.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' });
 
   const {
     chartData,
@@ -341,7 +338,7 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
     }
   }, [days, selectedDay]);
 
-  // Transform chart data for custom LineChart (needs Date objects)
+  // Chart points carry a Date
   const lineChartData = useMemo(() => {
     return chartData.map((d) => ({
       ...d,
@@ -349,8 +346,8 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
     }));
   }, [chartData]);
 
-  // Transform air pollution forecast for custom AreaChart
-  const aqiChartData = useMemo(() => {
+  // Air pollution forecast for its chart
+  const aqiChartData = useMemo((): { date: Date; aqi: number; pm2_5: number; pm10: number }[] => {
     return airPollutionForecast.slice(0, 24).map((item: any) => ({
       date: new Date(item.dt * 1000),
       aqi: item.main.aqi,
@@ -359,7 +356,7 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
     }));
   }, [airPollutionForecast]);
 
-  // Transform hourly data for custom AreaChart (for selected day)
+  // Hourly data of the selected day for its chart
   const hourlyChartData = useMemo(() => {
     if (!selectedDay || !hourlyDataByDay[selectedDay]) return [];
     return hourlyDataByDay[selectedDay].map((item) => ({
@@ -370,7 +367,7 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
     }));
   }, [selectedDay, hourlyDataByDay]);
 
-  // Transform 16-day forecast for custom AreaChart
+  // 16-day forecast for its chart
   const extendedChartData = useMemo(() => {
     return openMeteo16Day.map((d) => ({
       date: new Date(d.timestamp * 1000),
@@ -497,35 +494,18 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
                 </div>
               </div>
               <div className="h-[180px] sm:h-[200px]">
-                <LineChart
+                <WeatherTrendChart
                   data={lineChartData}
-                  xDataKey="date"
-                  margin={{ top: 10, right: 10, bottom: 30, left: 10 }}
-                  animationDuration={800}
-                  aspectRatio="auto"
-                  className="h-full"
-                >
-                  <Grid horizontal numTicksRows={4} />
-                  <Line dataKey="minTemp" stroke={chartColors.minTemp} strokeWidth={2} />
-                  <Line dataKey="maxTemp" stroke={chartColors.maxTemp} strokeWidth={2} />
-                  <ChartTooltip
-                    showDatePill
-                    rows={(point) =>
-                      [
-                        {
-                          color: chartColors.minTemp,
-                          label: 'Min Temp',
-                          value: `${point.minTemp}°C`,
-                        },
-                        {
-                          color: chartColors.maxTemp,
-                          label: 'Max Temp',
-                          value: `${point.maxTemp}°C`,
-                        },
-                      ] as TooltipRow[]
-                    }
-                  />
-                </LineChart>
+                  series={[
+                    { dataKey: 'minTemp', color: chartColors.minTemp, strokeWidth: 2 },
+                    { dataKey: 'maxTemp', color: chartColors.maxTemp, strokeWidth: 2 },
+                  ]}
+                  tooltipTitle={(point) => formatDay(point.date)}
+                  tooltipRows={(point) => [
+                    { color: chartColors.minTemp, label: 'Min Temp', value: `${point.minTemp}°C` },
+                    { color: chartColors.maxTemp, label: 'Max Temp', value: `${point.maxTemp}°C` },
+                  ]}
+                />
               </div>
 
               {/* 5-day forecast details in columns */}
@@ -611,52 +591,19 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
                     </div>
                   </div>
                   <div className="h-[200px]">
-                    <AreaChart
+                    <WeatherTrendChart
                       data={hourlyChartData}
-                      xDataKey="date"
-                      margin={{ top: 10, right: 10, bottom: 30, left: 10 }}
-                      animationDuration={800}
-                      aspectRatio="auto"
-                      className="h-full"
-                    >
-                      <Grid horizontal numTicksRows={4} />
-                      <Area
-                        dataKey="temp"
-                        fill={chartColors.temp}
-                        fillOpacity={0.3}
-                        stroke={chartColors.temp}
-                        strokeWidth={2}
-                      />
-                      <Area
-                        dataKey="feelsLike"
-                        fill={chartColors.feelsLike}
-                        fillOpacity={0.2}
-                        stroke={chartColors.feelsLike}
-                        strokeWidth={1.5}
-                      />
-                      <ChartTooltip
-                        showDatePill
-                        rows={(point) =>
-                          [
-                            {
-                              color: chartColors.temp,
-                              label: 'Temperature',
-                              value: `${point.temp}°C`,
-                            },
-                            {
-                              color: chartColors.feelsLike,
-                              label: 'Feels Like',
-                              value: `${point.feelsLike}°C`,
-                            },
-                            {
-                              color: chartColors.muted,
-                              label: 'Rain Chance',
-                              value: `${point.pop}%`,
-                            },
-                          ] as TooltipRow[]
-                        }
-                      />
-                    </AreaChart>
+                      series={[
+                        { dataKey: 'temp', color: chartColors.temp, strokeWidth: 2, fillOpacity: 0.3 },
+                        { dataKey: 'feelsLike', color: chartColors.feelsLike, strokeWidth: 1.5, fillOpacity: 0.2 },
+                      ]}
+                      tooltipTitle={(point) => formatHour(point.date)}
+                      tooltipRows={(point) => [
+                        { color: chartColors.temp, label: 'Temperature', value: `${point.temp}°C` },
+                        { color: chartColors.feelsLike, label: 'Feels Like', value: `${point.feelsLike}°C` },
+                        { color: chartColors.muted, label: 'Rain Chance', value: `${point.pop}%` },
+                      ]}
+                    />
                   </div>
 
                   {/* Icons and conditions underneath the chart */}
@@ -698,52 +645,19 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
                   </div>
                   {/* 16-day forecast chart */}
                   <div className="h-[180px] sm:h-[200px] mb-4">
-                    <AreaChart
+                    <WeatherTrendChart
                       data={extendedChartData}
-                      xDataKey="date"
-                      margin={{ top: 10, right: 10, bottom: 30, left: 10 }}
-                      animationDuration={800}
-                      aspectRatio="auto"
-                      className="h-full"
-                    >
-                      <Grid horizontal numTicksRows={4} />
-                      <Area
-                        dataKey="maxTemp"
-                        fill={chartColors.maxTemp}
-                        fillOpacity={0.3}
-                        stroke={chartColors.maxTemp}
-                        strokeWidth={2}
-                      />
-                      <Area
-                        dataKey="minTemp"
-                        fill={chartColors.minTemp}
-                        fillOpacity={0.3}
-                        stroke={chartColors.minTemp}
-                        strokeWidth={2}
-                      />
-                      <ChartTooltip
-                        showDatePill
-                        rows={(point) =>
-                          [
-                            {
-                              color: chartColors.maxTemp,
-                              label: 'Max Temp',
-                              value: `${point.maxTemp}°C`,
-                            },
-                            {
-                              color: chartColors.minTemp,
-                              label: 'Min Temp',
-                              value: `${point.minTemp}°C`,
-                            },
-                            {
-                              color: chartColors.muted,
-                              label: 'Rain Chance',
-                              value: `${point.pop}%`,
-                            },
-                          ] as TooltipRow[]
-                        }
-                      />
-                    </AreaChart>
+                      series={[
+                        { dataKey: 'maxTemp', color: chartColors.maxTemp, strokeWidth: 2, fillOpacity: 0.3 },
+                        { dataKey: 'minTemp', color: chartColors.minTemp, strokeWidth: 2, fillOpacity: 0.3 },
+                      ]}
+                      tooltipTitle={(point) => formatDay(point.date)}
+                      tooltipRows={(point) => [
+                        { color: chartColors.maxTemp, label: 'Max Temp', value: `${point.maxTemp}°C` },
+                        { color: chartColors.minTemp, label: 'Min Temp', value: `${point.minTemp}°C` },
+                        { color: chartColors.muted, label: 'Rain Chance', value: `${point.pop}%` },
+                      ]}
+                    />
                   </div>
 
                   {/* 16-day forecast cards - scrollable */}
@@ -909,46 +823,20 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
                             </div>
                           </div>
                           <div className="h-[180px] sm:h-[200px]">
-                            <AreaChart
+                            <WeatherTrendChart
                               data={aqiChartData}
-                              xDataKey="date"
-                              margin={{ top: 10, right: 10, bottom: 30, left: 10 }}
-                              animationDuration={800}
-                              aspectRatio="auto"
-                              className="h-full"
-                            >
-                              <Grid horizontal numTicksRows={5} />
-                              <Area
-                                dataKey="aqi"
-                                fill={chartColors.aqi}
-                                fillOpacity={0.4}
-                                stroke={chartColors.aqi}
-                                strokeWidth={2}
-                              />
-                              <ChartTooltip
-                                showDatePill
-                                rows={(point) => {
-                                  const { label } = getAirQualityInfo(point.aqi as number);
-                                  return [
-                                    {
-                                      color: chartColors.aqi,
-                                      label: 'AQI',
-                                      value: `${point.aqi} (${label})`,
-                                    },
-                                    {
-                                      color: chartColors.muted,
-                                      label: 'PM2.5',
-                                      value: `${(point.pm2_5 as number).toFixed(1)} µg/m³`,
-                                    },
-                                    {
-                                      color: chartColors.muted,
-                                      label: 'PM10',
-                                      value: `${(point.pm10 as number).toFixed(1)} µg/m³`,
-                                    },
-                                  ] as TooltipRow[];
-                                }}
-                              />
-                            </AreaChart>
+                              series={[{ dataKey: 'aqi', color: chartColors.aqi, strokeWidth: 2, fillOpacity: 0.4 }]}
+                              tooltipTitle={(point) => `${formatDay(point.date)}, ${formatHour(point.date)}`}
+                              tooltipRows={(point) => [
+                                {
+                                  color: chartColors.aqi,
+                                  label: 'AQI',
+                                  value: `${point.aqi} (${getAirQualityInfo(point.aqi).label})`,
+                                },
+                                { color: chartColors.muted, label: 'PM2.5', value: `${point.pm2_5.toFixed(1)} µg/m³` },
+                                { color: chartColors.muted, label: 'PM10', value: `${point.pm10.toFixed(1)} µg/m³` },
+                              ]}
+                            />
                           </div>
                         </>
                       ) : (

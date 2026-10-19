@@ -386,24 +386,6 @@ importers:
       '@vectorstores/vercel':
         specifier: ^0.1.1
         version: 0.1.1(@vectorstores/core@0.1.8)(@vectorstores/env@0.1.0)(ai@6.0.193(zod@4.4.3))(zod@4.4.3)
-      '@visx/curve':
-        specifier: ^3.12.0
-        version: 3.12.0
-      '@visx/event':
-        specifier: ^3.12.0
-        version: 3.12.0
-      '@visx/grid':
-        specifier: ^3.12.0
-        version: 3.12.0(react@19.2.6)
-      '@visx/responsive':
-        specifier: ^3.12.0
-        version: 3.12.0(react@19.2.6)
-      '@visx/scale':
-        specifier: ^3.12.0
-        version: 3.12.0
-      '@visx/shape':
-        specifier: ^3.12.0
-        version: 3.12.0(react@19.2.6)
       ai:
         specifier: ^6.0.132
         version: 6.0.193(zod@4.4.3)
@@ -440,9 +422,6 @@ importers:
       cron-parser:
         specifier: ^5.5.0
         version: 5.5.0
-      d3-array:
-        specifier: ^3.2.4
-        version: 3.2.4
       date-fns:
         specifier: ^4.1.0
         version: 4.4.0
@@ -551,9 +530,6 @@ importers:
       react-tweet:
         specifier: ^3.3.0
         version: 3.3.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
-      react-use-measure:
-        specifier: ^2.1.7
-        version: 2.1.7(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       react-virtuoso:
         specifier: ^4.18.10
         version: 4.18.10(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -612,9 +588,6 @@ importers:
       '@tailwindcss/postcss':
         specifier: ^4.2.2
         version: 4.3.0
-      '@types/d3-array':
-        specifier: ^3.2.2
-        version: 3.2.2
       '@types/leaflet':
         specifier: ^1.9.21
         version: 1.9.21
@@ -3296,59 +3269,26 @@ packages:
   '@types/cors@2.8.19':
     resolution: {integrity: sha512-mFNylyeyqN93lfe/9CSxOGREz8cpzAhH+E93xJ4xWQf62V8sQ/24reV2nyzUWM6H6Xji+GGHpkbLe7pVoUEskg==}
 
-  '@types/d3-array@3.0.3':
-    resolution: {integrity: sha512-Reoy+pKnvsksN0lQUlcH6dOGjRZ/3WRwXR//m+/8lt1BXeI4xyaUZoqULNjyXXRuh0Mj4LNpkCvhUpQlY3X5xQ==}
-
   '@types/d3-array@3.2.2':
     resolution: {integrity: sha512-hOLWVbm7uRza0BYXpIIW5pxfrKe0W+D5lrFiAEYR+pb6w3N2SwSMaJbXdUfSEv+dT4MfHBLtn5js0LAWaO6otw==}
-
-  '@types/d3-color@3.1.0':
-    resolution: {integrity: sha512-HKuicPHJuvPgCD+np6Se9MQvS6OCbJmOjGvylzMJRlDwUXjKTTXs6Pwgk79O09Vj/ho3u1ofXnhFOaEWWPrlwA==}
 
   '@types/d3-color@3.1.3':
     resolution: {integrity: sha512-iO90scth9WAbmgv7ogoq57O9YpKmFBbmoEoCHDB2xMBY0+/KVrqAaCDyCE16dUspeOvIxFFRI+0sEtqDqy2b4A==}
 
-  '@types/d3-delaunay@6.0.1':
-    resolution: {integrity: sha512-tLxQ2sfT0p6sxdG75c6f/ekqxjyYR0+LwPrsO1mbC9YDBzPJhs2HbJJRrn8Ez1DBoHRo2yx7YEATI+8V1nGMnQ==}
-
   '@types/d3-ease@3.0.2':
     resolution: {integrity: sha512-NcV1JjO5oDzoK26oMzbILE6HW7uVXOHLQvHshBUW4UMdZGfiY6v5BeQwh9a9tCzv+CeefZQHJt5SRgK154RtiA==}
-
-  '@types/d3-format@3.0.1':
-    resolution: {integrity: sha512-5KY70ifCCzorkLuIkDe0Z9YTf9RR2CjBX1iaJG+rgM/cPP+sO+q9YdQ9WdhQcgPj1EQiJ2/0+yUkkziTG6Lubg==}
-
-  '@types/d3-geo@3.1.0':
-    resolution: {integrity: sha512-856sckF0oP/diXtS4jNsiQw/UuK5fQG8l/a9VVLeSouf1/PPbBE1i1W852zVwKwYCBkFJJB7nCFTbk6UMEXBOQ==}
-
-  '@types/d3-interpolate@3.0.1':
-    resolution: {integrity: sha512-jx5leotSeac3jr0RePOH1KdR9rISG91QIE4Q2PYTu4OymLTZfA3SrnURSLzKH48HmXVUru50b8nje4E79oQSQw==}
 
   '@types/d3-interpolate@3.0.4':
     resolution: {integrity: sha512-mgLPETlrpVV1YRJIglr4Ez47g7Yxjl1lj7YKsiMCb27VJH9W8NVM6Bb9d8kkpG/uAQS5AmbA48q2IAolKKo1MA==}
 
-  '@types/d3-path@1.0.11':
-    resolution: {integrity: sha512-4pQMp8ldf7UaB/gR8Fvvy69psNHkTpD/pVw3vmEi8iZAB9EPMBruB1JvHO4BIq9QkUUd2lV1F5YXpMNj7JPBpw==}
-
   '@types/d3-path@3.1.1':
     resolution: {integrity: sha512-VMZBYyQvbGmWyWVea0EHs/BwLgxc+MKi1zLDCONksozI4YJMcTt8ZEuIR4Sb1MMTE8MMW49v0IwI5+b7RmfWlg==}
-
-  '@types/d3-scale@4.0.2':
-    resolution: {integrity: sha512-Yk4htunhPAwN0XGlIwArRomOjdoBFXC3+kCxK2Ubg7I9shQlVSJy/pG/Ht5ASN+gdMIalpk8TJ5xV74jFsetLA==}
 
   '@types/d3-scale@4.0.9':
     resolution: {integrity: sha512-dLmtwB8zkAeO/juAMfnV+sItKjlsw2lKdZVVy6LRr0cBmegxSABiLEpGVmSJJ8O08i4+sGR6qQtb6WtuwJdvVw==}
 
-  '@types/d3-shape@1.3.12':
-    resolution: {integrity: sha512-8oMzcd4+poSLGgV0R1Q1rOlx/xdmozS4Xab7np0eamFFUYq71AU9pOCJEFnkXW2aI/oXdVYJzw6pssbSut7Z9Q==}
-
   '@types/d3-shape@3.1.8':
     resolution: {integrity: sha512-lae0iWfcDeR7qt7rA88BNiqdvPS5pFVPpo5OfjElwNaT2yyekbM0C9vK+yqBqEmHr6lDkRnYNoTBYlAgJa7a4w==}
-
-  '@types/d3-time-format@2.1.0':
-    resolution: {integrity: sha512-/myT3I7EwlukNOX2xVdMzb8FRgNzRMpsZddwst9Ld/VFe6LyJyRp0s32l/V9XoUzk+Gqu56F/oGk6507+8BxrA==}
-
-  '@types/d3-time@3.0.0':
-    resolution: {integrity: sha512-sZLCdHvBUcNby1cB6Fd3ZBrABbjz3v1Vm90nysCQ6Vt7vd6e/h9Lt7SiJUoEX0l4Dzc7P5llKyhqSi1ycSf1Hg==}
 
   '@types/d3-time@3.0.4':
     resolution: {integrity: sha512-yuzZug1nkAAaBlBBikKZTgzCeA+k1uy4ZFwWANOfKw5z5LRhV0gNA7gNkKm7HoK+HRN0wX3EkxGk0fpbWhmB7g==}
@@ -3382,9 +3322,6 @@ packages:
 
   '@types/leaflet@1.9.21':
     resolution: {integrity: sha512-TbAd9DaPGSnzp6QvtYngntMZgcRk+igFELwR2N99XZn7RXUdKgsXMR+28bUO0rPsWp8MIu/f47luLIQuSLYv/w==}
-
-  '@types/lodash@4.17.24':
-    resolution: {integrity: sha512-gIW7lQLZbue7lRSWEFql49QJJWThrTFFeIMJdp3eH4tKoxm1OvEPg02rm4wCCSHS0cL3/Fizimb35b7k8atwsQ==}
 
   '@types/mdast@4.0.4':
     resolution: {integrity: sha512-kGaNbPh1k7AFzgpud/gMdvIm5xuECykRR+JnWKQno9TAXVa6WIVCGTPvYGekIDL4uwCZQSYbUxNBSb1aUo79oA==}
@@ -3710,41 +3647,6 @@ packages:
   '@vercel/oidc@3.2.0':
     resolution: {integrity: sha512-UycprH3T6n3jH0k44NHMa7pnFHGu/N05MjojYr+Mc6I7obkoLIJujSWwin1pCvdy/eOxrI/l3uDLQsmcrOb4ug==}
     engines: {node: '>= 20'}
-
-  '@visx/curve@3.12.0':
-    resolution: {integrity: sha512-Ng1mefXIzoIoAivw7dJ+ZZYYUbfuwXgZCgQynShr6ZIVw7P4q4HeQfJP3W24ON+1uCSrzoycHSXRelhR9SBPcw==}
-
-  '@visx/event@3.12.0':
-    resolution: {integrity: sha512-9Lvw6qJ0Fi+y1vsC1WspfdIKCxHTb7oy59Uql1uBdPGT8zChP0vuxW0jQNQRDbKgoefj4pCXAFi8+MF1mEtVTw==}
-
-  '@visx/grid@3.12.0':
-    resolution: {integrity: sha512-L4ex2ooSYhwNIxJ3XFIKRhoSvEGjPc2Y3YCrtNB4TV5Ofdj4q0UMOsxfrH23Pr8HSHuQhb6VGMgYoK0LuWqDmQ==}
-    peerDependencies:
-      react: ^16.0.0-0 || ^17.0.0-0 || ^18.0.0-0
-
-  '@visx/group@3.12.0':
-    resolution: {integrity: sha512-Dye8iS1alVXPv7nj/7M37gJe6sSKqJLH7x6sEWAsRQ9clI0kFvjbKcKgF+U3aAVQr0NCohheFV+DtR8trfK/Ag==}
-    peerDependencies:
-      react: ^16.0.0-0 || ^17.0.0-0 || ^18.0.0-0
-
-  '@visx/point@3.12.0':
-    resolution: {integrity: sha512-I6UrHoJAEVbx3RORQNupgTiX5EzjuZpiwLPxn8L2mI5nfERotPKi1Yus12Cq2WtXqEBR/WgqTnoImlqOXBykcA==}
-
-  '@visx/responsive@3.12.0':
-    resolution: {integrity: sha512-GV1BTYwAGlk/K5c9vH8lS2syPnTuIqEacI7L6LRPbsuaLscXMNi+i9fZyzo0BWvAdtRV8v6Urzglo++lvAXT1Q==}
-    peerDependencies:
-      react: ^16.0.0-0 || ^17.0.0-0 || ^18.0.0-0
-
-  '@visx/scale@3.12.0':
-    resolution: {integrity: sha512-+ubijrZ2AwWCsNey0HGLJ0YKNeC/XImEFsr9rM+Uef1CM3PNM43NDdNTrdBejSlzRq0lcfQPWYMYQFSlkLcPOg==}
-
-  '@visx/shape@3.12.0':
-    resolution: {integrity: sha512-/1l0lrpX9tPic6SJEalryBKWjP/ilDRnQA+BGJTI1tj7i23mJ/J0t4nJHyA1GrL4QA/bM/qTJ35eyz5dEhJc4g==}
-    peerDependencies:
-      react: ^16.3.0-0 || ^17.0.0-0 || ^18.0.0-0
-
-  '@visx/vendor@3.12.0':
-    resolution: {integrity: sha512-SVO+G0xtnL9dsNpGDcjCgoiCnlB3iLSM9KLz1sLbSrV7RaVXwY3/BTm2X9OWN1jH2a9M+eHt6DJ6sE6CXm4cUg==}
 
   '@vitest/coverage-v8@4.1.9':
     resolution: {integrity: sha512-G9/lgqibheLVBDRuya45EbsEXTYcWoSG+TLg7i2axuzx0Eq62eXn+aWXyaVdV5vKvFSWd6ywcX8hA7la9Pvu8g==}
@@ -4250,9 +4152,6 @@ packages:
   class-variance-authority@0.7.1:
     resolution: {integrity: sha512-Ka+9Trutv7G8M6WT6SeiRWz792K5qEqIGEGzXKhAE6xOWAY6pPH8U+9IY3oCMv6kqTmLsv7Xh/2w2RigkePMsg==}
 
-  classnames@2.5.1:
-    resolution: {integrity: sha512-saHYOzhIQs6wy2sVxTM6bUDsQO4F50V9RQ22qBpEdCW+I+/Wmke2HOl6lS6dTpdxVhb88/I6+Hs+438c3lfUow==}
-
   cli-cursor@5.0.0:
     resolution: {integrity: sha512-aCj4O5wKyszjMmDT4tZj93kxyydN/K5zPWSCe6/0AV/AA1pqe5ZBIw0a2ZfPQV7lL5/yb5HsUreJ6UFAF1tEQw==}
     engines: {node: '>=18'}
@@ -4403,20 +4302,12 @@ packages:
   csv-parse@5.6.0:
     resolution: {integrity: sha512-l3nz3euub2QMg5ouu5U09Ew9Wf6/wQ8I++ch1loQ0ljmzhmfZYrH9fflS22i/PQEvsPvxCwxgz5q7UB8K1JO4Q==}
 
-  d3-array@3.2.1:
-    resolution: {integrity: sha512-gUY/qeHq/yNqqoCKNq4vtpFLdoCdvyNpWoC/KNjhGbhDuQpAM9sIQQKkXSNpXa9h5KySs/gzm7R88WkUutgwWQ==}
-    engines: {node: '>=12'}
-
   d3-array@3.2.4:
     resolution: {integrity: sha512-tdQAmyA18i4J7wprpYq8ClcxZy3SC31QMeByyCFyRt7BVHdREQZ5lpzoe5mFEYZUWe+oq8HBvk9JjpibyEV4Jg==}
     engines: {node: '>=12'}
 
   d3-color@3.1.0:
     resolution: {integrity: sha512-zg/chbXyeBtMQ1LbD/WSoW2DpC3I0mpmPdW+ynRTj/x2DAWYrIY7qeZIHidozwV24m4iavr15lNwIwLxRmOxhA==}
-    engines: {node: '>=12'}
-
-  d3-delaunay@6.0.2:
-    resolution: {integrity: sha512-IMLNldruDQScrcfT+MWnazhHbDJhcRJyOEBAJfwQnHle1RPh6WDuLvxNArUju2VSMSUuKlY5BGHRJ2cYyoFLQQ==}
     engines: {node: '>=12'}
 
   d3-ease@3.0.1:
@@ -4427,16 +4318,9 @@ packages:
     resolution: {integrity: sha512-YyUI6AEuY/Wpt8KWLgZHsIU86atmikuoOmCfommt0LYHiQSPjvX2AcFc38PX0CBpr2RCyZhjex+NS/LPOv6YqA==}
     engines: {node: '>=12'}
 
-  d3-geo@3.1.0:
-    resolution: {integrity: sha512-JEo5HxXDdDYXCaWdwLRt79y7giK8SbhZJbFWXqbRTolCHFI5jRqteLzCsq51NKbUoX0PjBVSohxrx+NoOUujYA==}
-    engines: {node: '>=12'}
-
   d3-interpolate@3.0.1:
     resolution: {integrity: sha512-3bYs1rOD33uo8aqJfKP3JWPAibgw8Zm2+L9vBKEHJ2Rg+viTR7o5Mmv5mZcieN+FRYaAOWX5SJATX6k1PWz72g==}
     engines: {node: '>=12'}
-
-  d3-path@1.0.9:
-    resolution: {integrity: sha512-VLaYcn81dtHVTjEHd8B+pbe9yHWpXKZUC87PzoFmsFrJqgFwDe/qxfp5MlfsfM1V5E/iVt0MmEbWQ7FVIXh/bg==}
 
   d3-path@3.1.0:
     resolution: {integrity: sha512-p3KP5HCf/bvjBSSKuXid6Zqijx7wIfNW+J/maPs+iwR35at5JCbLUT0LzF1cnjbCHWhqzQTIN2Jpe8pRebIEFQ==}
@@ -4445,9 +4329,6 @@ packages:
   d3-scale@4.0.2:
     resolution: {integrity: sha512-GZW464g1SH7ag3Y7hXjf8RoUuAFIqklOAq3MRl4OaWabTFJY9PN/E1YklhXLh+OQ3fM9yS2nOkCoS+WLZ6kvxQ==}
     engines: {node: '>=12'}
-
-  d3-shape@1.3.7:
-    resolution: {integrity: sha512-EUkvKjqPFUAZyOlhY5gzCxCeI0Aep04LwIRpsZ/mLFelJiUfnK56jo5JMDSE7yyP2kLSb6LtF+S5chMk7uqPqw==}
 
   d3-shape@3.2.0:
     resolution: {integrity: sha512-SaLBuwGm3MOViRq2ABk3eLoxwZELpH6zhl3FbAoJ7Vm1gofKx6El1Ib5z23NUEhF9AsGl7y+dzLe5Cw2AArGTA==}
@@ -4557,9 +4438,6 @@ packages:
 
   defu@6.1.7:
     resolution: {integrity: sha512-7z22QmUWiQ/2d0KkdYmANbRUVABpZ9SNYyH5vx6PZ+nE5bcC0l7uFvEfHlyld/HcGBFTL536ClDt3DEcSlEJAQ==}
-
-  delaunator@5.1.0:
-    resolution: {integrity: sha512-AGrQ4QSgssa1NGmWmLPqN5NY2KajF5MqxetNEO+o0n3ZwZZeTmt7bBnvzHWrmkZFxGgr4HdyFgelzgi06otLuQ==}
 
   delayed-stream@1.0.0:
     resolution: {integrity: sha512-ZySD7Nf91aLB0RxL4KGrKHBXl7Eds1DAmEdcoVawXnLD7SDhpNgtuII2aAkg7a7QS41jxPSZ17p4VdGnMHk3MQ==}
@@ -6765,9 +6643,6 @@ packages:
     resolution: {integrity: sha512-LKg+Cr2ZF61fkcaK1UdkH2yEBBKnYjTyWzTJT6KNPcSPaiT7HSdhtMXQuN5wkTX0Xu72KQ1l8S42rlmexS2hSA==}
     engines: {node: 20 || >=22}
     hasBin: true
-
-  robust-predicates@3.0.3:
-    resolution: {integrity: sha512-NS3levdsRIUOmiJ8FZWCP7LG3QpJyrs/TE0Zpf1yvZu8cAJJ6QMW92H1c7kWpdIHo8RvmLxN/o2JXTKHp74lUA==}
 
   rolldown@1.1.4:
     resolution: {integrity: sha512-IjZYiLxZwpnhwhdBH2ugdTGVSdhCQUmLxLoqyjiL0JxYjyRst+5a0P3xfrTxJ5F638j4Mvvw5FAX5XE6eHpXbA==}
@@ -10222,55 +10097,25 @@ snapshots:
     dependencies:
       '@types/node': 25.9.1
 
-  '@types/d3-array@3.0.3': {}
-
   '@types/d3-array@3.2.2': {}
-
-  '@types/d3-color@3.1.0': {}
 
   '@types/d3-color@3.1.3': {}
 
-  '@types/d3-delaunay@6.0.1': {}
-
   '@types/d3-ease@3.0.2': {}
-
-  '@types/d3-format@3.0.1': {}
-
-  '@types/d3-geo@3.1.0':
-    dependencies:
-      '@types/geojson': 7946.0.16
-
-  '@types/d3-interpolate@3.0.1':
-    dependencies:
-      '@types/d3-color': 3.1.0
 
   '@types/d3-interpolate@3.0.4':
     dependencies:
       '@types/d3-color': 3.1.3
 
-  '@types/d3-path@1.0.11': {}
-
   '@types/d3-path@3.1.1': {}
-
-  '@types/d3-scale@4.0.2':
-    dependencies:
-      '@types/d3-time': 3.0.0
 
   '@types/d3-scale@4.0.9':
     dependencies:
       '@types/d3-time': 3.0.4
 
-  '@types/d3-shape@1.3.12':
-    dependencies:
-      '@types/d3-path': 1.0.11
-
   '@types/d3-shape@3.1.8':
     dependencies:
       '@types/d3-path': 3.1.1
-
-  '@types/d3-time-format@2.1.0': {}
-
-  '@types/d3-time@3.0.0': {}
 
   '@types/d3-time@3.0.4': {}
 
@@ -10297,8 +10142,6 @@ snapshots:
   '@types/leaflet@1.9.21':
     dependencies:
       '@types/geojson': 7946.0.16
-
-  '@types/lodash@4.17.24': {}
 
   '@types/mdast@4.0.4':
     dependencies:
@@ -10610,87 +10453,6 @@ snapshots:
       zod: 4.4.3
 
   '@vercel/oidc@3.2.0': {}
-
-  '@visx/curve@3.12.0':
-    dependencies:
-      '@types/d3-shape': 1.3.12
-      d3-shape: 1.3.7
-
-  '@visx/event@3.12.0':
-    dependencies:
-      '@types/react': 19.2.15
-      '@visx/point': 3.12.0
-
-  '@visx/grid@3.12.0(react@19.2.6)':
-    dependencies:
-      '@types/react': 19.2.15
-      '@visx/curve': 3.12.0
-      '@visx/group': 3.12.0(react@19.2.6)
-      '@visx/point': 3.12.0
-      '@visx/scale': 3.12.0
-      '@visx/shape': 3.12.0(react@19.2.6)
-      classnames: 2.5.1
-      prop-types: 15.8.1
-      react: 19.2.6
-
-  '@visx/group@3.12.0(react@19.2.6)':
-    dependencies:
-      '@types/react': 19.2.15
-      classnames: 2.5.1
-      prop-types: 15.8.1
-      react: 19.2.6
-
-  '@visx/point@3.12.0': {}
-
-  '@visx/responsive@3.12.0(react@19.2.6)':
-    dependencies:
-      '@types/lodash': 4.17.24
-      '@types/react': 19.2.15
-      lodash: 4.18.1
-      prop-types: 15.8.1
-      react: 19.2.6
-
-  '@visx/scale@3.12.0':
-    dependencies:
-      '@visx/vendor': 3.12.0
-
-  '@visx/shape@3.12.0(react@19.2.6)':
-    dependencies:
-      '@types/d3-path': 1.0.11
-      '@types/d3-shape': 1.3.12
-      '@types/lodash': 4.17.24
-      '@types/react': 19.2.15
-      '@visx/curve': 3.12.0
-      '@visx/group': 3.12.0(react@19.2.6)
-      '@visx/scale': 3.12.0
-      classnames: 2.5.1
-      d3-path: 1.0.9
-      d3-shape: 1.3.7
-      lodash: 4.18.1
-      prop-types: 15.8.1
-      react: 19.2.6
-
-  '@visx/vendor@3.12.0':
-    dependencies:
-      '@types/d3-array': 3.0.3
-      '@types/d3-color': 3.1.0
-      '@types/d3-delaunay': 6.0.1
-      '@types/d3-format': 3.0.1
-      '@types/d3-geo': 3.1.0
-      '@types/d3-interpolate': 3.0.1
-      '@types/d3-scale': 4.0.2
-      '@types/d3-time': 3.0.0
-      '@types/d3-time-format': 2.1.0
-      d3-array: 3.2.1
-      d3-color: 3.1.0
-      d3-delaunay: 6.0.2
-      d3-format: 3.1.0
-      d3-geo: 3.1.0
-      d3-interpolate: 3.0.1
-      d3-scale: 4.0.2
-      d3-time: 3.1.0
-      d3-time-format: 4.1.0
-      internmap: 2.0.3
 
   '@vitest/coverage-v8@4.1.9(vitest@4.1.9)':
     dependencies:
@@ -11246,8 +11008,6 @@ snapshots:
     dependencies:
       clsx: 2.1.1
 
-  classnames@2.5.1: {}
-
   cli-cursor@5.0.0:
     dependencies:
       restore-cursor: 5.1.0
@@ -11383,33 +11143,19 @@ snapshots:
 
   csv-parse@5.6.0: {}
 
-  d3-array@3.2.1:
-    dependencies:
-      internmap: 2.0.3
-
   d3-array@3.2.4:
     dependencies:
       internmap: 2.0.3
 
   d3-color@3.1.0: {}
 
-  d3-delaunay@6.0.2:
-    dependencies:
-      delaunator: 5.1.0
-
   d3-ease@3.0.1: {}
 
   d3-format@3.1.0: {}
 
-  d3-geo@3.1.0:
-    dependencies:
-      d3-array: 3.2.4
-
   d3-interpolate@3.0.1:
     dependencies:
       d3-color: 3.1.0
-
-  d3-path@1.0.9: {}
 
   d3-path@3.1.0: {}
 
@@ -11420,10 +11166,6 @@ snapshots:
       d3-interpolate: 3.0.1
       d3-time: 3.1.0
       d3-time-format: 4.1.0
-
-  d3-shape@1.3.7:
-    dependencies:
-      d3-path: 1.0.9
 
   d3-shape@3.2.0:
     dependencies:
@@ -11517,10 +11259,6 @@ snapshots:
       object-keys: 1.1.1
 
   defu@6.1.7: {}
-
-  delaunator@5.1.0:
-    dependencies:
-      robust-predicates: 3.0.3
 
   delayed-stream@1.0.0: {}
 
@@ -13904,8 +13642,6 @@ snapshots:
     dependencies:
       glob: 13.0.6
       package-json-from-dist: 1.0.1
-
-  robust-predicates@3.0.3: {}
 
   rolldown@1.1.4:
     dependencies:
