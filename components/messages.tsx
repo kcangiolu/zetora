@@ -3,7 +3,7 @@ import { Virtuoso, VirtuosoHandle, type Components } from 'react-virtuoso';
 import { Message, DELIVERABLE_TOOL_PART_TYPES, type MessageEditDraft } from '@/components/message';
 import { isToolUIPart } from 'ai';
 import { EnhancedErrorDisplay } from '@/components/message';
-import { MessagePartRenderer } from '@/components/message-parts';
+import { MessagePartRenderer } from '@/components/message-parts/message-part-renderer';
 import { MarkdownRenderer } from '@/components/markdown';
 import { StreamingIndicator } from '@/components/streaming-indicator';
 import { Attachment, ChatMessage } from '@/lib/types';

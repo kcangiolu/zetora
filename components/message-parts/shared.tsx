@@ -134,6 +134,53 @@ export const StockChartLoader = ({ title, input }: { title?: string; input?: any
 // Intentionally hidden: tool errors are suppressed in the message stream UI.
 export const ToolErrorDisplay = (_: { errorText: string; toolName: string }) => null;
 
+const NOTICE_TONES = {
+  error: {
+    box: 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950',
+    iconBox: 'bg-red-100 dark:bg-red-900',
+    icon: 'text-red-600 dark:text-red-400',
+    title: 'text-red-900 dark:text-red-100',
+    text: 'text-red-700 dark:text-red-300',
+  },
+  empty: {
+    box: 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950',
+    iconBox: 'bg-amber-100 dark:bg-amber-900',
+    icon: 'text-amber-600 dark:text-amber-400',
+    title: 'text-amber-900 dark:text-amber-100',
+    text: 'text-amber-700 dark:text-amber-300',
+  },
+};
+
+// A tool result that failed or found nothing.
+export function ToolNotice({
+  tone,
+  icon: Icon,
+  title,
+  children,
+}: {
+  tone: keyof typeof NOTICE_TONES;
+  icon: React.ElementType<{ className?: string }>;
+  title: string;
+  children: React.ReactNode;
+}) {
+  const colors = NOTICE_TONES[tone];
+  return (
+    <div className={`w-full my-4 rounded-lg border ${colors.box}`}>
+      <div className="p-4">
+        <div className="flex items-start gap-3">
+          <div className={`shrink-0 w-8 h-8 rounded-lg ${colors.iconBox} flex items-center justify-center`}>
+            <Icon className={`h-4 w-4 ${colors.icon}`} />
+          </div>
+          <div className="flex-1">
+            <h3 className={`text-sm font-medium ${colors.title}`}>{title}</h3>
+            <p className={`text-xs mt-1 ${colors.text}`}>{children}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function formatDynamicToolName(partType: string, dynamicToolName?: string) {
   const normalizedName =
     partType === 'dynamic-tool' ? dynamicToolName || 'dynamic_tool' : partType.replace(/^tool-/, '');
