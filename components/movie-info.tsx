@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { Film, Tv, Star, Calendar, Clock, Users } from 'lucide-react';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { Dialog, DialogContent } from '@/components/ui/dialog';

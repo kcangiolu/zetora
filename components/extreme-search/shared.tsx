@@ -4,7 +4,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
 import { useIsMobile } from '@/hooks/use-mobile';
 import React, { useState, memo, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { Download, Loader2, X, MoreVertical, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {

@@ -25,6 +25,9 @@ export const EXTERNAL_API_TIMEOUT_MS = envMs('ZETORA_FETCH_TIMEOUT_EXTERNAL_API'
 // Bundled services reached over the compose network (Qdrant, the Hermes relay).
 export const INTERNAL_SERVICE_TIMEOUT_MS = envMs('ZETORA_FETCH_TIMEOUT_INTERNAL_SERVICE', 15_000);
 export const GITHUB_API_TIMEOUT_MS = envMs('ZETORA_FETCH_TIMEOUT_GITHUB_API', 10_000);
+// Redis commands of the app's key/value clients, including the time spent
+// queued while Redis is unreachable.
+export const REDIS_COMMAND_TIMEOUT_MS = envMs('ZETORA_REDIS_COMMAND_TIMEOUT', 5_000);
 // exa-js has no client-side request timeout or retry of its own (plain
 // `fetch` with no `signal`), so a slow/hanging Exa API call blocks its query
 // indefinitely instead of failing fast like the other providers.

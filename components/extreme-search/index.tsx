@@ -5,11 +5,11 @@ import { getDisplayHostname, getFaviconUrl, getHostFaviconUrl } from '@/lib/url'
 import type { extremeSearchTool, Research } from '@/lib/tools/extreme-search';
 import type { UIToolInvocation } from 'ai';
 import React, { useEffect, useState, memo, useMemo, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { ChevronDown, ChevronRight, Search, Target, Code2, FlaskConical, Lightbulb, X, Globe } from 'lucide-react';
-import { DashLoading } from 'respinner';
 import { TextShimmer } from '@/components/core/text-shimmer';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
 import { DataExtremeSearchPart } from '@/lib/types';
 import { Tabs as KumoTabs } from '@cloudflare/kumo';
@@ -2531,7 +2531,7 @@ const ExtremeSearchComponent = ({
               />
               {/* Content aligned with other items */}
               <div className="flex items-start gap-1.5 py-1 px-1.5">
-                <DashLoading size={14} color="currentColor" strokeWidth={1.5} />
+                <Spinner className="size-3.5 shrink-0" />
                 <span className="text-[11px] text-muted-foreground/60 leading-snug">Waiting for agent...</span>
               </div>
             </motion.div>

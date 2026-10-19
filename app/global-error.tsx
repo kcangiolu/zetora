@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { RefreshCw, Home, TriangleAlert, ChevronDown, ChevronUp, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Be_Vietnam_Pro, Baumans, Geist } from 'next/font/google';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'motion/react';
 import { writeClipboardText } from '@/hooks/use-copy-to-clipboard';
 
 const beVietnamPro = Be_Vietnam_Pro({

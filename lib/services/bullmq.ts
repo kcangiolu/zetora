@@ -1,7 +1,7 @@
 import { Queue, Worker, Job } from 'bullmq';
-import Redis from 'ioredis';
 
 import { serverEnv } from '@/env/server';
+import { createKeyValueRedisClient, type KeyValueRedisClient } from '@/lib/redis';
 import { createLogger } from '@/lib/logger';
 import { SEARCH_REQUEST_TIMEOUT_MS } from '@/lib/timeouts';
 
@@ -24,8 +24,7 @@ interface PausedSchedulerData extends LookoutJobData {
   pattern: string;
 }
 
-// Returns plain connection options so BullMQ uses its own bundled ioredis,
-// avoiding a version mismatch between ioredis@5.10.x (project) and 5.11.x (BullMQ).
+// Plain connection options: BullMQ connects with its own bundled ioredis.
 function getConnectionOpts() {
   const rawUrl = process.env.BULLMQ_REDIS_URL || process.env.REDIS_URL || 'redis://localhost:6379';
   const password = process.env.BULLMQ_REDIS_PASSWORD || undefined;
@@ -39,13 +38,13 @@ function getConnectionOpts() {
   };
 }
 
-// Separate ioredis client used only for pause/resume state — never passed to BullMQ.
-let _stateRedis: Redis | null = null;
-function getStateRedis(): Redis {
+// Separate client used only for pause/resume state — never passed to BullMQ.
+let _stateRedis: KeyValueRedisClient | null = null;
+function getStateRedis(): KeyValueRedisClient {
   if (!_stateRedis) {
     const rawUrl = process.env.BULLMQ_REDIS_URL || process.env.REDIS_URL || 'redis://localhost:6379';
     const password = process.env.BULLMQ_REDIS_PASSWORD || undefined;
-    _stateRedis = new Redis(rawUrl, { password, maxRetriesPerRequest: null, enableReadyCheck: false });
+    _stateRedis = createKeyValueRedisClient(rawUrl, { password });
   }
   return _stateRedis;
 }

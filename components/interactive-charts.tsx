@@ -3,7 +3,7 @@ import dynamic from 'next/dynamic';
 import type { EChartsOption } from 'echarts-for-react';
 import { Card, CardTitle, CardHeader } from '@/components/ui/card';
 import { useTheme } from 'next-themes';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLocale } from '@/contexts/locale-context';

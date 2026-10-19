@@ -2,7 +2,7 @@ import 'server-only';
 
 import { sql } from 'drizzle-orm';
 import { HeadBucketCommand } from '@aws-sdk/client-s3';
-import Redis from 'ioredis';
+import { createClient } from 'redis';
 import { db } from '@/lib/db';
 import { getStorageClient } from '@/lib/storage';
 import { getCatalogStatus, refreshModelCatalog } from '@/ai/catalog/store';
@@ -63,12 +63,14 @@ async function fetchReachable(url: string): Promise<ServiceCheckResult> {
 }
 
 async function redisPing(rawUrl: string, password?: string): Promise<ServiceCheckResult> {
-  const client = new Redis(rawUrl, {
+  const client = createClient({
+    url: rawUrl,
     password,
-    lazyConnect: true,
-    maxRetriesPerRequest: 1,
-    connectTimeout: TIMEOUT_MS,
+    socket: { connectTimeout: TIMEOUT_MS, reconnectStrategy: false },
   });
+  // The failure is reported by connect() below; this only keeps the client's
+  // error event from crashing the process.
+  client.on('error', () => undefined);
   try {
     await client.connect();
     const pong = await client.ping();
@@ -76,7 +78,7 @@ async function redisPing(rawUrl: string, password?: string): Promise<ServiceChec
   } catch (error) {
     return { ok: false, detail: describeFailure(error, 'Redis') };
   } finally {
-    client.disconnect();
+    if (client.isOpen) client.destroy();
   }
 }
 

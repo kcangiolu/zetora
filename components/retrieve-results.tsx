@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Image from 'next/image';
-import ReactMarkdown from 'react-markdown';
+import Marked from 'marked-react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -245,7 +245,7 @@ const RetrieveSingleResult: React.FC<{ result: RetrieveResponse }> = ({ result }
             <AccordionContent className="pb-0">
               <div className="max-h-[50vh] overflow-y-auto p-4 bg-muted/10 border-t border-border/30">
                 <div className="prose prose-neutral dark:prose-invert prose-sm max-w-none">
-                  <ReactMarkdown>{singleResult.content || 'No content available'}</ReactMarkdown>
+                  <Marked value={singleResult.content || 'No content available'} />
                 </div>
               </div>
             </AccordionContent>

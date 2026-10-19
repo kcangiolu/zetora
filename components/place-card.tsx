@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { DateTime } from 'luxon';
 import { cn } from '@/lib/utils';
 import { useLocale } from '@/contexts/locale-context';
 import PlaceholderImage from '@/components/placeholder-image';
@@ -69,15 +68,20 @@ interface PlaceCardProps {
   className?: string;
 }
 
+// Today's weekday in the place's time zone, in English like the opening hours
+// text it is matched against.
+function getCurrentWeekday(timezone: string | undefined): string {
+  return new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: timezone }).format(new Date());
+}
+
 const HoursSection: React.FC<{ hours: string[]; timezone?: string }> = ({ hours, timezone }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const now = timezone ? DateTime.now().setZone(timezone) : DateTime.now();
-  const currentDay = now.weekdayLong;
+  const currentDay = getCurrentWeekday(timezone);
 
   if (!hours?.length) return null;
 
   // Find today's hours
-  const todayHours = hours.find((h) => h.startsWith(currentDay!))?.split(': ')[1] || 'Closed';
+  const todayHours = hours.find((h) => h.startsWith(currentDay))?.split(': ')[1] || 'Closed';
 
   return (
     <div className="mt-4 pt-3 border-t border-neutral-200 dark:border-neutral-800">
@@ -145,11 +149,12 @@ const PlaceCard: React.FC<PlaceCardProps> = ({
     if (!timeStr || !timezone) return '';
     const hours = Math.floor(parseInt(timeStr) / 100);
     const minutes = parseInt(timeStr) % 100;
-    return DateTime.now()
-      .setZone(timezone)
-      .setLocale(locale)
-      .set({ hour: hours, minute: minutes })
-      .toLocaleString(DateTime.TIME_SIMPLE);
+    // A wall-clock time at the place: formatted in UTC so no zone shifts it.
+    return new Date(Date.UTC(2000, 0, 1, hours, minutes)).toLocaleTimeString(locale, {
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: 'UTC',
+    });
   };
 
   const getStatusDisplay = (): { text: string; color: string } | null => {
@@ -181,9 +186,7 @@ const PlaceCard: React.FC<PlaceCardProps> = ({
     const hoursArray = place.hours || place.opening_hours || [];
     const getTodayHoursString = (): string | null => {
       if (!hoursArray.length) return null;
-      const now = place.timezone ? DateTime.now().setZone(place.timezone) : DateTime.now();
-      const currentDay = now.weekdayLong;
-      if (!currentDay) return null;
+      const currentDay = getCurrentWeekday(place.timezone);
       const entry = hoursArray.find((h) => h.startsWith(currentDay));
       if (!entry) return null;
       const parts = entry.split(': ');

@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, HTMLAttributes, useCallback, useContext, useState } from 'react';
-import { Slot } from 'radix-ui';
+import { Slot } from '@radix-ui/react-slot';
 
 import { cn } from '@/lib/utils';
 
@@ -81,7 +81,7 @@ interface TimelineDateProps extends HTMLAttributes<HTMLTimeElement> {
 }
 
 function TimelineDate({ asChild = false, className, ...props }: TimelineDateProps) {
-  const Comp = asChild ? Slot.Root : 'time';
+  const Comp = asChild ? Slot : 'time';
 
   return (
     <Comp
@@ -106,7 +106,7 @@ interface TimelineIndicatorProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 function TimelineIndicator({ asChild = false, className, children, ...props }: TimelineIndicatorProps) {
-  const Comp = asChild ? Slot.Root : 'div';
+  const Comp = asChild ? Slot : 'div';
 
   return (
     <Comp

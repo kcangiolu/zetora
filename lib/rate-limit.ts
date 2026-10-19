@@ -30,15 +30,14 @@ export const exportRateLimit = {
       // Sliding-window log: drop entries older than the window and count the
       // rest. A request is recorded only when it is allowed, so a client that
       // keeps hammering a closed window does not keep it closed.
-      const results = await redis.pipeline().zremrangebyscore(key, 0, windowStart).zcard(key).exec();
-      const count = Number(results?.[1]?.[1] ?? 0);
+      // Plain commands rather than MULTI: node-redis applies the client's
+      // command timeout to them but not to a transaction.
+      await redis.zRemRangeByScore(key, 0, windowStart);
+      const count = await redis.zCard(key);
       if (count >= MAX_REQUESTS) return denied;
 
-      await redis
-        .pipeline()
-        .zadd(key, now, `${now}-${Math.random().toString(36).slice(2)}`)
-        .pexpire(key, WINDOW_MS)
-        .exec();
+      await redis.zAdd(key, { score: now, value: `${now}-${Math.random().toString(36).slice(2)}` });
+      await redis.pExpire(key, WINDOW_MS);
       return { success: true, limit: MAX_REQUESTS, remaining: MAX_REQUESTS - count - 1, reset: now + WINDOW_MS };
     } catch (error) {
       log.error('[rate-limit] limit() failed — denying export request:', error);

@@ -1,5 +1,9 @@
 import { createClient } from 'redis';
-import IORedis from 'ioredis';
+
+import { createLogger } from '@/lib/logger';
+import { REDIS_COMMAND_TIMEOUT_MS } from '@/lib/timeouts';
+
+const log = createLogger('redis');
 
 let publisher: ReturnType<typeof createClient> | null = null;
 let subscriber: ReturnType<typeof createClient> | null = null;
@@ -17,15 +21,30 @@ export function getResumableStreamClients() {
   return { publisher, subscriber };
 }
 
+export type KeyValueRedisClient = ReturnType<typeof createClient>;
+
+// A key/value client that connects in the background. Commands sent before it
+// is ready, or while Redis is down, wait at most REDIS_COMMAND_TIMEOUT_MS and
+// then fail, instead of hanging until Redis comes back.
+export function createKeyValueRedisClient(url: string, options: { password?: string } = {}): KeyValueRedisClient {
+  const client = createClient({
+    url,
+    password: options.password,
+    commandOptions: { timeout: REDIS_COMMAND_TIMEOUT_MS },
+  });
+  // Without a listener, a connection error would crash the process.
+  client.on('error', (error) => log.error('Redis connection error:', error));
+  client.connect().catch((error) => log.error('Redis connection failed:', error));
+  return client;
+}
+
 // General-purpose key/value client shared by short-lived cache and cross-instance
 // signaling use cases (X Wrapped cache, MCP elicitation handoff, rate limiting) —
 // talks directly to REDIS_URL over RESP, no separate REST-protocol proxy needed.
-let kvClient: IORedis | null = null;
-export function getKVRedisClient(): IORedis | null {
+let kvClient: KeyValueRedisClient | null = null;
+export function getKVRedisClient(): KeyValueRedisClient | null {
   if (!process.env.REDIS_URL) return null;
-  if (!kvClient) {
-    kvClient = new IORedis(process.env.REDIS_URL, { maxRetriesPerRequest: 2, lazyConnect: false });
-  }
+  kvClient ??= createKeyValueRedisClient(process.env.REDIS_URL);
   return kvClient;
 }
 
@@ -45,17 +64,13 @@ export async function kvSet(key: string, value: unknown, opts?: { ex?: number })
   const client = getKVRedisClient();
   if (!client) return;
   const raw = JSON.stringify(value);
-  if (opts?.ex) {
-    await client.set(key, raw, 'EX', opts.ex);
-  } else {
-    await client.set(key, raw);
-  }
+  await client.set(key, raw, opts?.ex ? { expiration: { type: 'EX', value: opts.ex } } : undefined);
 }
 
 export async function kvDel(...keys: string[]): Promise<void> {
   const client = getKVRedisClient();
   if (!client || keys.length === 0) return;
-  await client.del(...keys);
+  await client.del(keys);
 }
 
 export async function kvExists(key: string): Promise<boolean> {
