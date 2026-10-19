@@ -79,7 +79,7 @@ export async function resolveTertiaryModel(
   let resolved = await resolveModel(effectiveModelId, preferences, userId);
 
   // extreme-agent forces toolChoice: 'required' on every step of its research
-  // loop (lib/tools/extreme-search.ts), which several providers reject while
+  // loop (lib/tools/extreme-search/), which several providers reject while
   // thinking (DeepSeek, Kimi, Qwen...) — so its thinking is always off. There's
   // no UI control for this task's effort (Settings hides it).
   const effort: ReasoningEffort =

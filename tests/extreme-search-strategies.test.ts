@@ -22,7 +22,7 @@ import {
   runExtremeContentExtraction,
   runExtremeSearchProvider,
   type ExtremeProviderClients,
-} from '@/lib/tools/extreme-search';
+} from '@/lib/tools/extreme-search/providers';
 
 function stubFetch(responsesByUrlSubstring: Record<string, unknown>) {
   const fetchMock = vi.fn(async (url: string) => {
