@@ -5,8 +5,8 @@ import type { HermesCommand } from '@/lib/hermes/commands';
 
 // Telegram-style command menu: filtered, clickable, inserts the command token rather than
 // switching pipelines (a Hermes command targets the already-active Hermes conversation —
-// see components/ui/form-component/index.tsx's handleHermesCommandSelect, which inserts
-// `/name ` and does NOT call handleGroupSelect).
+// see handleHermesCommandSelect in form-component.tsx, which inserts `/name ` and does
+// NOT call handleGroupSelect).
 export function HermesCommandMenu({
   commands,
   highlightIndex,

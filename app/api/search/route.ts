@@ -336,7 +336,7 @@ export async function POST(req: Request) {
     getBetterAllOptions(),
   );
 
-  // Defense in depth: the mode picker (components/ui/form-component/index.tsx)
+  // Defense in depth: the mode picker (components/ui/form-component/use-mode-options.ts)
   // already hides deep-research/extreme-search once their skill is disabled
   // and reverts a currently-selected one back to 'auto', but that's
   // client-side only — a crafted/replayed request could still send

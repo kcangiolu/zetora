@@ -25,7 +25,7 @@ import Messages, { MessagesHandle } from '@/components/messages';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SidebarInset, useSidebar, SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import FormComponent from '@/components/ui/form-component';
+import FormComponent from '@/components/ui/form-component/form-component';
 import { ShareDialog } from '@/components/share/share-dialog';
 import { ExampleCategories } from '@/components/example-categories';
 import {

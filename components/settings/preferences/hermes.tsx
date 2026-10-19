@@ -33,7 +33,7 @@ export function HermesTab({ user }: { user: SettingsUser }) {
     queryKey: ['hermesConnectorStatus', user?.id],
     queryFn: () => getHermesConnectorStatusAction(),
     enabled: !!user,
-    // The settings tab and the chat's mode-availability check (form-component/index.tsx)
+    // The settings tab and the chat's mode-availability check (form-component/use-mode-options.ts)
     // share this exact query key so enrolling here makes the Hermes mode appear there
     // without a manual refetch — refetchInterval keeps this tab's own badge live too.
     refetchInterval: 5000,

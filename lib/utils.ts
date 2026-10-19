@@ -256,7 +256,7 @@ export function getSearchGroups(searchProvider: SearchProvider = 'exa') {
       icon: Robot01Icon,
       // Always present in the build; only selectable once the user has an enrolled
       // connector, checked where this list is rendered
-      // (components/ui/form-component/index.tsx). Labeled "Agent" rather than
+      // (components/ui/form-component/use-mode-options.ts). Labeled "Agent" rather than
       // "Hermes"; its accent animation lives in components/mode-accent.tsx.
       show: true,
       requireAuth: true,
