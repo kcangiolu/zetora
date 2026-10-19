@@ -44,7 +44,7 @@ const CUSTOM_AGENT_MAX_STEPS = 25;
 
 const SOURCE_CONTENT_MAX_CHARS = 3000;
 
-export type Research = {
+type Research = {
   toolResults: any[];
   sources: SearchResult[];
   charts: any[];

@@ -20,7 +20,7 @@ import { ZetoraLogo } from '@/components/logos/zetora-logo';
 import RedditSearch from '@/components/reddit-search';
 import GitHubSearch from '@/components/github-search';
 import MultiSearch from '@/components/multi-search';
-import { ExtremeSearch } from '@/components/extreme-search';
+import { ExtremeSearch } from '@/components/extreme-search/extreme-search';
 import { StatusBadge } from '@/app/lookout/components/status-badge';
 import { ColorPanels } from '@paper-design/shaders-react';
 import type { DataExtremeSearchPart } from '@/lib/types';
@@ -109,10 +109,7 @@ const LOADER_COLORS = [
   { color: 'blue' as const, icon: Sparkles, text: 'Loading skill...' },
 ];
 
-// Mocks the extreme-search tool invocation shape closely enough to drive the real
-// timeline UI. message-parts/index.tsx does the same `as any` cast at its call site
-// (the `UIToolInvocation<ReturnType<typeof extremeSearchTool>>` intersection resolves
-// to `never` when hand-built), so this isn't a preview-only shortcut.
+// Progress events the research tool streams, enough to drive the real timeline UI.
 const EXTREME_SEARCH_ANNOTATIONS: DataExtremeSearchPart[] = [
   {
     type: 'data-extreme_search',
@@ -217,16 +214,7 @@ export function LoadingPreviewClient() {
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
           Extreme search (research timeline + plan)
         </h2>
-        <ExtremeSearch
-          toolInvocation={
-            {
-              toolName: 'extreme_search',
-              input: { prompt: 'Research the latest trends in open-source AI' },
-              result: undefined,
-            } as any
-          }
-          annotations={EXTREME_SEARCH_ANNOTATIONS}
-        />
+        <ExtremeSearch annotations={EXTREME_SEARCH_ANNOTATIONS} />
       </section>
 
       <section className="space-y-4">

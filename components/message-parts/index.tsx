@@ -97,7 +97,7 @@ import GitHubSearch from '@/components/github-search';
 import PredictionSearch from '@/components/prediction-search';
 import { TextTranslate } from '@/components/text-translate';
 import XSearch from '@/components/x-search';
-import { ExtremeSearch } from '@/components/extreme-search';
+import { ExtremeSearch } from '@/components/extreme-search/extreme-search';
 import { CoinData as CryptoCoinsData } from '@/components/crypto-coin-data';
 import { CurrencyConverter } from '@/components/currency_conv';
 import { YouTubeSearchResults } from '@/components/youtube-search-results';
@@ -2225,8 +2225,6 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                 return (
                   <ExtremeSearch
                     key={`${messageIndex}-${partIndex}-tool`}
-                    // @ts-ignore - Complex type intersection resolved to never
-                    toolInvocation={{ toolName: 'extreme_search', input: part.input, result: part.output }}
                     annotations={
                       (annotations?.filter(
                         (annotation) => annotation.type === 'data-extreme_search',
