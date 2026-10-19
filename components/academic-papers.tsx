@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { CustomUIDataTypes, DataQueryCompletionPart } from '@/lib/types';
 import type { DataUIPart } from 'ai';
+import { useLocale } from '@/contexts/locale-context';
 
 interface AcademicResult {
   title: string;
@@ -47,6 +48,7 @@ const AcademicSourceCard: React.FC<{
   paper: AcademicResult;
   onClick?: () => void;
 }> = ({ paper, onClick }) => {
+  const locale = useLocale();
   const formatAuthors = (author: string | null | undefined) => {
     if (!author) return null;
     const authors = author.split(';').slice(0, 2);
@@ -80,7 +82,7 @@ const AcademicSourceCard: React.FC<{
             {formattedAuthors && paper.publishedDate && <span className="text-[10px] text-muted-foreground/30">·</span>}
             {paper.publishedDate && (
               <span className="text-[10px] text-muted-foreground/50 tabular-nums">
-                {new Date(paper.publishedDate).toLocaleDateString('en-US', {
+                {new Date(paper.publishedDate).toLocaleDateString(locale, {
                   month: 'short',
                   day: 'numeric',
                   year: 'numeric',

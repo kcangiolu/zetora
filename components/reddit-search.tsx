@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { RedditLogoIcon } from '@phosphor-icons/react';
 import { CustomUIDataTypes, DataQueryCompletionPart } from '@/lib/types';
 import type { DataUIPart } from 'ai';
+import { useLocale } from '@/contexts/locale-context';
 
 // Custom Premium Icons
 const Icons = {
@@ -82,6 +83,7 @@ const RedditSourceCard: React.FC<{
   result: RedditResult;
   onClick?: () => void;
 }> = ({ result, onClick }) => {
+  const locale = useLocale();
   const formatSubreddit = (subreddit: string) => {
     return subreddit.replace(/^r\//, '').toLowerCase();
   };
@@ -121,7 +123,7 @@ const RedditSourceCard: React.FC<{
               <>
                 <span className="text-muted-foreground/30 text-[10px]">·</span>
                 <span className="text-[10px] text-muted-foreground/50 tabular-nums">
-                  {new Date(result.published_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  {new Date(result.published_date).toLocaleDateString(locale, { month: 'short', day: 'numeric' })}
                 </span>
               </>
             )}

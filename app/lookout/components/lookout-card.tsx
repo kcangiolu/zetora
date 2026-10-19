@@ -10,6 +10,7 @@ import { StatusBadge } from './status-badge';
 import { RunStatusBadge, type LookoutRunStatus } from './run-status-badge';
 import { ActionButtons } from './action-buttons';
 import { formatNextRun } from '../utils/time-utils';
+import { useLocale } from '@/contexts/locale-context';
 
 interface LookoutRun {
   runAt: string;
@@ -57,6 +58,7 @@ export function LookoutCard({
   onOpenDetails,
   showActions = true,
 }: LookoutCardProps) {
+  const locale = useLocale();
   const lastRunStatus = React.useMemo(() => {
     const history = lookout.runHistory ?? [];
     if (!history.length) return null;
@@ -127,13 +129,13 @@ export function LookoutCard({
           <div className="font-pixel text-[9px] text-muted-foreground/50 uppercase tracking-wider space-y-0.5">
             {/* Next run information */}
             {lookout.nextRunAt && lookout.status === 'active' && (
-              <p>Next: {formatNextRun(lookout.nextRunAt, lookout.timezone)}</p>
+              <p>Next: {formatNextRun(lookout.nextRunAt, lookout.timezone, locale)}</p>
             )}
 
             {/* Last run information */}
             {lookout.lastRunAt && (
               <div className="flex items-center justify-between gap-2">
-                <p>Last: {formatNextRun(lookout.lastRunAt, lookout.timezone)}</p>
+                <p>Last: {formatNextRun(lookout.lastRunAt, lookout.timezone, locale)}</p>
                 {lookout.lastRunChatId && (
                   <Link
                     href={`/search/${lookout.lastRunChatId}`}

@@ -16,6 +16,7 @@ import {
   useState,
 } from 'react';
 import { cn } from '@/lib/utils';
+import { useLocale } from '@/contexts/locale-context';
 import { ChartProvider, type LineConfig, type Margin, type TooltipData } from './chart-context';
 import { Line, type LineProps } from './line';
 
@@ -113,6 +114,7 @@ function ChartInner({
   children,
   containerRef,
 }: ChartInnerProps) {
+  const locale = useLocale();
   const [tooltipData, setTooltipData] = useState<TooltipData | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -183,12 +185,12 @@ function ChartInner({
   const dateLabels = useMemo(
     () =>
       data.map((d) =>
-        xAccessor(d).toLocaleDateString('en-US', {
+        xAccessor(d).toLocaleDateString(locale, {
           month: 'short',
           day: 'numeric',
         }),
       ),
-    [data, xAccessor],
+    [data, xAccessor, locale],
   );
 
   // Animation timing

@@ -125,6 +125,7 @@ import { DynamicToolInvocationCard, DynamicToolStepper, CanvasSpecRenderer, Code
 import type { McpTimelineEntry } from './tools';
 import { getDisplayHostname, getHostFaviconUrl } from '@/lib/url';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
+import { useLocale } from '@/contexts/locale-context';
 
 // Non-empty text of a message, one entry per text part, for exports.
 function getMessageTextParts(message: ChatMessage): string[] {
@@ -221,6 +222,7 @@ interface MessagePartRendererProps {
 
 // Ticks every second, aligned to the start of each second.
 const LiveClock = memo(function LiveClock({ timezone }: { timezone?: string }) {
+  const locale = useLocale();
   const [time, setTime] = useState(() => new Date());
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -249,11 +251,10 @@ const LiveClock = memo(function LiveClock({ timezone }: { timezone?: string }) {
 
   // Format the time according to the specified timezone
   const resolvedTimezone = timezone || new Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const formatter = new Intl.DateTimeFormat('en-US', {
+  const formatter = new Intl.DateTimeFormat(locale, {
     hour: 'numeric',
     minute: 'numeric',
     second: 'numeric',
-    hour12: true,
     timeZone: resolvedTimezone,
   });
 
@@ -262,7 +263,7 @@ const LiveClock = memo(function LiveClock({ timezone }: { timezone?: string }) {
     hour: formattedParts.find((part) => part.type === 'hour')?.value || '12',
     minute: formattedParts.find((part) => part.type === 'minute')?.value || '00',
     second: formattedParts.find((part) => part.type === 'second')?.value || '00',
-    dayPeriod: formattedParts.find((part) => part.type === 'dayPeriod')?.value || 'AM',
+    dayPeriod: formattedParts.find((part) => part.type === 'dayPeriod')?.value || '',
   };
 
   return (
@@ -359,6 +360,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
     const router = useRouter();
     const queryClient = useQueryClient();
     const isMobile = useIsMobile();
+    const locale = useLocale();
     const inlineElicitations = useMemo(
       () => getPendingInlineElicitations(dataStream ?? [], ignoredInlineElicitationIdsRef.current),
       // eslint-disable-next-line react-hooks/exhaustive-deps -- inlineElicitationVersion invalidates the memo when the ignored-ids ref changes
@@ -376,7 +378,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
     const hermesGatewayId = meta?.hermesGatewayId ?? null;
     const hermesReceivedAt =
       hermesGatewayId && meta?.createdAt
-        ? new Date(meta.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+        ? new Date(meta.createdAt).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' })
         : null;
     const hasResponseInfo = Boolean(
       modelLabel || completionTime !== null || inputCount !== null || outputCount !== null || hermesGatewayId,

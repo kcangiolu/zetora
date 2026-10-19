@@ -6,6 +6,7 @@ import { useTheme } from 'next-themes';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useLocale } from '@/contexts/locale-context';
 
 // Dynamically import ReactECharts - it's a heavy library (~200-300KB)
 const ReactECharts = dynamic(() => import('echarts-for-react'), {
@@ -37,6 +38,7 @@ const InteractiveChart = React.memo(
   ({ chart }: { chart: BaseChart }) => {
     const { theme } = useTheme();
     const isDark = theme === 'dark';
+    const locale = useLocale();
 
     // Memoized theme-based styles
     const themeStyles = useMemo(
@@ -325,7 +327,7 @@ const InteractiveChart = React.memo(
                 chart.x_scale === 'datetime'
                   ? (value: number) => {
                       const date = new Date(value);
-                      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
                     }
                   : undefined,
               interval: isMobile ? 'auto' : 0,
@@ -441,7 +443,7 @@ const InteractiveChart = React.memo(
       }
 
       return sharedOptions;
-    }, [sharedOptions, chart, themeStyles, isDark]);
+    }, [sharedOptions, chart, themeStyles, isDark, locale]);
 
     return (
       <motion.div

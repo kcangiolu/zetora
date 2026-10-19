@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { DateTime } from 'luxon';
 import { cn } from '@/lib/utils';
+import { useLocale } from '@/contexts/locale-context';
 import PlaceholderImage from '@/components/placeholder-image';
 import {
   MapPin,
@@ -138,12 +139,17 @@ const PlaceCard: React.FC<PlaceCardProps> = ({
 }) => {
   const [imageError, setImageError] = useState(false);
   const isOverlay = variant === 'overlay';
+  const locale = useLocale();
 
   const formatTime = (timeStr: string | undefined, timezone: string | undefined): string => {
     if (!timeStr || !timezone) return '';
     const hours = Math.floor(parseInt(timeStr) / 100);
     const minutes = parseInt(timeStr) % 100;
-    return DateTime.now().setZone(timezone).set({ hour: hours, minute: minutes }).toFormat('h:mm a');
+    return DateTime.now()
+      .setZone(timezone)
+      .setLocale(locale)
+      .set({ hour: hours, minute: minutes })
+      .toLocaleString(DateTime.TIME_SIMPLE);
   };
 
   const getStatusDisplay = (): { text: string; color: string } | null => {

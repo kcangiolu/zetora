@@ -38,6 +38,7 @@ import { useMediaQuery } from '@/hooks/use-media-query';
 // Custom visx-based chart components
 
 import { Input } from '@/components/ui/input';
+import { useLocale } from '@/contexts/locale-context';
 
 interface GeneratedFileEntry {
   id: string;
@@ -59,6 +60,7 @@ interface DownloadsResponse {
 
 export function DownloadsSection() {
   const isMobile = useMediaQuery('(max-width: 768px)');
+  const locale = useLocale();
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -438,7 +440,7 @@ export function DownloadsSection() {
                         <span className="tabular-nums">{formatBytes(file.sizeBytes ?? 0)}</span>
                         <span className="opacity-30">·</span>
                         <span>
-                          {new Date(file.createdAt).toLocaleDateString('en-US', {
+                          {new Date(file.createdAt).toLocaleDateString(locale, {
                             month: 'short',
                             day: 'numeric',
                             year: 'numeric',

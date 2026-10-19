@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { getDisplayHostname, getFaviconUrl } from '@/lib/url';
 import { Globe, ArrowUpRight, TextIcon, ChevronDown, Layers } from 'lucide-react';
 import { LightningIcon } from '@phosphor-icons/react';
+import { useLocale } from '@/contexts/locale-context';
 
 // Types
 interface RetrieveResult {
@@ -123,6 +124,7 @@ SourceCard.displayName = 'SourceCard';
 // Single URL Result Component
 const RetrieveSingleResult: React.FC<{ result: RetrieveResponse }> = ({ result }) => {
   const singleResult = result.results[0];
+  const locale = useLocale();
 
   if (!singleResult) {
     return (
@@ -198,7 +200,7 @@ const RetrieveSingleResult: React.FC<{ result: RetrieveResponse }> = ({ result }
               )}
               {singleResult.publishedDate && (
                 <span className="text-[10px] text-muted-foreground/50 tabular-nums">
-                  {new Date(singleResult.publishedDate).toLocaleDateString()}
+                  {new Date(singleResult.publishedDate).toLocaleDateString(locale)}
                 </span>
               )}
               {result.response_time && (
@@ -256,6 +258,7 @@ const RetrieveSingleResult: React.FC<{ result: RetrieveResponse }> = ({ result }
 
 // Enhanced Source Card for Multi-URL
 const EnhancedSourceCard: React.FC<{ result: RetrieveResult; index: number }> = React.memo(({ result }) => {
+  const locale = useLocale();
   const faviconUrl = React.useMemo(() => getResultFaviconUrl(result.url, result.favicon), [result.url, result.favicon]);
   const hostname = React.useMemo(() => getDisplayHostname(result.url) || result.url, [result.url]);
 
@@ -309,7 +312,7 @@ const EnhancedSourceCard: React.FC<{ result: RetrieveResult; index: number }> = 
               <>
                 <span className="text-[10px] text-muted-foreground/30">·</span>
                 <span className="text-[10px] text-muted-foreground/50 tabular-nums">
-                  {new Date(result.publishedDate).toLocaleDateString()}
+                  {new Date(result.publishedDate).toLocaleDateString(locale)}
                 </span>
               </>
             )}

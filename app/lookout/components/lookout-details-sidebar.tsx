@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { format } from 'date-fns';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import {
   Activity01Icon,
@@ -22,6 +21,7 @@ import { BorderTrail } from '@/components/core/border-trail';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import Link from 'next/link';
 import { LOOKOUT_SEARCH_MODES } from '../constants';
+import { useLocale } from '@/contexts/locale-context';
 
 interface LookoutRun {
   runAt: string;
@@ -68,6 +68,7 @@ export function LookoutDetailsSidebar({
   onEditLookout,
   onTest,
 }: LookoutDetailsSidebarProps) {
+  const locale = useLocale();
   const modeConfig = React.useMemo(() => {
     const resolvedMode = lookout.searchMode || 'extreme';
     return LOOKOUT_SEARCH_MODES.find((m) => m.value === resolvedMode) || null;
@@ -196,7 +197,12 @@ export function LookoutDetailsSidebar({
                         className="rounded-lg border border-red-200/60 dark:border-red-800/40 bg-red-50/30 dark:bg-red-950/20 p-3"
                       >
                         <p className="text-[11px] font-medium text-red-700 dark:text-red-400 mb-1">
-                          {format(new Date(run.runAt), 'MMM d, h:mm a')}
+                          {new Date(run.runAt).toLocaleString(locale, {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit',
+                          })}
                         </p>
                         <p className="text-xs text-red-600/80 dark:text-red-300/80 leading-tight">
                           {run.error || 'Unknown error'}
@@ -265,9 +271,24 @@ export function LookoutDetailsSidebar({
               </div>
 
               <div className="font-pixel text-[9px] text-muted-foreground/50 uppercase tracking-wider space-y-1 mb-4">
-                <p>Created {format(new Date(lookout.createdAt), 'MMM d, yyyy')}</p>
+                <p>
+                  Created{' '}
+                  {new Date(lookout.createdAt).toLocaleDateString(locale, {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}
+                </p>
                 {lookout.nextRunAt && lookout.status === 'active' && (
-                  <p>Next {format(new Date(lookout.nextRunAt), 'MMM d, h:mm a')}</p>
+                  <p>
+                    Next{' '}
+                    {new Date(lookout.nextRunAt).toLocaleString(locale, {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}
+                  </p>
                 )}
               </div>
 
@@ -344,7 +365,12 @@ export function LookoutDetailsSidebar({
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-0.5">
                                 <span className="text-xs text-muted-foreground">
-                                  {format(new Date(run.runAt), 'MMM d, h:mm a')}
+                                  {new Date(run.runAt).toLocaleString(locale, {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                  })}
                                 </span>
                                 {run.duration && (
                                   <span className="font-pixel text-[8px] text-muted-foreground/40 uppercase tracking-wider">

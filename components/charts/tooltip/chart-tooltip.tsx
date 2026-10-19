@@ -8,6 +8,7 @@ import { TooltipBox } from './tooltip-box';
 import { TooltipContent, type TooltipRow } from './tooltip-content';
 import { TooltipDot } from './tooltip-dot';
 import { TooltipIndicator } from './tooltip-indicator';
+import { useLocale } from '@/contexts/locale-context';
 
 // Spring config for crosshair
 const crosshairSpringConfig = { stiffness: 300, damping: 30 };
@@ -52,6 +53,7 @@ export function ChartTooltip({
     orientation,
     barXAccessor,
   } = useChart();
+  const locale = useLocale();
 
   const isHorizontal = orientation === 'horizontal';
 
@@ -106,12 +108,12 @@ export function ChartTooltip({
       return barXAccessor(tooltipData.point);
     }
     // For vertical charts, use the date
-    return xAccessor(tooltipData.point).toLocaleDateString('en-US', {
+    return xAccessor(tooltipData.point).toLocaleDateString(locale, {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
     });
-  }, [tooltipData, isHorizontal, barXAccessor, xAccessor]);
+  }, [tooltipData, isHorizontal, barXAccessor, xAccessor, locale]);
 
   // Use portal to render into the chart container
   // Only render after mount on client side

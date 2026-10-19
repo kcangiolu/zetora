@@ -23,6 +23,7 @@ import {
 
 // Icons
 import { DollarSign, Activity, ArrowUpRight, ArrowDownRight, AlertCircle } from 'lucide-react';
+import { useLocale } from '@/contexts/locale-context';
 
 interface CryptoTickersProps {
   result: any;
@@ -242,7 +243,8 @@ const renderCandlestick = (props: any) => {
 };
 
 // Custom tooltip for charts
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload }: any) => {
+  const locale = useLocale();
   if (active && payload && payload.length) {
     const data = payload[0]?.payload as CandlestickData | undefined;
 
@@ -251,7 +253,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
       return (
         <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg p-3 shadow-sm max-w-[200px] z-50">
           <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2 truncate">
-            {new Date(data.date).toLocaleDateString('en-US', {
+            {new Date(data.date).toLocaleDateString(locale, {
               weekday: 'short',
               year: 'numeric',
               month: 'short',
@@ -290,9 +292,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
       // Regular price tooltip
       return (
         <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg p-2 shadow-sm max-w-[150px] z-50">
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
-            {new Date(label).toLocaleDateString()}
-          </p>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">{payload[0].payload.fullDate}</p>
           <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
             {formatPrice(payload[0].value)}
           </p>
@@ -436,6 +436,7 @@ const CryptoTickers: React.FC<CryptoTickersProps> = memo(({ result, coinId }) =>
 });
 
 const CryptoChart: React.FC<CryptoChartProps> = memo(({ result, coinId, chartType = 'line' }) => {
+  const locale = useLocale();
   // Enhanced error handling
   if (!result) {
     return (
@@ -559,11 +560,11 @@ const CryptoChart: React.FC<CryptoChartProps> = memo(({ result, coinId, chartTyp
               low,
               close,
               openClose: [open, close],
-              displayDate: date.toLocaleDateString('en-US', {
+              displayDate: date.toLocaleDateString(locale, {
                 month: 'short',
                 day: 'numeric',
               }),
-              fullDate: date.toLocaleDateString(),
+              fullDate: date.toLocaleDateString(locale),
             };
           })
           .filter((item) => item.open > 0 || item.high > 0 || item.low > 0 || item.close > 0);
@@ -612,11 +613,11 @@ const CryptoChart: React.FC<CryptoChartProps> = memo(({ result, coinId, chartTyp
               low,
               close,
               openClose: [open, close],
-              displayDate: date.toLocaleDateString('en-US', {
+              displayDate: date.toLocaleDateString(locale, {
                 month: 'short',
                 day: 'numeric',
               }),
-              fullDate: date.toLocaleDateString(),
+              fullDate: date.toLocaleDateString(locale),
             };
           })
           .sort((a, b) => a.timestamp - b.timestamp);
@@ -649,11 +650,12 @@ const CryptoChart: React.FC<CryptoChartProps> = memo(({ result, coinId, chartTyp
           const price = extractPrice(item);
 
           return {
-            date: date.toLocaleDateString('en-US', {
+            date: date.toLocaleDateString(locale, {
               month: 'short',
               day: 'numeric',
             }),
-            fullDate: date.toLocaleDateString(),
+            fullDate: date.toLocaleDateString(locale),
+            month: date.toLocaleDateString(locale, { month: 'short' }),
             price: price,
             formattedPrice: formatPrice(price, vsCurrency),
           };
@@ -728,7 +730,7 @@ const CryptoChart: React.FC<CryptoChartProps> = memo(({ result, coinId, chartTyp
       const date = new Date(dateStr);
       if (isNaN(date.getTime())) return dateStr;
 
-      const month = date.toLocaleString('en-US', { month: 'short' });
+      const month = date.toLocaleString(locale, { month: 'short' });
       const year = date.getFullYear().toString().slice(2);
       return `${month} '${year}`;
     } catch {
@@ -906,7 +908,7 @@ const CryptoChart: React.FC<CryptoChartProps> = memo(({ result, coinId, chartTyp
                   // For regular charts, show abbreviated dates
                   const interval = Math.max(1, Math.floor(formattedData.length / 4));
                   if (index % interval === 0 || index === 0 || index === formattedData.length - 1) {
-                    return value.split(' ')[0]; // Just show month
+                    return formattedData[index]?.month ?? value;
                   }
                   return '';
                 }}

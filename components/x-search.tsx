@@ -9,6 +9,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
 import { CustomUIDataTypes, DataQueryCompletionPart } from '@/lib/types';
 import type { DataUIPart } from 'ai';
+import { useLocale } from '@/contexts/locale-context';
 
 // Dynamically import Tweet component - it's a heavy library for Twitter embeds
 const Tweet = dynamic(() => import('react-tweet').then((mod) => ({ default: mod.Tweet })), {
@@ -237,6 +238,7 @@ const XSearchLoadingState: React.FC<{ queries: string[]; annotations: DataUIPart
 XSearchLoadingState.displayName = 'XSearchLoadingState';
 
 const XSearch: React.FC<XSearchProps> = ({ result, args, annotations = [] }) => {
+  const locale = useLocale();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -320,7 +322,7 @@ const XSearch: React.FC<XSearchProps> = ({ result, args, annotations = [] }) => 
       const date = new Date(value);
       return Number.isNaN(date.getTime())
         ? 'Unknown'
-        : date.toLocaleDateString('en-US', {
+        : date.toLocaleDateString(locale, {
             month: 'short',
             day: 'numeric',
             year: 'numeric',

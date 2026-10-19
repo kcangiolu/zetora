@@ -37,6 +37,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { MarkdownRenderer } from '@/components/markdown';
 import { getDisplayHostname, getFaviconUrl } from '@/lib/url';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useLocale } from '@/contexts/locale-context';
 
 // Currency symbol mapping with modern design tokens
 const CURRENCY_SYMBOLS = {
@@ -243,23 +244,6 @@ const formatStockSymbol = (symbol: string) => {
   return formatted;
 };
 
-const getDateFormat = (interval: string, date: Date, isMobile: boolean = false) => {
-  // Check for short time periods that might need hourly format
-  if (interval.includes('day') && (interval.includes('1') || interval === '1d')) {
-    return date.toLocaleTimeString('en-US', { hour: 'numeric' });
-  }
-  // Check for very short periods (like 5 days)
-  if ((interval.includes('day') && interval.includes('5')) || interval === '5d') {
-    return date.toLocaleDateString('en-US', { weekday: 'short' });
-  }
-  // Default to month/year format for most other cases
-  const month = date.toLocaleDateString('en-US', { month: 'short' });
-  const year = date.toLocaleDateString('en-US', { year: '2-digit' });
-  const formatted = `${month} ${year}`;
-  // Insert line break on mobile for compactness
-  return isMobile ? formatted.replace(' ', '\n') : formatted;
-};
-
 const formatCurrency = (value: number, currencyCode: string) => {
   const symbol = CURRENCY_SYMBOLS[currencyCode as keyof typeof CURRENCY_SYMBOLS] || currencyCode;
 
@@ -321,11 +305,12 @@ const InteractiveStockChart = React.memo(
   }: StockChartProps) => {
     const { resolvedTheme } = useTheme();
     const isDark = resolvedTheme === 'dark';
+    const locale = useLocale();
     // Use lazy initialization for lastUpdated - computation runs only once
     const [lastUpdated, setLastUpdated] = useState<string>(() => {
       if (typeof window === 'undefined') return '';
       const now = new Date();
-      return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return now.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
     });
     // Use useMediaQuery instead of useState + resize listener (rule 5.4: subscribe to derived state)
     const isMobile = useMediaQuery('(max-width: 639px)');
@@ -377,9 +362,9 @@ const InteractiveStockChart = React.memo(
     useEffect(() => {
       if (!lastUpdated) {
         const now = new Date();
-        setLastUpdated(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        setLastUpdated(now.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }));
       }
-    }, [lastUpdated]);
+    }, [lastUpdated, locale]);
 
     // Process chart data
     const processedData = useMemo((): ProcessedSeriesData[] => {
@@ -457,7 +442,7 @@ const InteractiveStockChart = React.memo(
 
         const date = new Date(params[0].value[0]);
         // Format tooltip date
-        const formattedDate = date.toLocaleDateString('en-US', {
+        const formattedDate = date.toLocaleDateString(locale, {
           month: 'short',
           day: 'numeric',
           year: 'numeric',
@@ -520,7 +505,7 @@ const InteractiveStockChart = React.memo(
 
         return tooltipHtml;
       },
-      [processedDataByLabel, isDark, themeColors],
+      [processedDataByLabel, isDark, themeColors, locale],
     );
 
     // Chart options
@@ -601,8 +586,8 @@ const InteractiveStockChart = React.memo(
             color: subTextColor,
             formatter: (value: number) => {
               const date = new Date(value);
-              const month = date.toLocaleDateString('en-US', { month: 'short' });
-              const year = date.toLocaleDateString('en-US', { year: '2-digit' });
+              const month = date.toLocaleDateString(locale, { month: 'short' });
+              const year = date.toLocaleDateString(locale, { year: '2-digit' });
               return isMobile ? `${month}\n${year}` : `${month} ${year}`;
             },
             fontSize: 10,
@@ -653,7 +638,7 @@ const InteractiveStockChart = React.memo(
           };
         }),
       };
-    }, [processedData, getTooltipFormatter, isDark, isMobile, themeColors]);
+    }, [processedData, getTooltipFormatter, isDark, isMobile, themeColors, locale]);
 
     // Process earnings data for individual chart visualization per company
     const createEarningsChartForCompany = useCallback(
@@ -748,7 +733,7 @@ const InteractiveStockChart = React.memo(
               if (!Array.isArray(params) || params.length === 0) return '';
 
               const date = new Date(params[0].value[0]);
-              const formattedDate = date.toLocaleDateString('en-US', {
+              const formattedDate = date.toLocaleDateString(locale, {
                 month: 'short',
                 day: 'numeric',
                 year: 'numeric',
@@ -822,7 +807,7 @@ const InteractiveStockChart = React.memo(
               fontSize: 9,
               formatter: (value: number) => {
                 const date = new Date(value);
-                return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                return date.toLocaleDateString(locale, { month: 'short', year: '2-digit' });
               },
               margin: 8,
             },
@@ -846,7 +831,7 @@ const InteractiveStockChart = React.memo(
 
         return option;
       },
-      [isDark],
+      [isDark, locale],
     );
 
     return (
@@ -1069,7 +1054,7 @@ const InteractiveStockChart = React.memo(
                                         >
                                           <div className="flex items-center gap-3 min-w-0 flex-1">
                                             <span className="text-[11px] text-muted-foreground tabular-nums min-w-fit">
-                                              {new Date(earning.date).toLocaleDateString('en-US', {
+                                              {new Date(earning.date).toLocaleDateString(locale, {
                                                 month: 'short',
                                                 day: 'numeric',
                                                 year: '2-digit',
@@ -1214,7 +1199,7 @@ const InteractiveStockChart = React.memo(
                                             {getFilingDate(filing.metadata) && (
                                               <span className="text-[10px] text-muted-foreground/60 tabular-nums">
                                                 {parseSecFilingDate(getFilingDate(filing.metadata)!).toLocaleDateString(
-                                                  'en-US',
+                                                  locale,
                                                   {
                                                     month: 'short',
                                                     day: 'numeric',
@@ -1259,7 +1244,7 @@ const InteractiveStockChart = React.memo(
                                             <span className="text-xs">
                                               Filed:{' '}
                                               {parseSecFilingDate(getFilingDate(filing.metadata)!).toLocaleDateString(
-                                                'en-US',
+                                                locale,
                                                 { month: 'long', day: 'numeric', year: 'numeric' },
                                               )}
                                             </span>
@@ -1426,7 +1411,7 @@ const InteractiveStockChart = React.memo(
                                     className="border-b border-border/15 hover:bg-muted/10 transition-colors"
                                   >
                                     <td className="py-2 px-3 text-muted-foreground tabular-nums">
-                                      {new Date(stmt.fiscal_date).toLocaleDateString('en-US', {
+                                      {new Date(stmt.fiscal_date).toLocaleDateString(locale, {
                                         month: 'short',
                                         year: 'numeric',
                                       })}
@@ -1734,7 +1719,7 @@ const InteractiveStockChart = React.memo(
                             padding: 0,
                             formatter: (params: any) => {
                               const point = params[0];
-                              const formattedDate = new Date(point.value[0]).toLocaleDateString('en-US', {
+                              const formattedDate = new Date(point.value[0]).toLocaleDateString(locale, {
                                 month: 'short',
                                 day: 'numeric',
                                 year: 'numeric',
@@ -1820,7 +1805,7 @@ const InteractiveStockChart = React.memo(
                                         className="flex items-center justify-between px-3 py-1.5 hover:bg-muted/10 transition-colors"
                                       >
                                         <span className="text-[11px] text-muted-foreground tabular-nums">
-                                          {new Date(div.ex_date).toLocaleDateString('en-US', {
+                                          {new Date(div.ex_date).toLocaleDateString(locale, {
                                             month: 'short',
                                             day: 'numeric',
                                             year: '2-digit',
@@ -1922,7 +1907,7 @@ const InteractiveStockChart = React.memo(
                                       {trans.value > 0 ? `$${(trans.value / 1e6).toFixed(2)}M` : 'Grant'}
                                     </span>
                                     <span className="text-[9px] text-muted-foreground/50 tabular-nums">
-                                      {new Date(trans.date_reported).toLocaleDateString('en-US', {
+                                      {new Date(trans.date_reported).toLocaleDateString(locale, {
                                         month: 'short',
                                         day: 'numeric',
                                         year: '2-digit',
@@ -1988,7 +1973,7 @@ const InteractiveStockChart = React.memo(
                                 </div>
                                 {news.published_date && (
                                   <time className="text-[9px] text-muted-foreground/50 tabular-nums">
-                                    {new Date(news.published_date).toLocaleDateString(undefined, {
+                                    {new Date(news.published_date).toLocaleDateString(locale, {
                                       month: 'short',
                                       day: 'numeric',
                                     })}
@@ -2056,7 +2041,7 @@ const InteractiveStockChart = React.memo(
                                 </div>
                                 {news.published_date ? (
                                   <time className="text-[9px] text-muted-foreground/50 tabular-nums">
-                                    {new Date(news.published_date).toLocaleDateString(undefined, {
+                                    {new Date(news.published_date).toLocaleDateString(locale, {
                                       month: 'short',
                                       day: 'numeric',
                                     })}

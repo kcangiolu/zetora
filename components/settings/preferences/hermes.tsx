@@ -18,8 +18,10 @@ import {
 import { usePushSubscription } from '@/hooks/use-push-subscription';
 import type { SettingsUser } from '../shared';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
+import { useLocale } from '@/contexts/locale-context';
 
 export function HermesTab({ user }: { user: SettingsUser }) {
+  const locale = useLocale();
   const queryClient = useQueryClient();
   const [enrollCommand, setEnrollCommand] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -168,7 +170,7 @@ export function HermesTab({ user }: { user: SettingsUser }) {
                 </span>
                 {connector.lastConnectedAt && (
                   <span className="text-xs text-muted-foreground">
-                    · last seen {new Date(connector.lastConnectedAt).toLocaleString()}
+                    · last seen {new Date(connector.lastConnectedAt).toLocaleString(locale)}
                   </span>
                 )}
               </div>

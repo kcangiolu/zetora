@@ -10,6 +10,7 @@ import { GithubIcon } from 'lucide-react';
 import Image from 'next/image';
 import { CustomUIDataTypes, DataQueryCompletionPart } from '@/lib/types';
 import type { DataUIPart } from 'ai';
+import { useLocale } from '@/contexts/locale-context';
 
 // Custom Premium Icons
 const Icons = {
@@ -97,6 +98,7 @@ const GitHubSourceCard: React.FC<{
   result: GitHubResult;
   onClick?: () => void;
 }> = ({ result, onClick }) => {
+  const locale = useLocale();
   const [imageLoaded, setImageLoaded] = useState(false);
 
   // Extract owner/repo from URL
@@ -169,7 +171,7 @@ const GitHubSourceCard: React.FC<{
                 <span>·</span>
                 <Icons.Calendar className="w-2.5 h-2.5" />
                 <span>
-                  {new Date(result.publishedDate).toLocaleDateString('en-US', {
+                  {new Date(result.publishedDate).toLocaleDateString(locale, {
                     month: 'short',
                     day: 'numeric',
                   })}

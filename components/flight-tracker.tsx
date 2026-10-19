@@ -3,6 +3,7 @@
 import { Plane, Clock, AlertCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { formatHoursMinutes } from '@/lib/format';
+import { useLocale } from '@/contexts/locale-context';
 
 interface FlightApiResponse {
   data: Array<{
@@ -54,6 +55,7 @@ interface FlightTrackerProps {
 }
 
 export function FlightTracker({ data }: FlightTrackerProps) {
+  const locale = useLocale();
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
@@ -84,20 +86,19 @@ export function FlightTracker({ data }: FlightTrackerProps) {
     return null;
   }
 
-  const formatTime12Hour = (timestamp: string): string => {
+  const formatTime = (timestamp: string): string => {
     if (!timestamp) return '';
     const date = new Date(timestamp);
-    return date.toLocaleTimeString('en-US', {
+    return date.toLocaleTimeString(locale, {
       hour: 'numeric',
       minute: '2-digit',
-      hour12: true,
     });
   };
 
   const formatDate = (timestamp: string): string => {
     if (!timestamp) return '';
     const date = new Date(timestamp);
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString(locale, {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
@@ -181,8 +182,8 @@ export function FlightTracker({ data }: FlightTrackerProps) {
         const timeUntil = calculateTimeUntil(flight.departure.scheduled);
         const statusInfo = mapStatus(flight.flight_status);
 
-        const departureTime = formatTime12Hour(flight.departure.scheduled);
-        const arrivalTime = formatTime12Hour(flight.arrival.scheduled);
+        const departureTime = formatTime(flight.departure.scheduled);
+        const arrivalTime = formatTime(flight.arrival.scheduled);
         const departureDate = formatDate(flight.departure.scheduled);
         const arrivalDate = formatDate(flight.arrival.scheduled);
 

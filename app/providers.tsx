@@ -7,6 +7,7 @@ import { TooltipProvider } from '@radix-ui/react-tooltip';
 import { UserProvider } from '@/contexts/user-context';
 import { DataStreamProvider } from '@/components/data-stream-provider';
 import { SpeechProvider } from '@/contexts/speech-context';
+import { LocaleProvider } from '@/contexts/locale-context';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -26,7 +27,15 @@ const queryClient = new QueryClient({
   },
 });
 
-export function Providers({ children, nonce }: { children: ReactNode; nonce: string | undefined }) {
+export function Providers({
+  children,
+  nonce,
+  locale,
+}: {
+  children: ReactNode;
+  nonce: string | undefined;
+  locale: string;
+}) {
   return (
     <QueryClientProvider client={queryClient}>
       <UserProvider>
@@ -49,7 +58,7 @@ export function Providers({ children, nonce }: { children: ReactNode; nonce: str
                 'neutraldark',
               ]}
             >
-              {children}
+              <LocaleProvider locale={locale}>{children}</LocaleProvider>
             </ThemeProvider>
           </SpeechProvider>
         </DataStreamProvider>

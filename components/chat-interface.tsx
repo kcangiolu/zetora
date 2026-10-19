@@ -86,6 +86,7 @@ import { placeCompactionSummary } from '@/lib/compaction-summary';
 import type { ElicitationData } from '@/components/mcp-elicitation-modal';
 import { useChatActions } from '@/hooks/use-chat-actions';
 import { getChatIdFromPath } from '@/lib/chat-route';
+import { useLocale } from '@/contexts/locale-context';
 
 interface ChatInterfaceProps {
   initialChatId?: string;
@@ -121,6 +122,7 @@ const ChatInterface = memo(
   }: ChatInterfaceProps): React.JSX.Element => {
     const router = useRouter();
     const pathname = usePathname();
+    const locale = useLocale();
     // The chat open on this page; null for a new chat until its first message.
     const openChatId = initialChatId || getChatIdFromPath(pathname);
     const { renameChat, deleteChats } = useChatActions();
@@ -1290,7 +1292,7 @@ const ChatInterface = memo(
                               <div className="flex items-center justify-between gap-3">
                                 <span className="text-xs text-muted-foreground">Last Updated</span>
                                 <span className="text-xs font-medium">
-                                  {new Intl.DateTimeFormat('en-US', {
+                                  {new Intl.DateTimeFormat(locale, {
                                     month: 'long',
                                     day: 'numeric',
                                     year: 'numeric',

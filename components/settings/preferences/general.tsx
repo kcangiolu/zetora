@@ -14,6 +14,7 @@ import { sileo } from 'sileo';
 import { TrashIcon, FloppyDiskIcon } from '@phosphor-icons/react';
 import { X, AlertCircle, Trash2, Save, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useLocale } from '@/contexts/locale-context';
 
 export function GeneralTab({
   user,
@@ -24,6 +25,7 @@ export function GeneralTab({
   isCustomInstructionsEnabled?: boolean;
   setIsCustomInstructionsEnabledAction?: (value: boolean | ((val: boolean) => boolean)) => void;
 }) {
+  const locale = useLocale();
   const [scrollToLatestOnOpen, setScrollToLatestOnOpen] = useSyncedPreferences<boolean>(
     'zetora-scroll-to-latest-on-open',
     false,
@@ -196,7 +198,7 @@ export function GeneralTab({
               )}
               {customInstructions && !customInstructionsLoading && (
                 <span className="text-[11px] text-muted-foreground/50 ml-auto">
-                  Updated {new Date(customInstructions.updatedAt).toLocaleDateString()}
+                  Updated {new Date(customInstructions.updatedAt).toLocaleDateString(locale)}
                 </span>
               )}
             </div>

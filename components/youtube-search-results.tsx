@@ -8,6 +8,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { formatClockDuration } from '@/lib/format';
+import { useLocale } from '@/contexts/locale-context';
 
 // Transcript chunk type from Supadata
 interface TranscriptChunk {
@@ -173,6 +174,7 @@ const YouTubeVideoCard: React.FC<{
   video: VideoResult;
   onClick?: () => void;
 }> = ({ video, onClick }) => {
+  const locale = useLocale();
   const [imageLoaded, setImageLoaded] = useState(false);
 
   const durationLabel = formatDuration(video.durationSeconds);
@@ -245,7 +247,7 @@ const YouTubeVideoCard: React.FC<{
             {(viewCount || likeCount) && video.publishedDate && <span className="text-muted-foreground/30">·</span>}
             {video.publishedDate && (
               <span className="tabular-nums">
-                {new Date(video.publishedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                {new Date(video.publishedDate).toLocaleDateString(locale, { month: 'short', day: 'numeric' })}
               </span>
             )}
           </div>

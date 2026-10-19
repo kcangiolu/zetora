@@ -14,6 +14,7 @@ import { HapticsProvider } from '@/components/haptics-provider';
 
 import { Providers } from './providers';
 import { CSP_HEADER, getNonceFromCsp } from '@/lib/csp';
+import { getLocaleFromAcceptLanguage } from '@/lib/locale';
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || 'http://localhost:3000'),
@@ -91,7 +92,9 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const nonce = getNonceFromCsp((await headers()).get(CSP_HEADER));
+  const requestHeaders = await headers();
+  const nonce = getNonceFromCsp(requestHeaders.get(CSP_HEADER));
+  const locale = getLocaleFromAcceptLanguage(requestHeaders.get('accept-language'));
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -100,7 +103,7 @@ export default async function RootLayout({
         suppressHydrationWarning
       >
         <NuqsAdapter>
-          <Providers nonce={nonce}>
+          <Providers nonce={nonce} locale={locale}>
             <SidebarProvider>
               <Toaster position="top-center" />
               <HapticsProvider />

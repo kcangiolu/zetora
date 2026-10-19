@@ -6,6 +6,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
 import Image from 'next/image';
 import { formatHoursMinutes } from '@/lib/format';
+import { useLocale } from '@/contexts/locale-context';
 
 interface MediaDetails {
   id: number;
@@ -48,12 +49,13 @@ interface TMDBResultProps {
 const TMDBResult = ({ result }: TMDBResultProps) => {
   const [showDetails, setShowDetails] = useState(false);
   const isMobile = useMediaQuery('(max-width: 768px)');
+  const locale = useLocale();
 
   if (!result.result) return null;
   const media = result.result;
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
+    return new Date(dateStr).toLocaleDateString(locale, {
       year: 'numeric',
       month: 'long',
       day: 'numeric',

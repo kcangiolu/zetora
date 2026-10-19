@@ -17,6 +17,7 @@ import { TimezoneSelector } from './timezone-selector';
 import { TimePicker } from './time-picker';
 import { frequencyOptions, dayOfWeekOptions, LOOKOUT_LIMITS, LOOKOUT_SEARCH_MODES } from '../constants';
 import { LookoutFormHookReturn } from '../hooks/use-lookout-form';
+import { useLocale } from '@/contexts/locale-context';
 
 interface LookoutFormProps {
   formHook: LookoutFormHookReturn;
@@ -39,6 +40,7 @@ export function LookoutForm({
   createLookout,
   updateLookout,
 }: LookoutFormProps) {
+  const locale = useLocale();
   const {
     selectedFrequency,
     selectedTime,
@@ -176,7 +178,11 @@ export function LookoutForm({
                         !selectedDate && 'text-muted-foreground',
                       )}
                     >
-                      {selectedDate ? format(selectedDate, 'MMM d, yyyy') : <span>Pick date</span>}
+                      {selectedDate ? (
+                        selectedDate.toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' })
+                      ) : (
+                        <span>Pick date</span>
+                      )}
                       <HugeiconsIcon
                         icon={Calendar01Icon}
                         size={12}

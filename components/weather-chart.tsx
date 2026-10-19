@@ -13,6 +13,7 @@ import { Area } from '@/components/charts/area';
 import { Grid } from '@/components/charts/grid';
 import { ChartTooltip } from '@/components/charts/tooltip';
 import type { TooltipRow } from '@/components/charts/tooltip/tooltip-content';
+import { useLocale } from '@/contexts/locale-context';
 
 // Chart colors using CSS variables for theme support
 const chartColors = {
@@ -138,8 +139,8 @@ function mapWMOCodeToWeather(code: number): { description: string; icon: string 
 }
 
 // Format timestamp to readable time
-function formatTime(timestamp: number): string {
-  return new Date(timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+function formatTime(timestamp: number, locale: string): string {
+  return new Date(timestamp * 1000).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 }
 
 // Get air quality label and color from AQI value
@@ -186,6 +187,7 @@ function getAirQualityInfo(aqi: number): { label: string; colorClass: string } {
 const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
   const [selectedDay, setSelectedDay] = useState<string>('');
   const [weatherTab, setWeatherTab] = useState('chart');
+  const locale = useLocale();
 
   const {
     chartData,
@@ -205,7 +207,8 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
       const rainVolume = item.rain?.['3h'];
       const snowVolume = item.snow?.['3h'];
       return {
-        date: date.toLocaleDateString(),
+        // Day keys stay en-US: they are parsed back with new Date() to sort and chart the days.
+        date: date.toLocaleDateString('en-US'),
         timestamp: item.dt,
         hour: date.getHours(),
         minTemp: Number((item.main.temp_min - 273.15).toFixed(1)),
@@ -233,7 +236,7 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
         return {
           ...item,
           dateTime: new Date(item.dt * 1000),
-          date: new Date(item.dt * 1000).toLocaleDateString(),
+          date: new Date(item.dt * 1000).toLocaleDateString('en-US'),
           hour: new Date(item.dt * 1000).getHours(),
         };
       }) || [];
@@ -538,7 +541,7 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
                           ? 'Today'
                           : index === 1
                             ? 'Tmrw'
-                            : new Date(day.date).toLocaleDateString(undefined, { weekday: 'short' })}
+                            : new Date(day.date).toLocaleDateString(locale, { weekday: 'short' })}
                       </div>
 
                       <Image
@@ -587,7 +590,7 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
                         ? 'Today'
                         : index === 1
                           ? 'Tomorrow'
-                          : new Date(day).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })}
+                          : new Date(day).toLocaleDateString(locale, { weekday: 'short', day: 'numeric' })}
                     </button>
                   ))}
                 </div>
@@ -660,7 +663,7 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
                   <div className="flex justify-between overflow-x-auto py-2 mt-1 -mx-1 px-1">
                     {hourlyDataByDay[selectedDay].map((item, i) => (
                       <div key={i} className="flex flex-col items-center px-1 min-w-[40px]">
-                        <div className="text-[10px] text-muted-foreground">{formatTime(item.timestamp)}</div>
+                        <div className="text-[10px] text-muted-foreground">{formatTime(item.timestamp, locale)}</div>
                         <Image
                           src={getWeatherIconUrl(item.icon)}
                           alt={item.description}
@@ -758,12 +761,12 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
                                   ? 'Today'
                                   : index === 1
                                     ? 'Tmrw'
-                                    : new Date(day.timestamp * 1000).toLocaleDateString(undefined, {
+                                    : new Date(day.timestamp * 1000).toLocaleDateString(locale, {
                                         weekday: 'short',
                                       })}
                               </div>
                               <div className="text-[10px] text-muted-foreground">
-                                {new Date(day.timestamp * 1000).toLocaleDateString(undefined, {
+                                {new Date(day.timestamp * 1000).toLocaleDateString(locale, {
                                   month: 'short',
                                   day: 'numeric',
                                 })}
@@ -844,7 +847,7 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
                           </div>
                         </div>
                         <div className="text-sm text-right text-muted-foreground">
-                          {new Date(airPollution.dt * 1000).toLocaleTimeString([], {
+                          {new Date(airPollution.dt * 1000).toLocaleTimeString(locale, {
                             hour: '2-digit',
                             minute: '2-digit',
                           })}
@@ -986,7 +989,7 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
 
       <CardFooter className="border-t border-border py-0! px-4 m-0!">
         <div className="w-full flex justify-end items-center text-[9px] text-muted-foreground py-1">
-          OpenWeatherMap • {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          OpenWeatherMap • {new Date().toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
         </div>
       </CardFooter>
     </Card>

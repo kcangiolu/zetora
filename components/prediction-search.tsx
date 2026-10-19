@@ -9,6 +9,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { CustomUIDataTypes } from '@/lib/types';
 import type { DataUIPart } from 'ai';
+import { useLocale } from '@/contexts/locale-context';
 import Image from 'next/image';
 
 // Custom Icons
@@ -131,10 +132,10 @@ const formatVolume = (volume: number): string => {
   return `$${volume.toFixed(0)}`;
 };
 
-const formatDate = (dateString: string | null): string => {
+const formatDate = (dateString: string | null, locale: string): string => {
   if (!dateString) return 'TBD';
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return date.toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
 // Probability Bar Component
@@ -177,6 +178,7 @@ const MarketCard: React.FC<{
   market: PredictionMarket;
   onClick?: () => void;
 }> = ({ market, onClick }) => {
+  const locale = useLocale();
   const primaryMarket = market.markets[0];
   const sourceColors =
     market.source === 'Polymarket'
@@ -224,7 +226,7 @@ const MarketCard: React.FC<{
           {market.endDate && (
             <div className="flex items-center gap-1">
               <Icons.Calendar className="w-3 h-3" />
-              <span>{formatDate(market.endDate)}</span>
+              <span>{formatDate(market.endDate, locale)}</span>
             </div>
           )}
           {primaryMarket?.closed && (
