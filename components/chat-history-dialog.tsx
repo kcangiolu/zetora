@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo, useSyncExternalStore } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { CommandDialog, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
 import { HermesModeDot } from '@/components/ui/hermes-mode-dot';
@@ -152,74 +152,63 @@ function categorizeChatsByDate(chats: Chat[]) {
   return { today, yesterday, thisWeek, lastWeek, thisMonth, older };
 }
 
-// Format time in a compact way with memoization
-const formatCompactTime = (() => {
-  const cache = new Map<string, { result: string; timestamp: number }>();
-  const CACHE_DURATION = 30000; // 30 seconds cache duration
+const RELATIVE_TIME_REFRESH_MS = 30_000;
 
-  return function (value: Date | string | number): string {
-    const date = parseChatDate(value);
-    const now = new Date();
-    const dateKey = `${typeof value === 'string' ? value : date.getTime()}`;
-    const cached = cache.get(dateKey);
+// One shared clock for every relative timestamp in the list: the labels re-render on each
+// tick, the dialog around them does not.
+let relativeTimeNow = Date.now();
+const relativeTimeListeners = new Set<() => void>();
+let relativeTimeTimer: ReturnType<typeof setInterval> | null = null;
 
-    // Check if cache is valid (less than 30 seconds old)
-    if (cached && now.getTime() - cached.timestamp < CACHE_DURATION) {
-      return cached.result;
+function subscribeToRelativeTime(listener: () => void) {
+  relativeTimeListeners.add(listener);
+  if (!relativeTimeTimer) {
+    relativeTimeNow = Date.now();
+    relativeTimeTimer = setInterval(() => {
+      relativeTimeNow = Date.now();
+      relativeTimeListeners.forEach((notify) => notify());
+    }, RELATIVE_TIME_REFRESH_MS);
+  }
+  return () => {
+    relativeTimeListeners.delete(listener);
+    if (relativeTimeListeners.size === 0 && relativeTimeTimer) {
+      clearInterval(relativeTimeTimer);
+      relativeTimeTimer = null;
     }
-
-    if (Number.isNaN(date.getTime())) {
-      return 'just now';
-    }
-
-    // Some DB timestamps may be parsed a bit ahead due to timezone/clock skew.
-    // Use absolute value to avoid negative outputs while still showing useful recency.
-    const seconds = Math.abs(differenceInSeconds(now, date));
-
-    let result: string;
-    if (seconds < 5) {
-      result = 'just now';
-    } else if (seconds < 60) {
-      result = `${seconds}s ago`;
-    } else {
-      const minutes = Math.floor(seconds / 60);
-      if (minutes < 60) {
-        result = `${minutes}m ago`;
-      } else {
-        const hours = Math.floor(minutes / 60);
-        if (hours < 24) {
-          result = `${hours}h ago`;
-        } else {
-          const days = Math.floor(hours / 24);
-          if (days < 7) {
-            result = `${days}d ago`;
-          } else {
-            const weeks = Math.floor(days / 7);
-            if (weeks < 4) {
-              result = `${weeks}w ago`;
-            } else {
-              const months = Math.floor(days / 30);
-              if (months < 12) {
-                result = `${months}mo ago`;
-              } else {
-                const years = Math.floor(days / 365);
-                result = `${years}y ago`;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // Keep cache size reasonable
-    if (cache.size > 1000) {
-      cache.clear();
-    }
-
-    cache.set(dateKey, { result, timestamp: now.getTime() });
-    return result;
   };
-})();
+}
+
+const getRelativeTimeNow = () => relativeTimeNow;
+
+function formatCompactTime(value: Date | string | number, now: number): string {
+  const date = parseChatDate(value);
+  if (Number.isNaN(date.getTime())) {
+    return 'just now';
+  }
+
+  // Some DB timestamps may be parsed a bit ahead due to timezone/clock skew.
+  // Use absolute value to avoid negative outputs while still showing useful recency.
+  const seconds = Math.abs(differenceInSeconds(now, date));
+
+  if (seconds < 5) return 'just now';
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 4) return `${weeks}w ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(days / 365)}y ago`;
+}
+
+function CompactTime({ value }: { value: Date | string | number }) {
+  const now = useSyncExternalStore(subscribeToRelativeTime, getRelativeTimeNow, getRelativeTimeNow);
+  return <>{formatCompactTime(value, now)}</>;
+}
 
 // Custom fuzzy search function
 function fuzzySearch(query: string, text: string): boolean {
@@ -356,7 +345,6 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
   const [deletingChatId, setDeletingChatId] = useState<string | null>(null);
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
-  const [, forceUpdate] = useState({});
   const [bulkSelectMode, setBulkSelectMode] = useState(false);
   const [selectedChatIds, setSelectedChatIds] = useState<Set<string>>(new Set());
   const [deletingBulk, setDeletingBulk] = useState(false);
@@ -368,7 +356,6 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const focusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const updateTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Use infinite query for pagination
   const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage, refetch } = useInfiniteQuery({
@@ -425,11 +412,6 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
         clearTimeout(focusTimeoutRef.current);
         focusTimeoutRef.current = null;
       }
-      // Clear update timer when dialog closes
-      if (updateTimerRef.current) {
-        clearTimeout(updateTimerRef.current);
-        updateTimerRef.current = null;
-      }
     }
   }, [open]);
 
@@ -451,29 +433,6 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
       if (focusTimeoutRef.current) {
         clearTimeout(focusTimeoutRef.current);
         focusTimeoutRef.current = null;
-      }
-    };
-  }, [open]);
-
-  // Periodic update for real-time timestamps
-  useEffect(() => {
-    if (!open) return;
-
-    const updateTimes = () => {
-      // Force a re-render to update the displayed times
-      forceUpdate({});
-
-      // Schedule next update
-      updateTimerRef.current = setTimeout(updateTimes, 30000); // Update every 30 seconds
-    };
-
-    // Start the update cycle
-    updateTimerRef.current = setTimeout(updateTimes, 30000);
-
-    return () => {
-      if (updateTimerRef.current) {
-        clearTimeout(updateTimerRef.current);
-        updateTimerRef.current = null;
       }
     };
   }, [open]);
@@ -989,7 +948,7 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
                   <>
                     {/* Timestamp - more compact */}
                     <span className="text-xs text-muted-foreground whitespace-nowrap w-16 text-right">
-                      {formatCompactTime(chat.updatedAt ?? chat.createdAt)}
+                      <CompactTime value={chat.updatedAt ?? chat.createdAt} />
                     </span>
 
                     {/* Actions - contextual based on states */}

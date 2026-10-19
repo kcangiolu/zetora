@@ -1,5 +1,4 @@
 import React, { memo, useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import isEqual from 'fast-deep-equal';
 import { ReasoningUIPart, DataUIPart, isStaticToolUIPart, type DynamicToolUIPart } from 'ai';
 import { ReasoningPartView } from '@/components/reasoning-part';
 import { MarkdownRenderer } from '@/components/markdown';
@@ -28,7 +27,6 @@ import {
 import { SPEC_DATA_PART_TYPE } from '@json-render/core';
 import { useSpeech } from '@/hooks/use-speech';
 import { extractSpeakableText } from '@/lib/speakable-text';
-import { UseChatHelpers } from '@ai-sdk/react';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -126,6 +124,7 @@ import type { McpTimelineEntry } from './tools';
 import { getDisplayHostname, getHostFaviconUrl } from '@/lib/url';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { useLocale } from '@/contexts/locale-context';
+import { useMessageActions } from '@/contexts/message-actions-context';
 
 // Non-empty text of a message, one entry per text part, for exports.
 function getMessageTextParts(message: ChatMessage): string[] {
@@ -198,26 +197,13 @@ interface MessagePartRendererProps {
   setReasoningFullscreenMap: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   // Whether this part's message is the last one in the list.
   isLastMessage: boolean;
-  // Reads the current message list when an action runs. The list itself is not a prop: it
-  // changes on every streamed chunk, and memoized parts of older messages would hold a
-  // stale copy of it.
-  getMessages: () => ChatMessage[];
   user?: ComprehensiveUserData;
   isOwner?: boolean;
   selectedVisibilityType?: 'public' | 'private';
   chatId?: string;
   hiddenImageUrls?: Set<string>;
-  onToggleImageHidden?: (imageUrl: string, hidden: boolean) => void;
-  onVisibilityChange?: (visibility: 'public' | 'private') => void;
-  setMessages: UseChatHelpers<ChatMessage>['setMessages'];
-  // Stable callbacks from useTurnActions (the memo comparator ignores callbacks).
-  onRetryLastTurn: () => Promise<void>;
-  onDeleteLastTurn: () => Promise<void>;
   // Hermes chats are append-only and never go through /api/search: no response actions.
   isHermesChat?: boolean;
-  sendMessage: UseChatHelpers<ChatMessage>['sendMessage'];
-  onHighlight?: (text: string) => void;
-  annotations?: DataUIPart<CustomUIDataTypes>[];
 }
 
 // Ticks every second, aligned to the start of each second.
@@ -306,23 +292,28 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
     setReasoningVisibilityMap,
     setReasoningFullscreenMap,
     isLastMessage,
-    getMessages,
     user,
     isOwner,
     selectedVisibilityType,
     chatId,
     hiddenImageUrls,
-    onToggleImageHidden,
-    onVisibilityChange,
-    setMessages,
-    onRetryLastTurn,
-    onDeleteLastTurn,
     isHermesChat = false,
-    sendMessage,
-    onHighlight,
-    annotations,
   }) => {
+    const {
+      sendMessage,
+      setMessages,
+      getMessages,
+      onRetryLastTurn,
+      onDeleteLastTurn,
+      onHighlight,
+      onToggleImageHidden,
+      onVisibilityChange,
+    } = useMessageActions();
     const { dataStream } = useDataStream();
+    const annotations = useMemo(
+      () => message.parts.filter((p) => p.type.startsWith('data-')) as DataUIPart<CustomUIDataTypes>[],
+      [message.parts],
+    );
     const [isRegenerating, setIsRegenerating] = useState(false);
     const [isBranchingOut, setIsBranchingOut] = useState(false);
     const [isDeletingMessage, setIsDeletingMessage] = useState(false);
@@ -3187,30 +3178,6 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
     }
 
     return null;
-  },
-  (prevProps: MessagePartRendererProps, nextProps: MessagePartRendererProps) => {
-    return (
-      isEqual(prevProps.part, nextProps.part) &&
-      prevProps.messageIndex === nextProps.messageIndex &&
-      prevProps.partIndex === nextProps.partIndex &&
-      prevProps.isLastMessage === nextProps.isLastMessage &&
-      isEqual(prevProps.parts, nextProps.parts) &&
-      isEqual(prevProps.message, nextProps.message) &&
-      prevProps.status === nextProps.status &&
-      prevProps.hasActiveToolInvocations === nextProps.hasActiveToolInvocations &&
-      isEqual(prevProps.reasoningVisibilityMap, nextProps.reasoningVisibilityMap) &&
-      isEqual(prevProps.reasoningFullscreenMap, nextProps.reasoningFullscreenMap) &&
-      prevProps.user?.id === nextProps.user?.id &&
-      prevProps.isOwner === nextProps.isOwner &&
-      prevProps.selectedVisibilityType === nextProps.selectedVisibilityType &&
-      prevProps.chatId === nextProps.chatId &&
-      // fast-deep-equal doesn't special-case Set (Object.keys(set) is always
-      // []), so two different-content Sets would compare equal — reference
-      // equality is correct here since hiddenImageUrls is always replaced
-      // with a new Set instance on change (see chat-interface.tsx).
-      prevProps.hiddenImageUrls === nextProps.hiddenImageUrls &&
-      isEqual(prevProps.annotations, nextProps.annotations)
-    );
   },
 );
 

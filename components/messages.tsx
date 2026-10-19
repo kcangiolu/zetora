@@ -1,12 +1,13 @@
 import React, { memo, useMemo, useState, useRef, useEffect, useCallback, useImperativeHandle } from 'react';
 import { Virtuoso, VirtuosoHandle, type Components } from 'react-virtuoso';
 import { Message, DELIVERABLE_TOOL_PART_TYPES, type MessageEditDraft } from '@/components/message';
-import { DataUIPart, isToolUIPart } from 'ai';
+import { isToolUIPart } from 'ai';
 import { EnhancedErrorDisplay } from '@/components/message';
 import { MessagePartRenderer } from '@/components/message-parts';
 import { MarkdownRenderer } from '@/components/markdown';
 import { StreamingIndicator } from '@/components/streaming-indicator';
-import { Attachment, ChatMessage, CustomUIDataTypes } from '@/lib/types';
+import { Attachment, ChatMessage } from '@/lib/types';
+import { MessageActionsProvider, type MessageActions } from '@/contexts/message-actions-context';
 import { UseChatHelpers } from '@ai-sdk/react';
 import { ComprehensiveUserData } from '@/lib/user-data-server';
 import { cn } from '@/lib/utils';
@@ -305,6 +306,35 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     skipCacheRef,
   });
 
+  const messageActions = useMemo<MessageActions>(
+    () => ({
+      sendMessage,
+      regenerate,
+      setMessages,
+      getMessages,
+      setSuggestedQuestions,
+      onRetryLastTurn: handleRetry,
+      onDeleteLastTurn: handleDelete,
+      onBeforeSubmit,
+      onHighlight,
+      onToggleImageHidden,
+      onVisibilityChange,
+    }),
+    [
+      sendMessage,
+      regenerate,
+      setMessages,
+      getMessages,
+      setSuggestedQuestions,
+      handleRetry,
+      handleDelete,
+      onBeforeSubmit,
+      onHighlight,
+      onToggleImageHidden,
+      onVisibilityChange,
+    ],
+  );
+
   // Handle rendering of message parts - using the new MessagePartRenderer component
   const renderPart = useCallback(
     (
@@ -314,11 +344,6 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
       parts: ChatMessage['parts'][number][],
       message: ChatMessage,
     ): React.ReactNode => {
-      // Extract annotations from all data parts in the message
-      const annotations = message.parts
-        .filter((p) => p.type.startsWith('data-'))
-        .map((p) => p as DataUIPart<CustomUIDataTypes>);
-
       return (
         <MessagePartRenderer
           part={part}
@@ -333,21 +358,12 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
           setReasoningVisibilityMap={setReasoningVisibilityMap}
           setReasoningFullscreenMap={setReasoningFullscreenMap}
           isLastMessage={messageIndex === memoizedMessages.length - 1}
-          getMessages={getMessages}
           user={user ?? undefined}
           isOwner={isOwner}
           selectedVisibilityType={selectedVisibilityType}
           chatId={chatId}
           hiddenImageUrls={hiddenImageUrls}
-          onToggleImageHidden={onToggleImageHidden}
-          onVisibilityChange={onVisibilityChange}
-          setMessages={setMessages}
-          onRetryLastTurn={handleRetry}
-          onDeleteLastTurn={handleDelete}
           isHermesChat={isHermesChat}
-          sendMessage={sendMessage}
-          onHighlight={onHighlight}
-          annotations={annotations}
         />
       );
     },
@@ -355,24 +371,16 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
       status,
       hasActiveToolInvocations,
       memoizedMessages.length,
-      getMessages,
       user,
       isOwner,
       selectedVisibilityType,
       chatId,
       hiddenImageUrls,
-      onToggleImageHidden,
-      onVisibilityChange,
-      setMessages,
-      handleRetry,
-      handleDelete,
       isHermesChat,
-      sendMessage,
       reasoningVisibilityMap,
       reasoningFullscreenMap,
       setReasoningVisibilityMap,
       setReasoningFullscreenMap,
-      onHighlight,
     ],
   );
 
@@ -481,24 +489,16 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
             index={index}
             renderPart={renderPart}
             status={status}
-            setMessages={setMessages}
-            sendMessage={sendMessage}
-            regenerate={regenerate}
             isHermesChat={isHermesChat}
             hermesReaction={hermesReactions?.[message.id] ?? null}
-            setSuggestedQuestions={setSuggestedQuestions}
             suggestedQuestions={index === memoizedMessages.length - 1 ? suggestedQuestions : NO_SUGGESTED_QUESTIONS}
             user={user ?? undefined}
             selectedVisibilityType={selectedVisibilityType}
             isLastMessage={isLastMessage}
             error={error}
             isMissingAssistantResponse={index === missingAssistantResponseIndex}
-            handleRetry={handleRetry}
-            handleDelete={handleDelete}
             isOwner={isOwner}
-            onHighlight={onHighlight}
             attachmentsRenderer={attachmentsRenderer}
-            onBeforeSubmit={onBeforeSubmit}
             isEditing={message.id === editingMessageId}
             onEditingChange={handleEditingChange}
             editDraft={message.id === editingMessageId ? editDraft : null}
@@ -529,23 +529,15 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
       memoizedMessages,
       renderPart,
       status,
-      setMessages,
-      sendMessage,
-      regenerate,
       isHermesChat,
       hermesReactions,
-      setSuggestedQuestions,
       suggestedQuestions,
       user,
       selectedVisibilityType,
       error,
       missingAssistantResponseIndex,
-      handleRetry,
-      handleDelete,
       isOwner,
-      onHighlight,
       attachmentsRenderer,
-      onBeforeSubmit,
       editingMessageId,
       editDraft,
       handleEditingChange,
@@ -591,20 +583,20 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
   }
 
   return (
-    <div className={cn(bottomSpacerClassName, 'flex-1 min-h-0 flex flex-col')}>
-      <Virtuoso
-        ref={virtuosoRef}
-        style={{ height: '100%', overflowX: 'hidden' }}
-        data={memoizedMessages}
-        computeItemKey={(index, message) => message.id ?? index}
-        followOutput={false}
-        atBottomStateChange={onAtBottomChange}
-        atBottomThreshold={80}
-        itemContent={renderMessageItem}
-        context={footerContext}
-        components={VIRTUOSO_COMPONENTS}
-      />
-    </div>
+    <MessageActionsProvider value={messageActions}>
+        <Virtuoso
+          ref={virtuosoRef}
+          style={{ height: '100%', overflowX: 'hidden' }}
+          data={memoizedMessages}
+          computeItemKey={(index, message) => message.id ?? index}
+          followOutput={false}
+          atBottomStateChange={onAtBottomChange}
+          atBottomThreshold={80}
+          itemContent={renderMessageItem}
+          context={footerContext}
+          components={VIRTUOSO_COMPONENTS}
+        />
+    </MessageActionsProvider>
   );
 });
 

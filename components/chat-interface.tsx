@@ -206,16 +206,17 @@ const ChatInterface = memo(
     // per-task recommended defaults live in Settings instead — see
     // ai/tertiary.ts's TASK_RECOMMENDED_EFFORT for the tertiary equivalent).
     const [reasoningEffort, setReasoningEffort] = useLocalStorage<ReasoningEffort>('zetora-reasoning-effort', 'auto');
-    const resolveVisionSupport = useCallback((modelValue: string) => getModel(modelValue)?.vision ?? false, [getModel]);
     // Whether images are injected into the model's context (vs. hosted +
     // handed to it as a URL only). Defaults from the model's vision
-    // capability (see useModels).
-    // The user can override per-message — switching models recomputes the
-    // default (see effect below) but doesn't otherwise touch this state.
-    const [visionEnabled, setVisionEnabled] = useState(() => resolveVisionSupport(selectedModel));
-    useEffect(() => {
-      setVisionEnabled(resolveVisionSupport(selectedModel));
-    }, [selectedModel, resolveVisionSupport]);
+    // capability (see useModels); the user's override only holds for the
+    // model it was made on.
+    const [visionOverride, setVisionOverride] = useState<{ model: string; enabled: boolean } | null>(null);
+    const visionEnabled =
+      visionOverride?.model === selectedModel ? visionOverride.enabled : (getModel(selectedModel)?.vision ?? false);
+    const toggleVision = useCallback(
+      () => setVisionOverride({ model: selectedModel, enabled: !visionEnabled }),
+      [selectedModel, visionEnabled],
+    );
     const [defaultGroupPreference] = useSyncedPreferences<SearchGroupId>(
       'zetora-default-group',
       'auto' as SearchGroupId,
@@ -430,6 +431,7 @@ const ChatInterface = memo(
     const [activeElicitation, setActiveElicitation] = useState<ElicitationData | null>(null);
     const dismissedElicitationIdsRef = useRef<Set<string>>(new Set());
     const openedElicitationIdsRef = useRef<Set<string>>(new Set());
+    // Covers the gap between a submit and the SDK's own status, until the reply's message lands.
     const [isTransitioning, setIsTransitioning] = useState(false);
     const lastSuggestionKeyRef = useRef<string | null>(null);
 
@@ -675,17 +677,20 @@ const ChatInterface = memo(
       },
     });
 
+    const [transitionSeenMessages, setTransitionSeenMessages] = useState(messages);
+    if (messages !== transitionSeenMessages) {
+      setTransitionSeenMessages(messages);
+      if (isTransitioning && messages.at(-1)?.role === 'assistant') setIsTransitioning(false);
+    }
+
     const [isManuallyStopping, setIsManuallyStopping] = useState(false);
+    if (isManuallyStopping && status !== 'streaming') setIsManuallyStopping(false);
     const uiStatus = isManuallyStopping && status === 'streaming' ? 'ready' : status;
 
     const stop = useCallback(async () => {
       setIsManuallyStopping(true);
       await Promise.allSettled([stopStream(), fetch(`/api/search/${chatId}/stop`, { method: 'DELETE' })]);
     }, [stopStream, chatId]);
-
-    useEffect(() => {
-      if (status !== 'streaming') setIsManuallyStopping(false);
-    }, [status]);
 
     const handleToggleImageHidden = useCallback(
       async (imageUrl: string, hidden: boolean) => {
@@ -1024,22 +1029,6 @@ const ChatInterface = memo(
         dispatch({ type: 'RESET_SUGGESTED_QUESTIONS' });
       }
     }, [uiStatus]);
-
-    // Reset isTransitioning as soon as the last message becomes an assistant message
-    useEffect(() => {
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage?.role === 'assistant') {
-        setIsTransitioning(false);
-      }
-    }, [messages]);
-
-    // Dialog management state - track command dialog state in chat state
-    useEffect(() => {
-      dispatch({
-        type: 'SET_ANY_DIALOG_OPEN',
-        payload: chatState.commandDialogOpen || chatState.showAnnouncementDialog,
-      });
-    }, [chatState.commandDialogOpen, chatState.showAnnouncementDialog]);
 
     // Keyboard shortcut for command dialog
     useEffect(() => {
@@ -1425,7 +1414,6 @@ const ChatInterface = memo(
                 setPersitedHasShownLookoutAnnouncement(value);
               }}
               user={user}
-              setAnyDialogOpen={(open) => dispatch({ type: 'SET_ANY_DIALOG_OPEN', payload: open })}
             />
 
             <div
@@ -1543,7 +1531,7 @@ const ChatInterface = memo(
                       fileInputRef={fileInputRef}
                       inputRef={inputRef}
                       stop={stop}
-                      messages={messages as ChatMessage[]}
+                      hasMessages={messages.length > 0}
                       setMessages={setMessages}
                       sendMessage={sendMessageWithAutoRouting}
                       selectedModel={selectedModel}
@@ -1551,7 +1539,7 @@ const ChatInterface = memo(
                       reasoningEffort={reasoningEffort}
                       setReasoningEffort={setReasoningEffort}
                       visionEnabled={visionEnabled}
-                      setVisionEnabled={setVisionEnabled}
+                      onToggleVision={toggleVision}
                       resetSuggestedQuestions={resetSuggestedQuestions}
                       lastSubmittedQueryRef={lastSubmittedQueryRef}
                       selectedGroup={effectiveSelectedGroup}
@@ -1559,7 +1547,6 @@ const ChatInterface = memo(
                       hermesChatLock={chatLock}
                       isHermesChat={isHermesChat}
                       onHermesMessageSent={handleHermesMessageSent}
-                      showExperimentalModels={messages.length === 0}
                       status={uiStatus}
                       setHasSubmitted={setHasSubmitted}
                       isTemporaryChatEnabled={isTemporaryChat}

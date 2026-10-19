@@ -127,7 +127,6 @@ interface ChatDialogsProps {
   hasShownLookoutAnnouncement: boolean;
   setHasShownLookoutAnnouncement: (value: boolean) => void;
   user: any;
-  setAnyDialogOpen: (open: boolean) => void;
 }
 
 export const ChatDialogs = React.memo(
@@ -139,17 +138,13 @@ export const ChatDialogs = React.memo(
     hasShownLookoutAnnouncement,
     setHasShownLookoutAnnouncement,
     user,
-    setAnyDialogOpen,
   }: ChatDialogsProps) => {
     return (
       <>
         {/* Chat History Dialog */}
         <ChatHistoryDialog
           open={commandDialogOpen}
-          onOpenChange={(open) => {
-            setCommandDialogOpen(open);
-            setAnyDialogOpen(open);
-          }}
+          onOpenChange={setCommandDialogOpen}
           user={user}
         />
 

@@ -5,7 +5,6 @@ export interface ChatState {
   showAnnouncementDialog: boolean;
   hasShownAnnouncementDialog: boolean;
   commandDialogOpen: boolean;
-  anyDialogOpen: boolean;
 
   // Chat data
   suggestedQuestions: string[];
@@ -27,7 +26,6 @@ export type ChatAction =
   | { type: 'SET_SHOW_ANNOUNCEMENT_DIALOG'; payload: boolean }
   | { type: 'SET_HAS_SHOWN_ANNOUNCEMENT_DIALOG'; payload: boolean }
   | { type: 'SET_COMMAND_DIALOG_OPEN'; payload: boolean }
-  | { type: 'SET_ANY_DIALOG_OPEN'; payload: boolean }
   | { type: 'SET_SUGGESTED_QUESTIONS'; payload: string[] }
   | { type: 'SET_ATTACHMENTS'; payload: React.SetStateAction<Attachment[]> }
   | { type: 'SET_VISIBILITY_TYPE'; payload: 'public' | 'private' }
@@ -55,9 +53,6 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
 
     case 'SET_COMMAND_DIALOG_OPEN':
       return { ...state, commandDialogOpen: action.payload };
-
-    case 'SET_ANY_DIALOG_OPEN':
-      return { ...state, anyDialogOpen: action.payload };
 
     case 'SET_SUGGESTED_QUESTIONS':
       return { ...state, suggestedQuestions: action.payload };
@@ -96,7 +91,6 @@ export const createInitialState = (
   showAnnouncementDialog: false,
   hasShownAnnouncementDialog,
   commandDialogOpen: false,
-  anyDialogOpen: false,
   suggestedQuestions: [],
   attachments: [],
   selectedVisibilityType: initialVisibility,

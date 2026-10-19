@@ -1,4 +1,4 @@
-import React, { Fragment, useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import React, { Fragment, memo, useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { sileo } from 'sileo';
 import { useDebouncer } from '@tanstack/react-pacer';
@@ -86,7 +86,7 @@ export interface FormComponentProps {
   fileInputRef: React.RefObject<HTMLInputElement>;
   inputRef: React.RefObject<HTMLTextAreaElement>;
   stop: () => void;
-  messages: Array<ChatMessage>;
+  hasMessages: boolean;
   setMessages: UseChatHelpers<ChatMessage>['setMessages'];
   sendMessage: UseChatHelpers<ChatMessage>['sendMessage'];
   selectedModel: string;
@@ -109,7 +109,6 @@ export interface FormComponentProps {
   // Lets the parent record that this chat has just become a Hermes chat, for the brand-new
   // conversation case where no server-resolved lock exists yet.
   onHermesMessageSent?: () => void;
-  showExperimentalModels: boolean;
   status: UseChatHelpers<ChatMessage>['status'];
   setHasSubmitted: React.Dispatch<React.SetStateAction<boolean>>;
   isTemporaryChatEnabled: boolean;
@@ -119,7 +118,7 @@ export interface FormComponentProps {
   autoRoutedModel?: { model: string; route: string } | null;
   onBeforeSubmit?: () => void;
   visionEnabled: boolean;
-  setVisionEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  onToggleVision: () => void;
 }
 
 // The 11 single-purpose search tools that are now always-on, filtered by the
@@ -177,7 +176,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
   hermesChatLock = null,
   isHermesChat = false,
   onHermesMessageSent,
-  messages,
+  hasMessages,
   setMessages,
   status,
   setHasSubmitted,
@@ -188,7 +187,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
   autoRoutedModel,
   onBeforeSubmit,
   visionEnabled,
-  setVisionEnabled,
+  onToggleVision,
 }) => {
   const { models, getModel } = useModels();
   const selectedModelConfig = getModel(selectedModel);
@@ -289,8 +288,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const gripIconRef = useRef<any>(null);
 
   const isProcessing = useMemo(() => status === 'submitted' || status === 'streaming', [status]);
-
-  const hasInteracted = useMemo(() => messages.length > 0, [messages.length]);
 
   const modeAccentStyle = useModeAccentStyle(selectedGroup);
 
@@ -500,11 +497,11 @@ const FormComponent: React.FC<FormComponentProps> = ({
   // Whether the temp/private toggle appears in the / trigger popup (only before chat starts)
   const showTempInTrigger = useMemo(() => {
     if (triggerPopup !== '/' || isHermesCommandMenu) return false;
-    if (!user || hasInteracted) return false;
+    if (!user || hasMessages) return false;
     if (!triggerFilter) return true;
     const lower = triggerFilter.toLowerCase();
     return 'temporary'.includes(lower) || 'private'.includes(lower);
-  }, [triggerPopup, isHermesCommandMenu, user, hasInteracted, triggerFilter]);
+  }, [triggerPopup, isHermesCommandMenu, user, hasMessages, triggerFilter]);
 
   const triggerTotalItems = isHermesCommandMenu
     ? hermesCommandItems.length
@@ -886,7 +883,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const fetchSuggestions = useCallback(
     async (query: string) => {
       const q = query.trim().toLowerCase();
-      if (hasInteracted || q.length < 1 || triggerPopup !== null) {
+      if (hasMessages || q.length < 1 || triggerPopup !== null) {
         setSuggestions([]);
         setShowSuggestions(false);
         return;
@@ -931,7 +928,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
         }
       }
     },
-    [hasInteracted, triggerPopup],
+    [hasMessages, triggerPopup],
   );
 
   const suggestDebouncer = useDebouncer(fetchSuggestions, { wait: 50, key: 'autocomplete' });
@@ -945,12 +942,12 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
   // Hide suggestions when messages appear (conversation started)
   useEffect(() => {
-    if (hasInteracted) {
+    if (hasMessages) {
       setSuggestions([]);
       setShowSuggestions(false);
       suggestAbortRef.current?.abort();
     }
-  }, [hasInteracted]);
+  }, [hasMessages]);
 
   const handleInput = useCallback(
     (event: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -1817,11 +1814,11 @@ const FormComponent: React.FC<FormComponentProps> = ({
         textarea.setSelectionRange(length, length);
       }
       // Re-show suggestions on focus if we have them
-      if (suggestions.length > 0 && !hasInteracted) {
+      if (suggestions.length > 0 && !hasMessages) {
         setShowSuggestions(true);
       }
     },
-    [suggestions.length, hasInteracted],
+    [suggestions.length, hasMessages],
   );
 
   const handleTextareaBlur = useCallback(() => {
@@ -1838,7 +1835,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
           data-no-haptics
           className={cn(
             'relative w-full flex flex-col gap-1 rounded-xl transition-all duration-300 font-sans!',
-            hasInteracted ? 'z-50' : 'z-10',
+            hasMessages ? 'z-50' : 'z-10',
             isDragging && 'ring-1 ring-border',
             attachments.length > 0 || uploadQueue.length > 0
               ? 'bg-primary/5 border border-ring/20 backdrop-blur-md! p-1 shadow-none!'
@@ -2014,7 +2011,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                 (isEnhancing || isTypewriting) && 'bg-muted!',
                 showSuggestions &&
                   suggestions.length > 0 &&
-                  !hasInteracted &&
+                  !hasMessages &&
                   !triggerPopup &&
                   attachments.length === 0 &&
                   uploadQueue.length === 0 &&
@@ -2061,7 +2058,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                       ? '✨ Enhancing your prompt...'
                       : isTypewriting
                         ? '✨ Writing enhanced prompt...'
-                        : hasInteracted
+                        : hasMessages
                           ? 'Ask a follow-up...'
                           : '' // rotating overlay handles the empty home state
                   }
@@ -2084,7 +2081,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                     'shadow-none!',
                     'transition-colors duration-200',
                     // transparent when overlay is active so TextRotate shows through
-                    !input && !hasInteracted && !isEnhancing && !isTypewriting && !isRecording
+                    !input && !hasMessages && !isEnhancing && !isTypewriting && !isRecording
                       ? 'bg-transparent!'
                       : 'bg-muted!',
                     (isEnhancing || isTypewriting) && 'text-muted-foreground cursor-wait',
@@ -2105,7 +2102,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
               )}
 
               {/* Rotating placeholder overlay — after textarea in DOM so it stacks on top */}
-              {!isRecording && !input && !isEnhancing && !isTypewriting && !hasInteracted && (
+              {!isRecording && !input && !isEnhancing && !isTypewriting && !hasMessages && (
                 <div className="absolute top-0 left-0 right-0 pointer-events-none z-10 px-4 py-[14px]">
                   <TextRotate
                     texts={['Ask anything...', 'Type @ for sources or / for modes']}
@@ -2239,7 +2236,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                               <span className="flex-1 text-[13px]">{isEnhancing ? 'Enhancing…' : isTypewriting ? 'Writing…' : 'Enhance prompt'}</span>
                             </button>
                           )} */}
-                          {user && !hasInteracted && (
+                          {user && !hasMessages && (
                             <button
                               className={cn(
                                 'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors',
@@ -2464,7 +2461,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                             <span className="flex-1 text-[13px]">{isEnhancing ? 'Enhancing…' : isTypewriting ? 'Writing…' : 'Enhance prompt'}</span>
                           </button>
                         )} */}
-                        {user && !hasInteracted && (
+                        {user && !hasMessages && (
                           <Tooltip delayDuration={200}>
                             <TooltipTrigger asChild>
                               <button
@@ -2682,7 +2679,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                           onClick={(event) => {
                             event.preventDefault();
                             event.stopPropagation();
-                            setVisionEnabled((prev) => !prev);
+                            onToggleVision();
                           }}
                         >
                           <Eye size={16} weight={visionEnabled ? 'fill' : 'regular'} />
@@ -2811,7 +2808,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
               {/* Autocomplete suggestions — absolute, overlays downward, no layout shift */}
               {showSuggestions &&
                 suggestions.length > 0 &&
-                !hasInteracted &&
+                !hasMessages &&
                 !triggerPopup &&
                 attachments.length === 0 &&
                 uploadQueue.length === 0 && (
@@ -2864,7 +2861,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
         </div>
 
         {/* Temporary Chat Hint - only on initial state, signed-in users get fixed-height wrapper to prevent jank */}
-        {!hasInteracted && user ? (
+        {!hasMessages && user ? (
           <div className="relative h-8">
             <AnimatePresence>
               {isTemporaryChatEnabled && (
@@ -2896,7 +2893,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
               )}
             </AnimatePresence>
           </div>
-        ) : !hasInteracted && isTemporaryChatEnabled ? (
+        ) : !hasMessages && isTemporaryChatEnabled ? (
           <motion.div
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } }}
@@ -2991,4 +2988,4 @@ const FormComponent: React.FC<FormComponentProps> = ({
   );
 };
 
-export default FormComponent;
+export default memo(FormComponent);

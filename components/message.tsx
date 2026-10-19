@@ -63,6 +63,7 @@ import { UseChatHelpers } from '@ai-sdk/react';
 import { ComprehensiveUserData } from '@/lib/user-data-server';
 import { cn } from '@/lib/utils';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
+import { useMessageActions } from '@/contexts/message-actions-context';
 // Enhanced Error Display Component
 interface EnhancedErrorDisplayProps {
   error: any;
@@ -376,28 +377,20 @@ interface MessageProps {
     message: ChatMessage,
   ) => React.ReactNode;
   status: UseChatHelpers<ChatMessage>['status'];
-  setMessages: UseChatHelpers<ChatMessage>['setMessages'];
-  sendMessage: UseChatHelpers<ChatMessage>['sendMessage'];
-  regenerate: UseChatHelpers<ChatMessage>['regenerate'];
   // See messages.tsx's own isHermesChat comment: regenerate() always targets
   // /api/search, which a Hermes-mode chat never uses.
   isHermesChat?: boolean;
   // Hermes's best-effort `react` ack on THIS user message (👀 seen → ✅/❌ done), or null.
   hermesReaction?: string | null;
-  setSuggestedQuestions: (questions: string[]) => void;
   suggestedQuestions: string[];
   user?: ComprehensiveUserData | null;
   selectedVisibilityType?: 'public' | 'private';
   isLastMessage?: boolean;
   error?: any;
   isMissingAssistantResponse?: boolean;
-  handleRetry?: () => Promise<void>;
-  handleDelete?: () => Promise<void>;
   isOwner?: boolean;
-  onHighlight?: (text: string) => void;
   shouldReduceHeight?: boolean;
   attachmentsRenderer?: (attachments: Attachment[]) => React.ReactNode;
-  onBeforeSubmit?: () => void;
   isEditing: boolean;
   onEditingChange: (messageId: string | null) => void;
   editDraft: MessageEditDraft | null;
@@ -877,30 +870,31 @@ export const Message = memo(function Message({
   index,
   renderPart,
   status,
-  setMessages,
-  sendMessage,
-  setSuggestedQuestions,
   suggestedQuestions,
   user,
   selectedVisibilityType = 'private',
-  regenerate,
   isHermesChat = false,
   hermesReaction = null,
   isLastMessage,
   error,
   isMissingAssistantResponse,
-  handleRetry,
-  handleDelete,
   isOwner = true,
-  onHighlight,
   shouldReduceHeight = false,
   attachmentsRenderer,
-  onBeforeSubmit,
   isEditing,
   onEditingChange,
   editDraft,
   setEditDraft,
 }: MessageProps) {
+  const {
+    sendMessage,
+    regenerate,
+    setMessages,
+    setSuggestedQuestions,
+    onRetryLastTurn: handleRetry,
+    onDeleteLastTurn: handleDelete,
+    onBeforeSubmit,
+  } = useMessageActions();
   // Only meaningful for assistant messages, but computed unconditionally
   // since hooks below depend on it and hooks can't be called conditionally.
   const isTurnStreaming = isLastMessage && (status === 'streaming' || status === 'submitted');
