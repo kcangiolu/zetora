@@ -4,8 +4,9 @@ WORKDIR /app
 
 RUN apt-get update -qq && apt-get install -y -qq ffmpeg curl && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Pinned via requirements.lock (uv pip compile requirements.txt -o requirements.lock --python-version 3.12)
+COPY requirements.lock .
+RUN pip install --no-cache-dir -r requirements.lock
 
 # Silero VAD's raw ONNX graph, run directly via onnxruntime (no torch): this
 # service only ever runs VAD (a few MB model) — never an LLM/STT/TTS model,
@@ -19,6 +20,10 @@ RUN curl -fsSL -o silero_vad.onnx \
     echo "${SILERO_VAD_SHA256}  silero_vad.onnx" | sha256sum -c -
 
 COPY server.py .
+
+# Writes nothing at runtime, so it needs no root.
+RUN useradd --system --uid 10001 app
+USER app
 
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \

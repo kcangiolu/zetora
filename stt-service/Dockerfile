@@ -25,8 +25,9 @@ RUN /opt/venv/bin/pip install --quiet \
 
 RUN /opt/venv/bin/pip install --quiet "transformers==${TRANSFORMERS_VERSION}"
 
-COPY requirements.txt .
-RUN /opt/venv/bin/pip install --quiet -r requirements.txt
+# Web layer pinned via requirements.lock (uv pip compile requirements.txt -o requirements.lock --python-version 3.12)
+COPY requirements.lock .
+RUN /opt/venv/bin/pip install --quiet -r requirements.lock
 
 # WSL2: torch.compile/Triton links its runtime kernel helper with `-lcuda`, but
 # WSL exposes only a versioned libcuda.so.1 (no unversioned libcuda.so), so the

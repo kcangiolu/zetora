@@ -1,11 +1,16 @@
 FROM python:3.12-slim
 
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt \
+# Pinned via requirements.lock (uv pip compile requirements.txt -o requirements.lock --python-version 3.12)
+COPY requirements.lock .
+RUN pip install --no-cache-dir -r requirements.lock \
     && python -m spacy download en_core_web_lg \
     && python -m spacy download fr_core_news_lg
 COPY main.py .
+
+# Writes nothing at runtime, so it needs no root.
+RUN useradd --system --uid 10001 app
+USER app
 
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
