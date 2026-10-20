@@ -1,7 +1,7 @@
 import type { ChatMessage } from '@/lib/types';
 import type { HermesToolStepView } from './tool-steps';
 
-export type HermesTurnEntry = { kind: 'message'; message: ChatMessage } | { kind: 'step'; step: HermesToolStepView };
+type HermesTurnEntry = { kind: 'message'; message: ChatMessage } | { kind: 'step'; step: HermesToolStepView };
 
 export interface HermesTurn {
   key: string;
