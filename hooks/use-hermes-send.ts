@@ -18,13 +18,19 @@ export function useHermesSend(chatId: string) {
   return useCallback(
     async (
       text: string,
-      options?: { promptResponse?: HermesPromptResponse; attachments?: HermesAttachmentRef[] },
+      options?: {
+        // The id the message is already shown under (see /api/hermes/send's SendBody).
+        messageId?: string;
+        promptResponse?: HermesPromptResponse;
+        attachments?: HermesAttachmentRef[];
+      },
     ) => {
       const res = await fetch('/api/hermes/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chatId,
+          messageId: options?.messageId,
           text,
           promptResponse: options?.promptResponse,
           attachments: options?.attachments,

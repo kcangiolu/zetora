@@ -68,6 +68,41 @@ const send = (body: Record<string, unknown>) =>
 
 const runAfterCallbacks = () => Promise.all(afterCallbacks.map((callback) => callback()));
 
+describe('POST /api/hermes/send — message id', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getSession.mockResolvedValue({ user: { id: 'user-1', name: 'Kenny' } });
+    getChatByIdForValidation.mockResolvedValue({ id: CHAT_ID, userId: 'user-1' });
+    getHermesChatLock.mockResolvedValue('hermes');
+    getHermesConnectorByUserId.mockResolvedValue({ id: 'connector-1', status: 'enrolled', gatewayId: 'gw-test' });
+    getHermesConversationByChatId.mockResolvedValue({ chatId: CHAT_ID, connectorId: 'connector-1' });
+    deliverToGateway.mockResolvedValue({ success: true });
+  });
+
+  const savedId = () => saveMessages.mock.calls.at(-1)![0].messages[0].id;
+  const deliveredId = () => deliverToGateway.mock.calls.at(-1)![0].event.message_id;
+
+  it('keeps the id the browser already shows the message under', async () => {
+    const messageId = '0f8e2a52-3c1d-4b8e-9a6f-2d7c5b1e4a90';
+    const res = await send({ text: 'Bonjour', messageId });
+    expect(await res.json()).toEqual({ success: true, messageId });
+    expect(savedId()).toBe(messageId);
+    expect(deliveredId()).toBe(messageId);
+  });
+
+  it('mints an id when the browser gives none', async () => {
+    await send({ text: 'Bonjour' });
+    expect(savedId()).toMatch(/^[0-9a-f-]{36}$/);
+    expect(deliveredId()).toBe(savedId());
+  });
+
+  it('refuses an id that is not a UUID', async () => {
+    const res = await send({ text: 'Bonjour', messageId: 'not-an-id' });
+    expect(res.status).toBe(400);
+    expect(saveMessages).not.toHaveBeenCalled();
+  });
+});
+
 describe('POST /api/hermes/send — chat title', () => {
   beforeEach(() => {
     vi.clearAllMocks();

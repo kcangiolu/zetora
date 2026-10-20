@@ -480,13 +480,12 @@ const FormComponent: React.FC<FormComponentProps> = ({
     // An Agent turn bypasses useChat and /api/search: the user's message is added here,
     // the agent's reply arrives over the Hermes stream (hooks/use-hermes-stream.ts).
     const files = fileParts();
-    setMessages((current) => [
-      ...current,
-      { id: crypto.randomUUID(), role: 'user', parts: [...files, { type: 'text', text }] },
-    ]);
+    const messageId = crypto.randomUUID();
+    setMessages((current) => [...current, { id: messageId, role: 'user', parts: [...files, { type: 'text', text }] }]);
     resetComposer();
 
     sendHermesMessage(text, {
+      messageId,
       attachments: files.map(({ url, name, mediaType }) => ({ url, name, mediaType })),
     }).catch((error) => {
       haptics.trigger('error');

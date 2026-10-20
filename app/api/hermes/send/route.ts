@@ -24,9 +24,13 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger('api-hermes-send');
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface SendBody {
   chatId?: string;
+  // The id the browser already shows the message under. Hermes's reactions and Zetora's
+  // tool steps name the message by id, so taking it keeps them attached before a reload.
+  messageId?: string;
   text?: string;
   promptResponse?: { promptId: string; optionId: string; label?: string };
   attachments?: HermesAttachmentRef[];
@@ -47,6 +51,9 @@ export async function POST(req: NextRequest) {
   }
 
   const { chatId, promptResponse } = body;
+  if (body.messageId !== undefined && (typeof body.messageId !== 'string' || !UUID_PATTERN.test(body.messageId))) {
+    return NextResponse.json({ error: 'messageId must be a UUID' }, { status: 400 });
+  }
   const text = typeof body.text === 'string' ? body.text : '';
   const attachments = Array.isArray(body.attachments) ? body.attachments : [];
   // A caption-less attachment is a normal message on every other platform Hermes fronts,
@@ -111,7 +118,7 @@ export async function POST(req: NextRequest) {
     conversation = await createHermesConversation({ chatId, connectorId: connector.id });
   }
 
-  const messageId = crypto.randomUUID();
+  const messageId = body.messageId ?? crypto.randomUUID();
   // Files first, then the text — the same order /api/search's client builds, so the
   // existing user-message rendering (components/message.tsx's `file` part filter) shows
   // these exactly like an attachment on a normal turn, with nothing Hermes-specific.
