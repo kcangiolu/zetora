@@ -457,7 +457,9 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          # A search scrapes its results in parallel: at half a core, eight
+          # pages that take 0.2s each alone took 3s together.
+          cpus: '2'
           memory: 512M
     restart: unless-stopped
 

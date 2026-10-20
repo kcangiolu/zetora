@@ -19,6 +19,20 @@ ui:
 valkey:
   url: redis://searxng-redis:6379/0
 
+# A query waits for its slowest engine. Brave rate-limits shared server IPs,
+# DuckDuckGo serves them a CAPTCHA and Wikidata often times out: each would
+# only add its timeout to every query. Bing and Yahoo answer from a server and
+# widen the results beyond Google CSE.
 engines:
   - name: radio browser
     disabled: true
+  - name: brave
+    disabled: true
+  - name: duckduckgo
+    disabled: true
+  - name: wikidata
+    disabled: true
+  - name: bing
+    disabled: false
+  - name: yahoo
+    disabled: false

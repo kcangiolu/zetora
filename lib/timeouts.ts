@@ -13,6 +13,11 @@ function envMs(name: string, fallbackMs: number): number {
 export const SEARXNG_TIMEOUT_MS = envMs('ZETORA_FETCH_TIMEOUT_SEARXNG', 15_000);
 export const FASTCRW_SEARCH_TIMEOUT_MS = envMs('ZETORA_FETCH_TIMEOUT_FASTCRW_SEARCH', 20_000);
 export const FASTCRW_SCRAPE_TIMEOUT_MS = envMs('ZETORA_FETCH_TIMEOUT_FASTCRW_SCRAPE', 30_000);
+// Budget fastCRW gets for each page of a batch (search results, browsePage).
+// A batch waits for its slowest page, so a page behind an anti-bot wall would
+// otherwise hold every answer for the ~30s fastCRW takes to give up on it.
+// A single page the user asked for (retrieve) keeps fastCRW's own deadline.
+export const FASTCRW_SCRAPE_DEADLINE_MS = envMs('ZETORA_FASTCRW_SCRAPE_DEADLINE', 8_000);
 export const METADATA_TIMEOUT_MS = envMs('ZETORA_FETCH_TIMEOUT_METADATA', 10_000);
 // Slightly above the server-side maxDurationMinutes (2 min) Notte enforces.
 export const NOTTE_TIMEOUT_MS = envMs('ZETORA_FETCH_TIMEOUT_NOTTE', 150_000);

@@ -5,6 +5,7 @@ import {
   SEARXNG_TIMEOUT_MS,
   FASTCRW_SEARCH_TIMEOUT_MS,
   FASTCRW_SCRAPE_TIMEOUT_MS,
+  FASTCRW_SCRAPE_DEADLINE_MS,
   METADATA_TIMEOUT_MS,
   NOTTE_TIMEOUT_MS,
   EXTREME_WALL_CLOCK_MS,
@@ -73,6 +74,7 @@ describe('default timeout constants', () => {
       SEARXNG_TIMEOUT_MS,
       FASTCRW_SEARCH_TIMEOUT_MS,
       FASTCRW_SCRAPE_TIMEOUT_MS,
+      FASTCRW_SCRAPE_DEADLINE_MS,
       METADATA_TIMEOUT_MS,
       NOTTE_TIMEOUT_MS,
       EXTREME_WALL_CLOCK_MS,
@@ -85,5 +87,9 @@ describe('default timeout constants', () => {
 
   it('gives the whole request more headroom than the extreme-agent wall clock', () => {
     expect(SEARCH_REQUEST_TIMEOUT_MS).toBeGreaterThan(EXTREME_WALL_CLOCK_MS);
+  });
+
+  it("lets fastCRW's own scrape deadline fire before the client gives up", () => {
+    expect(FASTCRW_SCRAPE_TIMEOUT_MS).toBeGreaterThan(FASTCRW_SCRAPE_DEADLINE_MS);
   });
 });

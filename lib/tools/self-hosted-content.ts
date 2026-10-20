@@ -2,7 +2,8 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { serverEnv } from '@/env/server';
 import { scrapeWebpageWithNotte } from '@/lib/notte';
-import { FASTCRW_SCRAPE_TIMEOUT_MS, withAbort } from '@/lib/timeouts';
+import { kvGet, kvSet } from '@/lib/redis';
+import { FASTCRW_SCRAPE_DEADLINE_MS, FASTCRW_SCRAPE_TIMEOUT_MS, withAbort } from '@/lib/timeouts';
 
 import { createLogger } from '@/lib/logger';
 import { getLinkMetadata } from '@/lib/link-metadata';
@@ -61,39 +62,105 @@ function inferTitleFromMarkdown(markdown: string, fallback: string) {
   return title || fallback;
 }
 
+// A page fastCRW read, or the record that the site refused it. Cached by URL so
+// a page read for one search costs nothing to the next; the markdown is kept at
+// the largest size any caller asks for.
+type FastCrwPage = { title: string; markdown: string; publishedDate: string } | { refused: true };
+
+const FASTCRW_PAGE_CACHE_TTL_S = 6 * 60 * 60;
+// A site that refused the scraper (anti-bot wall, 4xx) is not asked again for
+// an hour: each retry would spend the whole deadline only to fail again.
+const FASTCRW_REFUSED_CACHE_TTL_S = 60 * 60;
+
+function fastCrwPageCacheKey(url: string) {
+  return `fastcrw-page:${url}`;
+}
+
+// The cache only saves time: when Redis is unreachable, scraping goes on
+// without it.
+async function readCachedFastCrwPage(url: string): Promise<FastCrwPage | null> {
+  try {
+    return await kvGet<FastCrwPage>(fastCrwPageCacheKey(url));
+  } catch (error) {
+    log.warn(`fastCRW page cache read failed for ${url}:`, error);
+    return null;
+  }
+}
+
+async function cacheFastCrwPage(url: string, page: FastCrwPage): Promise<void> {
+  try {
+    await kvSet(fastCrwPageCacheKey(url), page, {
+      ex: 'refused' in page ? FASTCRW_REFUSED_CACHE_TTL_S : FASTCRW_PAGE_CACHE_TTL_S,
+    });
+  } catch (error) {
+    log.warn(`fastCRW page cache write failed for ${url}:`, error);
+  }
+}
+
+// `deadlineMs` makes fastCRW itself stop climbing its renderer ladder (HTTP,
+// LightPanda, Chrome) once the budget is spent; without it, a page behind an
+// anti-bot wall takes ~30s to fail. Returns null when the outcome is worth
+// retrying later (timeout, network error, empty page).
+async function fetchFastCrwPage(
+  url: string,
+  fastcrwUrl: string,
+  deadlineMs: number | undefined,
+  abortSignal: AbortSignal | undefined,
+): Promise<FastCrwPage | null> {
+  const response = await fetch(`${fastcrwUrl.replace(/\/$/, '')}/v1/scrape`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      url,
+      formats: ['markdown'],
+      onlyMainContent: true,
+      ...(deadlineMs !== undefined && { deadlineMs }),
+    }),
+    signal: withAbort(abortSignal, FASTCRW_SCRAPE_TIMEOUT_MS),
+  });
+
+  if (!response.ok) return null;
+
+  const data = await response.json();
+  const markdown: string = data?.data?.markdown || data?.markdown || '';
+  const metadata = data?.data?.metadata ?? data?.metadata ?? {};
+
+  if (markdown.trim()) {
+    return {
+      title: metadata.title || '',
+      markdown: markdown.slice(0, BROWSE_PAGE_CONTENT_MAX_CHARS),
+      publishedDate: metadata.publishedDate || '',
+    };
+  }
+  // fastCRW answers 200 with the origin's own status in the metadata.
+  const originStatus = metadata.statusCode;
+  if (typeof originStatus === 'number' && originStatus >= 400 && originStatus < 500) return { refused: true };
+  return null;
+}
+
 async function scrapeWithFastCrw(
   url: string,
   fastcrwUrl: string,
   maxContentChars: number = SEARCH_CONTENT_MAX_CHARS,
   abortSignal?: AbortSignal,
+  deadlineMs?: number,
 ): Promise<SearchResult | null> {
   try {
-    const response = await fetch(`${fastcrwUrl.replace(/\/$/, '')}/v1/scrape`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        url,
-        formats: ['markdown'],
-        onlyMainContent: true,
-      }),
-      signal: withAbort(abortSignal, FASTCRW_SCRAPE_TIMEOUT_MS),
-    });
-
-    if (!response.ok) return null;
-
-    const data = await response.json();
-    const markdown = data?.data?.markdown || data?.markdown || '';
-
-    if (!markdown.trim()) return null;
+    let page = await readCachedFastCrwPage(url);
+    if (!page) {
+      page = await fetchFastCrwPage(url, fastcrwUrl, deadlineMs, abortSignal);
+      if (page) await cacheFastCrwPage(url, page);
+    }
+    if (!page || 'refused' in page) return null;
 
     const hostname = getHostnameForUrl(url);
-    const title = data?.data?.metadata?.title || data?.metadata?.title || inferTitleFromMarkdown(markdown, hostname);
+    const title = page.title || inferTitleFromMarkdown(page.markdown, hostname);
 
     return {
       title: title.slice(0, 200),
       url,
-      content: markdown.slice(0, maxContentChars),
-      publishedDate: data?.data?.metadata?.publishedDate || data?.metadata?.publishedDate || '',
+      content: page.markdown.slice(0, maxContentChars),
+      publishedDate: page.publishedDate,
       favicon: getHostFaviconUrl(hostname),
     };
   } catch (error) {
@@ -189,7 +256,14 @@ export class SelfHostedContentStrategy implements ContentExtractionStrategy {
         Object.fromEntries(
           uniqueUrls.map((url, i) => [
             `fc:${i}`,
-            async () => scrapeWithFastCrw(url, this.fastcrwUrl, SEARCH_CONTENT_MAX_CHARS, abortSignal),
+            async () =>
+              scrapeWithFastCrw(
+                url,
+                this.fastcrwUrl,
+                SEARCH_CONTENT_MAX_CHARS,
+                abortSignal,
+                FASTCRW_SCRAPE_DEADLINE_MS,
+              ),
           ]),
         ),
         getBetterAllOptions(),
@@ -267,7 +341,8 @@ export class FastCrwContentStrategy implements ContentExtractionStrategy {
       Object.fromEntries(
         uniqueUrls.map((url, i) => [
           `fc:${i}`,
-          async () => scrapeWithFastCrw(url, this.fastcrwUrl, this.maxContentChars, abortSignal),
+          async () =>
+            scrapeWithFastCrw(url, this.fastcrwUrl, this.maxContentChars, abortSignal, FASTCRW_SCRAPE_DEADLINE_MS),
         ]),
       ),
       getBetterAllOptions(),
