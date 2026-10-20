@@ -4,7 +4,7 @@ import 'leaflet/dist/leaflet.css';
 
 import { Metadata, Viewport } from 'next';
 import { headers } from 'next/headers';
-import { Be_Vietnam_Pro, Baumans, Geist, Instrument_Serif } from 'next/font/google';
+import { baumans, beVietnamPro, geist, instrumentSerif } from '@/lib/fonts';
 import { GeistPixelSquare, GeistPixelGrid } from 'geist/font/pixel';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import { Toaster } from '@/components/ui/sileo-toaster';
@@ -53,39 +53,6 @@ export const viewport: Viewport = {
     { media: '(prefers-color-scheme: dark)', color: '#111111' },
   ],
 };
-
-const beVietnamPro = Be_Vietnam_Pro({
-  subsets: ['latin'],
-  variable: '--font-be-vietnam-pro',
-  preload: true,
-  display: 'swap',
-  weight: ['100', '200', '300', '400', '500', '600', '700', '800', '900'],
-});
-
-const baumans = Baumans({
-  subsets: ['latin'],
-  variable: '--font-baumans',
-  preload: true,
-  display: 'swap',
-  weight: ['400'],
-});
-
-const geist = Geist({
-  subsets: ['latin'],
-  variable: '--font-sans',
-  preload: true,
-  display: 'swap',
-  weight: ['400', '500', '600', '700'],
-});
-
-const instrumentSerif = Instrument_Serif({
-  subsets: ['latin'],
-  variable: '--font-instrument-serif',
-  preload: true,
-  display: 'swap',
-  weight: ['400'],
-  style: ['normal', 'italic'],
-});
 
 export default async function RootLayout({
   children,

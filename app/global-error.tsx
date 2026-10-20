@@ -4,33 +4,9 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { RefreshCw, Home, TriangleAlert, ChevronDown, ChevronUp, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Be_Vietnam_Pro, Baumans, Geist } from 'next/font/google';
+import { baumans, beVietnamPro, geist } from '@/lib/fonts';
 import { AnimatePresence, motion } from 'motion/react';
 import { writeClipboardText } from '@/hooks/use-copy-to-clipboard';
-
-const beVietnamPro = Be_Vietnam_Pro({
-  subsets: ['latin'],
-  variable: '--font-be-vietnam-pro',
-  weight: ['300', '400', '500', '600', '700', '800'],
-  display: 'swap',
-  preload: true,
-});
-
-const baumans = Baumans({
-  subsets: ['latin'],
-  variable: '--font-baumans',
-  weight: '400',
-  display: 'swap',
-  preload: true,
-});
-
-const geist = Geist({
-  subsets: ['latin'],
-  variable: '--font-sans',
-  weight: ['400', '500', '600', '700'],
-  display: 'swap',
-  preload: true,
-});
 
 interface GlobalErrorProps {
   error: Error & { digest?: string };

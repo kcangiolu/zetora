@@ -1,4 +1,3 @@
-import { Geist_Mono } from 'next/font/google';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { useTheme } from 'next-themes';
 import Latex from 'react-latex-next';
@@ -11,13 +10,7 @@ import { sileo } from 'sileo';
 import type { CitationLink, CitationGroup } from './shared';
 import { parseTaggedLinkContent } from './shared';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
-
-const geistMono = Geist_Mono({
-  subsets: ['latin'],
-  variable: '--font-mono',
-  preload: true,
-  display: 'swap',
-});
+import { geistMono } from '@/lib/fonts';
 
 // Custom syntax themes that match Zetora's design system
 const zetoraDarkTheme: { [key: string]: React.CSSProperties } = {
