@@ -5,6 +5,7 @@ import {
   enrollGateway,
   reportAgentEvent,
   reportConnectionStatus,
+  reportToolStep,
   uploadGatewayMedia,
   verifyGatewayAuth,
 } from './internalClient.js';
@@ -36,6 +37,10 @@ const server = createServer((req, res) => {
   }
   if (req.method === 'POST' && req.url === '/relay/media') {
     void handleMediaUpload(req, res);
+    return;
+  }
+  if (req.method === 'POST' && req.url === '/relay/tool-event') {
+    void handleToolEvent(req, res);
     return;
   }
   res.writeHead(404).end();
@@ -102,6 +107,44 @@ async function handleMediaUpload(req: IncomingMessage, res: import('node:http').
     res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ id: result.id, size: body.length }));
   } catch (error) {
     console.error('[hermes-relay] media upload failed', error);
+    res.writeHead(500, { 'Content-Type': 'application/json' }).end(JSON.stringify({ error: 'internal_error' }));
+  }
+}
+
+// Not part of the relay contract: Zetora's own Hermes plugin (hermes-plugin/zetora) reports
+// each tool call of a Zetora chat here as a structured step, under the same per-gateway
+// bearer token as the WS upgrade and /relay/media. A step is a few short strings.
+const MAX_TOOL_EVENT_BYTES = 16 * 1024;
+
+async function handleToolEvent(req: IncomingMessage, res: import('node:http').ServerResponse) {
+  const parsed = parseGatewayBearerToken(req.headers.authorization);
+  if (!parsed) {
+    res.writeHead(401, { 'Content-Type': 'application/json' }).end(JSON.stringify({ error: 'missing_or_malformed_token' }));
+    return;
+  }
+
+  const auth = await verifyGatewayAuth(parsed);
+  if (!auth.valid) {
+    res.writeHead(401, { 'Content-Type': 'application/json' }).end(JSON.stringify({ error: auth.reason ?? 'invalid' }));
+    return;
+  }
+
+  let event: unknown;
+  try {
+    event = JSON.parse((await readRawBody(req, MAX_TOOL_EVENT_BYTES)).toString('utf8'));
+  } catch (error) {
+    const tooLarge = error instanceof PayloadTooLargeError;
+    res
+      .writeHead(tooLarge ? 413 : 400, { 'Content-Type': 'application/json' })
+      .end(JSON.stringify({ error: tooLarge ? 'payload_too_large' : 'invalid_json' }));
+    return;
+  }
+
+  try {
+    const result = await reportToolStep({ gatewayId: parsed.gatewayId, event });
+    res.writeHead(result.success ? 200 : 400, { 'Content-Type': 'application/json' }).end(JSON.stringify(result));
+  } catch (error) {
+    console.error('[hermes-relay] tool event failed', error);
     res.writeHead(500, { 'Content-Type': 'application/json' }).end(JSON.stringify({ error: 'internal_error' }));
   }
 }

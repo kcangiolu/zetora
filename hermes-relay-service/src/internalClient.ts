@@ -61,6 +61,15 @@ export function reportAgentEvent(params: {
   return postInternal<AgentEventResult>('/api/internal/hermes/agent-event', params);
 }
 
+// Forwards a tool step reported by Zetora's Hermes plugin (see index.ts's handleToolEvent).
+// The event is passed through unvalidated: zetora-app owns its shape.
+export function reportToolStep(params: {
+  gatewayId: string;
+  event: unknown;
+}): Promise<{ success: boolean; error?: string }> {
+  return postInternal('/api/internal/hermes/tool-event', params);
+}
+
 export function reportConnectionStatus(params: {
   gatewayId: string;
   connected: boolean;

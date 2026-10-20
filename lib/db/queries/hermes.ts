@@ -1,7 +1,7 @@
 import 'server-only';
 
-import { and, eq, gt } from 'drizzle-orm';
-import { hermesConnector, hermesConversation, message } from '../schema';
+import { and, asc, eq, gt } from 'drizzle-orm';
+import { hermesConnector, hermesConversation, hermesToolStep, message, type HermesToolStepStatus } from '../schema';
 import { ChatSDKError, databaseError } from '../../errors';
 import { maindb } from '../index';
 import { resolveHermesChatLock, type HermesChatLock } from '@/lib/hermes/chat-mode';
@@ -215,5 +215,61 @@ export async function getHermesChatLock(chatId: string): Promise<HermesChatLock>
     return resolveHermesChatLock({ hasHermesConversation: false, hasMessages: Boolean(existingMessage) });
   } catch (error) {
     throw databaseError('Failed to resolve Hermes chat lock', error);
+  }
+}
+
+// A start event can be delivered twice (the plugin's request retried after a lost
+// response), so the second insert leaves the first row as it is.
+export async function startHermesToolStep(step: {
+  chatId: string;
+  toolCallId: string;
+  triggerMessageId: string | null;
+  toolName: string;
+  preview: string | null;
+}) {
+  try {
+    await maindb
+      .insert(hermesToolStep)
+      .values({ ...step, status: 'running' })
+      .onConflictDoNothing();
+    const [row] = await maindb
+      .select()
+      .from(hermesToolStep)
+      .where(and(eq(hermesToolStep.chatId, step.chatId), eq(hermesToolStep.toolCallId, step.toolCallId)))
+      .limit(1);
+    return row;
+  } catch (error) {
+    throw databaseError('Failed to record Hermes tool step', error);
+  }
+}
+
+// Null when no start was recorded for this call: there is nothing to show a result for.
+export async function finishHermesToolStep(step: {
+  chatId: string;
+  toolCallId: string;
+  status: Exclude<HermesToolStepStatus, 'running'>;
+  durationMs: number | null;
+}) {
+  try {
+    const [row] = await maindb
+      .update(hermesToolStep)
+      .set({ status: step.status, durationMs: step.durationMs })
+      .where(and(eq(hermesToolStep.chatId, step.chatId), eq(hermesToolStep.toolCallId, step.toolCallId)))
+      .returning();
+    return row ?? null;
+  } catch (error) {
+    throw databaseError('Failed to finish Hermes tool step', error);
+  }
+}
+
+export async function getHermesToolStepsByChatId(chatId: string) {
+  try {
+    return await maindb
+      .select()
+      .from(hermesToolStep)
+      .where(eq(hermesToolStep.chatId, chatId))
+      .orderBy(asc(hermesToolStep.startedAt));
+  } catch (error) {
+    throw databaseError('Failed to fetch Hermes tool steps', error);
   }
 }

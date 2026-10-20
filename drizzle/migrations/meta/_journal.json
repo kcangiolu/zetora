@@ -183,6 +183,13 @@
       "when": 1792485730376,
       "tag": "0025_split_file_embedding_model",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792508285265,
+      "tag": "0026_hermes_tool_step",
+      "breakpoints": true
     }
   ]
 }

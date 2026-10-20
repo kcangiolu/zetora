@@ -1,0 +1,16 @@
+name: zetora
+version: 1.0.0
+description: Reports the tool calls of Zetora conversations to Zetora as structured steps.
+author: Zetora
+provides_hooks:
+  - post_gateway_admission
+  - pre_tool_call
+  - post_tool_call
+requires_env:
+  - name: GATEWAY_RELAY_URL
+    description: The Zetora relay this gateway is enrolled with (set by `hermes gateway enroll`).
+  - name: GATEWAY_RELAY_ID
+    description: This gateway's relay id (set by `hermes gateway enroll`).
+  - name: GATEWAY_RELAY_SECRET
+    description: This gateway's relay secret (set by `hermes gateway enroll`).
+    secret: true

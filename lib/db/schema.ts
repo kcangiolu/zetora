@@ -599,6 +599,34 @@ export const hermesConversation = pgTable(
   (table) => [index('hermesConversation_connectorId_idx').on(table.connectorId)],
 );
 
+// Lifecycle of a Hermes tool call as Hermes's post_tool_call hook reports it, plus
+// `running` between the start and finish events.
+export type HermesToolStepStatus = 'running' | 'ok' | 'error' | 'blocked' | 'cancelled';
+
+// One row per tool call Hermes made in a Zetora chat, reported by Zetora's Hermes plugin
+// (hermes-plugin/zetora). Hermes replies are separate messages, so steps are kept apart
+// from them and placed among them by startedAt.
+export const hermesToolStep = pgTable(
+  'hermes_tool_step',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => generateId()),
+    chatId: text('chat_id')
+      .notNull()
+      .references(() => chat.id, { onDelete: 'cascade' }),
+    toolCallId: text('tool_call_id').notNull(),
+    // The user message whose turn ran this call.
+    triggerMessageId: text('trigger_message_id').references(() => message.id, { onDelete: 'set null' }),
+    toolName: text('tool_name').notNull(),
+    preview: text('preview'),
+    status: text('status').$type<HermesToolStepStatus>().notNull(),
+    durationMs: integer('duration_ms'),
+    startedAt: timestamp('started_at').notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('hermesToolStep_chatId_toolCallId_idx').on(table.chatId, table.toolCallId)],
+);
+
 export const pushSubscription = pgTable(
   'push_subscription',
   {
@@ -636,7 +664,6 @@ export const hermesConversationRelations = relations(hermesConversation, ({ one 
     references: [hermesConnector.id],
   }),
 }));
-
 
 export const pushSubscriptionRelations = relations(pushSubscription, ({ one }) => ({
   user: one(user, {
@@ -940,6 +967,7 @@ export type Account = InferSelectModel<typeof account>;
 export type Verification = InferSelectModel<typeof verification>;
 export type Chat = InferSelectModel<typeof chat>;
 export type Message = InferSelectModel<typeof message>;
+export type HermesToolStep = InferSelectModel<typeof hermesToolStep>;
 export type Stream = InferSelectModel<typeof stream>;
 export type MessageUsage = InferSelectModel<typeof messageUsage>;
 export type CustomInstructions = InferSelectModel<typeof customInstructions>;
