@@ -487,7 +487,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
         code(children, language) {
           const key = getElementKey('code', String(children));
           return (
-            <CodeBlock language={language} elementKey={key} key={key}>
+            <CodeBlock language={language} elementKey={key} key={key} isUserMessage={isUserMessage}>
               {String(children)}
             </CodeBlock>
           );
@@ -495,7 +495,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
         codespan(code) {
           const codeString = typeof code === 'string' ? code : String(code || '');
           const key = getElementKey('code', codeString);
-          return <InlineCode key={key} elementKey={key} code={codeString} />;
+          return <InlineCode key={key} elementKey={key} code={codeString} isUserMessage={isUserMessage} />;
         },
         link(href, text) {
           const key = getElementKey('link', href);

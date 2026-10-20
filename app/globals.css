@@ -456,7 +456,15 @@
 
 @layer base {
   * {
-    @apply border-border no-scrollbar!;
+    @apply border-border;
+  }
+
+  /* Thin, theme-aware scrollbar wherever content overflows. `:root *` outranks the
+     tailwind-scrollbar plugin's own `*` reset; `no-scrollbar` and the plugin's
+     utilities still override it from the utilities layer. */
+  :root * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--muted-foreground) 45%, transparent) transparent;
   }
 
   body {

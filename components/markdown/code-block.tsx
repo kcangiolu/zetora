@@ -94,6 +94,8 @@ interface CodeBlockProps {
   language: string | undefined;
   children: string;
   elementKey: string;
+  // Inside a user bubble, which is already an accent surface: the block needs its own contrast.
+  isUserMessage?: boolean;
 }
 
 // Threshold for auto-collapsing large code blocks
@@ -178,6 +180,7 @@ const CodeBlockInner: React.FC<CodeBlockInnerProps> = ({
   children,
   language,
   elementKey,
+  isUserMessage = false,
   allowPlainTextFallback = false,
 }) => {
   const { copied: isCopied, copy } = useCopyToClipboard();
@@ -343,7 +346,12 @@ const CodeBlockInner: React.FC<CodeBlockInnerProps> = ({
   };
 
   return (
-    <div className="group relative my-5 rounded-xl border border-border/60 bg-accent/50 overflow-hidden">
+    <div
+      className={cn(
+        'group relative my-5 rounded-xl border overflow-hidden',
+        isUserMessage ? 'border-border bg-background/60' : 'border-border/60 bg-accent/50',
+      )}
+    >
       <div
         className={cn(
           'flex items-center justify-between px-3.5 py-2 cursor-pointer select-none',
@@ -413,7 +421,12 @@ const CodeBlockInner: React.FC<CodeBlockInnerProps> = ({
           >
             {renderCodeContent(previewCode)}
           </div>
-          <div className="absolute inset-x-0 bottom-0 h-16 bg-linear-to-t from-accent/50 via-accent/40 to-transparent pointer-events-none" />
+          <div
+            className={cn(
+              'absolute inset-x-0 bottom-0 h-16 bg-linear-to-t to-transparent pointer-events-none',
+              isUserMessage ? 'from-background/60 via-background/50' : 'from-accent/50 via-accent/40',
+            )}
+          />
           <div className="absolute inset-x-0 bottom-0 flex items-center justify-center pb-2 pointer-events-none">
             <span className="font-pixel text-[9px] text-muted-foreground/50 bg-accent/80 px-2.5 py-1 rounded-full flex items-center gap-1 tracking-wider">
               <ChevronDown size={10} />
@@ -449,7 +462,7 @@ const LazyCodeBlock = lazy(() => Promise.resolve({ default: LazyCodeBlockCompone
 const SyncCodeBlock: React.FC<CodeBlockProps> = (props) => <CodeBlockInner {...props} allowPlainTextFallback={false} />;
 
 export const CodeBlock: React.FC<CodeBlockProps> = React.memo(
-  ({ language, children, elementKey }) => {
+  ({ language, children, elementKey, isUserMessage }) => {
     // Use lazy loading for large code blocks
     if (children.length > 5000) {
       return (
@@ -472,7 +485,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = React.memo(
             </div>
           }
         >
-          <LazyCodeBlock language={language} elementKey={elementKey}>
+          <LazyCodeBlock language={language} elementKey={elementKey} isUserMessage={isUserMessage}>
             {children}
           </LazyCodeBlock>
         </Suspense>
@@ -481,7 +494,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = React.memo(
 
     // Use synchronous rendering for smaller blocks
     return (
-      <SyncCodeBlock language={language} elementKey={elementKey}>
+      <SyncCodeBlock language={language} elementKey={elementKey} isUserMessage={isUserMessage}>
         {children}
       </SyncCodeBlock>
     );
@@ -490,7 +503,8 @@ export const CodeBlock: React.FC<CodeBlockProps> = React.memo(
     return (
       prevProps.children === nextProps.children &&
       prevProps.language === nextProps.language &&
-      prevProps.elementKey === nextProps.elementKey
+      prevProps.elementKey === nextProps.elementKey &&
+      prevProps.isUserMessage === nextProps.isUserMessage
     );
   },
 );
@@ -1254,37 +1268,40 @@ export const useProcessedContent = (content: string) => {
   }, [content]);
 };
 
-export const InlineCode: React.FC<{ code: string; elementKey: string }> = React.memo(({ code }) => {
-  const { copied: isCopied, copy } = useCopyToClipboard();
+export const InlineCode: React.FC<{ code: string; elementKey: string; isUserMessage?: boolean }> = React.memo(
+  ({ code, isUserMessage = false }) => {
+    const { copied: isCopied, copy } = useCopyToClipboard();
 
-  const handleCopy = useCallback(
-    () =>
-      copy(code, {
-        title: 'Code copied to clipboard',
-        description: 'You can now paste it anywhere',
-        icon: <Copy className="h-4 w-4" />,
-      }),
-    [code, copy],
-  );
+    const handleCopy = useCallback(
+      () =>
+        copy(code, {
+          title: 'Code copied to clipboard',
+          description: 'You can now paste it anywhere',
+          icon: <Copy className="h-4 w-4" />,
+        }),
+      [code, copy],
+    );
 
-  return (
-    <code
-      className={cn(
-        'inline rounded px-1.5 py-0.5 font-mono text-[0.8em]',
-        'bg-muted/40 border border-border/30',
-        'text-foreground/80',
-        'before:content-none after:content-none',
-        'hover:bg-muted/60 active:bg-muted/60 transition-colors duration-150 cursor-pointer',
-        'align-baseline touch-manipulation tracking-wide',
-        isCopied && 'ring-1 ring-primary/30 bg-primary/5',
-      )}
-      onClick={handleCopy}
-      title={isCopied ? 'Copied!' : 'Click to copy'}
-    >
-      {code}
-    </code>
-  );
-});
+    return (
+      <code
+        className={cn(
+          'inline rounded px-1.5 py-0.5 font-mono text-[0.8em]',
+          isUserMessage
+            ? 'bg-background/60 border border-border/60 text-foreground'
+            : 'bg-muted/40 border border-border/30 text-foreground/80',
+          'before:content-none after:content-none',
+          'hover:bg-muted/60 active:bg-muted/60 transition-colors duration-150 cursor-pointer',
+          'align-baseline touch-manipulation tracking-wide',
+          isCopied && 'ring-1 ring-primary/30 bg-primary/5',
+        )}
+        onClick={handleCopy}
+        title={isCopied ? 'Copied!' : 'Click to copy'}
+      >
+        {code}
+      </code>
+    );
+  },
+);
 
 InlineCode.displayName = 'InlineCode';
 
