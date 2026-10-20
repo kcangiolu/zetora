@@ -457,8 +457,8 @@ services:
     deploy:
       resources:
         limits:
-          # A search scrapes its results in parallel: at half a core, eight
-          # pages that take 0.2s each alone took 3s together.
+          # Pages that need JavaScript are rendered by LightPanda, which runs
+          # inside this container; half a core throttled those renders.
           cpus: '2'
           memory: 512M
     restart: unless-stopped
