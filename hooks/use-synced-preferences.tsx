@@ -146,7 +146,6 @@ function collectLocalStoragePreferences(): Partial<Record<PreferenceKey, Prefere
     'zetora-default-group',
     'zetora-extreme-content-provider',
     'zetora-embedding-provider',
-    'zetora-embedding-model',
     'zetora-qdrant-enabled',
     'zetora-tertiary-chat-title-model',
     'zetora-tertiary-chat-title-provider',

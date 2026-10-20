@@ -329,8 +329,8 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-anonymization-language'?: 'en' | 'fr';
       'zetora-anonymization-ner-enabled'?: boolean;
       'zetora-embedding-provider'?: string;
-      'zetora-embedding-model'?: string;
       'zetora-file-embedding-provider'?: 'cohere' | 'custom';
+      'zetora-file-embedding-model'?: string;
       'zetora-qdrant-enabled'?: boolean;
       'zetora-hybrid-search-enabled'?: boolean;
       'zetora-content-indexing-enabled'?: boolean;

@@ -5,7 +5,7 @@ import { ModelUnavailableError } from '@/ai/catalog/task-models';
 import { isConfigured } from '@/ai/catalog/env';
 import type { UserPreferenceValues } from '@/lib/db/schema';
 
-// Shared by both consumers below: resolves a `zetora-embedding-provider`
+// Shared by both consumers below: resolves a custom embedding model
 // preference value (a "custom-{providerId}-{modelName}" id) to an AI SDK
 // EmbeddingModel, or null if unset/unresolvable. Doesn't gate on any
 // "enabled" preference itself — callers decide what that means for them.
@@ -35,10 +35,11 @@ export async function getEmbeddingModel(preferences: Record<string, unknown>) {
 
 // Used by file_query_search / extreme_search's document indexing, which
 // always need an embedding model: the user's custom one when
-// `zetora-file-embedding-provider` is 'custom', Cohere embed-v4.0 otherwise.
+// `zetora-file-embedding-provider` is 'custom' (picked in
+// `zetora-file-embedding-model`), Cohere embed-v4.0 otherwise.
 export async function getFileEmbeddingModel(preferences: UserPreferenceValues | null | undefined) {
   if (preferences?.['zetora-file-embedding-provider'] === 'custom') {
-    const custom = await resolveCustomEmbeddingModel(preferences['zetora-embedding-provider'] as string | undefined);
+    const custom = await resolveCustomEmbeddingModel(preferences['zetora-file-embedding-model']);
     if (!custom) {
       throw new ModelUnavailableError(
         'File search is set to a custom embedding model that is not available: pick one in Settings → Search.',

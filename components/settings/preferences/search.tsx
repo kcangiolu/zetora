@@ -1,13 +1,15 @@
 'use client';
 
+import type { ComponentType, ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ModelSelectorDialog } from '@/components/ui/model-selector';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 import { sileo } from 'sileo';
-import { Search, X } from 'lucide-react';
-import { SEARCH_PROVIDER_OPTIONS, type CustomProviderConfig, parseCustomModel } from './shared';
+import { ArrowRight, Minus, Search, X } from 'lucide-react';
+import { SEARCH_PROVIDER_OPTIONS } from './shared';
 import { useInstanceCapabilities } from '@/hooks/use-instance-capabilities';
 import type { PreferenceKey } from '@/hooks/use-synced-preferences';
 import {
@@ -19,34 +21,60 @@ import {
   type SearchProviderId,
 } from '@/lib/search/providers';
 
-function ProviderSelect({
+const NO_FALLBACK = 'none';
+
+function ProviderSelect<V extends string>({
   value,
   options,
   onChange,
+  disabled,
+  secondary,
 }: {
-  value: SearchProviderId;
-  options: SearchProviderId[];
-  onChange: (value: SearchProviderId) => void;
+  value: V;
+  options: { id: V; label: string; icon?: ComponentType<{ className?: string }> }[];
+  onChange: (value: V) => void;
+  disabled?: boolean;
+  secondary?: boolean;
 }) {
   return (
-    <Select value={value} onValueChange={(v) => onChange(v as SearchProviderId)}>
-      <SelectTrigger className="w-[140px] h-8 text-xs rounded-lg shrink-0">
+    <Select value={value} onValueChange={(v) => onChange(v as V)} disabled={disabled}>
+      <SelectTrigger className={cn('w-[140px] h-8 text-xs rounded-lg shrink-0', secondary && 'border-dashed')}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {options.map((id) => {
-          const { label, icon: Icon } = SEARCH_PROVIDER_OPTIONS[id];
-          return (
-            <SelectItem key={id} value={id}>
-              <div className="flex items-center gap-2">
-                <Icon className="size-3.5 shrink-0" />
-                <span>{label}</span>
-              </div>
-            </SelectItem>
-          );
-        })}
+        {options.map(({ id, label, icon: Icon }) => (
+          <SelectItem key={id} value={id}>
+            <div className="flex items-center gap-2">
+              {Icon ? <Icon className="size-3.5 shrink-0" /> : <Minus className="size-3.5 shrink-0" />}
+              <span>{label}</span>
+            </div>
+          </SelectItem>
+        ))}
       </SelectContent>
     </Select>
+  );
+}
+
+function providerOption(id: SearchProviderId) {
+  const { label, icon } = SEARCH_PROVIDER_OPTIONS[id];
+  return { id, label, icon };
+}
+
+// A card of search functions, one row each: the primary provider, then the
+// one retried when it comes back empty.
+function ProviderTable({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="mt-4 rounded-xl border border-border/60 overflow-hidden">
+      <div className="flex items-center justify-between gap-6 px-4 py-2.5 border-b border-border/40 bg-muted/30">
+        <p className="text-xs font-medium text-muted-foreground">{title}</p>
+        <div className="hidden sm:flex items-center gap-2 text-[11px] text-muted-foreground shrink-0">
+          <span className="w-[140px] pl-3">Primary</span>
+          <span className="w-3.5" />
+          <span className="w-[140px] pl-3">Fallback if empty</span>
+        </div>
+      </div>
+      <div className="divide-y divide-border/40 px-4">{children}</div>
+    </div>
   );
 }
 
@@ -61,7 +89,6 @@ function SearchProviderSetting({
   fallbackEnabledKey,
   fallbackProviderKey,
   available,
-  emptyResult = 'results',
   onProviderChange,
 }: {
   fn: SearchFunction;
@@ -71,7 +98,6 @@ function SearchProviderSetting({
   fallbackEnabledKey: PreferenceKey;
   fallbackProviderKey: PreferenceKey;
   available: readonly SearchProviderId[];
-  emptyResult?: 'results' | 'content';
   onProviderChange?: (provider: SearchProviderId) => void;
 }) {
   const [preferred, setPreferred] = useSyncedPreferences<string>(providerKey, '');
@@ -93,50 +119,48 @@ function SearchProviderSetting({
     );
   }
 
-  const fallbackOptions = options.filter((id) => id !== provider);
   const fallbackProvider = pickFallbackSearchProvider(fn, fallbackPreferred, provider, available);
+  const fallbackOptions = [
+    { id: NO_FALLBACK, label: 'No fallback' },
+    ...options.filter((id) => id !== provider).map(providerOption),
+  ];
 
   return (
-    <>
-      <div className="flex items-center justify-between py-3.5 gap-6">
-        <div className="min-w-0">
-          <p className="text-sm font-medium">{title} Provider</p>
-          <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
-        </div>
+    <div className="flex flex-col gap-2.5 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+      <div className="min-w-0">
+        <p className="text-sm font-medium">{title}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
         <ProviderSelect
           value={provider}
-          options={options}
+          options={options.map(providerOption)}
           onChange={(id) => {
             setPreferred(id);
             onProviderChange?.(id);
           }}
         />
+        <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" />
+        <ProviderSelect
+          value={fallbackProvider && fallbackEnabled ? fallbackProvider : NO_FALLBACK}
+          options={fallbackOptions}
+          disabled={!fallbackProvider}
+          secondary
+          onChange={(id) => {
+            if (id === NO_FALLBACK) {
+              setFallbackEnabled(false);
+              return;
+            }
+            setFallbackPreferred(id);
+            setFallbackEnabled(true);
+          }}
+        />
       </div>
-      {fallbackProvider && (
-        <div className="flex items-center justify-between py-3.5 gap-6">
-          <div className="min-w-0">
-            <p className="text-sm font-medium">{title} Fallback</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Retry with another provider when the primary one returns no {emptyResult}
-            </p>
-          </div>
-          <Switch checked={fallbackEnabled} onCheckedChange={setFallbackEnabled} />
-        </div>
-      )}
-      {fallbackProvider && fallbackEnabled && (
-        <div className="flex items-center justify-between py-3.5 gap-6">
-          <div className="min-w-0">
-            <p className="text-sm font-medium">{title} Fallback Provider</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Which provider to retry with</p>
-          </div>
-          <ProviderSelect value={fallbackProvider} options={fallbackOptions} onChange={setFallbackPreferred} />
-        </div>
-      )}
-    </>
+    </div>
   );
 }
 
-export function SearchTab({ customProviders }: { customProviders: CustomProviderConfig[] }) {
+export function SearchTab() {
   const capabilities = useInstanceCapabilities();
   const availableProviders = capabilities?.searchProviders ?? [];
   const [fallbackMetadata, setFallbackMetadata] = useSyncedPreferences<boolean>('zetora-fallback-metadata', true);
@@ -146,15 +170,12 @@ export function SearchTab({ customProviders }: { customProviders: CustomProvider
     'zetora-embedding-provider',
     '',
   );
-  const [embeddingModel, setEmbeddingModel] = useSyncedPreferences<string>(
-    'zetora-embedding-model',
-    'nomic-embed-text',
-  );
 
   const [fileEmbeddingProvider, setFileEmbeddingProvider] = useSyncedPreferences<'cohere' | 'custom'>(
     'zetora-file-embedding-provider',
     'cohere',
   );
+  const [fileEmbeddingModel, setFileEmbeddingModel] = useSyncedPreferences<string>('zetora-file-embedding-model', '');
 
   const [qdrantEnabled, setQdrantEnabled] = useSyncedPreferences<boolean>('zetora-qdrant-enabled', false);
 
@@ -176,116 +197,87 @@ export function SearchTab({ customProviders }: { customProviders: CustomProvider
     });
   };
 
-  const handleEmbeddingModelSelect = (modelId: string) => {
-    setSelectedEmbeddingProvider(modelId);
-    if (modelId) {
-      const parsed = parseCustomModel(modelId, customProviders);
-      if (parsed) setEmbeddingModel(parsed.modelName);
-    } else {
-      setEmbeddingModel('nomic-embed-text');
-    }
-  };
-
   return (
     <>
       {capabilities && (
         <>
-          <div className="mt-4">
-            <div className="rounded-xl border border-border/60 divide-y divide-border/40 px-4">
-              <SearchProviderSetting
-                fn="web"
-                title="Web Search"
-                description="Engine used for general web searches"
-                providerKey="zetora-search-provider"
-                fallbackEnabledKey="zetora-fallback-search-firecrawl"
-                fallbackProviderKey="zetora-search-fallback-provider"
-                available={availableProviders}
-                onProviderChange={announceSearchProviderChange}
-              />
-            </div>
-          </div>
-          <div className="mt-4">
-            <div className="rounded-xl border border-border/60 divide-y divide-border/40 px-4">
-              <SearchProviderSetting
-                fn="github"
-                title="GitHub Search"
-                description="Engine used for the GitHub search tool"
-                providerKey="zetora-github-search-provider"
-                fallbackEnabledKey="zetora-github-search-fallback-enabled"
-                fallbackProviderKey="zetora-github-search-fallback-provider"
-                available={availableProviders}
-              />
-              <SearchProviderSetting
-                fn="academic"
-                title="Academic Search"
-                description="Engine used for the academic search tool"
-                providerKey="zetora-academic-search-provider"
-                fallbackEnabledKey="zetora-academic-search-fallback-enabled"
-                fallbackProviderKey="zetora-academic-search-fallback-provider"
-                available={availableProviders}
-              />
-            </div>
-          </div>
-          <div className="mt-4">
-            <div className="rounded-xl border border-border/60 divide-y divide-border/40 px-4">
-              <SearchProviderSetting
-                fn="retrieve"
-                title="Retrieve"
-                description="Engine used to extract content from a URL the user shares directly"
-                providerKey="zetora-retrieve-provider"
-                fallbackEnabledKey="zetora-retrieve-fallback-enabled"
-                fallbackProviderKey="zetora-retrieve-fallback-provider"
-                available={availableProviders}
-                emptyResult="content"
-              />
-            </div>
-          </div>
-          <div className="mt-4">
-            <div className="rounded-xl border border-border/60 divide-y divide-border/40 px-4">
-              <SearchProviderSetting
-                fn="reddit"
-                title="Reddit Search"
-                description="Engine used for the Reddit search tool"
-                providerKey="zetora-reddit-search-provider"
-                fallbackEnabledKey="zetora-reddit-search-fallback-enabled"
-                fallbackProviderKey="zetora-reddit-search-fallback-provider"
-                available={availableProviders}
-              />
-            </div>
-          </div>
-          <div className="mt-4">
-            <div className="rounded-xl border border-border/60 divide-y divide-border/40 px-4">
-              <SearchProviderSetting
-                fn="extremeSearch"
-                title="Extreme Search"
-                description="Engine used to find URLs for Extreme Agent"
-                providerKey="zetora-extreme-search-provider"
-                fallbackEnabledKey="zetora-extreme-search-fallback-enabled"
-                fallbackProviderKey="zetora-extreme-search-fallback-provider"
-                available={availableProviders}
-              />
-              <SearchProviderSetting
-                fn="extremeContent"
-                title="Extreme Content"
-                description="Engine used to extract content from found URLs (also used by BrowsePage)"
-                providerKey="zetora-extreme-content-provider"
-                fallbackEnabledKey="zetora-extreme-content-fallback-enabled"
-                fallbackProviderKey="zetora-extreme-content-fallback-provider"
-                available={availableProviders}
-                emptyResult="content"
-              />
-              <div className="flex items-center justify-between py-3.5 gap-6">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">Metadata Fallback</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Use metadata scraping as a last resort (title + description only) when both content providers fail
-                    on a URL
-                  </p>
-                </div>
-                <Switch checked={fallbackMetadata} onCheckedChange={setFallbackMetadata} />
+          <ProviderTable title="Search">
+            <SearchProviderSetting
+              fn="web"
+              title="Web Search"
+              description="General web searches"
+              providerKey="zetora-search-provider"
+              fallbackEnabledKey="zetora-fallback-search-firecrawl"
+              fallbackProviderKey="zetora-search-fallback-provider"
+              available={availableProviders}
+              onProviderChange={announceSearchProviderChange}
+            />
+            <SearchProviderSetting
+              fn="github"
+              title="GitHub Search"
+              description="The GitHub search tool"
+              providerKey="zetora-github-search-provider"
+              fallbackEnabledKey="zetora-github-search-fallback-enabled"
+              fallbackProviderKey="zetora-github-search-fallback-provider"
+              available={availableProviders}
+            />
+            <SearchProviderSetting
+              fn="academic"
+              title="Academic Search"
+              description="The academic search tool"
+              providerKey="zetora-academic-search-provider"
+              fallbackEnabledKey="zetora-academic-search-fallback-enabled"
+              fallbackProviderKey="zetora-academic-search-fallback-provider"
+              available={availableProviders}
+            />
+            <SearchProviderSetting
+              fn="reddit"
+              title="Reddit Search"
+              description="The Reddit search tool"
+              providerKey="zetora-reddit-search-provider"
+              fallbackEnabledKey="zetora-reddit-search-fallback-enabled"
+              fallbackProviderKey="zetora-reddit-search-fallback-provider"
+              available={availableProviders}
+            />
+            <SearchProviderSetting
+              fn="extremeSearch"
+              title="Extreme Search"
+              description="Finds URLs for Extreme Agent"
+              providerKey="zetora-extreme-search-provider"
+              fallbackEnabledKey="zetora-extreme-search-fallback-enabled"
+              fallbackProviderKey="zetora-extreme-search-fallback-provider"
+              available={availableProviders}
+            />
+          </ProviderTable>
+          <ProviderTable title="Content extraction">
+            <SearchProviderSetting
+              fn="retrieve"
+              title="Retrieve"
+              description="URLs the user shares directly"
+              providerKey="zetora-retrieve-provider"
+              fallbackEnabledKey="zetora-retrieve-fallback-enabled"
+              fallbackProviderKey="zetora-retrieve-fallback-provider"
+              available={availableProviders}
+            />
+            <SearchProviderSetting
+              fn="extremeContent"
+              title="Extreme Content"
+              description="URLs found by Extreme Search (also used by BrowsePage)"
+              providerKey="zetora-extreme-content-provider"
+              fallbackEnabledKey="zetora-extreme-content-fallback-enabled"
+              fallbackProviderKey="zetora-extreme-content-fallback-provider"
+              available={availableProviders}
+            />
+            <div className="flex items-center justify-between py-3.5 gap-6">
+              <div className="min-w-0">
+                <p className="text-sm font-medium">Metadata Fallback</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Last resort when both Extreme Content providers fail on a URL: title and description only
+                </p>
               </div>
+              <Switch checked={fallbackMetadata} onCheckedChange={setFallbackMetadata} />
             </div>
-          </div>
+          </ProviderTable>
         </>
       )}
       <div className="mt-4">
@@ -332,12 +324,12 @@ export function SearchTab({ customProviders }: { customProviders: CustomProvider
                   <div className="flex items-center gap-1.5 shrink-0">
                     {!selectedEmbeddingProvider && (
                       <span className="text-[11px] text-muted-foreground/70 shrink-0 max-w-[120px] truncate">
-                        Default: nomic-embed-text
+                        Not set
                       </span>
                     )}
                     <ModelSelectorDialog
                       selectedModel={selectedEmbeddingProvider}
-                      onModelSelect={handleEmbeddingModelSelect}
+                      onModelSelect={setSelectedEmbeddingProvider}
                       source="custom"
                       className="w-[180px] h-8"
                     />
@@ -348,7 +340,7 @@ export function SearchTab({ customProviders }: { customProviders: CustomProvider
                         size="icon"
                         className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
                         title="Reset to default"
-                        onClick={() => handleEmbeddingModelSelect('')}
+                        onClick={() => setSelectedEmbeddingProvider('')}
                       >
                         <X className="h-3.5 w-3.5" />
                       </Button>
@@ -443,25 +435,23 @@ export function SearchTab({ customProviders }: { customProviders: CustomProvider
                 <p className="text-xs text-muted-foreground mt-0.5">Select from your Custom AI Providers</p>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
-                {!selectedEmbeddingProvider && (
-                  <span className="text-[11px] text-muted-foreground/70 shrink-0 max-w-[120px] truncate">
-                    Falls back to Cohere until set
-                  </span>
+                {!fileEmbeddingModel && (
+                  <span className="text-[11px] text-muted-foreground/70 shrink-0 max-w-[120px] truncate">Not set</span>
                 )}
                 <ModelSelectorDialog
-                  selectedModel={selectedEmbeddingProvider}
-                  onModelSelect={handleEmbeddingModelSelect}
+                  selectedModel={fileEmbeddingModel}
+                  onModelSelect={setFileEmbeddingModel}
                   source="custom"
                   className="w-[180px] h-8"
                 />
-                {selectedEmbeddingProvider && (
+                {fileEmbeddingModel && (
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
                     title="Reset to default"
-                    onClick={() => handleEmbeddingModelSelect('')}
+                    onClick={() => setFileEmbeddingModel('')}
                   >
                     <X className="h-3.5 w-3.5" />
                   </Button>

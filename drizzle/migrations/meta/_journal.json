@@ -176,6 +176,13 @@
       "when": 1791791745494,
       "tag": "0024_model_catalog_source",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792485730376,
+      "tag": "0025_split_file_embedding_model",
+      "breakpoints": true
     }
   ]
 }

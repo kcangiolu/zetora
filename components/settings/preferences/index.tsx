@@ -74,7 +74,7 @@ export function PreferencesSection({
         )}
 
         {/* ── Search & Retrieval tab ── */}
-        {preferencesTab === 'search' && <SearchTab customProviders={customProviders} />}
+        {preferencesTab === 'search' && <SearchTab />}
 
         {/* ── Integrations tab ── */}
         {preferencesTab === 'integrations' && <IntegrationsTab />}
