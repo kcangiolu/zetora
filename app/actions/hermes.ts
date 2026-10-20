@@ -2,7 +2,13 @@
 
 import { randomBytes } from 'node:crypto';
 import { getCurrentUser } from './user';
-import { createHermesConnector, getHermesConnectorByUserId, revokeHermesConnector } from '@/lib/db/queries/hermes';
+import {
+  createHermesConnector,
+  getHermesConnectorByUserId,
+  getHermesConversationByChatId,
+  revokeHermesConnector,
+} from '@/lib/db/queries/hermes';
+import { deleteMessageById, getChatByIdForValidation, getMessageById } from '@/lib/db/queries/chat';
 import { hashEnrollmentToken } from '@/lib/hermes/crypto';
 import { isHermesEnabled } from '@/lib/hermes/feature-flag';
 import { serverEnv } from '@/env/server';
@@ -121,5 +127,38 @@ export async function revokeHermesConnectorAction() {
   } catch (error) {
     log.error('Failed to revoke Hermes connector:', error);
     return { success: false as const, error: 'Failed to revoke connector' };
+  }
+}
+
+// "Hide from view" on a message of an Agent conversation: removes Zetora's copy only.
+// Hermes keeps the exchange in its own session history, which is why it is never offered
+// as a delete.
+export async function hideHermesMessageAction({ messageId }: { messageId: string }) {
+  'use server';
+
+  if (!isHermesEnabled()) {
+    return { success: false as const, error: 'Hermes is not enabled on this deployment' };
+  }
+
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return { success: false as const, error: 'Authentication required' };
+    }
+
+    const [message] = await getMessageById({ id: messageId });
+    const owningChat = message ? await getChatByIdForValidation({ id: message.chatId }) : null;
+    if (!message || !owningChat || owningChat.userId !== user.id) {
+      return { success: false as const, error: 'Message not found' };
+    }
+    if (!(await getHermesConversationByChatId(message.chatId))) {
+      return { success: false as const, error: 'Not an Agent conversation' };
+    }
+
+    await deleteMessageById({ id: messageId });
+    return { success: true as const };
+  } catch (error) {
+    log.error('Failed to hide Hermes message:', error);
+    return { success: false as const, error: 'Failed to hide the message' };
   }
 }

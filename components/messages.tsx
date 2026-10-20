@@ -12,6 +12,8 @@ import { UseChatHelpers } from '@ai-sdk/react';
 import { ComprehensiveUserData } from '@/lib/user-data-server';
 import { cn } from '@/lib/utils';
 import { useTurnActions } from '@/hooks/use-turn-actions';
+import { HermesThread } from '@/components/hermes-thread/hermes-thread';
+import type { HermesToolStepView } from '@/lib/hermes/tool-steps';
 
 // react-virtuoso logs "Zero-sized element" as an ERROR, its lowest prop-settable
 // level, for an assistant row that has no token yet. The row grows once content
@@ -61,6 +63,8 @@ interface MessagesProps {
   // Hermes's best-effort `react` acks (👀 seen → ✅/❌ done) on the user's own messages,
   // keyed by message id — see chat-interface.tsx's onReaction wiring.
   hermesReactions?: Record<string, string | null>;
+  // The agent's tool calls in this chat, shown as steps between its replies.
+  hermesToolSteps?: HermesToolStepView[];
   // Reserved space below the message list to clear whatever bottom bar sits over it.
   // Defaults to the height of the main chat composer; callers with a shorter bottom
   // bar (e.g. the read-only share page) should override it.
@@ -115,7 +119,7 @@ function MessagesFooter({ context }: { context: MessagesFooterContext }) {
           moment it does. Same MarkdownRenderer as a real assistant text part, so the
           handoff from draft to message is seamless rather than a visible reflow. */}
       {isHermesChat && hermesDraft && (
-        <div className="mt-2">
+        <div className="mb-6 max-w-[92%] rounded-[18px] rounded-bl-md border border-border bg-card px-4 py-2.5 text-[15px] leading-relaxed sm:max-w-[85%]">
           <MarkdownRenderer content={hermesDraft} />
         </div>
       )}
@@ -146,6 +150,8 @@ function MessagesFooter({ context }: { context: MessagesFooterContext }) {
 }
 
 const VIRTUOSO_COMPONENTS: Components<ChatMessage, MessagesFooterContext> = { Footer: MessagesFooter };
+
+const NO_HERMES_TOOL_STEPS: HermesToolStepView[] = [];
 
 // Shared by every message but the last, so their memoized props stay equal.
 const NO_SUGGESTED_QUESTIONS: string[] = [];
@@ -179,6 +185,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     hermesTypingLabel = null,
     hermesDraft = null,
     hermesReactions,
+    hermesToolSteps = NO_HERMES_TOOL_STEPS,
   },
   ref,
 ) {
@@ -214,14 +221,10 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     ref,
     () => ({
       scrollToBottom: (behavior = 'smooth') => {
-        virtuosoRef.current?.scrollToIndex({
-          index: memoizedMessages.length - 1,
-          align: 'end',
-          behavior,
-        });
+        virtuosoRef.current?.scrollToIndex({ index: 'LAST', align: 'end', behavior });
       },
     }),
-    [memoizedMessages.length],
+    [],
   );
 
   // Check if there are any active tool invocations in the current messages
@@ -242,12 +245,8 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     const lastIndex = memoizedMessages.length - 1;
     const lastMessage = memoizedMessages[lastIndex];
 
-    // Case 1: Last message is user and no assistant response yet. Meaningless in Hermes
-    // mode: useChat's own status never leaves 'ready' for a Hermes turn (the outbound
-    // send is a plain fetch, not useChat's sendMessage — see hooks/use-hermes-send.ts),
-    // so this would fire the instant the user's message is appended, even though the
-    // agent's reply (arriving async over the SSE channel) just hasn't landed yet.
-    if (!isHermesChat && lastMessage?.role === 'user' && status === 'ready' && !error) {
+    // Case 1: Last message is user and no assistant response yet.
+    if (lastMessage?.role === 'user' && status === 'ready' && !error) {
       return lastIndex;
     }
 
@@ -274,17 +273,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
         const anyPart = part as unknown as { state?: string; output?: { success?: boolean } };
         return anyPart.state === 'output-available' && anyPart.output?.success !== false;
       });
-      // A Hermes send_media action with no caption (agent-event/route.ts's `caption:
-      // action.content || null`) produces a message whose ONLY part is
-      // data-hermes_media — no sibling text part like every other Hermes action always
-      // includes. Confirmed against a real production message: a voice reply with no
-      // caption was flagged "missing" even though its player rendered fine right above
-      // the false banner. hermes_prompt already always ships a text part alongside it,
-      // so this is belt-and-suspenders for that one, load-bearing for media.
-      const hasHermesContent = parts.some(
-        (part: ChatMessage['parts'][number]) => part.type === 'data-hermes_media' || part.type === 'data-hermes_prompt',
-      );
-      const hasVisibleContent = hasVisibleText || hasDeliverableToolOutput || hasHermesContent;
+      const hasVisibleContent = hasVisibleText || hasDeliverableToolOutput;
 
       // If there is no visible content at all, consider the response missing
       if (!hasVisibleContent) {
@@ -293,7 +282,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
     }
 
     return -1;
-  }, [memoizedMessages, status, error, isHermesChat]);
+  }, [memoizedMessages, status, error]);
 
   const { retryLastTurn: handleRetry, deleteLastTurn: handleDelete } = useTurnActions({
     getMessages,
@@ -363,7 +352,6 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
           selectedVisibilityType={selectedVisibilityType}
           chatId={chatId}
           hiddenImageUrls={hiddenImageUrls}
-          isHermesChat={isHermesChat}
         />
       );
     },
@@ -376,12 +364,21 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
       selectedVisibilityType,
       chatId,
       hiddenImageUrls,
-      isHermesChat,
       reasoningVisibilityMap,
       reasoningFullscreenMap,
       setReasoningVisibilityMap,
       setReasoningFullscreenMap,
     ],
+  );
+
+  const messageIndexById = useMemo(
+    () => new Map(memoizedMessages.map((message, index) => [message.id, index])),
+    [memoizedMessages],
+  );
+  const renderHermesPart = useCallback(
+    (part: ChatMessage['parts'][number], message: ChatMessage, partIndex: number) =>
+      renderPart(part, messageIndexById.get(message.id) ?? 0, partIndex, message.parts, message),
+    [renderPart, messageIndexById],
   );
 
   // Check if we should show loading animation
@@ -489,8 +486,6 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
             index={index}
             renderPart={renderPart}
             status={status}
-            isHermesChat={isHermesChat}
-            hermesReaction={hermesReactions?.[message.id] ?? null}
             suggestedQuestions={index === memoizedMessages.length - 1 ? suggestedQuestions : NO_SUGGESTED_QUESTIONS}
             user={user ?? undefined}
             selectedVisibilityType={selectedVisibilityType}
@@ -505,10 +500,7 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
             setEditDraft={setEditDraft}
             shouldReduceHeight={
               message.role === 'assistant'
-                ? // Always reduced for a Hermes reply: the reserved height leaves room for a
-                  // streaming answer, and a Hermes reply arrives complete in one frame.
-                  isHermesChat ||
-                  isTransitioning ||
+                ? isTransitioning ||
                   status === 'submitted' ||
                   memoizedMessages[memoizedMessages.length - 1]?.role === 'user'
                   ? true
@@ -529,8 +521,6 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
       memoizedMessages,
       renderPart,
       status,
-      isHermesChat,
-      hermesReactions,
       suggestedQuestions,
       user,
       selectedVisibilityType,
@@ -585,18 +575,35 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
   return (
     <MessageActionsProvider value={messageActions}>
       <div className={cn(bottomSpacerClassName, 'flex-1 min-h-0 flex flex-col')}>
-        <Virtuoso
-          ref={virtuosoRef}
-          style={{ height: '100%', overflowX: 'hidden' }}
-          data={memoizedMessages}
-          computeItemKey={(index, message) => message.id ?? index}
-          followOutput={false}
-          atBottomStateChange={onAtBottomChange}
-          atBottomThreshold={80}
-          itemContent={renderMessageItem}
-          context={footerContext}
-          components={VIRTUOSO_COMPONENTS}
-        />
+        {isHermesChat && chatId ? (
+          <HermesThread
+            chatId={chatId}
+            isOwner={Boolean(isOwner)}
+            messages={memoizedMessages}
+            toolSteps={hermesToolSteps}
+            reactions={hermesReactions}
+            isAgentBusy={Boolean(hermesTypingLabel || hermesDraft)}
+            renderPart={renderHermesPart}
+            attachmentsRenderer={attachmentsRenderer}
+            virtuosoRef={virtuosoRef}
+            onAtBottomChange={onAtBottomChange}
+            footer={MessagesFooter}
+            footerContext={footerContext}
+          />
+        ) : (
+          <Virtuoso
+            ref={virtuosoRef}
+            style={{ height: '100%', overflowX: 'hidden' }}
+            data={memoizedMessages}
+            computeItemKey={(index, message) => message.id ?? index}
+            followOutput={false}
+            atBottomStateChange={onAtBottomChange}
+            atBottomThreshold={80}
+            itemContent={renderMessageItem}
+            context={footerContext}
+            components={VIRTUOSO_COMPONENTS}
+          />
+        )}
       </div>
     </MessageActionsProvider>
   );

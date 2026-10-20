@@ -65,6 +65,7 @@ import {
 import { useAutoResume } from '@/hooks/use-auto-resume';
 import { useHermesStream } from '@/hooks/use-hermes-stream';
 import { resolveHermesChatMode, type HermesChatLock } from '@/lib/hermes/chat-mode';
+import { upsertHermesToolStep, type HermesToolStepView } from '@/lib/hermes/tool-steps';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import type { ReasoningEffort } from '@/lib/reasoning-effort-types';
 import { useUser } from '@/contexts/user-context';
@@ -99,7 +100,11 @@ interface ChatInterfaceProps {
   // Resolved server-side in app/search/[id]/page.tsx. Undefined only on the new-chat entry
   // point (app/(search)/page.tsx), which renders no props at all.
   initialHermesLock?: HermesChatLock;
+  // The agent's tool calls in this chat so far (app/search/[id]/page.tsx).
+  initialHermesToolSteps?: HermesToolStepView[];
 }
+
+const NO_HERMES_TOOL_STEPS: HermesToolStepView[] = [];
 
 interface AutoRouterConfig {
   routes: Array<{
@@ -120,6 +125,7 @@ const ChatInterface = memo(
     chatTitle,
     initialHiddenImageUrls,
     initialHermesLock = null,
+    initialHermesToolSteps = NO_HERMES_TOOL_STEPS,
   }: ChatInterfaceProps): React.JSX.Element => {
     const router = useRouter();
     const pathname = usePathname();
@@ -656,6 +662,7 @@ const ChatInterface = memo(
     // lives here rather than in `messages`.
     const [hermesDraft, setHermesDraft] = useState<string | null>(null);
     const [hermesReactions, setHermesReactions] = useState<Record<string, string | null>>({});
+    const [hermesToolSteps, setHermesToolSteps] = useState(initialHermesToolSteps);
     useHermesStream({
       chatId,
       enabled: isHermesChat && isOwner,
@@ -663,6 +670,7 @@ const ChatInterface = memo(
       onTyping: setHermesTypingLabel,
       onDraft: setHermesDraft,
       onReaction: (messageId, emoji) => setHermesReactions((prev) => ({ ...prev, [messageId]: emoji })),
+      onToolStep: (step) => setHermesToolSteps((prev) => upsertHermesToolStep(prev, step)),
       // Same update a classic turn's `data-chat_title` part applies (onData above), plus the
       // two caches a classic turn refreshes by other means. chat-meta first: the effect that
       // syncs the local title from it would otherwise put back the provisional title it
@@ -1473,6 +1481,7 @@ const ChatInterface = memo(
                     hermesTypingLabel={hermesTypingLabel}
                     hermesDraft={hermesDraft}
                     hermesReactions={hermesReactions}
+                    hermesToolSteps={hermesToolSteps}
                     stop={stop}
                     suggestedQuestions={chatState.suggestedQuestions}
                     setSuggestedQuestions={setSuggestedQuestions}

@@ -32,8 +32,6 @@ interface MessagePartRendererProps {
   selectedVisibilityType?: 'public' | 'private';
   chatId?: string;
   hiddenImageUrls?: Set<string>;
-  // Hermes chats are append-only and never go through /api/search: no response actions.
-  isHermesChat?: boolean;
 }
 
 // Renders one part of a message by its type.
@@ -55,7 +53,6 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(function Messa
   selectedVisibilityType,
   chatId,
   hiddenImageUrls,
-  isHermesChat = false,
 }) {
   const annotations = useMemo(
     () => message.parts.filter((p) => p.type.startsWith('data-')) as DataUIPart<CustomUIDataTypes>[],
@@ -87,7 +84,6 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(function Messa
           hasActiveToolInvocations={hasActiveToolInvocations}
           isLastMessage={isLastMessage}
           canEdit={canEdit}
-          isHermesChat={isHermesChat}
           user={user}
           isOwner={isOwner}
           chatId={chatId}

@@ -24,6 +24,7 @@ export function convertToUIMessages(messages: Message[]): ChatMessage[] {
         isCompactionSummary: message.isCompactionSummary,
         compactionReplacedCount: message.compactionReplacedCount,
         hermesGatewayId: message.hermesGatewayId,
+        hermesReaction: message.hermesReaction,
       },
     };
   });

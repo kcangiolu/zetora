@@ -42,7 +42,6 @@ export function TextPart({
   hasActiveToolInvocations,
   isLastMessage,
   canEdit,
-  isHermesChat,
   user,
   isOwner,
   chatId,
@@ -56,7 +55,6 @@ export function TextPart({
   hasActiveToolInvocations: boolean;
   isLastMessage: boolean;
   canEdit: boolean;
-  isHermesChat: boolean;
   user?: ComprehensiveUserData;
   isOwner?: boolean;
   chatId?: string;
@@ -117,9 +115,7 @@ export function TextPart({
 
       {!edit.isEditing && hasCanvasSpec && <CanvasSpecRenderer parts={parts} isStreaming={status === 'streaming'} />}
 
-      {/* An Agent message is a relayed update, not a native answer: editing, retrying,
-          branching or exporting it would do nothing useful. */}
-      {showActions && !edit.isEditing && !isHermesChat && (
+      {showActions && !edit.isEditing && (
         <div className="flex items-center justify-between mt-3 mb-4">
           <ResponseActions
             message={message}

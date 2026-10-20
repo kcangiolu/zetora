@@ -24,6 +24,12 @@ export function toHermesToolStepView(step: HermesToolStep): HermesToolStepView {
   };
 }
 
+// A step event carries the step's whole current state, so it replaces any earlier copy.
+export function upsertHermesToolStep(steps: HermesToolStepView[], step: HermesToolStepView): HermesToolStepView[] {
+  const others = steps.filter((existing) => existing.toolCallId !== step.toolCallId);
+  return [...others, step].sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+}
+
 // The events hermes-plugin/zetora sends, one per pre_tool_call and post_tool_call hook.
 export type HermesToolEvent =
   | {

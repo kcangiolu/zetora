@@ -161,6 +161,8 @@ const messageMetadataSchema = z.object({
   // The Hermes gateway that produced this message (lib/db/schema.ts's hermesGatewayId).
   // Null/absent for every non-Hermes message.
   hermesGatewayId: z.string().nullable().optional(),
+  // Hermes's ack on a user message as last stored (👀 seen, then ✅ or ❌).
+  hermesReaction: z.string().nullable().optional(),
 });
 
 type MessageMetadata = z.infer<typeof messageMetadataSchema>;

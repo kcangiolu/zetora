@@ -4,10 +4,12 @@ import { getUser } from '@/lib/auth-utils';
 import {
   getChatWithUserAndInitialMessages,
   getHermesConversationByChatId,
+  getHermesToolStepsByChatId,
   getHiddenContextImageUrlsByChatId,
 } from '@/lib/db/queries';
 import { resolveHermesChatLock } from '@/lib/hermes/chat-mode';
 import { isHermesEnabled } from '@/lib/hermes/enabled';
+import { toHermesToolStepView } from '@/lib/hermes/tool-steps';
 import { maindb } from '@/lib/db';
 import { getChatById } from '@/lib/db/queries';
 import { chat as chatTable, message as messageTable, Message, type Chat, type User } from '@/lib/db/schema';
@@ -129,7 +131,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const { id } = params;
 
-  const { user, chatBundle, primaryFallback, hiddenImageUrls, hermesConversation } = await all(
+  const { user, chatBundle, primaryFallback, hiddenImageUrls, hermesConversation, hermesToolSteps } = await all(
     {
       user: async function () {
         return getUser();
@@ -152,6 +154,9 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
       // (or resolves to a cached failure) makes them render as the wrong kind of chat.
       hermesConversation: async function () {
         return isHermesEnabled() ? getHermesConversationByChatId(id) : null;
+      },
+      hermesToolSteps: async function () {
+        return (await this.$.hermesConversation) ? getHermesToolStepsByChatId(id) : [];
       },
     },
     getBetterAllOptions(),
@@ -211,6 +216,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
       chatTitle={chat.title}
       initialHiddenImageUrls={hiddenImageUrls}
       initialHermesLock={initialHermesLock}
+      initialHermesToolSteps={hermesToolSteps.map(toHermesToolStepView)}
     />
   );
 }

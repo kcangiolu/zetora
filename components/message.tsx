@@ -208,10 +208,7 @@ const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
             <h3 className={`font-medium ${colors.title}`}>
               {isChatSDKError && isSignInRequired(parsedError as any) && 'Sign In Required'}
               {isChatSDKError && isRateLimited(parsedError as any) && 'Rate Limited'}
-              {isChatSDKError &&
-                !isSignInRequired(parsedError as any) &&
-                !isRateLimited(parsedError as any) &&
-                'Error'}
+              {isChatSDKError && !isSignInRequired(parsedError as any) && !isRateLimited(parsedError as any) && 'Error'}
               {!isChatSDKError && 'Error'}
             </h3>
             <p className={`text-sm ${colors.text} mt-0.5`}>{errorMessage}</p>
@@ -377,11 +374,6 @@ interface MessageProps {
     message: ChatMessage,
   ) => React.ReactNode;
   status: UseChatHelpers<ChatMessage>['status'];
-  // See messages.tsx's own isHermesChat comment: regenerate() always targets
-  // /api/search, which a Hermes-mode chat never uses.
-  isHermesChat?: boolean;
-  // Hermes's best-effort `react` ack on THIS user message (👀 seen → ✅/❌ done), or null.
-  hermesReaction?: string | null;
   suggestedQuestions: string[];
   user?: ComprehensiveUserData | null;
   selectedVisibilityType?: 'public' | 'private';
@@ -418,7 +410,6 @@ interface MessageEditorProps {
   setDraft: React.Dispatch<React.SetStateAction<MessageEditDraft | null>>;
   setMessages: UseChatHelpers<ChatMessage>['setMessages'];
   regenerate: UseChatHelpers<ChatMessage>['regenerate'];
-  isHermesChat?: boolean;
   setSuggestedQuestions: (questions: string[]) => void;
   user?: ComprehensiveUserData | null;
 }
@@ -459,7 +450,6 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
   setDraft,
   setMessages,
   regenerate,
-  isHermesChat = false,
   setSuggestedQuestions,
   user,
 }) => {
@@ -591,14 +581,6 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
       sileo.error({ title: 'Please enter a valid message.' });
       return;
     }
-    if (isHermesChat) {
-      sileo.error({
-        title: 'Editing is not available here',
-        description: 'Agent conversations are append-only — send a new message instead.',
-      });
-      return;
-    }
-
     try {
       setIsSubmitting(true);
 
@@ -774,13 +756,6 @@ export const DELIVERABLE_TOOL_PART_TYPES = new Set([
 
 function isDeliverablePart(part: ChatMessage['parts'][number]): boolean {
   if (part.type === 'text') return true;
-  // Hermes's own interactive/media parts are never a Zetora-native reasoning/tool-call
-  // step to collapse — they ARE the message. Without this, a Hermes reply that pairs
-  // text with a hermes_prompt/hermes_media part gets its second part swept into the
-  // same hidden-steps bucket as a native tool call, and since the "Zetora task
-  // complete" toggle that would un-collapse it is itself hidden in Hermes mode (see
-  // the `!isHermesChat` guard below), the card becomes permanently inaccessible.
-  if (part.type === 'data-hermes_prompt' || part.type === 'data-hermes_media') return true;
   if (!DELIVERABLE_TOOL_PART_TYPES.has(part.type)) return false;
   const anyPart = part as unknown as { state?: string; output?: { success?: boolean } };
   return anyPart.state === 'output-available' && anyPart.output?.success !== false;
@@ -873,8 +848,6 @@ export const Message = memo(function Message({
   suggestedQuestions,
   user,
   selectedVisibilityType = 'private',
-  isHermesChat = false,
-  hermesReaction = null,
   isLastMessage,
   error,
   isMissingAssistantResponse,
@@ -1004,7 +977,6 @@ export const Message = memo(function Message({
                 setDraft={setEditDraft}
                 setMessages={setMessages}
                 regenerate={regenerate}
-                isHermesChat={isHermesChat}
                 setSuggestedQuestions={setSuggestedQuestions}
                 user={user}
               />
@@ -1012,11 +984,7 @@ export const Message = memo(function Message({
               <div className="group relative flex items-center gap-3 justify-end">
                 {/* Actions on the left - vertically centered */}
                 <div className="flex items-center gap-0.5 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-200">
-                  {/* Not offered on a Hermes chat: the edit path deletes the trailing
-                      messages and re-runs the turn through /api/search, neither of which
-                      means anything for a relayed conversation. MessageEditor's own submit
-                      guard stays as the defensive backstop. */}
-                  {!isHermesChat && ((user && isOwner) || (!user && selectedVisibilityType === 'private')) && (
+                  {((user && isOwner) || (!user && selectedVisibilityType === 'private')) && (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button
@@ -1084,16 +1052,6 @@ export const Message = memo(function Message({
                     )}
                   </div>
 
-                  {/* Hermes's react ack (👀 seen → ✅/❌ done) on this message — see
-                      message.tsx's hermesReaction prop / agent-event/route.ts's `react`. */}
-                  {isHermesChat && hermesReaction && (
-                    <div className="flex justify-end mt-1">
-                      <span className="text-sm leading-none" aria-label={`Hermes reacted: ${hermesReaction}`}>
-                        {hermesReaction}
-                      </span>
-                    </div>
-                  )}
-
                   {exceedsMaxHeight && (
                     <button
                       onClick={() => setIsExpanded(!isExpanded)}
@@ -1127,10 +1085,8 @@ export const Message = memo(function Message({
     const hasParts = Boolean(message.parts && message.parts.length > 0);
     // Only the final answer and deliverables (generated images/files) stay
     // visible when collapsed — reasoning, tool calls, and other step parts
-    // are what "Zetora task complete" hides. Meaningless for Hermes (see the
-    // header's own !isHermesChat guard below) — always show every part rather
-    // than relying solely on isDeliverablePart to allowlist each hermes_* type.
-    const showAllSteps = isTurnStreaming || isTaskExpanded || !hasParts || isHermesChat;
+    // are what "Zetora task complete" hides.
+    const showAllSteps = isTurnStreaming || isTaskExpanded || !hasParts;
 
     // When collapsed, don't just drop hidden steps silently — replace each
     // run of consecutive hidden parts (reasoning, tool calls) with a single
@@ -1155,7 +1111,10 @@ export const Message = memo(function Message({
         hiddenRun = [];
         if (summaries.length === 0) return;
         partsList.push(
-          <div key={`${message.id || index}-tool-trace-${atIndex}`} className="flex flex-wrap items-center gap-1 my-1.5">
+          <div
+            key={`${message.id || index}-tool-trace-${atIndex}`}
+            className="flex flex-wrap items-center gap-1 my-1.5"
+          >
             {summaries.map(({ key, label, Icon, count }) => (
               <Badge
                 key={key}
@@ -1193,11 +1152,7 @@ export const Message = memo(function Message({
             Each hidden run's tool badges (rendered inline in partsList,
             right where the steps they replace happened) are the trace that
             survives the collapse, so it's never just a bare text block. */}
-        {/* Meaningless for a Hermes message: there are no Zetora-native tool-call parts
-            to collapse (Hermes messages are plain text, occasionally with its own
-            markdown code fences for a tool-use summary it chose to report) — the label
-            would misleadingly imply Zetora itself ran a tool-calling turn. */}
-        {!isTurnStreaming && hasParts && !isHermesChat && (
+        {!isTurnStreaming && hasParts && (
           <button
             onClick={() => setIsTaskExpanded((v) => !v)}
             className="flex items-center gap-1.5 mb-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
@@ -1643,7 +1598,7 @@ const getDocumentType = (attachment: Attachment): 'csv' | 'docx' | 'xlsx' | 'pdf
 };
 
 // Export the attachments badge component for reuse
-const AttachmentsBadge = ({ attachments }: { attachments: Attachment[] }) => {
+export const AttachmentsBadge = ({ attachments }: { attachments: Attachment[] }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const { copy } = useCopyToClipboard();

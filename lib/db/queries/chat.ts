@@ -471,6 +471,14 @@ export async function getMessageById({ id }: { id: string }) {
   }
 }
 
+export async function deleteMessageById({ id }: { id: string }) {
+  try {
+    return await maindb.delete(message).where(eq(message.id, id));
+  } catch (error) {
+    throw databaseError('Failed to delete message', error);
+  }
+}
+
 export async function updateMessagePartsById({ id, parts }: { id: string; parts: Message['parts'] }) {
   try {
     return await maindb.update(message).set({ parts }).where(eq(message.id, id));

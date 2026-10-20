@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import type { ChatMessage } from '@/lib/types';
+import type { HermesToolStepView } from '@/lib/hermes/tool-steps';
 
 type HermesEvent =
   // `parts` is intentionally loose (Record-shaped, not the full ChatMessage union) — this
@@ -22,6 +23,7 @@ type HermesEvent =
   | { kind: 'draft'; draftId: number; content: string; final: boolean }
   | { kind: 'reaction'; message: { id: string; emoji: string | null } }
   | { kind: 'title'; title: string }
+  | { kind: 'tool_step'; step: HermesToolStepView }
   | { kind: 'connection-status'; connected: boolean; error: string | null };
 
 // Hermes's typing frames are one-shot and self-expiring by contract: gateway/relay/
@@ -49,6 +51,7 @@ export function useHermesStream({
   onDraft,
   onReaction,
   onTitle,
+  onToolStep,
 }: {
   chatId: string;
   enabled: boolean;
@@ -72,6 +75,9 @@ export function useHermesStream({
   // Fired once for a new chat, when app/api/hermes/send/route.ts's background title
   // generation replaces the provisional title.
   onTitle?: (title: string) => void;
+  // Fired when a tool call of the agent starts or finishes (app/api/internal/hermes/
+  // tool-event, fed by Zetora's Hermes plugin), with the step's full current state.
+  onToolStep?: (step: HermesToolStepView) => void;
 }) {
   useEffect(() => {
     if (!enabled || !chatId) return;
@@ -172,6 +178,11 @@ export function useHermesStream({
         return;
       }
 
+      if (payload.kind === 'tool_step') {
+        onToolStep?.(payload.step);
+        return;
+      }
+
       if (payload.kind === 'connection-status') {
         onConnectionStatus?.(payload.connected, payload.error);
       }
@@ -181,6 +192,6 @@ export function useHermesStream({
       if (idleTimeout) clearTimeout(idleTimeout);
       source.close();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- setMessages/onConnectionStatus/onTyping/onDraft/onReaction/onTitle are stable callbacks from the caller
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setMessages/onConnectionStatus/onTyping/onDraft/onReaction/onTitle/onToolStep are stable callbacks from the caller
   }, [chatId, enabled]);
 }
