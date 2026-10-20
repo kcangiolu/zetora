@@ -119,7 +119,7 @@ function MessagesFooter({ context }: { context: MessagesFooterContext }) {
           moment it does. Same MarkdownRenderer as a real assistant text part, so the
           handoff from draft to message is seamless rather than a visible reflow. */}
       {isHermesChat && hermesDraft && (
-        <div className="mb-6 max-w-[92%] rounded-[18px] rounded-bl-md border border-border bg-card px-4 py-2.5 text-[15px] leading-relaxed sm:max-w-[85%]">
+        <div className="mb-6 max-w-full rounded-[18px] rounded-bl-md border border-border bg-card px-4 py-2.5 text-[15px] leading-relaxed sm:max-w-[85%]">
           <MarkdownRenderer content={hermesDraft} />
         </div>
       )}

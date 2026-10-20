@@ -71,7 +71,7 @@ export function HermesBubble({
         'rounded-[18px] px-4 py-2.5 text-[15px] leading-relaxed wrap-break-word transition-shadow',
         from === 'user'
           ? 'max-w-[85%] self-end rounded-br-md bg-accent sm:max-w-[75%]'
-          : 'max-w-[92%] self-start rounded-bl-md border border-border bg-card sm:max-w-[85%]',
+          : 'max-w-full self-start rounded-bl-md border border-border bg-card sm:max-w-[85%]',
         selected &&
           'ring-1 ring-primary ring-offset-0 shadow-[0_0_0_4px_color-mix(in_oklch,var(--primary)_14%,transparent)]',
         isMobile && 'select-none [-webkit-touch-callout:none]',
