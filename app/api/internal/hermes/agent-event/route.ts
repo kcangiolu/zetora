@@ -12,6 +12,7 @@ import {
   saveMessages,
 } from '@/lib/db/queries';
 import { publishHermesEvent, isHermesChatViewerActive } from '@/lib/hermes/realtime';
+import { isUnactionableHomeChannelNotice } from '@/lib/hermes/notices';
 import { sendPushToUser } from '@/lib/push/send-push';
 import { getStorageClient } from '@/lib/storage';
 import { isInstanceStorageUrl } from '@/lib/net/attachment-fetch';
@@ -232,6 +233,10 @@ export async function POST(req: NextRequest) {
     if (action.op === 'send') {
       if (!action.content) {
         return NextResponse.json({ success: false, error: 'missing_content' });
+      }
+      // Acknowledged so the gateway treats it as delivered, but never stored or shown.
+      if (isUnactionableHomeChannelNotice(action.content)) {
+        return NextResponse.json({ success: true });
       }
       parts = [{ type: 'text', text: action.content }];
     } else if (action.op === 'prompt') {

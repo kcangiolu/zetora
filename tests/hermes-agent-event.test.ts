@@ -100,6 +100,23 @@ describe('POST /api/internal/hermes/agent-event', () => {
       expect(await res.json()).toEqual({ success: false, error: 'missing_content' });
     });
 
+    it('drops the home-channel notice the relay can never act on, in any locale', async () => {
+      for (const content of [
+        '📬 No home channel is set for Relay. A home channel is where Hermes delivers cron job results.\n\nType /sethome to make this chat your home channel, or ignore to skip.',
+        "📬 Aucun canal d'accueil n'est défini pour Relay.\n\nTapez /sethome pour en faire votre canal d'accueil.",
+      ]) {
+        const res = await post({ op: 'send', chat_id: CHAT_ID, content });
+        expect(await res.json()).toEqual({ success: true });
+      }
+      expect(saveMessages).not.toHaveBeenCalled();
+      expect(publishHermesEvent).not.toHaveBeenCalled();
+    });
+
+    it('keeps a reply that merely mentions /sethome', async () => {
+      await post({ op: 'send', chat_id: CHAT_ID, content: 'Relay ne gère pas /sethome, voici pourquoi.' });
+      expect(saveMessages).toHaveBeenCalled();
+    });
+
     it('pushes only when no tab holds the chat open', async () => {
       isHermesChatViewerActive.mockResolvedValue(false);
       await post({ op: 'send', chat_id: CHAT_ID, content: 'Bonjour' });
