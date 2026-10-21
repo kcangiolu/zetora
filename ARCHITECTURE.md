@@ -119,7 +119,7 @@ The `selfhosted` profile groups the CPU-only services, from `minio` to `bullmq`.
 2. **Web search tools**: SearXNG/fastCRW first when configured, SaaS providers otherwise; scraped content can be embedded and cached in Qdrant (`lib/vector`).
 3. **Lookouts**: user-scheduled searches; BullMQ repeatable jobs (`lib/services/bullmq.ts`) call back into `/api/lookout` (QStash used instead when BullMQ is disabled).
 4. **Memory** (`lib/memory`): a user-editable bio and atomic facts in Postgres. The bio and core facts go into the system prompt; other facts are matched lexically against the message and appended to it. After each answer, the conversation's own model (or a dedicated one) proposes memory changes through structured output, validated in code (new facts stay candidates until confirmed in another chat); a weekly consolidation merges and re-tiers them.
-5. **Access**: no paid tiers — every signed-in account has full access; a per-account daily usage cap enforced via counters in Postgres/Redis guards against abuse.
+5. **Access**: no paid tiers — every signed-in account has full access; a per-account daily message cap (`ZETORA_DAILY_MESSAGE_LIMIT`, 500 by default, 0 for none) enforced via counters in Postgres/Redis guards against abuse.
 
 ## Security & resilience notes
 

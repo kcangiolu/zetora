@@ -4,7 +4,7 @@ import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { createStreamId, getHermesChatLock, saveNewChatWithStream } from '@/lib/db/queries';
 import { getMessageCountByUserIdAction } from '@/lib/search/server-helpers';
-import { ABUSE_DAILY_LIMIT } from '@/lib/constants';
+import { serverEnv } from '@/env/server';
 import type { ModelMessage, TextPart } from 'ai';
 import type { ChatMessage } from '@/lib/types';
 
@@ -85,7 +85,8 @@ export function initializeChatAndChecks({
 
   async function checkAbuseGuardrail(): Promise<CriticalChecksResult> {
     const { messageCount } = await getMessageCountByUserIdAction(user.userId);
-    if (messageCount >= ABUSE_DAILY_LIMIT) {
+    const limit = serverEnv.ZETORA_DAILY_MESSAGE_LIMIT;
+    if (limit > 0 && messageCount >= limit) {
       throw new ChatSDKError('rate_limit:chat', 'Daily message limit reached');
     }
     return { canProceed: true, messageCount };

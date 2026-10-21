@@ -112,6 +112,9 @@ export const serverEnv = createEnv({
       .optional()
       .default('true')
       .transform((v) => v.toLowerCase() !== 'false'),
+    // Messages one account can send per day, against runaway or looping use;
+    // 0 turns the cap off.
+    ZETORA_DAILY_MESSAGE_LIMIT: z.coerce.number().int().min(0).optional().default(500),
     // Set to false to let new email/password accounts sign in without
     // confirming their address, for instances with no SMTP server.
     REQUIRE_EMAIL_VERIFICATION: z
