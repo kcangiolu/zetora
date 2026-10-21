@@ -54,7 +54,15 @@ import {
 } from 'lucide-react';
 import { UIMessagePart } from 'ai';
 import { deleteTrailingMessages } from '@/app/actions';
-import { getErrorActions, getErrorIcon, isSignInRequired, isRateLimited } from '@/lib/errors';
+import {
+  getErrorActions,
+  getErrorIcon,
+  isSignInRequired,
+  isRateLimited,
+  type ChatSDKError,
+  type ErrorType,
+  type Surface,
+} from '@/lib/errors';
 import { UserIcon } from '@phosphor-icons/react';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { Copy01Icon, PencilEdit02Icon } from '@hugeicons/core-free-icons';
@@ -62,8 +70,24 @@ import { Attachment, ChatMessage, ChatTools, CustomUIDataTypes } from '@/lib/typ
 import { UseChatHelpers } from '@ai-sdk/react';
 import { ComprehensiveUserData } from '@/lib/user-data-server';
 import { cn } from '@/lib/utils';
+import { getFileAttachments } from '@/lib/file-attachments';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { useMessageActions } from '@/contexts/message-actions-context';
+
+type ParsedChatSDKError = Pick<ChatSDKError, 'type' | 'surface' | 'message' | 'cause'>;
+
+// A ChatSDKError reaches the client as its JSON response body; anything else is a plain error.
+function parseChatSDKError(message: string): ParsedChatSDKError | null {
+  try {
+    const errorData = JSON.parse(message);
+    if (!errorData?.code || !errorData.message) return null;
+    const [type, surface] = String(errorData.code).split(':') as [ErrorType, Surface];
+    return { type, surface, message: errorData.message, cause: errorData.cause };
+  } catch {
+    return null;
+  }
+}
+
 // Enhanced Error Display Component
 interface EnhancedErrorDisplayProps {
   error: any;
@@ -84,35 +108,11 @@ const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
 }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const canDelete = handleDelete && ((user && isOwner) || (!user && selectedVisibilityType === 'private'));
-  let parsedError: any = null;
-  let isChatSDKError = false;
-
-  if (error) {
-    try {
-      const errorData = JSON.parse(error.message);
-      if (errorData.code && errorData.message) {
-        parsedError = {
-          type: errorData.code.split(':')[0],
-          surface: errorData.code.split(':')[1],
-          message: errorData.message,
-          cause: errorData.cause,
-        };
-        isChatSDKError = true;
-      }
-    } catch (e) {
-      // Not JSON, fallback
-      parsedError = {
-        type: 'unknown',
-        surface: 'chat',
-        message: error.message,
-        cause: (error as any).cause,
-      };
-      isChatSDKError = false;
-    }
-  }
+  const parsedError = error ? parseChatSDKError(error.message) : null;
+  const isChatSDKError = parsedError !== null;
 
   // Get error details
-  const errorIcon = getErrorIcon(parsedError as any);
+  const errorIcon = isChatSDKError ? getErrorIcon(parsedError) : 'error';
   const errorMessage = isChatSDKError
     ? parsedError.message
     : typeof error === 'string'
@@ -120,9 +120,7 @@ const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
       : (error as any).message || 'Something went wrong while processing your message';
   const errorCause = isChatSDKError ? parsedError.cause : typeof error === 'string' ? undefined : (error as any).cause;
   const errorCode = isChatSDKError ? `${parsedError.type}:${parsedError.surface}` : null;
-  const actions = isChatSDKError
-    ? getErrorActions(parsedError as any)
-    : { primary: { label: 'Try Again', action: 'retry' } };
+  const actions = isChatSDKError ? getErrorActions(parsedError) : { primary: { label: 'Try Again', action: 'retry' } };
 
   // Get icon component based on error type
   const getIconComponent = () => {
@@ -206,9 +204,9 @@ const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
           </div>
           <div className="flex-1">
             <h3 className={`font-medium ${colors.title}`}>
-              {isChatSDKError && isSignInRequired(parsedError as any) && 'Sign In Required'}
-              {isChatSDKError && isRateLimited(parsedError as any) && 'Rate Limited'}
-              {isChatSDKError && !isSignInRequired(parsedError as any) && !isRateLimited(parsedError as any) && 'Error'}
+              {isChatSDKError && isSignInRequired(parsedError) && 'Sign In Required'}
+              {isChatSDKError && isRateLimited(parsedError) && 'Rate Limited'}
+              {isChatSDKError && !isSignInRequired(parsedError) && !isRateLimited(parsedError) && 'Error'}
               {!isChatSDKError && 'Error'}
             </h3>
             <p className={`text-sm ${colors.text} mt-0.5`}>{errorMessage}</p>
@@ -676,7 +674,7 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
         {fileParts.length > 0 && (
           <div className="mt-3">
             <EditableAttachmentsBadge
-              attachments={fileParts as unknown as Attachment[]}
+              attachments={getFileAttachments(fileParts)}
               onRemoveAttachment={(index) => updateFileParts((current) => current.filter((_, i) => i !== index))}
             />
           </div>
@@ -899,10 +897,7 @@ export const Message = memo(function Message({
     [onEditingChange, message.id],
   );
 
-  const fileAttachments = React.useMemo(
-    () => (message.parts?.filter((part) => part.type === 'file') as unknown as Attachment[]) ?? [],
-    [message.parts],
-  );
+  const fileAttachments = React.useMemo(() => getFileAttachments(message.parts ?? []), [message.parts]);
 
   // Determine if user message should top-align avatar based on combined text length
   const combinedUserText: string = React.useMemo(() => {

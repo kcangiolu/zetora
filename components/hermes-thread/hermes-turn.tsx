@@ -8,6 +8,7 @@ import { ChatTextHighlighter } from '@/components/chat-text-highlighter';
 import { HermesModeDot } from '@/components/ui/hermes-mode-dot';
 import { cleanModelText } from '@/components/message-parts/part-helpers';
 import { useMessageActions } from '@/contexts/message-actions-context';
+import { getFileAttachments } from '@/lib/file-attachments';
 import { formatStepDuration, summarizeHermesSteps, type HermesTurn as HermesTurnData } from '@/lib/hermes/thread';
 import type { Attachment, ChatMessage } from '@/lib/types';
 import { HermesBubble, type HermesBubbleAction } from './hermes-bubble';
@@ -40,7 +41,7 @@ function UserMessageContent({
     .map((part) => (part.type === 'text' ? part.text : ''))
     .join('')
     .trim();
-  const attachments = message.parts.filter((part) => part.type === 'file') as unknown as Attachment[];
+  const attachments = getFileAttachments(message.parts);
 
   useLayoutEffect(() => {
     if (contentRef.current) setIsFoldable(contentRef.current.scrollHeight > USER_MESSAGE_MAX_HEIGHT);

@@ -159,18 +159,21 @@ export function isModelError(error: ChatSDKError): boolean {
   return error.surface === 'model';
 }
 
-export function isSignInRequired(error: ChatSDKError): boolean {
+// What the helpers below read, so a parsed error response works as well as a thrown error.
+type ErrorKind = Pick<ChatSDKError, 'type' | 'surface'>;
+
+export function isSignInRequired(error: ErrorKind): boolean {
   return (
     error.type === 'unauthorized' && (error.surface === 'auth' || error.surface === 'chat' || error.surface === 'model')
   );
 }
 
-export function isRateLimited(error: ChatSDKError): boolean {
+export function isRateLimited(error: ErrorKind): boolean {
   return error.type === 'rate_limit';
 }
 
 // Helper function to get error action suggestions
-export function getErrorActions(error: ChatSDKError): {
+export function getErrorActions(error: ErrorKind): {
   primary?: { label: string; action: string };
   secondary?: { label: string; action: string };
 } {
@@ -193,7 +196,7 @@ export function getErrorActions(error: ChatSDKError): {
 }
 
 // Helper function to get error icon type
-export function getErrorIcon(error: ChatSDKError): 'warning' | 'error' | 'auth' {
+export function getErrorIcon(error: ErrorKind): 'warning' | 'error' | 'auth' {
   if (isSignInRequired(error)) return 'auth';
   if (error.type === 'offline') return 'warning';
   return 'error';
