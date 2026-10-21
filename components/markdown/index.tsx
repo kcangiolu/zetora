@@ -24,7 +24,7 @@ import {
   MobileHoverCard,
   preloadCitationMetadata,
 } from './citation-previews';
-import { SpotifyIcon, getFilePreviewDefinition, getPlatformFromUrl, getDisplayDomain } from './shared';
+import { SpotifyIcon, getFilePreviewDefinition, getPlatformFromUrl, getDisplayDomain, isAppFileUrl } from './shared';
 import { getDisplayHostname } from '@/lib/url';
 
 interface MarkdownRendererProps {
@@ -510,7 +510,9 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
           }
 
           const linkText = typeof text === 'string' ? text : href;
-          const filePreview = getFilePreviewDefinition(href, typeof text === 'string' ? text : undefined);
+          const filePreview = isAppFileUrl(href)
+            ? getFilePreviewDefinition(href, typeof text === 'string' ? text : undefined)
+            : null;
 
           // For user messages, keep raw text to avoid accidental linkification changes
           if (isUserMessage) {

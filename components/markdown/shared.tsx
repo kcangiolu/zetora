@@ -168,6 +168,14 @@ function extractFilenameFromHref(href: string, fallbackText?: string): string {
   return 'download';
 }
 
+// Every file the app stores (uploads, generated documents, charts) lives under
+// a `zetora/` key, so its public URL has `/zetora/` in the path whatever the
+// storage host. Other links to a .pdf or .docx are web sources being cited.
+export function isAppFileUrl(href: string): boolean {
+  if (href.startsWith('/')) return true;
+  return parseUrlLike(href)?.pathname.includes('/zetora/') ?? false;
+}
+
 export function getFilePreviewDefinition(href: string, fallbackText?: string): FilePreviewDefinition | null {
   const url = parseUrlLike(href);
   const pathname = url?.pathname ?? '';
