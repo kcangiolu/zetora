@@ -130,6 +130,8 @@ Zetora bundles a complete self-hosted stack in [`docker-compose.yml`](docker-com
 
 † Unlike every other row, Hermes doesn't degrade to a cloud equivalent when its profile is left off — the whole feature (Settings > Hermes, the Agent mode entry, every `/api/hermes*`/`/api/internal/hermes*` route) is gated by the `NEXT_PUBLIC_HERMES_ENABLED` build flag. Hermes is experimental: `.env.example` sets the flag to `false`, so the feature is absent from the image; set it to `true` and add the `hermes` profile to opt in. The build flag controls whether the _feature exists in the image at all_, the profile whether _this deployment's container starts_.
 
+To see the agent's tool calls as live steps instead of plain text messages, install Zetora's Hermes plugin on the machine running the Hermes gateway: see [`hermes-plugin/zetora`](hermes-plugin/zetora/README.md).
+
 Every profiled service is off by default — `docker compose up -d` alone starts only the `_(core)_` rows plus `zetora.app`. Storage (`S3_*`), code execution (`SANDBOX_PROVIDER`) and Lookout scheduling (`LOOKOUT_SCHEDULER`) have no default: set each in `.env` to a bundled service or its cloud alternative, or that feature reports what is missing.
 
 ### Choose a setup

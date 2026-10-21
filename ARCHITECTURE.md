@@ -56,6 +56,7 @@ drizzle/                SQL migrations (drizzle/migrations) and create_indexes.s
 tts-service/ stt-service/ s2s-service/   Python voice services
 presidio-service/       PII detection service for the anonymizer
 hermes-relay-service/   Relay between users' Hermes gateways and the app
+hermes-plugin/zetora/   Hermes plugin, installed on a user's gateway, that reports tool calls as steps
 searxng/                SearXNG settings
 scripts/                Migration runner (db-migrate container), Daytona snapshot setup
 public/                 Static assets
