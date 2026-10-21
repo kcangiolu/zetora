@@ -1,8 +1,15 @@
 # Zetora
 
-A fork of [Scira](https://github.com/zaidmukaddam/scira) by Zaid Mukaddam, extended into an agentic research platform.
+**Perplexity-style research you host yourself. Every answer cites its sources, and every cloud service behind it can be swapped for a local one, one service at a time.**
 
-Zetora is a self-hostable chat and research app: a model of your choice answers with live web search and other tools, and cites the sources it used.
+![Zetora searching the web and answering with inline citations](docs/screenshots/demo.gif)
+
+Zetora is a fork of [Scira](https://github.com/zaidmukaddam/scira) by Zaid Mukaddam. It keeps Scira's search-and-cite core and adds what running it on your own hardware needs:
+
+- **A local option for each service** — search, scraping, file storage, vector search, code sandbox, voice and PII masking each have their own Compose profile. Turn on the ones you want, keep the cloud for the rest.
+- **Any model, local ones included** — cloud providers come from the open [models.dev](https://models.dev) catalog, and any OpenAI-compatible endpoint (llama.cpp, Ollama, …) works as a custom provider, even models that return tool calls as XML.
+- **Memory you can read** — an editable profile plus facts learned from your chats, stored in your own Postgres.
+- **Skills, Lookouts and Hermes Agent** — 15 research and document skills picked per message, scheduled research that emails you updates, and an experimental channel to your own [Hermes Agent](https://github.com/NousResearch/hermes-agent) gateway.
 
 Runs either way, your choice: entirely against managed cloud providers with zero extra infrastructure (the default — see [All-Cloud Configuration](#all-cloud-configuration)), or as a fully [self-hosted stack](#self-hosted-stack) where every cloud dependency has a local, opt-in alternative. Per-service, not all-or-nothing — self-host just your file storage while keeping cloud search, say.
 
@@ -11,6 +18,8 @@ Runs either way, your choice: entirely against managed cloud providers with zero
 1. You ask a question, optionally with files or URLs. Sources and skills can be toggled per session, or left to the Auto strategy.
 2. The model plans the steps, calls the search and data tools it needs, and reads the results.
 3. The answer carries inline citations linking to each source.
+
+![An answer with inline source citations](docs/screenshots/answer.png)
 
 ## Features
 

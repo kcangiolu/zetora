@@ -60,6 +60,7 @@ hermes-plugin/zetora/   Hermes plugin, installed on a user's gateway, that repor
 searxng/                SearXNG settings
 scripts/                Migration runner (db-migrate container), Daytona snapshot setup
 public/                 Static assets
+docs/screenshots/       Images shown in the README
 ```
 
 ## API routes (`app/api`)
