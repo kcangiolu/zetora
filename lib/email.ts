@@ -21,8 +21,12 @@ interface SendEmailParams {
 
 let smtpTransporter: Transporter | null = null;
 
+export function missingEmailSettings(): string[] {
+  return (['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM'] as const).filter((name) => !serverEnv[name]);
+}
+
 function getSmtpTransporter(): Transporter {
-  const missing = (['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM'] as const).filter((name) => !serverEnv[name]);
+  const missing = missingEmailSettings();
   if (missing.length > 0) {
     throw new Error(`Email is not configured: set ${missing.join(', ')} (see .env.example)`);
   }

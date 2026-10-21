@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { parseAsString, useQueryState } from 'nuqs';
 import { authClient, signIn, signUp, useSession } from '@/lib/auth-client';
-import { Loader2, Sparkles, Eye, EyeOff, MailCheck } from 'lucide-react';
+import { Loader2, Eye, EyeOff, MailCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
@@ -74,6 +74,7 @@ interface AuthCardProps {
   title: string;
   description: string;
   mode?: 'sign-in' | 'sign-up';
+  socialProviders: readonly AuthProvider[];
 }
 
 const SocialButton = ({ title, provider, loading, setLoading, callbackURL, icon, isLastUsed }: SocialButtonProps) => {
@@ -118,7 +119,7 @@ const SocialButton = ({ title, provider, loading, setLoading, callbackURL, icon,
   );
 };
 
-export default function AuthCard({ title, description, mode = 'sign-in' }: AuthCardProps) {
+export default function AuthCard({ title, description, mode = 'sign-in', socialProviders }: AuthCardProps) {
   const [redirect] = useQueryState('redirect', parseAsString.withDefault('/'));
   const [oauthError] = useQueryState('error', parseAsString.withDefault(''));
   const [oauthErrorDescription] = useQueryState('error_description', parseAsString.withDefault(''));
@@ -244,17 +245,6 @@ export default function AuthCard({ title, description, mode = 'sign-in' }: AuthC
         <p className="text-sm text-muted-foreground leading-relaxed max-w-xs mx-auto">{description}</p>
       </div>
 
-      {/* Value props - only on sign up */}
-      {mode === 'sign-up' && (
-        <div className="flex items-center justify-center gap-3 mb-8">
-          {['Free to start', 'No credit card', 'Cancel anytime'].map((label) => (
-            <span key={label} className="text-[10px] text-muted-foreground bg-muted/40 px-2.5 py-1 rounded-full">
-              {label}
-            </span>
-          ))}
-        </div>
-      )}
-
       {/* Email/Password Form */}
       <form onSubmit={handleEmailSubmit} className="space-y-3">
         {mode === 'sign-up' && (
@@ -348,65 +338,66 @@ export default function AuthCard({ title, description, mode = 'sign-in' }: AuthC
         </button>
       </form>
 
-      {/* Divider */}
-      <div className="relative my-6">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-border/40" />
-        </div>
-        <div className="relative flex justify-center">
-          <span className="bg-background px-3 text-[11px] text-muted-foreground">or continue with</span>
-        </div>
-      </div>
+      {socialProviders.length > 0 && (
+        <>
+          {/* Divider */}
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-border/40" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-background px-3 text-[11px] text-muted-foreground">or continue with</span>
+            </div>
+          </div>
 
-      {/* Social Buttons */}
-      <div className="grid grid-cols-2 gap-2">
-        <SocialButton
-          title="Google"
-          provider="google"
-          loading={googleLoading}
-          setLoading={setGoogleLoading}
-          callbackURL={callbackURL}
-          icon={<AuthIcons.Google className="w-4 h-4" />}
-          isLastUsed={lastMethod === 'google'}
-        />
-        <SocialButton
-          title="GitHub"
-          provider="github"
-          loading={githubLoading}
-          setLoading={setGithubLoading}
-          callbackURL={callbackURL}
-          icon={<AuthIcons.Github className="w-4 h-4" />}
-          isLastUsed={lastMethod === 'github'}
-        />
-        <SocialButton
-          title="X"
-          provider="twitter"
-          loading={twitterLoading}
-          setLoading={setTwitterLoading}
-          callbackURL={callbackURL}
-          icon={<AuthIcons.Twitter className="w-4 h-4" />}
-          isLastUsed={lastMethod === 'twitter'}
-        />
-        <SocialButton
-          title="Microsoft"
-          provider="microsoft"
-          loading={microsoftLoading}
-          setLoading={setMicrosoftLoading}
-          callbackURL={callbackURL}
-          icon={<AuthIcons.Microsoft className="w-4 h-4" />}
-          isLastUsed={lastMethod === 'microsoft'}
-        />
-      </div>
-
-      {/* Pro upsell - on sign up */}
-      {mode === 'sign-up' && (
-        <div className="mt-6 p-3.5 rounded-xl border border-border/30 bg-muted/20 flex items-center gap-3">
-          <Sparkles className="w-4 h-4 text-primary/60 shrink-0" />
-          <p className="text-[11px] text-muted-foreground leading-relaxed">
-            <span className="text-foreground font-medium">Pro starts at $5/mo</span> for students. Unlimited research,
-            all models, voice mode & more.
-          </p>
-        </div>
+          {/* Social Buttons */}
+          <div className="grid grid-cols-2 gap-2">
+            {socialProviders.includes('google') && (
+              <SocialButton
+                title="Google"
+                provider="google"
+                loading={googleLoading}
+                setLoading={setGoogleLoading}
+                callbackURL={callbackURL}
+                icon={<AuthIcons.Google className="w-4 h-4" />}
+                isLastUsed={lastMethod === 'google'}
+              />
+            )}
+            {socialProviders.includes('github') && (
+              <SocialButton
+                title="GitHub"
+                provider="github"
+                loading={githubLoading}
+                setLoading={setGithubLoading}
+                callbackURL={callbackURL}
+                icon={<AuthIcons.Github className="w-4 h-4" />}
+                isLastUsed={lastMethod === 'github'}
+              />
+            )}
+            {socialProviders.includes('twitter') && (
+              <SocialButton
+                title="X"
+                provider="twitter"
+                loading={twitterLoading}
+                setLoading={setTwitterLoading}
+                callbackURL={callbackURL}
+                icon={<AuthIcons.Twitter className="w-4 h-4" />}
+                isLastUsed={lastMethod === 'twitter'}
+              />
+            )}
+            {socialProviders.includes('microsoft') && (
+              <SocialButton
+                title="Microsoft"
+                provider="microsoft"
+                loading={microsoftLoading}
+                setLoading={setMicrosoftLoading}
+                callbackURL={callbackURL}
+                icon={<AuthIcons.Microsoft className="w-4 h-4" />}
+                isLastUsed={lastMethod === 'microsoft'}
+              />
+            )}
+          </div>
+        </>
       )}
 
       {/* Switch Auth Mode */}

@@ -166,7 +166,7 @@ Beyond the bundled infrastructure, Zetora also adds:
 - **Automated database migrations** — the `db-migrate` container applies Drizzle migrations on every `docker compose up`, no manual step
 - **Activatable PII anonymization** — Presidio-backed masking of personal data before requests leave for cloud providers
 - **Local voice pipeline** — self-hosted speech-to-speech (VAD + Parakeet STT + Qwen3 TTS) as an alternative to cloud realtime voice, plus Read Aloud with streaming TTS
-- **Hardened auth** — email verification, two-factor authentication, and an `ALLOW_SIGNUPS` switch to close the instance
+- **Hardened auth** — email verification (`REQUIRE_EMAIL_VERIFICATION=false` for instances without SMTP), two-factor authentication, and an `ALLOW_SIGNUPS` switch to close the instance
 - **Per-service diagnostics panel** in Settings to check the health of every bundled service
 - **SMTP email delivery** for every email (any SMTP server, hosted relays included), with a built-in email test button
 - **Sidebar visibility toggles** for Lookouts, Voice, and sources
@@ -252,7 +252,9 @@ Use this for day-to-day development. It runs the Next.js app directly on your ma
 3. Fill in `.env.local`. At minimum:
    - `DATABASE_URL` — a Postgres connection string. You can use the self-hosted Postgres for this: start it alone with `docker compose up -d postgres` (reads `.env`) and connect to `postgresql://postgres:<POSTGRES_PASSWORD>@localhost:5432/zetora`.
    - `BETTER_AUTH_SECRET` — generate with `openssl rand -base64 32`.
-   - At least one AI provider key (e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY`).
+   - At least one AI provider key (e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY`), and `ZETORA_MODEL_DEFAULT`, the model new chats start on (e.g. `anthropic:claude-sonnet-5-5`). The other `ZETORA_MODEL_*` variables name chats, suggest follow-ups and so on; each can also be picked in Settings → AI Models.
+   - Email for new accounts: the `SMTP_*` settings, or `REQUIRE_EMAIL_VERIFICATION=false` to sign in without confirming the address.
+   - A search provider, without which answers come from the model's memory only: a cloud key such as `EXA_API_KEY`, or the bundled SearXNG set up as in Option 2, step 2, started with `docker compose --profile searxng up -d` and reached at `SEARXNG_URL=http://localhost:8090`.
 4. Apply database migrations and create the indexes (reads `DATABASE_URL` from `.env.local`, same runner as the `db-migrate` container):
    ```bash
    pnpm db:migrate
@@ -278,7 +280,14 @@ Use this to deploy Zetora on a server. By default it runs against cloud provider
    - **Domain**: `NEXT_PUBLIC_APP_URL`, `BETTER_AUTH_BASE_URL`, `ALLOWED_ORIGINS` — set to your public URL (e.g. `https://zetora.example.com`).
    - **Core secrets**: `BETTER_AUTH_SECRET` (generate with `openssl rand -base64 32`), `POSTGRES_PASSWORD`.
    - **Silo** (`minio` profile): `MINIO_ROOT_PASSWORD` (and optionally `MINIO_ROOT_USER`, `S3_PUBLIC_URL`).
-   - **AI providers**: at least one provider API key.
+   - **AI providers**: at least one provider API key, and `ZETORA_MODEL_DEFAULT`, the model new chats start on (e.g. `anthropic:claude-sonnet-5-5`). The other `ZETORA_MODEL_*` variables name chats, suggest follow-ups and so on; each can also be picked in Settings → AI Models.
+   - **Email**: the `SMTP_*` settings, which new accounts need to confirm their address. Without an SMTP server, set `REQUIRE_EMAIL_VERIFICATION=false` and accounts sign in right away.
+   - **Search**: answers cite the web only with a search provider. The free one is the bundled SearXNG: add `searxng` to `COMPOSE_PROFILES`, set `SEARXNG_URL=http://searxng:8080`, and give it its configuration (the JSON output Zetora reads, and a secret of its own):
+     ```bash
+     mkdir -p data/searxng   # your DATA_DIR
+     sed "s/CHANGE_ME_openssl_rand_hex_32/$(openssl rand -hex 32)/" searxng/settings.yml > data/searxng/settings.yml
+     ```
+     Otherwise set a cloud key such as `EXA_API_KEY`.
    - Optional but recommended: `BULLMQ_REDIS_PASSWORD`, OAuth provider credentials.
 
    See `.env.example` for the full list of available variables.

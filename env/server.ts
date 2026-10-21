@@ -112,6 +112,13 @@ export const serverEnv = createEnv({
       .optional()
       .default('true')
       .transform((v) => v.toLowerCase() !== 'false'),
+    // Set to false to let new email/password accounts sign in without
+    // confirming their address, for instances with no SMTP server.
+    REQUIRE_EMAIL_VERIFICATION: z
+      .string()
+      .optional()
+      .default('true')
+      .transform((v) => v.toLowerCase() !== 'false'),
   },
   experimental__runtimeEnv: process.env,
   // `KEY=` (how .env.example leaves unset keys) must count as unset, so the

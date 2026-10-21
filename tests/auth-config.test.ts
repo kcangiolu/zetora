@@ -7,9 +7,21 @@ vi.mock('better-auth/minimal', () => ({ betterAuth: (options: BetterAuthOptions)
 vi.mock('better-auth/adapters/drizzle', () => ({ drizzleAdapter: () => ({}) }));
 vi.mock('@/lib/db', () => ({ maindb: {} }));
 vi.mock('@/lib/user-data-server', () => ({ invalidateSessionCacheForToken: vi.fn() }));
-vi.mock('@/lib/email', () => ({ sendVerificationEmail: vi.fn(), sendTwoFactorOTPEmail: vi.fn() }));
+const missingEmailSettings = vi.fn((): string[] => []);
+vi.mock('@/lib/email', () => ({
+  sendVerificationEmail: vi.fn(),
+  sendTwoFactorOTPEmail: vi.fn(),
+  missingEmailSettings,
+}));
 
-const touchedEnv = ['ALLOW_SIGNUPS', 'NODE_ENV', 'NEXT_PUBLIC_APP_URL', 'BETTER_AUTH_BASE_URL', 'ALLOWED_ORIGINS'];
+const touchedEnv = [
+  'ALLOW_SIGNUPS',
+  'REQUIRE_EMAIL_VERIFICATION',
+  'NODE_ENV',
+  'NEXT_PUBLIC_APP_URL',
+  'BETTER_AUTH_BASE_URL',
+  'ALLOWED_ORIGINS',
+];
 const originalEnv = Object.fromEntries(touchedEnv.map((key) => [key, process.env[key]]));
 
 // serverEnv and the origin list are read at import, so each case re-imports lib/auth.
@@ -23,6 +35,13 @@ async function loadAuth(env: Record<string, string | undefined>) {
   }
   const authModule = await import('@/lib/auth');
   return { ...authModule, options: (authModule.auth as unknown as { options: BetterAuthOptions }).options };
+}
+
+// Runs the auth middleware as Better Auth does before the endpoint at `path`.
+function beforeHook(options: BetterAuthOptions) {
+  const before = options.hooks?.before;
+  if (!before) throw new Error('hooks.before is missing');
+  return (path: string) => before({ path } as never);
 }
 
 function createUserHook(options: BetterAuthOptions) {
@@ -47,6 +66,31 @@ describe('auth configuration', () => {
   it('lets new accounts through when sign-ups are open', async () => {
     const { options } = await loadAuth({ ALLOW_SIGNUPS: 'true' });
     await expect(createUserHook(options)()).resolves.toBeUndefined();
+  });
+
+  it('refuses a sign-up whose verification email cannot be sent', async () => {
+    missingEmailSettings.mockReturnValue(['SMTP_USER', 'SMTP_PASS']);
+    const { options } = await loadAuth({ REQUIRE_EMAIL_VERIFICATION: '' });
+    const runBefore = beforeHook(options);
+    expect(options.emailAndPassword?.requireEmailVerification).toBe(true);
+    await expect(runBefore('/sign-up/email')).rejects.toMatchObject({
+      body: { code: 'EMAIL_NOT_CONFIGURED', message: expect.stringContaining('SMTP_USER, SMTP_PASS') },
+    });
+    await expect(runBefore('/send-verification-email')).rejects.toMatchObject({
+      body: { code: 'EMAIL_NOT_CONFIGURED' },
+    });
+    await expect(runBefore('/sign-in/email')).resolves.not.toThrow();
+
+    missingEmailSettings.mockReturnValue([]);
+    await expect(runBefore('/sign-up/email')).resolves.not.toThrow();
+  });
+
+  it('signs new accounts in without an email when verification is off', async () => {
+    missingEmailSettings.mockReturnValue(['SMTP_HOST']);
+    const { options } = await loadAuth({ REQUIRE_EMAIL_VERIFICATION: 'false' });
+    expect(options.emailAndPassword?.requireEmailVerification).toBe(false);
+    expect(options.emailVerification?.sendOnSignUp).toBe(false);
+    await expect(beforeHook(options)('/sign-up/email')).resolves.not.toThrow();
   });
 
   it('rate-limits by the IP header the auth route sets', async () => {
