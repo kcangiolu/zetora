@@ -18,7 +18,6 @@ import { BinocularsIcon, FolderLibraryIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { HermesModeDot } from '@/components/ui/hermes-mode-dot';
 import {
-  RocketIcon as VercelIcon,
   Globe,
   ChevronsUpDown,
   ChevronDown,
@@ -333,16 +332,6 @@ function UserDropdownContent({
               >
                 <BugIcon size={16} weight="regular" />
                 <span>Feedback</span>
-              </a>
-              <a
-                href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fkcangiolu%2Fzetora"
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={closeMobileSidebar}
-                className="flex items-center gap-3 px-2.5 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-accent/30 hover:text-foreground transition-colors duration-150"
-              >
-                <VercelIcon size={16} />
-                <span>Deploy</span>
               </a>
             </div>
           </div>
@@ -1255,12 +1244,7 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
                 <div className="flex items-center justify-center size-7 rounded-lg bg-primary/10">
                   <SignIn size={16} weight="regular" className="text-primary" />
                 </div>
-                <div className="flex flex-col gap-0.5 min-w-0">
-                  <span className="text-sm font-medium truncate">Sign In</span>
-                  <span className="font-pixel text-[8px] text-muted-foreground uppercase tracking-wider truncate">
-                    Free &middot; No credit card
-                  </span>
-                </div>
+                <span className="text-sm font-medium truncate">Sign In</span>
               </Link>
             </SidebarMenuItem>
 

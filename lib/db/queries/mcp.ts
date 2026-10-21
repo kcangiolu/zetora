@@ -160,5 +160,3 @@ export async function deleteUserMcpServer({ id, userId }: { id: string; userId: 
     throw databaseError('Failed to delete MCP server', error);
   }
 }
-
-// Dodo Subscription CRUD operations
