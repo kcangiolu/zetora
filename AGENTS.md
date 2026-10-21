@@ -35,8 +35,8 @@ A change is not done until the docs describe it. In the same commit:
 ## Before each commit
 
 ```bash
-pnpm typecheck
-pnpm lint      # no new warning: CI caps the count, lower the cap when you remove some
+pnpm typecheck # also fails on an unused import, variable or parameter (name a parameter you must keep _x)
+pnpm lint      # no warning: CI allows none
 pnpm knip
 pnpm test
 pnpm exec prettier --write <the files you touched>
