@@ -312,10 +312,11 @@ const RedditSearch: React.FC<{
   const [isExpanded, setIsExpanded] = useState(false);
   const [sourcesSheetOpen, setSourcesSheetOpen] = useState(false);
 
+  const queries = _args?.queries;
   const normalizedQueries = React.useMemo(() => {
-    const raw = Array.isArray(_args?.queries) ? _args.queries : [_args?.queries ?? ''];
+    const raw = Array.isArray(queries) ? queries : [queries ?? ''];
     return raw.filter((q): q is string => typeof q === 'string' && q.length > 0);
-  }, [_args?.queries]);
+  }, [queries]);
 
   if (!result) {
     return <SearchLoadingState queries={normalizedQueries} annotations={annotations} />;

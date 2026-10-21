@@ -242,10 +242,11 @@ const XSearch: React.FC<XSearchProps> = ({ result, args, annotations = [] }) => 
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
 
+  const queries = args?.queries;
   const normalizedQueries = useMemo(() => {
-    const raw = Array.isArray(args?.queries) ? args.queries : [args?.queries ?? ''];
+    const raw = Array.isArray(queries) ? queries : [queries ?? ''];
     return raw.filter((q): q is string => typeof q === 'string' && q.length > 0);
-  }, [args?.queries]);
+  }, [queries]);
 
   const searches = useMemo(() => {
     const raw = result?.searches;

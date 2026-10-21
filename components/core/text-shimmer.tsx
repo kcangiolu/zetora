@@ -5,21 +5,18 @@ import { cn } from '@/lib/utils';
 
 interface TextShimmerProps {
   children: string;
-  as?: React.ElementType;
   className?: string;
   duration?: number;
   spread?: number;
 }
 
-export function TextShimmer({ children, as: Component = 'p', className, duration = 2, spread = 2 }: TextShimmerProps) {
-  const MotionComponent = motion.create(Component as keyof React.JSX.IntrinsicElements);
-
+export function TextShimmer({ children, className, duration = 2, spread = 2 }: TextShimmerProps) {
   const dynamicSpread = useMemo(() => {
     return children.length * spread;
   }, [children, spread]);
 
   return (
-    <MotionComponent
+    <motion.p
       className={cn(
         'relative inline-block bg-[length:250%_100%,auto] bg-clip-text',
         'text-transparent [--base-color:#a1a1aa] [--base-gradient-color:#000]',
@@ -42,6 +39,6 @@ export function TextShimmer({ children, as: Component = 'p', className, duration
       }
     >
       {children}
-    </MotionComponent>
+    </motion.p>
   );
 }

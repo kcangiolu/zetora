@@ -45,29 +45,27 @@ interface FileQuerySearchArgs {
   rerank?: boolean;
 }
 
-// Get file icon based on extension
-const getFileIcon = (fileName: string) => {
+// Icon for the file's extension
+const FileTypeIcon: React.FC<{ fileName: string; className?: string }> = ({ fileName, className }) => {
   const ext = fileName.split('.').pop()?.toLowerCase() || '';
   const spreadsheetExts = ['csv', 'xlsx', 'xls'];
   const codeExts = ['json', 'xml', 'html', 'js', 'ts', 'jsx', 'tsx'];
 
   if (spreadsheetExts.includes(ext)) {
-    return FileSpreadsheet;
+    return <FileSpreadsheet className={className} />;
   }
   if (codeExts.includes(ext)) {
-    return FileCode;
+    return <FileCode className={className} />;
   }
-  return FileText;
+  return <FileText className={className} />;
 };
 
 // File Query Result Card
 const FileQueryResultCard: React.FC<{ result: FileQueryResult }> = ({ result }) => {
-  const FileIcon = getFileIcon(result.fileName);
-
   return (
     <div className="group relative px-3.5 py-2 transition-colors hover:bg-muted/10">
       <div className="flex items-center gap-2.5">
-        <FileIcon className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
+        <FileTypeIcon fileName={result.fileName} className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
@@ -207,10 +205,11 @@ const FileQuerySearch: React.FC<{
 }> = ({ result, args: _args, annotations = [] }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
+  const queries = _args?.queries;
   const normalizedQueries = useMemo(() => {
-    const raw = Array.isArray(_args?.queries) ? _args.queries : [_args?.queries ?? ''];
+    const raw = Array.isArray(queries) ? queries : [queries ?? ''];
     return raw.filter((q): q is string => typeof q === 'string' && q.length > 0);
-  }, [_args?.queries]);
+  }, [queries]);
 
   if (!result) {
     return <SearchLoadingState queries={normalizedQueries} annotations={annotations} />;

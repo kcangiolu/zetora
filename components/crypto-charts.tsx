@@ -532,6 +532,7 @@ const CryptoChart: React.FC<CryptoChartProps> = memo(({ result, coinId, chartTyp
   let lastPrice = 0;
   let minValue = 0;
   let maxValue = 0;
+  let processingFailed = false;
 
   try {
     if (chartType === 'candlestick') {
@@ -670,28 +671,32 @@ const CryptoChart: React.FC<CryptoChartProps> = memo(({ result, coinId, chartTyp
         maxValue = prices.length > 0 ? Math.max(...prices) : 0;
       }
     }
-
-    // Final validation - ensure we have valid data
-    if (formattedData.length === 0 || maxValue <= 0) {
-      return (
-        <Card className="w-full my-4 border-neutral-200/60 dark:border-neutral-800/60">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400">
-              <Activity className="h-4 w-4" />
-              <span className="text-sm">Unable to process chart data</span>
-            </div>
-          </CardContent>
-        </Card>
-      );
-    }
   } catch (error) {
     console.error('Error processing chart data:', error);
+    processingFailed = true;
+  }
+
+  if (processingFailed) {
     return (
       <Card className="w-full my-4 border-red-200/60 dark:border-red-800/60 bg-red-50 dark:bg-red-950/20">
         <CardContent className="p-4">
           <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
             <Activity className="h-4 w-4" />
             <span className="text-sm font-medium">Error processing chart data</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Final validation - ensure we have valid data
+  if (formattedData.length === 0 || maxValue <= 0) {
+    return (
+      <Card className="w-full my-4 border-neutral-200/60 dark:border-neutral-800/60">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400">
+            <Activity className="h-4 w-4" />
+            <span className="text-sm">Unable to process chart data</span>
           </div>
         </CardContent>
       </Card>

@@ -138,8 +138,7 @@ const MapComponent = memo(
         };
       } catch (error) {
         console.error('Failed to initialize map:', error);
-        // Leaflet only fails while it builds the map, inside this effect, so the error can only be stored here
-        // eslint-disable-next-line react-hooks/set-state-in-effect
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Leaflet only fails while it builds the map, inside this effect
         setMapError('Failed to initialize map. Please check your connection.');
         setIsLoading(false);
       }

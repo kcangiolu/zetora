@@ -68,7 +68,7 @@ const TrendingResults = ({ result, type }: TrendingResultsProps) => {
     });
   };
 
-  const DetailView = () => {
+  const renderDetailView = () => {
     if (!selectedItem) return null;
 
     const content = (
@@ -290,7 +290,7 @@ const TrendingResults = ({ result, type }: TrendingResultsProps) => {
         </Drawer>
       )}
 
-      <DetailView />
+      {renderDetailView()}
     </div>
   );
 };

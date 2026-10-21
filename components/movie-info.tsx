@@ -46,6 +46,144 @@ interface TMDBResultProps {
   };
 }
 
+const formatMediaDate = (dateStr: string, locale: string) => {
+  return new Date(dateStr).toLocaleDateString(locale, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+};
+
+const MediaDetailContent = ({ media, locale }: { media: MediaDetails; locale: string }) => (
+  <div className="flex flex-col max-h-[80vh] bg-black">
+    {/* Hero Section with Backdrop */}
+    <div className="relative w-full aspect-16/9 sm:aspect-21/9">
+      {media.backdrop_path ? (
+        <>
+          <Image
+            src={media.backdrop_path}
+            alt={media.title || media.name || ''}
+            fill
+            className="object-cover"
+            priority
+            unoptimized
+          />
+          <div className="absolute inset-0 bg-linear-to-t from-black via-black/50 to-transparent" />
+        </>
+      ) : (
+        <div className="w-full h-full bg-neutral-900" />
+      )}
+
+      {/* Content Box */}
+      <div className="absolute bottom-0 left-0 right-0">
+        <div className="relative p-4 sm:p-6 flex flex-col sm:flex-row gap-6 items-end">
+          {/* Poster */}
+          <div className="relative w-[120px] sm:w-[160px] aspect-2/3 rounded-lg overflow-hidden shadow-2xl hidden sm:block">
+            {media.poster_path ? (
+              <Image src={media.poster_path} alt={media.title || media.name || ''} fill className="object-cover" />
+            ) : (
+              <div className="w-full h-full bg-neutral-800 flex items-center justify-center">
+                {media.media_type === 'movie' ? (
+                  <Film className="w-12 h-12 text-neutral-400" />
+                ) : (
+                  <Tv className="w-12 h-12 text-neutral-400" />
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Title and Metadata */}
+          <div className="flex-1 text-white">
+            <h2 className="text-3xl sm:text-5xl font-bold mb-4 text-white">{media.title || media.name}</h2>
+            <div className="flex flex-wrap items-center gap-4 text-sm sm:text-base">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-yellow-500 text-black font-medium">
+                <Star className="w-4 h-4 fill-current" />
+                <span>{media.vote_average.toFixed(1)}</span>
+              </div>
+              {(media.release_date || media.first_air_date) && (
+                <div className="flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4" />
+                  <span>{formatMediaDate(media.release_date || media.first_air_date || '', locale)}</span>
+                </div>
+              )}
+              {(media.runtime || media.episode_run_time?.[0]) && (
+                <div className="flex items-center gap-1.5">
+                  <Clock className="w-4 h-4" />
+                  <span>{formatHoursMinutes(media.runtime || media.episode_run_time?.[0] || 0)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* Content Section */}
+    <div className="flex-1 overflow-y-auto bg-black">
+      <div className="relative p-4 sm:p-6 space-y-8">
+        {/* Genres */}
+        <div className="flex flex-wrap gap-2">
+          {media.genres.map((genre) => (
+            <span
+              key={genre.id}
+              className="px-3 py-1 text-sm rounded-full border border-neutral-800
+                                       bg-neutral-900/50 text-neutral-200
+                                       hover:bg-neutral-800 transition-colors"
+            >
+              {genre.name}
+            </span>
+          ))}
+        </div>
+
+        {/* Overview */}
+        <div className="space-y-3 max-w-3xl">
+          <h3 className="text-lg font-semibold text-white">Overview</h3>
+          <p className="text-neutral-300 text-base sm:text-lg leading-relaxed">{media.overview}</p>
+        </div>
+
+        {/* Cast Section */}
+        {media.credits?.cast && media.credits.cast.length > 0 && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-white">Cast</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4">
+              {media.credits.cast.slice(0, media.credits.cast.length).map((person) => (
+                <div
+                  key={person.id}
+                  className="group relative bg-neutral-900 rounded-lg overflow-hidden
+                                               border border-neutral-800 hover:border-neutral-700
+                                               transition-all duration-300"
+                >
+                  <div className="aspect-2/3 relative overflow-hidden">
+                    {person.profile_path ? (
+                      <>
+                        <Image
+                          src={person.profile_path}
+                          alt={person.name}
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        <div className="absolute inset-0 bg-linear-to-t from-black via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </>
+                    ) : (
+                      <div className="w-full h-full bg-neutral-800 flex items-center justify-center">
+                        <Users className="w-8 h-8 text-neutral-700" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-2">
+                    <p className="font-medium text-white truncate text-sm">{person.name}</p>
+                    <p className="text-xs text-neutral-400 truncate">{person.character}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+);
+
 const TMDBResult = ({ result }: TMDBResultProps) => {
   const [showDetails, setShowDetails] = useState(false);
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -53,144 +191,6 @@ const TMDBResult = ({ result }: TMDBResultProps) => {
 
   if (!result.result) return null;
   const media = result.result;
-
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString(locale, {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
-
-  const DetailContent = () => (
-    <div className="flex flex-col max-h-[80vh] bg-black">
-      {/* Hero Section with Backdrop */}
-      <div className="relative w-full aspect-16/9 sm:aspect-21/9">
-        {media.backdrop_path ? (
-          <>
-            <Image
-              src={media.backdrop_path}
-              alt={media.title || media.name || ''}
-              fill
-              className="object-cover"
-              priority
-              unoptimized
-            />
-            <div className="absolute inset-0 bg-linear-to-t from-black via-black/50 to-transparent" />
-          </>
-        ) : (
-          <div className="w-full h-full bg-neutral-900" />
-        )}
-
-        {/* Content Box */}
-        <div className="absolute bottom-0 left-0 right-0">
-          <div className="relative p-4 sm:p-6 flex flex-col sm:flex-row gap-6 items-end">
-            {/* Poster */}
-            <div className="relative w-[120px] sm:w-[160px] aspect-2/3 rounded-lg overflow-hidden shadow-2xl hidden sm:block">
-              {media.poster_path ? (
-                <Image src={media.poster_path} alt={media.title || media.name || ''} fill className="object-cover" />
-              ) : (
-                <div className="w-full h-full bg-neutral-800 flex items-center justify-center">
-                  {media.media_type === 'movie' ? (
-                    <Film className="w-12 h-12 text-neutral-400" />
-                  ) : (
-                    <Tv className="w-12 h-12 text-neutral-400" />
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Title and Metadata */}
-            <div className="flex-1 text-white">
-              <h2 className="text-3xl sm:text-5xl font-bold mb-4 text-white">{media.title || media.name}</h2>
-              <div className="flex flex-wrap items-center gap-4 text-sm sm:text-base">
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-yellow-500 text-black font-medium">
-                  <Star className="w-4 h-4 fill-current" />
-                  <span>{media.vote_average.toFixed(1)}</span>
-                </div>
-                {(media.release_date || media.first_air_date) && (
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="w-4 h-4" />
-                    <span>{formatDate(media.release_date || media.first_air_date || '')}</span>
-                  </div>
-                )}
-                {(media.runtime || media.episode_run_time?.[0]) && (
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="w-4 h-4" />
-                    <span>{formatHoursMinutes(media.runtime || media.episode_run_time?.[0] || 0)}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Content Section */}
-      <div className="flex-1 overflow-y-auto bg-black">
-        <div className="relative p-4 sm:p-6 space-y-8">
-          {/* Genres */}
-          <div className="flex flex-wrap gap-2">
-            {media.genres.map((genre) => (
-              <span
-                key={genre.id}
-                className="px-3 py-1 text-sm rounded-full border border-neutral-800
-                                         bg-neutral-900/50 text-neutral-200
-                                         hover:bg-neutral-800 transition-colors"
-              >
-                {genre.name}
-              </span>
-            ))}
-          </div>
-
-          {/* Overview */}
-          <div className="space-y-3 max-w-3xl">
-            <h3 className="text-lg font-semibold text-white">Overview</h3>
-            <p className="text-neutral-300 text-base sm:text-lg leading-relaxed">{media.overview}</p>
-          </div>
-
-          {/* Cast Section */}
-          {media.credits?.cast && media.credits.cast.length > 0 && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-white">Cast</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4">
-                {media.credits.cast.slice(0, media.credits.cast.length).map((person) => (
-                  <div
-                    key={person.id}
-                    className="group relative bg-neutral-900 rounded-lg overflow-hidden
-                                                 border border-neutral-800 hover:border-neutral-700
-                                                 transition-all duration-300"
-                  >
-                    <div className="aspect-2/3 relative overflow-hidden">
-                      {person.profile_path ? (
-                        <>
-                          <Image
-                            src={person.profile_path}
-                            alt={person.name}
-                            fill
-                            className="object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                          <div className="absolute inset-0 bg-linear-to-t from-black via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </>
-                      ) : (
-                        <div className="w-full h-full bg-neutral-800 flex items-center justify-center">
-                          <Users className="w-8 h-8 text-neutral-700" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-2">
-                      <p className="font-medium text-white truncate text-sm">{person.name}</p>
-                      <p className="text-xs text-neutral-400 truncate">{person.character}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <div className="my-4">
@@ -229,7 +229,7 @@ const TMDBResult = ({ result }: TMDBResultProps) => {
                 </div>
                 {(media.release_date || media.first_air_date) && (
                   <span className="text-black/60 dark:text-white/60">
-                    {formatDate(media.release_date || media.first_air_date || '')}
+                    {formatMediaDate(media.release_date || media.first_air_date || '', locale)}
                   </span>
                 )}
               </div>
@@ -260,13 +260,13 @@ const TMDBResult = ({ result }: TMDBResultProps) => {
       {isMobile ? (
         <Drawer open={showDetails} onOpenChange={setShowDetails}>
           <DrawerContent className="h-[85vh] p-0 font-sans">
-            <DetailContent />
+            <MediaDetailContent media={media} locale={locale} />
           </DrawerContent>
         </Drawer>
       ) : (
         <Dialog open={showDetails} onOpenChange={setShowDetails}>
           <DialogContent className="max-w-3xl! p-0 overflow-hidden font-sans">
-            <DetailContent />
+            <MediaDetailContent media={media} locale={locale} />
           </DialogContent>
         </Dialog>
       )}

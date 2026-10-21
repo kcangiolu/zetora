@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTexture } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -93,11 +93,17 @@ function Scene({
 }) {
   const { gl } = useThree();
   const circleRef = useRef<THREE.Mesh<THREE.CircleGeometry, THREE.ShaderMaterial>>(null);
-  const initialColorsRef = useRef<[string, string]>(colors);
+  const [initialColors] = useState(colors);
   const targetColor1Ref = useRef(new THREE.Color(colors[0]));
   const targetColor2Ref = useRef(new THREE.Color(colors[1]));
   const animSpeedRef = useRef(0.1);
-  const perlinNoiseTexture = useTexture('https://storage.googleapis.com/eleven-public-cdn/images/perlin-noise.png');
+  const perlinNoiseTexture = useTexture(
+    'https://storage.googleapis.com/eleven-public-cdn/images/perlin-noise.png',
+    (texture) => {
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+    },
+  );
 
   const agentRef = useRef<AgentState>(agentState);
   const modeRef = useRef<'auto' | 'manual'>(volumeMode);
@@ -122,7 +128,8 @@ function Scene({
     manualOutRef.current = clamp01(manualOutput ?? outputVolumeRef?.current ?? getOutputVolume?.() ?? 0);
   }, [manualOutput, outputVolumeRef, getOutputVolume]);
 
-  const random = useMemo(() => splitmix32(seed ?? Math.floor(Math.random() * 2 ** 32)), [seed]);
+  const [fallbackSeed] = useState(() => Math.floor(Math.random() * 2 ** 32));
+  const random = useMemo(() => splitmix32(seed ?? fallbackSeed), [seed, fallbackSeed]);
   const offsets = useMemo(() => new Float32Array(Array.from({ length: 7 }, () => random() * Math.PI * 2)), [random]);
 
   useEffect(() => {
@@ -156,6 +163,7 @@ function Scene({
       if (live[1]) targetColor2Ref.current.set(live[1]);
     }
     const u = mat.uniforms;
+    // eslint-disable-next-line react-hooks/immutability -- the render loop updates the shader uniforms in place on every frame
     u.uTime.value += delta * 0.5;
 
     if (u.uOpacity.value < 1) {
@@ -212,12 +220,10 @@ function Scene({
   }, [gl]);
 
   const uniforms = useMemo(() => {
-    perlinNoiseTexture.wrapS = THREE.RepeatWrapping;
-    perlinNoiseTexture.wrapT = THREE.RepeatWrapping;
     const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
     return {
-      uColor1: new THREE.Uniform(new THREE.Color(initialColorsRef.current[0])),
-      uColor2: new THREE.Uniform(new THREE.Color(initialColorsRef.current[1])),
+      uColor1: new THREE.Uniform(new THREE.Color(initialColors[0])),
+      uColor2: new THREE.Uniform(new THREE.Color(initialColors[1])),
       uOffsets: { value: offsets },
       uPerlinTexture: new THREE.Uniform(perlinNoiseTexture),
       uTime: new THREE.Uniform(0),
@@ -227,7 +233,7 @@ function Scene({
       uOutputVolume: new THREE.Uniform(0),
       uOpacity: new THREE.Uniform(0),
     };
-  }, [perlinNoiseTexture, offsets]);
+  }, [perlinNoiseTexture, offsets, initialColors]);
 
   return (
     <mesh ref={circleRef}>

@@ -194,6 +194,7 @@ export function useSyncedPreferences<T extends PreferenceValue>(
   defaultValue: T,
 ): [T, (value: T | ((val: T) => T)) => void, boolean] {
   const { user } = useUser();
+  const userId = user?.id;
   const queryClient = useQueryClient();
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const pendingUpdateRef = useRef<Partial<Record<PreferenceKey, PreferenceValue>> | null>(null);
@@ -325,7 +326,7 @@ export function useSyncedPreferences<T extends PreferenceValue>(
   // Debounced function to save to DB
   const saveToDB = useCallback(
     (updates: Partial<Record<PreferenceKey, PreferenceValue>>) => {
-      if (!user?.id) return;
+      if (!userId) return;
 
       // Increment counter for this in-flight save
       pendingSaveCountRef.current += 1;
@@ -355,7 +356,7 @@ export function useSyncedPreferences<T extends PreferenceValue>(
             pendingSaveCountRef.current -= 1;
             // Update the cache directly to avoid a round-trip refetch that can
             // race with in-progress keystrokes and overwrite the local value.
-            queryClient.setQueryData(['userPreferences', user.id], (old: UserPreferencesRecord | null | undefined) => ({
+            queryClient.setQueryData(['userPreferences', userId], (old: UserPreferencesRecord | null | undefined) => ({
               ...old,
               preferences: { ...old?.preferences, ...toSave },
             }));
@@ -368,7 +369,7 @@ export function useSyncedPreferences<T extends PreferenceValue>(
         pendingUpdateRef.current = null;
       }, DEBOUNCE_MS);
     },
-    [user?.id, queryClient], // Removed dbPreferencesRef as we don't need it anymore
+    [userId, queryClient],
   );
 
   const setValue = useCallback(
@@ -395,14 +396,14 @@ export function useSyncedPreferences<T extends PreferenceValue>(
         }
 
         // Sync to DB in background (debounced)
-        if (user?.id) {
+        if (userId) {
           saveToDB({ [key]: nextValue });
         }
       } catch (error) {
         console.warn(`Error saving preference "${key}":`, error);
       }
     },
-    [key, localValue, user?.id, saveToDB, applyLocalValue],
+    [key, localValue, userId, saveToDB, applyLocalValue],
   );
 
   // No unmount cleanup for the debounce timer on purpose: a pending save must still reach
