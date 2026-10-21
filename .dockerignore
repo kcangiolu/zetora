@@ -8,3 +8,5 @@ README.md
 .env*
 !.env.example
 hermes-plugin
+# docker-compose runtime data (DATA_DIR): Postgres's files are not readable by the build
+data
