@@ -71,7 +71,7 @@ const runAfterCallbacks = () => Promise.all(afterCallbacks.map((callback) => cal
 describe('POST /api/hermes/send — message id', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getSession.mockResolvedValue({ user: { id: 'user-1', name: 'Kenny' } });
+    getSession.mockResolvedValue({ user: { id: 'user-1', name: 'Ada' } });
     getChatByIdForValidation.mockResolvedValue({ id: CHAT_ID, userId: 'user-1' });
     getHermesChatLock.mockResolvedValue('hermes');
     getHermesConnectorByUserId.mockResolvedValue({ id: 'connector-1', status: 'enrolled', gatewayId: 'gw-test' });
@@ -107,7 +107,7 @@ describe('POST /api/hermes/send — chat title', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     afterCallbacks.length = 0;
-    getSession.mockResolvedValue({ user: { id: 'user-1', name: 'Kenny' } });
+    getSession.mockResolvedValue({ user: { id: 'user-1', name: 'Ada' } });
     getChatByIdForValidation.mockResolvedValue(null);
     getHermesConnectorByUserId.mockResolvedValue({ id: 'connector-1', status: 'enrolled', gatewayId: 'gw-test' });
     getHermesConversationByChatId.mockResolvedValue({ chatId: CHAT_ID, connectorId: 'connector-1' });
