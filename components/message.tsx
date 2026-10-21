@@ -90,10 +90,10 @@ function parseChatSDKError(message: string): ParsedChatSDKError | null {
 
 // Enhanced Error Display Component
 interface EnhancedErrorDisplayProps {
-  error: any;
+  error: Error | null;
   handleRetry?: () => Promise<void>;
   handleDelete?: () => Promise<void>;
-  user?: any;
+  user?: ComprehensiveUserData | null;
   isOwner?: boolean;
   selectedVisibilityType?: 'public' | 'private';
 }
@@ -115,10 +115,9 @@ const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
   const errorIcon = isChatSDKError ? getErrorIcon(parsedError) : 'error';
   const errorMessage = isChatSDKError
     ? parsedError.message
-    : typeof error === 'string'
-      ? error
-      : (error as any).message || 'Something went wrong while processing your message';
-  const errorCause = isChatSDKError ? parsedError.cause : typeof error === 'string' ? undefined : (error as any).cause;
+    : error?.message || 'Something went wrong while processing your message';
+  const cause = isChatSDKError ? parsedError.cause : error?.cause;
+  const errorCause = cause ? String(cause) : null;
   const errorCode = isChatSDKError ? `${parsedError.type}:${parsedError.surface}` : null;
   const actions = isChatSDKError ? getErrorActions(parsedError) : { primary: { label: 'Try Again', action: 'retry' } };
 
@@ -217,7 +216,7 @@ const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
         <div className="px-4 py-3">
           {errorCause && (
             <div className="mb-3 p-3 bg-muted dark:bg-muted rounded-md border border-border dark:border-border font-mono text-xs text-muted-foreground dark:text-muted-foreground overflow-x-auto">
-              {errorCause.toString()}
+              {errorCause}
             </div>
           )}
 
@@ -376,7 +375,7 @@ interface MessageProps {
   user?: ComprehensiveUserData | null;
   selectedVisibilityType?: 'public' | 'private';
   isLastMessage?: boolean;
-  error?: any;
+  error?: Error | null;
   isMissingAssistantResponse?: boolean;
   isOwner?: boolean;
   shouldReduceHeight?: boolean;
