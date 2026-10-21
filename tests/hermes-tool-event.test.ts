@@ -84,7 +84,7 @@ describe('parseHermesToolEvent', () => {
 
   it('rejects malformed or oversized fields', () => {
     expect(parseHermesToolEvent({ ...started, toolName: '' })).toBeNull();
-    expect(parseHermesToolEvent({ ...started, preview: 'x'.repeat(301) })).toBeNull();
+    expect(parseHermesToolEvent({ ...started, preview: 'x'.repeat(2001) })).toBeNull();
     expect(parseHermesToolEvent({ ...finished, durationMs: -1 })).toBeNull();
     expect(parseHermesToolEvent({ ...finished, durationMs: 1.5 })).toBeNull();
     expect(parseHermesToolEvent({ ...started, phase: 'progress' })).toBeNull();

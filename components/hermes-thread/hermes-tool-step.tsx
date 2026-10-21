@@ -55,8 +55,15 @@ function StepStatusIcon({ status }: { status: HermesToolStepView['status'] }) {
   }
 }
 
+// A command can be far wider than the screen: it scrolls sideways instead of wrapping or
+// being cut, and the right edge fades while more is hidden there. The end padding lets the
+// last characters scroll clear of the fade.
+const SCROLLING_PREVIEW =
+  'overflow-x-auto pr-6 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-muted-foreground/20 [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]';
+
 // One tool call of the agent. Compact while the turn runs (the preview on one line);
-// `detailed` in an expanded task, where the full preview gets its own block.
+// `detailed` in an expanded task, where the full preview gets its own block and keeps
+// its line breaks.
 export function HermesToolStep({ step, detailed = false }: { step: HermesToolStepView; detailed?: boolean }) {
   const isUnfinished = step.status !== 'running' && step.status !== 'ok';
 
@@ -78,15 +85,17 @@ export function HermesToolStep({ step, detailed = false }: { step: HermesToolSte
             {STATUS_LABELS[step.status]}
           </span>
         )}
-        <span className="min-w-0 flex-1 truncate font-mono text-muted-foreground">{!detailed && step.preview}</span>
+        <span className={cn('min-w-0 flex-1 whitespace-nowrap font-mono text-muted-foreground', SCROLLING_PREVIEW)}>
+          {!detailed && step.preview}
+        </span>
         {step.durationMs !== null && (
           <span className="tabular-nums text-muted-foreground">{formatStepDuration(step.durationMs)}</span>
         )}
         <StepStatusIcon status={step.status} />
       </div>
       {detailed && step.preview && (
-        <pre className="ml-6 whitespace-pre-wrap break-all rounded-lg border border-border bg-background px-2.5 py-2 font-mono text-xs text-foreground/85">
-          {step.preview}
+        <pre className="ml-6 rounded-lg border border-border bg-background py-2 pl-2.5 font-mono text-xs text-foreground/85">
+          <code className={cn('block whitespace-pre', SCROLLING_PREVIEW)}>{step.preview}</code>
         </pre>
       )}
     </div>

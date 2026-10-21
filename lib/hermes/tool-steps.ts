@@ -51,7 +51,7 @@ export type HermesToolEvent =
 const FINISHED_STATUSES: ReadonlySet<string> = new Set(['ok', 'error', 'blocked', 'cancelled']);
 const MAX_ID_LENGTH = 200;
 const MAX_TOOL_NAME_LENGTH = 100;
-const MAX_PREVIEW_LENGTH = 300;
+const MAX_PREVIEW_LENGTH = 2000;
 
 function boundedString(value: unknown, max: number): string | null {
   return typeof value === 'string' && value.length > 0 && value.length <= max ? value : null;

@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 # Hermes runs a Zetora chat as a session on its generic relay platform.
 RELAY_PLATFORM = "relay"
-PREVIEW_MAX_CHARS = 300
+PREVIEW_MAX_CHARS = 2000
 TOKEN_TTL_S = 300
 REQUEST_TIMEOUT_S = 10
 QUEUE_MAX_EVENTS = 512
