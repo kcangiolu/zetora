@@ -347,7 +347,7 @@ export interface McpAppRenderData {
 
 const SANDBOX_ORIGIN = process.env.NEXT_PUBLIC_MCP_SANDBOX_ORIGIN || '';
 
-function getSandboxUrl(resourceUri: string): string | null {
+function getSandboxUrl(): string | null {
   if (!SANDBOX_ORIGIN) return null;
   return SANDBOX_ORIGIN.replace(/\/+$/, '');
 }
@@ -538,7 +538,7 @@ export function McpAppOutputBlock({
     closeFullscreenRef.current = closeFullscreen;
   }, [closeFullscreen]);
   const sandboxUrl = useMemo(
-    () => (app.kind === 'ui-resource' && app.resourceUri ? getSandboxUrl(app.resourceUri) : null),
+    () => (app.kind === 'ui-resource' && app.resourceUri ? getSandboxUrl() : null),
     [app.kind, app.resourceUri],
   );
   const useSandbox = !!sandboxUrl;
@@ -1066,12 +1066,10 @@ export function McpAppOutputBlock({
 
 export const McpApprovalCard = ({
   approval,
-  toolLabel,
   sendMessage,
   onStatusChange,
 }: {
   approval: McpApprovalData;
-  toolLabel: string;
   sendMessage?: UseChatHelpers<ChatMessage>['sendMessage'];
   onStatusChange?: (status: 'confirmed' | 'cancelled') => void;
 }) => {

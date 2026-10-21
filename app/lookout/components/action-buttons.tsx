@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { PauseIcon, PlayIcon, Archive01Icon, Delete02Icon, TestTubeIcon, StopIcon } from '@hugeicons/core-free-icons';
 import { Button } from '@/components/ui/button';

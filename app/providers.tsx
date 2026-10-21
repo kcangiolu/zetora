@@ -3,7 +3,6 @@
 import { ThemeProvider } from 'next-themes';
 import { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { TooltipProvider } from '@radix-ui/react-tooltip';
 import { UserProvider } from '@/contexts/user-context';
 import { DataStreamProvider } from '@/components/data-stream-provider';
 import { SpeechProvider } from '@/contexts/speech-context';

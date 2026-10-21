@@ -2,24 +2,13 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import {
-  ArrowLeft,
-  ArrowUp,
-  Mic,
-  MicOff,
-  Globe,
-  MessageCircle,
-  Wrench,
-  ChevronDown,
-  ChevronUp,
-  MessageSquare,
-} from 'lucide-react';
+import { ArrowLeft, ArrowUp, Mic, MicOff, Globe, MessageCircle, Wrench, ChevronUp, MessageSquare } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Orb } from '@/components/ui/orb';
 import { VoicePicker } from '@/components/ui/voice-picker';
 import { ZetoraLogo } from '@/components/logos/zetora-logo';
 import { VoiceButton, type VoiceButtonState } from '@/components/ui/voice-button';
-import { useVoiceClient, type VoiceType, type ConversationTurn } from '@/hooks/use-voice-client';
+import { useVoiceClient, type VoiceType } from '@/hooks/use-voice-client';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { useInstanceCapabilities } from '@/hooks/use-instance-capabilities';

@@ -3,7 +3,6 @@
 import { getCurrentUser } from './user';
 import { generateTitleFromUserMessage } from '@/lib/search/chat-title';
 
-import type { ModelMessage } from 'ai';
 import { getUser } from '@/lib/auth-utils';
 import {
   getChatsByUserId,
@@ -25,14 +24,6 @@ import { chat, message, buildSession, hermesConversation, type Message } from '@
 import type { ChatModeFilter } from '@/lib/hermes/chat-mode';
 import type { ChatMessage } from '@/lib/types';
 import { eq, desc, ilike, and, or, asc, inArray, notExists, exists, sql } from 'drizzle-orm';
-import type { CharacterAlignmentResponseModel } from '@elevenlabs/elevenlabs-js/api/types/CharacterAlignmentResponseModel';
-import {
-  getComprehensiveUserData,
-  getLightweightUserAuth,
-  getCachedUserPreferencesByUserId,
-  clearUserPreferencesCache,
-} from '@/lib/user-data-server';
-import { lookoutCallbackHeaders, lookoutQstashHeaders } from '@/lib/lookout-auth';
 import { v7 as uuidv7 } from 'uuid';
 import { saveChat, saveMessages } from '@/lib/db/queries';
 import { all, allSettled } from 'better-all';

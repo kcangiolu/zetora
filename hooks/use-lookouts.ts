@@ -99,7 +99,7 @@ export function useLookouts() {
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
     refetchOnMount: true, // Always refetch when component mounts
-    retry: (failureCount, error) => {
+    retry: (failureCount) => {
       // Retry up to 3 times with exponential backoff
       if (failureCount < 3) return true;
       return false;
@@ -235,7 +235,7 @@ export function useLookouts() {
               : 'updated';
       sileo.success({ title: `Lookout ${statusText}` });
     },
-    onError: (error: Error, variables, context) => {
+    onError: (error: Error, _variables, context) => {
       // Rollback on error
       if (context?.previousLookouts) {
         queryClient.setQueryData(lookoutKeys.lists(), context.previousLookouts);
@@ -277,7 +277,7 @@ export function useLookouts() {
     onSuccess: () => {
       sileo.success({ title: 'Lookout stopped' });
     },
-    onError: (error: Error, variables, context) => {
+    onError: (error: Error, _variables, context) => {
       if (context?.previousLookouts) {
         queryClient.setQueryData(lookoutKeys.lists(), context.previousLookouts);
       }
@@ -349,7 +349,7 @@ export function useLookouts() {
       // Force immediate refetch after delete
       queryClient.refetchQueries({ queryKey: lookoutKeys.lists() });
     },
-    onError: (error: Error, variables, context) => {
+    onError: (error: Error, _variables, context) => {
       // Rollback on error
       if (context?.previousLookouts) {
         queryClient.setQueryData(lookoutKeys.lists(), context.previousLookouts);
@@ -389,7 +389,7 @@ export function useLookouts() {
     onSuccess: () => {
       sileo.success({ title: "Test run started - you'll be notified when complete!" });
     },
-    onError: (error: Error, variables, context) => {
+    onError: (error: Error, _variables, context) => {
       // Rollback on error
       if (context?.previousLookouts) {
         queryClient.setQueryData(lookoutKeys.lists(), context.previousLookouts);

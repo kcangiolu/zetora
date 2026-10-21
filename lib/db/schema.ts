@@ -7,7 +7,6 @@ import {
   json,
   varchar,
   integer,
-  uuid,
   real,
   index,
   uniqueIndex,

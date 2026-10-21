@@ -1,8 +1,6 @@
 import React, { memo, useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -908,8 +906,6 @@ export const Message = memo(function Message({
     );
   }, [message.parts]);
 
-  const shouldTopAlignUser: boolean = React.useMemo(() => combinedUserText.length > 50, [combinedUserText]);
-
   // Check if message content exceeds max height
   React.useEffect(() => {
     if (messageContentRef.current) {
@@ -1252,8 +1248,6 @@ const EditableAttachmentsBadge = ({
           // Truncate filename to 15 characters
           const fileName = attachment.name || `File ${i + 1}`;
           const truncatedName = fileName.length > 15 ? fileName.substring(0, 12) + '...' : fileName;
-
-          const isImage = attachment.contentType?.startsWith('image/') || attachment.mediaType?.startsWith('image/');
 
           return (
             <div

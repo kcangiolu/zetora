@@ -118,13 +118,6 @@ async function searchFirecrawlImages(
   }
 }
 
-const processDomains = (domains?: (string | null)[]): string[] | undefined => {
-  if (!domains || domains.length === 0) return undefined;
-
-  const processedDomains = domains.map((domain) => extractDomain(domain)).filter((domain) => domain.trim() !== '');
-  return processedDomains.length === 0 ? undefined : processedDomains;
-};
-
 // Search provider strategy interface
 export interface SearchStrategy {
   search(

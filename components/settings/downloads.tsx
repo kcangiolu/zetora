@@ -13,7 +13,6 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 
-import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { MagnifyingGlassIcon, TrashIcon } from '@phosphor-icons/react';
 

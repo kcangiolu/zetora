@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { ServiceIcon } from '@/components/mcp/service-icon';
-import { ArrowUpRight, Search } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ComprehensiveUserData } from '@/hooks/use-user-data';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';

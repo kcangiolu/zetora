@@ -37,7 +37,7 @@ const MapComponent = memo(
     const markersRef = useRef<L.Marker[]>([]);
     const [mapError, setMapError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const { theme, resolvedTheme } = useTheme();
+    const { resolvedTheme } = useTheme();
 
     // Determine if we should use dark theme
     const isDark = resolvedTheme === 'dark';

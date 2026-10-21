@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, memo, useEffect, useRef, useMemo } from 'react';
+import { useState, useCallback, memo, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { useInstanceCapabilities } from '@/hooks/use-instance-capabilities';

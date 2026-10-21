@@ -1,6 +1,6 @@
 'use client';
 
-import React, { memo } from 'react';
+import { memo } from 'react';
 import { type Spec } from '@json-render/react';
 import { CanvasRenderer as CanvasRendererCore } from '@/lib/canvas/renderer';
 

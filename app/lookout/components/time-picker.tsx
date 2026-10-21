@@ -1,8 +1,7 @@
 'use client';
 
-import React from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { convertTo12Hour, convertTo24Hour, formatTime12Hour } from '../utils/time-utils';
+import { convertTo24Hour, formatTime12Hour } from '../utils/time-utils';
 
 interface TimePickerProps {
   value: string;
@@ -46,7 +45,6 @@ export function TimePicker({ value, onChange, name, selectedDate, filterPastTime
 
     if (!shouldFilterPastTimes) return allOptions;
 
-    const currentHour12 = convertTo12Hour(currentHour);
     const currentAmPm = currentHour < 12 ? 'AM' : 'PM';
 
     // If current time is PM and we're showing AM options, all AM times are for tomorrow (valid)

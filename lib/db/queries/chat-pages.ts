@@ -2,7 +2,7 @@ import 'server-only';
 
 import { eq } from 'drizzle-orm';
 import { chat, type User, message, type Message, type Chat } from '../schema';
-import { ChatSDKError, databaseError } from '../../errors';
+import { databaseError } from '../../errors';
 import { maindb } from '../index';
 
 import { createLogger } from '@/lib/logger';

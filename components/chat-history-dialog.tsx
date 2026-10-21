@@ -25,20 +25,7 @@ import {
   Pin,
   PinOff,
 } from 'lucide-react';
-import {
-  isToday,
-  isYesterday,
-  isThisWeek,
-  isThisMonth,
-  subWeeks,
-  differenceInSeconds,
-  differenceInMinutes,
-  differenceInHours,
-  differenceInDays,
-  differenceInWeeks,
-  differenceInMonths,
-  differenceInYears,
-} from 'date-fns';
+import { isToday, isYesterday, isThisWeek, isThisMonth, subWeeks, differenceInSeconds } from 'date-fns';
 import { getUserChats, loadMoreChats, updateChatPinned } from '@/app/actions';
 import { Button } from './ui/button';
 import { sileo } from 'sileo';
@@ -89,11 +76,6 @@ const CHAT_TYPE_LABELS: Record<ChatModeFilter, string> = {
 function matchesChatType(chat: Chat, chatType: ChatModeFilter): boolean {
   if (chatType === 'all') return true;
   return chatType === 'agent' ? Boolean(chat.isHermesChat) : !chat.isHermesChat;
-}
-
-// Helper function to validate chat ID format
-function isValidChatId(id: string): boolean {
-  return /^[a-zA-Z0-9_-]+$/.test(id) && id.length > 0;
 }
 
 function parseChatDate(value: Date | string | number): Date {

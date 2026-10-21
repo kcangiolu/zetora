@@ -1,10 +1,9 @@
 import 'server-only';
 
 import { and, eq, gte, lt, sql } from 'drizzle-orm';
-import { chat, message, messageUsage } from '../schema';
-import { ChatSDKError, databaseError } from '../../errors';
+import { messageUsage } from '../schema';
+import { databaseError } from '../../errors';
 import { db, maindb } from '../index';
-import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
 
 import { createLogger } from '@/lib/logger';
 
@@ -76,16 +75,6 @@ export async function incrementMessageUsage({ userId }: { userId: string }) {
   }
 }
 
-export async function getMessageCount({ userId }: { userId: string }): Promise<number> {
-  try {
-    const usage = await getMessageUsageByUserId({ userId });
-    return usage?.messageCount || 0;
-  } catch (error) {
-    log.error('Error getting message count:', error);
-    return 0;
-  }
-}
-
 export async function getMessageCountByUserId({ userId }: { userId: string }): Promise<{ messageCount: number }> {
   try {
     const messageUsageRow = await getMessageUsageByUserId({ userId });
@@ -93,45 +82,6 @@ export async function getMessageCountByUserId({ userId }: { userId: string }): P
   } catch (error) {
     log.error('Error getting message usage count:', error);
     return { messageCount: 0 };
-  }
-}
-
-export async function getHistoricalUsageData({ userId, months = 6 }: { userId: string; months?: number }) {
-  try {
-    // Get aggregated message counts by date using SQL aggregation
-    // This is much more efficient than fetching all messages and grouping in JS
-    const totalDays = months * 30;
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(endDate.getDate() - (totalDays - 1));
-
-    // Use SQL aggregation to count messages per day
-    const dailyCounts = await maindb
-      .select({
-        date: sql<string>`DATE(${message.createdAt})`.as('date'),
-        messageCount: sql<number>`COUNT(*)::int`.as('message_count'),
-      })
-      .from(message)
-      .innerJoin(chat, eq(message.chatId, chat.id))
-      .where(
-        and(
-          eq(chat.userId, userId),
-          eq(message.role, 'user'),
-          gte(message.createdAt, startDate),
-          lt(message.createdAt, endDate),
-        ),
-      )
-      .groupBy(sql`DATE(${message.createdAt})`)
-      .orderBy(sql`DATE(${message.createdAt})`);
-
-    // Convert to the format expected by the frontend
-    return dailyCounts.map((row) => ({
-      date: new Date(row.date),
-      messageCount: row.messageCount,
-    }));
-  } catch (error) {
-    log.error('Error getting historical usage data:', error);
-    return [];
   }
 }
 

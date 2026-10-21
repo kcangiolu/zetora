@@ -186,150 +186,133 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
     date.toLocaleDateString(locale, { weekday: 'short', month: 'short', day: 'numeric' });
   const formatHour = (date: Date) => date.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' });
 
-  const {
-    chartData,
-    hourlyDataByDay,
-    currentWeather,
-    minTemp,
-    maxTemp,
-    days,
-    airPollution,
-    airPollutionForecast,
-    dailySummary,
-    openMeteo16Day,
-  } = useMemo(() => {
-    // Process 5-day/3-hour forecast data
-    const weatherData = result.list.map((item: any) => {
-      const date = new Date(item.dt * 1000);
-      const rainVolume = item.rain?.['3h'];
-      const snowVolume = item.snow?.['3h'];
-      return {
-        // Day keys stay en-US: they are parsed back with new Date() to sort and chart the days.
-        date: date.toLocaleDateString('en-US'),
-        timestamp: item.dt,
-        hour: date.getHours(),
-        minTemp: Number((item.main.temp_min - 273.15).toFixed(1)),
-        maxTemp: Number((item.main.temp_max - 273.15).toFixed(1)),
-        temp: Number((item.main.temp - 273.15).toFixed(1)),
-        feelsLike: Number((item.main.feels_like - 273.15).toFixed(1)),
-        humidity: item.main.humidity,
-        windSpeed: convertWindSpeed(item.wind.speed),
-        description: item.weather[0].description,
-        icon: item.weather[0].icon,
-        pressure: item.main.pressure,
-        clouds: item.clouds.all,
-        pop: Math.round(item.pop * 100), // convert to percentage
-        rain: typeof rainVolume === 'number' ? rainVolume : undefined,
-        snow: typeof snowVolume === 'number' ? snowVolume : undefined,
-      };
-    });
-
-    // Process air pollution data
-    const airPollution = result.air_pollution?.list?.[0] || null;
-
-    // Process air pollution forecast data
-    const airPollutionForecast =
-      result.air_pollution_forecast?.list?.map((item: AirPollutionData) => {
+  const { chartData, hourlyDataByDay, currentWeather, days, airPollution, airPollutionForecast, openMeteo16Day } =
+    useMemo(() => {
+      // Process 5-day/3-hour forecast data
+      const weatherData = result.list.map((item: any) => {
+        const date = new Date(item.dt * 1000);
+        const rainVolume = item.rain?.['3h'];
+        const snowVolume = item.snow?.['3h'];
         return {
-          ...item,
-          dateTime: new Date(item.dt * 1000),
-          date: new Date(item.dt * 1000).toLocaleDateString('en-US'),
-          hour: new Date(item.dt * 1000).getHours(),
+          // Day keys stay en-US: they are parsed back with new Date() to sort and chart the days.
+          date: date.toLocaleDateString('en-US'),
+          timestamp: item.dt,
+          hour: date.getHours(),
+          minTemp: Number((item.main.temp_min - 273.15).toFixed(1)),
+          maxTemp: Number((item.main.temp_max - 273.15).toFixed(1)),
+          temp: Number((item.main.temp - 273.15).toFixed(1)),
+          feelsLike: Number((item.main.feels_like - 273.15).toFixed(1)),
+          humidity: item.main.humidity,
+          windSpeed: convertWindSpeed(item.wind.speed),
+          description: item.weather[0].description,
+          icon: item.weather[0].icon,
+          pressure: item.main.pressure,
+          clouds: item.clouds.all,
+          pop: Math.round(item.pop * 100), // convert to percentage
+          rain: typeof rainVolume === 'number' ? rainVolume : undefined,
+          snow: typeof snowVolume === 'number' ? snowVolume : undefined,
         };
-      }) || [];
+      });
 
-    // Group by date for hourly forecast charts
-    const hourlyDataByDay: { [key: string]: WeatherDataPoint[] } = weatherData.reduce(
-      (acc: { [key: string]: WeatherDataPoint[] }, curr: WeatherDataPoint) => {
-        if (!acc[curr.date]) {
-          acc[curr.date] = [];
-        }
-        acc[curr.date].push(curr);
-        return acc;
-      },
-      {} as { [key: string]: WeatherDataPoint[] },
-    );
+      // Process air pollution data
+      const airPollution = result.air_pollution?.list?.[0] || null;
 
-    // Get sorted days
-    const days = Object.keys(hourlyDataByDay).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+      // Process air pollution forecast data
+      const airPollutionForecast =
+        result.air_pollution_forecast?.list?.map((item: AirPollutionData) => {
+          return {
+            ...item,
+            dateTime: new Date(item.dt * 1000),
+            date: new Date(item.dt * 1000).toLocaleDateString('en-US'),
+            hour: new Date(item.dt * 1000).getHours(),
+          };
+        }) || [];
 
-    // Build daily summaries from 3-hour forecasts
-    const dailySummary: DailyForecastSummary[] = days.map((day) => {
-      const entries = hourlyDataByDay[day];
-      const sortedEntries = [...entries].sort((a, b) => a.timestamp - b.timestamp);
-      const representativeEntry =
-        sortedEntries.find((entry) => entry.hour === 12) ||
-        sortedEntries[Math.floor(sortedEntries.length / 2)] ||
-        sortedEntries[0];
-      const minTemp = Math.min(...entries.map((entry) => entry.minTemp));
-      const maxTemp = Math.max(...entries.map((entry) => entry.maxTemp));
-      const pop = Math.max(...entries.map((entry) => entry.pop));
-      const humidity = Math.round(entries.reduce((sum, entry) => sum + entry.humidity, 0) / entries.length);
-      const windSpeed = Math.round(entries.reduce((sum, entry) => sum + entry.windSpeed, 0) / entries.length);
-      const rainTotal = entries.reduce((sum, entry) => sum + (entry.rain ?? 0), 0);
-      const snowTotal = entries.reduce((sum, entry) => sum + (entry.snow ?? 0), 0);
+      // Group by date for hourly forecast charts
+      const hourlyDataByDay: { [key: string]: WeatherDataPoint[] } = weatherData.reduce(
+        (acc: { [key: string]: WeatherDataPoint[] }, curr: WeatherDataPoint) => {
+          if (!acc[curr.date]) {
+            acc[curr.date] = [];
+          }
+          acc[curr.date].push(curr);
+          return acc;
+        },
+        {} as { [key: string]: WeatherDataPoint[] },
+      );
+
+      // Get sorted days
+      const days = Object.keys(hourlyDataByDay).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+
+      // Build daily summaries from 3-hour forecasts
+      const dailySummary: DailyForecastSummary[] = days.map((day) => {
+        const entries = hourlyDataByDay[day];
+        const sortedEntries = [...entries].sort((a, b) => a.timestamp - b.timestamp);
+        const representativeEntry =
+          sortedEntries.find((entry) => entry.hour === 12) ||
+          sortedEntries[Math.floor(sortedEntries.length / 2)] ||
+          sortedEntries[0];
+        const minTemp = Math.min(...entries.map((entry) => entry.minTemp));
+        const maxTemp = Math.max(...entries.map((entry) => entry.maxTemp));
+        const pop = Math.max(...entries.map((entry) => entry.pop));
+        const humidity = Math.round(entries.reduce((sum, entry) => sum + entry.humidity, 0) / entries.length);
+        const windSpeed = Math.round(entries.reduce((sum, entry) => sum + entry.windSpeed, 0) / entries.length);
+        const rainTotal = entries.reduce((sum, entry) => sum + (entry.rain ?? 0), 0);
+        const snowTotal = entries.reduce((sum, entry) => sum + (entry.snow ?? 0), 0);
+
+        return {
+          date: day,
+          timestamp: sortedEntries[0].timestamp,
+          minTemp,
+          maxTemp,
+          humidity,
+          windSpeed,
+          description: representativeEntry.description,
+          icon: representativeEntry.icon,
+          pop,
+          rain: rainTotal > 0 ? Number(rainTotal.toFixed(1)) : undefined,
+          snow: snowTotal > 0 ? Number(snowTotal.toFixed(1)) : undefined,
+        };
+      });
+
+      const chartData = dailySummary;
+
+      // Get current weather (first item in the list)
+      const currentWeather = weatherData[0];
+
+      // Process Open-Meteo 16-day forecast
+      const openMeteo16Day: OpenMeteo16DayData[] = result.open_meteo_forecast?.daily
+        ? result.open_meteo_forecast.daily.time.map((dateStr: string, index: number) => {
+            const weatherInfo = mapWMOCodeToWeather(result.open_meteo_forecast.daily.weathercode[index]);
+            return {
+              date: dateStr,
+              timestamp: new Date(dateStr).getTime() / 1000,
+              minTemp:
+                result.open_meteo_forecast.daily.temperature_2m_min[index] != null
+                  ? Number(result.open_meteo_forecast.daily.temperature_2m_min[index].toFixed(1))
+                  : 0,
+              maxTemp:
+                result.open_meteo_forecast.daily.temperature_2m_max[index] != null
+                  ? Number(result.open_meteo_forecast.daily.temperature_2m_max[index].toFixed(1))
+                  : 0,
+              humidity: result.open_meteo_forecast.daily.relative_humidity_2m_max[index],
+              windSpeed: convertWindSpeed(result.open_meteo_forecast.daily.windspeed_10m_max[index]),
+              description: weatherInfo.description,
+              icon: weatherInfo.icon,
+              pop: result.open_meteo_forecast.daily.precipitation_probability_max[index] || 0,
+            };
+          })
+        : [];
 
       return {
-        date: day,
-        timestamp: sortedEntries[0].timestamp,
-        minTemp,
-        maxTemp,
-        humidity,
-        windSpeed,
-        description: representativeEntry.description,
-        icon: representativeEntry.icon,
-        pop,
-        rain: rainTotal > 0 ? Number(rainTotal.toFixed(1)) : undefined,
-        snow: snowTotal > 0 ? Number(snowTotal.toFixed(1)) : undefined,
+        chartData,
+        hourlyDataByDay,
+        currentWeather,
+        days,
+        airPollution,
+        airPollutionForecast,
+        openMeteo16Day,
       };
-    });
-
-    const chartData = dailySummary;
-
-    // Get min and max temperatures for chart scaling
-    const minTemp = Math.min(...weatherData.map((d: WeatherDataPoint) => d.minTemp));
-    const maxTemp = Math.max(...weatherData.map((d: WeatherDataPoint) => d.maxTemp));
-
-    // Get current weather (first item in the list)
-    const currentWeather = weatherData[0];
-
-    // Process Open-Meteo 16-day forecast
-    const openMeteo16Day: OpenMeteo16DayData[] = result.open_meteo_forecast?.daily
-      ? result.open_meteo_forecast.daily.time.map((dateStr: string, index: number) => {
-          const weatherInfo = mapWMOCodeToWeather(result.open_meteo_forecast.daily.weathercode[index]);
-          return {
-            date: dateStr,
-            timestamp: new Date(dateStr).getTime() / 1000,
-            minTemp:
-              result.open_meteo_forecast.daily.temperature_2m_min[index] != null
-                ? Number(result.open_meteo_forecast.daily.temperature_2m_min[index].toFixed(1))
-                : 0,
-            maxTemp:
-              result.open_meteo_forecast.daily.temperature_2m_max[index] != null
-                ? Number(result.open_meteo_forecast.daily.temperature_2m_max[index].toFixed(1))
-                : 0,
-            humidity: result.open_meteo_forecast.daily.relative_humidity_2m_max[index],
-            windSpeed: convertWindSpeed(result.open_meteo_forecast.daily.windspeed_10m_max[index]),
-            description: weatherInfo.description,
-            icon: weatherInfo.icon,
-            pop: result.open_meteo_forecast.daily.precipitation_probability_max[index] || 0,
-          };
-        })
-      : [];
-
-    return {
-      chartData,
-      hourlyDataByDay,
-      currentWeather,
-      minTemp,
-      maxTemp,
-      days,
-      airPollution,
-      airPollutionForecast,
-      dailySummary,
-      openMeteo16Day,
-    };
-  }, [result]);
+    }, [result]);
 
   // Set initial selected day
   React.useEffect(() => {

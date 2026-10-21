@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
-import { BinocularsIcon, ArrowRight01Icon } from '@hugeicons/core-free-icons';
+import { ArrowRight01Icon } from '@hugeicons/core-free-icons';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BorderTrail } from '@/components/core/border-trail';
 import { StatusBadge } from './status-badge';

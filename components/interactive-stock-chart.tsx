@@ -1,9 +1,7 @@
-import React, { useMemo, useCallback, useEffect, useState, startTransition, memo } from 'react';
-import dynamic from 'next/dynamic';
+import React, { useMemo, useCallback, useEffect, useState, startTransition } from 'react';
 import type { EChartsOption } from 'echarts-for-react';
 import { Badge } from '@/components/ui/badge';
 import { useTheme } from 'next-themes';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useMediaQuery } from '@/hooks/use-media-query';
 
 import ReactECharts from 'echarts-for-react';
@@ -16,7 +14,6 @@ import {
   TrendingUp,
   TrendingDown,
   Target,
-  Calendar,
   ChevronDown,
   ChevronUp,
   BarChart3,
@@ -228,22 +225,6 @@ interface ProcessedSeriesData {
   currency: string;
 }
 
-const formatStockSymbol = (symbol: string) => {
-  const suffixes = ['.US', '.NYSE', '.NASDAQ'];
-  let formatted = symbol;
-
-  suffixes.forEach((suffix) => {
-    formatted = formatted.replace(suffix, '');
-  });
-
-  if (formatted.endsWith('USD')) {
-    formatted = formatted.replace('USD', '');
-    return `${formatted}/USD`;
-  }
-
-  return formatted;
-};
-
 const formatCurrency = (value: number, currencyCode: string) => {
   const symbol = CURRENCY_SYMBOLS[currencyCode as keyof typeof CURRENCY_SYMBOLS] || currencyCode;
 
@@ -286,7 +267,6 @@ const getFilingDate = (metadata: any): string | null => {
 const InteractiveStockChart = React.memo(
   ({
     title,
-    data,
     stock_symbols,
     currency_symbols,
     interval,
@@ -347,16 +327,6 @@ const InteractiveStockChart = React.memo(
         });
       });
     }, []);
-
-    // Normalize currency symbols to match the number of series; default missing to USD
-    const normalizedCurrencySymbols = useMemo(() => {
-      const seriesCount = chart.elements.length;
-      const provided = (currency_symbols ?? []).map((code) => code.toUpperCase());
-      if (provided.length < seriesCount) {
-        provided.push(...Array(seriesCount - provided.length).fill('USD'));
-      }
-      return provided.slice(0, seriesCount);
-    }, [currency_symbols, chart.elements.length]);
 
     // Update lastUpdated on client mount (only if not already set via lazy init)
     useEffect(() => {
@@ -648,7 +618,6 @@ const InteractiveStockChart = React.memo(
         const subTextColor = isDark ? '#a1a1aa' : '#71717a';
         const gridColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)';
         const crosshairColor = isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.15)';
-        const tooltipBg = isDark ? 'rgba(24, 24, 27, 0.95)' : 'rgba(255, 255, 255, 0.95)';
         const tooltipBorder = isDark ? 'rgba(63, 63, 70, 0.5)' : 'rgba(228, 228, 231, 0.8)';
         const mutedColor = isDark ? '#a1a1aa' : '#71717a';
         const color = getSeriesColor(companyIndex, isDark);

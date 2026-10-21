@@ -1,6 +1,6 @@
 'use client';
 
-import React, { memo, useState, lazy } from 'react';
+import { memo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { LucideIcon } from 'lucide-react';
 import { useReducedMotion } from 'motion/react';

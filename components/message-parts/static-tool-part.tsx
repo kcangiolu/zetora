@@ -15,7 +15,6 @@ import {
   Globe,
   YoutubeIcon,
   Code,
-  Check,
   Sparkles,
   Download,
 } from 'lucide-react';
@@ -54,9 +53,6 @@ const InteractiveChart = dynamic(() => import('@/components/interactive-charts')
 const NearbySearchMapView = dynamic(() => import('@/components/nearby-search-map-view'), { ssr: false });
 const InteractiveStockChart = dynamic(() => import('@/components/interactive-stock-chart'), { ssr: false });
 const CryptoChart = dynamic(() => import('@/components/crypto-charts').then((m) => ({ default: m.CryptoChart })), {
-  ssr: false,
-});
-const CryptoTickers = dynamic(() => import('@/components/crypto-charts').then((m) => ({ default: m.CryptoTickers })), {
   ssr: false,
 });
 
@@ -871,7 +867,7 @@ export function StaticToolPart({ part, annotations, canEdit, chatId, hiddenImage
           case 'input-available':
             return <SearchLoadingState icon={DollarSign} text="Fetching comprehensive coin data..." color="blue" />;
           case 'output-available':
-            return <CryptoCoinsData result={part.output} coinId={part.input.coinId} />;
+            return <CryptoCoinsData result={part.output} />;
         }
         break;
 
@@ -881,7 +877,7 @@ export function StaticToolPart({ part, annotations, canEdit, chatId, hiddenImage
           case 'input-available':
             return <SearchLoadingState icon={DollarSign} text="Fetching token data by contract..." color="violet" />;
           case 'output-available':
-            return <CryptoCoinsData result={part.output} contractAddress={part.input.contractAddress} />;
+            return <CryptoCoinsData result={part.output} />;
         }
         break;
 

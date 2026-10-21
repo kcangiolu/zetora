@@ -2,15 +2,14 @@ import 'katex/dist/katex.min.css';
 
 import Link from 'next/link';
 import Marked, { ReactRenderer } from 'marked-react';
-import React, { useCallback, useMemo, useState, Fragment, useRef, useEffect, use } from 'react';
+import React, { useCallback, useMemo, useState, Fragment, useRef, useEffect } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { Check, Youtube, Download } from 'lucide-react';
-import { Cambio } from 'cambio';
+import { Youtube, Download } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 import { CodeBlock, InlineCode, useProcessedContent, SafeLatex } from './code-block';
@@ -295,7 +294,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
     );
 
     const renderCitation = useCallback(
-      (index: number, citationText: string, href: string, key: string) => {
+      (citationText: string, href: string, key: string) => {
         const platform = getPlatformFromUrl(href);
 
         // Special rendering for YouTube and Spotify
@@ -561,7 +560,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
             citationIndex = citationLinks.length - 1;
           }
           const citationText = citationLinks[citationIndex].text;
-          return renderCitation(citationIndex, citationText, href, key);
+          return renderCitation(citationText, href, key);
         },
         image(src, alt, title) {
           const key = getElementKey(this, 'image', String(src));

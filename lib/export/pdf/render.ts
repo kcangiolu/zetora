@@ -411,7 +411,6 @@ export async function renderMarkdownPdf({ title, content: rawContent, meta = {} 
 
           const targetH = Math.min(baseSize, baseSize * MATH_INLINE_HEIGHT_MULTIPLIER);
           const aspectRatio = pngImg.width / pngImg.height;
-          const targetW = targetH * aspectRatio;
 
           const maxInlineW = baseSize * MATH_INLINE_MAX_WIDTH_MULTIPLIER;
           const minInlineH = baseSize * MATH_INLINE_MIN_HEIGHT_MULTIPLIER;
@@ -810,7 +809,7 @@ export async function renderMarkdownPdf({ title, content: rawContent, meta = {} 
     };
 
     // Measure row height and pre-wrapped lines for rendering
-    const measureRow = (cells: Seg[][], usedFont: PDFFont, usedSize: number) => {
+    const measureRow = (cells: Seg[][], usedSize: number) => {
       const wraps: Seg[][][] = [];
       const lineHeights: number[][] = [];
       const lineGapInCell = Math.max(2, Math.round(usedSize * 0.2));
@@ -848,7 +847,7 @@ export async function renderMarkdownPdf({ title, content: rawContent, meta = {} 
         page = addPage();
         y = pageHeight - margin;
         if (headers.length) {
-          const mh = measureRow(headers, fontBold, headerSize);
+          const mh = measureRow(headers, headerSize);
           renderMeasuredRow(mh, fontBold, headerSize, true);
         }
       }
@@ -928,12 +927,12 @@ export async function renderMarkdownPdf({ title, content: rawContent, meta = {} 
     if (headers.length) {
       const headerSegs = headers.map((cell: any) => toSegments(cell, fontBold, headerSize));
       for (const segs of headerSegs) await prepareInlineMathSegments(segs, headerSize);
-      const mh = measureRow(headerSegs, fontBold, headerSize);
+      const mh = measureRow(headerSegs, headerSize);
       // If there are body rows, ensure header + first row fit; otherwise move to new page first
       if (rows.length) {
         const firstRowSegs = rows[0].map((cell: any) => toSegments(cell, font, cellSize));
         for (const segs of firstRowSegs) await prepareInlineMathSegments(segs, cellSize);
-        const firstRowMeasure = measureRow(firstRowSegs, font, cellSize);
+        const firstRowMeasure = measureRow(firstRowSegs, cellSize);
         if (y - (mh.rowHeight + firstRowMeasure.rowHeight) <= margin) {
           page = addPage();
           y = pageHeight - margin;
@@ -948,7 +947,7 @@ export async function renderMarkdownPdf({ title, content: rawContent, meta = {} 
     for (let rIdx = 0; rIdx < rows.length; rIdx++) {
       const rowSegs = rows[rIdx].map((cell: any) => toSegments(cell, font, cellSize));
       for (const segs of rowSegs) await prepareInlineMathSegments(segs, cellSize);
-      const mr = measureRow(rowSegs, font, cellSize);
+      const mr = measureRow(rowSegs, cellSize);
       const shadedRow = rIdx % 2 === 1; // shade odd rows for subtle zebra
       renderMeasuredRow(mr, font, cellSize, shadedRow);
     }

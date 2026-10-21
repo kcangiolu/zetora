@@ -5,7 +5,6 @@ import { ChatMessage } from '@/lib/types';
 import { serverEnv } from '@/env/server';
 import Parallel from 'parallel-web';
 import Firecrawl from '@mendable/firecrawl-js';
-import { all } from 'better-all';
 
 import { createLogger } from '@/lib/logger';
 import { resolveFallbackSearchProvider, resolveSearchProvider } from '@/lib/instance/capabilities';

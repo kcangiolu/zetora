@@ -7,7 +7,6 @@ import { ChatSDKError, databaseError } from '../../errors';
 import { db, maindb } from '../index';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
-import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
 import { linkUploadedFilesToChats } from './uploaded-files';
 
 import { createLogger } from '@/lib/logger';

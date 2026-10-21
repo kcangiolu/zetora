@@ -13,7 +13,6 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 
-import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { MagnifyingGlassIcon, TrashIcon } from '@phosphor-icons/react';
 
@@ -28,8 +27,6 @@ import { Loader2, Search } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { useMediaQuery } from '@/hooks/use-media-query';
-
-import { Select } from '@/components/ui/select';
 
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { Attachment01Icon } from '@hugeicons/core-free-icons';

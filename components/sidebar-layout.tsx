@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/app-sidebar';
 import { ChatHistoryDialog } from '@/components/chat-history-dialog';
@@ -9,10 +9,6 @@ import { useUser } from '@/contexts/user-context';
 export function SidebarLayout({ children }: { children: React.ReactNode }) {
   const { user } = useUser();
   const [commandDialogOpen, setCommandDialogOpen] = useState(false);
-
-  const handleHistoryClick = useCallback(() => {
-    setCommandDialogOpen(true);
-  }, []);
 
   // Keyboard shortcut for opening chat history (Cmd+K or Ctrl+K)
   useEffect(() => {
@@ -29,13 +25,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <AppSidebar
-        chatId={null}
-        selectedVisibilityType="private"
-        onVisibilityChange={() => {}}
-        user={user || null}
-        onHistoryClick={handleHistoryClick}
-      />
+      <AppSidebar user={user || null} />
       <SidebarInset>{children}</SidebarInset>
 
       {/* Chat History Dialog */}

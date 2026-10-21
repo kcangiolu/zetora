@@ -5,42 +5,9 @@ import { generateText } from 'ai';
 import { z } from 'zod';
 import { jsonrepair } from 'jsonrepair';
 import { getUser } from '@/lib/auth-utils';
-import {
-  getChatsByUserId,
-  getRecentChatsByUserId,
-  deleteChatById,
-  updateChatVisibilityById,
-  getChatById,
-  getMessageById,
-  deleteMessagesByChatIdAfterTimestamp,
-  updateChatTitleById,
-  updateChatPinnedById,
-  incrementMessageUsage,
-  getMessageCount,
-  getHistoricalUsageData,
-  getCustomInstructionsByUserId,
-  createCustomInstructions,
-  updateCustomInstructions,
-  deleteCustomInstructions,
-  upsertUserPreferences,
-  createLookout,
-  getLookoutsByUserId,
-  getLookoutById,
-  updateLookout,
-  updateLookoutStatus,
-  deleteLookout,
-  getChatWithUserById,
-} from '@/lib/db/queries';
-import { db, maindb } from '@/lib/db';
-import { chat, message, buildSession, type User } from '@/lib/db/schema';
-import { eq, desc, ilike, and, asc, inArray, notExists } from 'drizzle-orm';
 import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 import type { CharacterAlignmentResponseModel } from '@elevenlabs/elevenlabs-js/api/types/CharacterAlignmentResponseModel';
-import { usageCountCache, createMessageCountKey } from '@/lib/performance-cache';
 import { getLightweightUserAuth, getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
-import { lookoutCallbackHeaders, lookoutQstashHeaders } from '@/lib/lookout-auth';
-import { saveChat, saveMessages } from '@/lib/db/queries';
-import { all, allSettled } from 'better-all';
 import { resolveTertiaryModel } from '@/ai/tertiary';
 
 import { createLogger } from '@/lib/logger';

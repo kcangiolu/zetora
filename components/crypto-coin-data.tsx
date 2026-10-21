@@ -117,7 +117,7 @@ const SafeLink = ({
   );
 };
 
-const CoinData: React.FC<CoinDataProps> = memo(({ result, coinId, contractAddress }) => {
+const CoinData: React.FC<CoinDataProps> = memo(({ result }) => {
   // Enhanced error handling
   if (!result) {
     return (
@@ -183,9 +183,6 @@ const CoinData: React.FC<CoinDataProps> = memo(({ result, coinId, contractAddres
   // Safely extract description
   const description = data.description?.en || '';
   const cleanDescription = description.replace(/<[^>]*>/g, '').trim();
-
-  // Safely extract links
-  const homepage = data.links?.homepage?.[0];
 
   return (
     <Card className="w-full my-4 border-neutral-200 dark:border-neutral-800 shadow-none bg-white dark:bg-neutral-950">

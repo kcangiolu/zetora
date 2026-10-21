@@ -87,16 +87,6 @@ export const AttachmentPreview: React.FC<{
     [],
   );
 
-  const isPdf = useCallback(
-    (attachment: Attachment | UploadingAttachment): boolean => {
-      if (isUploadingAttachment(attachment)) {
-        return attachment.file.type === 'application/pdf';
-      }
-      return (attachment as Attachment).contentType === 'application/pdf';
-    },
-    [isUploadingAttachment],
-  );
-
   const getDocumentType = useCallback(
     (attachment: Attachment | UploadingAttachment): 'pdf' | 'csv' | 'xlsx' | 'docx' | 'image' | null => {
       const contentType = isUploadingAttachment(attachment)

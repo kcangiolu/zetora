@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { Film, Tv, Star, Calendar, ChevronRight, X } from 'lucide-react';
 import { useMediaQuery } from '@/hooks/use-media-query';

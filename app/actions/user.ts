@@ -1,18 +1,8 @@
 'use server';
 
-import { UIMessage, generateText, Output } from 'ai';
-import type { ModelMessage } from 'ai';
 import { getChatWithUserById } from '@/lib/db/queries';
 import { getUser } from '@/lib/auth-utils';
-import { db, maindb } from '@/lib/db';
-import { chat, message, buildSession, type User } from '@/lib/db/schema';
-import { eq, desc, ilike, and, asc, inArray, notExists } from 'drizzle-orm';
-import type { CharacterAlignmentResponseModel } from '@elevenlabs/elevenlabs-js/api/types/CharacterAlignmentResponseModel';
 import { getComprehensiveUserData } from '@/lib/user-data-server';
-import { headers } from 'next/headers';
-import { lookoutCallbackHeaders, lookoutQstashHeaders } from '@/lib/lookout-auth';
-import { saveChat, saveMessages } from '@/lib/db/queries';
-import { all, allSettled } from 'better-all';
 
 import { createLogger } from '@/lib/logger';
 

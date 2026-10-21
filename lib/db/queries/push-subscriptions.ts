@@ -2,7 +2,7 @@ import 'server-only';
 
 import { and, eq } from 'drizzle-orm';
 import { pushSubscription } from '../schema';
-import { ChatSDKError, databaseError } from '../../errors';
+import { databaseError } from '../../errors';
 import { maindb } from '../index';
 
 export interface CreatePushSubscriptionInput {

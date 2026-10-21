@@ -23,10 +23,6 @@ import { invalidateSessionCacheForToken } from './user-data-server';
 import { sendVerificationEmail, sendTwoFactorOTPEmail, missingEmailSettings } from './email';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
 
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('auth');
-
 config({
   path: '.env.local',
 });

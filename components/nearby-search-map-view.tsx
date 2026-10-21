@@ -4,7 +4,6 @@ import { cn } from '@/lib/utils';
 import InteractiveMap from './interactive-maps';
 import PlaceCard from './place-card';
 import { Badge } from './ui/badge';
-import { WarningCircleIcon } from '@phosphor-icons/react';
 
 interface Location {
   lat: number;
@@ -70,7 +69,6 @@ const NearbySearchMapView = memo<NearbySearchMapViewProps>(
     const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
     const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
     const [activeIndex, setActiveIndex] = useState<number | null>(null);
-    const [mapError, setMapError] = useState<boolean>(false);
 
     // Memoize center to prevent object recreation
     const memoizedCenter = React.useMemo(
@@ -105,23 +103,7 @@ const NearbySearchMapView = memo<NearbySearchMapViewProps>(
       };
     }, [selectedPlace]);
 
-    const displayIndex = React.useMemo(() => {
-      if (selectedIndex !== null) return selectedIndex;
-      if (!selectedPlace) return null;
-      const idx = places.findIndex((p) => p.place_id === selectedPlace.place_id);
-      return idx >= 0 ? idx : null;
-    }, [selectedIndex, selectedPlace, places]);
-
     // Memoize callbacks
-    const handleMapError = useCallback(() => {
-      setMapError(true);
-    }, []);
-
-    const handleRetry = useCallback(() => {
-      setMapError(false);
-      window.location.reload();
-    }, []);
-
     const handlePlaceCardClick = useCallback(
       (place: Place) => {
         setSelectedPlace(place);
@@ -152,18 +134,6 @@ const NearbySearchMapView = memo<NearbySearchMapViewProps>(
         }
       },
       [places],
-    );
-
-    const selectByIndex = useCallback(
-      (nextIndex: number) => {
-        if (normalizedPlaces.length === 0) return;
-        const clamped = Math.max(0, Math.min(normalizedPlaces.length - 1, nextIndex));
-        const next = normalizedPlaces[clamped];
-        setSelectedIndex(clamped);
-        setSelectedPlace(next);
-        setActiveIndex(clamped);
-      },
-      [normalizedPlaces],
     );
 
     const commitIndexForMap = useCallback(
@@ -372,81 +342,69 @@ const NearbySearchMapView = memo<NearbySearchMapViewProps>(
               viewMode === 'map' ? 'h-full' : 'h-[40%] max-sm:h-[45%]',
             )}
           >
-            {mapError ? (
-              <div className="w-full h-full flex items-center justify-center bg-neutral-100 dark:bg-neutral-900">
-                <div className="text-center p-6">
-                  <WarningCircleIcon size={32} className="text-red-500 mx-auto mb-3" weight="duotone" />
-                  <p className="text-neutral-600 dark:text-neutral-400 mb-3">Failed to load map</p>
-                  <button onClick={handleRetry} className="text-sm text-blue-500 hover:text-blue-600 underline">
-                    Try again
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="relative w-full h-full">
-                <InteractiveMap
-                  center={memoizedCenter}
-                  places={normalizedPlaces}
-                  selectedPlace={normalizedSelectedPlace}
-                  onPlaceSelect={handlePlaceSelect}
-                  viewMode={viewMode}
-                />
+            <div className="relative w-full h-full">
+              <InteractiveMap
+                center={memoizedCenter}
+                places={normalizedPlaces}
+                selectedPlace={normalizedSelectedPlace}
+                onPlaceSelect={handlePlaceSelect}
+                viewMode={viewMode}
+              />
 
-                {/* Horizontal Place Cards strip in map view */}
-                {viewMode === 'map' && !mapError && normalizedPlaces.length > 0 && (
-                  <div className="absolute left-2 right-2 bottom-2 z-15 pointer-events-none">
-                    <div
-                      ref={listContainerRef}
-                      className={cn(
-                        'pointer-events-auto flex gap-3 overflow-x-auto px-2 py-2 scrollbar-thin w-full max-w-full [scrollbar-width:thin] [-ms-overflow-style:none] overscroll-x-contain cursor-grab active:cursor-grabbing select-none snap-x snap-mandatory [scroll-padding-inline:16px] scroll-smooth',
-                      )}
-                      onScroll={handleListScroll}
-                      onMouseDown={handleMouseDown}
-                      onTouchStart={handleTouchStart}
-                      onTouchMove={handleTouchMove}
-                      onTouchEnd={handleTouchEnd}
-                      onClickCapture={handleClickCapture}
-                    >
-                      {normalizedPlaces.map((place, index) => {
-                        const isSel = (activeIndex ?? selectedIndex) === index;
-                        const id = place.place_id || `idx-${index}`;
-                        return (
-                          <div
-                            key={id}
-                            id={`place-card-${id}`}
-                            data-pager-index={index}
-                            className="basis-full min-w-full shrink-0 snap-center"
-                          >
-                            <div className="relative">
-                              <div className="absolute -top-2 -left-2 z-20">
-                                <div
-                                  className={cn(
-                                    'h-6 w-6 rounded-full flex items-center justify-center text-xs font-semibold shadow-md border',
-                                    isSel
-                                      ? 'bg-black text-white dark:bg-white dark:text-black border-neutral-200 dark:border-neutral-800'
-                                      : 'bg-white text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100 border-neutral-200 dark:border-neutral-800',
-                                  )}
-                                >
-                                  {index + 1}
-                                </div>
+              {/* Horizontal Place Cards strip in map view */}
+              {viewMode === 'map' && normalizedPlaces.length > 0 && (
+                <div className="absolute left-2 right-2 bottom-2 z-15 pointer-events-none">
+                  <div
+                    ref={listContainerRef}
+                    className={cn(
+                      'pointer-events-auto flex gap-3 overflow-x-auto px-2 py-2 scrollbar-thin w-full max-w-full [scrollbar-width:thin] [-ms-overflow-style:none] overscroll-x-contain cursor-grab active:cursor-grabbing select-none snap-x snap-mandatory [scroll-padding-inline:16px] scroll-smooth',
+                    )}
+                    onScroll={handleListScroll}
+                    onMouseDown={handleMouseDown}
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                    onClickCapture={handleClickCapture}
+                  >
+                    {normalizedPlaces.map((place, index) => {
+                      const isSel = (activeIndex ?? selectedIndex) === index;
+                      const id = place.place_id || `idx-${index}`;
+                      return (
+                        <div
+                          key={id}
+                          id={`place-card-${id}`}
+                          data-pager-index={index}
+                          className="basis-full min-w-full shrink-0 snap-center"
+                        >
+                          <div className="relative">
+                            <div className="absolute -top-2 -left-2 z-20">
+                              <div
+                                className={cn(
+                                  'h-6 w-6 rounded-full flex items-center justify-center text-xs font-semibold shadow-md border',
+                                  isSel
+                                    ? 'bg-black text-white dark:bg-white dark:text-black border-neutral-200 dark:border-neutral-800'
+                                    : 'bg-white text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100 border-neutral-200 dark:border-neutral-800',
+                                )}
+                              >
+                                {index + 1}
                               </div>
-                              <PlaceCard
-                                place={place}
-                                onClick={() => handlePlaceCardClick(place)}
-                                isSelected={isSel}
-                                variant="overlay"
-                                showHours={false}
-                                className="min-h-[172px]"
-                              />
                             </div>
+                            <PlaceCard
+                              place={place}
+                              onClick={() => handlePlaceCardClick(place)}
+                              isSelected={isSel}
+                              variant="overlay"
+                              showHours={false}
+                              className="min-h-[172px]"
+                            />
                           </div>
-                        );
-                      })}
-                    </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                )}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* List Container */}

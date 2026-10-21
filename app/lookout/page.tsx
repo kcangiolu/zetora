@@ -320,8 +320,6 @@ export default function LookoutPage() {
                 <LookoutDetailsSidebar
                   lookout={selectedLookout as any}
                   allLookouts={allLookouts as any}
-                  isOpen={isSidebarOpen}
-                  onOpenChange={setIsSidebarOpen}
                   onLookoutChange={handleLookoutChange as any}
                   onEditLookout={handleEditLookout as any}
                   onTest={handleTest}

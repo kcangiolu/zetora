@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import { format } from 'date-fns';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { Calendar01Icon, AlarmClockIcon } from '@hugeicons/core-free-icons';

@@ -28,16 +28,7 @@ import { Button } from '@/components/ui/button';
 import FormComponent from '@/components/ui/form-component/form-component';
 import { ShareDialog } from '@/components/share/share-dialog';
 import { ExampleCategories } from '@/components/example-categories';
-import {
-  Pencil,
-  Trash2,
-  Share as ShareIcon,
-  ChevronDown,
-  X,
-  Check,
-  ExternalLink,
-  FoldVertical,
-} from 'lucide-react';
+import { Pencil, Trash2, Share as ShareIcon, ChevronDown, X, FoldVertical } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { setImageContextVisibility, manualCompactChat } from '@/app/actions';
@@ -149,43 +140,6 @@ const ChatInterface = memo(
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
-    const headerGroupRef = useRef<HTMLDivElement>(null);
-    const chevronBtnRef = useRef<HTMLButtonElement>(null);
-    const [groupWidth, setGroupWidth] = useState<number>(0);
-    const [alignOffset, setAlignOffset] = useState<number>(0);
-
-    const measureHeaderMenuAlignment = React.useCallback(() => {
-      const groupEl = headerGroupRef.current;
-      if (!groupEl) return;
-      const gW = groupEl.offsetWidth;
-      setGroupWidth(gW);
-      const cW = chevronBtnRef.current ? chevronBtnRef.current.offsetWidth : 0;
-      // Align content to be centered within the full button group (not just the chevron)
-      // With align="center", a negative offset of half the width difference moves the menu's center
-      // from the chevron button to the center of the whole group.
-      setAlignOffset(-((gW - cW) / 2));
-    }, []);
-
-    useEffect(() => {
-      const groupEl = headerGroupRef.current;
-      if (!groupEl) return;
-      const ro = new ResizeObserver(measureHeaderMenuAlignment);
-      ro.observe(groupEl);
-      measureHeaderMenuAlignment();
-      window.addEventListener('resize', measureHeaderMenuAlignment);
-      return () => {
-        ro.disconnect();
-        window.removeEventListener('resize', measureHeaderMenuAlignment);
-      };
-    }, [measureHeaderMenuAlignment]);
-
-    // Re-measure when path/title changes or when menu opens
-    useEffect(() => {
-      if (!headerMenuOpen) return;
-      // microtask to allow layout to settle when replaceState changes DOM
-      queueMicrotask(() => measureHeaderMenuAlignment());
-    }, [pathname, localChatTitle, headerMenuOpen, measureHeaderMenuAlignment]);
-
     const [selectedModel, setSelectedModel] = useLocalStorage('zetora-selected-model', DEFAULT_MODEL_ALIAS);
     // On first visit (no 'zetora-selected-model' ever stored), pre-select the
     // user's "Default Model" preference (Settings → Tertiary Models) instead
@@ -253,10 +207,7 @@ const ChatInterface = memo(
       sessionLock: sessionChatLock,
       storedGroup: rawSelectedGroup,
     });
-    const [isCustomInstructionsEnabled, setIsCustomInstructionsEnabled] = useLocalStorage(
-      'zetora-custom-instructions-enabled',
-      true,
-    );
+    const [isCustomInstructionsEnabled] = useLocalStorage('zetora-custom-instructions-enabled', true);
     // Simple state for temp chat - no useEffect, just direct localStorage
     const [isTemporaryChatEnabled, _setIsTemporaryChatEnabled] = useState(() => {
       if (typeof window === 'undefined') return false;
@@ -276,16 +227,12 @@ const ChatInterface = memo(
       });
     }, []);
 
-    // Settings page navigation (replaces dialog/hash approach)
-    const [settingsOpen, setSettingsOpen] = useState(false);
-
     // Get persisted values for dialog states
     const [persistedHasShownLookoutAnnouncement, setPersitedHasShownLookoutAnnouncement] = useLocalStorage(
       'zetora-lookout-announcement-shown',
       false,
     );
 
-    const [extremeSearchModel] = useSyncedPreferences<string>('zetora-tertiary-extreme-agent-model', '');
     const [isAutoRouterEnabled] = useSyncedPreferences<boolean>('zetora-auto-router-enabled', false);
     const [autoRouterConfig] = useSyncedPreferences<AutoRouterConfig>('zetora-auto-router-config', { routes: [] });
     const [scrollToLatestOnOpen, , scrollToLatestOnOpenResolved] = useSyncedPreferences<boolean>(
@@ -1182,18 +1129,7 @@ const ChatInterface = memo(
 
     return (
       <>
-        <AppSidebar
-          chatId={isTemporaryChat ? null : initialChatId || (messages.length > 0 ? chatId : null)}
-          selectedVisibilityType={chatState.selectedVisibilityType}
-          onVisibilityChange={handleVisibilityChange}
-          user={user || null}
-          onHistoryClick={() => dispatch({ type: 'SET_COMMAND_DIALOG_OPEN', payload: true })}
-          isOwner={isOwner}
-          isCustomInstructionsEnabled={isCustomInstructionsEnabled}
-          setIsCustomInstructionsEnabledAction={setIsCustomInstructionsEnabled}
-          settingsOpen={settingsOpen}
-          setSettingsOpen={setSettingsOpen}
-        />
+        <AppSidebar user={user || null} />
         <SidebarInset>
           {/* Temporary Chat Header - show when in temp mode with messages but no regular header */}
           {user && isTemporaryChat && messages.length > 0 && !shouldShowHeader && (
@@ -1313,7 +1249,7 @@ const ChatInterface = memo(
                             setHeaderMenuOpen(open);
                           }}
                         >
-                          <div ref={headerGroupRef} className="inline-flex">
+                          <div className="inline-flex">
                             <ButtonGroup className="group gap-0.5">
                               <Button
                                 variant="ghost"
@@ -1334,7 +1270,6 @@ const ChatInterface = memo(
                                 className="focus:outline-none! focus:ring-0! focus:ring-offset-0!"
                               >
                                 <Button
-                                  ref={chevronBtnRef}
                                   variant="ghost"
                                   size="icon"
                                   className={cn(
@@ -1417,7 +1352,6 @@ const ChatInterface = memo(
               setCommandDialogOpen={(open) => dispatch({ type: 'SET_COMMAND_DIALOG_OPEN', payload: open })}
               showLookoutAnnouncement={chatState.showAnnouncementDialog}
               setShowLookoutAnnouncement={(open) => dispatch({ type: 'SET_SHOW_ANNOUNCEMENT_DIALOG', payload: open })}
-              hasShownLookoutAnnouncement={chatState.hasShownAnnouncementDialog}
               setHasShownLookoutAnnouncement={(value) => {
                 dispatch({ type: 'SET_HAS_SHOWN_ANNOUNCEMENT_DIALOG', payload: value });
                 setPersitedHasShownLookoutAnnouncement(value);

@@ -2,7 +2,7 @@ import 'server-only';
 
 import { and, asc, eq, gt } from 'drizzle-orm';
 import { hermesConnector, hermesConversation, hermesToolStep, message, type HermesToolStepStatus } from '../schema';
-import { ChatSDKError, databaseError } from '../../errors';
+import { databaseError } from '../../errors';
 import { maindb } from '../index';
 import { resolveHermesChatLock, type HermesChatLock } from '@/lib/hermes/chat-mode';
 

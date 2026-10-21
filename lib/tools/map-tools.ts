@@ -1,7 +1,6 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import { serverEnv } from '@/env/server';
-import { all } from 'better-all';
 
 import { createLogger } from '@/lib/logger';
 import { EXTERNAL_API_TIMEOUT_MS } from '@/lib/timeouts';

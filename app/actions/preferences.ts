@@ -1,7 +1,5 @@
 'use server';
 
-import { UIMessage, generateText, Output } from 'ai';
-import type { ModelMessage } from 'ai';
 import { getUser } from '@/lib/auth-utils';
 import {
   getCustomInstructionsByUserId,
@@ -9,14 +7,7 @@ import {
   updateCustomInstructions,
   deleteCustomInstructions,
 } from '@/lib/db/queries';
-import { db, maindb } from '@/lib/db';
-import { eq, desc, ilike, and, asc, inArray, notExists } from 'drizzle-orm';
 import { sendLookoutCompletionEmail } from '@/lib/email';
-import { GroqProviderOptions, groq } from '@ai-sdk/groq';
-import type { CharacterAlignmentResponseModel } from '@elevenlabs/elevenlabs-js/api/types/CharacterAlignmentResponseModel';
-import { lookoutCallbackHeaders, lookoutQstashHeaders } from '@/lib/lookout-auth';
-import { saveChat, saveMessages } from '@/lib/db/queries';
-import { all, allSettled } from 'better-all';
 
 import { createLogger } from '@/lib/logger';
 import { instructions as defaultSystemPromptInstructions } from '@/lib/search/groups/auto';

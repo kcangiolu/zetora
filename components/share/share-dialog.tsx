@@ -1,21 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
-import {
-  CopyIcon,
-  CheckIcon,
-  GlobeIcon,
-  LockIcon,
-  LinkedinLogoIcon,
-  XLogoIcon,
-  RedditLogoIcon,
-} from '@phosphor-icons/react';
+import { useState } from 'react';
+import { CheckIcon, GlobeIcon, LockIcon, XLogoIcon } from '@phosphor-icons/react';
 import { Copy } from 'lucide-react';
-import { HugeiconsIcon } from '@/components/ui/hugeicons';
-import { Share03Icon } from '@hugeicons/core-free-icons';
 import { sileo } from 'sileo';
 import { Button } from '@/components/ui/button';
-import { ExternalLink } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
@@ -112,35 +101,6 @@ export function ShareDialog({
       });
     } finally {
       setIsChangingVisibility(false);
-    }
-  };
-
-  const handleShareLinkedIn = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const linkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`;
-    window.open(linkedInUrl, '_blank', 'noopener,noreferrer');
-  };
-
-  const handleShareTwitter = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const twitterUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`;
-    window.open(twitterUrl, '_blank', 'noopener,noreferrer');
-  };
-
-  const handleShareReddit = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const redditUrl = `https://www.reddit.com/submit?url=${encodeURIComponent(shareUrl)}`;
-    window.open(redditUrl, '_blank', 'noopener,noreferrer');
-  };
-
-  const handleNativeShare = async () => {
-    try {
-      await navigator.share({
-        title: 'Shared Zetora Chat',
-        url: shareUrl,
-      });
-    } catch (error) {
-      await handleCopyLink();
     }
   };
 

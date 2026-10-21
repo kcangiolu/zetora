@@ -1,9 +1,8 @@
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { useTheme } from 'next-themes';
 import Latex from 'react-latex-next';
-import { ReactRenderer } from 'marked-react';
 import { Lexer } from 'marked';
-import React, { useCallback, useMemo, useState, useRef, lazy, Suspense, useEffect, use } from 'react';
+import React, { useCallback, useMemo, useState, lazy, Suspense, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Check, Copy, WrapText, ArrowLeftRight, ChevronDown, ChevronUp, Eye, Code2 } from 'lucide-react';
 import { sileo } from 'sileo';
@@ -174,7 +173,6 @@ const SvgPreview: React.FC<{ svg: string }> = ({ svg }) => {
 const CodeBlockInner: React.FC<CodeBlockInnerProps> = ({
   children,
   language,
-  elementKey,
   isUserMessage = false,
   allowPlainTextFallback = false,
 }) => {

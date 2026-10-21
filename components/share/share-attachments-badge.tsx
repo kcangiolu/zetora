@@ -1,4 +1,3 @@
-import React from 'react';
 import { FileText, Image as ImageIcon, File } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Attachment } from '@/lib/types';

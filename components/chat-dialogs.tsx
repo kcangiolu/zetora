@@ -124,7 +124,6 @@ interface ChatDialogsProps {
   setCommandDialogOpen: (open: boolean) => void;
   showLookoutAnnouncement: boolean;
   setShowLookoutAnnouncement: (open: boolean) => void;
-  hasShownLookoutAnnouncement: boolean;
   setHasShownLookoutAnnouncement: (value: boolean) => void;
   user: any;
 }
@@ -135,7 +134,6 @@ export const ChatDialogs = React.memo(
     setCommandDialogOpen,
     showLookoutAnnouncement,
     setShowLookoutAnnouncement,
-    hasShownLookoutAnnouncement,
     setHasShownLookoutAnnouncement,
     user,
   }: ChatDialogsProps) => {

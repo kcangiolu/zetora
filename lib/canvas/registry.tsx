@@ -1,6 +1,5 @@
 'use client';
 
-import { Fragment } from 'react';
 import { defineRegistry } from '@json-render/react';
 import { Cambio } from 'cambio';
 import { LayerCard } from '@cloudflare/kumo/components/layer-card';
@@ -54,7 +53,6 @@ import {
   TimelineTitle,
 } from '@/components/reui/timeline';
 import { canvasCatalog } from './catalog';
-import { cn } from '../utils';
 import { getDisplayHostname, getHostFaviconUrl } from '../url';
 
 // =============================================================================
@@ -359,7 +357,7 @@ export const { registry } = defineRegistry(canvasCatalog, {
       const yWidth = yAxisWidth(items, seriesKeys[0] ?? props.yKey);
 
       // Build config + colors for each series
-      const seriesColors = seriesKeys.map((key, i) => pickChartColor(key + (props.title ?? '')));
+      const seriesColors = seriesKeys.map((key) => pickChartColor(key + (props.title ?? '')));
       const chartConfig: ChartConfig = {};
       seriesKeys.forEach((key, i) => {
         chartConfig[key] = { label: key, color: seriesColors[i] };

@@ -68,7 +68,6 @@ const InteractiveMapComponent = memo<InteractiveMapProps>(
     const leafletRef = useRef<typeof Leaflet | null>(null);
     const [isMounted, setIsMounted] = useState(false);
     const { resolvedTheme } = useTheme();
-    const [isLeafletReady, setIsLeafletReady] = useState(false);
 
     // Ensure component only renders on client
     useEffect(() => {
@@ -130,7 +129,6 @@ const InteractiveMapComponent = memo<InteractiveMapProps>(
           if (!leafletRef.current) {
             const mod = await import('leaflet');
             leafletRef.current = mod;
-            setIsLeafletReady(true);
           }
           const L = leafletRef.current!;
 

@@ -197,25 +197,3 @@ export function getDynamicStepState(part: any): 'loading' | 'done' | 'error' {
   if (part.state === 'output-available') return 'done';
   return 'loading';
 }
-
-function getDynamicOutputText(output: any): string | null {
-  if (!output) return null;
-  if (typeof output === 'string') return output;
-  if (typeof output?.text === 'string') return output.text;
-
-  if (Array.isArray(output?.content)) {
-    const textParts = output.content
-      .map((contentPart: any) => {
-        if (typeof contentPart === 'string') return contentPart;
-        if (contentPart?.type === 'text' && typeof contentPart?.text === 'string') return contentPart.text;
-        return null;
-      })
-      .filter((value: string | null): value is string => Boolean(value));
-
-    if (textParts.length > 0) {
-      return textParts.join('\n\n');
-    }
-  }
-
-  return null;
-}

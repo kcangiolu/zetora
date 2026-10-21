@@ -3,8 +3,6 @@
 import { getCurrentUser } from './user';
 
 import { serverEnv } from '@/env/server';
-import { UIMessage, generateText, Output } from 'ai';
-import type { ModelMessage } from 'ai';
 import {
   createLookout,
   getLookoutsByUserId,
@@ -13,9 +11,6 @@ import {
   updateLookoutStatus,
   deleteLookout,
 } from '@/lib/db/queries';
-import { db, maindb } from '@/lib/db';
-import { chat, message, buildSession, type User } from '@/lib/db/schema';
-import { eq, desc, ilike, and, asc, inArray, notExists } from 'drizzle-orm';
 import { Client } from '@upstash/qstash';
 import {
   createBullMqSchedule,
@@ -25,11 +20,8 @@ import {
   resumeBullMqSchedule,
   getLookoutScheduler,
 } from '@/lib/services/bullmq';
-import type { CharacterAlignmentResponseModel } from '@elevenlabs/elevenlabs-js/api/types/CharacterAlignmentResponseModel';
 import { CronExpressionParser } from 'cron-parser';
 import { lookoutCallbackHeaders, lookoutQstashHeaders } from '@/lib/lookout-auth';
-import { saveChat, saveMessages } from '@/lib/db/queries';
-import { all, allSettled } from 'better-all';
 
 import { createLogger } from '@/lib/logger';
 

@@ -1,24 +1,11 @@
 'use client';
 
-import { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Kbd } from '@/components/ui/kbd';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import {
-  Search,
-  MessageSquare,
-  History,
-  Settings,
-  ArrowUp,
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  Eye,
-  Binoculars,
-  Globe,
-} from 'lucide-react';
+import { Search, MessageSquare, History, Settings, ArrowLeft } from 'lucide-react';
 
 interface KeyboardShortcutsDialogProps {
   open: boolean;

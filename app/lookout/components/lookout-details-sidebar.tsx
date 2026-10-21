@@ -52,8 +52,6 @@ interface LookoutWithHistory {
 interface LookoutDetailsSidebarProps {
   lookout: LookoutWithHistory;
   allLookouts: LookoutWithHistory[];
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
   onLookoutChange?: (lookout: LookoutWithHistory) => void;
   onEditLookout?: (lookout: LookoutWithHistory) => void;
   onTest?: (id: string) => void;
@@ -62,8 +60,6 @@ interface LookoutDetailsSidebarProps {
 export function LookoutDetailsSidebar({
   lookout,
   allLookouts,
-  isOpen,
-  onOpenChange,
   onLookoutChange,
   onEditLookout,
   onTest,

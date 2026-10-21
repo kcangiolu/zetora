@@ -15,7 +15,7 @@ import { ReasoningEffortToggle } from '@/components/ui/form-component/reasoning-
 import type { ReasoningEffort } from '@/lib/reasoning-effort-types';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { GlobalSearchIcon, Rocket01Icon, Cursor02Icon } from '@hugeicons/core-free-icons';
-import { Loader2, Search, CheckCircle2, XCircle, Mail } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Mail } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ModelSelectorDialog } from '@/components/ui/model-selector';
 

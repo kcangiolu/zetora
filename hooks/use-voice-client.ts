@@ -14,7 +14,7 @@ interface VoiceClientOptions {
   backend?: 'cloud' | 'local';
 }
 
-export interface ConversationTurn {
+interface ConversationTurn {
   role: 'user' | 'assistant' | 'tool';
   text: string;
   name?: string;

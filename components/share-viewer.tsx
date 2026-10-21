@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { sileo } from 'sileo';
 import { Copy, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import Messages from '@/components/messages';
 import { ShareAttachmentsBadge } from '@/components/share/share-attachments-badge';
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';

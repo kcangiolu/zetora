@@ -5,7 +5,6 @@ import { serverEnv } from '@/env/server';
 import FirecrawlApp from '@mendable/firecrawl-js';
 import Parallel from 'parallel-web';
 import { Supadata } from '@supadata/js';
-import { allSettled } from 'better-all';
 import { scrapeWithFastCrwForBrowsePage } from './self-hosted-content';
 
 import { createLogger } from '@/lib/logger';

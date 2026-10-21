@@ -4,16 +4,7 @@ import React, { memo, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import {
-  PlusIcon,
-  GearIcon,
-  SignIn,
-  GithubLogoIcon,
-  InfoIcon,
-  ShieldIcon,
-  BugIcon,
-  UsersIcon,
-} from '@phosphor-icons/react';
+import { PlusIcon, GearIcon, SignIn, GithubLogoIcon, InfoIcon, ShieldIcon, BugIcon } from '@phosphor-icons/react';
 import { BinocularsIcon, FolderLibraryIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { HermesModeDot } from '@/components/ui/hermes-mode-dot';
@@ -27,9 +18,6 @@ import {
   Trash2,
   Keyboard,
   X,
-  Check,
-  MessageSquare,
-  ExternalLink,
   LogOut,
   Pin,
   PinOff,
@@ -54,7 +42,6 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
-  SidebarGroupContent,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -71,12 +58,10 @@ import { Button } from './ui/button';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { KeyboardShortcutsDialog } from '@/components/keyboard-shortcuts-dialog';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AudioLinesIcon } from '@/components/ui/audio-lines';
-import { McpLogoIcon } from '@/components/icons/mcp-logo';
 import { AppsIcon } from '@/components/icons/apps-icon';
 import {
   AlertDialog,
@@ -108,7 +93,6 @@ interface UserDropdownContentProps {
   blurPersonalInfo: boolean;
   closeMobileSidebar: () => void;
   onShortcutsOpen: () => void;
-  isMobile: boolean;
 }
 
 function UserDropdownContent({
@@ -116,7 +100,6 @@ function UserDropdownContent({
   blurPersonalInfo,
   closeMobileSidebar,
   onShortcutsOpen,
-  isMobile,
 }: UserDropdownContentProps) {
   const { theme: currentTheme, setTheme } = useTheme();
   const router = useRouter();
@@ -354,16 +337,7 @@ function UserDropdownContent({
 }
 
 interface AppSidebarProps {
-  chatId: string | null;
-  selectedVisibilityType: VisibilityType;
-  onVisibilityChange: (visibility: VisibilityType) => void | Promise<void>;
   user: ComprehensiveUserData | null;
-  onHistoryClick: () => void;
-  isOwner?: boolean;
-  isCustomInstructionsEnabled?: boolean;
-  setIsCustomInstructionsEnabledAction?: (value: boolean | ((val: boolean) => boolean)) => void;
-  settingsOpen?: boolean;
-  setSettingsOpen?: (open: boolean) => void;
 }
 
 // Helper function to group chats by date
@@ -404,7 +378,7 @@ const groupChatsByDate = (chats: any[]) => {
   return groups;
 };
 
-export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
+export const AppSidebar = memo(({ user }: AppSidebarProps) => {
   const [blurPersonalInfo] = useSyncedPreferences<boolean>('zetora-blur-personal-info', false);
   const [lookoutEnabled] = useSyncedPreferences<boolean>('zetora-lookout-enabled', true);
   const [voiceEnabled] = useSyncedPreferences<boolean>('zetora-voice-enabled', true);
@@ -435,7 +409,6 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
   }, [isMobile, setOpenMobile]);
 
   const pathname = usePathname();
-  const router = useRouter();
   const queryClient = useQueryClient();
   const { renameChat, deleteChats } = useChatActions();
   const [renameTarget, setRenameTarget] = React.useState<{ id: string; title?: string | null } | null>(null);
@@ -1186,7 +1159,6 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
                       blurPersonalInfo={Boolean(blurPersonalInfo)}
                       closeMobileSidebar={closeMobileSidebar}
                       onShortcutsOpen={() => setKeyboardShortcutsOpen(true)}
-                      isMobile={Boolean(isMobile)}
                     />
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -1224,7 +1196,6 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
                       blurPersonalInfo={Boolean(blurPersonalInfo)}
                       closeMobileSidebar={closeMobileSidebar}
                       onShortcutsOpen={() => setKeyboardShortcutsOpen(true)}
-                      isMobile={Boolean(isMobile)}
                     />
                   </DropdownMenuContent>
                 </DropdownMenu>

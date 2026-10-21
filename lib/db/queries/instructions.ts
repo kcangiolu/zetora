@@ -2,9 +2,8 @@ import 'server-only';
 
 import { eq } from 'drizzle-orm';
 import { customInstructions } from '../schema';
-import { ChatSDKError, databaseError } from '../../errors';
+import { databaseError } from '../../errors';
 import { db, maindb } from '../index';
-import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
 
 import { createLogger } from '@/lib/logger';
 

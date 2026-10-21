@@ -417,11 +417,9 @@ function resolveOAuthClientId({
 
 async function registerDynamicOAuthClient({
   registrationUrl,
-  serverId,
   requestOrigin,
 }: {
   registrationUrl: string;
-  serverId: string;
   requestOrigin: string;
 }) {
   await validateMcpServerUrl(registrationUrl);
@@ -580,7 +578,6 @@ export async function buildMcpOAuthAuthorizationUrl({
       try {
         const registered = await registerDynamicOAuthClient({
           registrationUrl: endpoints.registrationUrl,
-          serverId: server.id,
           requestOrigin,
         });
         clientId = registered.clientId;

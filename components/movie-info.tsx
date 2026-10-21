@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'motion/react';
 import { Film, Tv, Star, Calendar, Clock, Users } from 'lucide-react';
 import { useMediaQuery } from '@/hooks/use-media-query';

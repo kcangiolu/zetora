@@ -51,7 +51,7 @@ SpinnerIcon.displayName = 'SpinnerIcon';
 const MarkdownRenderer = React.memo(({ content }: { content: string }) => {
   // Define custom renderer with proper types
   const renderer = {
-    code(code: string, language?: string) {
+    code(code: string) {
       return (
         <pre
           key={Math.random()}

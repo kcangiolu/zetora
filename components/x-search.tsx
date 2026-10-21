@@ -91,11 +91,6 @@ interface XSearchArgs {
   maxResults?: (number | undefined)[] | number | null;
 }
 
-interface NormalizedXSearchArgs {
-  queries: string[];
-  maxResults: number[];
-}
-
 interface XSearchProps {
   result: XSearchResponse | null;
   args: XSearchArgs;

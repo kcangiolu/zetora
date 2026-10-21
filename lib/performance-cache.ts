@@ -22,12 +22,10 @@ class PerformanceCache<T> {
   private tail: LRUNode<T> | null = null; // Least recently used
   private readonly maxSize: number;
   private readonly ttl: number;
-  private readonly name: string;
   private static cleanupTimer: ReturnType<typeof setInterval> | null = null;
   private static instances = new Set<PerformanceCache<any>>();
 
-  constructor(name: string, maxSize: number = 1000, ttlMs: number = 2 * 60 * 1000) {
-    this.name = name;
+  constructor(maxSize: number = 1000, ttlMs: number = 2 * 60 * 1000) {
     this.maxSize = maxSize;
     this.ttl = ttlMs;
 
@@ -180,8 +178,8 @@ class PerformanceCache<T> {
 }
 
 // Create cache instances with appropriate limits
-export const sessionCache = new PerformanceCache<any>('sessions', 500, 15 * 60 * 1000); // 15 min, 500 sessions
-export const usageCountCache = new PerformanceCache<number>('usage-counts', 2000, 5 * 60 * 1000); // 5 min, 2000 users
+export const sessionCache = new PerformanceCache<any>(500, 15 * 60 * 1000); // 15 min, 500 sessions
+export const usageCountCache = new PerformanceCache<number>(2000, 5 * 60 * 1000); // 5 min, 2000 users
 
 // Cache key generators
 export const createSessionKey = (token: string) => `session:${token}`;

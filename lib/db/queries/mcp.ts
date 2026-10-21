@@ -2,9 +2,8 @@ import 'server-only';
 
 import { and, desc, eq, isNotNull, or } from 'drizzle-orm';
 import { userMcpServer } from '../schema';
-import { ChatSDKError, databaseError } from '../../errors';
+import { databaseError } from '../../errors';
 import { maindb } from '../index';
-import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
 
 export interface UserMcpServerInput {
   userId: string;

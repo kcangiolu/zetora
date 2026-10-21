@@ -102,13 +102,7 @@ const InteractiveChart = React.memo(
               width: 1,
             },
           },
-          position: function (
-            pos: [number, number],
-            params: any,
-            dom: HTMLElement,
-            rect: { x: number; y: number; width: number; height: number },
-            size: { contentSize: [number, number]; viewSize: [number, number] },
-          ) {
+          position: function (pos: [number, number]) {
             // Handle mobile positioning
             const isMobile = window.innerWidth < 640;
             if (isMobile) {

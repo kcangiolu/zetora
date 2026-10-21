@@ -3,10 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import Marked from 'marked-react';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
-import { Drawer, DrawerContent } from '@/components/ui/drawer';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { getDisplayHostname, getFaviconUrl } from '@/lib/url';
 import { Globe, ArrowUpRight, TextIcon, ChevronDown, Layers } from 'lucide-react';

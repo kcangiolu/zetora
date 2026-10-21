@@ -24,16 +24,6 @@ import {
   type ExtremeProviderClients,
 } from '@/lib/tools/extreme-search/providers';
 
-function stubFetch(responsesByUrlSubstring: Record<string, unknown>) {
-  const fetchMock = vi.fn(async (url: string) => {
-    const match = Object.entries(responsesByUrlSubstring).find(([key]) => url.includes(key));
-    if (!match) return { ok: false, status: 404, json: async () => ({}) };
-    return { ok: true, status: 200, json: async () => match[1] };
-  });
-  vi.stubGlobal('fetch', fetchMock);
-  return fetchMock;
-}
-
 afterEach(() => {
   vi.unstubAllGlobals();
 });

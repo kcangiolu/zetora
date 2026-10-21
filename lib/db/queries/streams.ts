@@ -3,9 +3,8 @@ import 'server-only';
 import { cache } from 'react';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { chat, message, stream } from '../schema';
-import { ChatSDKError, databaseError } from '../../errors';
+import { databaseError } from '../../errors';
 import { db, maindb } from '../index';
-import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
 
 import { createLogger } from '@/lib/logger';
 

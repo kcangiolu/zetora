@@ -1,6 +1,6 @@
 // Helper functions for time conversion and formatting
 
-export const convertTo12Hour = (hour24: number): number => {
+const convertTo12Hour = (hour24: number): number => {
   if (hour24 === 0) return 12;
   if (hour24 > 12) return hour24 - 12;
   return hour24;

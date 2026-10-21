@@ -1,7 +1,7 @@
 import 'server-only';
 import { isAnonymizationAvailable } from '@/lib/instance/capabilities';
 
-import { wrapLanguageModel, extractReasoningMiddleware, gateway, type LanguageModel } from 'ai';
+import { wrapLanguageModel, extractReasoningMiddleware, gateway } from 'ai';
 import type { LanguageModelV3 } from '@ai-sdk/provider';
 import { dynamicXmlToolMiddleware } from '@/ai/xml-tool-middleware';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';

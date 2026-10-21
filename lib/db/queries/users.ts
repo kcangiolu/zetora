@@ -3,9 +3,8 @@ import 'server-only';
 import { cache } from 'react';
 import { eq } from 'drizzle-orm';
 import { user, type User } from '../schema';
-import { ChatSDKError, databaseError } from '../../errors';
+import { databaseError } from '../../errors';
 import { db } from '../index';
-import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
 
 // Cache user lookups for the duration of the request
 // Cache user by ID lookups for the duration of the request

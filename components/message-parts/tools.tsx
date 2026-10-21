@@ -154,12 +154,7 @@ export const DynamicToolInvocationCard = ({
               {/* Approval card or raw output */}
               {hasRawOutput &&
                 (approval ? (
-                  <McpApprovalCard
-                    approval={approval}
-                    toolLabel={toolLabel}
-                    sendMessage={sendMessage}
-                    onStatusChange={setApprovalStatus}
-                  />
+                  <McpApprovalCard approval={approval} sendMessage={sendMessage} onStatusChange={setApprovalStatus} />
                 ) : (
                   <McpOutputBlock output={part.output} />
                 ))}
@@ -304,9 +299,6 @@ export const DynamicToolStepper = ({
       (entry.kind === 'tool' && (entry.part.state === 'input-streaming' || entry.part.state === 'input-available')) ||
       (entry.kind === 'reasoning' && entry.state === 'streaming'),
   );
-  const doneCount = toolEntries.filter(
-    (entry) => entry.part.state === 'output-available' || entry.part.state === 'output-error',
-  ).length;
   const hasErrors = toolEntries.some((entry) => entry.part.state === 'output-error');
 
   // Collect ALL completed tool entries that have an app UI — shown stacked in the App tab

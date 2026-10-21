@@ -58,7 +58,6 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import { FolderLibraryIcon, Search01Icon } from '@hugeicons/core-free-icons';
 import { cn } from '@/lib/utils';
 import { useModels } from '@/hooks/use-models';
-import { DropdownMenuCheckboxItem, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
 import { useChatActions } from '@/hooks/use-chat-actions';
 
 interface Chat {
@@ -268,16 +267,6 @@ export function SearchesPage({ userId }: SearchesPageProps) {
     });
   }, []);
 
-  const toggleSelectAll = useCallback(() => {
-    const displayedIds = new Set(displayedChats.map((c) => c.id));
-    const allSelected = displayedChats.every((c) => selectedChatIds.has(c.id));
-    setSelectedChatIds((prev) => {
-      const next = new Set(prev);
-      displayedIds.forEach((id) => (allSelected ? next.delete(id) : next.add(id)));
-      return next;
-    });
-  }, [displayedChats, selectedChatIds]);
-
   const handleBulkDelete = useCallback(async () => {
     if (selectedChatIds.size === 0) return;
     setIsDeleting(true);
@@ -291,9 +280,6 @@ export function SearchesPage({ userId }: SearchesPageProps) {
       setIsDeleting(false);
     }
   }, [selectedChatIds, deleteChats]);
-
-  const allDisplayedSelected = displayedChats.length > 0 && displayedChats.every((c) => selectedChatIds.has(c.id));
-  const someDisplayedSelected = displayedChats.some((c) => selectedChatIds.has(c.id)) && !allDisplayedSelected;
 
   const handleRenameClick = useCallback((chat: Chat) => {
     setRenamingChat({ id: chat.id, title: chat.title });

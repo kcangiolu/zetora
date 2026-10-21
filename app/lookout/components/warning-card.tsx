@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { Alert02Icon, AlarmClockIcon } from '@hugeicons/core-free-icons';
 import { Card, CardContent } from '@/components/ui/card';
