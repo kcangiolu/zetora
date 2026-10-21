@@ -9,6 +9,7 @@ import { Check, Copy, WrapText, ArrowLeftRight, ChevronDown, ChevronUp, Eye, Cod
 import { sileo } from 'sileo';
 import type { CitationLink, CitationGroup } from './shared';
 import { parseTaggedLinkContent } from './shared';
+import { keepInlineLinkText } from '@/lib/markdown-inline-links';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { geistMono } from '@/lib/fonts';
 
@@ -872,7 +873,8 @@ export const useProcessedContent = (content: string) => {
       }
 
       citationProcessed += modifiedContent.slice(lastCitationIndex);
-      modifiedContent = citationProcessed;
+      modifiedContent = keepInlineLinkText(citationProcessed);
+      for (const row of tableBlocks) row.content = keepInlineLinkText(row.content);
 
       // Group consecutive citations using marked's Lexer for robust link parsing
       const citationGroups: CitationGroup[] = [];
