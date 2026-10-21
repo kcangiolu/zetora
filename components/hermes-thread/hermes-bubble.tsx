@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { useWebHaptics } from 'web-haptics/react';
 import { cn } from '@/lib/utils';
@@ -18,17 +18,14 @@ export interface HermesBubbleAction {
   separated?: boolean;
 }
 
-const LONG_PRESS_MS = 450;
-// A finger that drifts further than this is scrolling, not pressing.
-const LONG_PRESS_SLOP_PX = 10;
-
 // A click on something inside the bubble that has its own job is not a click on the bubble.
 function isOwnControl(target: EventTarget | null): boolean {
   return target instanceof Element && Boolean(target.closest('a, button, input, textarea, select, [role="button"]'));
 }
 
-// A message in an Agent conversation. Selecting it (a click on desktop, a long press on a
-// phone) offers its actions: a toolbar under the bubble, or a sheet from the bottom.
+// A message in an Agent conversation. A click or a tap selects it and offers its actions: a
+// toolbar under the bubble, or a sheet from the bottom on a phone. A long press stays the
+// system's text selection, so part of a message can be copied.
 export function HermesBubble({
   from,
   label,
@@ -49,14 +46,9 @@ export function HermesBubble({
 }) {
   const isMobile = useIsMobile();
   const haptics = useWebHaptics();
-  const pressRef = useRef<{ timer: ReturnType<typeof setTimeout>; x: number; y: number } | null>(null);
-
-  useEffect(() => () => clearTimeout(pressRef.current?.timer), []);
-
-  const cancelPress = () => {
-    clearTimeout(pressRef.current?.timer);
-    pressRef.current = null;
-  };
+  // Read when the press starts: a tap that only dismisses a text selection has already
+  // cleared it by the time the click arrives.
+  const hadSelectionRef = useRef(false);
 
   const run = (action: HermesBubbleAction) => {
     onSelectedChange(false);
@@ -74,7 +66,6 @@ export function HermesBubble({
           : 'max-w-full self-start rounded-bl-md border border-border bg-card sm:max-w-[85%]',
         selected &&
           'ring-1 ring-primary ring-offset-0 shadow-[0_0_0_4px_color-mix(in_oklch,var(--primary)_14%,transparent)]',
-        isMobile && 'select-none [-webkit-touch-callout:none]',
         className,
       )}
       tabIndex={0}
@@ -87,29 +78,15 @@ export function HermesBubble({
           onSelectedChange(false);
         }
       }}
+      onPointerDown={() => {
+        hadSelectionRef.current = Boolean(window.getSelection()?.toString());
+      }}
       onClick={(event) => {
-        if (isMobile || isOwnControl(event.target)) return;
-        // Releasing a text selection is not a request for actions.
-        if (window.getSelection()?.toString()) return;
+        if (isOwnControl(event.target)) return;
+        // Making or dismissing a text selection is not a request for actions.
+        if (hadSelectionRef.current || window.getSelection()?.toString()) return;
+        if (isMobile) haptics.trigger('light');
         onSelectedChange(!selected);
-      }}
-      onPointerDown={(event) => {
-        if (!isMobile || event.pointerType !== 'touch' || isOwnControl(event.target)) return;
-        const timer = setTimeout(() => {
-          pressRef.current = null;
-          haptics.trigger('medium');
-          onSelectedChange(true);
-        }, LONG_PRESS_MS);
-        pressRef.current = { timer, x: event.clientX, y: event.clientY };
-      }}
-      onPointerMove={(event) => {
-        const press = pressRef.current;
-        if (press && Math.hypot(event.clientX - press.x, event.clientY - press.y) > LONG_PRESS_SLOP_PX) cancelPress();
-      }}
-      onPointerUp={cancelPress}
-      onPointerCancel={cancelPress}
-      onContextMenu={(event) => {
-        if (isMobile) event.preventDefault();
       }}
     >
       {children}
