@@ -70,13 +70,14 @@ export function useModeOptions({
   const isHermesLocked = isHermesChat;
 
   const [searchProviderPref] = useSyncedPreferences<string>('zetora-search-provider', '');
-  const availableSearchProviders = useInstanceCapabilities()?.searchProviders;
+  const capabilities = useInstanceCapabilities();
+  const availableSearchProviders = capabilities?.searchProviders;
   const searchGroups = useMemo(
     () =>
       getSearchGroups(
         pickSearchProvider('web', searchProviderPref, availableSearchProviders ?? []) ?? undefined,
-      ).filter((group) => isSearchGroupAvailable(group.id, availableSearchProviders)),
-    [searchProviderPref, availableSearchProviders],
+      ).filter((group) => isSearchGroupAvailable(group.id, capabilities)),
+    [searchProviderPref, availableSearchProviders, capabilities],
   );
   const [visibleModes] = useSyncedPreferences<string[]>('zetora-visible-modes', []);
   const [modeOrder] = useSyncedPreferences<string[]>('zetora-group-order', []);

@@ -29,8 +29,32 @@ describe('isToolAvailable', () => {
     expect(isToolAvailable('track_flight')).toBe(false);
   });
 
+  it('offers code execution only once a sandbox is chosen', async () => {
+    const { isToolAvailable: withoutSandbox } = await loadCapabilities({ SANDBOX_PROVIDER: '' });
+    expect(withoutSandbox('code_interpreter')).toBe(false);
+
+    const { isToolAvailable: withSandbox } = await loadCapabilities({ SANDBOX_PROVIDER: 'docker' });
+    expect(withSandbox('code_interpreter')).toBe(true);
+  });
+
   it('offers tools that need no key', async () => {
     const { isToolAvailable } = await loadCapabilities({});
     expect(isToolAvailable('datetime')).toBe(true);
+  });
+});
+
+describe('getInstanceCapabilities', () => {
+  it('lists the sources none of whose tools can run', async () => {
+    const { getInstanceCapabilities } = await loadCapabilities({
+      XAI_API_KEY: '',
+      SUPADATA_API_KEY: '',
+      SANDBOX_PROVIDER: '',
+      EXA_API_KEY: '',
+      TMDB_API_KEY: 'tmdb-key',
+      COINGECKO_API_KEY: 'coingecko-key',
+    });
+    const { unavailableSources } = getInstanceCapabilities();
+    expect(unavailableSources).toEqual(expect.arrayContaining(['x', 'youtube', 'code']));
+    expect(unavailableSources).not.toContain('crypto');
   });
 });

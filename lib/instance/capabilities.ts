@@ -2,6 +2,7 @@ import 'server-only';
 
 import { serverEnv } from '@/env/server';
 import { isConfigured } from '@/ai/catalog/env';
+import { toolGroupMap } from '@/lib/search/groups/auto';
 import {
   SEARCH_PROVIDER_IDS,
   pickFallbackSearchProvider,
@@ -23,6 +24,9 @@ export interface InstanceCapabilities {
   anonymization: boolean;
   // s2s-service: the local Voice backend.
   localVoice: boolean;
+  // Chat sources none of whose tools this instance can run (an API key not
+  // set, no sandbox), hidden like the sources with no search provider.
+  unavailableSources: string[];
 }
 
 const SEARCH_PROVIDER_CONFIGURED: Record<SearchProviderId, () => boolean> = {
@@ -50,12 +54,21 @@ export function isLocalVoiceAvailable(): boolean {
   return Boolean(process.env.VOICE_S2S_URL?.trim());
 }
 
+function getUnavailableSources(): string[] {
+  const toolsBySource = new Map<string, string[]>();
+  for (const [toolName, source] of Object.entries(toolGroupMap)) {
+    toolsBySource.set(source, [...(toolsBySource.get(source) ?? []), toolName]);
+  }
+  return [...toolsBySource].filter(([, toolNames]) => !toolNames.some(isToolAvailable)).map(([source]) => source);
+}
+
 export function getInstanceCapabilities(): InstanceCapabilities {
   return {
     searchProviders: getAvailableSearchProviders(),
     hybridSearch: isHybridSearchAvailable(),
     anonymization: isAnonymizationAvailable(),
     localVoice: isLocalVoiceAvailable(),
+    unavailableSources: getUnavailableSources(),
   };
 }
 
@@ -91,10 +104,12 @@ const TOOL_KEYS_CONFIGURED: Record<string, () => boolean> = {
 };
 
 // False for a tool this instance cannot run: a search tool with no provider,
-// or a tool whose API key is not set. Such a tool is never offered.
+// code execution with no sandbox, or a tool whose API key is not set. Such a
+// tool is never offered.
 export function isToolAvailable(toolName: string): boolean {
   const fn = SEARCH_TOOL_FUNCTIONS[toolName];
   if (fn && searchProvidersFor(fn, getAvailableSearchProviders()).length === 0) return false;
+  if (toolName === 'code_interpreter' && !serverEnv.SANDBOX_PROVIDER) return false;
   return TOOL_KEYS_CONFIGURED[toolName]?.() ?? true;
 }
 

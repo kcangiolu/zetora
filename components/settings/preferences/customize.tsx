@@ -19,16 +19,17 @@ export function CustomizeTab() {
   // Own instance of the chat search provider (read-only here) — kept in sync
   // with the Search tab's instance via useSyncedPreferences' CustomEvent.
   const [searchProviderPref] = useSyncedPreferences<string>('zetora-search-provider', '');
-  const availableSearchProviders = useInstanceCapabilities()?.searchProviders;
+  const capabilities = useInstanceCapabilities();
+  const availableSearchProviders = capabilities?.searchProviders;
 
   // Customize state: enabled sources and preferred models. Sources this
-  // instance has no search provider for are not listed.
+  // instance cannot run are not listed.
   const dynamicGroups = useMemo(
     () =>
       getSearchGroups(
         pickSearchProvider('web', searchProviderPref, availableSearchProviders ?? []) ?? undefined,
-      ).filter((group) => isSearchGroupAvailable(group.id, availableSearchProviders)),
-    [searchProviderPref, availableSearchProviders],
+      ).filter((group) => isSearchGroupAvailable(group.id, capabilities)),
+    [searchProviderPref, availableSearchProviders, capabilities],
   );
   const [visibleModesLegacy] = useSyncedPreferences<string[]>('zetora-visible-modes', []);
   const [enabledSourcesPref, setEnabledSources] = useSyncedPreferences<string[]>('zetora-enabled-sources', []);

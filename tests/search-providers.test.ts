@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { pickFallbackSearchProvider, pickSearchProvider, searchProvidersFor } from '@/lib/search/providers';
+import {
+  isSearchGroupAvailable,
+  pickFallbackSearchProvider,
+  pickSearchProvider,
+  searchProvidersFor,
+} from '@/lib/search/providers';
 
 describe('pickSearchProvider', () => {
   it("keeps the user's choice when the instance has it", () => {
@@ -33,5 +38,20 @@ describe('pickFallbackSearchProvider', () => {
   it('never returns the primary provider', () => {
     expect(pickFallbackSearchProvider('web', 'exa', 'exa', ['exa', 'firecrawl'])).toBe('firecrawl');
     expect(pickFallbackSearchProvider('web', undefined, 'exa', ['exa'])).toBeNull();
+  });
+});
+
+describe('isSearchGroupAvailable', () => {
+  it('hides a source the instance cannot run, and search sources with no provider', () => {
+    const capabilities = { searchProviders: ['exa' as const], unavailableSources: ['x'] };
+    expect(isSearchGroupAvailable('x', capabilities)).toBe(false);
+    expect(isSearchGroupAvailable('web', capabilities)).toBe(true);
+    expect(isSearchGroupAvailable('reddit', capabilities)).toBe(false);
+    expect(isSearchGroupAvailable('youtube', capabilities)).toBe(true);
+  });
+
+  it('hides search sources while the capabilities load', () => {
+    expect(isSearchGroupAvailable('web', undefined)).toBe(false);
+    expect(isSearchGroupAvailable('chat', undefined)).toBe(true);
   });
 });

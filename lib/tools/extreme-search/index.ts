@@ -109,7 +109,7 @@ async function extremeSearch(
     done: createDoneTool(context),
   };
   const activeTools = [
-    'codeRunner' as const,
+    ...(isToolAvailable('code_interpreter') ? (['codeRunner'] as const) : []),
     'webSearch' as const,
     'browsePage' as const,
     ...(isToolAvailable('x_search') ? (['xSearch'] as const) : []),

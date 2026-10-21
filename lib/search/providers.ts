@@ -1,3 +1,5 @@
+import type { InstanceCapabilities } from '@/lib/instance/capabilities';
+
 // Which search providers can serve each search function, in the order a
 // default is picked when the user hasn't chosen one (or chose one this
 // instance doesn't have): the instance's self-hosted services first, then
@@ -63,11 +65,16 @@ const SEARCH_GROUP_FUNCTIONS: Partial<Record<string, SearchFunction>> = {
   academic: 'academic',
   reddit: 'reddit',
   github: 'github',
+  extreme: 'extremeSearch',
   'extreme-search': 'extremeSearch',
 };
 
-export function isSearchGroupAvailable(groupId: string, available: readonly SearchProviderId[] | undefined): boolean {
+export function isSearchGroupAvailable(
+  groupId: string,
+  capabilities: Pick<InstanceCapabilities, 'searchProviders' | 'unavailableSources'> | undefined,
+): boolean {
+  if (capabilities?.unavailableSources.includes(groupId)) return false;
   const fn = SEARCH_GROUP_FUNCTIONS[groupId];
   if (!fn) return true;
-  return available !== undefined && searchProvidersFor(fn, available).length > 0;
+  return capabilities !== undefined && searchProvidersFor(fn, capabilities.searchProviders).length > 0;
 }

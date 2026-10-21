@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState, useCallback, memo, useEffect, useRef } from 'react';
+import React, { useState, useCallback, memo, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
+import { useInstanceCapabilities } from '@/hooks/use-instance-capabilities';
+import { isSearchGroupAvailable } from '@/lib/search/providers';
 import {
   RedditIcon,
   NewTwitterIcon,
@@ -94,6 +96,21 @@ interface ExampleCategoriesProps {
 export const ExampleCategories = memo(({ onSelectExample, className }: ExampleCategoriesProps) => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+  // Only examples whose source this instance can run, and none until its
+  // capabilities are known, so no chip appears and then vanishes.
+  const capabilities = useInstanceCapabilities();
+  const offeredCategories = useMemo(
+    () =>
+      (capabilities ? categories : [])
+        .map((category) => ({
+          ...category,
+          examples: category.examples.filter(
+            (example) => !example.group || isSearchGroupAvailable(example.group, capabilities),
+          ),
+        }))
+        .filter((category) => category.examples.length > 0),
+    [capabilities],
+  );
 
   const handleCategoryClick = useCallback((categoryId: string) => {
     setSelectedCategory((prev) => (prev === categoryId ? null : categoryId));
@@ -135,7 +152,7 @@ export const ExampleCategories = memo(({ onSelectExample, className }: ExampleCa
     };
   }, [selectedCategory]);
 
-  const activeCategory = categories.find((c) => c.id === selectedCategory);
+  const activeCategory = offeredCategories.find((c) => c.id === selectedCategory);
 
   return (
     <div className={cn('w-full relative', className)}>
@@ -146,7 +163,7 @@ export const ExampleCategories = memo(({ onSelectExample, className }: ExampleCa
           selectedCategory ? 'opacity-0 pointer-events-none' : 'opacity-100',
         )}
       >
-        {categories.map((category) => (
+        {offeredCategories.map((category) => (
           <motion.button
             key={category.id}
             onClick={() => handleCategoryClick(category.id)}
