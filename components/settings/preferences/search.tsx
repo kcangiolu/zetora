@@ -65,9 +65,11 @@ function providerOption(id: SearchProviderId) {
 function ProviderTable({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="mt-4 rounded-xl border border-border/60 overflow-hidden">
-      <div className="flex items-center justify-between gap-6 px-4 py-2.5 border-b border-border/40 bg-muted/30">
+      <div className="flex flex-col gap-1.5 px-4 py-2.5 border-b border-border/40 bg-muted/30 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
         <p className="text-xs font-medium text-muted-foreground">{title}</p>
-        <div className="hidden sm:flex items-center gap-2 text-[11px] text-muted-foreground shrink-0">
+        {/* On a phone the selects sit under each row's title, at the left edge: the labels
+            line up with them there. */}
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground shrink-0">
           <span className="w-[140px] pl-3">Primary</span>
           <span className="w-3.5" />
           <span className="w-[140px] pl-3">Fallback if empty</span>
