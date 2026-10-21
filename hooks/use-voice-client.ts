@@ -8,7 +8,8 @@ type AgentState = null | 'thinking' | 'listening' | 'talking';
 interface VoiceClientOptions {
   voice?: VoiceType;
   instructions?: string;
-  initialMuted?: boolean;
+  /** Whether the microphone is muted. The caller owns this state. */
+  muted?: boolean;
   /** 'cloud' (xAI Realtime, default) or 'local' (self-hosted s2s-service). */
   backend?: 'cloud' | 'local';
 }
@@ -41,8 +42,6 @@ interface UseVoiceClientReturn {
   connect: () => Promise<void>;
   disconnect: () => void;
   setVoice: (voice: VoiceType) => void;
-  isMuted: boolean;
-  setMuted: (muted: boolean) => void;
   inputVolumeRef: React.RefObject<number>;
   outputVolumeRef: React.RefObject<number>;
   sendText: (text: string) => void;
@@ -213,13 +212,12 @@ function base64PCM16ToFloat32(base64: string): Float32Array {
 }
 
 export function useVoiceClient(options: VoiceClientOptions = {}): UseVoiceClientReturn {
-  const { voice = 'Ara', instructions, initialMuted = false, backend = 'cloud' } = options;
+  const { voice = 'Ara', instructions, muted: isMuted = false, backend = 'cloud' } = options;
 
   const [agentState, setAgentState] = useState<AgentState>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [transcript, setTranscript] = useState('');
-  const [isMuted, setIsMuted] = useState(initialMuted);
   const [conversation, setConversation] = useState<ConversationTurn[]>([]);
   const [stats, setStats] = useState<VoiceStats>({
     lastLatencyMs: null,
@@ -251,8 +249,6 @@ export function useVoiceClient(options: VoiceClientOptions = {}): UseVoiceClient
   const isMutedRef = useRef(false);
   const assistantBufferRef = useRef('');
   const voiceRef = useRef<VoiceType>(voice);
-  // Keep ref in sync during render (not just in effect) to avoid stale values
-  voiceRef.current = voice;
   const toolCallByIdRef = useRef(new Map<string, { name: string; args?: string }>());
   const seenToolCallsRef = useRef(new Set<string>());
   const seenToolOutputsRef = useRef(new Set<string>());
@@ -458,42 +454,46 @@ export function useVoiceClient(options: VoiceClientOptions = {}): UseVoiceClient
   }, []);
 
   const playNextChunk = useCallback((audioContext: AudioContext) => {
-    if (playbackQueueRef.current.length === 0) {
-      isPlayingRef.current = false;
-      currentPlaybackSourceRef.current = null;
-      return;
-    }
-
-    const chunk = playbackQueueRef.current.shift()!;
-    const audioBuffer = audioContext.createBuffer(1, chunk.length, audioContext.sampleRate);
-    audioBuffer.getChannelData(0).set(chunk);
-
-    const source = audioContext.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(audioContext.destination);
-    currentPlaybackSourceRef.current = source;
-    queuedPlaybackSourcesRef.current.push(source);
-
-    // Compute output RMS for Orb
-    let sum = 0;
-    for (let i = 0; i < chunk.length; i++) {
-      sum += chunk[i] * chunk[i];
-    }
-    outputVolumeRef.current = Math.sqrt(sum / chunk.length);
-
-    const now = audioContext.currentTime;
-    const startAt = Math.max(now, nextPlayTimeRef.current);
-    nextPlayTimeRef.current = startAt + audioBuffer.duration;
-    source.start(startAt);
-
-    source.onended = () => {
-      const idx = queuedPlaybackSourcesRef.current.indexOf(source);
-      if (idx !== -1) queuedPlaybackSourcesRef.current.splice(idx, 1);
-      if (currentPlaybackSourceRef.current === source) {
+    // Each chunk schedules the next one when it ends, until the queue is empty.
+    const playNext = () => {
+      if (playbackQueueRef.current.length === 0) {
+        isPlayingRef.current = false;
         currentPlaybackSourceRef.current = null;
+        return;
       }
-      playNextChunk(audioContext);
+
+      const chunk = playbackQueueRef.current.shift()!;
+      const audioBuffer = audioContext.createBuffer(1, chunk.length, audioContext.sampleRate);
+      audioBuffer.getChannelData(0).set(chunk);
+
+      const source = audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(audioContext.destination);
+      currentPlaybackSourceRef.current = source;
+      queuedPlaybackSourcesRef.current.push(source);
+
+      // Compute output RMS for Orb
+      let sum = 0;
+      for (let i = 0; i < chunk.length; i++) {
+        sum += chunk[i] * chunk[i];
+      }
+      outputVolumeRef.current = Math.sqrt(sum / chunk.length);
+
+      const now = audioContext.currentTime;
+      const startAt = Math.max(now, nextPlayTimeRef.current);
+      nextPlayTimeRef.current = startAt + audioBuffer.duration;
+      source.start(startAt);
+
+      source.onended = () => {
+        const idx = queuedPlaybackSourcesRef.current.indexOf(source);
+        if (idx !== -1) queuedPlaybackSourcesRef.current.splice(idx, 1);
+        if (currentPlaybackSourceRef.current === source) {
+          currentPlaybackSourceRef.current = null;
+        }
+        playNext();
+      };
     };
+    playNext();
   }, []);
 
   const playAudio = useCallback(
@@ -1115,8 +1115,6 @@ export function useVoiceClient(options: VoiceClientOptions = {}): UseVoiceClient
     connect,
     disconnect,
     setVoice,
-    isMuted,
-    setMuted: (muted: boolean) => setIsMuted(muted),
     inputVolumeRef,
     outputVolumeRef,
     sendText,

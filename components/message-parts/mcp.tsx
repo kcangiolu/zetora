@@ -19,6 +19,7 @@ import {
   type McpUiResourceMeta,
 } from '@modelcontextprotocol/ext-apps/app-bridge';
 import { useTheme } from 'next-themes';
+import { useQuery } from '@tanstack/react-query';
 import { Loader2, Check, X, Clock } from 'lucide-react';
 import { ArrowRightIcon } from '@phosphor-icons/react';
 
@@ -346,10 +347,6 @@ export interface McpAppRenderData {
 
 const SANDBOX_ORIGIN = process.env.NEXT_PUBLIC_MCP_SANDBOX_ORIGIN || '';
 
-// Module-level cache: serverId:resourceUri -> { html, resourceMeta }
-// Survives accordion close/reopen and tab switches without re-fetching
-const mcpHtmlCache = new Map<string, { html: string; resourceMeta: McpUiResourceMeta | null }>();
-
 function getSandboxUrl(resourceUri: string): string | null {
   if (!SANDBOX_ORIGIN) return null;
   return SANDBOX_ORIGIN.replace(/\/+$/, '');
@@ -512,19 +509,11 @@ export function McpAppOutputBlock({
   useEffect(() => {
     sendMessageRef.current = sendMessage;
   }, [sendMessage]);
-  const [resolvedHtml, setResolvedHtml] = useState<string | null>(
-    app.kind === 'iframe-html' ? (app.html ?? null) : null,
-  );
-  const [resourceMeta, setResourceMeta] = useState<McpUiResourceMeta | null>(null);
   // resourceMeta ref — read at call time in bridge so it doesn't re-trigger the bridge effect
   const resourceMetaRef = useRef<McpUiResourceMeta | null>(null);
-  useEffect(() => {
-    resourceMetaRef.current = resourceMeta;
-  }, [resourceMeta]);
   const [isBridgeReady, setIsBridgeReady] = useState(false);
   const [iframeHeight, setIframeHeight] = useState<number | null>(null);
-  const [isLoading, setIsLoading] = useState(app.kind === 'ui-resource');
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [bridgeError, setBridgeError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   // isFullscreen ref — read at call time in the bridge's onsizechange handler
   // so toggling fullscreen doesn't re-trigger (and reconnect) the bridge effect
@@ -553,6 +542,64 @@ export function McpAppOutputBlock({
     [app.kind, app.resourceUri],
   );
   const useSandbox = !!sandboxUrl;
+
+  // Cached for the whole session, so reopening the accordion or switching tabs does not refetch
+  const resourceQuery = useQuery({
+    queryKey: ['mcp-app-resource', app.serverId, app.resourceUri],
+    enabled: app.kind === 'ui-resource' && !!app.resourceUri && !!app.serverId,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    retry: false,
+    queryFn: async () => {
+      logMcpAppDebug('resource-read-start', {
+        serverId: app.serverId,
+        resourceUri: app.resourceUri,
+      });
+      try {
+        const response = await fetch('/api/mcp/apps/resource/read', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            serverId: app.serverId,
+            resourceUri: app.resourceUri,
+          }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload?.cause || payload?.message || 'Failed to load MCP app resource');
+        }
+        const html = typeof payload?.html === 'string' ? payload.html : null;
+        const meta = (payload?.resourceMeta ?? null) as McpUiResourceMeta | null;
+        logMcpAppDebug('resource-read-success', {
+          serverId: app.serverId,
+          resourceUri: app.resourceUri,
+          htmlLength: html?.length ?? 0,
+          useSandbox,
+          sandboxUrl,
+          hasCsp: !!meta?.csp,
+          hasPermissions: !!meta?.permissions,
+        });
+        return { html, resourceMeta: meta };
+      } catch (error) {
+        logMcpAppDebug('resource-read-error', {
+          serverId: app.serverId,
+          resourceUri: app.resourceUri,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    },
+  });
+  const isInlineHtml = app.kind === 'iframe-html';
+  const resolvedHtml = isInlineHtml ? (app.html ?? null) : (resourceQuery.data?.html ?? null);
+  const resourceMeta = isInlineHtml ? null : (resourceQuery.data?.resourceMeta ?? null);
+  const isLoading = app.kind === 'ui-resource' && resourceQuery.isPending;
+  const loadError = resourceQuery.error
+    ? resourceQuery.error.message || 'Failed to load MCP app resource'
+    : bridgeError;
+  useEffect(() => {
+    resourceMetaRef.current = resourceMeta;
+  }, [resourceMeta]);
   const buildHostContext = useCallback((): McpUiHostContext => {
     const inlineHeight = iframeHeight ? Math.max(320, iframeHeight - 2) : 420;
     const inlineWidth = iframeRef.current?.clientWidth;
@@ -604,92 +651,6 @@ export function McpAppOutputBlock({
     },
     [app.serverId],
   );
-
-  useEffect(() => {
-    if (app.kind === 'iframe-html') {
-      logMcpAppDebug('using-inline-html-app', {
-        toolName: app.toolName,
-      });
-      setResolvedHtml(app.html ?? null);
-      setResourceMeta(null);
-      setLoadError(null);
-      setIsLoading(false);
-      return;
-    }
-
-    if (app.kind !== 'ui-resource' || !app.resourceUri || !app.serverId) return;
-
-    // Check module-level cache first — avoids re-fetching on accordion reopen
-    const cacheKey = `${app.serverId}:${app.resourceUri}`;
-    const cached = mcpHtmlCache.get(cacheKey);
-    if (cached) {
-      logMcpAppDebug('resource-cache-hit', {
-        serverId: app.serverId,
-        resourceUri: app.resourceUri,
-      });
-      setResolvedHtml(cached.html);
-      setResourceMeta(cached.resourceMeta);
-      setIsLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setIsLoading(true);
-    setLoadError(null);
-    setResolvedHtml(null);
-    setResourceMeta(null);
-
-    void (async () => {
-      try {
-        logMcpAppDebug('resource-read-start', {
-          serverId: app.serverId,
-          resourceUri: app.resourceUri,
-        });
-        const response = await fetch('/api/mcp/apps/resource/read', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            serverId: app.serverId,
-            resourceUri: app.resourceUri,
-          }),
-        });
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(payload?.cause || payload?.message || 'Failed to load MCP app resource');
-        }
-        if (cancelled) return;
-        const html = typeof payload?.html === 'string' ? payload.html : null;
-        const meta = (payload?.resourceMeta ?? null) as McpUiResourceMeta | null;
-        logMcpAppDebug('resource-read-success', {
-          serverId: app.serverId,
-          resourceUri: app.resourceUri,
-          htmlLength: html?.length ?? 0,
-          useSandbox: !!sandboxUrl,
-          sandboxUrl,
-          hasCsp: !!meta?.csp,
-          hasPermissions: !!meta?.permissions,
-        });
-        if (html) mcpHtmlCache.set(cacheKey, { html, resourceMeta: meta });
-        setResolvedHtml(html);
-        setResourceMeta(meta);
-      } catch (error) {
-        if (!cancelled) {
-          logMcpAppDebug('resource-read-error', {
-            serverId: app.serverId,
-            resourceUri: app.resourceUri,
-            error: error instanceof Error ? error.message : String(error),
-          });
-          setLoadError(error instanceof Error ? error.message : 'Failed to load MCP app resource');
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [app.kind, app.resourceUri, app.serverId, app.html, app.toolName, sandboxUrl]);
 
   useEffect(() => {
     if (app.kind !== 'ui-resource' || !app.serverId) return;
@@ -889,7 +850,7 @@ export function McpAppOutputBlock({
               sandboxUrl,
               error: error instanceof Error ? error.message : String(error),
             });
-            setLoadError(error instanceof Error ? error.message : 'Failed to initialize MCP App bridge');
+            setBridgeError(error instanceof Error ? error.message : 'Failed to initialize MCP App bridge');
           }
         }
       })();
@@ -914,7 +875,7 @@ export function McpAppOutputBlock({
               mode: 'srcdoc',
               error: error instanceof Error ? error.message : String(error),
             });
-            setLoadError(error instanceof Error ? error.message : 'Failed to initialize MCP App bridge');
+            setBridgeError(error instanceof Error ? error.message : 'Failed to initialize MCP App bridge');
           }
         }
       })();

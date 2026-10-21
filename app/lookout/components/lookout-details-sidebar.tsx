@@ -83,9 +83,9 @@ export function LookoutDetailsSidebar({
   const averageDuration =
     runHistory.length > 0 ? runHistory.reduce((sum, run) => sum + (run.duration || 0), 0) / runHistory.length : 0;
 
-  const lastWeekRuns = runHistory.filter(
-    (run) => new Date(run.runAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-  ).length;
+  // A week counted back from when the sidebar opened, so the count does not drift between renders.
+  const [weekStart] = React.useState(() => Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const lastWeekRuns = runHistory.filter((run) => new Date(run.runAt).getTime() > weekStart).length;
 
   const runningLookouts = allLookouts.filter((l) => l.status === 'running');
 

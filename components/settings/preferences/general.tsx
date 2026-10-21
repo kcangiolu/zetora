@@ -13,7 +13,7 @@ import { useQuery } from '@tanstack/react-query';
 import { sileo } from 'sileo';
 import { TrashIcon, FloppyDiskIcon } from '@phosphor-icons/react';
 import { X, AlertCircle, Trash2, Save, Loader2 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useLocale } from '@/contexts/locale-context';
 
 export function GeneralTab({
@@ -48,11 +48,13 @@ export function GeneralTab({
     enabled: !!user,
   });
 
-  useEffect(() => {
-    if (customInstructions?.content) {
-      setContent(customInstructions.content);
-    }
-  }, [customInstructions]);
+  // The editor picks up the saved instructions once they load, and again if they change
+  const savedContent = customInstructions?.content;
+  const [loadedContent, setLoadedContent] = useState<string | undefined>(undefined);
+  if (savedContent !== loadedContent) {
+    setLoadedContent(savedContent);
+    if (savedContent) setContent(savedContent);
+  }
 
   const handleSave = async () => {
     if (!content.trim()) {

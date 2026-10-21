@@ -92,13 +92,11 @@ export function usePushSubscription() {
   const [support] = useState(detectPushSupport);
   const isSupported = support === 'supported';
   const [isSubscribed, setIsSubscribed] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  // Only a supported browser has a subscription to look up
+  const [isLoading, setIsLoading] = useState(isSupported);
 
   useEffect(() => {
-    if (!isSupported) {
-      setIsLoading(false);
-      return;
-    }
+    if (!isSupported) return;
 
     navigator.serviceWorker
       .register('/sw.js')

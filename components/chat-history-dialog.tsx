@@ -396,24 +396,21 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
   // Flatten all chats from all pages
   const allChats = useMemo(() => data?.pages.flatMap((page) => page.chats) ?? [], [data]);
 
-  // Clear delete confirmation state when dialog closes
-  useEffect(() => {
-    if (!open) {
-      setDeletingChatId(null);
-      setEditingChatId(null);
-      setEditingTitle('');
-      setSearchQuery('');
-      setSearchMode('all');
-      setChatType('all');
-      setBulkSelectMode(false);
-      setSelectedChatIds(new Set());
-      setDeletingBulk(false);
-      if (focusTimeoutRef.current) {
-        clearTimeout(focusTimeoutRef.current);
-        focusTimeoutRef.current = null;
-      }
-    }
-  }, [open]);
+  // Every time the dialog opens or closes, it starts again from an empty search
+  // with no pending edit, delete or selection.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    setDeletingChatId(null);
+    setEditingChatId(null);
+    setEditingTitle('');
+    setSearchQuery('');
+    setSearchMode('all');
+    setChatType('all');
+    setBulkSelectMode(false);
+    setSelectedChatIds(new Set());
+    setDeletingBulk(false);
+  }
 
   useEffect(() => {
     if (open && inputRef.current) {
@@ -422,13 +419,6 @@ export function ChatHistoryDialog({ open, onOpenChange, user }: ChatHistoryDialo
         inputRef.current?.focus();
       }, FOCUS_DELAY);
     }
-    // Reset search query when dialog opens
-    if (open) {
-      setSearchQuery('');
-      setSearchMode('all');
-      setChatType('all');
-    }
-
     return () => {
       if (focusTimeoutRef.current) {
         clearTimeout(focusTimeoutRef.current);

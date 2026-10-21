@@ -113,9 +113,14 @@ function useAnimation(
     // eslint-disable-next-line react-hooks/exhaustive-deps -- callers pass a fresh options literal each render; tracking it whole would restart the loop
   }, [frames, isPlaying, options.fps, options.loop, options.onFrame]);
 
-  useEffect(() => {
+  // New frames or a new autoplay setting start the animation over
+  const [playing, setPlaying] = useState({ frames, autoplay: options.autoplay });
+  if (frames !== playing.frames || options.autoplay !== playing.autoplay) {
+    setPlaying({ frames, autoplay: options.autoplay });
     setFrameIndex(0);
     setIsPlaying(options.autoplay);
+  }
+  useEffect(() => {
     lastTimeRef.current = 0;
     accumulatorRef.current = 0;
   }, [frames, options.autoplay]);

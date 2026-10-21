@@ -740,13 +740,21 @@ export const SpotifySearchResults: React.FC<SpotifySearchResultsProps> = ({ resu
   const hasAlbums = result?.albums?.length > 0;
   const hasPlaylists = result?.playlists?.length > 0;
 
-  // Set initial tab based on what content is available
-  useEffect(() => {
-    if (hasTracks) setActiveTab('tracks');
-    else if (hasArtists) setActiveTab('artists');
-    else if (hasAlbums) setActiveTab('albums');
-    else if (hasPlaylists) setActiveTab('playlists');
-  }, [hasTracks, hasArtists, hasAlbums, hasPlaylists]);
+  // Open the first tab that has content
+  const firstTab: TabType | null = hasTracks
+    ? 'tracks'
+    : hasArtists
+      ? 'artists'
+      : hasAlbums
+        ? 'albums'
+        : hasPlaylists
+          ? 'playlists'
+          : null;
+  const [openedFirstTab, setOpenedFirstTab] = useState<TabType | null>(null);
+  if (firstTab !== openedFirstTab) {
+    setOpenedFirstTab(firstTab);
+    if (firstTab) setActiveTab(firstTab);
+  }
 
   // Cleanup on unmount
   useEffect(() => {
@@ -1043,4 +1051,3 @@ export const SpotifySearchResults: React.FC<SpotifySearchResultsProps> = ({ resu
     </div>
   );
 };
-

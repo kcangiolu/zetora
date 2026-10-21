@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   CopyIcon,
   CheckIcon,
@@ -51,10 +51,13 @@ export function ShareDialog({
     'http://localhost:3000';
   const shareUrl = chatId ? `${appOrigin}/share/${chatId}` : '';
 
-  useEffect(() => {
+  // A visibility change made elsewhere resets the dialog's own choice
+  const [shownVisibility, setShownVisibility] = useState(selectedVisibilityType);
+  if (selectedVisibilityType !== shownVisibility) {
+    setShownVisibility(selectedVisibilityType);
     setChoice(selectedVisibilityType);
     setIsShared(selectedVisibilityType === 'public');
-  }, [selectedVisibilityType]);
+  }
 
   const handleCopyLink = () =>
     copy(shareUrl, {

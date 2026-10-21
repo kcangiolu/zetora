@@ -54,13 +54,6 @@ export function useLookoutForm(detectedTimezone: string = DEFAULT_FORM_VALUES.TI
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
   const [editingLookout, setEditingLookout] = React.useState<any | null>(null);
 
-  // Update timezone when detected timezone changes
-  React.useEffect(() => {
-    if (!editingLookout) {
-      setSelectedTimezone(detectedTimezone);
-    }
-  }, [detectedTimezone, editingLookout]);
-
   // Reset form to default values
   const resetForm = React.useCallback(() => {
     setSelectedFrequency(DEFAULT_FORM_VALUES.FREQUENCY as string);

@@ -12,6 +12,7 @@ import { getDisplayHostname, getFaviconUrl } from '@/lib/url';
 import { CustomUIDataTypes, DataQueryCompletionPart } from '@/lib/types';
 import type { DataUIPart } from 'ai';
 import { Sparkles as SparklesIcon } from 'lucide-react';
+import { useHydrated } from '@/hooks/use-hydrated';
 
 // Custom Premium Icons
 const Icons = {
@@ -223,16 +224,12 @@ SourcesSheet.displayName = 'SourcesSheet';
 
 // Image Gallery Component
 const ImageGallery = React.memo(({ images }: { images: SearchImage[] }) => {
-  const [isClient, setIsClient] = React.useState(false);
+  const isClient = useHydrated();
   const [selectedImage, setSelectedImage] = React.useState(0);
   const [isOpen, setIsOpen] = React.useState(false);
   const [failedImages, setFailedImages] = React.useState<Set<string>>(new Set());
   const [imageTransition, setImageTransition] = React.useState<'next' | 'prev' | null>(null);
   const isMobile = useIsMobile();
-
-  React.useEffect(() => {
-    setIsClient(true);
-  }, []);
 
   const validImages = React.useMemo(() => images.filter((img) => !failedImages.has(img.url)), [images, failedImages]);
 
@@ -625,14 +622,9 @@ const MultiSearch = ({
   args: MultiSearchArgs;
   annotations?: DataQueryCompletionPart[];
 }) => {
-  const [isClient, setIsClient] = React.useState(false);
+  const isClient = useHydrated();
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [sourcesOpen, setSourcesOpen] = React.useState(false);
-
-  // Ensure hydration safety
-  React.useEffect(() => {
-    setIsClient(true);
-  }, []);
 
   // Normalize args to ensure required arrays for UI rendering
   const normalizedArgs = React.useMemo<NormalizedMultiSearchArgs>(

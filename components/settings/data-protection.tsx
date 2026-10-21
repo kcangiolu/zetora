@@ -5,7 +5,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 import { Shield } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 export function DataProtectionSection() {
   const [anonymizationEnabled, setAnonymizationEnabled] = useSyncedPreferences<boolean>(
@@ -19,9 +19,13 @@ export function DataProtectionSection() {
   const [anonymizationCustomTermsInput, setAnonymizationCustomTermsInput] = useState(
     anonymizationCustomTerms.join(', '),
   );
-  useEffect(() => {
-    setAnonymizationCustomTermsInput(anonymizationCustomTerms.join(', '));
-  }, [anonymizationCustomTerms]);
+  // The field follows the saved terms whenever they change, here or on another device
+  const savedTermsText = anonymizationCustomTerms.join(', ');
+  const [shownTermsText, setShownTermsText] = useState(savedTermsText);
+  if (savedTermsText !== shownTermsText) {
+    setShownTermsText(savedTermsText);
+    setAnonymizationCustomTermsInput(savedTermsText);
+  }
   const [anonymizationFailOpen, setAnonymizationFailOpen] = useSyncedPreferences<boolean>(
     'zetora-anonymization-fail-open',
     false,

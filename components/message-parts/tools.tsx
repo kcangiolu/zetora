@@ -295,8 +295,9 @@ export const DynamicToolStepper = ({
     scrollStepperToTarget('smooth');
   }, [entries, lastLoadingEntryIndex, scrollStepperToTarget]);
 
-  const toolEntries = entries.filter(
-    (entry): entry is Extract<McpTimelineEntry, { kind: 'tool' }> => entry.kind === 'tool',
+  const toolEntries = useMemo(
+    () => entries.filter((entry): entry is Extract<McpTimelineEntry, { kind: 'tool' }> => entry.kind === 'tool'),
+    [entries],
   );
   const isAnyLoading = entries.some(
     (entry) =>
@@ -324,9 +325,11 @@ export const DynamicToolStepper = ({
   const [activeTab, setActiveTab] = useState<string>(hasApp ? 'app' : 'steps');
 
   // Switch to app tab when app output first appears
-  useEffect(() => {
+  const [hadApp, setHadApp] = useState(hasApp);
+  if (hasApp !== hadApp) {
+    setHadApp(hasApp);
     if (hasApp) setActiveTab('app');
-  }, [hasApp]);
+  }
 
   return (
     <div key={`${messageIndex}-${startIndex}-dynamic-stepper`} className="w-full my-3">

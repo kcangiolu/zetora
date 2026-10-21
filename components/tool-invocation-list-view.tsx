@@ -1,6 +1,6 @@
 'use client';
 
-import React, { memo, useEffect, useState, lazy } from 'react';
+import React, { memo, useState, lazy } from 'react';
 import { cn } from '@/lib/utils';
 import { LucideIcon } from 'lucide-react';
 import { useReducedMotion } from 'motion/react';
@@ -279,16 +279,19 @@ export function CodeInterpreterView({
   const [isExpanded, setIsExpanded] = useState(status !== 'completed');
 
   // Update expanded state when status changes
-  useEffect(() => {
+  const hasResult = Boolean(output || error);
+  const [shownStatus, setShownStatus] = useState({ status, hasResult });
+  if (status !== shownStatus.status || hasResult !== shownStatus.hasResult) {
+    setShownStatus({ status, hasResult });
     // If status changes to completed, collapse the code section
-    if (status === 'completed' && (output || error)) {
+    if (status === 'completed' && hasResult) {
       setIsExpanded(false);
     }
     // Keep expanded during running or error states
     else if (status === 'running' || status === 'error') {
       setIsExpanded(true);
     }
-  }, [status, output, error]);
+  }
 
   return (
     <div className="group overflow-hidden bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 shadow-sm transition-all duration-200 hover:shadow">

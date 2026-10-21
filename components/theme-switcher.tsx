@@ -6,6 +6,7 @@ import { useTheme } from 'next-themes';
 import { useEffect, useState, useRef } from 'react';
 
 import { cn } from '@/lib/utils';
+import { useHydrated } from '@/hooks/use-hydrated';
 
 interface ThemeConfig {
   value: string;
@@ -99,13 +100,9 @@ function ThemeSwatch({ colors, size = 'sm' }: { colors: [string, string, string]
 
 function ThemeSwitcher() {
   const { theme, setTheme } = useTheme();
-  const [isMounted, setIsMounted] = useState(false);
+  const isMounted = useHydrated();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {

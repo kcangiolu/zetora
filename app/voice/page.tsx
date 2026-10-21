@@ -21,6 +21,7 @@ import { ZetoraLogo } from '@/components/logos/zetora-logo';
 import { VoiceButton, type VoiceButtonState } from '@/components/ui/voice-button';
 import { useVoiceClient, type VoiceType, type ConversationTurn } from '@/hooks/use-voice-client';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 import { useInstanceCapabilities } from '@/hooks/use-instance-capabilities';
 import { useUser } from '@/contexts/user-context';
 import { cn, normalizeError } from '@/lib/utils';
@@ -39,24 +40,6 @@ const TRANSCRIPT_VISIBLE_KEY = 'zetora.voice.transcript-visible';
 
 function isVoiceType(value: string): value is VoiceType {
   return value === 'Ara' || value === 'Rex' || value === 'Sal' || value === 'Eve' || value === 'Leo';
-}
-
-function readStoredVoice(): VoiceType {
-  if (typeof window === 'undefined') return 'Ara';
-  const stored = window.localStorage.getItem(VOICE_STORAGE_KEY);
-  if (!stored) return 'Ara';
-  return isVoiceType(stored) ? stored : 'Ara';
-}
-
-function readStoredMuted(): boolean {
-  if (typeof window === 'undefined') return false;
-  return window.localStorage.getItem(MUTE_STORAGE_KEY) === 'true';
-}
-
-function persistPreference(key: string, value: string) {
-  try {
-    window.localStorage.setItem(key, value);
-  } catch {}
 }
 
 function useOrbColors(): [string, string] {
@@ -111,19 +94,13 @@ function resolveColors(): [string, string] {
   return ['#6B5B4F', '#8B7355'];
 }
 
-function readStoredTranscriptVisible(): boolean {
-  if (typeof window === 'undefined') return true;
-  const stored = window.localStorage.getItem(TRANSCRIPT_VISIBLE_KEY);
-  if (stored === 'false') return false;
-  return true;
-}
-
 export default function VoicePage() {
-  const [selectedVoice, setSelectedVoice] = useState<VoiceType>(readStoredVoice);
+  const [storedVoice, setStoredVoice] = useLocalStorage<string>(VOICE_STORAGE_KEY, 'Ara');
+  const selectedVoice: VoiceType = isVoiceType(storedVoice) ? storedVoice : 'Ara';
+  const [isMuted, setMuted] = useLocalStorage(MUTE_STORAGE_KEY, false);
+  const [showTranscript, setShowTranscript] = useLocalStorage(TRANSCRIPT_VISIBLE_KEY, true);
   const [textInput, setTextInput] = useState('');
-  const [showTranscript, setShowTranscript] = useState(readStoredTranscriptVisible);
   const orbColors = useOrbColors();
-  const [hasLoadedPrefs, setHasLoadedPrefs] = useState(false);
   const transcriptScrollRef = useRef<HTMLDivElement>(null);
   const transcriptBottomRef = useRef<HTMLDivElement>(null);
 
@@ -146,11 +123,10 @@ export default function VoicePage() {
     setVoice,
     inputVolumeRef,
     outputVolumeRef,
-    isMuted,
-    setMuted,
     sendText,
   } = useVoiceClient({
     voice: selectedVoice,
+    muted: isMuted,
     backend: voiceBackend,
   });
 
@@ -160,40 +136,15 @@ export default function VoicePage() {
   }
 
   const handleVoiceChange = (voice: VoiceType) => {
-    setSelectedVoice(voice);
+    setStoredVoice(voice);
     setVoice(voice);
   };
-
-  // Sync voice to client when preferences are loaded
-  useEffect(() => {
-    if (hasLoadedPrefs) {
-      setVoice(selectedVoice);
-    }
-  }, [selectedVoice, hasLoadedPrefs, setVoice]);
-
-  // Persist preferences to localStorage (combined effect for better performance)
-  useEffect(() => {
-    if (typeof window === 'undefined' || !hasLoadedPrefs) return;
-    persistPreference(VOICE_STORAGE_KEY, selectedVoice);
-    persistPreference(MUTE_STORAGE_KEY, String(isMuted));
-    persistPreference(TRANSCRIPT_VISIBLE_KEY, String(showTranscript));
-  }, [selectedVoice, isMuted, showTranscript, hasLoadedPrefs]);
 
   // Rolling dialogue: scroll to bottom when conversation updates
   useEffect(() => {
     if (!showTranscript || !transcriptBottomRef.current) return;
     transcriptBottomRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [conversation, showTranscript]);
-
-  useEffect(() => {
-    const storedVoice = readStoredVoice();
-    const storedMuted = readStoredMuted();
-    const storedTranscript = readStoredTranscriptVisible();
-    setSelectedVoice((prev) => (prev !== storedVoice ? storedVoice : prev));
-    setMuted(storedMuted);
-    setShowTranscript(storedTranscript);
-    setHasLoadedPrefs(true);
-  }, [setMuted]);
 
   useEffect(() => {
     if (!isProStatusLoading && !user) {
