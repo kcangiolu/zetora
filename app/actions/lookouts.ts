@@ -21,6 +21,7 @@ import {
   getLookoutScheduler,
 } from '@/lib/services/bullmq';
 import { CronExpressionParser } from 'cron-parser';
+import { nextOnceRun, splitScheduleTime } from '@/lib/lookout/schedule';
 import { lookoutCallbackHeaders, lookoutQstashHeaders } from '@/lib/lookout-auth';
 
 import { createLogger } from '@/lib/logger';
@@ -103,30 +104,6 @@ function calculateNextRun(cronSchedule: string, timezone: string): Date {
   }
 }
 
-// Helper function to calculate next run for 'once' frequency
-function calculateOnceNextRun(time: string, timezone: string, date?: string): Date {
-  const [hours, minutes] = time.split(':').map(Number);
-
-  if (date) {
-    // If a specific date is provided, use it
-    const targetDate = new Date(date);
-    targetDate.setHours(hours, minutes, 0, 0);
-    return targetDate;
-  }
-
-  // Otherwise, use today or tomorrow
-  const now = new Date();
-  const targetDate = new Date(now);
-  targetDate.setHours(hours, minutes, 0, 0);
-
-  // If the time has already passed today, schedule for tomorrow
-  if (targetDate <= now) {
-    targetDate.setDate(targetDate.getDate() + 1);
-  }
-
-  return targetDate;
-}
-
 export async function createScheduledLookout({
   title,
   prompt,
@@ -168,24 +145,14 @@ export async function createScheduledLookout({
 
     let cronSchedule = '';
     let nextRunAt: Date;
-    let actualTime = time;
-    let dayOfWeek: string | undefined;
-
-    // Extract day of week for weekly frequency
-    if (frequency === 'weekly' && time.includes(':')) {
-      const parts = time.split(':');
-      if (parts.length === 3) {
-        actualTime = `${parts[0]}:${parts[1]}`;
-        dayOfWeek = parts[2];
-      }
-    }
+    const { time: clockTime, dayOfWeek } = splitScheduleTime(time);
 
     if (frequency === 'once') {
       // For 'once', calculate the next run time without cron
-      nextRunAt = calculateOnceNextRun(actualTime, timezone, date);
+      nextRunAt = nextOnceRun(clockTime, timezone, date);
     } else {
       // Generate cron schedule for recurring frequencies
-      cronSchedule = frequencyToCron(frequency, actualTime, timezone, dayOfWeek);
+      cronSchedule = frequencyToCron(frequency, clockTime, timezone, dayOfWeek);
       nextRunAt = calculateNextRun(cronSchedule, timezone);
     }
 
@@ -425,16 +392,14 @@ export async function updateLookoutAction({
   frequency,
   time,
   timezone,
-  dayOfWeek,
   searchMode,
 }: {
   id: string;
   title: string;
   prompt: string;
   frequency: 'once' | 'daily' | 'weekly' | 'monthly' | 'yearly';
-  time: string;
+  time: string; // Format: "HH:MM" or "HH:MM:dayOfWeek" for weekly
   timezone: string;
-  dayOfWeek?: string;
   searchMode?: string;
 }) {
   try {
@@ -461,28 +426,16 @@ export async function updateLookoutAction({
       }
     }
 
-    // Handle weekly day selection
-    let adjustedTime = time;
-    if (frequency === 'weekly' && dayOfWeek) {
-      adjustedTime = `${time}:${dayOfWeek}`;
-    }
-
     // Generate new cron schedule if frequency changed
     let cronSchedule = '';
     let nextRunAt: Date;
+    const { time: clockTime, dayOfWeek } = splitScheduleTime(time);
 
     if (frequency === 'once') {
       // For 'once', set next run to today/tomorrow at specified time
-      const [hours, minutes] = time.split(':').map(Number);
-      const now = new Date();
-      nextRunAt = new Date(now);
-      nextRunAt.setHours(hours, minutes, 0, 0);
-
-      if (nextRunAt <= now) {
-        nextRunAt.setDate(nextRunAt.getDate() + 1);
-      }
+      nextRunAt = nextOnceRun(clockTime, timezone);
     } else {
-      cronSchedule = frequencyToCron(frequency, time, timezone, dayOfWeek);
+      cronSchedule = frequencyToCron(frequency, clockTime, timezone, dayOfWeek);
       nextRunAt = calculateNextRun(cronSchedule, timezone);
     }
 
