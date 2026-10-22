@@ -2,12 +2,13 @@
 
 import { Switch } from '@/components/ui/switch';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
+import { isCanvasEnabled } from '@/lib/canvas/enabled';
 import { EmailTestButton } from './shared';
 
 // Build-time flags, inlined into the bundle: a feature built out can't be
 // turned on here, only by rebuilding the image with the flag set to 'true'.
 const APPS_BUILT = process.env.NEXT_PUBLIC_MCP_ENABLED === 'true';
-const CANVAS_BUILT = process.env.NEXT_PUBLIC_CANVAS_ENABLED === 'true';
+const CANVAS_BUILT = isCanvasEnabled();
 
 function NotInBuild({ flag }: { flag: string }) {
   return (

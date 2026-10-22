@@ -7,6 +7,7 @@ import { useInstanceCapabilities } from '@/hooks/use-instance-capabilities';
 import { useSessionPreference } from '@/hooks/use-session-preference';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 import type { HermesChatLock } from '@/lib/hermes/chat-mode';
+import { isCanvasEnabled } from '@/lib/canvas/enabled';
 import { isHermesEnabled } from '@/lib/hermes/enabled';
 import { isSearchGroupAvailable, pickSearchProvider } from '@/lib/search/providers';
 import { getSearchGroups, type SearchGroupId } from '@/lib/search/search-groups';
@@ -54,7 +55,7 @@ export function useModeOptions({
   // A disabled skill cannot be forced either; Settings > Skills writes this list.
   const [disabledSkillsPref] = useSyncedPreferences<string[]>('zetora-disabled-skills', []);
   const mcpEnabled = process.env.NEXT_PUBLIC_MCP_ENABLED === 'true' && appsEnabledPref;
-  const canvasEnabled = process.env.NEXT_PUBLIC_CANVAS_ENABLED === 'true' && canvasEnabledPref;
+  const canvasEnabled = isCanvasEnabled() && canvasEnabledPref;
 
   // The Agent follows the server-side enrollment (Settings > Hermes), not a preference.
   const { data: hermesConnectorStatus, isSuccess: isHermesConnectorStatusResolved } = useQuery({

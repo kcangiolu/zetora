@@ -44,6 +44,7 @@ import { loadMemoryContext } from '@/lib/memory/context';
 import { runMemoryTurnUpdate } from '@/lib/memory/jobs';
 import { buildMemoryQueryText, formatTurnForMemory } from '@/lib/memory/prompt';
 import { isMemoryEnabled } from '@/lib/memory/settings';
+import { isCanvasEnabled } from '@/lib/canvas/enabled';
 import { resolvePrepareStepOverride } from '@/lib/search/prepare-step';
 import { SEARCH_REQUEST_TIMEOUT_MS } from '@/lib/timeouts';
 import { initializeChatAndChecks, appendToLastUserMessage } from '@/lib/search/chat-initialization';
@@ -113,6 +114,12 @@ export async function POST(req: Request) {
   const requestLastUserMessage = (requestMessages as ChatMessage[]).findLast((message) => message.role === 'user');
   if (!requestLastUserMessage) {
     return new ChatSDKError('bad_request:api', 'A user message is required').toResponse();
+  }
+  if (specialMode === 'canvas' && !isCanvasEnabled()) {
+    return new ChatSDKError(
+      'bad_request:api',
+      'Canvas is not enabled in this build: set NEXT_PUBLIC_CANVAS_ENABLED=true and rebuild',
+    ).toResponse();
   }
   // A saved chat's history is read back from the database, so the request only
   // contributes its new user message: a client cannot rewrite or forge earlier turns.
