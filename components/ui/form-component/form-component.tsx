@@ -4,6 +4,7 @@ import { sileo } from 'sileo';
 import { Upload, AlertCircle } from 'lucide-react';
 import { Eye } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { useWebHaptics } from 'web-haptics/react';
 import { UseChatHelpers } from '@ai-sdk/react';
 
@@ -17,6 +18,7 @@ import TextRotate from '@/components/ui/text-rotate';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useHermesSend } from '@/hooks/use-hermes-send';
+import { useInstanceCapabilities } from '@/hooks/use-instance-capabilities';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useModels } from '@/hooks/use-models';
 import { ComprehensiveUserData } from '@/hooks/use-user-data';
@@ -155,6 +157,9 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const { getModel } = useModels();
   const selectedModelConfig = getModel(selectedModel);
   const sendHermesMessage = useHermesSend(chatId);
+  const router = useRouter();
+  // Continuing an Agent chat by voice needs the local voice backend.
+  const capabilities = useInstanceCapabilities();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const haptics = useWebHaptics();
@@ -931,6 +936,14 @@ const FormComponent: React.FC<FormComponentProps> = ({
                       toggleTemporaryChat();
                       setPlusMenuOpen(false);
                     }}
+                    onContinueByVoice={
+                      isHermesChat && hasMessages && capabilities?.localVoice
+                        ? () => {
+                            setPlusMenuOpen(false);
+                            router.push(`/voice?chat=${chatId}`);
+                          }
+                        : undefined
+                    }
                   />
 
                   {activeGroup && (

@@ -19,6 +19,11 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger('hermes-send');
 
+// Hermes shows a chat's topic in the session context of its prompt, as metadata it must not
+// take orders from: a description of the channel, so the agent answers in speakable prose.
+const VOICE_CHAT_TOPIC =
+  'Voice conversation: the user speaks through speech-to-text and hears every reply read aloud by text-to-speech.';
+
 export interface HermesPromptResponse {
   promptId: string;
   optionId: string;
@@ -47,7 +52,8 @@ export async function sendToHermes({
   media?: HermesMediaRef[];
   promptResponse?: HermesPromptResponse;
   // Spoken on the voice page: Hermes answers a voice turn on its `auxiliary.voice_chat`
-  // model, with reasoning off. The text is already transcribed, so there is no audio.
+  // route (by default the session's model with reasoning off), and the chat topic says the
+  // reply will be heard. The text is already transcribed, so there is no audio.
   voice?: boolean;
 }): Promise<HermesSendResult> {
   // Unlike /api/search, this is the ONLY thing that ever creates a chat row for a Hermes
@@ -133,6 +139,7 @@ export async function sendToHermes({
       platform: 'zetora',
       chat_id: chatId,
       chat_type: 'dm',
+      ...(voice ? { chat_topic: VOICE_CHAT_TOPIC } : {}),
       user_id: user.id,
       user_name: user.name,
     },

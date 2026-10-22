@@ -16,7 +16,8 @@ callback carries the short-lived Bearer token minted by
 forwards it and lets those routes 401 if it's invalid or expired.
 
 A connection opened with ?agent=hermes takes its replies from the user's Hermes
-agent (/api/voice/hermes) instead of /api/v1/chat/completions.
+agent (/api/voice/hermes) instead of /api/v1/chat/completions; that route saves the
+conversation as an Agent chat, and ?chat=<id> continues an existing one.
 
 Audio is normalized to 16-bit PCM mono at 48kHz in both directions (matching
 the client's capture/playback pipeline) so no client-side resampling is
@@ -341,6 +342,10 @@ async def respond(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSessio
                 error = chunk.get("error")
                 if error:
                     raise RuntimeError(error.get("message") if isinstance(error, dict) else str(error))
+                tool = chunk.get("tool")
+                if isinstance(tool, dict):
+                    await send_tool_step(ws, tool)
+                    continue
                 delta = chunk.get("choices", [{}])[0].get("delta", {}).get("content") or ""
                 if not delta:
                     continue
@@ -367,6 +372,29 @@ async def respond(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSessio
         session.history.append({"role": "assistant", "content": assistant_text.strip()})
     await send_json(ws, {"type": "response.output_audio_transcript.done"})
     await send_json(ws, {"type": "response.done"})
+
+
+async def send_tool_step(ws: WebSocket, tool: dict) -> None:
+    """A tool step of the Hermes agent, as the realtime events the Voice page already shows
+    for the cloud backend's tool calls. A successful finish adds nothing worth showing."""
+    call_id, name = tool.get("callId"), tool.get("name")
+    status = tool.get("status")
+    if status == "running":
+        preview = tool.get("preview")
+        await send_json(ws, {
+            "type": "response.output_item.done",
+            "item": {
+                "type": "function_call",
+                "call_id": call_id,
+                "name": name,
+                "arguments": json.dumps({"query": preview} if preview else {}),
+            },
+        })
+    elif status != "ok":
+        await send_json(ws, {
+            "type": "conversation.item.added",
+            "item": {"type": "function_call_output", "call_id": call_id, "name": name, "output": status},
+        })
 
 
 # ── VAD-driven turn boundaries ────────────────────────────────────
@@ -513,6 +541,9 @@ async def realtime(ws: WebSocket):
         token=ws.query_params.get("token", ""),
         agent="hermes" if ws.query_params.get("agent") == "hermes" else "zetora",
     )
+    # The app checks that the chat is this user's.
+    if ws.query_params.get("chat"):
+        session.chat_id = ws.query_params["chat"]
 
     async with httpx.AsyncClient() as client:
         await send_json(ws, {"type": "conversation.created"})

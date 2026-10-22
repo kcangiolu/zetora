@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronDown, Ghost, Plus } from 'lucide-react';
+import { ChevronDown, Ghost, Mic, Plus } from 'lucide-react';
 import { GlobalSearchIcon, DocumentAttachmentIcon } from '@hugeicons/core-free-icons';
 
 import { AppsIcon } from '@/components/icons/apps-icon';
@@ -136,6 +136,7 @@ export function PlusMenu({
   onUpload,
   onToggleMode,
   onToggleTemporary,
+  onContinueByVoice,
 }: {
   isMobile: boolean;
   open: boolean;
@@ -150,6 +151,8 @@ export function PlusMenu({
   onUpload: () => void;
   onToggleMode: (modeId: 'mcp' | 'canvas' | 'hermes') => void;
   onToggleTemporary: () => void;
+  // Opens the Voice page on this Agent chat; the row is hidden when unset.
+  onContinueByVoice?: () => void;
 }) {
   const { searchGroups, sources } = options;
   const groupIcon = (id: SearchGroupId) => (
@@ -204,6 +207,12 @@ export function PlusMenu({
           {groupIcon('hermes')}
           <span className="flex-1 text-[13px]">Agent</span>
           {selectedGroup === 'hermes' && <ActiveBadge />}
+        </MenuRow>
+      )}
+      {onContinueByVoice && (
+        <MenuRow isMobile={isMobile} tooltip="Keep talking to Hermes on the Voice page" onClick={onContinueByVoice}>
+          <Mic size={16} className="shrink-0 text-muted-foreground" strokeWidth={1.5} />
+          <span className="flex-1 text-[13px]">Continue by voice</span>
         </MenuRow>
       )}
       {showTemporaryToggle && (

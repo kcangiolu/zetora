@@ -40,6 +40,20 @@ describe('HermesSpeechTracker', () => {
     expect(tracker.message('**The answer** is 4')).toBe('');
   });
 
+  it('speaks the final reply of a turn end only when its message has not been spoken', () => {
+    const before = new HermesSpeechTracker();
+    expect(before.draft(1, 'Done')).toBe('Done');
+    expect(before.turnEnd('Done.')).toBe('.');
+
+    const after = new HermesSpeechTracker();
+    expect(after.message('Done.')).toBe('Done.');
+    expect(after.turnEnd('Done.')).toBe('');
+
+    const noMessage = new HermesSpeechTracker();
+    expect(noMessage.message('Let me check.')).toBe('Let me check.');
+    expect(noMessage.turnEnd('It is sunny.')).toBe('It is sunny.');
+  });
+
   it('reads the text parts of a message', () => {
     expect(
       hermesMessageText([
@@ -74,7 +88,13 @@ describe('POST /api/voice/hermes', () => {
   const post = (body: unknown) =>
     POST(new Request('http://localhost/api/voice/hermes', { method: 'POST', body: JSON.stringify(body) }) as never);
 
-  it('streams the reply as chat-completion deltas and ends the turn once Hermes goes quiet', async () => {
+  const dataChunks = (body: string) =>
+    body
+      .split('\n\n')
+      .filter((line) => line.startsWith('data: {'))
+      .map((line) => JSON.parse(line.slice('data: '.length)));
+
+  it('streams the reply as chat-completion deltas and ends with the turn', async () => {
     const response = await post({ chatId: CHAT_ID, text: 'What time is it?' });
     expect(sendToHermes).toHaveBeenCalledWith({
       user: { id: 'user-1', name: 'Ada' },
@@ -84,19 +104,50 @@ describe('POST /api/voice/hermes', () => {
     });
 
     emit({ kind: 'typing', content: null });
+    emit({
+      kind: 'tool_step',
+      step: { toolCallId: 'c-1', toolName: 'web_search', preview: 'time', status: 'running', durationMs: null },
+    });
     emit({ kind: 'draft', draftId: 1, content: 'It is', final: false });
+    emit({ kind: 'turn_end', response: 'It is noon.' });
+    // The final message lands after the turn's end: already spoken.
     emit({ kind: 'message', message: { parts: [{ type: 'text', text: 'It is noon.' }] } });
-    await vi.advanceTimersByTimeAsync(3_000);
 
     const body = await response.text();
-    const deltas = body
-      .split('\n\n')
-      .filter((line) => line.startsWith('data: {'))
-      .map((line) => JSON.parse(line.slice('data: '.length)).choices[0].delta.content);
-    expect(deltas).toEqual(['It is', ' noon.']);
+    const chunks = dataChunks(body);
+    expect(chunks[0]).toEqual({ tool: { callId: 'c-1', name: 'web_search', preview: 'time', status: 'running' } });
+    expect(chunks.slice(1).map((chunk) => chunk.choices[0].delta.content)).toEqual(['It is', ' noon.']);
     expect(body).toContain(': working');
     expect(body.trimEnd().endsWith('data: [DONE]')).toBe(true);
     expect(unsubscribe).toHaveBeenCalled();
+    expect(sendToHermes).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops the Hermes turn when the caller hangs up before it ends', async () => {
+    const controller = new AbortController();
+    await POST(
+      new Request('http://localhost/api/voice/hermes', {
+        method: 'POST',
+        body: JSON.stringify({ chatId: CHAT_ID, text: 'Tell me a story' }),
+        signal: controller.signal,
+      }) as never,
+    );
+    controller.abort();
+    expect(sendToHermes).toHaveBeenLastCalledWith({
+      user: { id: 'user-1', name: 'Ada' },
+      chatId: CHAT_ID,
+      text: '/stop',
+    });
+    expect(unsubscribe).toHaveBeenCalled();
+  });
+
+  it('ends the turn after a long silence when no turn end comes', async () => {
+    const response = await post({ chatId: CHAT_ID, text: 'Hello' });
+    emit({ kind: 'message', message: { parts: [{ type: 'text', text: 'Hi.' }] } });
+    await vi.advanceTimersByTimeAsync(15_000);
+    const body = await response.text();
+    expect(dataChunks(body).map((chunk) => chunk.choices[0].delta.content)).toEqual(['Hi.']);
+    expect(body).not.toContain('error');
   });
 
   it('reports an agent that stops without replying', async () => {

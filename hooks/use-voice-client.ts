@@ -14,6 +14,8 @@ interface VoiceClientOptions {
   backend: 'cloud' | 'local';
   /** Who answers on the local backend: the Voice model, or the user's Hermes agent. */
   agent?: VoiceAgent;
+  /** The chat to continue on the local backend; a new one when unset. */
+  chatId?: string;
 }
 
 export type VoiceAgent = 'zetora' | 'hermes';
@@ -225,7 +227,7 @@ function base64PCM16ToFloat32(base64: string): Float32Array {
 }
 
 export function useVoiceClient(options: VoiceClientOptions): UseVoiceClientReturn {
-  const { voice = 'Ara', instructions, muted: isMuted = false, backend, agent = 'zetora' } = options;
+  const { voice = 'Ara', instructions, muted: isMuted = false, backend, agent = 'zetora', chatId } = options;
 
   const [agentState, setAgentState] = useState<AgentState>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -634,8 +636,10 @@ export function useVoiceClient(options: VoiceClientOptions): UseVoiceClientRetur
         };
         isSessionConfiguredRef.current = false;
 
-        const agentParam = agent === 'hermes' ? '&agent=hermes' : '';
-        ws = new WebSocket(`${data.url}?token=${encodeURIComponent(data.token)}${agentParam}`);
+        const params = new URLSearchParams({ token: data.token });
+        if (agent === 'hermes') params.set('agent', 'hermes');
+        if (chatId) params.set('chat', chatId);
+        ws = new WebSocket(`${data.url}?${params}`);
       } else {
         const sessionResponse = await fetch('/api/voice/cloud-session', {
           method: 'POST',
@@ -1081,6 +1085,7 @@ export function useVoiceClient(options: VoiceClientOptions): UseVoiceClientRetur
     getAudioContext,
     backend,
     agent,
+    chatId,
   ]);
 
   const disconnect = useCallback(() => {

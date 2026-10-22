@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { use, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, ArrowUp, Mic, MicOff, Globe, MessageCircle, Wrench, ChevronUp, MessageSquare } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -96,7 +96,10 @@ function resolveColors(): [string, string] {
   return ['#6B5B4F', '#8B7355'];
 }
 
-export default function VoicePage() {
+export default function VoicePage({ searchParams }: { searchParams: Promise<{ chat?: string | string[] }> }) {
+  // An Agent chat to continue by voice (the composer's "Continue by voice").
+  const { chat } = use(searchParams);
+  const continuedChatId = typeof chat === 'string' ? chat : undefined;
   const [storedVoice, setStoredVoice] = useLocalStorage<string>(VOICE_STORAGE_KEY, 'Ara');
   const selectedVoice: VoiceType = isVoiceType(storedVoice) ? storedVoice : 'Ara';
   const [isMuted, setMuted] = useLocalStorage(MUTE_STORAGE_KEY, false);
@@ -116,7 +119,9 @@ export default function VoicePage() {
   // Hermes answers through the local backend only: the cloud one runs xAI's own model.
   const canUseHermes = voiceBackend === 'local' && isHermesEnabled();
   const [storedAgent, setStoredAgent] = useLocalStorage<VoiceAgent>(AGENT_STORAGE_KEY, 'zetora');
-  const voiceAgent: VoiceAgent = canUseHermes && storedAgent === 'hermes' ? 'hermes' : 'zetora';
+  const continuesHermesChat = canUseHermes && continuedChatId !== undefined;
+  const voiceAgent: VoiceAgent =
+    continuesHermesChat || (canUseHermes && storedAgent === 'hermes') ? 'hermes' : 'zetora';
 
   const {
     agentState,
@@ -136,6 +141,7 @@ export default function VoicePage() {
     muted: isMuted,
     backend: voiceBackend ?? 'cloud',
     agent: voiceAgent,
+    chatId: continuesHermesChat ? continuedChatId : undefined,
   });
 
   function formatMs(ms: number) {
@@ -511,7 +517,7 @@ export default function VoicePage() {
                     transition={{ duration: 0.15 }}
                     className="w-full motion-reduce:transition-none"
                   >
-                    {canUseHermes && (
+                    {canUseHermes && !continuesHermesChat && (
                       <Tabs
                         value={voiceAgent}
                         onValueChange={(value) => setStoredAgent(value === 'hermes' ? 'hermes' : 'zetora')}
@@ -524,9 +530,11 @@ export default function VoicePage() {
                       </Tabs>
                     )}
                     <p className="text-center text-[11px] text-muted-foreground/50 py-2">
-                      {voiceAgent === 'hermes'
-                        ? 'Your Hermes agent answers — the conversation is saved as an Agent chat'
-                        : 'Local backend — voice comes from your configured Custom TTS Server'}
+                      {continuesHermesChat
+                        ? 'Continuing your Agent chat by voice'
+                        : voiceAgent === 'hermes'
+                          ? 'Your Hermes agent answers — the conversation is saved as an Agent chat'
+                          : 'Local backend — voice comes from your configured Custom TTS Server'}
                     </p>
                   </motion.div>
                 ) : isConnected ? (
