@@ -6,6 +6,7 @@ import { MarkdownRenderer } from '@/components/markdown';
 import { StreamingIndicator } from '@/components/streaming-indicator';
 import { useMessageActions } from '@/contexts/message-actions-context';
 import { useModels } from '@/hooks/use-models';
+import { CanvasSpecRenderer } from '@/lib/canvas/renderer';
 import type { ChatMessage } from '@/lib/types';
 import type { ComprehensiveUserData } from '@/lib/user-data-server';
 
@@ -15,7 +16,6 @@ import { ResponseActions } from './response-actions';
 import { ResponseInfo } from './response-info';
 import { isSourcePartType, isToolPartType } from './shared';
 import { TextPartEditor, useTextPartEdit } from './text-edit';
-import { CanvasSpecRenderer } from './tools';
 
 type MessagePart = ChatMessage['parts'][number];
 

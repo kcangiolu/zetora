@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, type ReactNode } from 'react';
+import { useMemo } from 'react';
 import {
   Renderer,
   type ComponentRenderer,
@@ -8,45 +8,41 @@ import {
   StateProvider,
   VisibilityProvider,
   ActionProvider,
+  useJsonRenderMessage,
 } from '@json-render/react';
 
+import type { ChatMessage } from '@/lib/types';
 import { registry, Fallback } from './registry';
-
-// =============================================================================
-// CanvasRenderer
-// =============================================================================
-
-interface CanvasRendererProps {
-  spec: Spec | null;
-  loading?: boolean;
-}
 
 const fallback: ComponentRenderer = ({ element }) => <Fallback type={element.type} />;
 
-/** Ensure all element children fields are arrays (AI sometimes outputs a single string) */
+// Models sometimes write an element's children as a single key instead of an array.
 function sanitizeSpec(spec: Spec): Spec {
   const elements = { ...spec.elements };
-  for (const key of Object.keys(elements)) {
-    const el = elements[key];
-    if (el && el.children != null && !Array.isArray(el.children)) {
-      elements[key] = { ...el, children: [el.children as unknown as string] };
+  for (const [key, element] of Object.entries(elements)) {
+    const children: unknown = element.children;
+    if (children != null && !Array.isArray(children)) {
+      elements[key] = { ...element, children: typeof children === 'string' ? [children] : [] };
     }
   }
   return { ...spec, elements };
 }
 
-export function CanvasRenderer({ spec, loading }: CanvasRendererProps): ReactNode {
+// The dashboard of a Canvas answer, rebuilt from its spec parts as they stream in.
+export function CanvasSpecRenderer({ parts, isStreaming }: { parts: ChatMessage['parts']; isStreaming: boolean }) {
+  const { spec } = useJsonRenderMessage(parts);
   const safeSpec = useMemo(() => (spec ? sanitizeSpec(spec) : null), [spec]);
-
-  if (!safeSpec) return null;
+  if (!safeSpec || Object.keys(safeSpec.elements).length === 0) return null;
 
   return (
-    <StateProvider initialState={safeSpec.state ?? {}}>
-      <VisibilityProvider>
-        <ActionProvider>
-          <Renderer spec={safeSpec} registry={registry} fallback={fallback} loading={loading} />
-        </ActionProvider>
-      </VisibilityProvider>
-    </StateProvider>
+    <div className="mt-4">
+      <StateProvider initialState={safeSpec.state ?? {}}>
+        <VisibilityProvider>
+          <ActionProvider>
+            <Renderer spec={safeSpec} registry={registry} fallback={fallback} loading={isStreaming} />
+          </ActionProvider>
+        </VisibilityProvider>
+      </StateProvider>
+    </div>
   );
 }

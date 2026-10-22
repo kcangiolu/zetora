@@ -53,6 +53,16 @@ import {
   TimelineTitle,
 } from '@/components/reui/timeline';
 import { canvasCatalog } from './catalog';
+import {
+  pickChartColor,
+  processChartData,
+  shouldAngleLabels,
+  toDataRows,
+  toNumeric,
+  toSeriesRows,
+  yAxisWidth,
+  type DataRow,
+} from './chart-data';
 import { getDisplayHostname, getHostFaviconUrl } from '../url';
 
 // =============================================================================
@@ -113,13 +123,13 @@ export const { registry } = defineRegistry(canvasCatalog, {
     // =========================================================================
 
     Heading: ({ props }) => {
-      const Tag = (props.level ?? 'h2') as 'h1' | 'h2' | 'h3' | 'h4';
+      const Tag = props.level ?? 'h2';
       const sizeClass = {
         h1: 'text-lg font-semibold text-foreground tracking-tight',
         h2: 'text-base font-semibold text-foreground tracking-tight',
         h3: 'text-sm font-medium text-foreground',
         h4: 'text-xs font-medium text-foreground uppercase tracking-wider',
-      }[props.level ?? 'h2'];
+      }[Tag];
       return <Tag className={sizeClass}>{props.text}</Tag>;
     },
 
@@ -242,22 +252,17 @@ export const { registry } = defineRegistry(canvasCatalog, {
     },
 
     Table: ({ props }) => {
-      const rawData = props.data;
-      const items: Array<Record<string, unknown>> = Array.isArray(rawData)
-        ? rawData
-        : Array.isArray((rawData as Record<string, unknown>)?.data)
-          ? ((rawData as Record<string, unknown>).data as Array<Record<string, unknown>>)
-          : [];
+      const items = toDataRows(props.data);
 
       if (items.length === 0) {
         return <div className="text-center py-4 text-xs text-muted-foreground">{props.emptyMessage ?? 'No data'}</div>;
       }
 
-      const columns: ColumnDef<Record<string, unknown>>[] = props.columns.map((col) => ({
+      const columns: ColumnDef<DataRow, unknown>[] = props.columns.map((col) => ({
         accessorKey: col.key,
         header: ({ column }) => (
           <TableColumnHeader
-            column={column as never}
+            column={column}
             title={col.label || col.key.replace(/_/g, ' ')}
             className="text-[10px] uppercase tracking-wider"
           />
@@ -267,18 +272,18 @@ export const { registry } = defineRegistry(canvasCatalog, {
 
       return (
         <div className="rounded-lg border border-border/40 overflow-hidden">
-          <TableProvider columns={columns as never} data={items}>
+          <TableProvider columns={columns} data={items}>
             <TableHeader className="bg-muted/20">
               {({ headerGroup }) => (
-                <TableHeaderGroup headerGroup={headerGroup as never}>
-                  {({ header }) => <TableHead header={header as never} className="h-9 px-3" />}
+                <TableHeaderGroup headerGroup={headerGroup}>
+                  {({ header }) => <TableHead header={header} className="h-9 px-3" />}
                 </TableHeaderGroup>
               )}
             </TableHeader>
             <TableBody>
               {({ row }) => (
-                <TableRow row={row as never} className="border-border/20 hover:bg-muted/10">
-                  {({ cell }) => <TableCell cell={cell as never} className="px-3 py-2" />}
+                <TableRow row={row} className="border-border/20 hover:bg-muted/10">
+                  {({ cell }) => <TableCell cell={cell} className="px-3 py-2" />}
                 </TableRow>
               )}
             </TableBody>
@@ -331,30 +336,19 @@ export const { registry } = defineRegistry(canvasCatalog, {
     // =========================================================================
 
     BarChart: ({ props }) => {
-      const rawData = props.data;
-      const rawItems: Array<Record<string, unknown>> = Array.isArray(rawData)
-        ? rawData
-        : Array.isArray((rawData as Record<string, unknown>)?.data)
-          ? ((rawData as Record<string, unknown>).data as Array<Record<string, unknown>>)
-          : [];
+      const rawItems = toDataRows(props.data);
 
-      // Multi-series: use yKeys if provided, otherwise single yKey. Cap at 3 for readability.
-      const seriesKeys = (props.yKeys && props.yKeys.length > 0 ? props.yKeys : [props.yKey]).slice(0, 3);
-      const isMulti = seriesKeys.length > 1;
+      // More than 3 series side by side are unreadable.
+      const requestedKeys = (props.yKeys && props.yKeys.length > 0 ? props.yKeys : [props.yKey]).slice(0, 3);
+      const isMulti = requestedKeys.length > 1;
 
-      // For single series, process through aggregation; for multi, just ensure numeric + add label
-      const items = isMulti
-        ? rawItems.map((item) => {
-            const row: Record<string, unknown> = { label: String(item[props.xKey] ?? '') };
-            for (const key of seriesKeys) {
-              row[key] = toNumeric(item[key]);
-            }
-            return row;
-          })
-        : processChartData(rawItems, props.xKey, props.yKey, props.aggregate).items;
+      // A single series can be aggregated, and a count is stored under its own key.
+      const single = isMulti ? null : processChartData(rawItems, props.xKey, props.yKey, props.aggregate);
+      const items = single ? single.items : toSeriesRows(rawItems, props.xKey, requestedKeys);
+      const seriesKeys = single ? [single.valueKey] : requestedKeys;
 
       const needsAngle = shouldAngleLabels(items);
-      const yWidth = yAxisWidth(items, seriesKeys[0] ?? props.yKey);
+      const yWidth = yAxisWidth(items, seriesKeys[0]);
 
       // Build config + colors for each series
       const seriesColors = seriesKeys.map((key) => pickChartColor(key + (props.title ?? '')));
@@ -425,14 +419,14 @@ export const { registry } = defineRegistry(canvasCatalog, {
                 content={
                   <ChartTooltipContent
                     formatter={(value, name) => {
-                      const idx = seriesKeys.indexOf(name as string);
+                      const idx = seriesKeys.indexOf(String(name));
                       const color = idx >= 0 ? seriesColors[idx] : '#888';
                       return (
                         <div className="flex items-center gap-2">
                           <div className="h-2.5 w-1 rounded-full shrink-0" style={{ backgroundColor: color }} />
                           <span className="text-muted-foreground">{name}</span>
                           <span className="font-mono font-medium tabular-nums ml-auto">
-                            {(value as number).toLocaleString()}
+                            {toNumeric(value).toLocaleString()}
                           </span>
                         </div>
                       );
@@ -456,14 +450,7 @@ export const { registry } = defineRegistry(canvasCatalog, {
     },
 
     LineChart: ({ props }) => {
-      const rawData = props.data;
-      const rawItems: Array<Record<string, unknown>> = Array.isArray(rawData)
-        ? rawData
-        : Array.isArray((rawData as Record<string, unknown>)?.data)
-          ? ((rawData as Record<string, unknown>).data as Array<Record<string, unknown>>)
-          : [];
-
-      const { items, valueKey } = processChartData(rawItems, props.xKey, props.yKey, props.aggregate);
+      const { items, valueKey } = processChartData(toDataRows(props.data), props.xKey, props.yKey, props.aggregate);
       const chartColor = pickChartColor(props.title ?? props.yKey);
       const needsAngle = shouldAngleLabels(items);
       const lyWidth = yAxisWidth(items, valueKey);
@@ -534,12 +521,7 @@ export const { registry } = defineRegistry(canvasCatalog, {
     },
 
     PieChart: ({ props }) => {
-      const rawData = props.data;
-      const items: Array<Record<string, unknown>> = Array.isArray(rawData)
-        ? rawData
-        : Array.isArray((rawData as Record<string, unknown>)?.data)
-          ? ((rawData as Record<string, unknown>).data as Array<Record<string, unknown>>)
-          : [];
+      const items = toDataRows(props.data);
 
       if (items.length === 0) {
         return <div className="text-center py-4 text-xs text-muted-foreground">No data available</div>;
@@ -825,30 +807,6 @@ const PIE_COLORS = [
   '#ec4899', // pink-500
 ];
 
-// Bright colors for bar/line charts — always used (AI-provided colors are ignored
-// because models often pick colors that are invisible in dark mode)
-const CHART_COLORS = [
-  '#60a5fa', // blue-400
-  '#34d399', // emerald-400
-  '#fbbf24', // amber-400
-  '#a78bfa', // violet-400
-  '#f87171', // red-400
-  '#2dd4bf', // teal-400
-  '#fb923c', // orange-400
-  '#f472b6', // pink-400
-];
-
-/** Pick a random chart color, stable per component instance via key */
-function pickChartColor(seed?: string): string {
-  if (!seed) return CHART_COLORS[Math.floor(Math.random() * CHART_COLORS.length)];
-  // Simple hash for deterministic pick based on title/key
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) {
-    hash = ((hash << 5) - hash + seed.charCodeAt(i)) | 0;
-  }
-  return CHART_COLORS[Math.abs(hash) % CHART_COLORS.length];
-}
-
 /** Strip markdown links and return plain text */
 function stripLinks(text: string): string {
   return text.replace(/\[([^\]]+)\]\(https?:\/\/[^)]+\)/g, '$1').replace(/<a\b[^>]*>(.*?)<\/a>/gi, '$1');
@@ -875,84 +833,6 @@ export function sanitizeInlineHtml(text: string): string {
         return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 px-1.5 py-0.25 rounded-md border border-border/40 bg-muted/30 text-[11px] text-foreground hover:bg-muted/60 no-underline transition-colors align-baseline">${favicon}${label}</a>`;
       })
   );
-}
-
-/** Decide if x-axis labels should be angled based on count and label length */
-function shouldAngleLabels(items: Array<Record<string, unknown>>): boolean {
-  if (items.length > 5) return true;
-  const maxLen = items.reduce((max, item) => Math.max(max, String(item.label ?? '').length), 0);
-  return maxLen > 14 || (items.length > 3 && maxLen > 10);
-}
-
-/** Estimate Y-axis width from the largest formatted value (6px per char + 8px padding) */
-function yAxisWidth(items: Array<Record<string, unknown>>, valueKey: string): number {
-  const maxVal = items.reduce((max, item) => {
-    const v = typeof item[valueKey] === 'number' ? (item[valueKey] as number) : 0;
-    return Math.max(max, v);
-  }, 0);
-  const label = maxVal >= 1000 ? maxVal.toLocaleString() : String(Math.round(maxVal));
-  return Math.max(36, label.length * 7 + 8);
-}
-
-function toNumeric(v: unknown): number {
-  if (typeof v === 'number') return v;
-  if (typeof v === 'string') {
-    const cleaned = v.replace(/[%$,]/g, '').trim();
-    const n = parseFloat(cleaned);
-    return isNaN(n) ? 0 : n;
-  }
-  return 0;
-}
-
-function processChartData(
-  items: Array<Record<string, unknown>>,
-  xKey: string,
-  yKey: string,
-  aggregate: 'sum' | 'count' | 'avg' | null | undefined,
-): { items: Array<Record<string, unknown>>; valueKey: string } {
-  if (items.length === 0) {
-    return { items: [], valueKey: yKey };
-  }
-
-  if (!aggregate) {
-    const formatted = items.map((item) => ({
-      ...item,
-      label: String(item[xKey] ?? ''),
-      [yKey]: toNumeric(item[yKey]),
-    }));
-    return { items: formatted, valueKey: yKey };
-  }
-
-  const groups = new Map<string, Array<Record<string, unknown>>>();
-
-  for (const item of items) {
-    const groupKey = String(item[xKey] ?? 'unknown');
-    const group = groups.get(groupKey) ?? [];
-    group.push(item);
-    groups.set(groupKey, group);
-  }
-
-  const valueKey = aggregate === 'count' ? 'count' : yKey;
-  const aggregated: Array<Record<string, unknown>> = [];
-  const sortedKeys = Array.from(groups.keys()).sort();
-
-  for (const key of sortedKeys) {
-    const group = groups.get(key)!;
-    let value: number;
-
-    if (aggregate === 'count') {
-      value = group.length;
-    } else if (aggregate === 'sum') {
-      value = group.reduce((sum, item) => sum + toNumeric(item[yKey]), 0);
-    } else {
-      const sum = group.reduce((s, item) => s + toNumeric(item[yKey]), 0);
-      value = group.length > 0 ? sum / group.length : 0;
-    }
-
-    aggregated.push({ label: key, [valueKey]: value });
-  }
-
-  return { items: aggregated, valueKey };
 }
 
 // =============================================================================

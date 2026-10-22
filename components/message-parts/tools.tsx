@@ -11,8 +11,6 @@ import type { ChatMessage } from '@/lib/types';
 import { UseChatHelpers } from '@ai-sdk/react';
 import { Tabs as KumoTabs } from '@cloudflare/kumo';
 import { Code, Clock, Check, X, AlertCircle } from 'lucide-react';
-import { useJsonRenderMessage } from '@json-render/react';
-import { CanvasRendererView } from '@/components/canvas-renderer';
 import { formatDynamicToolName, getDynamicStepState, ToolErrorDisplay, CopyIcon } from './shared';
 import {
   McpInputPill,
@@ -567,23 +565,6 @@ export const DynamicToolStepper = ({
     </div>
   );
 };
-
-// Helper component for rendering canvas specs (uses hooks, so must be a proper component)
-export function CanvasSpecRenderer({
-  parts,
-  isStreaming,
-}: {
-  parts: ChatMessage['parts'][number][];
-  isStreaming: boolean;
-}) {
-  const { spec, hasSpec } = useJsonRenderMessage(parts);
-  if (!hasSpec) return null;
-  return (
-    <div className="mt-4">
-      <CanvasRendererView spec={spec} loading={isStreaming} />
-    </div>
-  );
-}
 
 export const CodeContextTool: React.FC<{ args: any; result: any }> = ({ args, result }) => {
   const [isExpanded, setIsExpanded] = useState(false);
