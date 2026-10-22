@@ -275,6 +275,10 @@ export function useVoiceClient(options: VoiceClientOptions): UseVoiceClientRetur
   const firstAssistantActivityTsRef = useRef<number | null>(null);
   const assistantTranscriptStartTsRef = useRef<number | null>(null);
   const currentResponseIdRef = useRef<string | null>(null);
+  // Between response.created and response.done. The server sends the whole reply faster
+  // than it plays, so the reply is still being spoken after response.done until the
+  // playback queue drains.
+  const isResponseActiveRef = useRef(false);
   const intentionalDisconnectRef = useRef(false);
   const connectionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queuedPlaybackSourcesRef = useRef<AudioBufferSourceNode[]>([]);
@@ -477,6 +481,9 @@ export function useVoiceClient(options: VoiceClientOptions): UseVoiceClientRetur
       if (playbackQueueRef.current.length === 0) {
         isPlayingRef.current = false;
         currentPlaybackSourceRef.current = null;
+        outputVolumeRef.current = 0;
+        // A gap between two sentences of a reply in progress is not the end of it.
+        if (!isResponseActiveRef.current) setAgentState('listening');
         return;
       }
 
@@ -504,7 +511,9 @@ export function useVoiceClient(options: VoiceClientOptions): UseVoiceClientRetur
 
       source.onended = () => {
         const idx = queuedPlaybackSourcesRef.current.indexOf(source);
-        if (idx !== -1) queuedPlaybackSourcesRef.current.splice(idx, 1);
+        // Stopped by stopPlayback, which already reset the playback.
+        if (idx === -1) return;
+        queuedPlaybackSourcesRef.current.splice(idx, 1);
         if (currentPlaybackSourceRef.current === source) {
           currentPlaybackSourceRef.current = null;
         }
@@ -561,6 +570,7 @@ export function useVoiceClient(options: VoiceClientOptions): UseVoiceClientRetur
     isSessionConfiguredRef.current = false;
     sessionConfigRef.current = null;
     currentResponseIdRef.current = null;
+    isResponseActiveRef.current = false;
     intentionalDisconnectRef.current = false;
     toolCallByIdRef.current.clear();
     seenToolCallsRef.current.clear();
@@ -855,6 +865,7 @@ export function useVoiceClient(options: VoiceClientOptions): UseVoiceClientRetur
             // A failed turn's error stays up until the next turn starts.
             setError(null);
             currentResponseIdRef.current = (message.response as { id?: string } | undefined)?.id ?? null;
+            isResponseActiveRef.current = true;
             assistantBufferRef.current = '';
             setAgentState('thinking');
             lastResponseCreatedTsRef.current = performance.now();
@@ -925,6 +936,7 @@ export function useVoiceClient(options: VoiceClientOptions): UseVoiceClientRetur
 
           case 'response.output_audio.delta': {
             if (message.delta) {
+              setAgentState('talking');
               playAudio(message.delta as string);
             }
             break;
@@ -1014,8 +1026,11 @@ export function useVoiceClient(options: VoiceClientOptions): UseVoiceClientRetur
 
           case 'response.done': {
             currentResponseIdRef.current = null;
-            setAgentState('listening');
-            outputVolumeRef.current = 0;
+            isResponseActiveRef.current = false;
+            if (!isPlayingRef.current) {
+              setAgentState('listening');
+              outputVolumeRef.current = 0;
+            }
             break;
           }
 
