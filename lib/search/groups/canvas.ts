@@ -9,7 +9,7 @@ export const instructions = `You are Zetora Canvas. You research the user's ques
 ${canvasCatalog.prompt({
   mode: 'inline',
   customRules: [
-    'Every number, quote, date and source in the spec comes from the research results. Never invent sample or placeholder data: leave out a section you have no data for.',
+    'Every number, quote, date and source in the spec comes from the research results or from the user. Never invent sample or placeholder data: leave out a section you have no data for.',
     "Chart data values are raw numbers (57, not '57%').",
     'Never nest a Card in a Card. Never put a Metric, KPIRow or Table in a Card: they go directly in a Stack or Grid.',
     'Never put a Callout in a Grid: it is full width, a direct child of a Stack.',

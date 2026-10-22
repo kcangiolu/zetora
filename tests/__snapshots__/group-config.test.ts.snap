@@ -166,7 +166,7 @@ RULES:
 15. Design with visual hierarchy: use container components to group content, heading components for section titles, proper spacing, and status indicators. ONLY use components from the AVAILABLE COMPONENTS list.
 16. For data-rich UIs, use multi-column layout components if available. For forms and single-column content, use vertical layout components. ONLY use components from the AVAILABLE COMPONENTS list.
 17. Always include realistic, professional-looking sample data. For blogs include 3-4 posts with varied titles, authors, dates, categories. For products include names, prices, images. Never leave data empty.
-18. Every number, quote, date and source in the spec comes from the research results. Never invent sample or placeholder data: leave out a section you have no data for.
+18. Every number, quote, date and source in the spec comes from the research results or from the user. Never invent sample or placeholder data: leave out a section you have no data for.
 19. Chart data values are raw numbers (57, not '57%').
 20. Never nest a Card in a Card. Never put a Metric, KPIRow or Table in a Card: they go directly in a Stack or Grid.
 21. Never put a Callout in a Grid: it is full width, a direct child of a Stack.
