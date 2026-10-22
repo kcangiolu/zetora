@@ -126,7 +126,7 @@ export const { registry } = defineRegistry(canvasCatalog, {
     Text: ({ props }) => (
       <p
         className={`text-sm leading-relaxed ${props.muted ? 'text-muted-foreground' : 'text-foreground'}`}
-        dangerouslySetInnerHTML={{ __html: sanitizeInlineHtml(props.content).replace(/<a\b[^>]*>(.*?)<\/a>/gi, '$1') }}
+        dangerouslySetInnerHTML={{ __html: sanitizeInlineHtml(stripLinks(props.content)) }}
       />
     ),
 
@@ -525,7 +525,7 @@ export const { registry } = defineRegistry(canvasCatalog, {
                 stroke={chartColor}
                 strokeWidth={2.5}
                 dot={{ r: 3, fill: chartColor, strokeWidth: 0 }}
-                activeDot={{ r: 5, fill: chartColor, strokeWidth: 2, stroke: 'hsl(var(--background))' }}
+                activeDot={{ r: 5, fill: chartColor, strokeWidth: 2, stroke: 'var(--background)' }}
               />
             </ComposedChart>
           </ChartContainer>
@@ -572,14 +572,14 @@ export const { registry } = defineRegistry(canvasCatalog, {
                 cornerRadius={8}
                 paddingAngle={4}
                 strokeWidth={2}
-                stroke="hsl(var(--background))"
+                stroke="var(--background)"
               >
                 <LabelList
                   dataKey="value"
                   stroke="none"
                   fontSize={11}
                   fontWeight={500}
-                  fill="hsl(var(--background))"
+                  fill="var(--background)"
                   formatter={(v: number) => v.toLocaleString()}
                 />
               </Pie>

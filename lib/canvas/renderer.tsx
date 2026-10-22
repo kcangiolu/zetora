@@ -44,9 +44,7 @@ export function CanvasRenderer({ spec, loading }: CanvasRendererProps): ReactNod
     <StateProvider initialState={safeSpec.state ?? {}}>
       <VisibilityProvider>
         <ActionProvider>
-          <div className={loading ? '' : 'canvas-stagger'}>
-            <Renderer spec={safeSpec} registry={registry} fallback={fallback} loading={loading} />
-          </div>
+          <Renderer spec={safeSpec} registry={registry} fallback={fallback} loading={loading} />
         </ActionProvider>
       </VisibilityProvider>
     </StateProvider>

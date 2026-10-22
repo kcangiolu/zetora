@@ -1737,66 +1737,10 @@ body {
   }
 }
 
-/* Staggered fade-in for canvas spec children */
-@keyframes canvasFadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
+@media (prefers-reduced-motion: reduce) {
+  .canvas-count-up {
+    animation: none;
   }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.canvas-stagger > * {
-  opacity: 0;
-  animation: canvasFadeInUp 400ms ease-out forwards;
-}
-
-.canvas-stagger > *:nth-child(1) {
-  animation-delay: 0ms;
-}
-
-.canvas-stagger > *:nth-child(2) {
-  animation-delay: 60ms;
-}
-
-.canvas-stagger > *:nth-child(3) {
-  animation-delay: 120ms;
-}
-
-.canvas-stagger > *:nth-child(4) {
-  animation-delay: 180ms;
-}
-
-.canvas-stagger > *:nth-child(5) {
-  animation-delay: 240ms;
-}
-
-.canvas-stagger > *:nth-child(6) {
-  animation-delay: 300ms;
-}
-
-.canvas-stagger > *:nth-child(7) {
-  animation-delay: 360ms;
-}
-
-.canvas-stagger > *:nth-child(8) {
-  animation-delay: 420ms;
-}
-
-.canvas-stagger > *:nth-child(9) {
-  animation-delay: 480ms;
-}
-
-.canvas-stagger > *:nth-child(10) {
-  animation-delay: 540ms;
-}
-
-.canvas-stagger > *:nth-child(n + 11) {
-  animation-delay: 600ms;
 }
 
 /* -------------------------------- Sileo Toast Overrides -------------------------------- */
