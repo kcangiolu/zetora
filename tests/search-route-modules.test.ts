@@ -107,6 +107,20 @@ describe('selectPersistableMessages', () => {
     expect(selectPersistableMessages([empty, partial], true)).toEqual([partial]);
     expect(selectPersistableMessages([empty], false)).toEqual([empty]);
   });
+
+  it('keeps a stopped answer that has only a tool call or a canvas spec', () => {
+    const toolOnly: ChatMessage = {
+      id: 'a1',
+      role: 'assistant',
+      parts: [{ type: 'dynamic-tool', toolName: 'mcp_search', toolCallId: 't1', state: 'input-available', input: {} }],
+    };
+    const specOnly: ChatMessage = {
+      id: 'a2',
+      role: 'assistant',
+      parts: [{ type: 'data-spec', data: { type: 'patch', patch: { op: 'add', path: '/root', value: 'r' } } }],
+    };
+    expect(selectPersistableMessages([toolOnly, specOnly], true)).toEqual([toolOnly, specOnly]);
+  });
 });
 
 describe('getStreamErrorMessage', () => {

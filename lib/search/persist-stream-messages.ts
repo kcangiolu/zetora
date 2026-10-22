@@ -1,3 +1,5 @@
+import { SPEC_DATA_PART_TYPE } from '@json-render/core';
+
 import { getLatestStreamIdByChatId, getLatestUserMessageIdByChatId, saveMessages } from '@/lib/db/queries';
 import { createLogger } from '@/lib/logger';
 import type { ChatMessage } from '@/lib/types';
@@ -12,10 +14,15 @@ export function selectPersistableMessages(messages: ChatMessage[], isAborted: bo
   return messages.filter(
     (message) =>
       message.role === 'assistant' &&
-      message.parts.some((part: any) => {
-        if (part.type === 'text' || part.type === 'reasoning')
-          return typeof part.text === 'string' && part.text.trim().length > 0;
-        return part.type === 'tool-invocation' || part.type === 'file' || part.type === 'source-url';
+      message.parts.some((part) => {
+        if (part.type === 'text' || part.type === 'reasoning') return part.text.trim().length > 0;
+        return (
+          part.type.startsWith('tool-') ||
+          part.type === 'dynamic-tool' ||
+          part.type === SPEC_DATA_PART_TYPE ||
+          part.type === 'file' ||
+          part.type === 'source-url'
+        );
       }),
   );
 }
