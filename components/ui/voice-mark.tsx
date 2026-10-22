@@ -1,28 +1,27 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { Z_PATH, Z_WIDTH } from '@/components/logos/zetora-logo';
+import { Z_PATH } from '@/components/logos/zetora-logo';
 import { ModeAccentSpread, useModeAccentStyle } from '@/components/mode-accent';
 import { cn } from '@/lib/utils';
 
 export type VoiceMarkMode = 'zetora' | 'hermes';
 type AgentState = null | 'thinking' | 'listening' | 'talking';
 
-// Geometry in a 0-100 box centered on the Z: four rings 45° apart around it.
+// Geometry in a 0-100 box centered on the Z: four orbits 45° apart around it.
 const ORBITS = 4;
 const ORBIT_RX = 42;
 const ORBIT_RY = 16;
 const STROKE_WIDTH = 3.2;
-// The gap cut around a front half where it crosses the Z or a ring behind it.
-const KNOCKOUT_WIDTH = STROKE_WIDTH + 2.4;
-// The half of a ring behind the Z is fainter, so depth reads at a glance.
-const BACK_ALPHA = 0.55;
 const Z_SCALE = 0.27;
+// The middle of Z_PATH's bounding box (x 3-84.1, y 3-97), the point the Z breathes around.
+const Z_CENTER_X = 43.55;
+const Z_CENTER_Y = 50;
 
-// Each ring turns on its long axis, an eighth of a turn behind the previous one: a ring
-// seen edge-on crosses the Z, and with these offsets only one ring is at a time.
-const TURN_PERIOD_S = 9.5;
-const BREATH_PERIOD_S = 3.8;
+// Each orbit pinches along its short axis in turn, a quarter period after the previous
+// one, while the Z breathes in step with the first.
+const RIPPLE_PERIOD_S = 3.8;
+const RIPPLE_DEPTH = 0.24;
 const BREATH_DEPTH = 0.16;
 // Agent mode's rotating sweep (app/globals.css's .mode-accent-border).
 const SWEEP_PERIOD_S = 4;
@@ -31,23 +30,21 @@ const MODE_FADE_S = 0.7;
 // Speech RMS sits around 0.02-0.2: this gain brings a normal voice near 1.
 const VOLUME_GAIN = 5;
 const VOLUME_SMOOTHING = 0.18;
-const VOICE_SCALE = 0.14;
-// How much faster the rings turn at full voice.
-const VOICE_SPIN = 1.5;
+// At full voice the ripple runs this much faster and pinches this much deeper.
+const VOICE_SPEED = 1.5;
+const VOICE_DEPTH = 0.3;
 
 // The same palette as the Agent mode's border (components/mode-accent.tsx).
 const AGENT_COLORS = ['#f97316', '#ec4899', '#8b5cf6', '#3b82f6', '#10b981'];
 
 const Z_SHAPE = typeof Path2D === 'undefined' ? null : new Path2D(Z_PATH);
 
-// The voice page's mark: Zetora's Z inside four rings turning around it in 3D, each half
-// passing in front of the Z, then behind it. In Zetora mode the rings take the text color
-// and the Z the brand color, like the sidebar logo; in Hermes mode the rings take the
-// Agent mode's multicolor sweep and the Z the text color. The rings always turn, calmly:
-// the mark is the assistant's presence, so it keeps moving even with reduced motion, and
-// only the assistant's voice stirs it, swelling the mark and speeding the rings up. Drawn
-// on a canvas because a conic gradient clipped to strokes has no SVG form that every
-// browser renders.
+// The voice page's mark: Zetora's Z breathing inside four orbits that pinch in turn. In
+// Zetora mode the orbits take the text color and the Z the brand color, like the sidebar
+// logo; in Hermes mode the orbits take the Agent mode's multicolor sweep and the Z the text
+// color. The mark is the assistant's presence: it ripples calmly all the time, even with
+// reduced motion, and only the assistant's voice stirs it. Drawn on a canvas because a
+// conic gradient clipped to strokes has no SVG form that every browser renders.
 export function VoiceMark({
   mode,
   agentState,
@@ -77,8 +74,7 @@ export function VoiceMark({
 
     let frame = 0;
     let last = performance.now();
-    let turn = 0;
-    let breathClock = 0;
+    let rippleClock = 0;
     let sweepClock = 0;
     let level = 0;
     let hermesMix = stateRef.current.mode === 'hermes' ? 1 : 0;
@@ -90,8 +86,7 @@ export function VoiceMark({
 
       const volume = state === 'talking' ? outputVolumeRef.current : 0;
       level += (Math.min(1, (volume ?? 0) * VOLUME_GAIN) - level) * VOLUME_SMOOTHING;
-      turn += (dt / TURN_PERIOD_S) * (1 + level * VOICE_SPIN);
-      breathClock += dt / BREATH_PERIOD_S;
+      rippleClock += (dt / RIPPLE_PERIOD_S) * (1 + level * VOICE_SPEED);
       sweepClock += dt / SWEEP_PERIOD_S;
       const target = currentMode === 'hermes' ? 1 : 0;
       hermesMix += Math.sign(target - hermesMix) * Math.min(Math.abs(target - hermesMix), dt / MODE_FADE_S);
@@ -103,71 +98,46 @@ export function VoiceMark({
       }
       context.setTransform(1, 0, 0, 1, 0, 0);
       context.clearRect(0, 0, canvas.width, canvas.height);
-      // The 0-100 box, with room for the mark to swell past it.
-      const unit = (canvas.width / 100) * (1 / (1 + VOICE_SCALE));
-      const scale = 1 + level * VOICE_SCALE;
-      context.setTransform(unit * scale, 0, 0, unit * scale, canvas.width / 2, canvas.height / 2);
-      context.lineCap = 'round';
+      const unit = canvas.width / 100;
+      const toBox = () => context.setTransform(unit, 0, 0, unit, canvas.width / 2, canvas.height / 2);
 
       const textColor = textColorRef.current ? getComputedStyle(textColorRef.current).color : '';
       const brandColor = brandColorRef.current ? getComputedStyle(brandColorRef.current).color : '';
       const sweep = createSweep(context, sweepClock * Math.PI * 2);
+      const depth = RIPPLE_DEPTH + level * VOICE_DEPTH;
 
-      // A ring turning on its long axis projects to an ellipse whose short radius follows
-      // cos(angle); the half on the side the ring tilts toward is in front.
-      const rings = Array.from({ length: ORBITS }, (_, i) => {
-        const tilt = Math.cos((turn - i / (2 * ORBITS)) * Math.PI * 2);
-        return {
-          rotation: (i * Math.PI) / ORBITS,
-          ry: Math.max(Math.abs(tilt) * ORBIT_RY, 0.5),
-          front: tilt >= 0 ? ([0, Math.PI] as const) : ([Math.PI, Math.PI * 2] as const),
-        };
-      });
-      const arc = (ring: (typeof rings)[number], [start, end]: readonly [number, number]) => {
-        context.beginPath();
-        context.ellipse(0, 0, ORBIT_RX, ring.ry, ring.rotation, start, end);
-      };
-      const strokeRing = (alpha: number) => {
-        context.lineWidth = STROKE_WIDTH;
-        if (hermesMix < 1) {
-          context.globalAlpha = alpha * (1 - hermesMix);
-          context.strokeStyle = textColor;
-          context.stroke();
-        }
-        if (hermesMix > 0) {
-          context.globalAlpha = alpha * hermesMix;
-          context.strokeStyle = sweep;
-          context.stroke();
+      context.lineWidth = STROKE_WIDTH;
+      context.lineCap = 'round';
+      // Each orbit passes behind the Z on one side of its long axis and in front of it on
+      // the other; alternate orbits come forward on opposite sides.
+      const strokeHalves = (front: boolean) => {
+        for (let i = 0; i < ORBITS; i++) {
+          // Pinched in the orbit's own frame, stroke included, and the sweep is laid out in
+          // that frame too: each orbit carries its own copy of it, turned with the orbit.
+          const pinch = (1 - Math.cos((rippleClock - i / ORBITS) * Math.PI * 2)) / 2;
+          const start = (i % 2 === 0) === front ? 0 : Math.PI;
+          toBox();
+          context.rotate((i * Math.PI) / ORBITS);
+          context.scale(1, 1 - pinch * depth);
+          context.beginPath();
+          context.ellipse(0, 0, ORBIT_RX, ORBIT_RY, 0, start, start + Math.PI);
+          crossfade(context, hermesMix, textColor, sweep, (style) => {
+            context.strokeStyle = style;
+            context.stroke();
+          });
         }
       };
 
-      for (const ring of rings) {
-        arc(ring, [ring.front[1], ring.front[0] + Math.PI * 2]);
-        strokeRing(BACK_ALPHA);
-      }
-
-      context.save();
-      const breath = 1 + BREATH_DEPTH * ((1 - Math.cos(breathClock * Math.PI * 2)) / 2);
+      strokeHalves(false);
+      const breath = 1 + BREATH_DEPTH * ((1 - Math.cos(rippleClock * Math.PI * 2)) / 2);
+      toBox();
       context.scale(Z_SCALE * breath, Z_SCALE * breath);
-      context.translate(-Z_WIDTH / 2, -50);
-      context.globalAlpha = 1 - hermesMix;
-      context.fillStyle = brandColor;
-      context.fill(Z_SHAPE);
-      context.globalAlpha = hermesMix;
-      context.fillStyle = textColor;
-      context.fill(Z_SHAPE);
-      context.restore();
-
-      for (const ring of rings) {
-        arc(ring, ring.front);
-        context.globalCompositeOperation = 'destination-out';
-        context.globalAlpha = 1;
-        context.lineWidth = KNOCKOUT_WIDTH;
-        context.stroke();
-        context.globalCompositeOperation = 'source-over';
-        strokeRing(1);
-      }
-      context.globalAlpha = 1;
+      context.translate(-Z_CENTER_X, -Z_CENTER_Y);
+      crossfade(context, hermesMix, brandColor, textColor, (style) => {
+        context.fillStyle = style;
+        context.fill(Z_SHAPE);
+      });
+      strokeHalves(true);
 
       frame = requestAnimationFrame(draw);
     };
@@ -191,4 +161,24 @@ function createSweep(context: CanvasRenderingContext2D, angle: number): CanvasGr
   AGENT_COLORS.forEach((color, i) => gradient.addColorStop(i / AGENT_COLORS.length, color));
   gradient.addColorStop(1, AGENT_COLORS[0]);
   return gradient;
+}
+
+// Paints `to` at `mix` opacity over an opaque `from`, so halfway through a mode switch the
+// mark blends the two instead of fading through transparency.
+function crossfade(
+  context: CanvasRenderingContext2D,
+  mix: number,
+  from: string | CanvasGradient,
+  to: string | CanvasGradient,
+  paint: (style: string | CanvasGradient) => void,
+) {
+  if (mix < 1) {
+    context.globalAlpha = 1;
+    paint(from);
+  }
+  if (mix > 0) {
+    context.globalAlpha = mix;
+    paint(to);
+  }
+  context.globalAlpha = 1;
 }
