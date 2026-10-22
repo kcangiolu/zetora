@@ -116,7 +116,6 @@
     "experimental-fast-webstreams": "^0.0.19",
     "geist": "^1.7.0",
     "jiti": "^2.6.1",
-    "jotai": "^2.18.1",
     "jsonrepair": "^3.13.3",
     "katex": "^0.16.39",
     "leaflet": "^1.9.4",

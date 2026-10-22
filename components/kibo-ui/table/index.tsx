@@ -1,9 +1,8 @@
 import type { Cell, Column, ColumnDef, Header, HeaderGroup, Row, SortingState, Table } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
-import { atom, useAtom } from 'jotai';
 import { ArrowDownIcon, ArrowUpIcon, ChevronsUpDownIcon } from 'lucide-react';
 import type { HTMLAttributes, ReactNode } from 'react';
-import { createContext, memo, useCallback, useContext } from 'react';
+import { createContext, memo, useCallback, useContext, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -22,8 +21,6 @@ import {
 import { cn } from '@/lib/utils';
 
 export type { ColumnDef } from '@tanstack/react-table';
-
-const sortingAtom = atom<SortingState>([]);
 
 const TableContext = createContext<{
   data: unknown[];
@@ -48,19 +45,15 @@ export function TableProvider<TData, TValue>({
   children,
   className,
 }: TableProviderProps<TData, TValue>) {
-  const [sorting, setSorting] = useAtom(sortingAtom);
+  // Each table sorts on its own: a dashboard can hold several with the same column keys.
+  const [sorting, setSorting] = useState<SortingState>([]);
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table returns one mutable table object; the compiler leaves this component as plain React
   const table = useReactTable({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    onSortingChange: (updater) => {
-      // @ts-expect-error updater is a function that returns a sorting object
-      const newSorting = updater(sorting);
-
-      setSorting(newSorting);
-    },
+    onSortingChange: setSorting,
     state: {
       sorting,
     },
