@@ -123,16 +123,16 @@ function UserDropdownContent({
   };
 
   const themes = [
-    { value: 'system', label: 'Sys', colors: ['#F9F9F9', '#6B5B4F', '#E8DFD5'] },
+    { value: 'system', label: 'System', colors: ['#F9F9F9', '#6B5B4F', '#E8DFD5'] },
     { value: 'light', label: 'Light', colors: ['#FAFAFA', '#6B5B4F', '#EBE0C8'] },
     { value: 'dark', label: 'Dark', colors: ['#1A1A1A', '#E8D5A3', '#3A3020'] },
-    { value: 'colourful', label: 'Color', colors: ['#3D3428', '#C4A96A', '#5A4D3A'] },
+    { value: 'colourful', label: 'Colorful', colors: ['#3D3428', '#C4A96A', '#5A4D3A'] },
     { value: 'plum', label: 'Plum', colors: ['#2A1F35', '#9B2B5A', '#4A2D5A'] },
-    { value: 'inkdark', label: 'ID', colors: ['#352F28', '#C07A3E', '#2A2520'] },
-    { value: 'inklight', label: 'IL', colors: ['#F5F0E8', '#B86030', '#E8DDD0'] },
-    { value: 'neutrallight', label: 'NL', colors: ['#FFFFFF', '#BF6E35', '#F1F1F1'] },
-    { value: 'neutraldark', label: 'ND', colors: ['#252525', '#9C5B2C', '#434343'] },
-    { value: 'midnight', label: 'Mid', colors: ['#0B121B', '#97D3FD', '#212C3C'] },
+    { value: 'inkdark', label: 'Ink Dark', colors: ['#352F28', '#C07A3E', '#2A2520'] },
+    { value: 'inklight', label: 'Ink Light', colors: ['#F5F0E8', '#B86030', '#E8DDD0'] },
+    { value: 'neutrallight', label: 'Neutral Light', colors: ['#FFFFFF', '#BF6E35', '#F1F1F1'] },
+    { value: 'neutraldark', label: 'Neutral Dark', colors: ['#252525', '#9C5B2C', '#434343'] },
+    { value: 'midnight', label: 'Midnight', colors: ['#0B121B', '#97D3FD', '#212C3C'] },
     { value: 'forest', label: 'Forest', colors: ['#09150E', '#9EDBB2', '#1C3125'] },
     { value: 'ember', label: 'Ember', colors: ['#1A0E0E', '#FDB5B2', '#3B2424'] },
   ];
