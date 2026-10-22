@@ -70,6 +70,21 @@ function resolveColors(): [string, string] {
     return ['#D7B28D', '#B88F68'];
   }
 
+  if (html.classList.contains('midnight')) {
+    // Light blue tones matching midnight theme
+    return ['#97D3FD', '#7FB5DC'];
+  }
+
+  if (html.classList.contains('forest')) {
+    // Mint green tones matching forest theme
+    return ['#9EDBB2', '#85BD98'];
+  }
+
+  if (html.classList.contains('ember')) {
+    // Coral tones matching ember theme
+    return ['#FDB5B2', '#DC9A97'];
+  }
+
   if (html.classList.contains('dark')) {
     // Bright warm cream/gold tones for default dark mode
     return ['#F5E6D3', '#E8C9A0'];

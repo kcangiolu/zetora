@@ -55,6 +55,9 @@ export function Providers({
                 'inklight',
                 'neutrallight',
                 'neutraldark',
+                'midnight',
+                'forest',
+                'ember',
               ]}
             >
               <LocaleProvider locale={locale}>{children}</LocaleProvider>

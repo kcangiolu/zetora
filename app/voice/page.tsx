@@ -78,6 +78,15 @@ function resolveColors(): [string, string] {
   if (html.classList.contains('neutraldark')) {
     return ['#D7B28D', '#B88F68'];
   }
+  if (html.classList.contains('midnight')) {
+    return ['#97D3FD', '#7FB5DC'];
+  }
+  if (html.classList.contains('forest')) {
+    return ['#9EDBB2', '#85BD98'];
+  }
+  if (html.classList.contains('ember')) {
+    return ['#FDB5B2', '#DC9A97'];
+  }
   if (html.classList.contains('dark')) {
     return ['#F5E6D3', '#E8C9A0'];
   }

@@ -80,6 +80,27 @@ const THEMES: ThemeConfig[] = [
     colors: ['#252525', '#9C5B2C', '#434343'],
     description: 'Muted & focused',
   },
+  {
+    value: 'midnight',
+    label: 'Midnight',
+    icon: <span className="text-[10px] font-pixel leading-none">M</span>,
+    colors: ['#0B121B', '#97D3FD', '#212C3C'],
+    description: 'Dark, night blue',
+  },
+  {
+    value: 'forest',
+    label: 'Forest',
+    icon: <span className="text-[10px] font-pixel leading-none">F</span>,
+    colors: ['#09150E', '#9EDBB2', '#1C3125'],
+    description: 'Dark, fir green',
+  },
+  {
+    value: 'ember',
+    label: 'Ember',
+    icon: <span className="text-[10px] font-pixel leading-none">E</span>,
+    colors: ['#1A0E0E', '#FDB5B2', '#3B2424'],
+    description: 'Dark, ember red',
+  },
 ];
 
 function ThemeSwatch({ colors, size = 'sm' }: { colors: [string, string, string]; size?: 'sm' | 'md' }) {

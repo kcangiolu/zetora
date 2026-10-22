@@ -452,6 +452,54 @@
     --tweet-icon-color: #7a7365 !important;
     --tweet-icon-color-hover: #9e9582 !important;
   }
+
+  /* Midnight theme - night blue tones */
+  :is(.midnight) :where(.react-tweet-theme) {
+    --tweet-skeleton-gradient: linear-gradient(270deg, #0b121b, #121a25, #121a25, #0b121b) !important;
+    --tweet-border: 1px solid #1e2734 !important;
+    --tweet-font-color: #ebeff4 !important;
+    --tweet-font-color-secondary: #a6b3c1 !important;
+    --tweet-bg-color: #0b121b !important;
+    --tweet-bg-color-hover: #121a25 !important;
+    --tweet-quoted-bg-color: #121a25 !important;
+    --tweet-quoted-bg-color-hover: #1e2734 !important;
+    --tweet-color-blue-primary: #97d3fd !important;
+    --tweet-color-blue-secondary-hover: rgba(151, 211, 253, 0.12) !important;
+    --tweet-icon-color: #657383 !important;
+    --tweet-icon-color-hover: #a6b3c1 !important;
+  }
+
+  /* Forest theme - fir green tones */
+  :is(.forest) :where(.react-tweet-theme) {
+    --tweet-skeleton-gradient: linear-gradient(270deg, #09150e, #0e1d15, #0e1d15, #09150e) !important;
+    --tweet-border: 1px solid #1a2b22 !important;
+    --tweet-font-color: #ebf0ec !important;
+    --tweet-font-color-secondary: #a6b6a9 !important;
+    --tweet-bg-color: #09150e !important;
+    --tweet-bg-color-hover: #0e1d15 !important;
+    --tweet-quoted-bg-color: #0e1d15 !important;
+    --tweet-quoted-bg-color-hover: #1a2b22 !important;
+    --tweet-color-blue-primary: #9edbb2 !important;
+    --tweet-color-blue-secondary-hover: rgba(158, 219, 178, 0.12) !important;
+    --tweet-icon-color: #667768 !important;
+    --tweet-icon-color-hover: #a6b6a9 !important;
+  }
+
+  /* Ember theme - ember red tones */
+  :is(.ember) :where(.react-tweet-theme) {
+    --tweet-skeleton-gradient: linear-gradient(270deg, #1a0e0e, #241514, #241514, #1a0e0e) !important;
+    --tweet-border: 1px solid #332121 !important;
+    --tweet-font-color: #f4edeb !important;
+    --tweet-font-color-secondary: #c1aca8 !important;
+    --tweet-bg-color: #1a0e0e !important;
+    --tweet-bg-color-hover: #241514 !important;
+    --tweet-quoted-bg-color: #241514 !important;
+    --tweet-quoted-bg-color-hover: #332121 !important;
+    --tweet-color-blue-primary: #fdb5b2 !important;
+    --tweet-color-blue-secondary-hover: rgba(253, 181, 178, 0.12) !important;
+    --tweet-icon-color: #826b67 !important;
+    --tweet-icon-color-hover: #c1aca8 !important;
+  }
 }
 
 @layer base {
@@ -1050,6 +1098,195 @@
   --tracking-normal: 0em;
   --spacing: 0.25rem;
   --chart-foreground-muted: oklch(0.708 0 0);
+}
+
+.midnight {
+  /* Midnight theme - the dark theme tinted night blue */
+  --sh-identifier: oklch(0.85 0.03 250);
+  --sh-keyword: oklch(0.75 0.12 25);
+  --sh-string: oklch(0.72 0.14 160);
+  --sh-class: oklch(0.78 0.16 280);
+  --sh-property: oklch(0.75 0.14 240);
+  --sh-entity: oklch(0.73 0.12 200);
+  --sh-jsxliterals: oklch(0.76 0.14 330);
+  --sh-sign: oklch(0.7 0.04 250);
+  --sh-comment: oklch(0.55 0.03 250);
+
+  --font-be-vietnam-pro: 'Be Vietnam Pro';
+  --background: oklch(0.18 0.022 258);
+  --foreground: oklch(0.95 0.008 250);
+  --card: oklch(0.215 0.026 258);
+  --card-foreground: oklch(0.95 0.008 250);
+  --popover: oklch(0.215 0.026 258);
+  --popover-foreground: oklch(0.95 0.008 250);
+  --primary: oklch(0.84 0.085 240);
+  --primary-foreground: oklch(0.2 0.03 258);
+  --secondary: oklch(0.31 0.045 255);
+  --secondary-foreground: oklch(0.88 0.06 240);
+  --muted: oklch(0.25 0.028 258);
+  --muted-foreground: oklch(0.76 0.025 252);
+  --accent: oklch(0.29 0.034 258);
+  --accent-foreground: oklch(0.95 0.008 250);
+  --destructive: oklch(0.64 0.19 28);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.27 0.028 258);
+  --input: oklch(0.38 0.035 258);
+  --ring: oklch(0.84 0.085 240);
+  --chart-1: oklch(0.84 0.085 240);
+  --chart-2: oklch(0.7 0.12 248);
+  --chart-3: oklch(0.6 0.14 256);
+  --chart-4: oklch(0.5 0.13 262);
+  --chart-5: oklch(0.42 0.11 266);
+  --sidebar: oklch(0.2 0.025 258);
+  --sidebar-foreground: oklch(0.95 0.008 250);
+  --sidebar-primary: oklch(0.84 0.085 240);
+  --sidebar-primary-foreground: oklch(0.2 0.03 258);
+  --sidebar-accent: oklch(0.27 0.034 258);
+  --sidebar-accent-foreground: oklch(0.95 0.008 250);
+  --sidebar-border: oklch(0.26 0.028 258);
+  --sidebar-ring: oklch(0.84 0.085 240);
+  --radius: 0.875rem;
+  --shadow-x: 0;
+  --shadow-y: 1px;
+  --shadow-blur: 3px;
+  --shadow-spread: 0px;
+  --shadow-opacity: 0.1;
+  --shadow-color: oklch(0 0 0);
+  --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+  --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+  --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+  --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+  --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 2px 4px -1px hsl(0 0% 0% / 0.1);
+  --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 4px 6px -1px hsl(0 0% 0% / 0.1);
+  --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
+  --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
+  --chart-foreground-muted: oklch(0.65 0.02 252);
+}
+
+.forest {
+  /* Forest theme - the dark theme tinted fir green */
+  --sh-identifier: oklch(0.85 0.03 250);
+  --sh-keyword: oklch(0.75 0.12 25);
+  --sh-string: oklch(0.72 0.14 160);
+  --sh-class: oklch(0.78 0.16 280);
+  --sh-property: oklch(0.75 0.14 240);
+  --sh-entity: oklch(0.73 0.12 200);
+  --sh-jsxliterals: oklch(0.76 0.14 330);
+  --sh-sign: oklch(0.7 0.04 250);
+  --sh-comment: oklch(0.55 0.03 250);
+
+  --font-be-vietnam-pro: 'Be Vietnam Pro';
+  --background: oklch(0.18 0.02 160);
+  --foreground: oklch(0.95 0.008 150);
+  --card: oklch(0.215 0.024 160);
+  --card-foreground: oklch(0.95 0.008 150);
+  --popover: oklch(0.215 0.024 160);
+  --popover-foreground: oklch(0.95 0.008 150);
+  --primary: oklch(0.85 0.09 155);
+  --primary-foreground: oklch(0.2 0.03 160);
+  --secondary: oklch(0.31 0.042 158);
+  --secondary-foreground: oklch(0.88 0.07 155);
+  --muted: oklch(0.25 0.026 160);
+  --muted-foreground: oklch(0.76 0.024 155);
+  --accent: oklch(0.29 0.032 160);
+  --accent-foreground: oklch(0.95 0.008 150);
+  --destructive: oklch(0.64 0.19 28);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.27 0.026 160);
+  --input: oklch(0.38 0.033 160);
+  --ring: oklch(0.85 0.09 155);
+  --chart-1: oklch(0.85 0.09 155);
+  --chart-2: oklch(0.72 0.12 158);
+  --chart-3: oklch(0.62 0.13 162);
+  --chart-4: oklch(0.52 0.11 165);
+  --chart-5: oklch(0.44 0.09 168);
+  --sidebar: oklch(0.2 0.023 160);
+  --sidebar-foreground: oklch(0.95 0.008 150);
+  --sidebar-primary: oklch(0.85 0.09 155);
+  --sidebar-primary-foreground: oklch(0.2 0.03 160);
+  --sidebar-accent: oklch(0.27 0.032 160);
+  --sidebar-accent-foreground: oklch(0.95 0.008 150);
+  --sidebar-border: oklch(0.26 0.026 160);
+  --sidebar-ring: oklch(0.85 0.09 155);
+  --radius: 0.875rem;
+  --shadow-x: 0;
+  --shadow-y: 1px;
+  --shadow-blur: 3px;
+  --shadow-spread: 0px;
+  --shadow-opacity: 0.1;
+  --shadow-color: oklch(0 0 0);
+  --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+  --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+  --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+  --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+  --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 2px 4px -1px hsl(0 0% 0% / 0.1);
+  --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 4px 6px -1px hsl(0 0% 0% / 0.1);
+  --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
+  --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
+  --chart-foreground-muted: oklch(0.65 0.02 155);
+}
+
+.ember {
+  /* Ember theme - the dark theme tinted ember red; errors turn orange so they stand out from it */
+  --sh-identifier: oklch(0.85 0.03 250);
+  --sh-keyword: oklch(0.75 0.12 25);
+  --sh-string: oklch(0.72 0.14 160);
+  --sh-class: oklch(0.78 0.16 280);
+  --sh-property: oklch(0.75 0.14 240);
+  --sh-entity: oklch(0.73 0.12 200);
+  --sh-jsxliterals: oklch(0.76 0.14 330);
+  --sh-sign: oklch(0.7 0.04 250);
+  --sh-comment: oklch(0.55 0.03 250);
+
+  --font-be-vietnam-pro: 'Be Vietnam Pro';
+  --background: oklch(0.18 0.022 20);
+  --foreground: oklch(0.95 0.008 30);
+  --card: oklch(0.215 0.026 20);
+  --card-foreground: oklch(0.95 0.008 30);
+  --popover: oklch(0.215 0.026 20);
+  --popover-foreground: oklch(0.95 0.008 30);
+  --primary: oklch(0.83 0.085 22);
+  --primary-foreground: oklch(0.2 0.03 20);
+  --secondary: oklch(0.31 0.045 20);
+  --secondary-foreground: oklch(0.88 0.06 22);
+  --muted: oklch(0.25 0.028 20);
+  --muted-foreground: oklch(0.76 0.025 25);
+  --accent: oklch(0.29 0.034 20);
+  --accent-foreground: oklch(0.95 0.008 30);
+  --destructive: oklch(0.72 0.17 50);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.27 0.028 20);
+  --input: oklch(0.38 0.035 20);
+  --ring: oklch(0.83 0.085 22);
+  --chart-1: oklch(0.83 0.085 22);
+  --chart-2: oklch(0.7 0.13 25);
+  --chart-3: oklch(0.6 0.15 27);
+  --chart-4: oklch(0.5 0.14 28);
+  --chart-5: oklch(0.42 0.12 30);
+  --sidebar: oklch(0.2 0.025 20);
+  --sidebar-foreground: oklch(0.95 0.008 30);
+  --sidebar-primary: oklch(0.83 0.085 22);
+  --sidebar-primary-foreground: oklch(0.2 0.03 20);
+  --sidebar-accent: oklch(0.27 0.034 20);
+  --sidebar-accent-foreground: oklch(0.95 0.008 30);
+  --sidebar-border: oklch(0.26 0.028 20);
+  --sidebar-ring: oklch(0.83 0.085 22);
+  --radius: 0.875rem;
+  --shadow-x: 0;
+  --shadow-y: 1px;
+  --shadow-blur: 3px;
+  --shadow-spread: 0px;
+  --shadow-opacity: 0.1;
+  --shadow-color: oklch(0 0 0);
+  --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+  --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+  --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+  --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+  --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 2px 4px -1px hsl(0 0% 0% / 0.1);
+  --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 4px 6px -1px hsl(0 0% 0% / 0.1);
+  --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
+  --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
+  --chart-foreground-muted: oklch(0.65 0.02 25);
 }
 
 @theme inline {

@@ -132,6 +132,9 @@ function UserDropdownContent({
     { value: 'inklight', label: 'IL', colors: ['#F5F0E8', '#B86030', '#E8DDD0'] },
     { value: 'neutrallight', label: 'NL', colors: ['#FFFFFF', '#BF6E35', '#F1F1F1'] },
     { value: 'neutraldark', label: 'ND', colors: ['#252525', '#9C5B2C', '#434343'] },
+    { value: 'midnight', label: 'Mid', colors: ['#0B121B', '#97D3FD', '#212C3C'] },
+    { value: 'forest', label: 'Forest', colors: ['#09150E', '#9EDBB2', '#1C3125'] },
+    { value: 'ember', label: 'Ember', colors: ['#1A0E0E', '#FDB5B2', '#3B2424'] },
   ];
 
   return (
