@@ -13,7 +13,7 @@ import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { useInstanceCapabilities } from '@/hooks/use-instance-capabilities';
 import { useUser } from '@/contexts/user-context';
-import { cn, normalizeError } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { resolveVoiceS2SBackend, type VoiceS2SBackend } from '@/lib/s2s-backends';
 
 const VOICES: { value: VoiceType; label: string; description: string }[] = [
@@ -593,7 +593,8 @@ export default function VoicePage() {
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="size-1.5 rounded-full bg-destructive shrink-0" aria-hidden="true" />
-                  <p className="text-destructive text-[11px] font-medium text-pretty">{normalizeError(error)}</p>
+                  {/* Shown as written: these messages name the setting or variable to fix. */}
+                  <p className="text-destructive text-[11px] font-medium text-pretty">{error}</p>
                 </div>
                 {/* A failed turn leaves the session open: the next one is the retry. */}
                 {!isConnected && !isConnecting && (

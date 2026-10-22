@@ -191,6 +191,13 @@ async def _raise_for_status(response: httpx.Response) -> None:
     to configure ("Custom TTS provider not configured", ...), in the message."""
     if response.is_error:
         body = (await response.aread()).decode("utf-8", errors="replace").strip()
+        try:
+            parsed = json.loads(body)
+            message = parsed.get("error") or parsed.get("cause") if isinstance(parsed, dict) else None
+            if isinstance(message, str) and message:
+                body = message
+        except ValueError:
+            pass
         raise RuntimeError(f"{response.status_code} from {response.url.path}: {body[:300] or response.reason_phrase}")
 
 
@@ -314,6 +321,9 @@ async def respond(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSessio
                 if payload == "[DONE]":
                     break
                 chunk = json.loads(payload)
+                error = chunk.get("error")
+                if error:
+                    raise RuntimeError(error.get("message") if isinstance(error, dict) else str(error))
                 delta = chunk.get("choices", [{}])[0].get("delta", {}).get("content") or ""
                 if not delta:
                     continue

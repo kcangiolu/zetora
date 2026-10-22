@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { streamText, stepCountIs, type ModelMessage } from 'ai';
 import { resolveTertiaryModel } from '@/ai/tertiary';
-import { getTaskModel } from '@/ai/catalog/task-models';
+import { getTaskModel, ModelUnavailableError } from '@/ai/catalog/task-models';
 import { getAnonymizeContext } from '@/ai/providers';
 import { loadConfiguredTools } from '@/lib/search/tool-loader';
 import { resolvePrepareStepOverride } from '@/lib/search/prepare-step';
@@ -68,8 +68,16 @@ export async function POST(req: NextRequest) {
 
   const record = await getCachedUserPreferencesByUserId(userId);
   const prefs = record?.preferences ?? null;
-  const model = await resolveTertiaryModel('voice', prefs, userId);
-  const modelId = getTaskModel('voice', prefs);
+  let model: Awaited<ReturnType<typeof resolveTertiaryModel>>;
+  let modelId: string;
+  try {
+    model = await resolveTertiaryModel('voice', prefs, userId);
+    modelId = getTaskModel('voice', prefs);
+  } catch (error) {
+    // "No model is configured" names the setting to change: the Voice page shows it.
+    if (error instanceof ModelUnavailableError) return Response.json({ error: error.message }, { status: 400 });
+    throw error;
+  }
 
   // Local custom models (e.g. Qwen3 on llama.cpp) can't do native tool-calling;
   // resolveTertiaryModel already wraps them in the XML tool middleware. They need
@@ -91,8 +99,14 @@ export async function POST(req: NextRequest) {
     anonymizeContext,
   });
 
+  // textStream does not throw on a model error (a bad key, an outage): it just
+  // ends, and the reply would be silently empty. Kept here to report it.
+  let modelError: unknown;
   const result = streamText({
     model,
+    onError: ({ error }) => {
+      modelError = error;
+    },
     // s2s-service drops the request when the user talks over the reply:
     // stop generating and searching for an answer nobody will hear.
     abortSignal: req.signal,
@@ -159,6 +173,14 @@ export async function POST(req: NextRequest) {
               choices: [{ index: 0, delta: { content: resolved }, finish_reason: null }],
             });
           }
+        }
+        if (modelError !== undefined && !req.signal.aborted) {
+          log.error('[api/v1/chat/completions] model error:', modelError);
+          // The provider's message can carry account details: the log has it, the user gets the model id.
+          send({ error: { message: `The voice model ${modelId} failed. The server log has the details.` } });
+          clearInterval(keepAlive);
+          controller.close();
+          return;
         }
         const remaining = scrubTokens(await tokenBuffer.flush());
         if (remaining) {

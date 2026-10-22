@@ -25,7 +25,10 @@ vi.mock('ai', async (importOriginal) => {
 vi.mock('@/lib/voice-session-token', () => ({ resolveVoiceRequestUserId }));
 vi.mock('@/lib/user-data-server', () => ({ getCachedUserPreferencesByUserId }));
 vi.mock('@/ai/tertiary', () => ({ resolveTertiaryModel }));
-vi.mock('@/ai/catalog/task-models', () => ({ getTaskModel }));
+vi.mock('@/ai/catalog/task-models', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/ai/catalog/task-models')>()),
+  getTaskModel,
+}));
 vi.mock('@/ai/providers', () => ({ getAnonymizeContext }));
 vi.mock('@/lib/search/tool-loader', () => ({ loadConfiguredTools }));
 // StreamTokenBuffer -> deanonymizeText -> lib/db/queries; no real DB in unit tests.
@@ -74,6 +77,19 @@ describe('POST /api/v1/chat/completions (local voice LLM stage)', () => {
     resolveVoiceRequestUserId.mockResolvedValueOnce(null);
     const res = await post({ messages: [{ role: 'user', content: 'hi' }] });
     expect(res.status).toBe(401);
+    expect(streamText).not.toHaveBeenCalled();
+  });
+
+  it('answers 400 with the setting to change when no voice model is configured', async () => {
+    const { ModelUnavailableError } = await import('@/ai/catalog/task-models');
+    resolveTertiaryModel.mockRejectedValueOnce(
+      new ModelUnavailableError('Voice (Local Backend): no model is configured. Pick one in Settings → AI Models.'),
+    );
+
+    const res = await post({ messages: [{ role: 'user', content: 'hi' }] });
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toContain('Settings → AI Models');
     expect(streamText).not.toHaveBeenCalled();
   });
 
@@ -173,6 +189,21 @@ describe('POST /api/v1/chat/completions (local voice LLM stage)', () => {
     const afterTool = await prepareStep({ steps: [{ toolCalls: [{}], toolResults: [{}] }] });
     expect(afterTool.activeTools).toEqual(VOICE_TOOLS);
     expect(afterTool.system).toContain(SYNTHESIS_NUDGE.trim());
+  });
+
+  it('reports a model error in the stream instead of ending with an empty reply', async () => {
+    streamText.mockImplementationOnce((options: { onError: (event: { error: unknown }) => void }) => ({
+      textStream: (async function* () {
+        options.onError({ error: new Error('Authentication Fails, Your api key: ****b431 is invalid') });
+      })(),
+    }));
+
+    const res = await post({ messages: [{ role: 'user', content: 'hi' }] });
+    const body = await res.text();
+
+    expect(body).toContain('"error":{"message":"The voice model xai:grok-4.5 failed.');
+    expect(body).not.toContain('b431');
+    expect(body).not.toContain('[DONE]');
   });
 
   it('passes the request signal so an interrupted reply stops generating', async () => {

@@ -1070,6 +1070,7 @@ export function useVoiceClient(options: VoiceClientOptions): UseVoiceClientRetur
 
   const disconnect = useCallback(() => {
     intentionalDisconnectRef.current = true;
+    setError(null);
     setTranscript('');
     setConversation([]);
     setStats({
