@@ -9,16 +9,21 @@ import { cn } from '@/lib/utils';
 export type VoiceMarkMode = 'zetora' | 'hermes';
 type AgentState = null | 'thinking' | 'listening' | 'talking';
 
-// Geometry of the "ripple" mark in a 0-100 box: four orbits 45° apart around the Z.
+// Geometry in a 0-100 box centered on the Z: four rings 45° apart around it.
 const ORBITS = 4;
 const ORBIT_RX = 42;
 const ORBIT_RY = 16;
 const STROKE_WIDTH = 3.2;
+// The gap cut around a front half where it crosses the Z or a ring behind it.
+const KNOCKOUT_WIDTH = STROKE_WIDTH + 2.4;
+// The half of a ring behind the Z is fainter, so depth reads at a glance.
+const BACK_ALPHA = 0.55;
 const Z_SCALE = 0.27;
 
-// Each orbit pinches in turn, a quarter period after the previous one.
-const RIPPLE_PERIOD_S = 3.8;
-const RIPPLE_DEPTH = 0.24;
+// Each ring turns on its long axis, an eighth of a turn behind the previous one: a ring
+// seen edge-on crosses the Z, and with these offsets only one ring is at a time.
+const TURN_PERIOD_S = 9.5;
+const BREATH_PERIOD_S = 3.8;
 const BREATH_DEPTH = 0.16;
 // Agent mode's rotating sweep (app/globals.css's .mode-accent-border).
 const SWEEP_PERIOD_S = 4;
@@ -28,17 +33,21 @@ const MODE_FADE_S = 0.7;
 const VOLUME_GAIN = 5;
 const VOLUME_SMOOTHING = 0.18;
 const VOICE_SCALE = 0.14;
-const VOICE_PINCH = 0.3;
+// How much faster the rings turn at full voice.
+const VOICE_SPIN = 1.5;
 
 // The same palette as the Agent mode's border (components/mode-accent.tsx).
 const AGENT_COLORS = ['#f97316', '#ec4899', '#8b5cf6', '#3b82f6', '#10b981'];
 
-// The voice page's mark: Zetora's Z inside four rippling orbits. In Zetora mode the orbits
-// take the text color and the Z the brand color, like the sidebar logo; in Hermes mode the
-// orbits take the Agent mode's multicolor sweep and the Z the text color. The orbits swell
-// with the voice that is speaking: the assistant's while it talks, the user's while it
-// listens. Drawn on a canvas because a conic gradient clipped to strokes has no portable
-// SVG form.
+const Z_SHAPE = typeof Path2D === 'undefined' ? null : new Path2D(Z_PATH);
+
+// The voice page's mark: Zetora's Z inside four rings turning around it in 3D, each half
+// passing in front of the Z, then behind it. In Zetora mode the rings take the text color
+// and the Z the brand color, like the sidebar logo; in Hermes mode the rings take the
+// Agent mode's multicolor sweep and the Z the text color. The mark swells, and the rings
+// turn faster, with the voice that is speaking: the assistant's while it talks, the user's
+// while it listens. Drawn on a canvas because a conic gradient clipped to strokes has no
+// SVG form that every browser renders.
 export function VoiceMark({
   mode,
   agentState,
@@ -53,7 +62,9 @@ export function VoiceMark({
   className?: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const zRef = useRef<SVGGElement>(null);
+  // Hidden elements that resolve the theme's colors for the canvas.
+  const textColorRef = useRef<HTMLSpanElement>(null);
+  const brandColorRef = useRef<HTMLSpanElement>(null);
   const reducedMotion = useReducedMotion() ?? false;
   // Read by the animation loop, which must not restart on every change.
   const stateRef = useRef({ mode, agentState, reducedMotion });
@@ -65,11 +76,13 @@ export function VoiceMark({
   useEffect(() => {
     const canvas = canvasRef.current;
     const context = canvas?.getContext('2d');
-    if (!canvas || !context) return;
+    if (!canvas || !context || !Z_SHAPE) return;
 
     let frame = 0;
     let last = performance.now();
-    let clock = 0;
+    let turn = 0;
+    let breathClock = 0;
+    let sweepClock = 0;
     let level = 0;
     let hermesMix = stateRef.current.mode === 'hermes' ? 1 : 0;
 
@@ -77,10 +90,17 @@ export function VoiceMark({
       const dt = Math.min((now - last) / 1000, 0.1);
       last = now;
       const { mode: currentMode, agentState: state, reducedMotion: still } = stateRef.current;
-      if (!still) clock += dt;
 
       const volume = state === 'talking' ? outputVolumeRef.current : state === 'listening' ? inputVolumeRef.current : 0;
       level += (Math.min(1, (volume ?? 0) * VOLUME_GAIN) - level) * VOLUME_SMOOTHING;
+      // With reduced motion only the voice moves the mark.
+      if (!still) {
+        turn += (dt / TURN_PERIOD_S) * (1 + level * VOICE_SPIN);
+        breathClock += dt / BREATH_PERIOD_S;
+        sweepClock += dt / SWEEP_PERIOD_S;
+      } else {
+        turn += (dt / TURN_PERIOD_S) * level * VOICE_SPIN;
+      }
       const target = currentMode === 'hermes' ? 1 : 0;
       hermesMix += Math.sign(target - hermesMix) * Math.min(Math.abs(target - hermesMix), dt / MODE_FADE_S);
 
@@ -91,38 +111,72 @@ export function VoiceMark({
       }
       context.setTransform(1, 0, 0, 1, 0, 0);
       context.clearRect(0, 0, canvas.width, canvas.height);
-      // The 0-100 box, with room for the orbits to swell past it.
+      // The 0-100 box, with room for the mark to swell past it.
       const unit = (canvas.width / 100) * (1 / (1 + VOICE_SCALE));
-      context.setTransform(unit, 0, 0, unit, canvas.width / 2, canvas.height / 2);
       const scale = 1 + level * VOICE_SCALE;
-      context.scale(scale, scale);
-      context.lineWidth = STROKE_WIDTH;
+      context.setTransform(unit * scale, 0, 0, unit * scale, canvas.width / 2, canvas.height / 2);
       context.lineCap = 'round';
 
-      const sweep = createSweep(context, (clock / SWEEP_PERIOD_S) * Math.PI * 2);
-      const textColor = getComputedStyle(canvas).color;
-      for (let i = 0; i < ORBITS; i++) {
-        // With reduced motion the orbits stay still and only the voice pinches them, evenly.
-        const phase = clock / RIPPLE_PERIOD_S - i / ORBITS;
-        const pinch = still ? 0 : (1 - Math.cos(phase * Math.PI * 2)) / 2;
-        const ry = ORBIT_RY * (1 - pinch * RIPPLE_DEPTH - level * VOICE_PINCH * (still ? 0.5 : pinch));
+      const textColor = textColorRef.current ? getComputedStyle(textColorRef.current).color : '';
+      const brandColor = brandColorRef.current ? getComputedStyle(brandColorRef.current).color : '';
+      const sweep = createSweep(context, sweepClock * Math.PI * 2);
+
+      // A ring turning on its long axis projects to an ellipse whose short radius follows
+      // cos(angle); the half on the side the ring tilts toward is in front.
+      const rings = Array.from({ length: ORBITS }, (_, i) => {
+        const tilt = Math.cos((turn - i / (2 * ORBITS)) * Math.PI * 2);
+        return {
+          rotation: (i * Math.PI) / ORBITS,
+          ry: Math.max(Math.abs(tilt) * ORBIT_RY, 0.5),
+          front: tilt >= 0 ? ([0, Math.PI] as const) : ([Math.PI, Math.PI * 2] as const),
+        };
+      });
+      const arc = (ring: (typeof rings)[number], [start, end]: readonly [number, number]) => {
         context.beginPath();
-        context.ellipse(0, 0, ORBIT_RX, Math.max(ry, 1), (i * Math.PI) / ORBITS, 0, Math.PI * 2);
+        context.ellipse(0, 0, ORBIT_RX, ring.ry, ring.rotation, start, end);
+      };
+      const strokeRing = (alpha: number) => {
+        context.lineWidth = STROKE_WIDTH;
         if (hermesMix < 1) {
-          context.globalAlpha = 1 - hermesMix;
+          context.globalAlpha = alpha * (1 - hermesMix);
           context.strokeStyle = textColor;
           context.stroke();
         }
         if (hermesMix > 0) {
-          context.globalAlpha = hermesMix;
+          context.globalAlpha = alpha * hermesMix;
           context.strokeStyle = sweep;
           context.stroke();
         }
+      };
+
+      for (const ring of rings) {
+        arc(ring, [ring.front[1], ring.front[0] + Math.PI * 2]);
+        strokeRing(BACK_ALPHA);
+      }
+
+      context.save();
+      const breath = 1 + BREATH_DEPTH * ((1 - Math.cos(breathClock * Math.PI * 2)) / 2);
+      context.scale(Z_SCALE * breath, Z_SCALE * breath);
+      context.translate(-Z_WIDTH / 2, -50);
+      context.globalAlpha = 1 - hermesMix;
+      context.fillStyle = brandColor;
+      context.fill(Z_SHAPE);
+      context.globalAlpha = hermesMix;
+      context.fillStyle = textColor;
+      context.fill(Z_SHAPE);
+      context.restore();
+
+      for (const ring of rings) {
+        arc(ring, ring.front);
+        context.globalCompositeOperation = 'destination-out';
+        context.globalAlpha = 1;
+        context.lineWidth = KNOCKOUT_WIDTH;
+        context.stroke();
+        context.globalCompositeOperation = 'source-over';
+        strokeRing(1);
       }
       context.globalAlpha = 1;
 
-      const breath = 1 + BREATH_DEPTH * ((1 - Math.cos((clock / RIPPLE_PERIOD_S) * Math.PI * 2)) / 2);
-      zRef.current?.setAttribute('transform', `scale(${breath * (1 + level * VOICE_SCALE)})`);
       frame = requestAnimationFrame(draw);
     };
 
@@ -133,20 +187,9 @@ export function VoiceMark({
   return (
     <div className={cn('relative rounded-full', className)} style={accentStyle}>
       <ModeAccentSpread selectedGroup={mode} />
-      <canvas ref={canvasRef} className="absolute inset-0 size-full text-foreground" aria-hidden />
-      <svg
-        viewBox="-50 -50 100 100"
-        className={cn(
-          'absolute inset-0 size-full overflow-visible transition-colors',
-          mode === 'hermes' ? 'text-foreground' : 'text-primary',
-        )}
-        style={{ transitionDuration: `${MODE_FADE_S}s`, padding: `${(VOICE_SCALE / (1 + VOICE_SCALE)) * 50}%` }}
-        aria-hidden
-      >
-        <g ref={zRef}>
-          <path d={Z_PATH} fill="currentColor" transform={`scale(${Z_SCALE}) translate(${-Z_WIDTH / 2} -50)`} />
-        </g>
-      </svg>
+      <canvas ref={canvasRef} className="absolute inset-0 size-full" aria-hidden />
+      <span ref={textColorRef} className="hidden text-foreground" />
+      <span ref={brandColorRef} className="hidden text-primary" />
     </div>
   );
 }
