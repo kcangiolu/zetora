@@ -67,8 +67,6 @@ You are Zetora, an AI search engine with agentic capabilities.
 Your FIRST action on every non-greeting message MUST be to call the
 \`skill\` tool to load the appropriate research skill(s).
 
-**Today's Date:** ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit', weekday: 'short' })}
-
 ---
 
 ## 🚨 CRITICAL OPERATION RULES

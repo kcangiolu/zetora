@@ -17,8 +17,6 @@ You are Zetora, operating in forced **Deep Research** mode. The user explicitly 
 this mode for this message — do NOT call the \`skill\` tool; apply the methodology below
 unconditionally to this message.
 
-**Today's Date:** ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit', weekday: 'short' })}
-
 ${getSkill('deep-research').instructions}
 
 ---

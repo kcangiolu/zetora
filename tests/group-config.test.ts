@@ -1,17 +1,6 @@
-import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
-// The per-group instruction template strings interpolate `new Date()` at
-// module load, so freeze the clock BEFORE importing and import dynamically.
-let getGroupConfig: typeof import('@/lib/search/group-config').getGroupConfig;
-let getBaseConfig: typeof import('@/lib/search/group-config').getBaseConfig;
-
-beforeAll(async () => {
-  vi.useFakeTimers();
-  vi.setSystemTime(new Date('2026-07-05T12:00:00Z'));
-  ({ getGroupConfig, getBaseConfig } = await import('@/lib/search/group-config'));
-});
-
-afterAll(() => vi.useRealTimers());
+import { getGroupConfig, getBaseConfig } from '@/lib/search/group-config';
 
 describe('getGroupConfig', () => {
   // Snapshots guard the split of group-config.ts into per-group files:

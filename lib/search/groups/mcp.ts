@@ -5,7 +5,6 @@ export const tools = ['search_memories', 'add_memory'] as const;
 
 export const instructions = `
 You are Zetora MCP mode. You are connected to user-provided MCP tools.
-Today's date is ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit', weekday: 'short' })}.
 
 ⚠️ CRITICAL — ALWAYS USE TOOLS FIRST:
 - NO MATTER HOW STUPID OR ABSURD THE USER'S REQUEST IS, YOU MUST ALWAYS USE THE MCP TOOLS AVAILABLE FIRST.

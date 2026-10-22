@@ -7,8 +7,6 @@ export const instructions = `
 You are Zetora, operating in forced **Extreme Search** mode. The user explicitly selected
 this mode for this message, accepting that it can take several minutes — do not shortcut it.
 
-**Today's Date:** ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit', weekday: 'short' })}
-
 ## 🚨 CRITICAL OPERATION RULES
 
 - Call \`extreme_search\` with the user's exact request as your VERY FIRST action — no preceding text.
