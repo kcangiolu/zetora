@@ -37,6 +37,7 @@ export async function sendToHermes({
   text,
   media = [],
   promptResponse,
+  voice = false,
 }: {
   user: { id: string; name: string };
   chatId: string;
@@ -45,6 +46,9 @@ export async function sendToHermes({
   text: string;
   media?: HermesMediaRef[];
   promptResponse?: HermesPromptResponse;
+  // Spoken on the voice page: Hermes answers a voice turn on its `auxiliary.voice_chat`
+  // model, with reasoning off. The text is already transcribed, so there is no audio.
+  voice?: boolean;
 }): Promise<HermesSendResult> {
   // Unlike /api/search, this is the ONLY thing that ever creates a chat row for a Hermes
   // conversation — there's no separate LLM-turn machinery in front of it to do so for a
@@ -123,7 +127,7 @@ export async function sendToHermes({
   // hermes-relay-service/README.md).
   const event: Record<string, unknown> = {
     text,
-    message_type: hermesMessageTypeFor(media.map((m) => m.mime)),
+    message_type: voice ? 'voice' : hermesMessageTypeFor(media.map((m) => m.mime)),
     message_id: messageId,
     source: {
       platform: 'zetora',

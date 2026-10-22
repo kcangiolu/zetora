@@ -80,6 +80,7 @@ describe('POST /api/voice/hermes', () => {
       user: { id: 'user-1', name: 'Ada' },
       chatId: CHAT_ID,
       text: 'What time is it?',
+      voice: true,
     });
 
     emit({ kind: 'typing', content: null });

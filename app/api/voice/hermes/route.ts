@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
 
   // Subscribed before the message goes out, so no frame of the reply can be missed.
   unsubscribe = await subscribeToHermesChat(chatId, onFrame);
-  const result = await sendToHermes({ user: { id: user.id, name: user.name }, chatId, text });
+  const result = await sendToHermes({ user: { id: user.id, name: user.name }, chatId, text, voice: true });
   if (!result.ok) {
     stop();
     return NextResponse.json({ error: result.error }, { status: result.status });
