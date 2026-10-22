@@ -15,6 +15,9 @@ callback carries the short-lived Bearer token minted by
 /api/voice/local-session; this service never authenticates it itself, it just
 forwards it and lets those routes 401 if it's invalid or expired.
 
+A connection opened with ?agent=hermes takes its replies from the user's Hermes
+agent (/api/voice/hermes) instead of /api/v1/chat/completions.
+
 Audio is normalized to 16-bit PCM mono at 48kHz in both directions (matching
 the client's capture/playback pipeline) so no client-side resampling is
 needed. The TTS leg assumes the configured Custom TTS Server outputs 24kHz
@@ -29,6 +32,7 @@ import io
 import json
 import logging
 import os
+import uuid
 import wave
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -156,6 +160,10 @@ class VoiceSession:
     token: str = ""
     instructions: str = DEFAULT_INSTRUCTIONS
     history: list = field(default_factory=list)
+    # "hermes" sends each turn to the user's Hermes agent, in a Zetora chat of its own,
+    # instead of the Voice model. The agent keeps its own history and instructions.
+    agent: str = "zetora"
+    chat_id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
     is_speaking: bool = False
     vad_carry: np.ndarray = field(default_factory=lambda: np.zeros(0, dtype=np.float32))
@@ -296,21 +304,30 @@ async def run_text_turn(client: httpx.AsyncClient, ws: WebSocket, session: Voice
     await respond(client, ws, session)
 
 
+def reply_request(session: VoiceSession) -> tuple[str, dict]:
+    """The app route that streams the reply to the last user message, and its body. Both
+    answer in the same OpenAI-style SSE."""
+    if session.agent == "hermes":
+        return f"{APP_URL}/api/voice/hermes", {"chatId": session.chat_id, "text": session.history[-1]["content"]}
+    # The LLM is resolved server-side from Settings > Tertiary Models > Voice — no model
+    # field needed here.
+    messages = [{"role": "system", "content": session.instructions}, *session.history]
+    return f"{APP_URL}/api/v1/chat/completions", {"messages": messages, "stream": True}
+
+
 async def respond(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSession) -> None:
     await send_json(ws, {"type": "response.created"})
 
-    messages = [{"role": "system", "content": session.instructions}, *session.history]
+    url, body = reply_request(session)
     assistant_text = ""
     sentence_buf = ""
 
     try:
         async with client.stream(
             "POST",
-            f"{APP_URL}/api/v1/chat/completions",
+            url,
             headers={**_auth_headers(session), "Content-Type": "application/json"},
-            # The LLM is resolved server-side from Settings > Tertiary Models
-            # > Voice — no model field needed here.
-            json={"messages": messages, "stream": True},
+            json=body,
             timeout=REQUEST_TIMEOUT_S,
         ) as response:
             await _raise_for_status(response)
@@ -492,7 +509,10 @@ async def health():
 @app.websocket("/v1/realtime")
 async def realtime(ws: WebSocket):
     await ws.accept()
-    session = VoiceSession(token=ws.query_params.get("token", ""))
+    session = VoiceSession(
+        token=ws.query_params.get("token", ""),
+        agent="hermes" if ws.query_params.get("agent") == "hermes" else "zetora",
+    )
 
     async with httpx.AsyncClient() as client:
         await send_json(ws, {"type": "conversation.created"})

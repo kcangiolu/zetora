@@ -8,11 +8,13 @@ import { Orb } from '@/components/ui/orb';
 import { VoicePicker } from '@/components/ui/voice-picker';
 import { ZetoraLogo } from '@/components/logos/zetora-logo';
 import { VoiceButton, type VoiceButtonState } from '@/components/ui/voice-button';
-import { useVoiceClient, type VoiceType } from '@/hooks/use-voice-client';
+import { useVoiceClient, type VoiceAgent, type VoiceType } from '@/hooks/use-voice-client';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { useInstanceCapabilities } from '@/hooks/use-instance-capabilities';
 import { useUser } from '@/contexts/user-context';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { isHermesEnabled } from '@/lib/hermes/enabled';
 import { cn } from '@/lib/utils';
 import { resolveVoiceS2SBackend, type VoiceS2SBackend } from '@/lib/s2s-backends';
 
@@ -27,6 +29,7 @@ const VOICES: { value: VoiceType; label: string; description: string }[] = [
 const VOICE_STORAGE_KEY = 'zetora.voice.selected-voice';
 const MUTE_STORAGE_KEY = 'zetora.voice.mic-muted';
 const TRANSCRIPT_VISIBLE_KEY = 'zetora.voice.transcript-visible';
+const AGENT_STORAGE_KEY = 'zetora.voice.agent';
 
 function isVoiceType(value: string): value is VoiceType {
   return value === 'Ara' || value === 'Rex' || value === 'Sal' || value === 'Eve' || value === 'Leo';
@@ -110,6 +113,10 @@ export default function VoicePage() {
   const capabilities = useInstanceCapabilities();
   // Null while the capabilities load, or when the instance has no voice backend at all.
   const voiceBackend = capabilities ? resolveVoiceS2SBackend(voiceBackendPref, capabilities) : null;
+  // Hermes answers through the local backend only: the cloud one runs xAI's own model.
+  const canUseHermes = voiceBackend === 'local' && isHermesEnabled();
+  const [storedAgent, setStoredAgent] = useLocalStorage<VoiceAgent>(AGENT_STORAGE_KEY, 'zetora');
+  const voiceAgent: VoiceAgent = canUseHermes && storedAgent === 'hermes' ? 'hermes' : 'zetora';
 
   const {
     agentState,
@@ -128,6 +135,7 @@ export default function VoicePage() {
     voice: selectedVoice,
     muted: isMuted,
     backend: voiceBackend ?? 'cloud',
+    agent: voiceAgent,
   });
 
   function formatMs(ms: number) {
@@ -503,8 +511,22 @@ export default function VoicePage() {
                     transition={{ duration: 0.15 }}
                     className="w-full motion-reduce:transition-none"
                   >
+                    {canUseHermes && (
+                      <Tabs
+                        value={voiceAgent}
+                        onValueChange={(value) => setStoredAgent(value === 'hermes' ? 'hermes' : 'zetora')}
+                        className="items-center"
+                      >
+                        <TabsList>
+                          <TabsTrigger value="zetora">Zetora</TabsTrigger>
+                          <TabsTrigger value="hermes">Hermes</TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+                    )}
                     <p className="text-center text-[11px] text-muted-foreground/50 py-2">
-                      Local backend — voice comes from your configured Custom TTS Server
+                      {voiceAgent === 'hermes'
+                        ? 'Your Hermes agent answers — the conversation is saved as an Agent chat'
+                        : 'Local backend — voice comes from your configured Custom TTS Server'}
                     </p>
                   </motion.div>
                 ) : isConnected ? (

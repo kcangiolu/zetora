@@ -141,6 +141,8 @@ Zetora bundles a complete self-hosted stack in [`docker-compose.yml`](docker-com
 
 To see the agent's tool calls as live steps instead of plain text messages, and to give Hermes the same long-term memory as your Zetora chats, install Zetora's Hermes plugin on the machine running the Hermes gateway: see [`hermes-plugin/zetora`](hermes-plugin/zetora/README.md).
 
+With the local voice backend, the Voice page can also talk to your Hermes agent instead of the Voice model: pick **Hermes** above the start button. Speech-to-text and text-to-speech stay Zetora's, the reply comes from the agent, and the conversation is saved as an Agent chat.
+
 Every profiled service is off by default — `docker compose up -d` alone starts only the `_(core)_` rows plus `zetora.app`. Storage (`S3_*`), code execution (`SANDBOX_PROVIDER`) and Lookout scheduling (`LOOKOUT_SCHEDULER`) have no default: set each in `.env` to a bundled service or its cloud alternative, or that feature reports what is missing.
 
 ### Choose a setup

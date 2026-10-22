@@ -12,7 +12,11 @@ interface VoiceClientOptions {
   muted?: boolean;
   /** 'cloud' (xAI Realtime) or 'local' (self-hosted s2s-service). */
   backend: 'cloud' | 'local';
+  /** Who answers on the local backend: the Voice model, or the user's Hermes agent. */
+  agent?: VoiceAgent;
 }
+
+export type VoiceAgent = 'zetora' | 'hermes';
 
 interface ConversationTurn {
   role: 'user' | 'assistant' | 'tool';
@@ -221,7 +225,7 @@ function base64PCM16ToFloat32(base64: string): Float32Array {
 }
 
 export function useVoiceClient(options: VoiceClientOptions): UseVoiceClientReturn {
-  const { voice = 'Ara', instructions, muted: isMuted = false, backend } = options;
+  const { voice = 'Ara', instructions, muted: isMuted = false, backend, agent = 'zetora' } = options;
 
   const [agentState, setAgentState] = useState<AgentState>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -630,7 +634,8 @@ export function useVoiceClient(options: VoiceClientOptions): UseVoiceClientRetur
         };
         isSessionConfiguredRef.current = false;
 
-        ws = new WebSocket(`${data.url}?token=${encodeURIComponent(data.token)}`);
+        const agentParam = agent === 'hermes' ? '&agent=hermes' : '';
+        ws = new WebSocket(`${data.url}?token=${encodeURIComponent(data.token)}${agentParam}`);
       } else {
         const sessionResponse = await fetch('/api/voice/cloud-session', {
           method: 'POST',
@@ -1066,7 +1071,17 @@ export function useVoiceClient(options: VoiceClientOptions): UseVoiceClientRetur
     } finally {
       isConnectInFlightRef.current = false;
     }
-  }, [cleanup, instructions, startCapture, playAudio, stopPlayback, cancelAssistantResponse, getAudioContext, backend]);
+  }, [
+    cleanup,
+    instructions,
+    startCapture,
+    playAudio,
+    stopPlayback,
+    cancelAssistantResponse,
+    getAudioContext,
+    backend,
+    agent,
+  ]);
 
   const disconnect = useCallback(() => {
     intentionalDisconnectRef.current = true;
