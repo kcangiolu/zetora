@@ -105,6 +105,7 @@ export default function VoicePage() {
   const {
     agentState,
     isConnected,
+    isConnecting,
     error,
     conversation,
     stats,
@@ -142,13 +143,14 @@ export default function VoicePage() {
     }
   }, [user, isProStatusLoading, router]);
 
+  // Pressing again while connecting cancels, like ending a session.
   const handleConnect = useCallback(async () => {
-    if (isConnected) {
+    if (isConnected || isConnecting) {
       disconnect();
     } else if (voiceBackend) {
       await connect();
     }
-  }, [isConnected, voiceBackend, connect, disconnect]);
+  }, [isConnected, isConnecting, voiceBackend, connect, disconnect]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -187,13 +189,9 @@ export default function VoicePage() {
     return 'bg-primary';
   }, [error, isConnected, agentState]);
 
-  const voiceButtonState: VoiceButtonState = error
-    ? 'error'
-    : !isConnected
-      ? 'idle'
-      : agentState === 'listening'
-        ? 'recording'
-        : 'processing';
+  // Never 'processing': VoiceButton disables itself in that state, and the
+  // session must stay endable while the assistant thinks or speaks.
+  const voiceButtonState: VoiceButtonState = error ? 'error' : isConnected || isConnecting ? 'recording' : 'idle';
 
   const hasStats = isConnected && (stats.lastLatencyMs || stats.lastToolLatencyMs);
 
@@ -554,7 +552,7 @@ export default function VoicePage() {
                   onPress={handleConnect}
                   disabled={!voiceBackend}
                   size="sm"
-                  label={isConnected ? 'End session' : 'Start session'}
+                  label={isConnected || isConnecting ? 'End session' : 'Start session'}
                   trailing={
                     <kbd className="hidden font-pixel text-[9px] text-muted-foreground/40 tracking-wider sm:inline">
                       ⌥ Space
@@ -597,13 +595,16 @@ export default function VoicePage() {
                   <div className="size-1.5 rounded-full bg-destructive shrink-0" aria-hidden="true" />
                   <p className="text-destructive text-[11px] font-medium text-pretty">{normalizeError(error)}</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleConnect}
-                  className="shrink-0 text-[11px] font-medium text-destructive/80 hover:text-destructive underline-offset-2 hover:underline transition-colors"
-                >
-                  Try again
-                </button>
+                {/* A failed turn leaves the session open: the next one is the retry. */}
+                {!isConnected && !isConnecting && (
+                  <button
+                    type="button"
+                    onClick={handleConnect}
+                    className="shrink-0 text-[11px] font-medium text-destructive/80 hover:text-destructive underline-offset-2 hover:underline transition-colors"
+                  >
+                    Try again
+                  </button>
+                )}
               </motion.div>
             )}
           </AnimatePresence>

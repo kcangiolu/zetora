@@ -35,6 +35,8 @@ interface VoiceStats {
 interface UseVoiceClientReturn {
   agentState: AgentState;
   isConnected: boolean;
+  /** From the start of connect() until the session is ready or torn down. */
+  isConnecting: boolean;
   error: string | null;
   transcript: string;
   conversation: ConversationTurn[];
@@ -219,6 +221,7 @@ export function useVoiceClient(options: VoiceClientOptions): UseVoiceClientRetur
 
   const [agentState, setAgentState] = useState<AgentState>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [transcript, setTranscript] = useState('');
   const [conversation, setConversation] = useState<ConversationTurn[]>([]);
@@ -267,6 +270,10 @@ export function useVoiceClient(options: VoiceClientOptions): UseVoiceClientRetur
   const queuedPlaybackSourcesRef = useRef<AudioBufferSourceNode[]>([]);
   const nextPlayTimeRef = useRef(0);
   const cleanupRef = useRef<() => void>(() => {});
+  // Bumped by every teardown: a connect() that sees it change mid-await was
+  // cancelled (disconnect, unmount) and tears down what it created since.
+  const sessionGenerationRef = useRef(0);
+  const isConnectInFlightRef = useRef(false);
 
   function countWords(text: string) {
     const trimmed = text.trim();
@@ -542,17 +549,31 @@ export function useVoiceClient(options: VoiceClientOptions): UseVoiceClientRetur
       wsRef.current = null;
     }
 
+    sessionGenerationRef.current += 1;
     isSessionConfiguredRef.current = false;
     sessionConfigRef.current = null;
     currentResponseIdRef.current = null;
     intentionalDisconnectRef.current = false;
+    toolCallByIdRef.current.clear();
+    seenToolCallsRef.current.clear();
+    seenToolOutputsRef.current.clear();
+    toolCallStartByIdRef.current.clear();
     setIsConnected(false);
+    setIsConnecting(false);
     setAgentState(null);
   }, [stopCapture, stopPlayback]);
 
   const connect = useCallback(async () => {
+    // One session at a time: a second press while connecting would open a
+    // second mic capture and socket, and orphan the first.
+    if (isConnectInFlightRef.current || wsRef.current) return;
+    isConnectInFlightRef.current = true;
+    const generation = sessionGenerationRef.current;
+    const isCancelled = () => sessionGenerationRef.current !== generation;
+
     try {
       setError(null);
+      setIsConnecting(true);
       setAgentState('thinking');
       intentionalDisconnectRef.current = false;
 
@@ -576,6 +597,11 @@ export function useVoiceClient(options: VoiceClientOptions): UseVoiceClientRetur
         );
       });
 
+      if (isCancelled()) {
+        cleanup();
+        return;
+      }
+
       let ws: WebSocket;
 
       if (backend === 'local') {
@@ -589,6 +615,10 @@ export function useVoiceClient(options: VoiceClientOptions): UseVoiceClientRetur
         }
 
         const data: LocalSessionResponse = await sessionResponse.json();
+        if (isCancelled()) {
+          cleanup();
+          return;
+        }
 
         sessionConfigRef.current = {
           voice: voiceRef.current,
@@ -610,6 +640,10 @@ export function useVoiceClient(options: VoiceClientOptions): UseVoiceClientRetur
         }
 
         const data: CloudSessionResponse = await sessionResponse.json();
+        if (isCancelled()) {
+          cleanup();
+          return;
+        }
         const ephemeralToken = data.token;
 
         const effectiveInstructions = instructions ?? DEFAULT_VOICE_INSTRUCTIONS;
@@ -631,9 +665,11 @@ export function useVoiceClient(options: VoiceClientOptions): UseVoiceClientRetur
 
       wsRef.current = ws;
 
+      // Covers the whole handshake: an open socket whose session never gets
+      // configured would otherwise sit on "Thinking" forever.
       const CONNECTION_TIMEOUT_MS = 10_000;
       connectionTimeoutRef.current = setTimeout(() => {
-        if (ws.readyState !== WebSocket.OPEN) {
+        if (!isSessionConfiguredRef.current) {
           connectionTimeoutRef.current = null;
           setError('Connection timed out. Please try again.');
           cleanup();
@@ -641,15 +677,17 @@ export function useVoiceClient(options: VoiceClientOptions): UseVoiceClientRetur
       }, CONNECTION_TIMEOUT_MS);
 
       ws.onopen = () => {
-        if (connectionTimeoutRef.current) {
-          clearTimeout(connectionTimeoutRef.current);
-          connectionTimeoutRef.current = null;
-        }
         setIsConnected(true);
       };
 
       ws.onmessage = (event) => {
-        const message = JSON.parse(event.data);
+        let message;
+        try {
+          message = JSON.parse(event.data);
+        } catch {
+          console.error('Ignoring a malformed voice event:', event.data);
+          return;
+        }
         const type = message.type as string | undefined;
 
         const pushToolCall = (tool: { callId?: string; name?: string; args?: string }) => {
@@ -765,6 +803,11 @@ export function useVoiceClient(options: VoiceClientOptions): UseVoiceClientRetur
           case 'session.updated': {
             if (!isSessionConfiguredRef.current) {
               isSessionConfiguredRef.current = true;
+              if (connectionTimeoutRef.current) {
+                clearTimeout(connectionTimeoutRef.current);
+                connectionTimeoutRef.current = null;
+              }
+              setIsConnecting(false);
               setAgentState('listening');
             }
             break;
@@ -798,6 +841,8 @@ export function useVoiceClient(options: VoiceClientOptions): UseVoiceClientRetur
           }
 
           case 'response.created': {
+            // A failed turn's error stays up until the next turn starts.
+            setError(null);
             currentResponseIdRef.current = (message.response as { id?: string } | undefined)?.id ?? null;
             assistantBufferRef.current = '';
             setAgentState('thinking');
@@ -1009,11 +1054,15 @@ export function useVoiceClient(options: VoiceClientOptions): UseVoiceClientRetur
         cleanup();
       };
     } catch (err) {
-      console.error('Failed to connect:', err);
-      const micMessage = getMicrophoneAccessErrorMessage(err);
-      setError(micMessage ?? (err instanceof Error ? err.message : 'Failed to connect'));
-      setAgentState(null);
+      // A cancelled connect fails on the audio graph it no longer owns: not an error to show.
+      if (!isCancelled()) {
+        console.error('Failed to connect:', err);
+        const micMessage = getMicrophoneAccessErrorMessage(err);
+        setError(micMessage ?? (err instanceof Error ? err.message : 'Failed to connect'));
+      }
       cleanup();
+    } finally {
+      isConnectInFlightRef.current = false;
     }
   }, [cleanup, instructions, startCapture, playAudio, stopPlayback, cancelAssistantResponse, getAudioContext, backend]);
 
@@ -1103,6 +1152,7 @@ export function useVoiceClient(options: VoiceClientOptions): UseVoiceClientRetur
   return {
     agentState,
     isConnected,
+    isConnecting,
     error,
     transcript,
     conversation,
