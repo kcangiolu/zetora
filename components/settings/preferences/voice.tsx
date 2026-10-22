@@ -469,7 +469,7 @@ export function VoiceTab({ customProviders }: { customProviders: CustomProviderC
         )}
         {voiceEnabled && voiceS2SBackend === 'local' && (
           <p className="text-[11px] text-muted-foreground/60 pb-3.5">
-            Uses the model picked in the chat model selector, plus the STT/TTS providers configured above.
+            Uses the Voice model under AI Models {'>'} Tertiary Models, plus the STT/TTS providers configured above.
           </p>
         )}
       </div>
