@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { nextOnceRun, splitScheduleTime } from '@/lib/lookout/schedule';
+import { isStaleOnceRun, nextOnceRun, splitScheduleTime } from '@/lib/lookout/schedule';
 
 describe('splitScheduleTime', () => {
   it('reads the weekly day the form appends to the time', () => {
@@ -31,5 +31,26 @@ describe('nextOnceRun', () => {
   it('without a date, moves to tomorrow once the time has passed in that timezone', () => {
     const now = new Date('2026-07-15T08:00:00Z'); // 10:00 in Paris
     expect(nextOnceRun('09:00', 'Europe/Paris', undefined, now).toISOString()).toBe('2026-07-16T07:00:00.000Z');
+  });
+});
+
+describe('isStaleOnceRun', () => {
+  const runAt = '2026-07-15T07:00:00.000Z';
+
+  it("runs the job queued for the lookout's current time", () => {
+    expect(isStaleOnceRun({ frequency: 'once', nextRunAt: new Date(runAt) }, runAt)).toBe(false);
+  });
+
+  it('drops a job left over from an earlier time', () => {
+    expect(isStaleOnceRun({ frequency: 'once', nextRunAt: new Date('2026-07-16T07:00:00Z') }, runAt)).toBe(true);
+  });
+
+  it('drops a one-time job once the lookout is recurring', () => {
+    expect(isStaleOnceRun({ frequency: 'daily', nextRunAt: new Date(runAt) }, runAt)).toBe(true);
+  });
+
+  it('runs recurring runs and manual tests, which carry no time', () => {
+    expect(isStaleOnceRun({ frequency: 'daily', nextRunAt: new Date(runAt) }, undefined)).toBe(false);
+    expect(isStaleOnceRun({ frequency: 'once', nextRunAt: new Date('2026-07-16T07:00:00Z') }, undefined)).toBe(false);
   });
 });

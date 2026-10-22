@@ -102,7 +102,7 @@ export async function updateLookout({
   cronSchedule?: string;
   timezone?: string;
   nextRunAt?: Date;
-  qstashScheduleId?: string;
+  qstashScheduleId?: string | null;
   searchMode?: string;
 }) {
   try {

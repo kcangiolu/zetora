@@ -298,6 +298,7 @@ export function useLookouts() {
       frequency: 'once' | 'daily' | 'weekly' | 'monthly';
       time: string;
       timezone: string;
+      date?: string;
       onSuccess?: () => void;
     }) => {
       const { onSuccess: successCallback, ...mutationParams } = params;

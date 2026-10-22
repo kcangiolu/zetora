@@ -30,3 +30,14 @@ export function nextOnceRun(time: string, timezone: string, date?: string, now: 
     .next()
     .toDate();
 }
+
+/**
+ * Whether a run request is a one-time job the lookout no longer has. A
+ * one-time job names the time it was queued for (`runAt`); an edit can't
+ * recall it, so it is stale once the lookout is recurring or runs at another
+ * time. Recurring runs and manual tests carry no `runAt`.
+ */
+export function isStaleOnceRun(lookout: { frequency: string; nextRunAt: Date }, runAt: unknown): boolean {
+  if (typeof runAt !== 'string') return false;
+  return lookout.frequency !== 'once' || lookout.nextRunAt.getTime() !== new Date(runAt).getTime();
+}

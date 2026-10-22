@@ -115,6 +115,24 @@ export function useLookoutForm(detectedTimezone: string = DEFAULT_FORM_VALUES.TI
         const dayOfWeek = cronParts[4]; // Day of week is the 5th field in cron
         setSelectedDayOfWeek(dayOfWeek);
       }
+    } else if (lookout.frequency === 'once' && lookout.nextRunAt) {
+      // A one-time lookout has no cron: its date and time are the run's, read
+      // on the lookout's own clock.
+      const parts = Object.fromEntries(
+        new Intl.DateTimeFormat('en-US', {
+          timeZone: lookout.timezone,
+          year: 'numeric',
+          month: 'numeric',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hourCycle: 'h23',
+        })
+          .formatToParts(new Date(lookout.nextRunAt))
+          .map((part) => [part.type, part.value]),
+      );
+      setSelectedDate(new Date(Number(parts.year), Number(parts.month) - 1, Number(parts.day)));
+      setSelectedTime(`${parts.hour}:${parts.minute}`);
     }
 
     setIsCreateDialogOpen(true);
@@ -200,6 +218,7 @@ export function useLookoutForm(detectedTimezone: string = DEFAULT_FORM_VALUES.TI
       const frequency = formData.get('frequency') as string;
       const time = formData.get('time') as string;
       const timezone = formData.get('timezone') as string;
+      const date = formData.get('date') as string;
       const dayOfWeek = formData.get('dayOfWeek') as string;
       const searchMode = (formData.get('searchMode') as string) || DEFAULT_FORM_VALUES.SEARCH_MODE;
 
@@ -210,6 +229,7 @@ export function useLookoutForm(detectedTimezone: string = DEFAULT_FORM_VALUES.TI
         frequency: frequency as 'once' | 'daily' | 'weekly' | 'monthly',
         time: frequency === 'weekly' && dayOfWeek ? `${time}:${dayOfWeek}` : time,
         timezone,
+        date: frequency === 'once' ? date : undefined,
         searchMode,
         onSuccess: () => handleDialogOpenChange(false),
       });

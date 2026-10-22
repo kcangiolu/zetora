@@ -10,6 +10,7 @@ import { getBetterAllOptions } from '@/lib/better-all';
 import { getLookoutById, getUserById } from '@/lib/db/queries';
 import { createLogger } from '@/lib/logger';
 import { verifyLookoutRequest } from '@/lib/lookout-auth';
+import { isStaleOnceRun } from '@/lib/lookout/schedule';
 import {
   getResponseText,
   recordLookoutFailure,
@@ -53,13 +54,19 @@ export async function POST(req: Request) {
   try {
     // The job runs as the lookout's stored owner with its stored prompt; the request
     // only names which lookout.
-    const { lookoutId } = await req.json();
+    const { lookoutId, runAt } = await req.json();
     log.debug('Running lookout', { lookoutId });
 
     const lookout = await findLookout(lookoutId);
     if (!lookout) {
       log.error('Lookout not found after', LOOKUP_ATTEMPTS, 'attempts:', lookoutId);
       return new Response('Lookout not found', { status: 404 });
+    }
+
+    // A 200 keeps the scheduler from retrying a job that is dropped on purpose.
+    if (isStaleOnceRun(lookout, runAt)) {
+      log.info('Skipping a one-time run the lookout no longer has', { lookoutId, runAt });
+      return new Response('Lookout was rescheduled', { status: 200 });
     }
 
     const { user, userPrefs } = await all(
