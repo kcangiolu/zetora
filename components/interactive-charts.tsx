@@ -7,6 +7,7 @@ import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLocale } from '@/contexts/locale-context';
+import { isDarkTheme } from '@/lib/themes';
 
 // Dynamically import ReactECharts - it's a heavy library (~200-300KB)
 const ReactECharts = dynamic(() => import('echarts-for-react'), {
@@ -36,8 +37,8 @@ interface BaseChart {
 // Create a memoized chart component to prevent unnecessary rerenders
 const InteractiveChart = React.memo(
   ({ chart }: { chart: BaseChart }) => {
-    const { theme } = useTheme();
-    const isDark = theme === 'dark';
+    const { resolvedTheme } = useTheme();
+    const isDark = isDarkTheme(resolvedTheme);
     const locale = useLocale();
 
     // Memoized theme-based styles
@@ -456,7 +457,7 @@ const InteractiveChart = React.memo(
                 option={chartOptions}
                 style={{ height: '100%', width: '100%' }}
                 className="p-0! m-0! h-full w-full!"
-                theme={theme === 'dark' ? 'dark' : undefined}
+                theme={isDark ? 'dark' : undefined}
                 notMerge={true}
                 opts={{ renderer: 'canvas' }}
                 onEvents={{

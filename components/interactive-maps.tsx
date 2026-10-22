@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import type * as Leaflet from 'leaflet';
 import { useCallback, useEffect, useRef, useState, memo } from 'react';
 import { useTheme } from 'next-themes';
+import { isDarkTheme } from '@/lib/themes';
 
 interface Location {
   lat: number;
@@ -78,7 +79,7 @@ const InteractiveMapComponent = memo<InteractiveMapProps>(
     const createTileLayer = useCallback(
       (style: InteractiveMapProps['tileStyle'], theme: string | undefined): Leaflet.TileLayer => {
         const L = leafletRef.current!;
-        const isDark = theme === 'dark';
+        const isDark = isDarkTheme(theme);
         switch (style) {
           case 'carto':
             return L.tileLayer(

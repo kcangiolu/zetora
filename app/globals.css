@@ -2,7 +2,7 @@
 @import '@cloudflare/kumo/styles/tailwind';
 @import 'tailwindcss';
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is(:is(.dark, .colourful, .plum, .inkdark, .neutraldark, .midnight, .forest, .ember) *));
 @custom-variant light (&:is(.light *));
 @custom-variant colourful (&:is(.colourful *));
 @custom-variant plum (&:is(.plum *));
@@ -374,7 +374,8 @@
     font-weight: normal !important;
   }
 
-  :is([data-theme='dark'], .dark) :where(.react-tweet-theme) {
+  :is([data-theme='dark'], .dark, .colourful, .plum, .inkdark, .neutraldark, .midnight, .forest, .ember)
+    :where(.react-tweet-theme) {
     --tweet-skeleton-gradient: linear-gradient(270deg, #09090b, #18181b, #18181b, #09090b) !important;
     --tweet-border: 1px solid #27272a !important;
     --tweet-font-color: #fafafa !important;
@@ -1432,8 +1433,8 @@ body {
   backdrop-filter: saturate(180%) blur(6px);
 }
 
-.dark .leaflet-control-zoom,
-.dark .custom-zoom-control.leaflet-bar {
+:is(.dark, .colourful, .plum, .inkdark, .neutraldark, .midnight, .forest, .ember) .leaflet-control-zoom,
+:is(.dark, .colourful, .plum, .inkdark, .neutraldark, .midnight, .forest, .ember) .custom-zoom-control.leaflet-bar {
   border-color: hsl(var(--border));
   background: rgba(9, 9, 11, 0.6);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
@@ -1468,8 +1469,8 @@ body {
   background: rgba(0, 0, 0, 0.04);
 }
 
-.dark .leaflet-control-zoom a:hover,
-.dark .custom-zoom-control .zoom-btn:hover {
+:is(.dark, .colourful, .plum, .inkdark, .neutraldark, .midnight, .forest, .ember) .leaflet-control-zoom a:hover,
+:is(.dark, .colourful, .plum, .inkdark, .neutraldark, .midnight, .forest, .ember) .custom-zoom-control .zoom-btn:hover {
   background: rgba(255, 255, 255, 0.06);
 }
 
@@ -1478,8 +1479,10 @@ body {
   background: rgba(0, 0, 0, 0.08);
 }
 
-.dark .leaflet-control-zoom a:active,
-.dark .custom-zoom-control .zoom-btn:active {
+:is(.dark, .colourful, .plum, .inkdark, .neutraldark, .midnight, .forest, .ember) .leaflet-control-zoom a:active,
+:is(.dark, .colourful, .plum, .inkdark, .neutraldark, .midnight, .forest, .ember)
+  .custom-zoom-control
+  .zoom-btn:active {
   background: rgba(255, 255, 255, 0.12);
 }
 

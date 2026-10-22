@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
+import { isDarkDocument } from '@/lib/themes';
 
 export type AgentState = null | 'thinking' | 'listening' | 'talking';
 
@@ -132,7 +133,7 @@ function Scene({
   useEffect(() => {
     const apply = () => {
       if (!circleRef.current) return;
-      const isDark = document.documentElement.classList.contains('dark');
+      const isDark = isDarkDocument();
       circleRef.current.material.uniforms.uInverted.value = isDark ? 1 : 0;
     };
 
@@ -212,7 +213,7 @@ function Scene({
   }, [gl]);
 
   const uniforms = useMemo(() => {
-    const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+    const isDark = typeof document !== 'undefined' && isDarkDocument();
     return {
       uColor1: new THREE.Uniform(new THREE.Color(initialColors[0])),
       uColor2: new THREE.Uniform(new THREE.Color(initialColors[1])),

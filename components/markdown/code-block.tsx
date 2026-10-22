@@ -12,6 +12,7 @@ import { keepInlineLinkText } from '@/lib/markdown-inline-links';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { geistMono } from '@/lib/fonts';
 import { useHydrated } from '@/hooks/use-hydrated';
+import { isDarkTheme } from '@/lib/themes';
 
 // Custom syntax themes that match Zetora's design system
 const zetoraDarkTheme: { [key: string]: React.CSSProperties } = {
@@ -249,12 +250,9 @@ const CodeBlockInner: React.FC<CodeBlockInnerProps> = ({
   }, [children.length, allowPlainTextFallback]);
 
   // Get theme-aware syntax highlighting style (default to dark for SSR)
-  // Light-background themes need light syntax colors; all others use dark
   const syntaxTheme = useMemo(() => {
     if (!mounted) return zetoraDarkTheme;
-    const isLightTheme =
-      resolvedTheme === 'light' || resolvedTheme === 'inklight' || resolvedTheme === 'neutrallight';
-    return isLightTheme ? zetoraLightTheme : zetoraDarkTheme;
+    return isDarkTheme(resolvedTheme) ? zetoraDarkTheme : zetoraLightTheme;
   }, [mounted, resolvedTheme]);
 
   const handleCopy = useCallback(

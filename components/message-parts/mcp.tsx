@@ -22,6 +22,7 @@ import { useTheme } from 'next-themes';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, Check, X, Clock } from 'lucide-react';
 import { ArrowRightIcon } from '@phosphor-icons/react';
+import { isDarkTheme } from '@/lib/themes';
 
 // Pill that shows inline input params (e.g. query="…") like other tool headers
 export const McpInputPill = ({ input }: { input: Record<string, unknown> }) => {
@@ -605,7 +606,7 @@ export function McpAppOutputBlock({
     const inlineWidth = iframeRef.current?.clientWidth;
 
     return {
-      theme: resolvedTheme === 'dark' ? 'dark' : 'light',
+      theme: isDarkTheme(resolvedTheme) ? 'dark' : 'light',
       displayMode: isFullscreen ? 'fullscreen' : 'inline',
       availableDisplayModes: ['inline', 'fullscreen'],
       platform: 'web',

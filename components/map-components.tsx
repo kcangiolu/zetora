@@ -5,6 +5,7 @@ import React, { useEffect, useRef, useState, memo } from 'react';
 import L from 'leaflet';
 import { WarningCircleIcon } from '@phosphor-icons/react';
 import { useTheme } from 'next-themes';
+import { isDarkTheme } from '@/lib/themes';
 
 interface Location {
   lat: number;
@@ -40,7 +41,7 @@ const MapComponent = memo(
     const { resolvedTheme } = useTheme();
 
     // Determine if we should use dark theme
-    const isDark = resolvedTheme === 'dark';
+    const isDark = isDarkTheme(resolvedTheme);
 
     useEffect(() => {
       if (!mapRef.current || mapInstance.current) return;

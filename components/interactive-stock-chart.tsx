@@ -35,6 +35,7 @@ import { MarkdownRenderer } from '@/components/markdown';
 import { getDisplayHostname, getFaviconUrl } from '@/lib/url';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLocale } from '@/contexts/locale-context';
+import { isDarkTheme } from '@/lib/themes';
 
 // Currency symbol mapping with modern design tokens
 const CURRENCY_SYMBOLS = {
@@ -284,7 +285,7 @@ const InteractiveStockChart = React.memo(
     market_movers,
   }: StockChartProps) => {
     const { resolvedTheme } = useTheme();
-    const isDark = resolvedTheme === 'dark';
+    const isDark = isDarkTheme(resolvedTheme);
     const locale = useLocale();
     // Use lazy initialization for lastUpdated - computation runs only once
     const [lastUpdated, setLastUpdated] = useState<string>(() => {
