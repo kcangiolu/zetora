@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { sileo } from 'sileo';
 import {
+  CheckIcon,
   PencilIcon,
   PlusIcon,
   PushPinIcon,
@@ -23,6 +24,7 @@ import { Brain02Icon } from '@hugeicons/core-free-icons';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 import {
   addMemoryEntry,
+  confirmMemoryEntry,
   consolidateMemoryNow,
   deleteMemoryEntry,
   getMemoryOverview,
@@ -230,7 +232,8 @@ function EntriesSection({ entries, consolidatedAt }: { entries: MemoryEntryView[
         <div className="min-w-0">
           <p className="text-sm font-medium">Remembered facts</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            New facts start as candidates and are only used once they come up again in another chat.
+            New facts start as candidates and are only used once they come up again in another chat, or once you confirm
+            them.
             {consolidatedAt && ` Last tidy-up: ${formatDate(consolidatedAt, locale)}.`}
           </p>
         </div>
@@ -373,6 +376,11 @@ function EntryRow({ entry }: { entry: MemoryEntryView }) {
     onError: () => showError('Failed to update memory'),
     onSettled,
   });
+  const confirm = useMutation({
+    mutationFn: () => confirmMemoryEntry(entry.id),
+    onError: () => showError('Failed to confirm memory'),
+    onSettled,
+  });
   const remove = useMutation({
     mutationFn: () => deleteMemoryEntry(entry.id),
     onError: () => showError('Failed to delete memory'),
@@ -432,6 +440,18 @@ function EntryRow({ entry }: { entry: MemoryEntryView }) {
         </div>
       </div>
       <div className="flex items-center gap-0.5 shrink-0">
+        {entry.status === 'candidate' && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-muted-foreground hover:text-foreground"
+            title="Confirm (start using it)"
+            onClick={() => confirm.mutate()}
+            disabled={confirm.isPending}
+          >
+            <CheckIcon className="h-3 w-3" />
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="icon"

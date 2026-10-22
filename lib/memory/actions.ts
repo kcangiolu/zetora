@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { getUser } from '@/lib/auth-utils';
 import {
+  confirmMemoryEntryByUser,
   deleteMemoryEntry as deleteEntry,
   getUserBio,
   getUserPreferencesByUserId,
@@ -117,6 +118,12 @@ export async function updateMemoryEntry(input: z.input<typeof entryEditSchema>) 
   const { id, ...edit } = entryEditSchema.parse(input);
   const updated = await updateMemoryEntryByUser(userId, id, edit);
   if (!updated) throw new Error('Memory entry not found');
+}
+
+export async function confirmMemoryEntry(id: string) {
+  const userId = await requireUserId();
+  const confirmed = await confirmMemoryEntryByUser(userId, z.string().min(1).parse(id));
+  if (!confirmed) throw new Error('Memory candidate not found');
 }
 
 export async function deleteMemoryEntry(id: string) {

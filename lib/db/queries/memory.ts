@@ -141,6 +141,16 @@ export async function updateMemoryEntryByUser(userId: string, id: string, edit: 
   return entry ?? null;
 }
 
+// Confirms a candidate without locking it: the model may still refine or archive it.
+export async function confirmMemoryEntryByUser(userId: string, id: string) {
+  const [entry] = await maindb
+    .update(memoryEntry)
+    .set({ status: 'confirmed', updatedAt: new Date() })
+    .where(and(eq(memoryEntry.id, id), eq(memoryEntry.userId, userId), eq(memoryEntry.status, 'candidate')))
+    .returning();
+  return entry ?? null;
+}
+
 export async function deleteMemoryEntry(userId: string, id: string) {
   await maindb.delete(memoryEntry).where(and(eq(memoryEntry.id, id), eq(memoryEntry.userId, userId)));
 }
