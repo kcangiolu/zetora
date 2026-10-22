@@ -11,6 +11,7 @@ import { getLightweightUserAuth, getCachedUserPreferencesByUserId } from '@/lib/
 import { resolveTertiaryModel } from '@/ai/tertiary';
 import { isConfigured } from '@/ai/catalog/env';
 import { getCustomProviderById } from '@/lib/custom-providers';
+import { buildFollowUpRequest } from '@/lib/search/follow-up-prompt';
 
 import { createLogger } from '@/lib/logger';
 
@@ -91,7 +92,7 @@ Respond with ONLY the JSON object below, no markdown code fences or extra commen
   ]
 }
 `,
-      messages: history,
+      prompt: buildFollowUpRequest(history),
       // Generous budget: on providers where reasoning can only be masked, not
       // disabled (see resolveTertiaryModel), a hidden <think> preamble still
       // consumes real tokens before the JSON — 500 was tight enough that it
