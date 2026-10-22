@@ -19,7 +19,12 @@ import {
 } from '@/lib/skills/image-prompt-defaults';
 import { TTS_PROVIDERS, type TTSProvider, getTTSProviderConfig } from '@/lib/tts-providers';
 import { STT_PROVIDERS, type STTProvider, getSTTProviderConfig } from '@/lib/stt-providers';
-import { VOICE_S2S_BACKENDS, type VoiceS2SBackend, getVoiceS2SBackendConfig } from '@/lib/s2s-backends';
+import {
+  VOICE_S2S_BACKENDS,
+  type VoiceS2SBackend,
+  getVoiceS2SBackendConfig,
+  resolveVoiceS2SBackend,
+} from '@/lib/s2s-backends';
 import { ChevronDown, AlertCircle } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { type CustomProviderConfig, ImagePromptPresetEditor } from './shared';
@@ -33,9 +38,10 @@ export function VoiceTab({ customProviders }: { customProviders: CustomProviderC
     'zetora-voice-s2s-backend',
     'cloud',
   );
-  // The local backend is only offered when this instance runs s2s-service.
-  const localVoiceAvailable = useInstanceCapabilities()?.localVoice === true;
-  const voiceS2SBackend: VoiceS2SBackend = localVoiceAvailable ? voiceS2SBackendPref : 'cloud';
+  const capabilities = useInstanceCapabilities();
+  const voiceS2SBackend = capabilities ? resolveVoiceS2SBackend(voiceS2SBackendPref, capabilities) : null;
+  // A choice only exists when the instance has both backends.
+  const offersBackendChoice = capabilities?.cloudVoice === true && capabilities.localVoice;
 
   const [ttsProvider, setTtsProvider] = useSyncedPreferences<TTSProvider>('zetora-tts-provider', 'elevenlabs');
   const [ttsCustomProviderId, setTtsCustomProviderId] = useSyncedPreferences<string>(
@@ -426,7 +432,7 @@ export function VoiceTab({ customProviders }: { customProviders: CustomProviderC
         </div>
 
         {/* ── Voice Backend (cloud vs local speech-to-speech) ── */}
-        {voiceEnabled && localVoiceAvailable && (
+        {voiceEnabled && offersBackendChoice && voiceS2SBackend && (
           <div className="flex items-center justify-between py-3.5 border-t border-border/40 gap-6">
             <div className="min-w-0">
               <p className="text-sm font-medium">Voice Backend</p>

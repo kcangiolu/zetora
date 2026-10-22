@@ -10,8 +10,8 @@ interface VoiceClientOptions {
   instructions?: string;
   /** Whether the microphone is muted. The caller owns this state. */
   muted?: boolean;
-  /** 'cloud' (xAI Realtime, default) or 'local' (self-hosted s2s-service). */
-  backend?: 'cloud' | 'local';
+  /** 'cloud' (xAI Realtime) or 'local' (self-hosted s2s-service). */
+  backend: 'cloud' | 'local';
 }
 
 interface ConversationTurn {
@@ -137,23 +137,26 @@ Then: Continue the conversation naturally
 // prompt only needs to carry the spoken persona.
 const DEFAULT_LOCAL_VOICE_INSTRUCTIONS = `Your Name is Zetora, a helpful, witty, and friendly AI assistant. Act like a human, but remember that you aren't a human and that you can't do human things in the real world. Your tone should be warm and engaging, talk naturally and conversationally, and keep replies concise since this is a spoken conversation, not a written document. When you don't know something or it may have changed recently, look it up before answering. If the user speaks in a non-English language, match their language naturally.`;
 
-// External XAI voice backend (../xai-voice/xai/backend-nodejs)
-const VOICE_BACKEND_URL = process.env.NEXT_PUBLIC_VOICE_BACKEND_URL ?? 'http://localhost:8000';
-
-interface SessionResponse {
-  client_secret: {
-    value: string;
-    expires_at: number;
-  };
-  voice: string;
-  instructions: string;
-  error?: string;
+interface CloudSessionResponse {
+  token: string;
 }
 
 interface LocalSessionResponse {
   token: string;
   url: string;
   expiresIn: number;
+}
+
+// The session routes answer errors as ChatSDKError ({ cause, message }) or { error }.
+async function sessionErrorMessage(response: Response, fallback: string): Promise<string> {
+  const body: unknown = await response.json().catch(() => null);
+  if (body && typeof body === 'object') {
+    for (const key of ['cause', 'error', 'message']) {
+      const value = (body as Record<string, unknown>)[key];
+      if (typeof value === 'string' && value) return value;
+    }
+  }
+  return `${fallback} (${response.status})`;
 }
 
 function getMicrophoneAccessErrorMessage(err: unknown): string | null {
@@ -211,8 +214,8 @@ function base64PCM16ToFloat32(base64: string): Float32Array {
   return float32;
 }
 
-export function useVoiceClient(options: VoiceClientOptions = {}): UseVoiceClientReturn {
-  const { voice = 'Ara', instructions, muted: isMuted = false, backend = 'cloud' } = options;
+export function useVoiceClient(options: VoiceClientOptions): UseVoiceClientReturn {
+  const { voice = 'Ara', instructions, muted: isMuted = false, backend } = options;
 
   const [agentState, setAgentState] = useState<AgentState>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -582,7 +585,7 @@ export function useVoiceClient(options: VoiceClientOptions = {}): UseVoiceClient
         });
 
         if (!sessionResponse.ok) {
-          throw new Error(`Failed to create local session (${sessionResponse.status})`);
+          throw new Error(await sessionErrorMessage(sessionResponse, 'Failed to create local session'));
         }
 
         const data: LocalSessionResponse = await sessionResponse.json();
@@ -597,30 +600,22 @@ export function useVoiceClient(options: VoiceClientOptions = {}): UseVoiceClient
 
         ws = new WebSocket(`${data.url}?token=${encodeURIComponent(data.token)}`);
       } else {
-        const sessionResponse = await fetch(`${VOICE_BACKEND_URL}/session`, {
+        const sessionResponse = await fetch('/api/voice/cloud-session', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          credentials: 'include',
         });
 
         if (!sessionResponse.ok) {
-          throw new Error(`Failed to create session (${sessionResponse.status})`);
+          throw new Error(await sessionErrorMessage(sessionResponse, 'Failed to create cloud session'));
         }
 
-        const data: SessionResponse = await sessionResponse.json();
-        if (data.error) {
-          throw new Error(data.error);
-        }
-
-        const ephemeralToken = data.client_secret.value;
+        const data: CloudSessionResponse = await sessionResponse.json();
+        const ephemeralToken = data.token;
 
         const effectiveInstructions = instructions ?? DEFAULT_VOICE_INSTRUCTIONS;
-        // Prefer the latest selected client voice; fall back to backend default
-        const effectiveVoice = voiceRef.current || data.voice;
 
         sessionConfigRef.current = {
-          voice: effectiveVoice,
+          voice: voiceRef.current,
           instructions: effectiveInstructions,
           sampleRate,
           backend: 'cloud',

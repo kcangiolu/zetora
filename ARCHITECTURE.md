@@ -76,7 +76,8 @@ docs/screenshots/       Images shown in the README
 | `mcp/*`                                           | MCP server CRUD, OAuth flows, elicitation, apps bridge            |
 | `models`, `instance/capabilities`                 | Model picker catalog, what this instance has configured           |
 | `custom-providers*`                               | Custom OpenAI-compatible provider management (detect, models)     |
-| `tts/stream`, `transcribe`, `voice/local-session` | Voice synthesis, transcription, local speech-to-speech sessions   |
+| `tts/stream`, `transcribe`                        | Voice synthesis, transcription                                    |
+| `voice/cloud-session`, `voice/local-session`      | Cloud (xAI) and local speech-to-speech sessions                   |
 | `v1/chat/completions`                             | OpenAI-compatible endpoint (used by the speech-to-speech service) |
 | `hermes/*`, `internal/hermes/*`                   | Hermes Agent connector (user side / relay side)                   |
 | `og/*`, `link-metadata`                           | Share images, link previews                                       |

@@ -22,6 +22,8 @@ export interface InstanceCapabilities {
   hybridSearch: boolean;
   // Presidio: the Data protection settings.
   anonymization: boolean;
+  // XAI_API_KEY: the cloud Voice backend (xAI Realtime).
+  cloudVoice: boolean;
   // s2s-service: the local Voice backend.
   localVoice: boolean;
   // Chat sources none of whose tools this instance can run (an API key not
@@ -50,6 +52,10 @@ export function isAnonymizationAvailable(): boolean {
   return Boolean(serverEnv.ANONYMIZER_API_URL);
 }
 
+function isCloudVoiceAvailable(): boolean {
+  return isConfigured(serverEnv.XAI_API_KEY);
+}
+
 export function isLocalVoiceAvailable(): boolean {
   return Boolean(process.env.VOICE_S2S_URL?.trim());
 }
@@ -67,6 +73,7 @@ export function getInstanceCapabilities(): InstanceCapabilities {
     searchProviders: getAvailableSearchProviders(),
     hybridSearch: isHybridSearchAvailable(),
     anonymization: isAnonymizationAvailable(),
+    cloudVoice: isCloudVoiceAvailable(),
     localVoice: isLocalVoiceAvailable(),
     unavailableSources: getUnavailableSources(),
   };

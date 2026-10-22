@@ -14,6 +14,7 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 import { useInstanceCapabilities } from '@/hooks/use-instance-capabilities';
 import { useUser } from '@/contexts/user-context';
 import { cn, normalizeError } from '@/lib/utils';
+import { resolveVoiceS2SBackend, type VoiceS2SBackend } from '@/lib/s2s-backends';
 
 const VOICES: { value: VoiceType; label: string; description: string }[] = [
   { value: 'Ara', label: 'Ara', description: 'Warm, friendly' },
@@ -96,10 +97,10 @@ export default function VoicePage() {
   const { user, isLoading: isProStatusLoading } = useUser();
   const router = useRouter();
 
-  const [voiceBackendPref] = useSyncedPreferences<'cloud' | 'local'>('zetora-voice-s2s-backend', 'cloud');
-  // The local backend only exists when this instance runs s2s-service.
-  const localVoiceAvailable = useInstanceCapabilities()?.localVoice === true;
-  const voiceBackend = localVoiceAvailable ? voiceBackendPref : 'cloud';
+  const [voiceBackendPref] = useSyncedPreferences<VoiceS2SBackend>('zetora-voice-s2s-backend', 'cloud');
+  const capabilities = useInstanceCapabilities();
+  // Null while the capabilities load, or when the instance has no voice backend at all.
+  const voiceBackend = capabilities ? resolveVoiceS2SBackend(voiceBackendPref, capabilities) : null;
 
   const {
     agentState,
@@ -116,7 +117,7 @@ export default function VoicePage() {
   } = useVoiceClient({
     voice: selectedVoice,
     muted: isMuted,
-    backend: voiceBackend,
+    backend: voiceBackend ?? 'cloud',
   });
 
   function formatMs(ms: number) {
@@ -144,10 +145,10 @@ export default function VoicePage() {
   const handleConnect = useCallback(async () => {
     if (isConnected) {
       disconnect();
-    } else {
+    } else if (voiceBackend) {
       await connect();
     }
-  }, [isConnected, connect, disconnect]);
+  }, [isConnected, voiceBackend, connect, disconnect]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -486,7 +487,7 @@ export default function VoicePage() {
                       className="w-full"
                     />
                   </motion.div>
-                ) : !isConnected ? (
+                ) : !isConnected && voiceBackend === 'local' ? (
                   <motion.div
                     key="local-backend-hint"
                     initial={{ opacity: 0 }}
@@ -499,7 +500,7 @@ export default function VoicePage() {
                       Local backend — voice comes from your configured Custom TTS Server
                     </p>
                   </motion.div>
-                ) : (
+                ) : isConnected ? (
                   <motion.div
                     key="text-input"
                     initial={{ opacity: 0 }}
@@ -536,14 +537,22 @@ export default function VoicePage() {
                       </button>
                     </form>
                   </motion.div>
-                )}
+                ) : null}
               </AnimatePresence>
+
+              {capabilities && !voiceBackend && (
+                <p className="text-center text-[11px] text-muted-foreground/70 py-1">
+                  Voice is not set up on this instance: set XAI_API_KEY for cloud voice or VOICE_S2S_URL for self-hosted
+                  voice.
+                </p>
+              )}
 
               {/* Action buttons */}
               <div className="flex items-center justify-center gap-2 w-full">
                 <VoiceButton
                   state={voiceButtonState}
                   onPress={handleConnect}
+                  disabled={!voiceBackend}
                   size="sm"
                   label={isConnected ? 'End session' : 'Start session'}
                   trailing={

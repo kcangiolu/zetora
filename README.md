@@ -154,7 +154,7 @@ Pick one row, set `COMPOSE_PROFILES` in `.env` to its value, then point the matc
 | + **local voice**  | `selfhosted,voice,tts` | Adds local speech-to-speech and Qwen3 TTS (NVIDIA GPU)                                         |
 | + **Hermes Agent** | add `hermes`           | Experimental; also set `NEXT_PUBLIC_HERMES_ENABLED=true` and rebuild                           |
 
-Zetora only offers what the instance has. A search provider shows up in Settings and in the chat's sources once its API key or URL is set; Hybrid Search once `QDRANT_URL` is; Data protection once `ANONYMIZER_API_URL` is; the local voice backend once `VOICE_S2S_URL` is. With the bundled containers, these URLs are the Docker service names given in `.env.example`. Each search function picks the user's choice when the instance has it, else the first available provider in a fixed order: the self-hosted services, then Exa, Firecrawl and Parallel. A function with no provider at all is not offered, and Settings says what it needs. Fallback providers are off unless the user turns them on.
+Zetora only offers what the instance has. A search provider shows up in Settings and in the chat's sources once its API key or URL is set; Hybrid Search once `QDRANT_URL` is; Data protection once `ANONYMIZER_API_URL` is; the cloud voice backend once `XAI_API_KEY` is and the local one once `VOICE_S2S_URL` is. With the bundled containers, these URLs are the Docker service names given in `.env.example`. Each search function picks the user's choice when the instance has it, else the first available provider in a fixed order: the self-hosted services, then Exa, Firecrawl and Parallel. A function with no provider at all is not offered, and Settings says what it needs. Fallback providers are off unless the user turns them on.
 
 All services share the `zetora-network` Docker network and resolve each other by service name. Most services are bound to `127.0.0.1`; only `zetora.app` (port 3333), Silo's API port, `s2s-service` and `hermes-relay-service` publish beyond loopback (for reverse-proxy, browser and gateway access).
 
@@ -188,7 +188,7 @@ If you'd rather not run the bundled services, Zetora can run entirely against ma
 | fastCRW             | Firecrawl                         | `FIRECRAWL_API_KEY`; only providers whose key or URL is set are offered                                                         |
 | Sandbox             | Daytona                           | `SANDBOX_PROVIDER=daytona` with `DAYTONA_API_KEY` and `DAYTONA_SNAPSHOT` (created once by `scripts/create-daytona-snapshot.py`) |
 | Presidio            | — (disabled)                      | leave `ANONYMIZER_API_URL` unset: Settings then hides Data protection                                                           |
-| Voice pipeline      | ElevenLabs / xAI Realtime         | leave `VOICE_S2S_URL` unset: Settings then only offers the cloud backend                                                        |
+| Voice pipeline      | ElevenLabs / xAI Realtime         | set `XAI_API_KEY` and leave `VOICE_S2S_URL` unset: the Voice page then uses xAI Realtime                                        |
 | BullMQ              | Upstash QStash                    | `LOOKOUT_SCHEDULER=qstash` with `QSTASH_TOKEN` (the only option on hosts with no long-running process, such as Vercel)          |
 
 See `.env.example` for the full catalog of provider and feature environment variables.
