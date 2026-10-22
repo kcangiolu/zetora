@@ -1,12 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
-  AUTO_MODEL_ID,
   canonicalModelId,
   findModel,
   getAcceptedFileTypes,
   getProviderName,
   getReasoningControl,
-  supportsCanvasMode,
   type Model,
 } from '@/ai/models';
 
@@ -62,12 +60,6 @@ describe('model accessors', () => {
   it('accepts PDFs only for models that read them', () => {
     expect(getAcceptedFileTypes(model('a:b', 'a', { pdf: true }))).toContain('.pdf');
     expect(getAcceptedFileTypes(gpt)).not.toContain('.pdf');
-  });
-
-  it('allows canvas mode for structured-output models, never for Auto', () => {
-    expect(supportsCanvasMode(gpt)).toBe(true);
-    expect(supportsCanvasMode(model('a:b', 'a', { structuredOutput: false }))).toBe(false);
-    expect(supportsCanvasMode(model(AUTO_MODEL_ID, 'zetora'))).toBe(false);
   });
 
   it('shows the reasoning toggle only for steerable reasoning models', () => {

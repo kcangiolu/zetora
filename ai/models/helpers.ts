@@ -70,8 +70,3 @@ export function getAcceptedFileTypes(model: Model | undefined): string {
   }
   return `image/*,${documentTypes},${jsonTypes}`;
 }
-
-// Canvas mode generates a structured dashboard spec.
-export function supportsCanvasMode(model: Model | undefined): boolean {
-  return model?.structuredOutput === true && model.value !== AUTO_MODEL_ID;
-}

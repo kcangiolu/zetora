@@ -3,7 +3,7 @@ import { UseChatHelpers } from '@ai-sdk/react';
 import { CaretDownIcon } from '@phosphor-icons/react/dist/ssr';
 import { useWebHaptics } from 'web-haptics/react';
 
-import { AUTO_MODEL_ID, DEFAULT_MODEL_ALIAS, findModel, supportsCanvasMode, type Model } from '@/ai/models';
+import { AUTO_MODEL_ID, findModel, type Model } from '@/ai/models';
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { Kbd } from '@/components/ui/kbd';
@@ -16,10 +16,8 @@ import { ProcessorIcon } from '@/components/ui/processor-icon';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useModels } from '@/hooks/use-models';
-import { ComprehensiveUserData } from '@/hooks/use-user-data';
 import { ChatMessage } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { SearchGroupId } from '@/lib/search/search-groups';
 
 // Survives the composer remounting (e.g. moving from a new chat to its page)
 // so an open switcher stays open.
@@ -31,8 +29,6 @@ interface ModelSwitcherProps {
   className?: string;
   status: UseChatHelpers<ChatMessage>['status'];
   onModelSelect?: (model: Model) => void;
-  user?: ComprehensiveUserData | null;
-  selectedGroup: SearchGroupId;
   autoRoutedModel?: { model: string; route: string } | null;
   inputRef?: React.RefObject<HTMLTextAreaElement | null>;
 }
@@ -105,16 +101,7 @@ SwitcherTrigger.displayName = 'SwitcherTrigger';
 
 // The chat's model picker, in the composer.
 export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
-  ({
-    selectedModel,
-    setSelectedModel,
-    className,
-    onModelSelect,
-    user,
-    selectedGroup,
-    autoRoutedModel,
-    inputRef: externalInputRef,
-  }) => {
+  ({ selectedModel, setSelectedModel, className, onModelSelect, autoRoutedModel, inputRef: externalInputRef }) => {
     const { models: availableModels, getModel } = useModels();
     const isMobile = useIsMobile();
     const haptics = useWebHaptics();
@@ -136,22 +123,6 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       document.addEventListener('keydown', handleKeyDown);
       return () => document.removeEventListener('keydown', handleKeyDown);
     }, [setOpen]);
-
-    // Canvas mode only lists the models that can drive it.
-    const pickableModels = useMemo(
-      () => (selectedGroup === 'canvas' ? availableModels.filter(supportsCanvasMode) : availableModels),
-      [availableModels, selectedGroup],
-    );
-
-    // Entering canvas mode with a model that can't drive it switches to the
-    // default model, or the first one that can.
-    useEffect(() => {
-      if (user === undefined || selectedGroup !== 'canvas' || pickableModels.length === 0) return;
-      if (pickableModels.some((model) => model.value === selectedModel)) return;
-      const defaultModel = getModel(DEFAULT_MODEL_ALIAS);
-      const fallback = pickableModels.find((model) => model.value === defaultModel?.value) ?? pickableModels[0];
-      setSelectedModel(fallback.value);
-    }, [user, selectedGroup, pickableModels, selectedModel, getModel, setSelectedModel]);
 
     const currentModel = useMemo(() => findModel(availableModels, selectedModel), [availableModels, selectedModel]);
 
@@ -189,7 +160,7 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
 
     const panel = (
       <ModelPickerPanel
-        models={pickableModels}
+        models={availableModels}
         selectedModel={currentModel?.value ?? selectedModel}
         onSelect={handleSelect}
         idPrefix="model"

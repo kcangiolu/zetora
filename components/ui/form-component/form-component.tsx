@@ -1,13 +1,13 @@
 import React, { memo, useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { sileo } from 'sileo';
-import { Upload, Zap, AlertCircle } from 'lucide-react';
+import { Upload, AlertCircle } from 'lucide-react';
 import { Eye } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useWebHaptics } from 'web-haptics/react';
 import { UseChatHelpers } from '@ai-sdk/react';
 
-import { DEFAULT_MODEL_ALIAS, getAcceptedFileTypes, supportsCanvasMode } from '@/ai/models';
+import { getAcceptedFileTypes } from '@/ai/models';
 import { useModeAccentStyle, ModeAccentSpread } from '@/components/mode-accent';
 import { AudioLinesIcon } from '@/components/ui/audio-lines';
 import { Button } from '@/components/ui/button';
@@ -152,7 +152,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
   visionEnabled,
   onToggleVision,
 }) => {
-  const { models, getModel } = useModels();
+  const { getModel } = useModels();
   const selectedModelConfig = getModel(selectedModel);
   const sendHermesMessage = useHermesSend(chatId);
   const queryClient = useQueryClient();
@@ -196,7 +196,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
       setPlusMenuOpen(nextOpen);
       if (nextOpen) haptics.trigger('light');
     },
-    [haptics],
+    [haptics, setPlusMenuOpen],
   );
 
   const openTrigger = (trigger: TriggerChar | null, filter = '') => {
@@ -285,7 +285,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
       return;
     }
     toggleRecording();
-  }, [user, isRecording, haptics, toggleRecording]);
+  }, [user, isRecording, haptics, toggleRecording, setShowSignInDialog]);
 
   const handleInput = useCallback(
     (event: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -321,31 +321,9 @@ const FormComponent: React.FC<FormComponentProps> = ({
       }
 
       setSelectedGroup(group.id);
-      if (group.id === 'canvas' && !supportsCanvasMode(selectedModelConfig)) {
-        const defaultModel = getModel(DEFAULT_MODEL_ALIAS);
-        const preferred = supportsCanvasMode(defaultModel) ? defaultModel : models.find(supportsCanvasMode);
-        if (preferred) {
-          setSelectedModel(preferred.value);
-          sileo.info({
-            title: `Switched to ${preferred.label} for canvas mode`,
-            description: 'Model automatically changed for canvas mode',
-            icon: <Zap className="h-4 w-4" />,
-          });
-        }
-      }
       inputRef.current?.focus();
     },
-    [
-      setSelectedGroup,
-      selectedGroup,
-      inputRef,
-      isEnhancing,
-      isTypewriting,
-      selectedModelConfig,
-      getModel,
-      models,
-      setSelectedModel,
-    ],
+    [setSelectedGroup, selectedGroup, inputRef, isEnhancing, isTypewriting],
   );
 
   // Replaces the typed trigger and its filter with `insertion` and closes the popup.
@@ -410,7 +388,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
       if (selectedGroup === modeId) setSelectedGroup('auto');
       else handleGroupSelect(group);
     },
-    [searchGroups, user, selectedGroup, setSelectedGroup, handleGroupSelect, haptics],
+    [searchGroups, user, selectedGroup, setSelectedGroup, handleGroupSelect, haptics, setPlusMenuOpen],
   );
 
   useEffect(() => {
@@ -697,7 +675,16 @@ const FormComponent: React.FC<FormComponentProps> = ({
         submitForm();
       }
     },
-    [autocomplete, pickSuggestion, triggerPopup, triggerTotalItems, selectHighlightedTriggerItem, isMobile, submitForm],
+    [
+      autocomplete,
+      pickSuggestion,
+      triggerPopup,
+      triggerTotalItems,
+      selectHighlightedTriggerItem,
+      isMobile,
+      submitForm,
+      setTriggerHighlightIndex,
+    ],
   );
 
   const resizeTextarea = useCallback(() => {
@@ -1037,8 +1024,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
                         setSelectedModel={setSelectedModel}
                         status={status}
                         onModelSelect={(model) => setSelectedModel(model.value)}
-                        user={user}
-                        selectedGroup={selectedGroup}
                         autoRoutedModel={autoRoutedModel}
                         inputRef={inputRef}
                       />
