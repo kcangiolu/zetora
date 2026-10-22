@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { SYNTHESIS_NUDGE } from '@/lib/search/prepare-step';
 
 // Wiring test for the local-voice LLM stage (/api/v1/chat/completions). It runs
@@ -173,5 +173,60 @@ describe('POST /api/v1/chat/completions (local voice LLM stage)', () => {
     const afterTool = await prepareStep({ steps: [{ toolCalls: [{}], toolResults: [{}] }] });
     expect(afterTool.activeTools).toEqual(VOICE_TOOLS);
     expect(afterTool.system).toContain(SYNTHESIS_NUDGE.trim());
+  });
+
+  it('passes the request signal so an interrupted reply stops generating', async () => {
+    const controller = new AbortController();
+    await POST(
+      new Request('http://localhost/api/v1/chat/completions', {
+        method: 'POST',
+        body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
+        signal: controller.signal,
+      }) as never,
+    );
+
+    const { abortSignal } = lastStreamTextOptions();
+    expect(abortSignal.aborted).toBe(false);
+    controller.abort();
+    expect(abortSignal.aborted).toBe(true);
+  });
+
+  describe('while a tool call keeps the model quiet', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('sends SSE keepalive comments, then the answer', async () => {
+      let releaseAnswer = () => {};
+      const answerReady = new Promise<void>((resolve) => {
+        releaseAnswer = resolve;
+      });
+      streamText.mockReturnValueOnce({
+        textStream: (async function* () {
+          await answerReady;
+          yield 'Found it.';
+        })(),
+      });
+
+      const res = await post({ messages: [{ role: 'user', content: 'search something slow' }] });
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+
+      await vi.advanceTimersByTimeAsync(25_000);
+      releaseAnswer();
+      let body = '';
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        body += decoder.decode(value);
+      }
+
+      expect(body.match(/^: keepalive$/gm)).toHaveLength(2);
+      expect(body.indexOf(': keepalive')).toBeLessThan(body.indexOf('Found it.'));
+      expect(body).toContain('data: [DONE]');
+    });
   });
 });

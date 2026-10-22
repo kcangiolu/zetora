@@ -18,6 +18,9 @@ const log = createLogger('v1-chat-completions');
 // the prompt stays light and turns stay low-latency.
 const VOICE_TOOL_NAMES = ['web_search', 'retrieve', 'get_weather_data', 'datetime'];
 
+// Well under s2s-service's read timeout (REQUEST_TIMEOUT_S).
+const KEEPALIVE_INTERVAL_MS = 10_000;
+
 // Server-side tool guidance appended to the caller's spoken persona. Deliberately
 // terse and speech-oriented — the `web` group's own instructions are written for
 // written chat (markdown, inline citations) and read badly aloud.
@@ -90,6 +93,9 @@ export async function POST(req: NextRequest) {
 
   const result = streamText({
     model,
+    // s2s-service drops the request when the user talks over the reply:
+    // stop generating and searching for an answer nobody will hear.
+    abortSignal: req.signal,
     system: baseSystem,
     messages,
     tools,
@@ -133,10 +139,14 @@ export async function POST(req: NextRequest) {
   // far worse than a dropped word.
   const scrubTokens = (text: string) => text.replace(TOKEN_PATTERN, '');
 
+  let keepAlive: ReturnType<typeof setInterval> | undefined;
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const send = (chunk: unknown) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
       const tokenBuffer = new StreamTokenBuffer({ userId });
+      // Tool calls (a slow search) can go quiet for longer than the caller's
+      // read timeout. An SSE comment line resets it and is ignored by parsers.
+      keepAlive = setInterval(() => controller.enqueue(encoder.encode(': keepalive\n\n')), KEEPALIVE_INTERVAL_MS);
       try {
         for await (const delta of result.textStream) {
           const resolved = scrubTokens(await tokenBuffer.push(delta));
@@ -169,11 +179,17 @@ export async function POST(req: NextRequest) {
         });
         controller.enqueue(encoder.encode('data: [DONE]\n\n'));
       } catch (error) {
+        clearInterval(keepAlive);
+        if (req.signal.aborted) return;
         log.error('[api/v1/chat/completions] stream error:', error);
         controller.error(error);
         return;
       }
+      clearInterval(keepAlive);
       controller.close();
+    },
+    cancel() {
+      clearInterval(keepAlive);
     },
   });
 
