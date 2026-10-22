@@ -3,8 +3,7 @@ Local speech-to-speech backend for Zetora's Voice page.
 
 Speaks the same OpenAI Realtime protocol subset the client already speaks to
 the cloud (xAI) backend, over ws:///v1/realtime, so hooks/use-voice-client.ts
-only needs a connection-target branch, not a rewrite (see the plan in
-.claude/plans — cloud vs local voice backend).
+only needs a connection-target branch, not a rewrite.
 
 Unlike huggingface/speech-to-speech (which runs STT/LLM/TTS in-process), this
 server stays a thin orchestrator: Silero VAD for turn-taking is the only
@@ -31,6 +30,7 @@ import json
 import logging
 import os
 import wave
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 
 import httpx
@@ -113,14 +113,29 @@ def decimate_48k_to_16k(pcm48k: bytes) -> np.ndarray:
     return samples[::3]
 
 
-def resample_linear(samples: np.ndarray, src_rate: int, dst_rate: int) -> np.ndarray:
-    if src_rate == dst_rate or len(samples) == 0:
-        return samples
-    duration = len(samples) / src_rate
-    dst_len = max(1, int(duration * dst_rate))
-    src_x = np.linspace(0, duration, num=len(samples), endpoint=False)
-    dst_x = np.linspace(0, duration, num=dst_len, endpoint=False)
-    return np.interp(dst_x, src_x, samples).astype(np.float32)
+class StreamResampler:
+    """Linear resampler for a stream that arrives in chunks. It keeps the
+    last sample and the output phase between chunks: resampling each chunk
+    on its own restarts the grid at every boundary, which clicks."""
+
+    def __init__(self, src_rate: int, dst_rate: int):
+        self.passthrough = src_rate == dst_rate
+        self.step = src_rate / dst_rate  # source samples per output sample
+        self.pos = 0.0  # next output position, in samples from the start of the buffer
+        self.prev: "np.ndarray | None" = None
+
+    def process(self, samples: np.ndarray) -> np.ndarray:
+        if self.passthrough or len(samples) == 0:
+            return samples
+        buf = samples if self.prev is None else np.concatenate([self.prev, samples])
+        last = len(buf) - 1
+        count = int((last - self.pos) // self.step) + 1 if last >= self.pos else 0
+        positions = self.pos + np.arange(count) * self.step
+        out = np.interp(positions, np.arange(len(buf)), buf).astype(np.float32)
+        # The next buffer starts at this one's last sample.
+        self.pos += count * self.step - last
+        self.prev = buf[-1:]
+        return out
 
 
 def pcm48k_to_wav_bytes(pcm48k: bytes) -> bytes:
@@ -163,10 +178,20 @@ class VoiceSession:
     # The audio last handed to run_turn — re-prepended to the next utterance
     # if we have to cancel that turn before its STT call has returned.
     pending_audio: bytes = b""
+    # A typed message (conversation.item.create), answered on response.create.
+    pending_text: str = ""
 
 
 def _auth_headers(session: VoiceSession) -> dict:
     return {"Authorization": f"Bearer {session.token}"} if session.token else {}
+
+
+async def _raise_for_status(response: httpx.Response) -> None:
+    """Like raise_for_status, but with the app's error body, which says what
+    to configure ("Custom TTS provider not configured", ...), in the message."""
+    if response.is_error:
+        body = (await response.aread()).decode("utf-8", errors="replace").strip()
+        raise RuntimeError(f"{response.status_code} from {response.url.path}: {body[:300] or response.reason_phrase}")
 
 
 async def send_json(ws: WebSocket, payload: dict) -> None:
@@ -192,7 +217,7 @@ async def transcribe_utterance(client: httpx.AsyncClient, session: VoiceSession,
         files={"audio": ("audio.wav", wav_bytes, "audio/wav")},
         timeout=REQUEST_TIMEOUT_S,
     )
-    response.raise_for_status()
+    await _raise_for_status(response)
     data = response.json()
     return (data.get("text") or "").strip()
 
@@ -209,12 +234,19 @@ async def synthesize_and_send(client: httpx.AsyncClient, ws: WebSocket, session:
         json={"text": text},
         timeout=REQUEST_TIMEOUT_S,
     ) as response:
-        response.raise_for_status()
+        await _raise_for_status(response)
+        resampler = StreamResampler(TTS_SAMPLE_RATE, CLIENT_SAMPLE_RATE)
+        # Network chunks can split a 16-bit sample: the odd byte waits for the next chunk.
+        carry = b""
         async for chunk in response.aiter_bytes():
-            if not chunk:
+            data = carry + chunk
+            usable = len(data) - len(data) % 2
+            carry = data[usable:]
+            if usable == 0:
                 continue
-            samples = pcm16_bytes_to_float32(chunk)
-            resampled = resample_linear(samples, TTS_SAMPLE_RATE, CLIENT_SAMPLE_RATE)
+            resampled = resampler.process(pcm16_bytes_to_float32(data[:usable]))
+            if len(resampled) == 0:
+                continue
             delta_b64 = base64.b64encode(float32_to_pcm16_bytes(resampled)).decode("ascii")
             await send_json(ws, {"type": "response.output_audio.delta", "delta": delta_b64})
 
@@ -225,8 +257,12 @@ _SENTENCE_END = (".", "!", "?", "\n")
 async def run_turn(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSession, pcm48k: bytes) -> None:
     try:
         transcript = await transcribe_utterance(client, session, pcm48k)
+    except asyncio.CancelledError:
+        raise
     except Exception as exc:
         await send_error(ws, f"Transcription failed: {exc}")
+        # The client went to "thinking" on speech_stopped: every turn ends with response.done.
+        await send_json(ws, {"type": "response.done"})
         return
 
     # STT is done — from here on this task is actually producing a response,
@@ -235,6 +271,7 @@ async def run_turn(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSessi
     session.response_active = True
 
     if not transcript:
+        await send_json(ws, {"type": "response.done"})
         return
 
     await send_json(
@@ -242,6 +279,17 @@ async def run_turn(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSessi
     )
 
     session.history.append({"role": "user", "content": transcript})
+    await respond(client, ws, session)
+
+
+async def run_text_turn(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSession, text: str) -> None:
+    # The client already shows the typed message: no transcription event.
+    session.response_active = True
+    session.history.append({"role": "user", "content": text})
+    await respond(client, ws, session)
+
+
+async def respond(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSession) -> None:
     await send_json(ws, {"type": "response.created"})
 
     messages = [{"role": "system", "content": session.instructions}, *session.history]
@@ -258,7 +306,7 @@ async def run_turn(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSessi
             json={"messages": messages, "stream": True},
             timeout=REQUEST_TIMEOUT_S,
         ) as response:
-            response.raise_for_status()
+            await _raise_for_status(response)
             async for line in response.aiter_lines():
                 if not line.startswith("data: "):
                     continue
@@ -285,6 +333,7 @@ async def run_turn(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSessi
         raise
     except Exception as exc:
         await send_error(ws, f"Response generation failed: {exc}")
+        await send_json(ws, {"type": "response.done"})
         return
 
     if assistant_text.strip():
@@ -368,30 +417,61 @@ async def feed_vad(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSessi
                     # Log rather than silently dropping the utterance.
                     logger.warning("dropping utterance: previous turn still processing")
                 else:
-                    session.processing = True
-                    session.response_active = False
                     session.pending_audio = utterance
+                    start_turn(session, run_turn(client, ws, session, utterance))
 
-                    async def _run(u=utterance):
-                        try:
-                            await run_turn(client, ws, session, u)
-                        finally:
-                            session.processing = False
-                            session.response_active = False
 
-                    session.current_task = asyncio.create_task(_run())
+def start_turn(session: VoiceSession, turn) -> None:
+    """Runs `turn` (a coroutine) as the session's in-flight turn."""
+    session.processing = True
+    session.response_active = False
+
+    async def _run():
+        try:
+            await turn
+        finally:
+            # A cancelled turn finishes after its replacement has started:
+            # only the current turn may clear the flags.
+            if session.current_task is asyncio.current_task():
+                session.processing = False
+                session.response_active = False
+
+    session.current_task = asyncio.create_task(_run())
+
+
+async def cancel_turn(ws: WebSocket, session: VoiceSession) -> None:
+    task = session.current_task
+    if not task or task.done():
+        return
+    if session.response_active:
+        await send_json(ws, {"type": "response.done"})
+    else:
+        logger.info("dropping an utterance still being transcribed: the user typed a message")
+    task.cancel()
+
+
+def input_text(item: object) -> str:
+    """The text of a conversation.item.create user message, or ""."""
+    if not isinstance(item, dict) or item.get("role") != "user":
+        return ""
+    parts = item.get("content")
+    if not isinstance(parts, list):
+        return ""
+    texts = [p.get("text", "") for p in parts if isinstance(p, dict) and p.get("type") == "input_text"]
+    return " ".join(t for t in texts if isinstance(t, str)).strip()
 
 
 # ── FastAPI app ────────────────────────────────────────────────
 
 
-app = FastAPI(title="Zetora local speech-to-speech")
-
-
-@app.on_event("startup")
-async def _startup():
-    await asyncio.get_event_loop().run_in_executor(None, _load_vad)
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    await asyncio.get_running_loop().run_in_executor(None, _load_vad)
     logger.info("s2s-service ready — APP_URL=%s", APP_URL)
+    yield
+
+
+app = FastAPI(title="Zetora local speech-to-speech", lifespan=lifespan)
 
 
 @app.get("/health")
@@ -415,8 +495,21 @@ async def realtime(ws: WebSocket):
 
                 if msg_type == "session.update":
                     update = message.get("session", {})
-                    session.instructions = update.get("instructions") or DEFAULT_INSTRUCTIONS
+                    # Partial updates (a voice change) keep the instructions.
+                    if "instructions" in update:
+                        session.instructions = update.get("instructions") or DEFAULT_INSTRUCTIONS
                     await send_json(ws, {"type": "session.updated"})
+
+                elif msg_type == "conversation.item.create":
+                    text = input_text(message.get("item"))
+                    if text:
+                        session.pending_text = text
+
+                elif msg_type == "response.create":
+                    text, session.pending_text = session.pending_text, ""
+                    if text:
+                        await cancel_turn(ws, session)
+                        start_turn(session, run_text_turn(client, ws, session, text))
 
                 elif msg_type == "input_audio_buffer.append":
                     audio_b64 = message.get("audio")
