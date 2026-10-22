@@ -77,6 +77,8 @@ Not part of the relay contract. `hermes-plugin/zetora` POSTs here under the same
 as the WebSocket upgrade:
 
 - `/relay/tool-event` — one tool step, forwarded to `/api/internal/hermes/tool-event`.
+- `/relay/turn-event` — the end of an agent turn with its final reply, forwarded to
+  `/api/internal/hermes/turn-event`.
 - `/relay/memory` — one memory request, forwarded to `/api/internal/hermes/memory`; the reply
   and its status code are `zetora-app`'s.
 

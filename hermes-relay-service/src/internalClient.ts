@@ -70,6 +70,15 @@ export function reportToolStep(params: {
   return postInternal('/api/internal/hermes/tool-event', params);
 }
 
+// Forwards the end of an agent turn reported by Zetora's Hermes plugin (see index.ts's
+// handleTurnEvent). The event is passed through unvalidated: zetora-app owns its shape.
+export function reportTurnEnd(params: {
+  gatewayId: string;
+  event: unknown;
+}): Promise<{ success: boolean; error?: string }> {
+  return postInternal('/api/internal/hermes/turn-event', params);
+}
+
 // Forwards a request from the memory provider in Zetora's Hermes plugin (see index.ts's
 // handleMemory). zetora-app owns its shape and its answer, status code included.
 export async function forwardMemoryRequest(params: {

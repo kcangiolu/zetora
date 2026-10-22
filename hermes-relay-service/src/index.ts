@@ -7,6 +7,7 @@ import {
   reportAgentEvent,
   reportConnectionStatus,
   reportToolStep,
+  reportTurnEnd,
   uploadGatewayMedia,
   verifyGatewayAuth,
 } from './internalClient.js';
@@ -42,6 +43,10 @@ const server = createServer((req, res) => {
   }
   if (req.method === 'POST' && req.url === '/relay/tool-event') {
     void handleToolEvent(req, res);
+    return;
+  }
+  if (req.method === 'POST' && req.url === '/relay/turn-event') {
+    void handleTurnEvent(req, res);
     return;
   }
   if (req.method === 'POST' && req.url === '/relay/memory') {
@@ -120,39 +125,49 @@ async function handleMediaUpload(req: IncomingMessage, res: import('node:http').
   }
 }
 
-// Not part of the relay contract: Zetora's own Hermes plugin (hermes-plugin/zetora) reports
-// each tool call of a Zetora chat here as a structured step, under the same per-gateway
-// bearer token as the WS upgrade and /relay/media. A step is a few short strings.
-const MAX_TOOL_EVENT_BYTES = 16 * 1024;
-
-async function handleToolEvent(req: IncomingMessage, res: import('node:http').ServerResponse) {
+// Not part of the relay contract: Zetora's own Hermes plugin (hermes-plugin/zetora) POSTs
+// JSON to /relay/tool-event, /relay/turn-event and /relay/memory under the same per-gateway
+// bearer token as the WS upgrade and /relay/media. Answers the request itself and returns
+// null when the token or the body is refused.
+async function readPluginRequest(
+  req: IncomingMessage,
+  res: import('node:http').ServerResponse,
+  maxBytes: number,
+): Promise<{ gatewayId: string; body: unknown } | null> {
   const parsed = parseGatewayBearerToken(req.headers.authorization);
   if (!parsed) {
     res
       .writeHead(401, { 'Content-Type': 'application/json' })
       .end(JSON.stringify({ error: 'missing_or_malformed_token' }));
-    return;
+    return null;
   }
 
   const auth = await verifyGatewayAuth(parsed);
   if (!auth.valid) {
     res.writeHead(401, { 'Content-Type': 'application/json' }).end(JSON.stringify({ error: auth.reason ?? 'invalid' }));
-    return;
+    return null;
   }
 
-  let event: unknown;
   try {
-    event = JSON.parse((await readRawBody(req, MAX_TOOL_EVENT_BYTES)).toString('utf8'));
+    return { gatewayId: parsed.gatewayId, body: JSON.parse((await readRawBody(req, maxBytes)).toString('utf8')) };
   } catch (error) {
     const tooLarge = error instanceof PayloadTooLargeError;
     res
       .writeHead(tooLarge ? 413 : 400, { 'Content-Type': 'application/json' })
       .end(JSON.stringify({ error: tooLarge ? 'payload_too_large' : 'invalid_json' }));
-    return;
+    return null;
   }
+}
+
+// One tool call of a Zetora chat, as a structured step. A step is a few short strings.
+const MAX_TOOL_EVENT_BYTES = 16 * 1024;
+
+async function handleToolEvent(req: IncomingMessage, res: import('node:http').ServerResponse) {
+  const request = await readPluginRequest(req, res, MAX_TOOL_EVENT_BYTES);
+  if (!request) return;
 
   try {
-    const result = await reportToolStep({ gatewayId: parsed.gatewayId, event });
+    const result = await reportToolStep({ gatewayId: request.gatewayId, event: request.body });
     res.writeHead(result.success ? 200 : 400, { 'Content-Type': 'application/json' }).end(JSON.stringify(result));
   } catch (error) {
     console.error('[hermes-relay] tool event failed', error);
@@ -160,39 +175,33 @@ async function handleToolEvent(req: IncomingMessage, res: import('node:http').Se
   }
 }
 
-// Not part of the relay contract: the memory provider in Zetora's Hermes plugin reads and
-// updates the gateway owner's Zetora memory here, under the same per-gateway bearer token.
-// A request carries at most one finished turn.
+// The end of an agent turn in a Zetora chat, with the turn's final reply: the relay
+// contract has no such frame.
+const MAX_TURN_EVENT_BYTES = 256 * 1024;
+
+async function handleTurnEvent(req: IncomingMessage, res: import('node:http').ServerResponse) {
+  const request = await readPluginRequest(req, res, MAX_TURN_EVENT_BYTES);
+  if (!request) return;
+
+  try {
+    const result = await reportTurnEnd({ gatewayId: request.gatewayId, event: request.body });
+    res.writeHead(result.success ? 200 : 400, { 'Content-Type': 'application/json' }).end(JSON.stringify(result));
+  } catch (error) {
+    console.error('[hermes-relay] turn event failed', error);
+    res.writeHead(500, { 'Content-Type': 'application/json' }).end(JSON.stringify({ error: 'internal_error' }));
+  }
+}
+
+// The memory provider in Zetora's Hermes plugin reads and updates the gateway owner's
+// Zetora memory here. A request carries at most one finished turn.
 const MAX_MEMORY_REQUEST_BYTES = 256 * 1024;
 
 async function handleMemory(req: IncomingMessage, res: import('node:http').ServerResponse) {
-  const parsed = parseGatewayBearerToken(req.headers.authorization);
-  if (!parsed) {
-    res
-      .writeHead(401, { 'Content-Type': 'application/json' })
-      .end(JSON.stringify({ error: 'missing_or_malformed_token' }));
-    return;
-  }
-
-  const auth = await verifyGatewayAuth(parsed);
-  if (!auth.valid) {
-    res.writeHead(401, { 'Content-Type': 'application/json' }).end(JSON.stringify({ error: auth.reason ?? 'invalid' }));
-    return;
-  }
-
-  let request: unknown;
-  try {
-    request = JSON.parse((await readRawBody(req, MAX_MEMORY_REQUEST_BYTES)).toString('utf8'));
-  } catch (error) {
-    const tooLarge = error instanceof PayloadTooLargeError;
-    res
-      .writeHead(tooLarge ? 413 : 400, { 'Content-Type': 'application/json' })
-      .end(JSON.stringify({ error: tooLarge ? 'payload_too_large' : 'invalid_json' }));
-    return;
-  }
+  const request = await readPluginRequest(req, res, MAX_MEMORY_REQUEST_BYTES);
+  if (!request) return;
 
   try {
-    const result = await forwardMemoryRequest({ gatewayId: parsed.gatewayId, request });
+    const result = await forwardMemoryRequest({ gatewayId: request.gatewayId, request: request.body });
     res.writeHead(result.status, { 'Content-Type': 'application/json' }).end(JSON.stringify(result.body));
   } catch (error) {
     console.error('[hermes-relay] memory request failed', error);

@@ -10,6 +10,10 @@ tell them apart from a reply. This plugin uses Hermes's public `pre_tool_call` /
 `post_tool_call` hooks instead and POSTs each event to the relay service
 (`/relay/tool-event`), signed with the gateway's own relay secret.
 
+It also reports the end of each turn of a Zetora conversation, with the turn's final reply
+(`post_llm_call` hook, `/relay/turn-event`). Zetora's voice page, in Hermes mode, needs it
+to know when the agent has finished: without the plugin it waits 15 seconds of silence.
+
 ## Install
 
 On the machine running the Hermes gateway enrolled with Zetora:

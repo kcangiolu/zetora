@@ -1,11 +1,12 @@
 name: zetora
-version: 1.1.0
-description: Reports the tool calls of Zetora conversations to Zetora as structured steps, and serves Zetora's memory to Hermes.
+version: 1.2.0
+description: Reports the tool calls and turn ends of Zetora conversations to Zetora, and serves Zetora's memory to Hermes.
 author: Zetora
 provides_hooks:
   - post_gateway_admission
   - pre_tool_call
   - post_tool_call
+  - post_llm_call
 requires_env:
   - name: GATEWAY_RELAY_URL
     description: The Zetora relay this gateway is enrolled with (set by `hermes gateway enroll`).
