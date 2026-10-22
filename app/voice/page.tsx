@@ -534,7 +534,7 @@ export default function VoicePage({ searchParams }: { searchParams: Promise<{ ch
                         ? 'Continuing your Agent chat by voice'
                         : voiceAgent === 'hermes'
                           ? 'Your Hermes agent answers — the conversation is saved as an Agent chat'
-                          : 'Local backend — voice comes from your configured Custom TTS Server'}
+                          : 'Local backend — voice comes from your Custom TTS Server, the conversation is saved as a chat'}
                     </p>
                   </motion.div>
                 ) : isConnected ? (

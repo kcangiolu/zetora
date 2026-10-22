@@ -79,6 +79,7 @@ docs/screenshots/       Images shown in the README
 | `tts/stream`, `transcribe`                        | Voice synthesis, transcription                                    |
 | `voice/cloud-session`, `voice/local-session`      | Cloud (xAI) and local speech-to-speech sessions                   |
 | `voice/hermes`                                    | Hermes Agent replies for local voice (s2s-service)                |
+| `voice/transcript`                                | Saves local voice turns as a chat (s2s-service)                   |
 | `v1/chat/completions`                             | OpenAI-compatible endpoint (used by the speech-to-speech service) |
 | `hermes/*`, `internal/hermes/*`                   | Hermes Agent connector (user side / relay side)                   |
 | `og/*`, `link-metadata`                           | Share images, link previews                                       |

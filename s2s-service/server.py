@@ -17,7 +17,8 @@ forwards it and lets those routes 401 if it's invalid or expired.
 
 A connection opened with ?agent=hermes takes its replies from the user's Hermes
 agent (/api/voice/hermes) instead of /api/v1/chat/completions; that route saves the
-conversation as an Agent chat, and ?chat=<id> continues an existing one.
+conversation as an Agent chat, and ?chat=<id> continues an existing one. Replies of
+the Voice model are saved as a chat through /api/voice/transcript, one turn at a time.
 
 Audio is normalized to 16-bit PCM mono at 48kHz in both directions (matching
 the client's capture/playback pipeline) so no client-side resampling is
@@ -49,6 +50,8 @@ logger = logging.getLogger("s2s-service")
 
 APP_URL = os.getenv("APP_URL", "http://zetora-app:3333").rstrip("/")
 REQUEST_TIMEOUT_S = float(os.getenv("REQUEST_TIMEOUT_S", "30"))
+# How long a closing connection waits for its last turns to be saved.
+SAVE_FLUSH_TIMEOUT_S = 10.0
 
 CLIENT_SAMPLE_RATE = 48000  # fixed: matches the client's capture/playback AudioContext
 TTS_SAMPLE_RATE = int(os.getenv("TTS_SAMPLE_RATE", "24000"))  # matches contexts/speech-context.tsx
@@ -165,6 +168,8 @@ class VoiceSession:
     # instead of the Voice model. The agent keeps its own history and instructions.
     agent: str = "zetora"
     chat_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    # Finished turns waiting to be saved, in order (Zetora mode only).
+    saves: "asyncio.Queue[list[dict]]" = field(default_factory=asyncio.Queue)
 
     is_speaking: bool = False
     vad_carry: np.ndarray = field(default_factory=lambda: np.zeros(0, dtype=np.float32))
@@ -320,6 +325,7 @@ async def respond(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSessio
     await send_json(ws, {"type": "response.created"})
 
     url, body = reply_request(session)
+    user_text = session.history[-1]["content"]
     assistant_text = ""
     sentence_buf = ""
 
@@ -367,6 +373,13 @@ async def respond(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSessio
         await send_error(ws, f"Response generation failed: {exc}")
         await send_json(ws, {"type": "response.done"})
         return
+    finally:
+        # A reply cut short by the user is saved as far as it got.
+        if session.agent == "zetora":
+            turn = [{"role": "user", "text": user_text}]
+            if assistant_text.strip():
+                turn.append({"role": "assistant", "text": assistant_text.strip()})
+            session.saves.put_nowait(turn)
 
     if assistant_text.strip():
         session.history.append({"role": "assistant", "content": assistant_text.strip()})
@@ -395,6 +408,25 @@ async def send_tool_step(ws: WebSocket, tool: dict) -> None:
             "type": "conversation.item.added",
             "item": {"type": "function_call_output", "call_id": call_id, "name": name, "output": status},
         })
+
+
+async def save_turns(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSession) -> None:
+    """Saves each finished turn of the session, one after the other so the chat keeps their
+    order."""
+    while True:
+        messages = await session.saves.get()
+        try:
+            response = await client.post(
+                f"{APP_URL}/api/voice/transcript",
+                headers=_auth_headers(session),
+                json={"chatId": session.chat_id, "messages": messages},
+                timeout=REQUEST_TIMEOUT_S,
+            )
+            await _raise_for_status(response)
+        except Exception as exc:
+            await send_error(ws, f"Saving the conversation failed: {exc}")
+        finally:
+            session.saves.task_done()
 
 
 # ── VAD-driven turn boundaries ────────────────────────────────────
@@ -546,6 +578,7 @@ async def realtime(ws: WebSocket):
         session.chat_id = ws.query_params["chat"]
 
     async with httpx.AsyncClient() as client:
+        saver = asyncio.create_task(save_turns(client, ws, session))
         await send_json(ws, {"type": "conversation.created"})
 
         try:
@@ -584,5 +617,13 @@ async def realtime(ws: WebSocket):
         except Exception:
             logger.exception("voice session crashed")
         finally:
-            if session.current_task and not session.current_task.done():
-                session.current_task.cancel()
+            task = session.current_task
+            if task and not task.done():
+                task.cancel()
+                # The cancelled turn queues what it said before it ends.
+                await asyncio.gather(task, return_exceptions=True)
+            try:
+                await asyncio.wait_for(session.saves.join(), SAVE_FLUSH_TIMEOUT_S)
+            except asyncio.TimeoutError:
+                logger.warning("closing with %d voice turns unsaved", session.saves.qsize())
+            saver.cancel()

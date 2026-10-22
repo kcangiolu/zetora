@@ -167,7 +167,7 @@ Beyond the bundled infrastructure, Zetora also adds:
 - **Custom AI providers** with XML tool-call parsing, for OpenAI-compatible / local models (e.g. Ollama)
 - **Automated database migrations** — the `db-migrate` container applies Drizzle migrations on every `docker compose up`, no manual step
 - **Activatable PII anonymization** — Presidio-backed masking of personal data before requests leave for cloud providers
-- **Local voice pipeline** — self-hosted speech-to-speech (VAD + Parakeet STT + Qwen3 TTS) as an alternative to cloud realtime voice, plus Read Aloud with streaming TTS
+- **Local voice pipeline** — self-hosted speech-to-speech (VAD + Parakeet STT + Qwen3 TTS) as an alternative to cloud realtime voice, saved as a chat you can read and continue, plus Read Aloud with streaming TTS
 - **Hardened auth** — email verification (`REQUIRE_EMAIL_VERIFICATION=false` for instances without SMTP), two-factor authentication, and an `ALLOW_SIGNUPS` switch to close the instance
 - **Per-service diagnostics panel** in Settings to check the health of every bundled service
 - **SMTP email delivery** for every email (any SMTP server, hosted relays included), with a built-in email test button
