@@ -42,8 +42,3 @@ export class HermesSpeechTracker {
     return rest;
   }
 }
-
-// The text of a `message` frame's parts: its `text` parts, in order.
-export function hermesMessageText(parts: Array<Record<string, unknown>>): string {
-  return parts.flatMap((part) => (part.type === 'text' && typeof part.text === 'string' ? [part.text] : [])).join('\n');
-}

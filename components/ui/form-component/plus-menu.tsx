@@ -151,7 +151,7 @@ export function PlusMenu({
   onUpload: () => void;
   onToggleMode: (modeId: 'mcp' | 'canvas' | 'hermes') => void;
   onToggleTemporary: () => void;
-  // Opens the Voice page on this Agent chat; the row is hidden when unset.
+  // Opens the Voice page on this chat; the row is hidden when unset.
   onContinueByVoice?: () => void;
 }) {
   const { searchGroups, sources } = options;
@@ -210,7 +210,7 @@ export function PlusMenu({
         </MenuRow>
       )}
       {onContinueByVoice && (
-        <MenuRow isMobile={isMobile} tooltip="Keep talking to Hermes on the Voice page" onClick={onContinueByVoice}>
+        <MenuRow isMobile={isMobile} tooltip="Keep talking on the Voice page" onClick={onContinueByVoice}>
           <Mic size={16} className="shrink-0 text-muted-foreground" strokeWidth={1.5} />
           <span className="flex-1 text-[13px]">Continue by voice</span>
         </MenuRow>

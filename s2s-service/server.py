@@ -17,8 +17,9 @@ forwards it and lets those routes 401 if it's invalid or expired.
 
 A connection opened with ?agent=hermes takes its replies from the user's Hermes
 agent (/api/voice/hermes) instead of /api/v1/chat/completions; that route saves the
-conversation as an Agent chat, and ?chat=<id> continues an existing one. Replies of
-the Voice model are saved as a chat through /api/voice/transcript, one turn at a time.
+conversation as an Agent chat. Replies of the Voice model are saved as a chat
+through /api/voice/transcript, one turn at a time. ?chat=<id> continues an existing
+chat: Hermes keeps its own history, the Voice model gets the chat's latest messages.
 
 Audio is normalized to 16-bit PCM mono at 48kHz in both directions (matching
 the client's capture/playback pipeline) so no client-side resampling is
@@ -410,6 +411,21 @@ async def send_tool_step(ws: WebSocket, tool: dict) -> None:
         })
 
 
+async def load_history(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSession) -> None:
+    """The continued chat's latest messages, as the Voice model's conversation so far."""
+    try:
+        response = await client.get(
+            f"{APP_URL}/api/voice/transcript",
+            headers=_auth_headers(session),
+            params={"chatId": session.chat_id},
+            timeout=REQUEST_TIMEOUT_S,
+        )
+        await _raise_for_status(response)
+        session.history = response.json()["messages"]
+    except Exception as exc:
+        await send_error(ws, f"Loading the conversation failed: {exc}")
+
+
 async def save_turns(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSession) -> None:
     """Saves each finished turn of the session, one after the other so the chat keeps their
     order."""
@@ -579,6 +595,8 @@ async def realtime(ws: WebSocket):
 
     async with httpx.AsyncClient() as client:
         saver = asyncio.create_task(save_turns(client, ws, session))
+        if session.agent == "zetora" and ws.query_params.get("chat"):
+            await load_history(client, ws, session)
         await send_json(ws, {"type": "conversation.created"})
 
         try:

@@ -35,10 +35,15 @@ function isVoiceType(value: string): value is VoiceType {
   return value === 'Ara' || value === 'Rex' || value === 'Sal' || value === 'Eve' || value === 'Leo';
 }
 
-export default function VoicePage({ searchParams }: { searchParams: Promise<{ chat?: string | string[] }> }) {
-  // An Agent chat to continue by voice (the composer's "Continue by voice").
-  const { chat } = use(searchParams);
+export default function VoicePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ chat?: string | string[]; agent?: string | string[] }>;
+}) {
+  // A chat to continue by voice (the composer's "Continue by voice"), and who answers it.
+  const { chat, agent } = use(searchParams);
   const continuedChatId = typeof chat === 'string' ? chat : undefined;
+  const continuedAgent: VoiceAgent = agent === 'hermes' ? 'hermes' : 'zetora';
   const [storedVoice, setStoredVoice] = useLocalStorage<string>(VOICE_STORAGE_KEY, 'Ara');
   const selectedVoice: VoiceType = isVoiceType(storedVoice) ? storedVoice : 'Ara';
   const [isMuted, setMuted] = useLocalStorage(MUTE_STORAGE_KEY, false);
@@ -57,9 +62,14 @@ export default function VoicePage({ searchParams }: { searchParams: Promise<{ ch
   // Hermes answers through the local backend only: the cloud one runs xAI's own model.
   const canUseHermes = voiceBackend === 'local' && isHermesEnabled();
   const [storedAgent, setStoredAgent] = useLocalStorage<VoiceAgent>(AGENT_STORAGE_KEY, 'zetora');
-  const continuesHermesChat = canUseHermes && continuedChatId !== undefined;
-  const voiceAgent: VoiceAgent =
-    continuesHermesChat || (canUseHermes && storedAgent === 'hermes') ? 'hermes' : 'zetora';
+  // Continuing a chat needs the local backend, and Hermes for an Agent chat.
+  const continuesChat =
+    continuedChatId !== undefined && (continuedAgent === 'hermes' ? canUseHermes : voiceBackend === 'local');
+  const voiceAgent: VoiceAgent = continuesChat
+    ? continuedAgent
+    : canUseHermes && storedAgent === 'hermes'
+      ? 'hermes'
+      : 'zetora';
 
   const {
     agentState,
@@ -79,7 +89,7 @@ export default function VoicePage({ searchParams }: { searchParams: Promise<{ ch
     muted: isMuted,
     backend: voiceBackend ?? 'cloud',
     agent: voiceAgent,
-    chatId: continuesHermesChat ? continuedChatId : undefined,
+    chatId: continuesChat ? continuedChatId : undefined,
   });
 
   function formatMs(ms: number) {
@@ -454,7 +464,7 @@ export default function VoicePage({ searchParams }: { searchParams: Promise<{ ch
                     transition={{ duration: 0.15 }}
                     className="w-full motion-reduce:transition-none"
                   >
-                    {canUseHermes && !continuesHermesChat && (
+                    {canUseHermes && !continuesChat && (
                       <Tabs
                         value={voiceAgent}
                         onValueChange={(value) => setStoredAgent(value === 'hermes' ? 'hermes' : 'zetora')}
@@ -467,8 +477,10 @@ export default function VoicePage({ searchParams }: { searchParams: Promise<{ ch
                       </Tabs>
                     )}
                     <p className="text-center text-[11px] text-muted-foreground/50 py-2">
-                      {continuesHermesChat
-                        ? 'Continuing your Agent chat by voice'
+                      {continuesChat
+                        ? voiceAgent === 'hermes'
+                          ? 'Continuing your Agent chat by voice'
+                          : 'Continuing your chat by voice'
                         : voiceAgent === 'hermes'
                           ? 'Your Hermes agent answers — the conversation is saved as an Agent chat'
                           : 'Local backend — voice comes from your Custom TTS Server, the conversation is saved as a chat'}

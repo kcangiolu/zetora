@@ -14,7 +14,8 @@ vi.mock('@/lib/db/queries', () => ({ getUserById }));
 vi.mock('@/lib/voice-session-token', () => ({ resolveVoiceRequestUserId }));
 
 import { POST } from '@/app/api/voice/hermes/route';
-import { HermesSpeechTracker, hermesMessageText } from '@/lib/hermes/voice-reply';
+import { HermesSpeechTracker } from '@/lib/hermes/voice-reply';
+import { textOfParts } from '@/lib/text-parts';
 
 const CHAT_ID = '6f1c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f';
 
@@ -56,7 +57,7 @@ describe('HermesSpeechTracker', () => {
 
   it('reads the text parts of a message', () => {
     expect(
-      hermesMessageText([
+      textOfParts([
         { type: 'text', text: 'a' },
         { type: 'file', url: 'x' },
         { type: 'text', text: 'b' },

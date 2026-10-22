@@ -4,7 +4,8 @@ import { getUserById } from '@/lib/db/queries';
 import { assertHermesEnabled } from '@/lib/hermes/feature-flag';
 import { subscribeToHermesChat } from '@/lib/hermes/realtime';
 import { sendToHermes } from '@/lib/hermes/send';
-import { HermesSpeechTracker, hermesMessageText } from '@/lib/hermes/voice-reply';
+import { HermesSpeechTracker } from '@/lib/hermes/voice-reply';
+import { textOfParts } from '@/lib/text-parts';
 import { resolveVoiceRequestUserId } from '@/lib/voice-session-token';
 import { createLogger } from '@/lib/logger';
 
@@ -120,7 +121,7 @@ export async function POST(req: NextRequest) {
         break;
       case 'message':
         replied = true;
-        speak(tracker.message(hermesMessageText(frame.data.message.parts)));
+        speak(tracker.message(textOfParts(frame.data.message.parts)));
         break;
       case 'turn_end':
         speak(tracker.turnEnd(frame.data.response ?? ''));

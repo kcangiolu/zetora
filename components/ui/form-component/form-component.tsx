@@ -158,7 +158,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const selectedModelConfig = getModel(selectedModel);
   const sendHermesMessage = useHermesSend(chatId);
   const router = useRouter();
-  // Continuing an Agent chat by voice needs the local voice backend.
+  // Continuing a chat by voice needs the local voice backend.
   const capabilities = useInstanceCapabilities();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
@@ -937,10 +937,10 @@ const FormComponent: React.FC<FormComponentProps> = ({
                       setPlusMenuOpen(false);
                     }}
                     onContinueByVoice={
-                      isHermesChat && hasMessages && capabilities?.localVoice
+                      hasMessages && !isTemporaryChat && capabilities?.localVoice
                         ? () => {
                             setPlusMenuOpen(false);
-                            router.push(`/voice?chat=${chatId}`);
+                            router.push(`/voice?chat=${chatId}&agent=${isHermesChat ? 'hermes' : 'zetora'}`);
                           }
                         : undefined
                     }
