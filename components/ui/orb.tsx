@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useTexture } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -97,13 +96,6 @@ function Scene({
   const targetColor1Ref = useRef(new THREE.Color(colors[0]));
   const targetColor2Ref = useRef(new THREE.Color(colors[1]));
   const animSpeedRef = useRef(0.1);
-  const perlinNoiseTexture = useTexture(
-    'https://storage.googleapis.com/eleven-public-cdn/images/perlin-noise.png',
-    (texture) => {
-      texture.wrapS = THREE.RepeatWrapping;
-      texture.wrapT = THREE.RepeatWrapping;
-    },
-  );
 
   const agentRef = useRef<AgentState>(agentState);
   const modeRef = useRef<'auto' | 'manual'>(volumeMode);
@@ -225,7 +217,7 @@ function Scene({
       uColor1: new THREE.Uniform(new THREE.Color(initialColors[0])),
       uColor2: new THREE.Uniform(new THREE.Color(initialColors[1])),
       uOffsets: { value: offsets },
-      uPerlinTexture: new THREE.Uniform(perlinNoiseTexture),
+      uPerlinTexture: new THREE.Uniform(getPerlinNoiseTexture()),
       uTime: new THREE.Uniform(0),
       uAnimation: new THREE.Uniform(0.1),
       uInverted: new THREE.Uniform(isDark ? 1 : 0),
@@ -233,7 +225,7 @@ function Scene({
       uOutputVolume: new THREE.Uniform(0),
       uOpacity: new THREE.Uniform(0),
     };
-  }, [perlinNoiseTexture, offsets, initialColors]);
+  }, [offsets, initialColors]);
 
   return (
     <mesh ref={circleRef}>
@@ -246,6 +238,61 @@ function Scene({
       />
     </mesh>
   );
+}
+
+const NOISE_SIZE = 256;
+const NOISE_CELLS = 16;
+
+let perlinNoiseTexture: THREE.DataTexture | undefined;
+
+// Tileable Perlin noise the shader samples to make the rings wobble. It is built
+// here rather than loaded from a CDN so the voice page makes no third-party request.
+// Every orb shares it, since it never changes.
+function getPerlinNoiseTexture() {
+  if (perlinNoiseTexture) return perlinNoiseTexture;
+
+  const random = splitmix32(1);
+  const angles = Float32Array.from({ length: NOISE_CELLS * NOISE_CELLS }, () => random() * Math.PI * 2);
+  // Lattice coordinates wrap, so the texture repeats without a seam.
+  const gradient = (cx: number, cy: number, dx: number, dy: number) => {
+    const angle = angles[(cy % NOISE_CELLS) * NOISE_CELLS + (cx % NOISE_CELLS)];
+    return Math.cos(angle) * dx + Math.sin(angle) * dy;
+  };
+  const fade = (t: number) => t * t * t * (t * (t * 6 - 15) + 10);
+
+  const data = new Uint8Array(NOISE_SIZE * NOISE_SIZE * 4);
+  for (let y = 0; y < NOISE_SIZE; y++) {
+    for (let x = 0; x < NOISE_SIZE; x++) {
+      const fx = (x * NOISE_CELLS) / NOISE_SIZE;
+      const fy = (y * NOISE_CELLS) / NOISE_SIZE;
+      const cx = Math.floor(fx);
+      const cy = Math.floor(fy);
+      const dx = fx - cx;
+      const dy = fy - cy;
+      const u = fade(dx);
+      const top = THREE.MathUtils.lerp(gradient(cx, cy, dx, dy), gradient(cx + 1, cy, dx - 1, dy), u);
+      const bottom = THREE.MathUtils.lerp(
+        gradient(cx, cy + 1, dx, dy - 1),
+        gradient(cx + 1, cy + 1, dx - 1, dy - 1),
+        u,
+      );
+      const noise = THREE.MathUtils.lerp(top, bottom, fade(dy));
+      // Centered on mid-grey with the spread the ring shader was tuned for.
+      const value = Math.round(clamp01(0.5 + noise * 0.48) * 255);
+      const pixel = (y * NOISE_SIZE + x) * 4;
+      data.fill(value, pixel, pixel + 3);
+      data[pixel + 3] = 255;
+    }
+  }
+
+  const texture = new THREE.DataTexture(data, NOISE_SIZE, NOISE_SIZE);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.needsUpdate = true;
+  perlinNoiseTexture = texture;
+  return texture;
 }
 
 function splitmix32(a: number) {
