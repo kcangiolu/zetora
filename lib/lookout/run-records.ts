@@ -1,4 +1,3 @@
-import { CronExpressionParser } from 'cron-parser';
 import { eq } from 'drizzle-orm';
 import { all } from 'better-all';
 import { v7 as uuidv7 } from 'uuid';
@@ -12,7 +11,6 @@ import {
   updateChatTitleById,
   updateLookout,
   updateLookoutLastRun,
-  updateLookoutStatus,
 } from '@/lib/db/queries';
 import { chat as chatTable, message as messageTable } from '@/lib/db/schema';
 import { sendLookoutCompletionEmail } from '@/lib/email';
@@ -20,6 +18,7 @@ import { createLogger } from '@/lib/logger';
 import { generateTitleFromUserMessage } from '@/lib/search/chat-title';
 import type { ChatMessage } from '@/lib/types';
 
+import { nextCronRun } from './schedule';
 import { truncateMarkdown } from './truncate-markdown';
 
 const log = createLogger('lookout');
@@ -36,8 +35,8 @@ interface LookoutRow {
   timezone: string;
 }
 
-// The chat a run writes to, with the lookout's prompt as its user message, and the
-// lookout marked running. Each write is read back: the stream's messages reference them.
+// The chat a run writes to, with the lookout's prompt as its user message. Each
+// write is read back: the stream's messages reference them.
 export async function startLookoutRun(lookout: LookoutRow, userId: string, modelId: string) {
   const chatId = uuidv7();
   const streamId = 'stream-' + uuidv7();
@@ -83,9 +82,6 @@ export async function startLookoutRun(lookout: LookoutRow, userId: string, model
       async createStream() {
         await createStreamId({ streamId, chatId });
       },
-      async updateStatus() {
-        await updateLookoutStatus({ id: lookout.id, status: 'running' });
-      },
     },
     getBetterAllOptions(),
   );
@@ -116,21 +112,11 @@ export async function saveLookoutMessages(chatId: string, modelId: string, messa
     .onConflictDoNothing({ target: messageTable.id });
 }
 
-// A recurring lookout gets its next run time; a one-time lookout is paused.
-async function scheduleNextLookoutRun(lookout: LookoutRow): Promise<void> {
-  if (lookout.frequency === 'once') {
-    await updateLookoutStatus({ id: lookout.id, status: 'paused' });
-    return;
-  }
-  if (!lookout.cronSchedule) return;
+// A recurring lookout's next run time, kept for the UI.
+async function updateNextRunAt(lookout: LookoutRow): Promise<void> {
+  if (lookout.frequency === 'once' || !lookout.cronSchedule) return;
   try {
-    const cron = lookout.cronSchedule.startsWith('CRON_TZ=')
-      ? lookout.cronSchedule.split(' ').slice(1).join(' ')
-      : lookout.cronSchedule;
-    const nextRunAt = CronExpressionParser.parse(cron, { currentDate: new Date(), tz: lookout.timezone })
-      .next()
-      .toDate();
-    await updateLookout({ id: lookout.id, nextRunAt });
+    await updateLookout({ id: lookout.id, nextRunAt: nextCronRun(lookout.cronSchedule, lookout.timezone) });
   } catch (error) {
     log.error('Error calculating next run time:', error);
   }
@@ -150,8 +136,8 @@ export function getResponseText(text: string, responseMessages: ModelMessage[]):
     .join('\n');
 }
 
-// After a successful run: usage, the chat's title, the run's metrics, the next run, the
-// completion email, and the lookout active again.
+// After a successful run: usage, the run's metrics, the next run time, the chat's
+// title and the completion email.
 export async function recordLookoutSuccess({
   lookout,
   user,
@@ -173,10 +159,6 @@ export async function recordLookoutSuccess({
 }) {
   await incrementMessageUsage({ userId: user.id });
 
-  const title = await generateTitleFromUserMessage({ message: userMessage, userId: user.id });
-  log.info('Generated title:', title);
-  await updateChatTitleById({ chatId, title: `Scheduled: ${title}` });
-
   await updateLookoutLastRun({
     id: lookout.id,
     lastRunAt: new Date(),
@@ -187,7 +169,16 @@ export async function recordLookoutSuccess({
     // Calls to any tool, under the column's historical name.
     searchesPerformed: toolCalls,
   });
-  await scheduleNextLookoutRun(lookout);
+  await updateNextRunAt(lookout);
+
+  // The chat keeps the lookout's title when no title can be generated.
+  let title = lookout.title;
+  try {
+    title = await generateTitleFromUserMessage({ message: userMessage, userId: user.id });
+    await updateChatTitleById({ chatId, title: `Scheduled: ${title}` });
+  } catch (titleError) {
+    log.error('Failed to title the lookout chat:', titleError);
+  }
 
   if (user.email) {
     try {
@@ -201,37 +192,32 @@ export async function recordLookoutSuccess({
       log.error('Failed to send completion email:', emailError);
     }
   }
-
-  await updateLookoutStatus({ id: lookout.id, status: 'active' });
 }
 
-// After a failed run: the error on the run's record, and the lookout active again.
+// After a failed or timed-out run: the error on the run's record.
 export async function recordLookoutFailure({
   lookoutId,
   chatId,
   durationMs,
   error,
+  timedOut = false,
 }: {
   lookoutId: string;
   chatId: string;
   durationMs: number;
   error: unknown;
+  timedOut?: boolean;
 }) {
   try {
     await updateLookoutLastRun({
       id: lookoutId,
       lastRunAt: new Date(),
       lastRunChatId: chatId,
-      runStatus: 'error',
+      runStatus: timedOut ? 'timeout' : 'error',
       error: error instanceof Error ? error.message : String(error ?? 'Unknown error occurred'),
       duration: durationMs,
     });
   } catch (updateError) {
     log.error('Failed to update lookout with error info:', updateError);
-  }
-  try {
-    await updateLookoutStatus({ id: lookoutId, status: 'active' });
-  } catch (statusError) {
-    log.error('Failed to reset lookout status after error:', statusError);
   }
 }

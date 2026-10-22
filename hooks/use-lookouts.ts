@@ -203,7 +203,7 @@ export function useLookouts() {
 
   // Update lookout status mutation
   const updateStatusMutation = useMutation({
-    mutationFn: async (params: { id: string; status: 'active' | 'paused' | 'archived' | 'running' }) => {
+    mutationFn: async (params: { id: string; status: 'active' | 'paused' | 'archived' }) => {
       const result = await updateLookoutStatusAction(params);
       if (!result.success) {
         throw new Error(result.error || 'Failed to update lookout');

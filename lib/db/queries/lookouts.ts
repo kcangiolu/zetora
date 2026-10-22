@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { cache } from 'react';
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { lookout } from '../schema';
 import { databaseError } from '../../errors';
 import { db, maindb } from '../index';
@@ -9,6 +9,13 @@ import { db, maindb } from '../index';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('db-lookouts');
+
+export type LookoutStatus = (typeof lookout.$inferSelect)['status'];
+const LOOKOUT_STATUSES: readonly LookoutStatus[] = ['active', 'paused', 'archived', 'running'];
+
+function isLookoutStatus(value: string): value is LookoutStatus {
+  return LOOKOUT_STATUSES.some((status) => status === value);
+}
 
 // Lookout CRUD operations
 export async function createLookout({
@@ -84,39 +91,21 @@ export const getLookoutById = cache(async ({ id }: { id: string }) => {
   }
 });
 
-export async function updateLookout({
-  id,
-  title,
-  prompt,
-  frequency,
-  cronSchedule,
-  timezone,
-  nextRunAt,
-  qstashScheduleId,
-  searchMode,
-}: {
-  id: string;
-  title?: string;
-  prompt?: string;
-  frequency?: string;
-  cronSchedule?: string;
-  timezone?: string;
-  nextRunAt?: Date;
-  qstashScheduleId?: string | null;
-  searchMode?: string;
-}) {
-  try {
-    const updateData: any = { updatedAt: new Date() };
-    if (title !== undefined) updateData.title = title;
-    if (prompt !== undefined) updateData.prompt = prompt;
-    if (frequency !== undefined) updateData.frequency = frequency;
-    if (cronSchedule !== undefined) updateData.cronSchedule = cronSchedule;
-    if (timezone !== undefined) updateData.timezone = timezone;
-    if (nextRunAt !== undefined) updateData.nextRunAt = nextRunAt;
-    if (qstashScheduleId !== undefined) updateData.qstashScheduleId = qstashScheduleId;
-    if (searchMode !== undefined) updateData.searchMode = searchMode;
+type LookoutChanges = Partial<
+  Pick<
+    typeof lookout.$inferInsert,
+    'title' | 'prompt' | 'frequency' | 'cronSchedule' | 'timezone' | 'nextRunAt' | 'qstashScheduleId' | 'searchMode'
+  >
+> & { status?: LookoutStatus };
 
-    const [updatedLookout] = await db.update(lookout).set(updateData).where(eq(lookout.id, id)).returning();
+export async function updateLookout({ id, ...changes }: { id: string } & LookoutChanges) {
+  try {
+    // Drizzle leaves the columns of undefined fields untouched.
+    const [updatedLookout] = await db
+      .update(lookout)
+      .set({ ...changes, updatedAt: new Date() })
+      .where(eq(lookout.id, id))
+      .returning();
 
     return updatedLookout;
   } catch (error) {
@@ -124,23 +113,57 @@ export async function updateLookout({
   }
 }
 
-export async function updateLookoutStatus({
+/**
+ * Marks a lookout running when its status is one of `from`, or when it has
+ * been running for more than `staleAfterMs` (a run that died without
+ * releasing it). Atomic, so two runs of one lookout never overlap. Returns
+ * the status the run replaced, or null when the lookout can't run now.
+ */
+export async function claimLookoutRun({
   id,
-  status,
+  from,
+  staleAfterMs,
 }: {
   id: string;
-  status: 'active' | 'paused' | 'archived' | 'running';
-}) {
+  from: LookoutStatus[];
+  staleAfterMs?: number;
+}): Promise<LookoutStatus | null> {
   try {
-    const [updatedLookout] = await db
+    // Timestamps are stored as UTC without a zone, so `now()` is compared in UTC too.
+    const stale =
+      staleAfterMs === undefined
+        ? sql`false`
+        : sql`(previous.status = 'running' and ${lookout.updatedAt} < (now() at time zone 'utc') - make_interval(secs => ${staleAfterMs / 1000}))`;
+    const result = await maindb.execute<{ status: string }>(sql`
+      update ${lookout}
+      set status = 'running', updated_at = (now() at time zone 'utc')
+      from (select id, status from ${lookout} where id = ${id} for update) as previous
+      where ${lookout.id} = previous.id
+        and (previous.status in (${sql.join(
+          from.map((status) => sql`${status}`),
+          sql`, `,
+        )}) or ${stale})
+      returning previous.status
+    `);
+    const previous = result.rows[0]?.status;
+    if (previous === undefined) return null;
+    if (!isLookoutStatus(previous)) throw new Error(`Unknown lookout status: ${previous}`);
+    return previous;
+  } catch (error) {
+    throw databaseError('Failed to claim lookout run', error);
+  }
+}
+
+// Ends a run: the lookout leaves 'running' for `status`, unless something
+// (a forced stop) already moved it.
+export async function releaseLookoutRun({ id, status }: { id: string; status: LookoutStatus }) {
+  try {
+    await db
       .update(lookout)
       .set({ status, updatedAt: new Date() })
-      .where(eq(lookout.id, id))
-      .returning();
-
-    return updatedLookout;
+      .where(and(eq(lookout.id, id), eq(lookout.status, 'running')));
   } catch (error) {
-    throw databaseError('Failed to update lookout status', error);
+    throw databaseError('Failed to release lookout run', error);
   }
 }
 

@@ -440,7 +440,7 @@ export const lookout = pgTable(
     timezone: text('timezone').notNull().default('UTC'),
     nextRunAt: timestamp('next_run_at').notNull(),
     qstashScheduleId: text('qstash_schedule_id'),
-    status: text('status').notNull().default('active'), // 'active', 'paused', 'archived', 'running'
+    status: text('status').$type<'active' | 'paused' | 'archived' | 'running'>().notNull().default('active'),
     searchMode: text('search_mode').notNull().default('extreme'), // Search mode: 'extreme', 'web', 'academic', 'youtube', 'reddit', 'github', 'stocks', 'crypto', 'code', 'x', 'chat'
     lastRunAt: timestamp('last_run_at'),
     lastRunChatId: text('last_run_chat_id'),

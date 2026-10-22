@@ -40,7 +40,7 @@ interface Lookout {
 interface LookoutCardProps {
   lookout: Lookout;
   isMutating?: boolean;
-  onStatusChange: (id: string, status: 'active' | 'paused' | 'archived' | 'running') => void;
+  onStatusChange: (id: string, status: 'active' | 'paused' | 'archived') => void;
   onDelete: (id: string) => void;
   onTest: (id: string) => void;
   onForceStop: (id: string) => void;

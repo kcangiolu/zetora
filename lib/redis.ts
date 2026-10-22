@@ -26,7 +26,7 @@ export type KeyValueRedisClient = ReturnType<typeof createClient>;
 // A key/value client that connects in the background. Commands sent before it
 // is ready, or while Redis is down, wait at most REDIS_COMMAND_TIMEOUT_MS and
 // then fail, instead of hanging until Redis comes back.
-export function createKeyValueRedisClient(url: string, options: { password?: string } = {}): KeyValueRedisClient {
+function createKeyValueRedisClient(url: string, options: { password?: string } = {}): KeyValueRedisClient {
   const client = createClient({
     url,
     password: options.password,

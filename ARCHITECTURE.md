@@ -72,7 +72,7 @@ docs/screenshots/       Images shown in the README
 | `auth/[...all]`                                   | Better Auth handler                                               |
 | `upload`, `downloads`, `proxy-image`              | File uploads, generated files, image proxying                     |
 | `export/docx`, `export/pdf`                       | Chat export                                                       |
-| `lookout`                                         | Scheduled search execution (BullMQ/QStash callback)               |
+| `lookout`                                         | Scheduled search execution (QStash callback)                       |
 | `mcp/*`                                           | MCP server CRUD, OAuth flows, elicitation, apps bridge            |
 | `models`, `instance/capabilities`                 | Model picker catalog, what this instance has configured           |
 | `custom-providers*`                               | Custom OpenAI-compatible provider management (detect, models)     |
@@ -117,14 +117,14 @@ The `selfhosted` profile groups the CPU-only services, from `minio` to `bullmq`.
 
 1. **Search/chat**: `POST /api/search` → auth + rate limiting → model selection (`ai/providers.ts`, `lib/search/auto-router.ts`) → `streamText` with tools loaded per search group (`lib/search/group-config.ts`, `tool-loader.ts`) → results streamed to the client (resumable via `ai-resumable-stream` + Redis); chats persisted through Drizzle (`lib/db/queries/`).
 2. **Web search tools**: SearXNG/fastCRW first when configured, SaaS providers otherwise; scraped content can be embedded and cached in Qdrant (`lib/vector`).
-3. **Lookouts**: user-scheduled searches; BullMQ repeatable jobs (`lib/services/bullmq.ts`) call back into `/api/lookout` (QStash used instead when BullMQ is disabled).
+3. **Lookouts**: user-scheduled searches, run by `lib/lookout/run.ts`. With BullMQ (`lib/services/bullmq.ts`) the worker started in `instrumentation.ts` runs them in-process; with QStash they come back through `/api/lookout`. The database is the source of truth: an active recurring Lookout has a schedule, a paused or archived one has none, and each run claims the Lookout atomically, so a run of a paused, archived, already running or rescheduled Lookout is skipped.
 4. **Memory** (`lib/memory`): a user-editable bio and atomic facts in Postgres. The bio and core facts go into the system prompt; other facts are matched lexically against the message and appended to it. After each answer, the conversation's own model (or a dedicated one) proposes memory changes through structured output, validated in code (new facts stay candidates until confirmed in another chat); a weekly consolidation merges and re-tiers them.
 5. **Access**: no paid tiers — every signed-in account has full access; a per-account daily message cap (`ZETORA_DAILY_MESSAGE_LIMIT`, 500 by default, 0 for none) enforced via counters in Postgres/Redis guards against abuse.
 
 ## Security & resilience notes
 
 - **Server-side proxies** (`/api/proxy-image`) never accept the upstream URL from a client header. The image proxy allows only http(s), blocks private/reserved IP ranges (re-checked on every redirect hop), and restricts responses to `image/*` capped at 10 MB with a 10 s timeout.
-- **Scheduled search callbacks** (`/api/lookout`) require the `CRON_SECRET` shared secret (sent as `x-lookout-secret`, or `Upstash-Forward-x-lookout-secret` through QStash). The endpoint returns 503 when the secret is unset so a forgotten env var fails closed.
+- **Scheduled search callbacks** (`/api/lookout`) answer only with `LOOKOUT_SCHEDULER=qstash`, and require the `CRON_SECRET` shared secret (sent through QStash as `Upstash-Forward-x-lookout-secret`). The endpoint returns 503 when the secret is unset so a forgotten env var fails closed.
 - **Rate limiting** (`lib/rate-limit.ts`) is built lazily and fails closed: if `REDIS_URL` isn't configured, unauthenticated requests are denied rather than crashing the route.
 - **SQL**: all Drizzle `sql` template interpolations are parameterized (no `sql.raw`), so raw string concatenation is not a SQL-injection vector.
 - **Headers** (`next.config.ts`): `X-Frame-Options: DENY` (except public legal pages), `nosniff`, `Referrer-Policy`, HSTS and a `Permissions-Policy`. Optimized SVGs are served inert (CSP sandbox + `Content-Disposition: attachment`). `proxy.ts` sets a per-request nonce CSP (`lib/csp.ts`), currently in report-only mode until every page has been checked against it.

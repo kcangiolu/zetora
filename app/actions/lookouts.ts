@@ -8,25 +8,38 @@ import {
   getLookoutsByUserId,
   getLookoutById,
   updateLookout,
-  updateLookoutStatus,
   deleteLookout,
+  type LookoutStatus,
 } from '@/lib/db/queries';
 import { Client } from '@upstash/qstash';
 import {
   createBullMqSchedule,
   scheduleBullMqOnce,
   deleteBullMqSchedule,
-  pauseBullMqSchedule,
-  resumeBullMqSchedule,
   getLookoutScheduler,
 } from '@/lib/services/bullmq';
-import { CronExpressionParser } from 'cron-parser';
-import { nextOnceRun, splitScheduleTime } from '@/lib/lookout/schedule';
-import { lookoutCallbackHeaders, lookoutQstashHeaders } from '@/lib/lookout-auth';
+import { LOOKOUT_LIMITS } from '@/lib/lookout/limits';
+import {
+  nextCronRun,
+  nextOnceRun,
+  recurringCron,
+  isLookoutFrequency,
+  splitScheduleTime,
+  type LookoutFrequency,
+  type LookoutRunRequest,
+} from '@/lib/lookout/schedule';
+import { lookoutQstashHeaders } from '@/lib/lookout-auth';
 
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('actions-lookouts');
+
+// The scheduler mirrors the database: an active recurring lookout has a
+// schedule, a paused or archived one has none. A one-time lookout has a
+// queued job instead, which can't be recalled, so every run checks the
+// lookout's status and time before it starts (lib/lookout/run.ts).
+
+type LookoutScheduler = ReturnType<typeof getLookoutScheduler>;
 
 // Built on use: only a LOOKOUT_SCHEDULER=qstash instance has a token (checked
 // by getLookoutScheduler before any call here).
@@ -34,105 +47,37 @@ function qstashClient() {
   return new Client({ token: serverEnv.QSTASH_TOKEN });
 }
 
-// Callback URL the scheduler (QStash or the BullMQ worker) posts back to.
-// NEXT_PUBLIC_APP_URL keeps self-hosted deployments working; NGROK_URL lets
-// QStash reach a local dev server.
-function resolveLookoutEndpoint(): string {
-  const base =
-    process.env.NODE_ENV === 'development'
-      ? (process.env.NGROK_URL ?? 'http://localhost:3000')
-      : (process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000');
+// QStash calls back over the internet: the public URL, or NGROK_URL to reach
+// a local dev server.
+function qstashCallbackUrl(): string {
+  const variable = process.env.NODE_ENV === 'development' ? 'NGROK_URL' : 'NEXT_PUBLIC_APP_URL';
+  const base = process.env[variable];
+  if (!base) throw new Error(`Lookouts: LOOKOUT_SCHEDULER=qstash needs ${variable} for QStash to call back`);
   return base.replace(/\/$/, '') + '/api/lookout';
 }
 
-// Helper function to convert frequency to cron schedule with timezone
-function frequencyToCron(frequency: string, time: string, timezone: string, dayOfWeek?: string): string {
-  const [hours, minutes] = time.split(':').map(Number);
-
-  let cronExpression = '';
-  switch (frequency) {
-    case 'once':
-      // For 'once', we'll handle it differently - no cron schedule needed
-      return '';
-    case 'daily':
-      cronExpression = `${minutes} ${hours} * * *`;
-      break;
-    case 'weekly':
-      // Use the day of week if provided, otherwise default to Sunday (0)
-      const day = dayOfWeek || '0';
-      cronExpression = `${minutes} ${hours} * * ${day}`;
-      break;
-    case 'monthly':
-      // Run on the 1st of each month
-      cronExpression = `${minutes} ${hours} 1 * *`;
-      break;
-    case 'yearly':
-      // Run on January 1st
-      cronExpression = `${minutes} ${hours} 1 1 *`;
-      break;
-    default:
-      cronExpression = `${minutes} ${hours} * * *`; // Default to daily
-  }
-
-  // Prepend timezone to cron expression for QStash
-  return `CRON_TZ=${timezone} ${cronExpression}`;
-}
-
-// Helper function to calculate next run time using cron-parser
-function calculateNextRun(cronSchedule: string, timezone: string): Date {
-  try {
-    // Extract the actual cron expression from the timezone-prefixed format
-    // Format: "CRON_TZ=timezone 0 9 * * *" -> "0 9 * * *"
-    const actualCronExpression = cronSchedule.startsWith('CRON_TZ=')
-      ? cronSchedule.split(' ').slice(1).join(' ')
-      : cronSchedule;
-
-    const options = {
-      currentDate: new Date(),
-      tz: timezone,
-    };
-
-    const interval = CronExpressionParser.parse(actualCronExpression, options);
-    return interval.next().toDate();
-  } catch (error) {
-    log.error('Error parsing cron expression:', cronSchedule, error);
-    // Fallback to simple calculation
-    const now = new Date();
-    const nextRun = new Date(now);
-    nextRun.setDate(nextRun.getDate() + 1);
-    return nextRun;
+// Hands a run to the scheduler, to start after `delaySeconds`.
+async function queueRun(scheduler: LookoutScheduler, request: LookoutRunRequest, delaySeconds: number) {
+  if (scheduler === 'bullmq') {
+    await scheduleBullMqOnce({ request, delayMs: delaySeconds * 1000 });
+  } else {
+    await qstashClient().publish({
+      url: qstashCallbackUrl(),
+      body: JSON.stringify(request),
+      headers: { 'Content-Type': 'application/json', ...lookoutQstashHeaders() },
+      delay: delaySeconds,
+    });
   }
 }
 
-type LookoutScheduler = ReturnType<typeof getLookoutScheduler>;
-
-// Queues a one-time lookout's run. Neither scheduler lets us recall the job
-// later, so the body carries the time it was queued for: /api/lookout skips a
-// job whose time no longer matches the lookout after an edit.
+// Queues a one-time lookout's run, carrying the time it was queued for so a
+// run left over from an earlier time is skipped.
 async function scheduleOnceRun(scheduler: LookoutScheduler, lookoutId: string, runAt: Date): Promise<void> {
   const delaySeconds = Math.floor((runAt.getTime() - Date.now()) / 1000);
   if (delaySeconds <= 0) {
     throw new Error('Cannot schedule for a time in the past');
   }
-  const minimumDelay = Math.max(delaySeconds, 5);
-  const destination = resolveLookoutEndpoint();
-  const body = { lookoutId, runAt: runAt.toISOString() };
-
-  if (scheduler === 'bullmq') {
-    await scheduleBullMqOnce({
-      destination,
-      body,
-      headers: { 'Content-Type': 'application/json', ...lookoutCallbackHeaders() },
-      delayMs: minimumDelay * 1000,
-    });
-  } else {
-    await qstashClient().publish({
-      url: destination,
-      body: JSON.stringify(body),
-      headers: { 'Content-Type': 'application/json', ...lookoutQstashHeaders() },
-      delay: minimumDelay,
-    });
-  }
+  await queueRun(scheduler, { lookoutId, runAt: runAt.toISOString() }, Math.max(delaySeconds, 5));
   log.debug(`✅ [${scheduler}] One-time run queued for lookout:`, lookoutId, 'at', runAt.toISOString());
 }
 
@@ -143,18 +88,9 @@ async function scheduleRecurringRuns(
   cronSchedule: string,
   existingScheduleId: string | null,
 ): Promise<string> {
-  const destination = resolveLookoutEndpoint();
-  const body = { lookoutId };
-
   if (scheduler === 'bullmq') {
     // upsertJobScheduler replaces a scheduler with the same id in place.
-    const result = await createBullMqSchedule({
-      scheduleId: existingScheduleId ?? lookoutId,
-      destination,
-      cron: cronSchedule,
-      body,
-      headers: { 'Content-Type': 'application/json', ...lookoutCallbackHeaders() },
-    });
+    const result = await createBullMqSchedule({ scheduleId: lookoutId, cron: cronSchedule, request: { lookoutId } });
     return result.scheduleId;
   }
 
@@ -163,22 +99,83 @@ async function scheduleRecurringRuns(
     await qstashClient().schedules.delete(existingScheduleId);
   }
   const scheduleResponse = await qstashClient().schedules.create({
-    destination,
+    destination: qstashCallbackUrl(),
     method: 'POST',
     cron: cronSchedule,
-    body: JSON.stringify(body),
+    body: JSON.stringify({ lookoutId } satisfies LookoutRunRequest),
     headers: { 'Content-Type': 'application/json', ...lookoutQstashHeaders() },
   });
   return scheduleResponse.scheduleId;
 }
 
-async function deleteRecurringRuns(scheduler: LookoutScheduler, scheduleId: string): Promise<void> {
-  if (scheduler === 'bullmq') {
-    await deleteBullMqSchedule(scheduleId);
-  } else {
-    await qstashClient().schedules.delete(scheduleId);
+// Removes a recurring schedule. A schedule left behind by a failure only
+// fires runs that are skipped, since the lookout is no longer active.
+async function removeRecurringRuns(scheduler: LookoutScheduler, scheduleId: string): Promise<void> {
+  try {
+    if (scheduler === 'bullmq') {
+      await deleteBullMqSchedule(scheduleId);
+    } else {
+      await qstashClient().schedules.delete(scheduleId);
+    }
+  } catch (error) {
+    log.error(`Error deleting ${scheduler} schedule ${scheduleId}:`, error);
   }
 }
+
+// A cron schedule and first run time from the form's fields. `time` is
+// "HH:MM", or "HH:MM:D" for a weekly lookout (D = 0 for Sunday).
+function computeSchedule(
+  frequency: LookoutFrequency,
+  time: string,
+  timezone: string,
+  date?: string,
+): { cronSchedule: string; nextRunAt: Date } {
+  // Server actions take any JSON: the type above is not checked at runtime.
+  if (!isLookoutFrequency(frequency)) throw new Error(`Unknown frequency: ${String(frequency)}`);
+  const { time: clockTime, dayOfWeek } = splitScheduleTime(time);
+  if (frequency === 'once') {
+    return { cronSchedule: '', nextRunAt: nextOnceRun(clockTime, timezone, date) };
+  }
+  const cronSchedule = recurringCron(frequency, clockTime, timezone, dayOfWeek);
+  return { cronSchedule, nextRunAt: nextCronRun(cronSchedule, timezone) };
+}
+
+async function requireOwnLookout(id: string) {
+  const user = await getCurrentUser();
+  if (!user) {
+    throw new Error('Authentication required');
+  }
+  const lookout = await getLookoutById({ id });
+  if (!lookout || lookout.userId !== user.id) {
+    throw new Error('Lookout not found or access denied');
+  }
+  return { user, lookout };
+}
+
+// Throws when one more lookout (`countsTowardTotal`), or one more active
+// daily lookout, would go over LOOKOUT_LIMITS.
+async function assertWithinLimits(
+  userId: string,
+  { frequency, countsTowardTotal, excludeId }: { frequency: string; countsTowardTotal: boolean; excludeId?: string },
+) {
+  const others = (await getLookoutsByUserId({ userId })).filter((lookout) => lookout.id !== excludeId);
+  if (
+    countsTowardTotal &&
+    others.filter((lookout) => lookout.status !== 'archived').length >= LOOKOUT_LIMITS.TOTAL_LOOKOUTS
+  ) {
+    throw new Error(`You have reached the maximum limit of ${LOOKOUT_LIMITS.TOTAL_LOOKOUTS} lookouts`);
+  }
+  if (
+    frequency === 'daily' &&
+    others.filter(
+      (lookout) => lookout.frequency === 'daily' && (lookout.status === 'active' || lookout.status === 'running'),
+    ).length >= LOOKOUT_LIMITS.DAILY_LOOKOUTS
+  ) {
+    throw new Error(`You have reached the maximum limit of ${LOOKOUT_LIMITS.DAILY_LOOKOUTS} active daily lookouts`);
+  }
+}
+
+const RUNNING_ERROR = 'Wait for the current run to finish, or stop it';
 
 export async function createScheduledLookout({
   title,
@@ -191,7 +188,7 @@ export async function createScheduledLookout({
 }: {
   title: string;
   prompt: string;
-  frequency: 'once' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+  frequency: LookoutFrequency;
   time: string; // Format: "HH:MM" or "HH:MM:dayOfWeek" for weekly
   timezone?: string;
   date?: string; // For 'once' frequency
@@ -202,41 +199,17 @@ export async function createScheduledLookout({
     if (!user) {
       throw new Error('Authentication required');
     }
+    await assertWithinLimits(user.id, { frequency, countsTowardTotal: true });
 
-    // Check lookout limits
-    const existingLookouts = await getLookoutsByUserId({ userId: user.id });
-    if (existingLookouts.length >= 10) {
-      throw new Error('You have reached the maximum limit of 10 lookouts');
-    }
-
-    // Check daily lookout limit specifically
-    if (frequency === 'daily') {
-      const activeDailyLookouts = existingLookouts.filter(
-        (lookout) => lookout.frequency === 'daily' && lookout.status === 'active',
-      );
-      if (activeDailyLookouts.length >= 5) {
-        throw new Error('You have reached the maximum limit of 5 active daily lookouts');
-      }
-    }
-
-    let cronSchedule = '';
-    let nextRunAt: Date;
-    const { time: clockTime, dayOfWeek } = splitScheduleTime(time);
-
-    if (frequency === 'once') {
-      // For 'once', calculate the next run time without cron
-      nextRunAt = nextOnceRun(clockTime, timezone, date);
-    } else {
-      // Generate cron schedule for recurring frequencies
-      cronSchedule = frequencyToCron(frequency, clockTime, timezone, dayOfWeek);
-      nextRunAt = calculateNextRun(cronSchedule, timezone);
+    const { cronSchedule, nextRunAt } = computeSchedule(frequency, time, timezone, date);
+    if (frequency === 'once' && nextRunAt.getTime() <= Date.now()) {
+      throw new Error('Cannot schedule for a time in the past');
     }
 
     // Checked before anything is saved: a lookout that can't be scheduled
     // would never run.
     const schedulingProvider = getLookoutScheduler();
 
-    // Create lookout in database first
     const lookout = await createLookout({
       userId: user.id,
       title,
@@ -245,40 +218,23 @@ export async function createScheduledLookout({
       cronSchedule,
       timezone,
       nextRunAt,
-      qstashScheduleId: undefined, // Will be updated if needed
       searchMode,
     });
 
-    log.debug(`📝 Created lookout in database: ${lookout.id} — scheduling with ${schedulingProvider}`);
-
-    // Small delay to ensure database transaction is committed
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    // Create schedule for all frequencies (recurring and once)
-    if (lookout.id) {
-      try {
-        if (frequency === 'once') {
-          // No scheduleId stored for one-time executions (both providers)
-          await scheduleOnceRun(schedulingProvider, lookout.id, nextRunAt);
-        } else {
-          log.debug(`⏰ [${schedulingProvider}] Creating recurring schedule for lookout:`, lookout.id);
-          log.debug('📅 Cron schedule with timezone:', cronSchedule);
-
-          const scheduleId = await scheduleRecurringRuns(schedulingProvider, lookout.id, cronSchedule, null);
-
-          log.debug(`✅ [${schedulingProvider}] Recurring schedule created: ${scheduleId} for lookout:`, lookout.id);
-
-          await updateLookout({ id: lookout.id, qstashScheduleId: scheduleId });
-          lookout.qstashScheduleId = scheduleId;
-        }
-      } catch (scheduleError) {
-        log.error(`Error creating ${schedulingProvider} schedule:`, scheduleError);
-        // Delete the lookout if scheduling fails
-        await deleteLookout({ id: lookout.id });
-        throw new Error(
-          `Failed to ${frequency === 'once' ? 'schedule one-time search' : 'create recurring schedule'}. Please try again.`,
-        );
+    try {
+      if (frequency === 'once') {
+        await scheduleOnceRun(schedulingProvider, lookout.id, nextRunAt);
+      } else {
+        const scheduleId = await scheduleRecurringRuns(schedulingProvider, lookout.id, cronSchedule, null);
+        await updateLookout({ id: lookout.id, qstashScheduleId: scheduleId });
+        lookout.qstashScheduleId = scheduleId;
       }
+    } catch (scheduleError) {
+      log.error(`Error creating ${schedulingProvider} schedule:`, scheduleError);
+      await deleteLookout({ id: lookout.id });
+      throw new Error(
+        `Failed to ${frequency === 'once' ? 'schedule one-time search' : 'create recurring schedule'}. Please try again.`,
+      );
     }
 
     return { success: true, lookout };
@@ -297,12 +253,11 @@ export async function getUserLookouts() {
 
     const lookouts = await getLookoutsByUserId({ userId: user.id });
 
-    // Update next run times for active lookouts
+    // The stored next run time is only refreshed by runs: compute it fresh.
     const updatedLookouts = lookouts.map((lookout) => {
       if (lookout.status === 'active' && lookout.cronSchedule && lookout.frequency !== 'once') {
         try {
-          const nextRunAt = calculateNextRun(lookout.cronSchedule, lookout.timezone);
-          return { ...lookout, nextRunAt };
+          return { ...lookout, nextRunAt: nextCronRun(lookout.cronSchedule, lookout.timezone) };
         } catch (error) {
           log.error('Error calculating next run for lookout:', lookout.id, error);
           return lookout;
@@ -323,52 +278,58 @@ export async function updateLookoutStatusAction({
   status,
 }: {
   id: string;
-  status: 'active' | 'paused' | 'archived' | 'running';
+  status: Exclude<LookoutStatus, 'running'>;
 }) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      throw new Error('Authentication required');
+    if (status !== 'active' && status !== 'paused' && status !== 'archived') {
+      throw new Error(`Cannot set a lookout's status to ${String(status)}`);
+    }
+    const { user, lookout } = await requireOwnLookout(id);
+    if (lookout.status === 'running') {
+      throw new Error(RUNNING_ERROR);
+    }
+    if (lookout.status === status) {
+      return { success: true, lookout };
     }
 
-    // Get lookout to verify ownership
-    const lookout = await getLookoutById({ id });
-    if (!lookout || lookout.userId !== user.id) {
-      throw new Error('Lookout not found or access denied');
-    }
+    const schedulingProvider = getLookoutScheduler();
 
-    // Update schedule status if it exists
-    if (lookout.qstashScheduleId) {
-      const schedulingProvider = getLookoutScheduler();
-      try {
-        if (status === 'paused') {
-          if (schedulingProvider === 'bullmq') {
-            await pauseBullMqSchedule(lookout.qstashScheduleId);
-          } else {
-            await qstashClient().schedules.pause({ schedule: lookout.qstashScheduleId });
-          }
-        } else if (status === 'active') {
-          if (schedulingProvider === 'bullmq') {
-            await resumeBullMqSchedule(lookout.qstashScheduleId);
-          } else {
-            await qstashClient().schedules.resume({ schedule: lookout.qstashScheduleId });
-          }
-          // Update next run time when resuming
-          if (lookout.cronSchedule) {
-            const nextRunAt = calculateNextRun(lookout.cronSchedule, lookout.timezone);
-            await updateLookout({ id, nextRunAt });
-          }
-        } else if (status === 'archived') {
-          await deleteRecurringRuns(schedulingProvider, lookout.qstashScheduleId);
-        }
-      } catch (scheduleError) {
-        log.error(`Error updating ${schedulingProvider} schedule:`, scheduleError);
-        // Continue with database update even if scheduler call fails
+    if (status !== 'active') {
+      if (lookout.qstashScheduleId) {
+        await removeRecurringRuns(schedulingProvider, lookout.qstashScheduleId);
       }
+      const updatedLookout = await updateLookout({ id, status, qstashScheduleId: null });
+      return { success: true, lookout: updatedLookout };
     }
 
-    // Update database
-    const updatedLookout = await updateLookoutStatus({ id, status });
+    await assertWithinLimits(user.id, {
+      frequency: lookout.frequency,
+      countsTowardTotal: lookout.status === 'archived',
+      excludeId: id,
+    });
+
+    if (lookout.frequency === 'once') {
+      // Its queued run is still waiting when its time is ahead.
+      if (lookout.nextRunAt.getTime() <= Date.now()) {
+        throw new Error('This one-time lookout has already run: edit it to choose a new time');
+      }
+      const updatedLookout = await updateLookout({ id, status });
+      return { success: true, lookout: updatedLookout };
+    }
+
+    let scheduleId: string;
+    try {
+      scheduleId = await scheduleRecurringRuns(schedulingProvider, id, lookout.cronSchedule, lookout.qstashScheduleId);
+    } catch (scheduleError) {
+      log.error(`Error resuming ${schedulingProvider} schedule:`, scheduleError);
+      throw new Error('Failed to resume the schedule. Please try again.');
+    }
+    const updatedLookout = await updateLookout({
+      id,
+      status,
+      qstashScheduleId: scheduleId,
+      nextRunAt: nextCronRun(lookout.cronSchedule, lookout.timezone),
+    });
     return { success: true, lookout: updatedLookout };
   } catch (error) {
     log.error('Error updating lookout status:', error);
@@ -378,28 +339,26 @@ export async function updateLookoutStatusAction({
 
 export async function forceStopLookoutAction({ id }: { id: string }) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      throw new Error('Authentication required');
-    }
-
-    // Get lookout to verify ownership
-    const lookout = await getLookoutById({ id });
-    if (!lookout || lookout.userId !== user.id) {
-      throw new Error('Lookout not found or access denied');
-    }
-
+    const { lookout } = await requireOwnLookout(id);
     if (lookout.status !== 'running') {
       throw new Error('Lookout is not currently running');
     }
 
-    // Stuck executions can't be aborted remotely (the serverless instance is
-    // already gone), so unstick the lookout by resetting its status. One-time
-    // lookouts go back to 'paused' (their normal post-run state), recurring
-    // lookouts go back to 'active'.
-    const resetStatus = lookout.frequency === 'once' ? 'paused' : 'active';
-    const updatedLookout = await updateLookoutStatus({ id, status: resetStatus });
-
+    // A run that died can't report back, so the lookout is unstuck here. The
+    // status it had before the run is unknown: a recurring lookout comes back
+    // active with its schedule in place, a one-time lookout active only while
+    // its time is still ahead.
+    if (lookout.frequency === 'once') {
+      const status = lookout.nextRunAt.getTime() > Date.now() ? 'active' : 'paused';
+      return { success: true, lookout: await updateLookout({ id, status }) };
+    }
+    const scheduleId = await scheduleRecurringRuns(
+      getLookoutScheduler(),
+      id,
+      lookout.cronSchedule,
+      lookout.qstashScheduleId,
+    );
+    const updatedLookout = await updateLookout({ id, status: 'active', qstashScheduleId: scheduleId });
     return { success: true, lookout: updatedLookout };
   } catch (error) {
     log.error('Error force stopping lookout:', error);
@@ -420,46 +379,27 @@ export async function updateLookoutAction({
   id: string;
   title: string;
   prompt: string;
-  frequency: 'once' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+  frequency: LookoutFrequency;
   time: string; // Format: "HH:MM" or "HH:MM:dayOfWeek" for weekly
   timezone: string;
   date?: string; // For 'once' frequency
   searchMode?: string;
 }) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      throw new Error('Authentication required');
+    const { user, lookout } = await requireOwnLookout(id);
+    if (lookout.status === 'running') {
+      throw new Error(RUNNING_ERROR);
     }
 
-    // Get lookout to verify ownership
-    const lookout = await getLookoutById({ id });
-    if (!lookout || lookout.userId !== user.id) {
-      throw new Error('Lookout not found or access denied');
-    }
+    const { cronSchedule, nextRunAt } = computeSchedule(frequency, time, timezone, date);
 
-    // Check daily lookout limit if changing to daily frequency
-    if (frequency === 'daily' && lookout.frequency !== 'daily') {
-      const existingLookouts = await getLookoutsByUserId({ userId: user.id });
-      const activeDailyLookouts = existingLookouts.filter(
-        (existingLookout) =>
-          existingLookout.frequency === 'daily' && existingLookout.status === 'active' && existingLookout.id !== id,
-      );
-      if (activeDailyLookouts.length >= 5) {
-        throw new Error('You have reached the maximum limit of 5 active daily lookouts');
-      }
-    }
-
-    // Generate new cron schedule if frequency changed
-    let cronSchedule = '';
-    let nextRunAt: Date;
-    const { time: clockTime, dayOfWeek } = splitScheduleTime(time);
-
-    if (frequency === 'once') {
-      nextRunAt = nextOnceRun(clockTime, timezone, date);
-    } else {
-      cronSchedule = frequencyToCron(frequency, clockTime, timezone, dayOfWeek);
-      nextRunAt = calculateNextRun(cronSchedule, timezone);
+    // An edit keeps the status, except a one-time lookout that already ran:
+    // giving it a new schedule makes it active again.
+    const alreadyRan =
+      lookout.frequency === 'once' && lookout.status === 'paused' && lookout.nextRunAt.getTime() <= Date.now();
+    const status = alreadyRan ? 'active' : lookout.status;
+    if (status === 'active' && frequency === 'daily') {
+      await assertWithinLimits(user.id, { frequency, countsTowardTotal: false, excludeId: id });
     }
 
     // The job already queued for this exact time still stands: queuing another
@@ -471,19 +411,20 @@ export async function updateLookoutAction({
     }
 
     const schedulingProvider = getLookoutScheduler();
-    let scheduleId: string | null;
+    let scheduleId: string | null = null;
     try {
       if (frequency === 'once') {
+        // Queued whatever the status: the run checks it when the time comes.
         if (!keepsQueuedRun) {
           await scheduleOnceRun(schedulingProvider, id, nextRunAt);
         }
         if (lookout.qstashScheduleId) {
-          await deleteRecurringRuns(schedulingProvider, lookout.qstashScheduleId);
+          await removeRecurringRuns(schedulingProvider, lookout.qstashScheduleId);
         }
-        scheduleId = null;
-      } else {
-        log.debug(`⏰ [${schedulingProvider}] Scheduling lookout:`, id, 'with', cronSchedule);
+      } else if (status === 'active') {
         scheduleId = await scheduleRecurringRuns(schedulingProvider, id, cronSchedule, lookout.qstashScheduleId);
+      } else if (lookout.qstashScheduleId) {
+        await removeRecurringRuns(schedulingProvider, lookout.qstashScheduleId);
       }
     } catch (scheduleError) {
       log.error(`Error updating ${schedulingProvider} schedule:`, scheduleError);
@@ -500,6 +441,7 @@ export async function updateLookoutAction({
       nextRunAt,
       qstashScheduleId: scheduleId,
       searchMode,
+      status,
     });
 
     return { success: true, lookout: updatedLookout };
@@ -511,29 +453,12 @@ export async function updateLookoutAction({
 
 export async function deleteLookoutAction({ id }: { id: string }) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      throw new Error('Authentication required');
-    }
+    const { lookout } = await requireOwnLookout(id);
 
-    // Get lookout to verify ownership
-    const lookout = await getLookoutById({ id });
-    if (!lookout || lookout.userId !== user.id) {
-      throw new Error('Lookout not found or access denied');
-    }
-
-    // Delete schedule if it exists
     if (lookout.qstashScheduleId) {
-      const schedulingProvider = getLookoutScheduler();
-      try {
-        await deleteRecurringRuns(schedulingProvider, lookout.qstashScheduleId);
-      } catch (error) {
-        log.error(`Error deleting ${schedulingProvider} schedule:`, error);
-        // Continue with database deletion even if scheduler call fails
-      }
+      await removeRecurringRuns(getLookoutScheduler(), lookout.qstashScheduleId);
     }
 
-    // Delete from database
     const deletedLookout = await deleteLookout({ id });
     return { success: true, lookout: deletedLookout };
   } catch (error) {
@@ -542,43 +467,16 @@ export async function deleteLookoutAction({ id }: { id: string }) {
   }
 }
 
+// Runs a lookout now, through the scheduler like any run.
 export async function testLookoutAction({ id }: { id: string }) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      throw new Error('Authentication required');
-    }
+    const { lookout } = await requireOwnLookout(id);
 
-    // Get lookout to verify ownership
-    const lookout = await getLookoutById({ id });
-    if (!lookout || lookout.userId !== user.id) {
-      throw new Error('Lookout not found or access denied');
-    }
-
-    // Only allow testing of active or paused lookouts
     if (lookout.status === 'archived' || lookout.status === 'running') {
       throw new Error(`Cannot test lookout with status: ${lookout.status}`);
     }
 
-    // Make a POST request to the lookout API endpoint to trigger the run
-    const lookoutUrl = resolveLookoutEndpoint();
-
-    const response = await fetch(lookoutUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...lookoutCallbackHeaders(),
-      },
-      body: JSON.stringify({
-        lookoutId: lookout.id,
-        prompt: lookout.prompt,
-        userId: user.id,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to trigger lookout test: ${response.statusText}`);
-    }
+    await queueRun(getLookoutScheduler(), { lookoutId: lookout.id, manual: true }, 0);
 
     return { success: true, message: 'Lookout test started successfully' };
   } catch (error) {

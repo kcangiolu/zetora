@@ -44,15 +44,13 @@ describe('lookout-auth', () => {
     expect(verifyLookoutRequest(req)).toEqual({ ok: true });
   });
 
-  it('emits callback and QStash-forward headers when configured', async () => {
-    const { lookoutCallbackHeaders, lookoutQstashHeaders, LOOKOUT_SECRET_HEADER } = await loadWithSecret('s3cret');
-    expect(lookoutCallbackHeaders()).toEqual({ [LOOKOUT_SECRET_HEADER]: 's3cret' });
+  it('emits the QStash-forward header when configured', async () => {
+    const { lookoutQstashHeaders, LOOKOUT_SECRET_HEADER } = await loadWithSecret('s3cret');
     expect(lookoutQstashHeaders()).toEqual({ [`Upstash-Forward-${LOOKOUT_SECRET_HEADER}`]: 's3cret' });
   });
 
   it('emits no headers when the secret is disabled', async () => {
-    const { lookoutCallbackHeaders, lookoutQstashHeaders } = await loadWithSecret('placeholder');
-    expect(lookoutCallbackHeaders()).toEqual({});
+    const { lookoutQstashHeaders } = await loadWithSecret('placeholder');
     expect(lookoutQstashHeaders()).toEqual({});
   });
 });

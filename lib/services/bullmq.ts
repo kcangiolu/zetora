@@ -1,28 +1,26 @@
 import { Queue, Worker, Job } from 'bullmq';
 
 import { serverEnv } from '@/env/server';
-import { createKeyValueRedisClient, type KeyValueRedisClient } from '@/lib/redis';
 import { createLogger } from '@/lib/logger';
-import { SEARCH_REQUEST_TIMEOUT_MS } from '@/lib/timeouts';
-
-// A lookout run is a whole search, bounded on the server by
-// SEARCH_REQUEST_TIMEOUT_MS; the worker waits a little longer for its answer.
-const LOOKOUT_RUN_TIMEOUT_MS = SEARCH_REQUEST_TIMEOUT_MS + 60_000;
+import { parseLookoutRunRequest, type LookoutRunRequest } from '@/lib/lookout/schedule';
 
 const log = createLogger('bullmq');
 
 const QUEUE_NAME = 'lookout-scheduler';
-const PAUSED_KEY_PREFIX = 'bullmq:paused:';
 
-export interface LookoutJobData {
-  destination: string;
-  body: Record<string, unknown>;
-  headers?: Record<string, string>;
-}
+// Runs happen inside the worker and last minutes: a few at once keep one long
+// run from holding up the others.
+const WORKER_CONCURRENCY = 4;
 
-interface PausedSchedulerData extends LookoutJobData {
-  pattern: string;
-}
+// A run records its own failures, so a retry only covers a run that could not
+// start (the database briefly unreachable). Finished jobs are dropped: the
+// lookout keeps its run history.
+const JOB_OPTIONS = {
+  attempts: 3,
+  backoff: { type: 'exponential', delay: 5000 },
+  removeOnComplete: true,
+  removeOnFail: 100,
+} as const;
 
 // Plain connection options: BullMQ connects with its own bundled ioredis.
 function getConnectionOpts() {
@@ -38,34 +36,21 @@ function getConnectionOpts() {
   };
 }
 
-// Separate client used only for pause/resume state — never passed to BullMQ.
-let _stateRedis: KeyValueRedisClient | null = null;
-function getStateRedis(): KeyValueRedisClient {
-  if (!_stateRedis) {
-    const rawUrl = process.env.BULLMQ_REDIS_URL || process.env.REDIS_URL || 'redis://localhost:6379';
-    const password = process.env.BULLMQ_REDIS_PASSWORD || undefined;
-    _stateRedis = createKeyValueRedisClient(rawUrl, { password });
-  }
-  return _stateRedis;
-}
-
-let _queue: Queue<LookoutJobData> | null = null;
-function getQueue(): Queue<LookoutJobData> {
+let _queue: Queue<unknown> | null = null;
+function getQueue(): Queue<unknown> {
   if (!_queue) {
-    _queue = new Queue<LookoutJobData>(QUEUE_NAME, { connection: getConnectionOpts() });
+    _queue = new Queue(QUEUE_NAME, { connection: getConnectionOpts() });
   }
   return _queue;
 }
 
+// Creates or replaces a recurring schedule. `cron` is a recurringCron
+// schedule, "CRON_TZ=Europe/Paris 5 10 * * *"; BullMQ takes the timezone apart.
 export async function createBullMqSchedule(params: {
   scheduleId: string;
-  destination: string;
   cron: string;
-  body: Record<string, unknown>;
-  headers?: Record<string, string>;
+  request: LookoutRunRequest;
 }): Promise<{ scheduleId: string }> {
-  // QStash encodes timezone as "CRON_TZ=Europe/Paris 5 10 * * *".
-  // BullMQ expects a bare cron pattern + a separate tz option.
   let cronPattern = params.cron;
   let tz: string | undefined;
   if (params.cron.startsWith('CRON_TZ=')) {
@@ -77,96 +62,40 @@ export async function createBullMqSchedule(params: {
   await getQueue().upsertJobScheduler(
     params.scheduleId,
     { pattern: cronPattern, tz },
-    {
-      name: 'lookout-execution',
-      data: {
-        destination: params.destination,
-        body: params.body,
-        headers: params.headers,
-      },
-      opts: {
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 5000 },
-      },
-    },
+    { name: 'lookout-execution', data: params.request, opts: JOB_OPTIONS },
   );
   return { scheduleId: params.scheduleId };
 }
 
 export async function deleteBullMqSchedule(scheduleId: string): Promise<void> {
   await getQueue().removeJobScheduler(scheduleId);
-  await getStateRedis().del(`${PAUSED_KEY_PREFIX}${scheduleId}`);
 }
 
-export async function pauseBullMqSchedule(scheduleId: string): Promise<void> {
-  const queue = getQueue();
-  const scheduler = await queue.getJobScheduler(scheduleId);
-  if (!scheduler) return;
-
-  const data = scheduler.template?.data;
-  const state: PausedSchedulerData = {
-    pattern: scheduler.pattern ?? '',
-    destination: data?.destination ?? '',
-    body: data?.body ?? {},
-    headers: data?.headers,
-  };
-
-  await getStateRedis().set(`${PAUSED_KEY_PREFIX}${scheduleId}`, JSON.stringify(state));
-  await queue.removeJobScheduler(scheduleId);
+export async function scheduleBullMqOnce(params: { request: LookoutRunRequest; delayMs: number }): Promise<void> {
+  await getQueue().add('lookout-execution', params.request, { ...JOB_OPTIONS, delay: params.delayMs });
 }
 
-export async function resumeBullMqSchedule(scheduleId: string): Promise<void> {
-  const redis = getStateRedis();
-  const stored = await redis.get(`${PAUSED_KEY_PREFIX}${scheduleId}`);
-  if (!stored) return;
-
-  const state = JSON.parse(stored) as PausedSchedulerData;
-  await createBullMqSchedule({
-    scheduleId,
-    destination: state.destination,
-    cron: state.pattern,
-    body: state.body,
-    headers: state.headers,
-  });
-
-  await redis.del(`${PAUSED_KEY_PREFIX}${scheduleId}`);
+// Job schedulers keep the template they were created with, and older ones
+// wrap the request in `body` next to an HTTP destination.
+function readJobRequest(data: unknown): LookoutRunRequest | null {
+  const payload = typeof data === 'object' && data !== null && 'body' in data ? data.body : data;
+  return parseLookoutRunRequest(payload);
 }
 
-export async function scheduleBullMqOnce(params: {
-  destination: string;
-  body: Record<string, unknown>;
-  headers?: Record<string, string>;
-  delayMs: number;
-}): Promise<void> {
-  await getQueue().add(
-    'lookout-execution',
-    { destination: params.destination, body: params.body, headers: params.headers },
-    {
-      delay: params.delayMs,
-      attempts: 3,
-      backoff: { type: 'exponential', delay: 5000 },
-    },
-  );
-}
-
-export function startLookoutWorker(): Worker<LookoutJobData> {
-  const worker = new Worker<LookoutJobData>(
+export function startLookoutWorker(): Worker<unknown> {
+  const worker = new Worker<unknown>(
     QUEUE_NAME,
-    async (job: Job<LookoutJobData>) => {
-      const { destination, body, headers } = job.data;
-
-      const response = await fetch(destination, {
-        signal: AbortSignal.timeout(LOOKOUT_RUN_TIMEOUT_MS),
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...headers },
-        body: JSON.stringify(body),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Lookout fetch failed: ${response.status} ${response.statusText}`);
+    async (job: Job<unknown>) => {
+      const request = readJobRequest(job.data);
+      if (!request) {
+        log.error(`[BullMQ] Job ${job.id} names no lookout:`, job.data);
+        return;
       }
+      // Loaded on first run: the run pulls in the models and search tools.
+      const { runLookout } = await import('@/lib/lookout/run');
+      await runLookout(request);
     },
-    { connection: getConnectionOpts() },
+    { connection: getConnectionOpts(), concurrency: WORKER_CONCURRENCY },
   );
 
   worker.on('failed', (job, err) => {

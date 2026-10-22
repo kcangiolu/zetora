@@ -360,11 +360,6 @@ export function getRandomExamples(count: number = 3) {
   return shuffled.slice(0, count);
 }
 
-export const LOOKOUT_LIMITS = {
-  TOTAL_LOOKOUTS: 30,
-  DAILY_LOOKOUTS: 20,
-} as const;
-
 export const DEFAULT_FORM_VALUES = {
   FREQUENCY: 'daily',
   TIME: '09:00',

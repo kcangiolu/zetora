@@ -14,7 +14,8 @@ import { ProgressRing } from '@/components/ui/progress-ring';
 import { cn } from '@/lib/utils';
 import { TimezoneSelector } from './timezone-selector';
 import { TimePicker } from './time-picker';
-import { frequencyOptions, dayOfWeekOptions, LOOKOUT_LIMITS, LOOKOUT_SEARCH_MODES } from '../constants';
+import { frequencyOptions, dayOfWeekOptions, LOOKOUT_SEARCH_MODES } from '../constants';
+import { LOOKOUT_LIMITS } from '@/lib/lookout/limits';
 import { LookoutFormHookReturn } from '../hooks/use-lookout-form';
 import { useLocale } from '@/contexts/locale-context';
 

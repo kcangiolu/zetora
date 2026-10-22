@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest';
 
-import { isStaleOnceRun, nextOnceRun, splitScheduleTime } from '@/lib/lookout/schedule';
+import {
+  isStaleOnceRun,
+  nextCronRun,
+  nextOnceRun,
+  parseLookoutRunRequest,
+  recurringCron,
+  splitScheduleTime,
+} from '@/lib/lookout/schedule';
 
 describe('splitScheduleTime', () => {
   it('reads the weekly day the form appends to the time', () => {
@@ -52,5 +59,51 @@ describe('isStaleOnceRun', () => {
   it('runs recurring runs and manual tests, which carry no time', () => {
     expect(isStaleOnceRun({ frequency: 'daily', nextRunAt: new Date(runAt) }, undefined)).toBe(false);
     expect(isStaleOnceRun({ frequency: 'once', nextRunAt: new Date('2026-07-16T07:00:00Z') }, undefined)).toBe(false);
+  });
+});
+
+describe('recurringCron', () => {
+  it('prefixes each frequency with its timezone', () => {
+    expect(recurringCron('daily', '09:30', 'Europe/Paris')).toBe('CRON_TZ=Europe/Paris 30 9 * * *');
+    expect(recurringCron('weekly', '09:30', 'Europe/Paris', '3')).toBe('CRON_TZ=Europe/Paris 30 9 * * 3');
+    expect(recurringCron('monthly', '09:30', 'UTC')).toBe('CRON_TZ=UTC 30 9 1 * *');
+    expect(recurringCron('yearly', '09:30', 'UTC')).toBe('CRON_TZ=UTC 30 9 1 1 *');
+  });
+
+  it('runs a weekly lookout without a day on Sundays', () => {
+    expect(recurringCron('weekly', '09:30', 'UTC')).toBe('CRON_TZ=UTC 30 9 * * 0');
+  });
+});
+
+describe('nextCronRun', () => {
+  it('reads the schedule on the lookout clock', () => {
+    const now = new Date('2026-07-15T08:00:00Z'); // 10:00 in Paris, a Wednesday
+    expect(nextCronRun('CRON_TZ=Europe/Paris 30 9 * * *', 'Europe/Paris', now).toISOString()).toBe(
+      '2026-07-16T07:30:00.000Z',
+    );
+    expect(nextCronRun('CRON_TZ=Europe/Paris 0 11 * * 3', 'Europe/Paris', now).toISOString()).toBe(
+      '2026-07-15T09:00:00.000Z',
+    );
+  });
+});
+
+describe('parseLookoutRunRequest', () => {
+  it('reads a run request', () => {
+    expect(parseLookoutRunRequest({ lookoutId: 'l-1', runAt: '2026-07-15T07:00:00.000Z' })).toEqual({
+      lookoutId: 'l-1',
+      runAt: '2026-07-15T07:00:00.000Z',
+      manual: false,
+    });
+    expect(parseLookoutRunRequest({ lookoutId: 'l-1', manual: true })).toEqual({
+      lookoutId: 'l-1',
+      runAt: undefined,
+      manual: true,
+    });
+  });
+
+  it('rejects a payload that names no lookout', () => {
+    expect(parseLookoutRunRequest(null)).toBeNull();
+    expect(parseLookoutRunRequest({ lookoutId: 42 })).toBeNull();
+    expect(parseLookoutRunRequest('l-1')).toBeNull();
   });
 });

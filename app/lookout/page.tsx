@@ -40,13 +40,8 @@ import { TotalLimitWarning, DailyLimitWarning } from './components/warning-card'
 import { LookoutCard } from './components/lookout-card';
 import { LookoutForm } from './components/lookout-form';
 import { useLookoutForm } from './hooks/use-lookout-form';
-import {
-  getRandomExamples,
-  allExampleLookouts,
-  LOOKOUT_LIMITS,
-  LOOKOUT_SEARCH_MODES,
-  timezoneOptions,
-} from './constants';
+import { getRandomExamples, allExampleLookouts, LOOKOUT_SEARCH_MODES, timezoneOptions } from './constants';
+import { LOOKOUT_LIMITS } from '@/lib/lookout/limits';
 import { formatFrequency } from './utils/time-utils';
 
 interface Lookout {
@@ -220,7 +215,7 @@ export default function LookoutPage() {
   });
 
   // Event handlers
-  const handleStatusChange = async (id: string, status: 'active' | 'paused' | 'archived' | 'running') => {
+  const handleStatusChange = async (id: string, status: 'active' | 'paused' | 'archived') => {
     updateStatus({ id, status });
   };
 

@@ -12,13 +12,6 @@ export function getLookoutCallbackSecret(): string | null {
   return secret;
 }
 
-// Headers attached when the BullMQ worker (or a direct server-side trigger)
-// calls /api/lookout.
-export function lookoutCallbackHeaders(): Record<string, string> {
-  const secret = getLookoutCallbackSecret();
-  return secret ? { [LOOKOUT_SECRET_HEADER]: secret } : {};
-}
-
 // QStash only forwards custom headers prefixed with "Upstash-Forward-".
 export function lookoutQstashHeaders(): Record<string, string> {
   const secret = getLookoutCallbackSecret();

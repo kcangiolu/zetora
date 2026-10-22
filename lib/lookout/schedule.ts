@@ -1,5 +1,32 @@
 import { CronExpressionParser } from 'cron-parser';
 
+/** What the scheduler hands over to run a lookout. */
+export interface LookoutRunRequest {
+  lookoutId: string;
+  /** The time a one-time run was queued for (see isStaleOnceRun). */
+  runAt?: string;
+  /** Started from "Test" rather than by the schedule. */
+  manual?: boolean;
+}
+
+/** Reads a run request from a scheduler's payload; null when it names no lookout. */
+export function parseLookoutRunRequest(value: unknown): LookoutRunRequest | null {
+  if (typeof value !== 'object' || value === null) return null;
+  if (!('lookoutId' in value) || typeof value.lookoutId !== 'string') return null;
+  return {
+    lookoutId: value.lookoutId,
+    runAt: 'runAt' in value && typeof value.runAt === 'string' ? value.runAt : undefined,
+    manual: 'manual' in value && value.manual === true,
+  };
+}
+
+const LOOKOUT_FREQUENCIES = ['once', 'daily', 'weekly', 'monthly', 'yearly'] as const;
+export type LookoutFrequency = (typeof LOOKOUT_FREQUENCIES)[number];
+
+export function isLookoutFrequency(value: unknown): value is LookoutFrequency {
+  return LOOKOUT_FREQUENCIES.some((frequency) => frequency === value);
+}
+
 /**
  * The form sends a weekly lookout's day inside its time ("HH:MM:D", D = 0 for
  * Sunday). Splits it back into the clock time and the day.
@@ -7,6 +34,33 @@ import { CronExpressionParser } from 'cron-parser';
 export function splitScheduleTime(time: string): { time: string; dayOfWeek?: string } {
   const [hours, minutes, dayOfWeek] = time.split(':');
   return dayOfWeek === undefined ? { time } : { time: `${hours}:${minutes}`, dayOfWeek };
+}
+
+/**
+ * The cron schedule of a recurring lookout, prefixed with its timezone the
+ * way QStash reads it ("CRON_TZ=Europe/Paris 0 9 * * *"). A weekly lookout
+ * without a day runs on Sundays.
+ */
+export function recurringCron(
+  frequency: Exclude<LookoutFrequency, 'once'>,
+  time: string,
+  timezone: string,
+  dayOfWeek = '0',
+): string {
+  const [hours, minutes] = time.split(':').map(Number);
+  const fields = {
+    daily: `${minutes} ${hours} * * *`,
+    weekly: `${minutes} ${hours} * * ${dayOfWeek}`,
+    monthly: `${minutes} ${hours} 1 * *`,
+    yearly: `${minutes} ${hours} 1 1 *`,
+  }[frequency];
+  return `CRON_TZ=${timezone} ${fields}`;
+}
+
+/** The next time a cron schedule from `recurringCron` fires after `now`. */
+export function nextCronRun(cronSchedule: string, timezone: string, now: Date = new Date()): Date {
+  const fields = cronSchedule.startsWith('CRON_TZ=') ? cronSchedule.slice(cronSchedule.indexOf(' ') + 1) : cronSchedule;
+  return CronExpressionParser.parse(fields, { currentDate: now, tz: timezone }).next().toDate();
 }
 
 /**
