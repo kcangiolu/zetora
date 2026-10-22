@@ -70,6 +70,23 @@ export function reportToolStep(params: {
   return postInternal('/api/internal/hermes/tool-event', params);
 }
 
+// Forwards a request from the memory provider in Zetora's Hermes plugin (see index.ts's
+// handleMemory). zetora-app owns its shape and its answer, status code included.
+export async function forwardMemoryRequest(params: {
+  gatewayId: string;
+  request: unknown;
+}): Promise<{ status: number; body: unknown }> {
+  const res = await fetch(`${config.zetoraInternalUrl}/api/internal/hermes/memory`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${config.internalSecret}`,
+    },
+    body: JSON.stringify(params),
+  });
+  return { status: res.status, body: await res.json() };
+}
+
 export function reportConnectionStatus(params: {
   gatewayId: string;
   connected: boolean;

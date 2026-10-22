@@ -1,6 +1,6 @@
 name: zetora
-version: 1.0.0
-description: Reports the tool calls of Zetora conversations to Zetora as structured steps.
+version: 1.1.0
+description: Reports the tool calls of Zetora conversations to Zetora as structured steps, and serves Zetora's memory to Hermes.
 author: Zetora
 provides_hooks:
   - post_gateway_admission

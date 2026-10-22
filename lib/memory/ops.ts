@@ -36,6 +36,14 @@ export interface PlannableEntry {
   status: MemoryStatus;
   userLocked: boolean;
   sourceChatId: string | null;
+  sourceSessionId: string | null;
+}
+
+// Where a turn happened: a Zetora chat, a Hermes session, or both for a Hermes
+// conversation held in Zetora.
+export interface MemoryOrigin {
+  chatId: string | null;
+  sessionId: string | null;
 }
 
 export interface NewEntryValues {
@@ -88,12 +96,14 @@ export function findDuplicate<T extends Pick<PlannableEntry, 'text' | 'status'>>
   return best?.entry;
 }
 
-// A candidate only becomes confirmed when it comes up in a different chat
-// than the one it was learned in — repetition across conversations is the
-// signal that a fact is durable rather than a one-off. A source chat that has
-// since been deleted (null) counts as different.
-function canConfirmFrom(entry: PlannableEntry, chatId: string | null): boolean {
-  return entry.status === 'candidate' && (entry.sourceChatId === null || entry.sourceChatId !== chatId);
+// A candidate only becomes confirmed when it comes up in a different
+// conversation than the one it was learned in — repetition across
+// conversations is the signal that a fact is durable rather than a one-off.
+// An origin that is no longer known (a deleted chat) counts as different.
+function canConfirmFrom(entry: PlannableEntry, origin: MemoryOrigin): boolean {
+  const sameChat = entry.sourceChatId !== null && entry.sourceChatId === origin.chatId;
+  const sameSession = entry.sourceSessionId !== null && entry.sourceSessionId === origin.sessionId;
+  return entry.status === 'candidate' && !sameChat && !sameSession;
 }
 
 /**
@@ -105,7 +115,7 @@ function canConfirmFrom(entry: PlannableEntry, chatId: string | null): boolean {
 export function planMemoryMutations(
   ops: MemoryOp[],
   entries: PlannableEntry[],
-  chatId: string | null,
+  origin: MemoryOrigin,
 ): MemoryMutation[] {
   const byId = new Map(entries.map((e) => [e.id, e]));
   const touched = new Set<string>();
@@ -126,7 +136,7 @@ export function planMemoryMutations(
       if (findDuplicate(inserted, text)) continue;
       const duplicate = findDuplicate(entries, text);
       if (duplicate) {
-        if (canConfirmFrom(duplicate, chatId) && claim(duplicate.id)) {
+        if (canConfirmFrom(duplicate, origin) && claim(duplicate.id)) {
           mutations.push({ kind: 'confirm', id: duplicate.id });
         }
         continue;
@@ -144,7 +154,8 @@ export function planMemoryMutations(
         text,
         status: 'candidate',
         userLocked: false,
-        sourceChatId: chatId,
+        sourceChatId: origin.chatId,
+        sourceSessionId: origin.sessionId,
       });
       mutations.push({ kind: 'insert', values });
       continue;
@@ -164,7 +175,7 @@ export function planMemoryMutations(
       if (op.tier !== null) values.tier = op.tier;
       if (Object.keys(values).length > 0 && claim(entry.id)) mutations.push({ kind: 'update', id: entry.id, values });
     } else if (op.op === 'confirm') {
-      if (canConfirmFrom(entry, chatId) && claim(entry.id)) mutations.push({ kind: 'confirm', id: entry.id });
+      if (canConfirmFrom(entry, origin) && claim(entry.id)) mutations.push({ kind: 'confirm', id: entry.id });
     } else if (op.op === 'archive') {
       if (claim(entry.id)) mutations.push({ kind: 'archive', id: entry.id });
     }

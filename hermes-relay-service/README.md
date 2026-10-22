@@ -71,6 +71,15 @@ per-gateway secret — verified by reading `gateway/relay/auth.py` directly, sin
 doc alone doesn't spell out the hex-vs-base64 and seconds-vs-milliseconds details and
 getting either wrong silently breaks every enrollment.
 
+## Endpoints for Zetora's Hermes plugin
+
+Not part of the relay contract. `hermes-plugin/zetora` POSTs here under the same bearer token
+as the WebSocket upgrade:
+
+- `/relay/tool-event` — one tool step, forwarded to `/api/internal/hermes/tool-event`.
+- `/relay/memory` — one memory request, forwarded to `/api/internal/hermes/memory`; the reply
+  and its status code are `zetora-app`'s.
+
 ## Local development
 
 ```

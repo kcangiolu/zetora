@@ -1,0 +1,1 @@
+ALTER TABLE "memory_entry" ADD COLUMN "source_session_id" text;

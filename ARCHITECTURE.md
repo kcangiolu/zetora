@@ -56,7 +56,7 @@ drizzle/                SQL migrations (drizzle/migrations) and create_indexes.s
 tts-service/ stt-service/ s2s-service/   Python voice services
 presidio-service/       PII detection service for the anonymizer
 hermes-relay-service/   Relay between users' Hermes gateways and the app
-hermes-plugin/zetora/   Hermes plugin, installed on a user's gateway, that reports tool calls as steps
+hermes-plugin/zetora/   Hermes plugin, installed on a user's gateway: tool calls as steps, Zetora memory for Hermes
 searxng/                SearXNG settings
 scripts/                Migration runner (db-migrate container), Daytona snapshot setup
 public/                 Static assets
@@ -119,7 +119,7 @@ The `selfhosted` profile groups the CPU-only services, from `minio` to `bullmq`.
 1. **Search/chat**: `POST /api/search` → auth + rate limiting → model selection (`ai/providers.ts`, `lib/search/auto-router.ts`) → `streamText` with tools loaded per search group (`lib/search/group-config.ts`, `tool-loader.ts`) → results streamed to the client (resumable via `ai-resumable-stream` + Redis); chats persisted through Drizzle (`lib/db/queries/`).
 2. **Web search tools**: SearXNG/fastCRW first when configured, SaaS providers otherwise; scraped content can be embedded and cached in Qdrant (`lib/vector`).
 3. **Lookouts**: user-scheduled searches, run by `lib/lookout/run.ts`. With BullMQ (`lib/services/bullmq.ts`) the worker started in `instrumentation.ts` runs them in-process; with QStash they come back through `/api/lookout`. The database is the source of truth: an active recurring Lookout has a schedule, a paused or archived one has none, and each run claims the Lookout atomically, so a run of a paused, archived, already running or rescheduled Lookout is skipped.
-4. **Memory** (`lib/memory`): a user-editable bio and atomic facts in Postgres. The bio and core facts go into the system prompt; other facts are matched lexically against the message and appended to it. After each answer, the conversation's own model (or a dedicated one) proposes memory changes through structured output, validated in code (new facts stay candidates until confirmed in another chat); a weekly consolidation merges and re-tiers them.
+4. **Memory** (`lib/memory`): a user-editable bio and atomic facts in Postgres. The bio and core facts go into the system prompt; other facts are matched lexically against the message and appended to it. After each answer, the conversation's own model (or a dedicated one) proposes memory changes through structured output, validated in code (new facts stay candidates until confirmed in another chat); a weekly consolidation merges and re-tiers them. A user's Hermes gateway shares this memory through `hermes-plugin/zetora` and `internal/hermes/memory`; its turns are updated by the dedicated model, or by Hermes's own model with the result validated the same way.
 5. **Access**: no paid tiers — every signed-in account has full access; a per-account daily message cap (`ZETORA_DAILY_MESSAGE_LIMIT`, 500 by default, 0 for none) enforced via counters in Postgres/Redis guards against abuse.
 
 ## Security & resilience notes

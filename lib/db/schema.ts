@@ -899,6 +899,9 @@ export const memoryEntry = pgTable(
     userLocked: boolean('user_locked').notNull().default(false),
     // A candidate is only confirmed from a chat other than the one it came from.
     sourceChatId: text('source_chat_id').references(() => chat.id, { onDelete: 'set null' }),
+    // The Hermes session it was learned in, which is the only trace of its origin when
+    // that session ran outside Zetora (another messaging platform, the CLI).
+    sourceSessionId: text('source_session_id'),
     lastUsedAt: timestamp('last_used_at'),
     createdAt: timestamp('created_at', { precision: 3 }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { precision: 3 }).notNull().defaultNow(),

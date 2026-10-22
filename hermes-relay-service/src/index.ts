@@ -3,6 +3,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import { config } from './config.js';
 import {
   enrollGateway,
+  forwardMemoryRequest,
   reportAgentEvent,
   reportConnectionStatus,
   reportToolStep,
@@ -43,6 +44,10 @@ const server = createServer((req, res) => {
     void handleToolEvent(req, res);
     return;
   }
+  if (req.method === 'POST' && req.url === '/relay/memory') {
+    void handleMemory(req, res);
+    return;
+  }
   res.writeHead(404).end();
 });
 
@@ -75,7 +80,9 @@ function readRawBody(req: IncomingMessage, maxBytes: number): Promise<Buffer> {
 async function handleMediaUpload(req: IncomingMessage, res: import('node:http').ServerResponse) {
   const parsed = parseGatewayBearerToken(req.headers.authorization);
   if (!parsed) {
-    res.writeHead(401, { 'Content-Type': 'application/json' }).end(JSON.stringify({ error: 'missing_or_malformed_token' }));
+    res
+      .writeHead(401, { 'Content-Type': 'application/json' })
+      .end(JSON.stringify({ error: 'missing_or_malformed_token' }));
     return;
   }
 
@@ -104,7 +111,9 @@ async function handleMediaUpload(req: IncomingMessage, res: import('node:http').
 
   try {
     const result = await uploadGatewayMedia({ gatewayId: parsed.gatewayId, contentType, filename, body });
-    res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ id: result.id, size: body.length }));
+    res
+      .writeHead(200, { 'Content-Type': 'application/json' })
+      .end(JSON.stringify({ id: result.id, size: body.length }));
   } catch (error) {
     console.error('[hermes-relay] media upload failed', error);
     res.writeHead(500, { 'Content-Type': 'application/json' }).end(JSON.stringify({ error: 'internal_error' }));
@@ -119,7 +128,9 @@ const MAX_TOOL_EVENT_BYTES = 16 * 1024;
 async function handleToolEvent(req: IncomingMessage, res: import('node:http').ServerResponse) {
   const parsed = parseGatewayBearerToken(req.headers.authorization);
   if (!parsed) {
-    res.writeHead(401, { 'Content-Type': 'application/json' }).end(JSON.stringify({ error: 'missing_or_malformed_token' }));
+    res
+      .writeHead(401, { 'Content-Type': 'application/json' })
+      .end(JSON.stringify({ error: 'missing_or_malformed_token' }));
     return;
   }
 
@@ -149,13 +160,55 @@ async function handleToolEvent(req: IncomingMessage, res: import('node:http').Se
   }
 }
 
+// Not part of the relay contract: the memory provider in Zetora's Hermes plugin reads and
+// updates the gateway owner's Zetora memory here, under the same per-gateway bearer token.
+// A request carries at most one finished turn.
+const MAX_MEMORY_REQUEST_BYTES = 256 * 1024;
+
+async function handleMemory(req: IncomingMessage, res: import('node:http').ServerResponse) {
+  const parsed = parseGatewayBearerToken(req.headers.authorization);
+  if (!parsed) {
+    res
+      .writeHead(401, { 'Content-Type': 'application/json' })
+      .end(JSON.stringify({ error: 'missing_or_malformed_token' }));
+    return;
+  }
+
+  const auth = await verifyGatewayAuth(parsed);
+  if (!auth.valid) {
+    res.writeHead(401, { 'Content-Type': 'application/json' }).end(JSON.stringify({ error: auth.reason ?? 'invalid' }));
+    return;
+  }
+
+  let request: unknown;
+  try {
+    request = JSON.parse((await readRawBody(req, MAX_MEMORY_REQUEST_BYTES)).toString('utf8'));
+  } catch (error) {
+    const tooLarge = error instanceof PayloadTooLargeError;
+    res
+      .writeHead(tooLarge ? 413 : 400, { 'Content-Type': 'application/json' })
+      .end(JSON.stringify({ error: tooLarge ? 'payload_too_large' : 'invalid_json' }));
+    return;
+  }
+
+  try {
+    const result = await forwardMemoryRequest({ gatewayId: parsed.gatewayId, request });
+    res.writeHead(result.status, { 'Content-Type': 'application/json' }).end(JSON.stringify(result.body));
+  } catch (error) {
+    console.error('[hermes-relay] memory request failed', error);
+    res.writeHead(500, { 'Content-Type': 'application/json' }).end(JSON.stringify({ error: 'internal_error' }));
+  }
+}
+
 // Called by zetora-app: push a Zetora user's message (or button click) down the gateway's
 // live WS as an `inbound` frame. Gated the same way as the reverse direction
 // (internalClient.ts) — see docker-compose.yml's comment on why the compose network
 // alone isn't a trust boundary.
 async function handleDeliver(req: IncomingMessage, res: import('node:http').ServerResponse) {
   if (!isAuthorizedInternalCaller(req)) {
-    res.writeHead(401, { 'Content-Type': 'application/json' }).end(JSON.stringify({ success: false, error: 'unauthorized' }));
+    res
+      .writeHead(401, { 'Content-Type': 'application/json' })
+      .end(JSON.stringify({ success: false, error: 'unauthorized' }));
     return;
   }
 
@@ -172,7 +225,9 @@ async function handleDeliver(req: IncomingMessage, res: import('node:http').Serv
 
     const ws = getConnection(gatewayId);
     if (!ws) {
-      res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ success: false, error: 'gateway_offline' }));
+      res
+        .writeHead(200, { 'Content-Type': 'application/json' })
+        .end(JSON.stringify({ success: false, error: 'gateway_offline' }));
       return;
     }
 
@@ -180,7 +235,9 @@ async function handleDeliver(req: IncomingMessage, res: import('node:http').Serv
     res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ success: true }));
   } catch (error) {
     console.error('[hermes-relay] deliver failed', error);
-    res.writeHead(500, { 'Content-Type': 'application/json' }).end(JSON.stringify({ success: false, error: 'internal_error' }));
+    res
+      .writeHead(500, { 'Content-Type': 'application/json' })
+      .end(JSON.stringify({ success: false, error: 'internal_error' }));
   }
 }
 
@@ -209,13 +266,17 @@ async function handleEnroll(req: IncomingMessage, res: import('node:http').Serve
     // that endpoint presents the identical value here. Doesn't replace the connector's
     // own enrollmentToken lookup below — just rejects a malformed/bypassed caller early.
     if (authHeader !== `Bearer ${enrollmentToken}`) {
-      res.writeHead(401, { 'Content-Type': 'application/json' }).end(JSON.stringify({ error: 'Invalid caller identity token' }));
+      res
+        .writeHead(401, { 'Content-Type': 'application/json' })
+        .end(JSON.stringify({ error: 'Invalid caller identity token' }));
       return;
     }
 
     const result = await enrollGateway({ enrollmentToken, gatewayId });
     if (!result.gatewayId || !result.gatewaySecret) {
-      res.writeHead(404, { 'Content-Type': 'application/json' }).end(JSON.stringify({ error: result.error ?? 'Enrollment failed' }));
+      res
+        .writeHead(404, { 'Content-Type': 'application/json' })
+        .end(JSON.stringify({ error: result.error ?? 'Enrollment failed' }));
       return;
     }
 

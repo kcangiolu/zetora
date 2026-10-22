@@ -5,6 +5,7 @@ import {
   cleanEntryText,
   cleanKeywords,
   type MemoryOp,
+  type MemoryOrigin,
   type PlannableEntry,
 } from '@/lib/memory/ops';
 import { planConsolidation, type ConsolidatableEntry } from '@/lib/memory/consolidation-plan';
@@ -21,8 +22,10 @@ function op(partial: Partial<MemoryOp> & Pick<MemoryOp, 'op'>): MemoryOp {
 }
 
 function entry(partial: Partial<PlannableEntry> & Pick<PlannableEntry, 'id' | 'text'>): PlannableEntry {
-  return { status: 'confirmed', userLocked: false, sourceChatId: 'chat-a', ...partial };
+  return { status: 'confirmed', userLocked: false, sourceChatId: 'chat-a', sourceSessionId: null, ...partial };
 }
+
+const inChat = (chatId: string): MemoryOrigin => ({ chatId, sessionId: null });
 
 const addOp = (text: string) =>
   op({ op: 'add', text, category: 'project', durability: 'months', tier: 'contextual', keywords: ['x'] });
@@ -79,7 +82,7 @@ describe('cleaning', () => {
 
 describe('planMemoryMutations', () => {
   it('inserts a new fact', () => {
-    expect(planMemoryMutations([addOp('Migrates storage from MinIO to Silo')], [], 'chat-a')).toEqual([
+    expect(planMemoryMutations([addOp('Migrates storage from MinIO to Silo')], [], inChat('chat-a'))).toEqual([
       {
         kind: 'insert',
         values: {
@@ -95,33 +98,52 @@ describe('planMemoryMutations', () => {
 
   it('applies at most three operations per turn', () => {
     const ops = ['Fact one about Alpha', 'Fact two about Bravo', 'Fact three about Charlie', 'Fact four about Delta'];
-    expect(planMemoryMutations(ops.map(addOp), [], 'chat-a')).toHaveLength(3);
+    expect(planMemoryMutations(ops.map(addOp), [], inChat('chat-a'))).toHaveLength(3);
   });
 
   it('drops an add without category or durability', () => {
-    expect(planMemoryMutations([op({ op: 'add', text: 'Something' })], [], 'chat-a')).toEqual([]);
+    expect(planMemoryMutations([op({ op: 'add', text: 'Something' })], [], inChat('chat-a'))).toEqual([]);
   });
 
   it('turns a re-stated candidate from another chat into a confirmation', () => {
     const existing = [entry({ id: 'e1', text: 'Is learning Rust', status: 'candidate', sourceChatId: 'chat-a' })];
-    expect(planMemoryMutations([addOp('Is learning Rust.')], existing, 'chat-b')).toEqual([
+    expect(planMemoryMutations([addOp('Is learning Rust.')], existing, inChat('chat-b'))).toEqual([
       { kind: 'confirm', id: 'e1' },
     ]);
   });
 
   it('never confirms a candidate from the chat it came from', () => {
     const existing = [entry({ id: 'e1', text: 'Is learning Rust', status: 'candidate', sourceChatId: 'chat-a' })];
-    expect(planMemoryMutations([addOp('Is learning Rust')], existing, 'chat-a')).toEqual([]);
-    expect(planMemoryMutations([op({ op: 'confirm', id: 'e1' })], existing, 'chat-a')).toEqual([]);
+    expect(planMemoryMutations([addOp('Is learning Rust')], existing, inChat('chat-a'))).toEqual([]);
+    expect(planMemoryMutations([op({ op: 'confirm', id: 'e1' })], existing, inChat('chat-a'))).toEqual([]);
+  });
+
+  it('never confirms a candidate from the Hermes session it came from', () => {
+    const existing = [
+      entry({ id: 'e1', text: 'Is learning Rust', status: 'candidate', sourceChatId: null, sourceSessionId: 's-1' }),
+    ];
+    expect(planMemoryMutations([addOp('Is learning Rust')], existing, { chatId: null, sessionId: 's-1' })).toEqual([]);
+    expect(planMemoryMutations([addOp('Is learning Rust')], existing, { chatId: null, sessionId: 's-2' })).toEqual([
+      { kind: 'confirm', id: 'e1' },
+    ]);
+  });
+
+  it('confirms from another conversation once the source chat is gone', () => {
+    const existing = [entry({ id: 'e1', text: 'Is learning Rust', status: 'candidate', sourceChatId: null })];
+    expect(planMemoryMutations([op({ op: 'confirm', id: 'e1' })], existing, inChat('chat-a'))).toEqual([
+      { kind: 'confirm', id: 'e1' },
+    ]);
   });
 
   it('does not duplicate an already confirmed fact', () => {
     const existing = [entry({ id: 'e1', text: 'Is learning Rust' })];
-    expect(planMemoryMutations([addOp('Is learning Rust')], existing, 'chat-b')).toEqual([]);
+    expect(planMemoryMutations([addOp('Is learning Rust')], existing, inChat('chat-b'))).toEqual([]);
   });
 
   it('does not insert the same fact twice in one turn', () => {
-    expect(planMemoryMutations([addOp('Is learning Rust'), addOp('Is learning Rust!')], [], 'chat-a')).toHaveLength(1);
+    expect(
+      planMemoryMutations([addOp('Is learning Rust'), addOp('Is learning Rust!')], [], inChat('chat-a')),
+    ).toHaveLength(1);
   });
 
   it('ignores operations on user-locked, archived or unknown entries', () => {
@@ -134,7 +156,7 @@ describe('planMemoryMutations', () => {
       op({ op: 'archive', id: 'old' }),
       op({ op: 'archive', id: 'missing' }),
     ];
-    expect(planMemoryMutations(ops, existing, 'chat-b')).toEqual([]);
+    expect(planMemoryMutations(ops, existing, inChat('chat-b'))).toEqual([]);
   });
 
   it('updates and archives regular entries, once per entry', () => {
@@ -144,7 +166,7 @@ describe('planMemoryMutations', () => {
       op({ op: 'archive', id: 'e1' }),
       op({ op: 'archive', id: 'e2' }),
     ];
-    expect(planMemoryMutations(ops, existing, 'chat-b')).toEqual([
+    expect(planMemoryMutations(ops, existing, inChat('chat-b'))).toEqual([
       { kind: 'update', id: 'e1', values: { text: 'Works on Zetora and Hermes', tier: 'always' } },
       { kind: 'archive', id: 'e2' },
     ]);

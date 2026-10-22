@@ -3,7 +3,13 @@ import 'server-only';
 import { and, desc, eq, inArray, lt, ne, sql } from 'drizzle-orm';
 import { memoryEntry, userBio, type MemoryEntry, type UserBio } from '../schema';
 import { maindb } from '../index';
-import { findDuplicate, type MemoryMutation, type NewEntryValues, type PlannableEntry } from '@/lib/memory/ops';
+import {
+  findDuplicate,
+  type MemoryMutation,
+  type MemoryOrigin,
+  type NewEntryValues,
+  type PlannableEntry,
+} from '@/lib/memory/ops';
 import type { MemoryDurability, MemoryTier } from '@/lib/memory/constants';
 
 type Transaction = Parameters<Parameters<typeof maindb.transaction>[0]>[0];
@@ -84,7 +90,7 @@ export async function insertUserMemoryEntry(
 export async function rememberMemoryEntry(
   userId: string,
   values: NewEntryValues,
-  sourceChatId: string | null,
+  origin: MemoryOrigin,
 ): Promise<MemoryEntry> {
   return maindb.transaction(async (tx) => {
     await lockUserMemory(tx, userId);
@@ -106,7 +112,13 @@ export async function rememberMemoryEntry(
 
     const [entry] = await tx
       .insert(memoryEntry)
-      .values({ userId, ...values, status: 'confirmed', sourceChatId })
+      .values({
+        userId,
+        ...values,
+        status: 'confirmed',
+        sourceChatId: origin.chatId,
+        sourceSessionId: origin.sessionId,
+      })
       .returning();
     return entry;
   });
@@ -133,20 +145,19 @@ export async function deleteMemoryEntry(userId: string, id: string) {
   await maindb.delete(memoryEntry).where(and(eq(memoryEntry.id, id), eq(memoryEntry.userId, userId)));
 }
 
-function applyMutation(tx: Transaction, userId: string, chatId: string | null, mutation: MemoryMutation, now: Date) {
+function applyMutation(tx: Transaction, userId: string, origin: MemoryOrigin, mutation: MemoryMutation, now: Date) {
   const own = (id: string) => and(eq(memoryEntry.id, id), eq(memoryEntry.userId, userId));
   switch (mutation.kind) {
     case 'insert':
-      return tx
-        .insert(memoryEntry)
-        .values({
-          userId,
-          ...mutation.values,
-          status: 'candidate',
-          sourceChatId: chatId,
-          createdAt: now,
-          updatedAt: now,
-        });
+      return tx.insert(memoryEntry).values({
+        userId,
+        ...mutation.values,
+        status: 'candidate',
+        sourceChatId: origin.chatId,
+        sourceSessionId: origin.sessionId,
+        createdAt: now,
+        updatedAt: now,
+      });
     case 'update':
       return tx
         .update(memoryEntry)
@@ -166,7 +177,7 @@ function applyMutation(tx: Transaction, userId: string, chatId: string | null, m
  */
 export async function applyMemoryMutations(
   userId: string,
-  chatId: string | null,
+  origin: MemoryOrigin,
   plan: (entries: PlannableEntry[]) => MemoryMutation[],
 ): Promise<MemoryMutation[]> {
   return maindb.transaction(async (tx) => {
@@ -178,13 +189,14 @@ export async function applyMemoryMutations(
         status: memoryEntry.status,
         userLocked: memoryEntry.userLocked,
         sourceChatId: memoryEntry.sourceChatId,
+        sourceSessionId: memoryEntry.sourceSessionId,
       })
       .from(memoryEntry)
       .where(and(eq(memoryEntry.userId, userId), ne(memoryEntry.status, 'archived')));
 
     const mutations = plan(entries);
     const now = new Date();
-    for (const mutation of mutations) await applyMutation(tx, userId, chatId, mutation, now);
+    for (const mutation of mutations) await applyMutation(tx, userId, origin, mutation, now);
     return mutations;
   });
 }

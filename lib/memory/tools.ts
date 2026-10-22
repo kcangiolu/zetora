@@ -41,7 +41,7 @@ export function createMemoryTools(userId: string, chatId: string | null) {
           tier,
           keywords: cleanKeywords(await Promise.all(keywords.map((k) => deanonymizeText(k, { userId })))),
         },
-        chatId,
+        { chatId, sessionId: null },
       );
       return { success: true, memory: { id: entry.id, memory: entry.text } };
     },

@@ -190,6 +190,13 @@
       "when": 1792508285265,
       "tag": "0026_hermes_tool_step",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1792662265601,
+      "tag": "0027_memory_source_session",
+      "breakpoints": true
     }
   ]
 }
