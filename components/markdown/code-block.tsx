@@ -253,7 +253,7 @@ const CodeBlockInner: React.FC<CodeBlockInnerProps> = ({
   const syntaxTheme = useMemo(() => {
     if (!mounted) return zetoraDarkTheme;
     const isLightTheme =
-      resolvedTheme === 'light' || resolvedTheme === 'claudelight' || resolvedTheme === 'neutrallight';
+      resolvedTheme === 'light' || resolvedTheme === 'inklight' || resolvedTheme === 'neutrallight';
     return isLightTheme ? zetoraLightTheme : zetoraDarkTheme;
   }, [mounted, resolvedTheme]);
 

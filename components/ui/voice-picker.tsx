@@ -45,18 +45,18 @@ function resolveColors(): [string, string] {
     return ['#D4A574', '#C49A6C'];
   }
 
-  if (html.classList.contains('t3chat')) {
-    // Pink/magenta tones matching t3chat theme
+  if (html.classList.contains('plum')) {
+    // Pink/magenta tones matching plum theme
     return ['#E8B4C8', '#D49AAE'];
   }
 
-  if (html.classList.contains('claudelight')) {
-    // Warm terracotta matching claude light theme
+  if (html.classList.contains('inklight')) {
+    // Warm terracotta matching ink light theme
     return ['#C4907A', '#A67860'];
   }
 
-  if (html.classList.contains('claudedark')) {
-    // Warm cream/beige matching claude dark theme
+  if (html.classList.contains('inkdark')) {
+    // Warm cream/beige matching ink dark theme
     return ['#E8D5C4', '#D4BFA8'];
   }
 

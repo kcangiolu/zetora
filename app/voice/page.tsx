@@ -63,13 +63,13 @@ function resolveColors(): [string, string] {
   if (html.classList.contains('colourful')) {
     return ['#D4A574', '#C49A6C'];
   }
-  if (html.classList.contains('t3chat')) {
+  if (html.classList.contains('plum')) {
     return ['#E8B4C8', '#D49AAE'];
   }
-  if (html.classList.contains('claudelight')) {
+  if (html.classList.contains('inklight')) {
     return ['#C4907A', '#A67860'];
   }
-  if (html.classList.contains('claudedark')) {
+  if (html.classList.contains('inkdark')) {
     return ['#E8D5C4', '#D4BFA8'];
   }
   if (html.classList.contains('neutrallight')) {

@@ -50,9 +50,9 @@ export function Providers({
                 'light',
                 'dark',
                 'colourful',
-                't3chat',
-                'claudedark',
-                'claudelight',
+                'plum',
+                'inkdark',
+                'inklight',
                 'neutrallight',
                 'neutraldark',
               ]}

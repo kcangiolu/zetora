@@ -5,9 +5,9 @@
 @custom-variant dark (&:is(.dark *));
 @custom-variant light (&:is(.light *));
 @custom-variant colourful (&:is(.colourful *));
-@custom-variant t3chat (&:is(.t3chat *));
-@custom-variant claudedark (&:is(.claudedark *));
-@custom-variant claudelight (&:is(.claudelight *));
+@custom-variant plum (&:is(.plum *));
+@custom-variant inkdark (&:is(.inkdark *));
+@custom-variant inklight (&:is(.inklight *));
 
 @plugin 'tailwind-scrollbar';
 @import 'tw-animate-css';
@@ -405,8 +405,8 @@
     --tweet-icon-color-hover: #b8a88e !important;
   }
 
-  /* T3Chat theme - purple/magenta dark tones */
-  :is(.t3chat) :where(.react-tweet-theme) {
+  /* Plum theme - purple/magenta dark tones */
+  :is(.plum) :where(.react-tweet-theme) {
     --tweet-skeleton-gradient: linear-gradient(270deg, #2a1f35, #352842, #352842, #2a1f35) !important;
     --tweet-border: 1px solid #4a3558 !important;
     --tweet-font-color: #d4b8e8 !important;
@@ -421,8 +421,8 @@
     --tweet-icon-color-hover: #a88dbf !important;
   }
 
-  /* Claude Light theme - warm cream tones */
-  :is(.claudelight) :where(.react-tweet-theme) {
+  /* Ink Light theme - warm cream tones */
+  :is(.inklight) :where(.react-tweet-theme) {
     --tweet-skeleton-gradient: linear-gradient(270deg, #f5f0e8, #ede7dc, #ede7dc, #f5f0e8) !important;
     --tweet-border: 1px solid #ddd5c8 !important;
     --tweet-font-color: #4a4132 !important;
@@ -437,8 +437,8 @@
     --tweet-icon-color-hover: #8a7f6f !important;
   }
 
-  /* Claude Dark theme - warm dark olive tones */
-  :is(.claudedark) :where(.react-tweet-theme) {
+  /* Ink Dark theme - warm dark olive tones */
+  :is(.inkdark) :where(.react-tweet-theme) {
     --tweet-skeleton-gradient: linear-gradient(270deg, #3a3730, #45423a, #45423a, #3a3730) !important;
     --tweet-border: 1px solid #544f45 !important;
     --tweet-font-color: #c8bfa8 !important;
@@ -755,8 +755,8 @@
   --chart-foreground-muted: oklch(0.65 0.01 60);
 }
 
-.t3chat {
-  /* T3Chat theme */
+.plum {
+  /* Plum theme */
   --sh-identifier: oklch(0.85 0.03 250);
   --sh-keyword: oklch(0.75 0.12 25);
   --sh-string: oklch(0.72 0.14 160);
@@ -818,7 +818,7 @@
   --chart-foreground-muted: oklch(0.65 0.03 308);
 }
 
-.claudelight {
+.inklight {
   --background: oklch(0.9818 0.0054 95.0986);
   --foreground: oklch(0.3438 0.0269 95.7226);
   --card: oklch(0.9818 0.0054 95.0986);
@@ -871,7 +871,7 @@
   --chart-foreground-muted: oklch(0.6 0.008 97);
 }
 
-.claudedark {
+.inkdark {
   --background: oklch(0.2679 0.0036 106.6427);
   --foreground: oklch(0.8074 0.0142 93.0137);
   --card: oklch(0.2679 0.0036 106.6427);
