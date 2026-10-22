@@ -132,8 +132,15 @@ export const serverEnv = createEnv({
 
 const REQUIRED_VARS = new Set(['DATABASE_URL', 'BETTER_AUTH_SECRET']);
 
+// On globalThis because next.config.ts, instrumentation and each route bundle
+// load their own copy of this module in the same process; without it every
+// copy repeats the warning.
+const warnedPlaceholders = ((globalThis as { __zetoraWarnedPlaceholders?: Set<string> }).__zetoraWarnedPlaceholders ??=
+  new Set<string>());
+
 for (const [key, value] of Object.entries(serverEnv)) {
-  if (!REQUIRED_VARS.has(key) && value === 'placeholder') {
+  if (!REQUIRED_VARS.has(key) && value === 'placeholder' && !warnedPlaceholders.has(key)) {
+    warnedPlaceholders.add(key);
     console.warn(`[env] ${key} is not set (placeholder)`);
   }
 }
