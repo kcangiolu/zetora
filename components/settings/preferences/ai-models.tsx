@@ -8,6 +8,7 @@ import { ModelSelectorDialog } from '@/components/ui/model-selector';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 import { useInstanceCapabilities } from '@/hooks/use-instance-capabilities';
+import { isHermesEnabled } from '@/lib/hermes/enabled';
 import { AUTO_MODEL_ID, DEFAULT_MODEL_ALIAS } from '@/ai/models';
 import { sileo } from 'sileo';
 import { useQueryClient } from '@tanstack/react-query';
@@ -336,7 +337,7 @@ export function AiModelsTab({
                           selectedModel={route.model}
                           onModelSelect={(v) => updateAutoRouterRoute(index, { model: v })}
                           excludeModels={[AUTO_MODEL_ID]}
-                                      className="w-full h-7"
+                          className="w-full h-7"
                         />
                       </div>
                       <Textarea
@@ -480,8 +481,7 @@ export function AiModelsTab({
                         <p className="text-xs font-medium">Enriched compatibility mode</p>
                         <p className="text-[11px] text-muted-foreground mt-0.5">
                           Route this provider&apos;s requests through the standard OpenAI-compatible API instead of
-                          talking to {p.backendKind === 'llamacpp' ? 'llama.cpp' : 'Ollama'}{' '}
-                          directly. Adds: image
+                          talking to {p.backendKind === 'llamacpp' ? 'llama.cpp' : 'Ollama'} directly. Adds: image
                           attachments, and the server&apos;s own chat-template rendering (fewer formatting quirks).
                           Removes: real prompt prefill (/startwith), grammar constraints, mirostat and other native
                           sampling controls.
@@ -702,7 +702,11 @@ export function AiModelsTab({
               providerKey="zetora-tertiary-voice-provider"
               effortKey="zetora-tertiary-voice-effort"
               recommendedEffort="off"
-              description="LLM used by the local speech-to-speech backend"
+              description={
+                isHermesEnabled()
+                  ? "Answers the Voice page in Zetora mode, on the local backend. In Hermes mode, your agent's own model answers."
+                  : 'Answers the Voice page on the local backend'
+              }
             />
             <TertiaryModelRow
               task="memory-curator"
