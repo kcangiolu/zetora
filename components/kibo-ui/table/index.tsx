@@ -2,7 +2,7 @@ import type { Cell, Column, ColumnDef, Header, HeaderGroup, Row, SortingState, T
 import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
 import { ArrowDownIcon, ArrowUpIcon, ChevronsUpDownIcon } from 'lucide-react';
 import type { HTMLAttributes, ReactNode } from 'react';
-import { createContext, memo, useCallback, useContext, useState } from 'react';
+import { createContext, Fragment, memo, useCallback, useContext, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -91,7 +91,11 @@ export type TableHeaderGroupProps = {
 };
 
 export const TableHeaderGroup = ({ headerGroup, children }: TableHeaderGroupProps) => (
-  <TableRowRaw key={headerGroup.id}>{headerGroup.headers.map((header) => children({ header }))}</TableRowRaw>
+  <TableRowRaw key={headerGroup.id}>
+    {headerGroup.headers.map((header) => (
+      <Fragment key={header.id}>{children({ header })}</Fragment>
+    ))}
+  </TableRowRaw>
 );
 
 export type TableHeaderProps = {
@@ -104,7 +108,9 @@ export const TableHeader = ({ className, children }: TableHeaderProps) => {
 
   return (
     <TableHeaderRaw className={className}>
-      {table?.getHeaderGroups().map((headerGroup) => children({ headerGroup }))}
+      {table?.getHeaderGroups().map((headerGroup) => (
+        <Fragment key={headerGroup.id}>{children({ headerGroup })}</Fragment>
+      ))}
     </TableHeaderRaw>
   );
 };
@@ -175,7 +181,9 @@ export type TableRowProps = {
 
 export const TableRow = ({ row, children, className }: TableRowProps) => (
   <TableRowRaw className={className} data-state={row.getIsSelected() && 'selected'} key={row.id}>
-    {row.getVisibleCells().map((cell) => children({ cell }))}
+    {row.getVisibleCells().map((cell) => (
+      <Fragment key={cell.id}>{children({ cell })}</Fragment>
+    ))}
   </TableRowRaw>
 );
 
@@ -191,7 +199,7 @@ export const TableBody = ({ children, className }: TableBodyProps) => {
   return (
     <TableBodyRaw className={className}>
       {rows?.length ? (
-        rows.map((row) => children({ row }))
+        rows.map((row) => <Fragment key={row.id}>{children({ row })}</Fragment>)
       ) : (
         <TableRowRaw>
           <TableCellRaw className="h-24 text-center" colSpan={columns.length}>
