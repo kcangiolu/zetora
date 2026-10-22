@@ -4,7 +4,7 @@ import { use, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, ArrowUp, Mic, MicOff, Globe, MessageCircle, Wrench, ChevronUp, MessageSquare } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { Orb } from '@/components/ui/orb';
+import { VoiceMark } from '@/components/ui/voice-mark';
 import { VoicePicker } from '@/components/ui/voice-picker';
 import { ZetoraLogo } from '@/components/logos/zetora-logo';
 import { VoiceButton, type VoiceButtonState } from '@/components/ui/voice-button';
@@ -35,67 +35,6 @@ function isVoiceType(value: string): value is VoiceType {
   return value === 'Ara' || value === 'Rex' || value === 'Sal' || value === 'Eve' || value === 'Leo';
 }
 
-function useOrbColors(): [string, string] {
-  const [colors, setColors] = useState<[string, string]>(() => {
-    if (typeof window === 'undefined') {
-      return ['#6B5B4F', '#8B7355'];
-    }
-    return resolveColors();
-  });
-
-  useEffect(() => {
-    const updateColors = () => setColors(resolveColors());
-
-    updateColors();
-
-    const observer = new MutationObserver(updateColors);
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class'],
-    });
-
-    return () => observer.disconnect();
-  }, []);
-
-  return colors;
-}
-
-function resolveColors(): [string, string] {
-  const html = document.documentElement;
-
-  if (html.classList.contains('colourful')) {
-    return ['#D4A574', '#C49A6C'];
-  }
-  if (html.classList.contains('plum')) {
-    return ['#E8B4C8', '#D49AAE'];
-  }
-  if (html.classList.contains('inklight')) {
-    return ['#C4907A', '#A67860'];
-  }
-  if (html.classList.contains('inkdark')) {
-    return ['#E8D5C4', '#D4BFA8'];
-  }
-  if (html.classList.contains('neutrallight')) {
-    return ['#BF6E35', '#A65F2E'];
-  }
-  if (html.classList.contains('neutraldark')) {
-    return ['#D7B28D', '#B88F68'];
-  }
-  if (html.classList.contains('midnight')) {
-    return ['#97D3FD', '#7FB5DC'];
-  }
-  if (html.classList.contains('forest')) {
-    return ['#9EDBB2', '#85BD98'];
-  }
-  if (html.classList.contains('ember')) {
-    return ['#FDB5B2', '#DC9A97'];
-  }
-  if (html.classList.contains('dark')) {
-    return ['#F5E6D3', '#E8C9A0'];
-  }
-  return ['#6B5B4F', '#8B7355'];
-}
-
 export default function VoicePage({ searchParams }: { searchParams: Promise<{ chat?: string | string[] }> }) {
   // An Agent chat to continue by voice (the composer's "Continue by voice").
   const { chat } = use(searchParams);
@@ -105,7 +44,6 @@ export default function VoicePage({ searchParams }: { searchParams: Promise<{ ch
   const [isMuted, setMuted] = useLocalStorage(MUTE_STORAGE_KEY, false);
   const [showTranscript, setShowTranscript] = useLocalStorage(TRANSCRIPT_VISIBLE_KEY, true);
   const [textInput, setTextInput] = useState('');
-  const orbColors = useOrbColors();
   const transcriptScrollRef = useRef<HTMLDivElement>(null);
   const transcriptBottomRef = useRef<HTMLDivElement>(null);
 
@@ -298,10 +236,9 @@ export default function VoicePage({ searchParams }: { searchParams: Promise<{ ch
           {/* Orb — centered in all remaining space above the accordion */}
           <div className="flex flex-1 min-h-0 items-center justify-center">
             <div className="relative size-[260px] sm:size-[300px]">
-              <Orb
-                colors={orbColors}
+              <VoiceMark
+                mode={voiceAgent}
                 agentState={agentState}
-                volumeMode="auto"
                 inputVolumeRef={inputVolumeRef}
                 outputVolumeRef={outputVolumeRef}
                 className="h-full w-full"
