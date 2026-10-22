@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useIsFetching, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { sileo } from 'sileo';
 import {
   createScheduledLookout,
@@ -13,457 +13,191 @@ import {
   testLookoutAction,
 } from '@/app/actions';
 
-type LookoutRunStatus = 'success' | 'error' | 'timeout';
+/** A lookout as the Lookout page receives it. */
+export type Lookout = Extract<Awaited<ReturnType<typeof getUserLookouts>>, { success: true }>['lookouts'][number];
+export type LookoutRun = NonNullable<Lookout['runHistory']>[number];
 
-interface LookoutRun {
-  runAt: string;
-  chatId: string;
-  status: LookoutRunStatus;
-  error?: string;
-  duration?: number;
-  tokensUsed?: number;
-  searchesPerformed?: number;
+export type CreateLookoutParams = Parameters<typeof createScheduledLookout>[0];
+export type UpdateLookoutParams = Parameters<typeof updateLookoutAction>[0];
+
+type WithOnSuccess<T> = T & { onSuccess?: () => void };
+
+export function getLastRun(lookout: Lookout): LookoutRun | null {
+  return lookout.runHistory?.at(-1) ?? null;
 }
 
-interface Lookout {
-  id: string;
-  title: string;
-  prompt: string;
-  frequency: string;
-  timezone: string;
-  nextRunAt: Date;
-  status: 'active' | 'paused' | 'archived' | 'running';
-  searchMode?: string;
-  lastRunAt?: Date | null;
-  lastRunChatId?: string | null;
-  runHistory?: LookoutRun[];
-  createdAt: Date;
-  cronSchedule?: string;
-}
+const LOOKOUTS_KEY = ['lookouts', 'list'] as const;
 
-function getLastRunStatus(lookout: Lookout): LookoutRunStatus | null {
-  const history = lookout.runHistory ?? [];
-  if (!history.length) return null;
-  return history[history.length - 1]?.status ?? null;
-}
+// Polled to follow runs: closely while one is going, loosely otherwise.
+const RUNNING_POLL_MS = 3_000;
+const IDLE_POLL_MS = 10_000;
 
-function getLastRunError(lookout: Lookout): string | null {
-  const history = lookout.runHistory ?? [];
-  if (!history.length) return null;
-  return history[history.length - 1]?.error ?? null;
-}
-
-// Query key factory
-const lookoutKeys = {
-  all: ['lookouts'] as const,
-  lists: () => [...lookoutKeys.all, 'list'] as const,
-  list: (filters: string) => [...lookoutKeys.lists(), { filters }] as const,
-  details: () => [...lookoutKeys.all, 'detail'] as const,
-  detail: (id: string) => [...lookoutKeys.details(), id] as const,
-};
-
-// Custom hook for lookouts
 export function useLookouts() {
   const queryClient = useQueryClient();
 
-  // Track previous lookouts state to detect completion
-  const previousLookutsRef = React.useRef<Lookout[]>([]);
+  // The previous list, to notice runs that just finished.
+  const previousLookoutsRef = React.useRef<Lookout[]>([]);
 
-  // Track if create mutation was actually triggered by user
-  const isActualCreateRef = React.useRef<boolean>(false);
-
-  // Track recent completions to prevent duplicate toasts
-  const recentCompletionsRef = React.useRef<Set<string>>(new Set());
-
-  // Query for fetching lookouts
   const {
     data: lookouts = [],
     isLoading,
     error,
-    refetch,
-    dataUpdatedAt,
   } = useQuery({
-    queryKey: lookoutKeys.lists(),
+    queryKey: LOOKOUTS_KEY,
     queryFn: async () => {
       const result = await getUserLookouts();
-      if (result.success) {
-        return (result.lookouts || []) as Lookout[];
-      }
+      if (result.success) return result.lookouts;
       throw new Error(result.error || 'Failed to load lookouts');
     },
-    staleTime: 1000 * 2, // Consider data fresh for 2 seconds
-    refetchInterval: 1000 * 5, // Refetch every 5 seconds for real-time updates
-    refetchIntervalInBackground: false, // Don't poll when tab is not focused
-    gcTime: 1000 * 30, // Keep in cache for 30 seconds
-    networkMode: 'always', // Always try to refetch
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-    refetchOnMount: true, // Always refetch when component mounts
-    retry: (failureCount) => {
-      // Retry up to 3 times with exponential backoff
-      if (failureCount < 3) return true;
-      return false;
-    },
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-    // Enable query deduplication for performance
-    structuralSharing: true,
-
-    // Prevent unnecessary re-renders
-    notifyOnChangeProps: ['data', 'error', 'isLoading'],
+    refetchInterval: (query) =>
+      query.state.data?.some((lookout) => lookout.status === 'running') ? RUNNING_POLL_MS : IDLE_POLL_MS,
+    refetchIntervalInBackground: false,
   });
+  const isRefreshing = useIsFetching({ queryKey: LOOKOUTS_KEY }) > 0;
 
-  // Detect lookout completions and show appropriate toast
+  // A toast for each run that finished since the last poll.
   React.useEffect(() => {
-    if (!lookouts.length || !previousLookutsRef.current.length) {
-      previousLookutsRef.current = lookouts;
-      return;
-    }
+    const previousLookouts = previousLookoutsRef.current;
+    previousLookoutsRef.current = lookouts;
 
-    // Check for lookouts that transitioned from 'running' to 'active' or 'paused'
-    const completedLookouts = lookouts.filter((current) => {
-      const previous = previousLookutsRef.current.find((prev) => prev.id === current.id);
-      const completionKey = `${current.id}-${current.lastRunAt?.getTime()}`;
+    for (const lookout of lookouts) {
+      const previous = previousLookouts.find((candidate) => candidate.id === lookout.id);
+      if (previous?.status !== 'running' || lookout.status === 'running') continue;
+      if (lookout.lastRunAt?.getTime() === previous.lastRunAt?.getTime()) continue;
 
-      return (
-        previous?.status === 'running' &&
-        (current.status === 'active' || current.status === 'paused') &&
-        current.lastRunAt !== previous.lastRunAt && // Ensure it's a new completion
-        !recentCompletionsRef.current.has(completionKey) // Prevent duplicate toasts
-      );
-    });
-
-    // Show completion toast for each completed lookout with debouncing
-    completedLookouts.forEach((lookout) => {
-      const completionKey = `${lookout.id}-${lookout.lastRunAt?.getTime()}`;
-      recentCompletionsRef.current.add(completionKey);
-
-      const lastRunStatus = getLastRunStatus(lookout) ?? 'success';
-      const lastRunError = getLastRunError(lookout);
+      const lastRun = getLastRun(lookout);
       const statusText = lookout.frequency === 'once' ? 'completed' : 'run finished';
-
-      if (lastRunStatus === 'success') {
+      if (!lastRun || lastRun.status === 'success') {
         sileo.success({ title: `Lookout "${lookout.title}" ${statusText} successfully!` });
-      } else if (lastRunStatus === 'timeout') {
-        sileo.show({
-          title: `Lookout "${lookout.title}" ${statusText} (timed out)`,
-          description: lastRunError ?? undefined,
-        });
+      } else if (lastRun.status === 'timeout') {
+        sileo.show({ title: `Lookout "${lookout.title}" ${statusText} (timed out)`, description: lastRun.error });
       } else {
-        sileo.error({
-          title: `Lookout "${lookout.title}" ${statusText} (failed)`,
-          description: lastRunError ?? undefined,
-        });
+        sileo.error({ title: `Lookout "${lookout.title}" ${statusText} (failed)`, description: lastRun.error });
       }
-
-      // Clear completion key after 30 seconds to allow future notifications
-      setTimeout(() => {
-        recentCompletionsRef.current.delete(completionKey);
-      }, 30000);
-    });
-
-    previousLookutsRef.current = lookouts;
+    }
   }, [lookouts]);
 
-  // Create lookout mutation
+  const refresh = React.useCallback(() => queryClient.invalidateQueries({ queryKey: LOOKOUTS_KEY }), [queryClient]);
+
+  // Applies `change` to the cached list right away; `rollback` puts it back.
+  const optimistic = async (change: (lookouts: Lookout[]) => Lookout[]) => {
+    await queryClient.cancelQueries({ queryKey: LOOKOUTS_KEY });
+    const previousLookouts = queryClient.getQueryData<Lookout[]>(LOOKOUTS_KEY);
+    queryClient.setQueryData<Lookout[]>(LOOKOUTS_KEY, (old = []) => change(old));
+    return { previousLookouts };
+  };
+
+  const rollback = (error: Error, context: { previousLookouts?: Lookout[] } | undefined) => {
+    if (context?.previousLookouts) {
+      queryClient.setQueryData(LOOKOUTS_KEY, context.previousLookouts);
+    }
+    sileo.error({ title: error.message });
+  };
+
+  const showError = (error: Error) => {
+    sileo.error({ title: error.message });
+  };
+
   const createMutation = useMutation({
-    mutationFn: async (params: {
-      title: string;
-      prompt: string;
-      frequency: 'once' | 'daily' | 'weekly' | 'monthly';
-      time: string;
-      timezone: string;
-      date?: string;
-      onSuccess?: () => void;
-    }) => {
-      const { onSuccess: successCallback, ...mutationParams } = params;
-      const result = await createScheduledLookout(mutationParams);
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to create lookout');
-      }
-      return { result, onSuccess: successCallback };
+    mutationFn: async ({ onSuccess, ...params }: WithOnSuccess<CreateLookoutParams>) => {
+      const result = await createScheduledLookout(params);
+      if (!result.success) throw new Error(result.error || 'Failed to create lookout');
+      return { onSuccess };
     },
-    onSuccess: (data) => {
-      // Only show create toast for actual user-initiated creation
-      if (isActualCreateRef.current) {
-        sileo.success({ title: 'Lookout created successfully!' });
-        isActualCreateRef.current = false; // Reset flag
-      }
-      // Immediate cache invalidation for real-time updates
-      queryClient.invalidateQueries({ queryKey: lookoutKeys.lists() });
-      queryClient.refetchQueries({ queryKey: lookoutKeys.lists() });
-      if (data.onSuccess) {
-        data.onSuccess();
-      }
+    onSuccess: ({ onSuccess }) => {
+      sileo.success({ title: 'Lookout created successfully!' });
+      onSuccess?.();
     },
-    onError: (error: Error) => {
-      isActualCreateRef.current = false; // Reset flag on error
-      sileo.error({ title: error.message });
-    },
+    onError: showError,
+    onSettled: refresh,
   });
 
-  // Update lookout status mutation
   const updateStatusMutation = useMutation({
     mutationFn: async (params: { id: string; status: 'active' | 'paused' | 'archived' }) => {
       const result = await updateLookoutStatusAction(params);
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to update lookout');
-      }
-      return { ...params, result };
+      if (!result.success) throw new Error(result.error || 'Failed to update lookout');
+      return params;
     },
-    onMutate: async ({ id, status }) => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: lookoutKeys.lists() });
-
-      // Snapshot the previous value
-      const previousLookouts = queryClient.getQueryData<Lookout[]>(lookoutKeys.lists());
-
-      // Optimistically update
-      queryClient.setQueryData<Lookout[]>(lookoutKeys.lists(), (old = []) =>
-        old.map((lookout) => (lookout.id === id ? { ...lookout, status } : lookout)),
-      );
-
-      return { previousLookouts };
-    },
-    onSuccess: (data) => {
-      const statusText =
-        data.status === 'active'
-          ? 'activated'
-          : data.status === 'paused'
-            ? 'paused'
-            : data.status === 'archived'
-              ? 'archived'
-              : 'updated';
+    onMutate: ({ id, status }) =>
+      optimistic((old) => old.map((lookout) => (lookout.id === id ? { ...lookout, status } : lookout))),
+    onSuccess: ({ status }) => {
+      const statusText = { active: 'activated', paused: 'paused', archived: 'archived' }[status];
       sileo.success({ title: `Lookout ${statusText}` });
     },
-    onError: (error: Error, _variables, context) => {
-      // Rollback on error
-      if (context?.previousLookouts) {
-        queryClient.setQueryData(lookoutKeys.lists(), context.previousLookouts);
-      }
-      sileo.error({ title: error.message });
-    },
-    onSettled: () => {
-      // Always refetch after error or success for real-time updates
-      queryClient.invalidateQueries({ queryKey: lookoutKeys.lists() });
-      queryClient.refetchQueries({ queryKey: lookoutKeys.lists() });
-    },
+    onError: (error: Error, _params, context) => rollback(error, context),
+    onSettled: refresh,
   });
 
-  // Force stop a stuck "running" lookout
+  // Unsticks a lookout whose run died; the server decides the status it gets back.
   const forceStopMutation = useMutation({
     mutationFn: async (params: { id: string }) => {
       const result = await forceStopLookoutAction(params);
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to stop lookout');
-      }
-      return { ...params, result };
-    },
-    onMutate: async ({ id }) => {
-      await queryClient.cancelQueries({ queryKey: lookoutKeys.lists() });
-
-      const previousLookouts = queryClient.getQueryData<Lookout[]>(lookoutKeys.lists());
-
-      // Optimistically flip the lookout out of 'running'
-      queryClient.setQueryData<Lookout[]>(lookoutKeys.lists(), (old = []) =>
-        old.map((lookout) =>
-          lookout.id === id
-            ? { ...lookout, status: lookout.frequency === 'once' ? ('paused' as const) : ('active' as const) }
-            : lookout,
-        ),
-      );
-
-      return { previousLookouts };
+      if (!result.success) throw new Error(result.error || 'Failed to stop lookout');
     },
     onSuccess: () => {
       sileo.success({ title: 'Lookout stopped' });
     },
-    onError: (error: Error, _variables, context) => {
-      if (context?.previousLookouts) {
-        queryClient.setQueryData(lookoutKeys.lists(), context.previousLookouts);
-      }
-      sileo.error({ title: error.message });
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: lookoutKeys.lists() });
-      queryClient.refetchQueries({ queryKey: lookoutKeys.lists() });
-    },
+    onError: showError,
+    onSettled: refresh,
   });
 
-  // Update lookout mutation
   const updateMutation = useMutation({
-    mutationFn: async (params: {
-      id: string;
-      title: string;
-      prompt: string;
-      frequency: 'once' | 'daily' | 'weekly' | 'monthly';
-      time: string;
-      timezone: string;
-      date?: string;
-      onSuccess?: () => void;
-    }) => {
-      const { onSuccess: successCallback, ...mutationParams } = params;
-      const result = await updateLookoutAction(mutationParams);
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to update lookout');
-      }
-      return { result, onSuccess: successCallback };
+    mutationFn: async ({ onSuccess, ...params }: WithOnSuccess<UpdateLookoutParams>) => {
+      const result = await updateLookoutAction(params);
+      if (!result.success) throw new Error(result.error || 'Failed to update lookout');
+      return { onSuccess };
     },
-    onSuccess: (data) => {
+    onSuccess: ({ onSuccess }) => {
       sileo.success({ title: 'Lookout updated successfully!' });
-      // Immediate cache invalidation and refetch for real-time updates
-      queryClient.invalidateQueries({ queryKey: lookoutKeys.lists() });
-      queryClient.refetchQueries({ queryKey: lookoutKeys.lists() });
-      if (data.onSuccess) {
-        data.onSuccess();
-      }
+      onSuccess?.();
     },
-    onError: (error: Error) => {
-      sileo.error({ title: error.message });
-    },
+    onError: showError,
+    onSettled: refresh,
   });
 
-  // Delete lookout mutation
   const deleteMutation = useMutation({
     mutationFn: async (params: { id: string }) => {
       const result = await deleteLookoutAction(params);
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to delete lookout');
-      }
-      return params;
+      if (!result.success) throw new Error(result.error || 'Failed to delete lookout');
     },
-    onMutate: async ({ id }) => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: lookoutKeys.lists() });
-
-      // Snapshot the previous value
-      const previousLookouts = queryClient.getQueryData<Lookout[]>(lookoutKeys.lists());
-
-      // Optimistically update
-      queryClient.setQueryData<Lookout[]>(lookoutKeys.lists(), (old = []) =>
-        old.filter((lookout) => lookout.id !== id),
-      );
-
-      return { previousLookouts };
-    },
+    onMutate: ({ id }) => optimistic((old) => old.filter((lookout) => lookout.id !== id)),
     onSuccess: () => {
       sileo.success({ title: 'Lookout deleted successfully' });
-      // Force immediate refetch after delete
-      queryClient.refetchQueries({ queryKey: lookoutKeys.lists() });
     },
-    onError: (error: Error, _variables, context) => {
-      // Rollback on error
-      if (context?.previousLookouts) {
-        queryClient.setQueryData(lookoutKeys.lists(), context.previousLookouts);
-      }
-      sileo.error({ title: error.message });
-    },
-    onSettled: () => {
-      // Always refetch after error or success for real-time updates
-      queryClient.invalidateQueries({ queryKey: lookoutKeys.lists() });
-      queryClient.refetchQueries({ queryKey: lookoutKeys.lists() });
-    },
+    onError: (error: Error, _params, context) => rollback(error, context),
+    onSettled: refresh,
   });
 
-  // Test lookout mutation
   const testMutation = useMutation({
     mutationFn: async (params: { id: string }) => {
       const result = await testLookoutAction(params);
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to test lookout');
-      }
-      return params;
+      if (!result.success) throw new Error(result.error || 'Failed to test lookout');
     },
-    onMutate: async ({ id }) => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: lookoutKeys.lists() });
-
-      // Snapshot the previous value
-      const previousLookouts = queryClient.getQueryData<Lookout[]>(lookoutKeys.lists());
-
-      // Optimistically update to 'running' status
-      queryClient.setQueryData<Lookout[]>(lookoutKeys.lists(), (old = []) =>
+    onMutate: ({ id }) =>
+      optimistic((old) =>
         old.map((lookout) => (lookout.id === id ? { ...lookout, status: 'running' as const } : lookout)),
-      );
-
-      return { previousLookouts };
-    },
+      ),
     onSuccess: () => {
       sileo.success({ title: "Test run started - you'll be notified when complete!" });
     },
-    onError: (error: Error, _variables, context) => {
-      // Rollback on error
-      if (context?.previousLookouts) {
-        queryClient.setQueryData(lookoutKeys.lists(), context.previousLookouts);
-      }
-      sileo.error({ title: error.message });
-    },
-    onSettled: () => {
-      // Always refetch after error or success to get real status
-      queryClient.invalidateQueries({ queryKey: lookoutKeys.lists() });
-      queryClient.refetchQueries({ queryKey: lookoutKeys.lists() });
-    },
+    onError: (error: Error, _params, context) => rollback(error, context),
+    onSettled: refresh,
   });
 
-  // Manual refresh function for immediate updates
-  const manualRefresh = async () => {
-    // Cancel any in-flight queries first
-    await queryClient.cancelQueries({ queryKey: lookoutKeys.lists() });
-    // Invalidate and refetch with fresh data
-    await queryClient.invalidateQueries({ queryKey: lookoutKeys.lists() });
-    return queryClient.refetchQueries({
-      queryKey: lookoutKeys.lists(),
-      type: 'active', // Only refetch active queries
-    });
-  };
-
-  // Optimized cache invalidation for running lookouts
-  React.useEffect(() => {
-    const hasRunningLookouts = lookouts.some((lookout) => lookout.status === 'running');
-
-    if (!hasRunningLookouts) return;
-
-    const interval = setInterval(() => {
-      // Only invalidate if there are still running lookouts
-      const currentRunning = lookouts.some((lookout) => lookout.status === 'running');
-      if (currentRunning) {
-        queryClient.invalidateQueries({ queryKey: lookoutKeys.lists() });
-      }
-    }, 3000); // Check every 3 seconds when there are running lookouts
-
-    return () => clearInterval(interval);
-  }, [lookouts, queryClient]);
-
   return {
-    // Data
     lookouts,
     isLoading,
+    isRefreshing,
     error,
+    refresh,
 
-    // Actions
-    refetch,
-    manualRefresh,
-
-    // Metadata
-    lastUpdated: dataUpdatedAt,
-    createLookout: (params: any) => {
-      isActualCreateRef.current = true; // Mark as actual create
-      createMutation.mutate(params);
-    },
+    createLookout: createMutation.mutate,
     updateStatus: updateStatusMutation.mutate,
     forceStopLookout: forceStopMutation.mutate,
     updateLookout: updateMutation.mutate,
     deleteLookout: deleteMutation.mutate,
     testLookout: testMutation.mutate,
 
-    // Loading states
-    isCreating: createMutation.isPending,
-    isUpdatingStatus: updateStatusMutation.isPending,
-    isForceStopping: forceStopMutation.isPending,
-    isUpdating: updateMutation.isPending,
-    isDeleting: deleteMutation.isPending,
-    isTesting: testMutation.isPending,
-
-    // For backwards compatibility with existing optimistic update patterns
     isPending:
       createMutation.isPending ||
       updateStatusMutation.isPending ||
@@ -473,4 +207,3 @@ export function useLookouts() {
       testMutation.isPending,
   };
 }
-

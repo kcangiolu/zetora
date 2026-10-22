@@ -1,29 +1,34 @@
 'use client';
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { convertTo24Hour, formatTime12Hour } from '../utils/time-utils';
+import { format } from 'date-fns';
+import { clockReading, convertTo24Hour, formatTime12Hour } from '../utils/time-utils';
 
 interface TimePickerProps {
   value: string;
   onChange: (value: string) => void;
   name: string;
+  /** The lookout's timezone: "today" and "past" are read on its clock. */
+  timezone: string;
   selectedDate?: Date;
   filterPastTimes?: boolean;
 }
 
-export function TimePicker({ value, onChange, name, selectedDate, filterPastTimes = false }: TimePickerProps) {
-  const now = new Date();
-  const isToday =
-    selectedDate &&
-    selectedDate.getDate() === now.getDate() &&
-    selectedDate.getMonth() === now.getMonth() &&
-    selectedDate.getFullYear() === now.getFullYear();
+export function TimePicker({
+  value,
+  onChange,
+  name,
+  timezone,
+  selectedDate,
+  filterPastTimes = false,
+}: TimePickerProps) {
+  const clock = clockReading(timezone, new Date());
+  const isToday = selectedDate && format(selectedDate, 'yyyy-MM-dd') === clock.date;
 
   // If filterPastTimes is true and no date is selected, assume today for filtering
   const shouldFilterPastTimes = filterPastTimes && (isToday || !selectedDate);
 
-  const currentHour = now.getHours();
-  const currentMinute = now.getMinutes();
+  const [currentHour, currentMinute] = clock.time.split(':').map(Number);
 
   // Generate hour:minute options
   const generateHourMinuteOptions = () => {

@@ -266,10 +266,10 @@ export async function getUserLookouts() {
       return lookout;
     });
 
-    return { success: true, lookouts: updatedLookouts };
+    return { success: true as const, lookouts: updatedLookouts };
   } catch (error) {
     log.error('Error getting user lookouts:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    return { success: false as const, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
 

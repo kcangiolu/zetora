@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 
 interface WarningCardProps {
   type: 'total-limit' | 'daily-limit' | 'custom';
-  icon?: any;
+  icon?: React.ComponentProps<typeof HugeiconsIcon>['icon'];
   message?: string;
   className?: string;
 }

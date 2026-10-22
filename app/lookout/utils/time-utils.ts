@@ -1,3 +1,5 @@
+import { dayOfWeekOptions } from '../constants';
+
 // Helper functions for time conversion and formatting
 
 const convertTo12Hour = (hour24: number): number => {
@@ -31,7 +33,7 @@ export const formatNextRun = (date: Date | string, timezone: string, locale: str
   }).format(dateObj);
 };
 
-export const formatFrequency = (frequency: string, time: string): string => {
+export const formatFrequency = (frequency: string, time: string, dayOfWeek?: string): string => {
   // Convert time to 12-hour format for display
   const { hour12, minute, ampm } = formatTime12Hour(time);
   const displayTime = `${hour12}:${minute} ${ampm}`;
@@ -39,8 +41,10 @@ export const formatFrequency = (frequency: string, time: string): string => {
   switch (frequency) {
     case 'daily':
       return `Daily at ${displayTime}`;
-    case 'weekly':
-      return `Thursdays at ${displayTime}`;
+    case 'weekly': {
+      const day = dayOfWeekOptions.find((option) => option.value === (dayOfWeek ?? '0'))?.label ?? 'Sunday';
+      return `${day}s at ${displayTime}`;
+    }
     case 'monthly':
       return `Monthly on the 1st at ${displayTime}`;
     case 'once':
@@ -50,12 +54,26 @@ export const formatFrequency = (frequency: string, time: string): string => {
   }
 };
 
-export const isTimeInPast = (time: string, selectedDate?: Date): boolean => {
-  if (!selectedDate) return false;
+/** The date ("yyyy-MM-dd") and time ("HH:MM") a clock in `timezone` shows at `instant`. */
+export function clockReading(timezone: string, instant: Date): { date: string; time: string } {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    })
+      .formatToParts(instant)
+      .map((part) => [part.type, part.value]),
+  );
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}` };
+}
 
-  const [hours, minutes] = time.split(':').map(Number);
-  const targetDateTime = new Date(selectedDate);
-  targetDateTime.setHours(hours, minutes, 0, 0);
-
-  return targetDateTime < new Date();
-};
+/** Whether `date` ("yyyy-MM-dd") at `time` ("HH:MM") has passed on the clock of `timezone`. */
+export function isTimeInPast(date: string, time: string, timezone: string, now: Date = new Date()): boolean {
+  const clock = clockReading(timezone, now);
+  return `${date} ${time}` <= `${clock.date} ${clock.time}`;
+}

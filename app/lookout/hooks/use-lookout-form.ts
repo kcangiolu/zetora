@@ -2,8 +2,13 @@
 
 import React from 'react';
 import { sileo } from 'sileo';
-import { DEFAULT_FORM_VALUES } from '../constants';
-import { isTimeInPast } from '../utils/time-utils';
+import type { CreateLookoutParams, Lookout, UpdateLookoutParams } from '@/hooks/use-lookouts';
+import { allExampleLookouts, DEFAULT_FORM_VALUES, frequencyOptions } from '../constants';
+import { clockReading, isTimeInPast } from '../utils/time-utils';
+
+type LookoutExample = (typeof allExampleLookouts)[number];
+
+type SubmitCallbacks = { onSuccess?: () => void };
 
 export interface LookoutFormHookReturn {
   // Form state
@@ -13,9 +18,9 @@ export interface LookoutFormHookReturn {
   selectedDate: Date | undefined;
   selectedDayOfWeek: string;
   selectedSearchMode: string;
-  selectedExample: any | null;
+  selectedExample: LookoutExample | null;
   isCreateDialogOpen: boolean;
-  editingLookout: any | null;
+  editingLookout: Lookout | null;
 
   // Form actions
   setSelectedFrequency: (frequency: string) => void;
@@ -24,22 +29,66 @@ export interface LookoutFormHookReturn {
   setSelectedDate: (date: Date | undefined) => void;
   setSelectedDayOfWeek: (day: string) => void;
   setSelectedSearchMode: (mode: string) => void;
-  setSelectedExample: (example: any | null) => void;
-  setIsCreateDialogOpen: (open: boolean) => void;
-  setEditingLookout: (lookout: any | null) => void;
 
   // Form handlers
   handleDialogOpenChange: (open: boolean) => void;
-  handleUseExample: (example: any) => void;
-  populateFormForEdit: (lookout: any) => void;
-  resetForm: () => void;
+  handleUseExample: (example: LookoutExample) => void;
+  populateFormForEdit: (lookout: Lookout) => void;
 
   // Form submission
-  createLookoutFromForm: (formData: FormData, createLookout: any) => void;
-  updateLookoutFromForm: (formData: FormData, updateLookout: any) => void;
+  createLookoutFromForm: (
+    formData: FormData,
+    createLookout: (params: CreateLookoutParams & SubmitCallbacks) => void,
+  ) => void;
+  updateLookoutFromForm: (
+    formData: FormData,
+    updateLookout: (params: UpdateLookoutParams & SubmitCallbacks) => void,
+  ) => void;
+}
 
-  // Validation
-  validateForm: (formData: FormData) => boolean;
+// The form's fields, checked; null (after a toast saying why) when they don't hold up.
+function readForm(formData: FormData): (CreateLookoutParams & { timezone: string }) | null {
+  const field = (name: string) => {
+    const value = formData.get(name);
+    return typeof value === 'string' ? value : '';
+  };
+  const title = field('title').trim();
+  const prompt = field('prompt').trim();
+  const frequency = frequencyOptions.find((option) => option.value === field('frequency'))?.value;
+  const time = field('time');
+  const timezone = field('timezone') || DEFAULT_FORM_VALUES.TIMEZONE;
+  const date = field('date');
+  const dayOfWeek = field('dayOfWeek');
+
+  if (!title || !prompt || !frequency) {
+    sileo.error({ title: 'Please fill in all required fields' });
+    return null;
+  }
+  if (frequency === 'once') {
+    if (!date) {
+      sileo.error({ title: 'Please select a date for one-time lookouts' });
+      return null;
+    }
+    if (!time) {
+      sileo.error({ title: 'Please select a time' });
+      return null;
+    }
+    if (isTimeInPast(date, time, timezone)) {
+      sileo.error({ title: 'Cannot schedule lookout in the past' });
+      return null;
+    }
+  }
+
+  return {
+    title,
+    prompt,
+    frequency,
+    // A weekly lookout's day travels in its time: "HH:MM:D".
+    time: frequency === 'weekly' && dayOfWeek ? `${time}:${dayOfWeek}` : time,
+    timezone,
+    date: frequency === 'once' ? date : undefined,
+    searchMode: field('searchMode') || DEFAULT_FORM_VALUES.SEARCH_MODE,
+  };
 }
 
 export function useLookoutForm(detectedTimezone: string = DEFAULT_FORM_VALUES.TIMEZONE): LookoutFormHookReturn {
@@ -50,18 +99,18 @@ export function useLookoutForm(detectedTimezone: string = DEFAULT_FORM_VALUES.TI
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [selectedDayOfWeek, setSelectedDayOfWeek] = React.useState<string>(DEFAULT_FORM_VALUES.DAY_OF_WEEK);
   const [selectedSearchMode, setSelectedSearchMode] = React.useState<string>(DEFAULT_FORM_VALUES.SEARCH_MODE);
-  const [selectedExample, setSelectedExample] = React.useState<any | null>(null);
+  const [selectedExample, setSelectedExample] = React.useState<LookoutExample | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
-  const [editingLookout, setEditingLookout] = React.useState<any | null>(null);
+  const [editingLookout, setEditingLookout] = React.useState<Lookout | null>(null);
 
   // Reset form to default values
   const resetForm = React.useCallback(() => {
-    setSelectedFrequency(DEFAULT_FORM_VALUES.FREQUENCY as string);
-    setSelectedTime(DEFAULT_FORM_VALUES.TIME as string);
+    setSelectedFrequency(DEFAULT_FORM_VALUES.FREQUENCY);
+    setSelectedTime(DEFAULT_FORM_VALUES.TIME);
     setSelectedTimezone(detectedTimezone);
     setSelectedDate(undefined);
-    setSelectedDayOfWeek(DEFAULT_FORM_VALUES.DAY_OF_WEEK as string);
-    setSelectedSearchMode(DEFAULT_FORM_VALUES.SEARCH_MODE as string);
+    setSelectedDayOfWeek(DEFAULT_FORM_VALUES.DAY_OF_WEEK);
+    setSelectedSearchMode(DEFAULT_FORM_VALUES.SEARCH_MODE);
     setSelectedExample(null);
     setEditingLookout(null);
   }, [detectedTimezone]);
@@ -80,161 +129,61 @@ export function useLookoutForm(detectedTimezone: string = DEFAULT_FORM_VALUES.TI
     [resetForm, editingLookout, detectedTimezone],
   );
 
-  // Handle using an example lookout
-  const handleUseExample = React.useCallback((example: any) => {
+  const handleUseExample = React.useCallback((example: LookoutExample) => {
     setSelectedExample(example);
     setSelectedFrequency(example.frequency);
     setSelectedTime(example.time);
-    setSelectedTimezone(example.timezone || (DEFAULT_FORM_VALUES.TIMEZONE as string));
-    setSelectedDayOfWeek(example.dayOfWeek || (DEFAULT_FORM_VALUES.DAY_OF_WEEK as string));
-    setSelectedSearchMode(example.searchMode || (DEFAULT_FORM_VALUES.SEARCH_MODE as string));
+    setSelectedTimezone(example.timezone);
+    setSelectedDayOfWeek(example.dayOfWeek ?? DEFAULT_FORM_VALUES.DAY_OF_WEEK);
+    setSelectedSearchMode(example.searchMode);
     setIsCreateDialogOpen(true);
   }, []);
 
-  // Populate form for editing an existing lookout
-  const populateFormForEdit = React.useCallback((lookout: any) => {
+  const populateFormForEdit = React.useCallback((lookout: Lookout) => {
     setEditingLookout(lookout);
     setSelectedFrequency(lookout.frequency);
     setSelectedTimezone(lookout.timezone);
     setSelectedSearchMode(lookout.searchMode || DEFAULT_FORM_VALUES.SEARCH_MODE);
 
-    // Parse time from existing data or use default
     if (lookout.cronSchedule) {
-      // Parse time from cron schedule if available
+      // "CRON_TZ=<timezone> <minutes> <hours> <day> <month> <weekday>"
       const parts = lookout.cronSchedule.split(' ');
       const cronParts = parts[0]?.startsWith('CRON_TZ=') ? parts.slice(1) : parts;
-
       if (cronParts.length >= 2) {
-        const minutes = cronParts[0];
-        const hours = cronParts[1];
-        setSelectedTime(`${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}` as string);
+        setSelectedTime(`${cronParts[1].padStart(2, '0')}:${cronParts[0].padStart(2, '0')}`);
       }
-
-      // Parse day of week for weekly frequency
       if (lookout.frequency === 'weekly' && cronParts.length >= 5) {
-        const dayOfWeek = cronParts[4]; // Day of week is the 5th field in cron
-        setSelectedDayOfWeek(dayOfWeek);
+        setSelectedDayOfWeek(cronParts[4]);
       }
-    } else if (lookout.frequency === 'once' && lookout.nextRunAt) {
+    } else if (lookout.frequency === 'once') {
       // A one-time lookout has no cron: its date and time are the run's, read
       // on the lookout's own clock.
-      const parts = Object.fromEntries(
-        new Intl.DateTimeFormat('en-US', {
-          timeZone: lookout.timezone,
-          year: 'numeric',
-          month: 'numeric',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          hourCycle: 'h23',
-        })
-          .formatToParts(new Date(lookout.nextRunAt))
-          .map((part) => [part.type, part.value]),
-      );
-      setSelectedDate(new Date(Number(parts.year), Number(parts.month) - 1, Number(parts.day)));
-      setSelectedTime(`${parts.hour}:${parts.minute}`);
+      const { date, time } = clockReading(lookout.timezone, lookout.nextRunAt);
+      const [year, month, day] = date.split('-').map(Number);
+      setSelectedDate(new Date(year, month - 1, day));
+      setSelectedTime(time);
     }
 
     setIsCreateDialogOpen(true);
   }, []);
 
-  // Form validation
-  const validateForm = React.useCallback((formData: FormData): boolean => {
-    const title = formData.get('title') as string;
-    const prompt = formData.get('prompt') as string;
-    const frequency = formData.get('frequency') as string;
-    const time = formData.get('time') as string;
-    const date = formData.get('date') as string;
-
-    if (!title?.trim() || !prompt?.trim()) {
-      sileo.error({ title: 'Please fill in all required fields' });
-      return false;
-    }
-
-    // For once frequency, validate date and time
-    if (frequency === 'once') {
-      if (!date) {
-        sileo.error({ title: 'Please select a date for one-time lookouts' });
-        return false;
-      }
-
-      if (!time) {
-        sileo.error({ title: 'Please select a time' });
-        return false;
-      }
-
-      // Check if the selected date and time is in the past
-      const selectedDateTime = new Date(date);
-      if (isTimeInPast(time, selectedDateTime)) {
-        sileo.error({ title: 'Cannot schedule lookout in the past' });
-        return false;
-      }
-    }
-
-    return true;
-  }, []);
-
-  // Create lookout from form data
-  const createLookoutFromForm = React.useCallback(
-    (formData: FormData, createLookout: any) => {
-      if (!validateForm(formData)) return;
-
-      const title = formData.get('title') as string;
-      const prompt = formData.get('prompt') as string;
-      const frequency = formData.get('frequency') as string;
-      const time = formData.get('time') as string;
-      const timezone = (formData.get('timezone') as string) || DEFAULT_FORM_VALUES.TIMEZONE;
-      const date = formData.get('date') as string;
-      const dayOfWeek = formData.get('dayOfWeek') as string;
-      const searchMode = (formData.get('searchMode') as string) || DEFAULT_FORM_VALUES.SEARCH_MODE;
-
-      // Handle weekly day selection
-      let adjustedTime = time;
-      if (frequency === 'weekly' && dayOfWeek) {
-        adjustedTime = `${time}:${dayOfWeek}`;
-      }
-
-      createLookout({
-        title: title.trim(),
-        prompt: prompt.trim(),
-        frequency: frequency as 'once' | 'daily' | 'weekly' | 'monthly',
-        time: adjustedTime,
-        timezone,
-        date: frequency === 'once' ? date : undefined,
-        searchMode,
-        onSuccess: () => handleDialogOpenChange(false),
-      });
+  const createLookoutFromForm = React.useCallback<LookoutFormHookReturn['createLookoutFromForm']>(
+    (formData, createLookout) => {
+      const fields = readForm(formData);
+      if (!fields) return;
+      createLookout({ ...fields, onSuccess: () => handleDialogOpenChange(false) });
     },
-    [validateForm, handleDialogOpenChange],
+    [handleDialogOpenChange],
   );
 
-  // Update lookout from form data
-  const updateLookoutFromForm = React.useCallback(
-    (formData: FormData, updateLookout: any) => {
-      if (!editingLookout || !validateForm(formData)) return;
-
-      const title = formData.get('title') as string;
-      const prompt = formData.get('prompt') as string;
-      const frequency = formData.get('frequency') as string;
-      const time = formData.get('time') as string;
-      const timezone = formData.get('timezone') as string;
-      const date = formData.get('date') as string;
-      const dayOfWeek = formData.get('dayOfWeek') as string;
-      const searchMode = (formData.get('searchMode') as string) || DEFAULT_FORM_VALUES.SEARCH_MODE;
-
-      updateLookout({
-        id: editingLookout.id,
-        title: title.trim(),
-        prompt: prompt.trim(),
-        frequency: frequency as 'once' | 'daily' | 'weekly' | 'monthly',
-        time: frequency === 'weekly' && dayOfWeek ? `${time}:${dayOfWeek}` : time,
-        timezone,
-        date: frequency === 'once' ? date : undefined,
-        searchMode,
-        onSuccess: () => handleDialogOpenChange(false),
-      });
+  const updateLookoutFromForm = React.useCallback<LookoutFormHookReturn['updateLookoutFromForm']>(
+    (formData, updateLookout) => {
+      if (!editingLookout) return;
+      const fields = readForm(formData);
+      if (!fields) return;
+      updateLookout({ ...fields, id: editingLookout.id, onSuccess: () => handleDialogOpenChange(false) });
     },
-    [editingLookout, validateForm, handleDialogOpenChange],
+    [editingLookout, handleDialogOpenChange],
   );
 
   return {
@@ -256,21 +205,14 @@ export function useLookoutForm(detectedTimezone: string = DEFAULT_FORM_VALUES.TI
     setSelectedDate,
     setSelectedDayOfWeek,
     setSelectedSearchMode,
-    setSelectedExample,
-    setIsCreateDialogOpen,
-    setEditingLookout,
 
     // Handlers
     handleDialogOpenChange,
     handleUseExample,
     populateFormForEdit,
-    resetForm,
 
     // Form submission
     createLookoutFromForm,
     updateLookoutFromForm,
-
-    // Validation
-    validateForm,
   };
 }

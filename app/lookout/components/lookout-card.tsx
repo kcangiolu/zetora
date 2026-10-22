@@ -7,35 +7,11 @@ import { ArrowRight01Icon } from '@hugeicons/core-free-icons';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BorderTrail } from '@/components/core/border-trail';
 import { StatusBadge } from './status-badge';
-import { RunStatusBadge, type LookoutRunStatus } from './run-status-badge';
+import { RunStatusBadge } from './run-status-badge';
 import { ActionButtons } from './action-buttons';
 import { formatNextRun } from '../utils/time-utils';
 import { useLocale } from '@/contexts/locale-context';
-
-interface LookoutRun {
-  runAt: string;
-  chatId: string;
-  status: LookoutRunStatus;
-  error?: string;
-  duration?: number;
-  tokensUsed?: number;
-  searchesPerformed?: number;
-}
-
-interface Lookout {
-  id: string;
-  title: string;
-  prompt: string;
-  frequency: string;
-  timezone: string;
-  nextRunAt: Date;
-  status: 'active' | 'paused' | 'archived' | 'running';
-  lastRunAt?: Date | null;
-  lastRunChatId?: string | null;
-  runHistory?: LookoutRun[];
-  createdAt: Date;
-  cronSchedule?: string;
-}
+import { getLastRun, type Lookout } from '@/hooks/use-lookouts';
 
 interface LookoutCardProps {
   lookout: Lookout;
@@ -59,11 +35,13 @@ export function LookoutCard({
   showActions = true,
 }: LookoutCardProps) {
   const locale = useLocale();
-  const lastRunStatus = React.useMemo(() => {
-    const history = lookout.runHistory ?? [];
-    if (!history.length) return null;
-    return history[history.length - 1]?.status ?? null;
-  }, [lookout.runHistory]);
+  const lastRunStatus = getLastRun(lookout)?.status ?? null;
+  // Paused after a run at (or past) its time, not merely paused before it.
+  const isCompletedOnce =
+    lookout.frequency === 'once' &&
+    lookout.status === 'paused' &&
+    lookout.lastRunAt !== null &&
+    lookout.lastRunAt >= lookout.nextRunAt;
 
   const handleCardClick = () => {
     onOpenDetails(lookout);
@@ -149,8 +127,7 @@ export function LookoutCard({
               </div>
             )}
 
-            {/* Completed state for once frequency */}
-            {!lookout.lastRunAt && lookout.frequency === 'once' && lookout.status === 'paused' && <p>Completed</p>}
+            {isCompletedOnce && <p>Completed</p>}
           </div>
         </div>
       </CardContent>

@@ -22,38 +22,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import Link from 'next/link';
 import { LOOKOUT_SEARCH_MODES } from '../constants';
 import { useLocale } from '@/contexts/locale-context';
-
-interface LookoutRun {
-  runAt: string;
-  chatId: string;
-  status: 'success' | 'error' | 'timeout';
-  error?: string;
-  duration?: number;
-  tokensUsed?: number;
-  searchesPerformed?: number;
-}
-
-interface LookoutWithHistory {
-  id: string;
-  title: string;
-  prompt: string;
-  frequency: string;
-  timezone: string;
-  nextRunAt: Date;
-  status: 'active' | 'paused' | 'archived' | 'running';
-  searchMode?: string;
-  lastRunAt?: Date | null;
-  lastRunChatId?: string | null;
-  runHistory: LookoutRun[];
-  createdAt: Date;
-  updatedAt: Date;
-}
+import type { Lookout } from '@/hooks/use-lookouts';
+import { formatNextRun } from '../utils/time-utils';
 
 interface LookoutDetailsSidebarProps {
-  lookout: LookoutWithHistory;
-  allLookouts: LookoutWithHistory[];
-  onLookoutChange?: (lookout: LookoutWithHistory) => void;
-  onEditLookout?: (lookout: LookoutWithHistory) => void;
+  lookout: Lookout;
+  allLookouts: Lookout[];
+  onLookoutChange?: (lookout: Lookout) => void;
+  onEditLookout?: (lookout: Lookout) => void;
   onTest?: (id: string) => void;
 }
 
@@ -276,15 +252,7 @@ export function LookoutDetailsSidebar({
                   })}
                 </p>
                 {lookout.nextRunAt && lookout.status === 'active' && (
-                  <p>
-                    Next{' '}
-                    {new Date(lookout.nextRunAt).toLocaleString(locale, {
-                      month: 'short',
-                      day: 'numeric',
-                      hour: 'numeric',
-                      minute: '2-digit',
-                    })}
-                  </p>
+                  <p>Next {formatNextRun(lookout.nextRunAt, lookout.timezone, locale)}</p>
                 )}
               </div>
 
@@ -381,16 +349,16 @@ export function LookoutDetailsSidebar({
                             </div>
                           </div>
                           {run.status === 'success' && (
-                            <Link href={`/search/${run.chatId}`}>
-                              <Button variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-md">
+                            <Button asChild variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-md">
+                              <Link href={`/search/${run.chatId}`} aria-label="Open the run's chat">
                                 <HugeiconsIcon
                                   icon={ArrowUpRightIcon}
                                   size={12}
                                   color="currentColor"
                                   strokeWidth={1.5}
                                 />
-                              </Button>
-                            </Link>
+                              </Link>
+                            </Button>
                           )}
                         </div>
                       </div>

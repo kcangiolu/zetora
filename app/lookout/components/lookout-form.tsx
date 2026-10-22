@@ -19,6 +19,9 @@ import { LOOKOUT_LIMITS } from '@/lib/lookout/limits';
 import { LookoutFormHookReturn } from '../hooks/use-lookout-form';
 import { useLocale } from '@/contexts/locale-context';
 
+// The share of a limit past which its counter turns to a warning.
+const WARNING_SHARE = 0.8;
+
 interface LookoutFormProps {
   formHook: LookoutFormHookReturn;
   isMutating: boolean;
@@ -26,8 +29,8 @@ interface LookoutFormProps {
   totalLookouts: number;
   canCreateMore: boolean;
   canCreateDailyMore: boolean;
-  createLookout: any;
-  updateLookout: any;
+  createLookout: Parameters<LookoutFormHookReturn['createLookoutFromForm']>[1];
+  updateLookout: Parameters<LookoutFormHookReturn['updateLookoutFromForm']>[1];
 }
 
 export function LookoutForm({
@@ -159,6 +162,7 @@ export function LookoutForm({
                 name="time"
                 value={selectedTime}
                 onChange={setSelectedTime}
+                timezone={selectedTimezone}
                 selectedDate={selectedFrequency === 'once' ? selectedDate : undefined}
                 filterPastTimes={selectedFrequency === 'once'}
               />
@@ -255,7 +259,7 @@ export function LookoutForm({
                   color={
                     activeDailyLookouts >= LOOKOUT_LIMITS.DAILY_LOOKOUTS
                       ? 'danger'
-                      : activeDailyLookouts >= 4
+                      : activeDailyLookouts >= LOOKOUT_LIMITS.DAILY_LOOKOUTS * WARNING_SHARE
                         ? 'warning'
                         : 'success'
                   }
@@ -270,7 +274,7 @@ export function LookoutForm({
                   color={
                     totalLookouts >= LOOKOUT_LIMITS.TOTAL_LOOKOUTS
                       ? 'danger'
-                      : totalLookouts >= 8
+                      : totalLookouts >= LOOKOUT_LIMITS.TOTAL_LOOKOUTS * WARNING_SHARE
                         ? 'warning'
                         : 'primary'
                   }

@@ -27,7 +27,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/user-context';
-import { useLookouts } from '@/hooks/use-lookouts';
+import { useLookouts, type Lookout } from '@/hooks/use-lookouts';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { LookoutDetailsSidebar } from './components/lookout-details-sidebar';
@@ -43,30 +43,6 @@ import { useLookoutForm } from './hooks/use-lookout-form';
 import { getRandomExamples, allExampleLookouts, LOOKOUT_SEARCH_MODES, timezoneOptions } from './constants';
 import { LOOKOUT_LIMITS } from '@/lib/lookout/limits';
 import { formatFrequency } from './utils/time-utils';
-
-interface Lookout {
-  id: string;
-  title: string;
-  prompt: string;
-  frequency: string;
-  timezone: string;
-  nextRunAt: Date;
-  status: 'active' | 'paused' | 'archived' | 'running';
-  searchMode?: string;
-  lastRunAt?: Date | null;
-  lastRunChatId?: string | null;
-  runHistory?: Array<{
-    runAt: string;
-    chatId: string;
-    status: 'success' | 'error' | 'timeout';
-    error?: string;
-    duration?: number;
-    tokensUsed?: number;
-    searchesPerformed?: number;
-  }>;
-  createdAt: Date;
-  cronSchedule?: string;
-}
 
 // The browser's timezone, mapped to one of the selector's options.
 function detectTimezone(): string {
@@ -152,7 +128,8 @@ export default function LookoutPage() {
   }, [selectedModeFilter]);
 
   // Sidebar state for lookout details
-  const [selectedLookout, setSelectedLookout] = React.useState<Lookout | null>(null);
+  // The id, not a copy: the sidebar shows the lookout as polling updates it.
+  const [selectedLookoutId, setSelectedLookoutId] = React.useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
 
   // Delete dialog state
@@ -174,7 +151,8 @@ export default function LookoutPage() {
     updateLookout,
     deleteLookout,
     testLookout,
-    manualRefresh,
+    refresh,
+    isRefreshing,
     isPending: isMutating,
   } = useLookouts();
 
@@ -232,10 +210,6 @@ export default function LookoutPage() {
     forceStopLookout({ id });
   };
 
-  const handleManualRefresh = async () => {
-    await manualRefresh();
-  };
-
   const confirmDelete = () => {
     if (lookoutToDelete) {
       deleteLookout({ id: lookoutToDelete });
@@ -245,7 +219,7 @@ export default function LookoutPage() {
   };
 
   const handleOpenLookoutDetails = (lookout: Lookout) => {
-    setSelectedLookout(lookout);
+    setSelectedLookoutId(lookout.id);
     setIsSidebarOpen(true);
   };
 
@@ -255,8 +229,10 @@ export default function LookoutPage() {
   };
 
   const handleLookoutChange = (newLookout: Lookout) => {
-    setSelectedLookout(newLookout);
+    setSelectedLookoutId(newLookout.id);
   };
+
+  const selectedLookout = allLookouts.find((lookout) => lookout.id === selectedLookoutId) ?? null;
 
   // Show loading state while checking authentication
   if (isProStatusLoading) {
@@ -313,10 +289,10 @@ export default function LookoutPage() {
               {/* Content */}
               <div className="flex-1 overflow-y-auto">
                 <LookoutDetailsSidebar
-                  lookout={selectedLookout as any}
-                  allLookouts={allLookouts as any}
-                  onLookoutChange={handleLookoutChange as any}
-                  onEditLookout={handleEditLookout as any}
+                  lookout={selectedLookout}
+                  allLookouts={allLookouts}
+                  onLookoutChange={handleLookoutChange}
+                  onEditLookout={handleEditLookout}
                   onTest={handleTest}
                 />
               </div>
@@ -392,8 +368,8 @@ export default function LookoutPage() {
 
                     <Button
                       variant="outline"
-                      onClick={handleManualRefresh}
-                      disabled={isMutating}
+                      onClick={() => refresh()}
+                      disabled={isRefreshing}
                       title="Refresh lookouts"
                       className="px-3"
                     >
@@ -402,7 +378,7 @@ export default function LookoutPage() {
                         size={16}
                         color="currentColor"
                         strokeWidth={1.5}
-                        className={isMutating ? 'animate-spin' : ''}
+                        className={isRefreshing ? 'animate-spin' : ''}
                       />
                     </Button>
                   </div>
@@ -438,8 +414,8 @@ export default function LookoutPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={handleManualRefresh}
-                      disabled={isMutating}
+                      onClick={() => refresh()}
+                      disabled={isRefreshing}
                       title="Refresh lookouts"
                     >
                       <HugeiconsIcon
@@ -447,7 +423,7 @@ export default function LookoutPage() {
                         size={16}
                         color="currentColor"
                         strokeWidth={1.5}
-                        className={isMutating ? 'animate-spin' : ''}
+                        className={isRefreshing ? 'animate-spin' : ''}
                       />
                       <span className="ml-1.5">Refresh</span>
                     </Button>
@@ -672,7 +648,7 @@ export default function LookoutPage() {
                                     {example.prompt.slice(0, 120)}...
                                   </p>
                                   <p className="font-pixel text-[9px] text-muted-foreground/50 uppercase tracking-wider">
-                                    {formatFrequency(example.frequency, example.time)}
+                                    {formatFrequency(example.frequency, example.time, example.dayOfWeek)}
                                   </p>
                                 </CardContent>
                               </Card>
@@ -711,7 +687,7 @@ export default function LookoutPage() {
                           {example.prompt.slice(0, 100)}...
                         </p>
                         <p className="font-pixel text-[9px] text-muted-foreground/50 uppercase tracking-wider">
-                          {formatFrequency(example.frequency, example.time)}
+                          {formatFrequency(example.frequency, example.time, example.dayOfWeek)}
                         </p>
                       </CardContent>
                     </Card>

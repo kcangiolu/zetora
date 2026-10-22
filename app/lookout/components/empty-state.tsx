@@ -6,7 +6,7 @@ import { BinocularsIcon, Archive01Icon } from '@hugeicons/core-free-icons';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface EmptyStateProps {
-  icon?: any;
+  icon?: React.ComponentProps<typeof HugeiconsIcon>['icon'];
   title: string;
   description: string;
   children?: React.ReactNode;

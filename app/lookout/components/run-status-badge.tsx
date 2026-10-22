@@ -2,7 +2,7 @@
 
 import { Badge } from '@/components/ui/badge';
 
-export type LookoutRunStatus = 'success' | 'error' | 'timeout';
+type LookoutRunStatus = 'success' | 'error' | 'timeout';
 
 interface RunStatusBadgeProps {
   status: LookoutRunStatus;
