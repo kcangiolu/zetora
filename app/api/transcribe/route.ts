@@ -1,6 +1,9 @@
 import { elevenlabs } from '@ai-sdk/elevenlabs';
 import { experimental_transcribe as transcribe } from 'ai';
+import { isConfigured } from '@/ai/catalog/env';
+import { serverEnv } from '@/env/server';
 import { withError } from '@/lib/api/route-handlers';
+import { getCustomProviderById } from '@/lib/custom-providers';
 import { getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { resolveVoiceRequestUserId } from '@/lib/voice-session-token';
 
@@ -24,24 +27,24 @@ export const POST = withError(async (request) => {
   const sttProvider = p['zetora-stt-provider'] || 'elevenlabs';
 
   if (sttProvider === 'openai-compatible') {
-    const customProviders = (p['zetora-custom-providers'] ?? []) as Array<{
-      id: string;
-      baseURL: string;
-      apiKey?: string;
-    }>;
-    const providerId = p['zetora-stt-custom-provider-id'] as string | undefined;
-    const customProvider = customProviders.find((cp) => cp.id === providerId);
-    const baseUrl = customProvider?.baseURL || 'http://localhost:9002/v1';
-    const apiKey = customProvider?.apiKey || 'not-needed';
-    const model = (p['zetora-stt-openai-model'] as string) || 'whisper-1';
+    const customProvider = await getCustomProviderById(p['zetora-stt-custom-provider-id'], userId);
+    if (!customProvider?.baseURL) {
+      return Response.json(
+        { error: 'No speech-to-text server selected: pick one under Settings > Voice > Speech-to-Text' },
+        { status: 400 },
+      );
+    }
+    const model = p['zetora-stt-openai-model'] || 'whisper-1';
 
     const sttForm = new FormData();
-    sttForm.append('file', audio, 'audio.webm');
+    // Servers that pick the decoder from the file name need the real one:
+    // dictation records webm or mp4, s2s-service sends wav.
+    sttForm.append('file', audio, audio instanceof File && audio.name ? audio.name : 'audio.webm');
     sttForm.append('model', model);
 
-    const response = await fetch(`${baseUrl}/audio/transcriptions`, {
+    const response = await fetch(`${customProvider.baseURL}/audio/transcriptions`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}` },
+      headers: customProvider.apiKey ? { Authorization: `Bearer ${customProvider.apiKey}` } : {},
       body: sttForm,
     });
 
@@ -54,7 +57,16 @@ export const POST = withError(async (request) => {
     return Response.json({ text: data.text ?? '' });
   }
 
-  // Fallback: ElevenLabs Scribe
+  if (!isConfigured(serverEnv.ELEVENLABS_API_KEY)) {
+    return Response.json(
+      {
+        error:
+          'ElevenLabs transcription needs ELEVENLABS_API_KEY on this instance, or pick a custom server under Settings > Voice',
+      },
+      { status: 400 },
+    );
+  }
+
   const result = await transcribe({
     model: elevenlabs.transcription('scribe_v2'),
     audio: await audio.arrayBuffer(),

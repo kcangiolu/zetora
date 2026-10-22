@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getCustomProviderById } from '@/lib/custom-providers';
 import { getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { resolveVoiceRequestUserId } from '@/lib/voice-session-token';
 import { extractSpeakableText } from '@/lib/speakable-text';
@@ -26,24 +27,23 @@ export async function POST(req: NextRequest) {
   const ttsProvider = p['zetora-tts-provider'] || 'elevenlabs';
 
   if (ttsProvider !== 'openai-compatible') {
-    return new Response('Streaming only supported for custom TTS providers', { status: 400 });
+    return new Response(
+      'Streaming speech needs a Custom (OpenAI-compatible) Text-to-Speech provider: pick one under Settings > Voice',
+      { status: 400 },
+    );
   }
 
-  const customProviders = (p['zetora-custom-providers'] ?? []) as Array<{
-    id: string;
-    name: string;
-    baseURL: string;
-    apiKey?: string;
-  }>;
-  const providerId = p['zetora-tts-custom-provider-id'] as string | undefined;
-  const provider = customProviders.find((cp) => cp.id === providerId);
-
+  const provider = await getCustomProviderById(p['zetora-tts-custom-provider-id'], userId);
   if (!provider?.baseURL) {
-    return new Response('Custom TTS provider not configured', { status: 400 });
+    return new Response('No text-to-speech server selected: pick one under Settings > Voice > Text-to-Speech', {
+      status: 400,
+    });
   }
 
-  const voice = (p['zetora-tts-openai-voice'] as string) || 'alloy';
-  const language = (p['zetora-tts-openai-language'] as string) || undefined;
+  // Same defaults as Settings > Voice and the non-streaming read-aloud.
+  const model = p['zetora-tts-openai-model'] || 'qwen3-tts';
+  const voice = p['zetora-tts-openai-voice'] || 'af_bella';
+  const language = p['zetora-tts-openai-language'] || undefined;
 
   const base = provider.baseURL.endsWith('/v1') ? provider.baseURL : `${provider.baseURL}/v1`;
   const upstreamUrl = `${base}/audio/speech`;
@@ -53,18 +53,28 @@ export async function POST(req: NextRequest) {
     headers['Authorization'] = `Bearer ${provider.apiKey}`;
   }
 
-  const body: Record<string, string> = { model: 'tts-1', input: text, voice, response_format: 'pcm' };
+  const body: Record<string, string> = { model, input: text, voice, response_format: 'pcm' };
   if (language) body.language = language;
 
-  const upstream = await fetch(upstreamUrl, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-    signal: req.signal,
-  });
+  let upstream: Response;
+  try {
+    upstream = await fetch(upstreamUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      signal: req.signal,
+    });
+  } catch (error) {
+    if (req.signal.aborted) return new Response(null, { status: 499 });
+    const reason = error instanceof Error ? error.message : String(error);
+    return new Response(`Text-to-speech server ${provider.name} is unreachable: ${reason}`, { status: 502 });
+  }
 
   if (!upstream.ok || !upstream.body) {
-    return new Response(`Upstream error: ${upstream.status}`, { status: 502 });
+    const detail = await upstream.text().catch(() => '');
+    return new Response(`Text-to-speech server ${provider.name} answered ${upstream.status}: ${detail.slice(0, 200)}`, {
+      status: 502,
+    });
   }
 
   return new Response(upstream.body, {

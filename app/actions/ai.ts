@@ -9,6 +9,8 @@ import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 import type { CharacterAlignmentResponseModel } from '@elevenlabs/elevenlabs-js/api/types/CharacterAlignmentResponseModel';
 import { getLightweightUserAuth, getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { resolveTertiaryModel } from '@/ai/tertiary';
+import { isConfigured } from '@/ai/catalog/env';
+import { getCustomProviderById } from '@/lib/custom-providers';
 
 import { createLogger } from '@/lib/logger';
 
@@ -181,23 +183,18 @@ export async function generateSpeech(text: string): Promise<GenerateSpeechResult
   const ttsProvider = p['zetora-tts-provider'] || 'elevenlabs';
 
   if (ttsProvider === 'openai-compatible') {
-    const customProviders = (p['zetora-custom-providers'] ?? []) as Array<{
-      id: string;
-      baseURL: string;
-      apiKey?: string;
-    }>;
-    const providerId = p['zetora-tts-custom-provider-id'] as string | undefined;
-    const customProvider = customProviders.find((cp) => cp.id === providerId);
-    const baseUrl = customProvider?.baseURL || 'http://localhost:8880/v1';
-    const apiKey = customProvider?.apiKey || 'not-needed';
-    const model = (p['zetora-tts-openai-model'] as string) || 'qwen3-tts';
-    const voice = (p['zetora-tts-openai-voice'] as string) || 'af_bella';
+    const customProvider = await getCustomProviderById(p['zetora-tts-custom-provider-id'], user.id);
+    if (!customProvider?.baseURL) {
+      throw new Error('No text-to-speech server selected: pick one under Settings > Voice > Text-to-Speech');
+    }
+    const model = p['zetora-tts-openai-model'] || 'qwen3-tts';
+    const voice = p['zetora-tts-openai-voice'] || 'af_bella';
 
-    const response = await fetch(`${baseUrl}/audio/speech`, {
+    const response = await fetch(`${customProvider.baseURL}/audio/speech`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
+        ...(customProvider.apiKey ? { Authorization: `Bearer ${customProvider.apiKey}` } : {}),
       },
       body: JSON.stringify({
         model,
@@ -222,7 +219,11 @@ export async function generateSpeech(text: string): Promise<GenerateSpeechResult
     };
   }
 
-  // Fallback: ElevenLabs
+  if (!isConfigured(serverEnv.ELEVENLABS_API_KEY)) {
+    throw new Error(
+      'ElevenLabs speech needs ELEVENLABS_API_KEY on this instance, or pick a custom server under Settings > Voice',
+    );
+  }
   const client = new ElevenLabsClient({
     apiKey: serverEnv.ELEVENLABS_API_KEY,
   });

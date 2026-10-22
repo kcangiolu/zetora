@@ -112,6 +112,16 @@ export async function getCustomProviders(userId?: string): Promise<CustomProvide
   return providers;
 }
 
+// The provider a Settings > Voice choice points at, by id; undefined when the
+// choice is unset or names a provider that no longer exists.
+export async function getCustomProviderById(
+  id: string | undefined,
+  userId: string,
+): Promise<CustomProviderConfig | undefined> {
+  if (!id) return undefined;
+  return (await getCustomProviders(userId)).find((provider) => provider.id === id);
+}
+
 export type ClientSafeCustomProvider = Omit<CustomProviderConfig, 'apiKey'> & { hasApiKey: boolean };
 
 // GET /api/custom-providers never sends stored API keys back to the browser
