@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useReducedMotion } from 'motion/react';
 import { Z_PATH, Z_WIDTH } from '@/components/logos/zetora-logo';
 import { ModeAccentSpread, useModeAccentStyle } from '@/components/mode-accent';
 import { cn } from '@/lib/utils';
@@ -44,20 +43,19 @@ const Z_SHAPE = typeof Path2D === 'undefined' ? null : new Path2D(Z_PATH);
 // The voice page's mark: Zetora's Z inside four rings turning around it in 3D, each half
 // passing in front of the Z, then behind it. In Zetora mode the rings take the text color
 // and the Z the brand color, like the sidebar logo; in Hermes mode the rings take the
-// Agent mode's multicolor sweep and the Z the text color. The mark swells, and the rings
-// turn faster, with the voice that is speaking: the assistant's while it talks, the user's
-// while it listens. Drawn on a canvas because a conic gradient clipped to strokes has no
-// SVG form that every browser renders.
+// Agent mode's multicolor sweep and the Z the text color. The rings always turn, calmly:
+// the mark is the assistant's presence, so it keeps moving even with reduced motion, and
+// only the assistant's voice stirs it, swelling the mark and speeding the rings up. Drawn
+// on a canvas because a conic gradient clipped to strokes has no SVG form that every
+// browser renders.
 export function VoiceMark({
   mode,
   agentState,
-  inputVolumeRef,
   outputVolumeRef,
   className,
 }: {
   mode: VoiceMarkMode;
   agentState: AgentState;
-  inputVolumeRef: React.RefObject<number>;
   outputVolumeRef: React.RefObject<number>;
   className?: string;
 }) {
@@ -65,12 +63,11 @@ export function VoiceMark({
   // Hidden elements that resolve the theme's colors for the canvas.
   const textColorRef = useRef<HTMLSpanElement>(null);
   const brandColorRef = useRef<HTMLSpanElement>(null);
-  const reducedMotion = useReducedMotion() ?? false;
   // Read by the animation loop, which must not restart on every change.
-  const stateRef = useRef({ mode, agentState, reducedMotion });
+  const stateRef = useRef({ mode, agentState });
   useEffect(() => {
-    stateRef.current = { mode, agentState, reducedMotion };
-  }, [mode, agentState, reducedMotion]);
+    stateRef.current = { mode, agentState };
+  }, [mode, agentState]);
   const accentStyle = useModeAccentStyle(mode);
 
   useEffect(() => {
@@ -89,18 +86,13 @@ export function VoiceMark({
     const draw = (now: number) => {
       const dt = Math.min((now - last) / 1000, 0.1);
       last = now;
-      const { mode: currentMode, agentState: state, reducedMotion: still } = stateRef.current;
+      const { mode: currentMode, agentState: state } = stateRef.current;
 
-      const volume = state === 'talking' ? outputVolumeRef.current : state === 'listening' ? inputVolumeRef.current : 0;
+      const volume = state === 'talking' ? outputVolumeRef.current : 0;
       level += (Math.min(1, (volume ?? 0) * VOLUME_GAIN) - level) * VOLUME_SMOOTHING;
-      // With reduced motion only the voice moves the mark.
-      if (!still) {
-        turn += (dt / TURN_PERIOD_S) * (1 + level * VOICE_SPIN);
-        breathClock += dt / BREATH_PERIOD_S;
-        sweepClock += dt / SWEEP_PERIOD_S;
-      } else {
-        turn += (dt / TURN_PERIOD_S) * level * VOICE_SPIN;
-      }
+      turn += (dt / TURN_PERIOD_S) * (1 + level * VOICE_SPIN);
+      breathClock += dt / BREATH_PERIOD_S;
+      sweepClock += dt / SWEEP_PERIOD_S;
       const target = currentMode === 'hermes' ? 1 : 0;
       hermesMix += Math.sign(target - hermesMix) * Math.min(Math.abs(target - hermesMix), dt / MODE_FADE_S);
 
@@ -182,7 +174,7 @@ export function VoiceMark({
 
     frame = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(frame);
-  }, [inputVolumeRef, outputVolumeRef]);
+  }, [outputVolumeRef]);
 
   return (
     <div className={cn('relative rounded-full', className)} style={accentStyle}>

@@ -81,7 +81,6 @@ export default function VoicePage({
     connect,
     disconnect,
     setVoice,
-    inputVolumeRef,
     outputVolumeRef,
     sendText,
   } = useVoiceClient({
@@ -249,7 +248,6 @@ export default function VoicePage({
               <VoiceMark
                 mode={voiceAgent}
                 agentState={agentState}
-                inputVolumeRef={inputVolumeRef}
                 outputVolumeRef={outputVolumeRef}
                 className="h-full w-full"
               />
