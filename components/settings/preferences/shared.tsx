@@ -236,7 +236,7 @@ export function TertiaryModelRow({
   };
 
   return (
-    <div className="flex items-center justify-between py-3.5 gap-6">
+    <div className="flex flex-col gap-3 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
       <div className="min-w-0">
         <p className="text-sm font-medium">{TASK_LABELS[task]}</p>
         <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
@@ -256,7 +256,7 @@ export function TertiaryModelRow({
           </p>
         )}
       </div>
-      <div className="flex items-center gap-1.5 shrink-0">
+      <div className="flex flex-wrap items-center gap-1.5 sm:flex-nowrap sm:shrink-0">
         {enabledKey ? (
           <TertiaryTaskToggle enabledKey={enabledKey}>
             <TertiaryModelControls
@@ -311,7 +311,12 @@ function TertiaryTaskToggle({ enabledKey, children }: { enabledKey: PreferenceKe
       >
         {enabled ? <Power className="h-3.5 w-3.5" /> : <PowerOff className="h-3.5 w-3.5" />}
       </Button>
-      <div className={cn('flex items-center gap-1.5 shrink-0', !enabled && 'opacity-40 pointer-events-none')}>
+      <div
+        className={cn(
+          'flex flex-wrap items-center gap-1.5 sm:flex-nowrap sm:shrink-0',
+          !enabled && 'opacity-40 pointer-events-none',
+        )}
+      >
         {children}
       </div>
     </>
