@@ -262,7 +262,8 @@ const MessagesImpl = React.forwardRef<MessagesHandle, MessagesProps>(function Me
         (part: ChatMessage['parts'][number]) => part.type === 'text' && part.text && part.text.trim() !== '',
       );
       // Only a tool call whose output IS the deliverable (generated image,
-      // edited image, downloaded file) counts as a response on its own — an
+      // downloaded file, an answer widget such as the weather) counts as a
+      // response on its own — an
       // internal research/utility step (web_search, retrieve, code
       // interpreter...) resolving successfully is not itself an answer to
       // the user. Without this narrowing, a turn that reasons, calls

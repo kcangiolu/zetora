@@ -1,6 +1,6 @@
 import { DataUIPart, isStaticToolUIPart } from 'ai';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
-import { ChatMessage, CustomUIDataTypes, DataQueryCompletionPart, DataExtremeSearchPart } from '@/lib/types';
+import { ChatMessage, ChatTools, CustomUIDataTypes, DataQueryCompletionPart, DataExtremeSearchPart } from '@/lib/types';
 import { SearchLoadingState } from '@/components/tool-invocation-list-view';
 import { GeneratedImageCard } from '@/components/generated-image-card';
 import {
@@ -751,36 +751,7 @@ export function StaticToolPart({ part, annotations, canEdit, chatId, hiddenImage
                   }
                 />
 
-                {part.output?.chart && (
-                  <div className="pt-1 overflow-x-auto">
-                    {part.output.chart.type === 'image' && part.output.chart.png ? (
-                      <img
-                        src={part.output.chart.png}
-                        alt={part.output.chart.title || 'Chart'}
-                        className="max-w-full rounded-lg"
-                      />
-                    ) : (
-                      <InteractiveChart chart={part.output.chart} />
-                    )}
-                  </div>
-                )}
-
-                {part.output?.files && part.output.files.length > 0 && (
-                  <div className="pt-1 flex flex-wrap gap-2">
-                    {part.output.files.map((file, fileIndex) => (
-                      <a
-                        key={`${file.url}-${fileIndex}`}
-                        href={file.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
-                      >
-                        <Download className="size-3.5" />
-                        {file.filename}
-                      </a>
-                    ))}
-                  </div>
-                )}
+                {part.output && <CodeInterpreterResults output={part.output} />}
               </div>
             );
         }
@@ -1013,4 +984,46 @@ export function StaticToolPart({ part, annotations, canEdit, chatId, hiddenImage
       </div>
     );
   }
+}
+
+type CodeInterpreterOutput = ChatTools['code_interpreter']['output'];
+
+export function hasCodeInterpreterResults(output: CodeInterpreterOutput): boolean {
+  return Boolean(output.chart || output.files?.length);
+}
+
+// The files and chart a run produced: what the user asked for, so they stay on screen when
+// "Zetora task complete" folds the code away.
+export function CodeInterpreterResults({ output }: { output: CodeInterpreterOutput }) {
+  if (!hasCodeInterpreterResults(output)) return null;
+  return (
+    <div className="space-y-3">
+      {output.chart && (
+        <div className="pt-1 overflow-x-auto">
+          {output.chart.type === 'image' && output.chart.png ? (
+            <img src={output.chart.png} alt={output.chart.title || 'Chart'} className="max-w-full rounded-lg" />
+          ) : (
+            <InteractiveChart chart={output.chart} />
+          )}
+        </div>
+      )}
+
+      {output.files && output.files.length > 0 && (
+        <div className="pt-1 flex flex-wrap gap-2">
+          {output.files.map((file, fileIndex) => (
+            <a
+              key={`${file.url}-${fileIndex}`}
+              href={file.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
+            >
+              <Download className="size-3.5" />
+              {file.filename}
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }

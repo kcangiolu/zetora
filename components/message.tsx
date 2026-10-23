@@ -71,6 +71,7 @@ import { cn } from '@/lib/utils';
 import { getFileAttachments } from '@/lib/file-attachments';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { useMessageActions } from '@/contexts/message-actions-context';
+import { CodeInterpreterResults, hasCodeInterpreterResults } from '@/components/message-parts/static-tool-part';
 
 type ParsedChatSDKError = Pick<ChatSDKError, 'type' | 'surface' | 'message' | 'cause'>;
 
@@ -739,14 +740,25 @@ const USER_MESSAGE_MAX_HEIGHT = 125;
 // Tool outputs that ARE the deliverable, not a research/reasoning step — kept
 // visible when "Zetora task complete" is collapsed, same as the final text
 // answer, regardless of whether the model also references them in its text.
-// tool-datetime renders as the live clock widget (components/message-parts),
-// a small graphical result worth keeping on screen rather than reducing to
-// a badge like a plain research step.
+// The widgets (clock, charts, weather, maps, flights, conversions, film cards)
+// show what the user asked for; searches and page reads only fed the answer.
 export const DELIVERABLE_TOOL_PART_TYPES = new Set([
   'tool-generate_image',
   'tool-edit_image',
   'tool-download_file',
   'tool-datetime',
+  'tool-stock_chart',
+  'tool-get_weather_data',
+  'tool-find_place_on_map',
+  'tool-nearby_places_search',
+  'tool-track_flight',
+  'tool-coin_data',
+  'tool-coin_data_by_contract',
+  'tool-coin_ohlc',
+  'tool-currency_converter',
+  'tool-movie_or_tv_search',
+  'tool-trending_movies',
+  'tool-trending_tv',
 ]);
 
 function isDeliverablePart(part: ChatMessage['parts'][number]): boolean {
@@ -1075,9 +1087,10 @@ export const Message = memo(function Message({
 
   if (message.role === 'assistant') {
     const hasParts = Boolean(message.parts && message.parts.length > 0);
-    // Only the final answer and deliverables (generated images/files) stay
-    // visible when collapsed — reasoning, tool calls, and other step parts
-    // are what "Zetora task complete" hides.
+    // Only the final answer and deliverables (generated images/files, and the
+    // files and charts a code run produced) stay visible when collapsed —
+    // reasoning, tool calls, and other step parts are what "Zetora task
+    // complete" hides.
     const showAllSteps = isTurnStreaming || isTaskExpanded || !hasParts;
 
     // When collapsed, don't just drop hidden steps silently — replace each
@@ -1132,6 +1145,16 @@ export const Message = memo(function Message({
           );
         } else {
           hiddenRun.push(part);
+          if (
+            part.type === 'tool-code_interpreter' &&
+            part.state === 'output-available' &&
+            hasCodeInterpreterResults(part.output)
+          ) {
+            flushHiddenRun(partIndex);
+            partsList.push(
+              <CodeInterpreterResults key={`${message.id || index}-results-${partIndex}`} output={part.output} />,
+            );
+          }
         }
       });
       flushHiddenRun(message.parts?.length ?? 0);
