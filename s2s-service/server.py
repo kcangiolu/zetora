@@ -65,6 +65,18 @@ VAD_MODEL_PATH = os.getenv("VAD_MODEL_PATH", "/app/silero_vad.onnx")
 VAD_THRESHOLD = float(os.getenv("VAD_THRESHOLD", "0.5"))
 VAD_MIN_SILENCE_MS = int(os.getenv("VAD_MIN_SILENCE_MS", "500"))
 VAD_SPEECH_PAD_MS = int(os.getenv("VAD_SPEECH_PAD_MS", "200"))
+# Speech shorter than this is a breath, a click or a burst of noise, not an utterance:
+# sent to STT, it comes back as a filler word ("Okay.", "Mm-hmm.") the user never said.
+VAD_MIN_SPEECH_MS = int(os.getenv("VAD_MIN_SPEECH_MS", "250"))
+# While the assistant's voice plays, a phone speaker leaks it back into the microphone in
+# bursts that echo cancellation misses. Interrupting the reply then takes louder, longer
+# speech, so the assistant does not cut itself off.
+VAD_BARGE_IN_THRESHOLD = float(os.getenv("VAD_BARGE_IN_THRESHOLD", "0.8"))
+VAD_BARGE_IN_MIN_SPEECH_MS = int(os.getenv("VAD_BARGE_IN_MIN_SPEECH_MS", "700"))
+# A pause this short inside the first words of an utterance does not restart the count.
+VAD_ONSET_GAP_MS = 200
+# The client buffers audio before playing it, so its playback ends a little after ours.
+PLAYBACK_TAIL_S = 0.5
 
 DEFAULT_INSTRUCTIONS = (
     "You are a helpful voice assistant. Keep replies short and conversational — "
@@ -177,9 +189,15 @@ class VoiceSession:
     vad_state: np.ndarray = field(default_factory=lambda: np.zeros(VAD_STATE_SHAPE, dtype=np.float32))
     vad_context: np.ndarray = field(default_factory=lambda: np.zeros((1, VAD_CONTEXT_SAMPLES), dtype=np.float32))
     silence_frames: int = 0
+    # Frames since speech seemed to start, before it has lasted long enough to count, and
+    # the trailing run of non-speech frames among them.
+    onset_frames: int = 0
+    onset_gap_frames: int = 0
+    # Event-loop time at which the client finishes playing the audio sent so far.
+    playback_until: float = 0.0
     utterance_buf: bytearray = field(default_factory=bytearray)
-    # Rolling ~VAD_SPEECH_PAD_MS of pre-speech audio, kept so the first
-    # syllables of an utterance (clipped by VAD's rising-edge latency)
+    # Rolling pre-speech audio, kept so the first syllables of an utterance
+    # (clipped by VAD's rising-edge latency and the minimum speech duration)
     # aren't lost — every new utterance_buf starts from this.
     preroll: bytearray = field(default_factory=bytearray)
 
@@ -269,6 +287,8 @@ async def synthesize_and_send(client: httpx.AsyncClient, ws: WebSocket, session:
             resampled = resampler.process(pcm16_bytes_to_float32(data[:usable]))
             if len(resampled) == 0:
                 continue
+            now = asyncio.get_running_loop().time()
+            session.playback_until = max(session.playback_until, now) + len(resampled) / CLIENT_SAMPLE_RATE
             delta_b64 = base64.b64encode(float32_to_pcm16_bytes(resampled)).decode("ascii")
             await send_json(ws, {"type": "response.output_audio.delta", "delta": delta_b64})
 
@@ -448,19 +468,51 @@ async def save_turns(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSes
 # ── VAD-driven turn boundaries ────────────────────────────────────
 
 
-PREROLL_MAX_BYTES = int(CLIENT_SAMPLE_RATE * VAD_SPEECH_PAD_MS / 1000) * 2  # 16-bit mono PCM
+def pcm48k_bytes_for_ms(ms: float) -> int:
+    return int(CLIENT_SAMPLE_RATE * ms / 1000) * 2  # 16-bit mono PCM
+
+
+VAD_FRAME_MS = VAD_FRAME_SAMPLES / VAD_SAMPLE_RATE * 1000
+# Long enough to hold the padding and the longest onset an utterance can need.
+PREROLL_MAX_BYTES = pcm48k_bytes_for_ms(
+    VAD_SPEECH_PAD_MS + max(VAD_MIN_SPEECH_MS, VAD_BARGE_IN_MIN_SPEECH_MS) + VAD_ONSET_GAP_MS
+)
+
+
+def assistant_is_playing(session: VoiceSession) -> bool:
+    return asyncio.get_running_loop().time() < session.playback_until + PLAYBACK_TAIL_S
+
+
+def onset_confirmed(session: VoiceSession, prob: float) -> bool:
+    """Counts a frame toward the start of an utterance; True once speech has lasted long
+    enough to be one."""
+    playing = assistant_is_playing(session)
+    threshold = VAD_BARGE_IN_THRESHOLD if playing else VAD_THRESHOLD
+    if prob >= threshold:
+        session.onset_frames += 1
+        session.onset_gap_frames = 0
+        min_speech_ms = VAD_BARGE_IN_MIN_SPEECH_MS if playing else VAD_MIN_SPEECH_MS
+        return session.onset_frames * VAD_FRAME_MS >= min_speech_ms
+    if session.onset_frames:
+        session.onset_frames += 1
+        session.onset_gap_frames += 1
+        if session.onset_gap_frames * VAD_FRAME_MS >= VAD_ONSET_GAP_MS:
+            session.onset_frames = session.onset_gap_frames = 0
+    return False
 
 
 async def feed_vad(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSession, pcm48k: bytes) -> None:
     if session.is_speaking:
         session.utterance_buf.extend(pcm48k)
     else:
-        # Keep a rolling ~VAD_SPEECH_PAD_MS tail of silence-period audio so
-        # the next utterance can be prefixed with it (Silero's rising edge
-        # itself lags the true speech onset by a frame or two).
+        # The audio before speech is confirmed: it holds the onset itself, plus
+        # VAD_SPEECH_PAD_MS before it, since Silero's rising edge lags the true start of
+        # speech by a frame or two. The chunk being analyzed is never trimmed: speech can
+        # be confirmed on any of its frames.
         session.preroll.extend(pcm48k)
-        if len(session.preroll) > PREROLL_MAX_BYTES:
-            del session.preroll[: len(session.preroll) - PREROLL_MAX_BYTES]
+        excess = len(session.preroll) - PREROLL_MAX_BYTES - len(pcm48k)
+        if excess > 0:
+            del session.preroll[:excess]
 
     down = np.concatenate([session.vad_carry, decimate_48k_to_16k(pcm48k)])
     n_frames = len(down) // VAD_FRAME_SAMPLES
@@ -471,40 +523,45 @@ async def feed_vad(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSessi
         frame = down[i * VAD_FRAME_SAMPLES : (i + 1) * VAD_FRAME_SAMPLES]
         prob = run_vad_frame(frame, session)
 
-        frame_ms = (VAD_FRAME_SAMPLES / VAD_SAMPLE_RATE) * 1000
-
-        if prob >= VAD_THRESHOLD:
+        if not session.is_speaking:
+            if not onset_confirmed(session, prob):
+                continue
+            # The preroll ends with the rest of the current chunk, after this frame.
+            onset_bytes = pcm48k_bytes_for_ms(VAD_SPEECH_PAD_MS + session.onset_frames * VAD_FRAME_MS)
+            preroll_bytes = bytes(session.preroll[-(onset_bytes + len(pcm48k)) :])
+            session.preroll = bytearray()
+            session.onset_frames = session.onset_gap_frames = 0
+            session.is_speaking = True
             session.silence_frames = 0
-            if not session.is_speaking:
-                session.is_speaking = True
-                preroll_bytes = bytes(session.preroll)
-                session.preroll = bytearray()
+            # The client stops playing when the user starts talking.
+            session.playback_until = 0.0
 
-                if session.current_task and not session.current_task.done():
-                    if session.response_active:
-                        # True barge-in: the assistant is already generating/
-                        # streaming a response — stop it and start a fresh
-                        # utterance.
-                        session.current_task.cancel()
-                        await send_json(ws, {"type": "response.done"})
-                        session.utterance_buf = bytearray(preroll_bytes)
-                    else:
-                        # The previous utterance is still being transcribed.
-                        # Cancelling it outright would silently drop those
-                        # words, so cancel the in-flight STT call and merge
-                        # its audio back in — the whole thing is re-sent as
-                        # one utterance once the user pauses again.
-                        session.current_task.cancel()
-                        session.utterance_buf = bytearray(session.pending_audio)
-                        session.utterance_buf.extend(preroll_bytes)
-                else:
+            if session.current_task and not session.current_task.done():
+                if session.response_active:
+                    # True barge-in: the assistant is already generating/
+                    # streaming a response — stop it and start a fresh
+                    # utterance.
+                    session.current_task.cancel()
+                    await send_json(ws, {"type": "response.done"})
                     session.utterance_buf = bytearray(preroll_bytes)
+                else:
+                    # The previous utterance is still being transcribed.
+                    # Cancelling it outright would silently drop those
+                    # words, so cancel the in-flight STT call and merge
+                    # its audio back in — the whole thing is re-sent as
+                    # one utterance once the user pauses again.
+                    session.current_task.cancel()
+                    session.utterance_buf = bytearray(session.pending_audio)
+                    session.utterance_buf.extend(preroll_bytes)
+            else:
+                session.utterance_buf = bytearray(preroll_bytes)
 
-                session.utterance_buf.extend(pcm48k)
-                await send_json(ws, {"type": "input_audio_buffer.speech_started"})
-        elif session.is_speaking:
+            await send_json(ws, {"type": "input_audio_buffer.speech_started"})
+        elif prob >= VAD_THRESHOLD:
+            session.silence_frames = 0
+        else:
             session.silence_frames += 1
-            if session.silence_frames * frame_ms >= VAD_MIN_SILENCE_MS:
+            if session.silence_frames * VAD_FRAME_MS >= VAD_MIN_SILENCE_MS:
                 session.is_speaking = False
                 session.silence_frames = 0
                 await send_json(ws, {"type": "input_audio_buffer.speech_stopped"})
@@ -529,17 +586,17 @@ def start_turn(session: VoiceSession, turn) -> None:
     session.processing = True
     session.response_active = False
 
-    async def _run():
-        try:
-            await turn
-        finally:
-            # A cancelled turn finishes after its replacement has started:
-            # only the current turn may clear the flags.
-            if session.current_task is asyncio.current_task():
-                session.processing = False
-                session.response_active = False
+    def _done(task: asyncio.Task) -> None:
+        # A done callback, not a `finally` around `await turn`: a task cancelled before its
+        # first step never enters that block, and the session would stay `processing`,
+        # dropping every utterance after it. A cancelled turn finishes after its
+        # replacement has started: only the current turn may clear the flags.
+        if session.current_task is task:
+            session.processing = False
+            session.response_active = False
 
-    session.current_task = asyncio.create_task(_run())
+    session.current_task = asyncio.create_task(turn)
+    session.current_task.add_done_callback(_done)
 
 
 async def cancel_turn(ws: WebSocket, session: VoiceSession) -> None:
