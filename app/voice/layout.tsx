@@ -7,30 +7,6 @@ const description =
 export const metadata: Metadata = {
   title,
   description,
-  openGraph: {
-    title,
-    description,
-    url: '/voice',
-    siteName: 'Zetora AI',
-    type: 'website',
-    images: [
-      {
-        url: '/voice/opengraph-image.png',
-        width: 1200,
-        height: 630,
-        alt: 'Zetora Voice - AI Voice Assistant',
-      },
-    ],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title,
-    description,
-    images: ['/voice/twitter-image.png'],
-  },
-  alternates: {
-    canonical: '/voice',
-  },
 };
 
 export default function VoiceLayout({ children }: { children: React.ReactNode }) {

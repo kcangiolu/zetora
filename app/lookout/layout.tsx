@@ -9,31 +9,6 @@ const description =
 export const metadata: Metadata = {
   title,
   description,
-  keywords: 'automated search, monitoring, scheduled queries, AI lookouts, search automation, trend tracking',
-  openGraph: {
-    title,
-    description,
-    url: '/lookout',
-    siteName: 'Zetora AI',
-    type: 'website',
-    images: [
-      {
-        url: '/lookout/opengraph-image.png',
-        width: 1200,
-        height: 630,
-        alt: 'Zetora Lookout - Automated Search Monitoring',
-      },
-    ],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title,
-    description,
-    images: ['/lookout/twitter-image.png'],
-  },
-  alternates: {
-    canonical: '/lookout',
-  },
 };
 
 interface LookoutLayoutProps {

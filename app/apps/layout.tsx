@@ -8,21 +8,6 @@ const description = 'Connect any app that exposes an MCP server and use its tool
 export const metadata: Metadata = {
   title,
   description,
-  openGraph: {
-    title,
-    description,
-    url: '/apps',
-    siteName: 'Zetora AI',
-    type: 'website',
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title,
-    description,
-  },
-  alternates: {
-    canonical: '/apps',
-  },
 };
 
 export default function AppsLayout({ children }: { children: React.ReactNode }) {

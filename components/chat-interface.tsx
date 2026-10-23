@@ -20,7 +20,7 @@ import { v7 as uuidv7 } from 'uuid';
 import { suggestQuestions, updateChatVisibility, getChatMeta } from '@/app/actions';
 
 // Component imports
-import { ChatDialogs } from '@/components/chat-dialogs';
+import { ChatHistoryDialog } from '@/components/chat-history-dialog';
 import Messages, { MessagesHandle } from '@/components/messages';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SidebarInset, useSidebar, SidebarTrigger } from '@/components/ui/sidebar';
@@ -227,12 +227,6 @@ const ChatInterface = memo(
       });
     }, []);
 
-    // Get persisted values for dialog states
-    const [persistedHasShownLookoutAnnouncement, setPersitedHasShownLookoutAnnouncement] = useLocalStorage(
-      'zetora-lookout-announcement-shown',
-      false,
-    );
-
     const [isAutoRouterEnabled] = useSyncedPreferences<boolean>('zetora-auto-router-enabled', false);
     const [autoRouterConfig] = useSyncedPreferences<AutoRouterConfig>('zetora-auto-router-config', { routes: [] });
     const [scrollToLatestOnOpen, , scrollToLatestOnOpenResolved] = useSyncedPreferences<boolean>(
@@ -248,10 +242,7 @@ const ChatInterface = memo(
     const [autoRoutedModel, setAutoRoutedModel] = useState<{ model: string; route: string } | null>(null);
 
     // Use reducer for complex state management
-    const [chatState, dispatch] = useReducer(
-      chatReducer,
-      createInitialState(initialVisibility, persistedHasShownLookoutAnnouncement),
-    );
+    const [chatState, dispatch] = useReducer(chatReducer, createInitialState(initialVisibility));
 
     const { user, isLoading: isUserLoading } = useUser();
 
@@ -1346,17 +1337,10 @@ const ChatInterface = memo(
           )}
 
           <div className="flex flex-col font-sans! items-center h-screen bg-background text-foreground transition-all duration-500 w-full overflow-x-hidden scrollbar-thin! scrollbar-thumb-muted-foreground! dark:scrollbar-thumb-muted-foreground! scrollbar-track-transparent! hover:scrollbar-thumb-foreground! dark:hover:scrollbar-thumb-foreground!">
-            {/* Chat Dialogs Component */}
-            <ChatDialogs
-              commandDialogOpen={chatState.commandDialogOpen}
-              setCommandDialogOpen={(open) => dispatch({ type: 'SET_COMMAND_DIALOG_OPEN', payload: open })}
-              showLookoutAnnouncement={chatState.showAnnouncementDialog}
-              setShowLookoutAnnouncement={(open) => dispatch({ type: 'SET_SHOW_ANNOUNCEMENT_DIALOG', payload: open })}
-              setHasShownLookoutAnnouncement={(value) => {
-                dispatch({ type: 'SET_HAS_SHOWN_ANNOUNCEMENT_DIALOG', payload: value });
-                setPersitedHasShownLookoutAnnouncement(value);
-              }}
-              user={user}
+            <ChatHistoryDialog
+              open={chatState.commandDialogOpen}
+              onOpenChange={(open) => dispatch({ type: 'SET_COMMAND_DIALOG_OPEN', payload: open })}
+              user={user ?? null}
             />
 
             <div

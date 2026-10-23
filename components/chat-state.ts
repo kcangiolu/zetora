@@ -2,8 +2,6 @@ export interface ChatState {
   // UI state
   hasSubmitted: boolean;
   hasManuallyScrolled: boolean;
-  showAnnouncementDialog: boolean;
-  hasShownAnnouncementDialog: boolean;
   commandDialogOpen: boolean;
 
   // Chat data
@@ -23,8 +21,6 @@ interface Attachment {
 export type ChatAction =
   | { type: 'SET_HAS_SUBMITTED'; payload: React.SetStateAction<boolean> }
   | { type: 'SET_HAS_MANUALLY_SCROLLED'; payload: boolean }
-  | { type: 'SET_SHOW_ANNOUNCEMENT_DIALOG'; payload: boolean }
-  | { type: 'SET_HAS_SHOWN_ANNOUNCEMENT_DIALOG'; payload: boolean }
   | { type: 'SET_COMMAND_DIALOG_OPEN'; payload: boolean }
   | { type: 'SET_SUGGESTED_QUESTIONS'; payload: string[] }
   | { type: 'SET_ATTACHMENTS'; payload: React.SetStateAction<Attachment[]> }
@@ -44,12 +40,6 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
 
     case 'SET_HAS_MANUALLY_SCROLLED':
       return { ...state, hasManuallyScrolled: action.payload };
-
-    case 'SET_SHOW_ANNOUNCEMENT_DIALOG':
-      return { ...state, showAnnouncementDialog: action.payload };
-
-    case 'SET_HAS_SHOWN_ANNOUNCEMENT_DIALOG':
-      return { ...state, hasShownAnnouncementDialog: action.payload };
 
     case 'SET_COMMAND_DIALOG_OPEN':
       return { ...state, commandDialogOpen: action.payload };
@@ -74,7 +64,6 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
         ...state,
         hasSubmitted: false,
         hasManuallyScrolled: false,
-        showAnnouncementDialog: false,
       };
 
     default:
@@ -82,14 +71,9 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
   }
 };
 
-export const createInitialState = (
-  initialVisibility: 'public' | 'private' = 'private',
-  hasShownAnnouncementDialog: boolean = false,
-): ChatState => ({
+export const createInitialState = (initialVisibility: 'public' | 'private' = 'private'): ChatState => ({
   hasSubmitted: false,
   hasManuallyScrolled: false,
-  showAnnouncementDialog: false,
-  hasShownAnnouncementDialog,
   commandDialogOpen: false,
   suggestedQuestions: [],
   attachments: [],
