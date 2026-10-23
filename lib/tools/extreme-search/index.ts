@@ -32,7 +32,7 @@ import { createFileQueryTool } from './agent-tools/file-query';
 import { createThinkingTool } from './agent-tools/thinking';
 import { createWebSearchTool } from './agent-tools/web-search';
 import { createXSearchTool } from './agent-tools/x-search';
-import { buildAgentSystemPrompt, buildPlannerPrompt, researchPlanSchema } from './prompts';
+import { buildAgentSystemPrompt, buildPlannerPrompt, normalizeResearchPlan, researchPlanSchema } from './prompts';
 import { resolveExtremeProviderStack } from './providers';
 
 const log = createLogger('extreme-search');
@@ -77,14 +77,13 @@ async function extremeSearch(
 
   context.emit({ kind: 'plan', status: { title: 'Planning research' } });
 
-  const {
-    output: { plan },
-  } = await generateText({
+  const { output } = await generateText({
     model: await resolveTertiaryModel('extreme-planner', preferences),
     abortSignal,
     output: Output.object({ schema: researchPlanSchema }),
     prompt: buildPlannerPrompt(prompt, { fileNames: supportedFiles.map(getFileDisplayName), maxSteps }),
   });
+  const plan = normalizeResearchPlan(output.plan);
 
   log.debug('Research plan:', plan);
   log.info(`Total todos: ${plan.reduce((acc, curr) => acc + curr.todos.length, 0)}`);
@@ -225,7 +224,18 @@ export function extremeSearchTool(
 
       const ctx = experimental_context as { userPreferences?: Record<string, string> } | undefined;
       const extremePrefs = ctx?.userPreferences ?? null;
-      const research = await extremeSearch(prompt, dataStream, files, extremePrefs, abortSignal);
+      let research: Research;
+      try {
+        research = await extremeSearch(prompt, dataStream, files, extremePrefs, abortSignal);
+      } catch (error) {
+        if (abortSignal?.aborted) throw error;
+        log.error('Extreme search failed:', error);
+        // The model reads this: without it, it writes a report from its own knowledge and
+        // the user takes it for researched, sourced work.
+        throw new Error(
+          `Extreme search failed and found no sources (${error instanceof Error ? error.message : String(error)}). Tell the user the research did not run; do not answer from memory as if it had.`,
+        );
+      }
 
       return {
         research: {

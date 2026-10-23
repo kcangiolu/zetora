@@ -751,6 +751,8 @@ export const DELIVERABLE_TOOL_PART_TYPES = new Set([
 
 function isDeliverablePart(part: ChatMessage['parts'][number]): boolean {
   if (part.type === 'text') return true;
+  // The answer after a failed extreme search is not researched: the user must see that.
+  if (part.type === 'tool-extreme_search') return part.state === 'output-error';
   if (!DELIVERABLE_TOOL_PART_TYPES.has(part.type)) return false;
   const anyPart = part as unknown as { state?: string; output?: { success?: boolean } };
   return anyPart.state === 'output-available' && anyPart.output?.success !== false;
@@ -784,7 +786,7 @@ const TOOL_BADGES: Partial<Record<keyof ChatTools, { label: string; Icon: Lucide
   text_translate: { label: 'Translation', Icon: Languages },
   code_interpreter: { label: 'Code execution', Icon: Terminal },
   track_flight: { label: 'Flight tracker', Icon: Plane },
-  extreme_search: { label: 'Deep research', Icon: Sparkles },
+  extreme_search: { label: 'Extreme search', Icon: Sparkles },
   search_memories: { label: 'Memory lookup', Icon: Database },
   add_memory: { label: 'Memory saved', Icon: Database },
   code_context: { label: 'Code search', Icon: Search },

@@ -288,6 +288,12 @@ export function StaticToolPart({ part, annotations, canEdit, chatId, hiddenImage
                 }
               />
             );
+          case 'output-error':
+            return (
+              <ToolNotice tone="error" icon={Sparkles} title="Extreme search failed">
+                The research did not run and found no sources, so nothing below comes from it.
+              </ToolNotice>
+            );
         }
         break;
 

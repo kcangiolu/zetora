@@ -2,19 +2,43 @@ import { z } from 'zod';
 
 import { PYTHON_LIBS_AVAILABLE } from './agent-tools/code-runner';
 
+const MAX_TOPICS = 5;
+const MAX_TODOS = 5;
+const MAX_TITLE_CHARS = 70;
+
+// The limits are asked for, not enforced: providers without strict structured output
+// (DeepSeek's JSON mode) only see the schema as text, and one topic too many must not
+// fail the whole research. normalizeResearchPlan trims what comes back instead.
 export const researchPlanSchema = z.object({
   plan: z
     .array(
       z.object({
-        title: z.string().min(10).max(70).describe('A title for the research topic'),
-        todos: z.array(z.string()).min(3).max(5).describe('A list of what to research for the given title'),
+        title: z.string().describe(`A title for the research topic, at most ${MAX_TITLE_CHARS} characters`),
+        todos: z.array(z.string()).describe(`3 to ${MAX_TODOS} things to research for the given title`),
       }),
     )
-    .min(1)
-    .max(5),
+    .describe(`1 to ${MAX_TOPICS} research topics`),
 });
 
 export type ResearchPlan = z.infer<typeof researchPlanSchema>['plan'];
+
+export function normalizeResearchPlan(plan: ResearchPlan): ResearchPlan {
+  const topics = plan
+    .map((topic) => ({
+      title:
+        topic.title.trim().length > MAX_TITLE_CHARS
+          ? `${topic.title.trim().slice(0, MAX_TITLE_CHARS - 1)}…`
+          : topic.title.trim(),
+      todos: topic.todos
+        .map((todo) => todo.trim())
+        .filter(Boolean)
+        .slice(0, MAX_TODOS),
+    }))
+    .filter((topic) => topic.title && topic.todos.length > 0)
+    .slice(0, MAX_TOPICS);
+  if (topics.length === 0) throw new Error('The research planner returned an empty plan.');
+  return topics;
+}
 
 interface PromptOptions {
   // Display names of the uploaded files the agent can search; empty when there are none.
@@ -54,8 +78,8 @@ Plan Guidelines:
 - Start with a thinking step, then a tool call, then thinking to analyze, etc.
 - Each webSearch step should use multi-query (3-5 queries) when possible
 - No need to synthesize your findings into a comprehensive response, just return the results
-- The plan should be concise and to the point, no more than 10 items
-- Keep the titles concise and to the point, no more than 70 characters
+- The plan has 1 to ${MAX_TOPICS} topics, each with 3 to ${MAX_TODOS} todos
+- Keep the titles concise and to the point, no more than ${MAX_TITLE_CHARS} characters
 - The user query may indicate a need for a specific tool, include it explicitly in the plan
 
 Tool selection guidance:
