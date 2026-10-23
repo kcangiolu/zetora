@@ -24,6 +24,7 @@ import { useModels } from '@/hooks/use-models';
 import { ComprehensiveUserData } from '@/hooks/use-user-data';
 import { parseStartWithCommand } from '@/lib/chat-commands';
 import { HERMES_MAX_ATTACHMENT_BYTES } from '@/lib/hermes/attachments';
+import { isHermesEnabled } from '@/lib/hermes/enabled';
 import type { HermesChatLock } from '@/lib/hermes/chat-mode';
 import { filterHermesCommands, type HermesCommand } from '@/lib/hermes/commands';
 import type { ReasoningEffort } from '@/lib/reasoning-effort-types';
@@ -937,7 +938,10 @@ const FormComponent: React.FC<FormComponentProps> = ({
                       setPlusMenuOpen(false);
                     }}
                     onContinueByVoice={
-                      hasMessages && !isTemporaryChat && capabilities?.localVoice
+                      hasMessages &&
+                      !isTemporaryChat &&
+                      capabilities?.localVoice &&
+                      (!isHermesChat || isHermesEnabled())
                         ? () => {
                             setPlusMenuOpen(false);
                             router.push(`/voice?chat=${chatId}&agent=${isHermesChat ? 'hermes' : 'zetora'}`);
