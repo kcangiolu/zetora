@@ -75,6 +75,9 @@ interface AuthCardProps {
   description: string;
   mode?: 'sign-in' | 'sign-up';
   socialProviders: readonly AuthProvider[];
+  // False on an instance closed to new accounts: the sign-in card then has no
+  // link to a sign-up page that would only refuse.
+  allowSignUps: boolean;
 }
 
 const SocialButton = ({ title, provider, loading, setLoading, callbackURL, icon, isLastUsed }: SocialButtonProps) => {
@@ -119,7 +122,13 @@ const SocialButton = ({ title, provider, loading, setLoading, callbackURL, icon,
   );
 };
 
-export default function AuthCard({ title, description, mode = 'sign-in', socialProviders }: AuthCardProps) {
+export default function AuthCard({
+  title,
+  description,
+  mode = 'sign-in',
+  socialProviders,
+  allowSignUps,
+}: AuthCardProps) {
   const [redirect] = useQueryState('redirect', parseAsString.withDefault('/'));
   const [oauthError] = useQueryState('error', parseAsString.withDefault(''));
   const [oauthErrorDescription] = useQueryState('error_description', parseAsString.withDefault(''));
@@ -401,21 +410,23 @@ export default function AuthCard({ title, description, mode = 'sign-in', socialP
       )}
 
       {/* Switch Auth Mode */}
-      <div className="mt-8 text-center">
-        <span className="text-sm text-muted-foreground">
-          {mode === 'sign-in' ? "Don't have an account? " : 'Already have an account? '}
-        </span>
-        <Link
-          href={
-            mode === 'sign-in'
-              ? `/sign-up${callbackURL !== '/' ? `?redirect=${encodeURIComponent(callbackURL)}` : ''}`
-              : `/sign-in${callbackURL !== '/' ? `?redirect=${encodeURIComponent(callbackURL)}` : ''}`
-          }
-          className="text-sm font-medium text-foreground hover:underline underline-offset-4 transition-colors"
-        >
-          {mode === 'sign-in' ? 'Sign up' : 'Sign in'}
-        </Link>
-      </div>
+      {allowSignUps && (
+        <div className="mt-8 text-center">
+          <span className="text-sm text-muted-foreground">
+            {mode === 'sign-in' ? "Don't have an account? " : 'Already have an account? '}
+          </span>
+          <Link
+            href={
+              mode === 'sign-in'
+                ? `/sign-up${callbackURL !== '/' ? `?redirect=${encodeURIComponent(callbackURL)}` : ''}`
+                : `/sign-in${callbackURL !== '/' ? `?redirect=${encodeURIComponent(callbackURL)}` : ''}`
+            }
+            className="text-sm font-medium text-foreground hover:underline underline-offset-4 transition-colors"
+          >
+            {mode === 'sign-in' ? 'Sign up' : 'Sign in'}
+          </Link>
+        </div>
+      )}
 
       {/* Legal */}
       <p className="mt-6 text-[11px] text-center text-muted-foreground leading-relaxed">

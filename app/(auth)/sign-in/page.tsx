@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { connection } from 'next/server';
 import AuthCard from '@/components/auth-card';
+import { serverEnv } from '@/env/server';
 import { enabledSocialProviders } from '@/lib/auth';
 
 async function SignInContent() {
@@ -12,6 +13,7 @@ async function SignInContent() {
       description="Sign in to access your research history and continue where you left off."
       mode="sign-in"
       socialProviders={enabledSocialProviders}
+      allowSignUps={serverEnv.ALLOW_SIGNUPS}
     />
   );
 }
