@@ -8,6 +8,7 @@ import {
   FileText,
   Globe,
   Loader2,
+  MessageSquareText,
   Search,
   SquareTerminal,
   Wrench,
@@ -98,6 +99,16 @@ export function HermesToolStep({ step, detailed = false }: { step: HermesToolSte
           <code className={cn('block whitespace-pre', SCROLLING_PREVIEW)}>{step.preview}</code>
         </pre>
       )}
+    </div>
+  );
+}
+
+// What the agent said on its way to the next tool call, shown among the steps it explains.
+export function HermesToolNote({ text, detailed = false }: { text: string; detailed?: boolean }) {
+  return (
+    <div className={cn('flex min-h-8 items-start gap-2.5 py-2 text-xs text-muted-foreground', detailed && 'py-2.5')}>
+      <MessageSquareText className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+      <p className="min-w-0 wrap-break-word">{text}</p>
     </div>
   );
 }

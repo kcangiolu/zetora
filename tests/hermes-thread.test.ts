@@ -29,7 +29,13 @@ const step = (
 const shape = (turns: ReturnType<typeof buildHermesTurns>) =>
   turns.map((turn) => ({
     user: turn.userMessage?.id ?? null,
-    entries: turn.entries.map((entry) => (entry.kind === 'message' ? entry.message.id : entry.step.toolCallId)),
+    entries: turn.entries.map((entry) =>
+      entry.kind === 'step'
+        ? entry.step.toolCallId
+        : entry.kind === 'note'
+          ? `note:${entry.message.id}`
+          : entry.message.id,
+    ),
   }));
 
 describe('buildHermesTurns', () => {
@@ -50,9 +56,26 @@ describe('buildHermesTurns', () => {
       ],
     );
     expect(shape(turns)).toEqual([
-      { user: 'u1', entries: ['s1', 'a1', 's2', 'a2'] },
-      { user: 'u2', entries: ['s3', 'a3', 's4'] },
+      { user: 'u1', entries: ['s1', 'note:a1', 's2', 'a2'] },
+      { user: 'u2', entries: ['s3', 'note:a3', 's4'] },
     ]);
+  });
+
+  it('makes notes of text messages followed by a step, but keeps replies and media sent mid-task', () => {
+    const voice = {
+      ...message('a2', 'assistant', '2026-10-20T10:00:20Z'),
+      parts: [{ type: 'data-hermes_media', data: { mediaKind: 'voice', url: 'https://example.com/a.m4a' } }],
+    } as ChatMessage;
+    const turns = buildHermesTurns(
+      [
+        message('u1', 'user', '2026-10-20T10:00:00Z'),
+        message('a1', 'assistant', '2026-10-20T10:00:05Z'),
+        voice,
+        message('a3', 'assistant', '2026-10-20T10:00:40Z'),
+      ],
+      [step('s1', '2026-10-20T10:00:10Z'), step('s2', '2026-10-20T10:00:30Z')],
+    );
+    expect(shape(turns)).toEqual([{ user: 'u1', entries: ['note:a1', 's1', 'a2', 's2', 'a3'] }]);
   });
 
   it('places a step in the turn its trigger names, whatever its time', () => {

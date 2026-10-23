@@ -1,7 +1,13 @@
 import type { ChatMessage } from '@/lib/types';
 import type { HermesToolStepView } from './tool-steps';
 
-type HermesTurnEntry = { kind: 'message'; message: ChatMessage } | { kind: 'step'; step: HermesToolStepView };
+// A note is what the agent said on its way to a tool call ("Remux to m4a and verify..."):
+// Hermes sends that commentary as an ordinary message, so it is told apart by a step
+// following it in the same turn.
+type HermesTurnEntry =
+  | { kind: 'message'; message: ChatMessage }
+  | { kind: 'note'; message: ChatMessage }
+  | { kind: 'step'; step: HermesToolStepView };
 
 export interface HermesTurn {
   key: string;
@@ -77,8 +83,19 @@ export function buildHermesTurns(messages: ChatMessage[], steps: HermesToolStepV
     for (const step of turn.steps.slice(nextStep)) {
       turn.entries.push({ kind: 'step', step });
     }
+    const lastStep = turn.entries.findLastIndex((entry) => entry.kind === 'step');
+    turn.entries = turn.entries.map((entry, entryIndex) =>
+      entry.kind === 'message' && entryIndex < lastStep && isTextOnly(entry.message)
+        ? { kind: 'note', message: entry.message }
+        : entry,
+    );
   });
   return turns;
+}
+
+// A file or voice reply sent mid-task is a result, not commentary.
+function isTextOnly(message: ChatMessage): boolean {
+  return message.parts.every((part) => part.type === 'text');
 }
 
 export function summarizeHermesSteps(steps: HermesToolStepView[]): HermesStepsSummary {

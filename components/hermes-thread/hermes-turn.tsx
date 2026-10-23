@@ -9,10 +9,15 @@ import { HermesModeDot } from '@/components/ui/hermes-mode-dot';
 import { cleanModelText } from '@/components/message-parts/part-helpers';
 import { useMessageActions } from '@/contexts/message-actions-context';
 import { getFileAttachments } from '@/lib/file-attachments';
-import { formatStepDuration, summarizeHermesSteps, type HermesTurn as HermesTurnData } from '@/lib/hermes/thread';
+import {
+  formatStepDuration,
+  messageText,
+  summarizeHermesSteps,
+  type HermesTurn as HermesTurnData,
+} from '@/lib/hermes/thread';
 import type { Attachment, ChatMessage } from '@/lib/types';
 import { HermesBubble, type HermesBubbleAction } from './hermes-bubble';
-import { HermesToolStep } from './hermes-tool-step';
+import { HermesToolNote, HermesToolStep } from './hermes-tool-step';
 
 export type RenderHermesPart = (
   part: ChatMessage['parts'][number],
@@ -94,8 +99,9 @@ function AgentMessageContent({ message, renderPart }: { message: ChatMessage; re
 }
 
 // One exchange of an Agent conversation: the user's message, then the agent's replies
-// with the tool steps that led to them. While the turn runs, steps show in place between
-// the replies; once it is done they fold into one "Hermes task complete" line.
+// with the tool steps that led to them. While the turn runs, steps and the agent's notes on
+// them show in place between the replies; once it is done they fold into one "Hermes task
+// complete" line.
 export const HermesTurn = memo(function HermesTurn({
   turn,
   isLive,
@@ -118,13 +124,12 @@ export const HermesTurn = memo(function HermesTurn({
 }) {
   const [isTaskExpanded, setIsTaskExpanded] = useState(false);
   const summary = summarizeHermesSteps(turn.steps);
-  const firstAgentMessage = turn.entries.find((entry) => entry.kind === 'message');
-  const startedAt =
-    firstAgentMessage?.kind === 'message'
-      ? firstAgentMessage.message.metadata?.createdAt
-      : turn.entries[0]?.kind === 'step'
-        ? turn.entries[0].step.startedAt
-        : undefined;
+  const firstAgentMessage = turn.entries.find((entry) => entry.kind !== 'step');
+  const startedAt = firstAgentMessage
+    ? firstAgentMessage.message.metadata?.createdAt
+    : turn.entries[0]?.kind === 'step'
+      ? turn.entries[0].step.startedAt
+      : undefined;
 
   const bubble = (message: ChatMessage, from: 'user' | 'agent', content: ReactNode) => (
     <HermesBubble
@@ -170,6 +175,10 @@ export const HermesTurn = memo(function HermesTurn({
                 <div key={entry.step.toolCallId} className="px-1">
                   <HermesToolStep step={entry.step} />
                 </div>
+              ) : entry.kind === 'note' ? (
+                <div key={entry.message.id} className="px-1">
+                  <HermesToolNote text={messageText(entry.message)} />
+                </div>
               ) : (
                 bubble(entry.message, 'agent', <AgentMessageContent message={entry.message} renderPart={renderPart} />)
               ),
@@ -195,9 +204,13 @@ export const HermesTurn = memo(function HermesTurn({
                   </button>
                   {isTaskExpanded && (
                     <div className="flex flex-col divide-y divide-border rounded-2xl border border-border bg-card/60 px-3">
-                      {turn.steps.map((step) => (
-                        <HermesToolStep key={step.toolCallId} step={step} detailed />
-                      ))}
+                      {turn.entries.map((entry) =>
+                        entry.kind === 'step' ? (
+                          <HermesToolStep key={entry.step.toolCallId} step={entry.step} detailed />
+                        ) : entry.kind === 'note' ? (
+                          <HermesToolNote key={entry.message.id} text={messageText(entry.message)} detailed />
+                        ) : null,
+                      )}
                     </div>
                   )}
                 </>
