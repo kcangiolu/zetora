@@ -28,11 +28,13 @@ const SWEEP_PERIOD_S = 4;
 const MODE_FADE_S = 0.7;
 
 // Speech RMS sits around 0.02-0.2: this gain brings a normal voice near 1.
-const VOLUME_GAIN = 5;
+const VOLUME_GAIN = 8;
 const VOLUME_SMOOTHING = 0.18;
-// At full voice the ripple runs this much faster and pinches this much deeper.
-const VOICE_SPEED = 1.5;
-const VOICE_DEPTH = 0.3;
+// At full voice the ripple runs this much faster and pinches this much deeper, and the Z
+// swells this much on top of its breath, following the voice from one chunk to the next.
+const VOICE_SPEED = 2.5;
+const VOICE_DEPTH = 0.45;
+const VOICE_SWELL = 0.14;
 
 // The same palette as the Agent mode's border (components/mode-accent.tsx).
 const AGENT_COLORS = ['#f97316', '#ec4899', '#8b5cf6', '#3b82f6', '#10b981'];
@@ -129,7 +131,7 @@ export function VoiceMark({
       };
 
       strokeHalves(false);
-      const breath = 1 + BREATH_DEPTH * ((1 - Math.cos(rippleClock * Math.PI * 2)) / 2);
+      const breath = 1 + BREATH_DEPTH * ((1 - Math.cos(rippleClock * Math.PI * 2)) / 2) + level * VOICE_SWELL;
       toBox();
       context.scale(Z_SCALE * breath, Z_SCALE * breath);
       context.translate(-Z_CENTER_X, -Z_CENTER_Y);
