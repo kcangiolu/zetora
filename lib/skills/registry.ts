@@ -340,7 +340,7 @@ zetora_save_file('/tmp/output.pptx', 'presentation.pptx')
 
 **Phase 1 — Plan**: Title, structure, content. Research first if needed.
 
-**Phase 2 — Generate via code_interpreter**: Never use \`!pip install\` — the \`!\` shell-escape only works in Jupyter, not in a script run via \`exec()\`, and it will raise \`SyntaxError\`. Also assume \`pip\` itself may be unavailable in the sandbox (\`ensurepip\` can fail with permission denied). Detect what's importable and prefer \`fpdf2\`, which is reliably preinstalled; only use \`reportlab\` if it happens to already be importable.
+**Phase 2 — Generate via code_interpreter**: Never use \`!pip install\` — the \`!\` shell-escape only works in Jupyter, not in a script run via \`exec()\`, and it will raise \`SyntaxError\`. Also assume \`pip\` itself may be unavailable in the sandbox (\`ensurepip\` can fail with permission denied). Detect what's importable: prefer \`reportlab\`, and fall back to \`fpdf2\` when it is missing.
 
 \`\`\`python
 try:
