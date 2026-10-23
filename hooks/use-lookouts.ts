@@ -6,6 +6,7 @@ import { sileo } from 'sileo';
 import {
   createScheduledLookout,
   getUserLookouts,
+  getUserLookoutLimits,
   updateLookoutStatusAction,
   forceStopLookoutAction,
   updateLookoutAction,
@@ -27,6 +28,7 @@ export function getLastRun(lookout: Lookout): LookoutRun | null {
 }
 
 const LOOKOUTS_KEY = ['lookouts', 'list'] as const;
+const LIMITS_KEY = ['lookouts', 'limits'] as const;
 
 // Polled to follow runs: closely while one is going, loosely otherwise.
 const RUNNING_POLL_MS = 3_000;
@@ -54,6 +56,13 @@ export function useLookouts() {
     refetchIntervalInBackground: false,
   });
   const isRefreshing = useIsFetching({ queryKey: LOOKOUTS_KEY }) > 0;
+
+  // Set by the instance's environment, so they do not change during a visit.
+  const { data: limits, error: limitsError } = useQuery({
+    queryKey: LIMITS_KEY,
+    queryFn: () => getUserLookoutLimits(),
+    staleTime: Infinity,
+  });
 
   // A toast for each run that finished since the last poll.
   React.useEffect(() => {
@@ -186,9 +195,10 @@ export function useLookouts() {
 
   return {
     lookouts,
+    limits,
     isLoading,
     isRefreshing,
-    error,
+    error: error ?? limitsError,
     refresh,
 
     createLookout: createMutation.mutate,

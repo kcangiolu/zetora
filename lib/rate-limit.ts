@@ -1,11 +1,11 @@
 import { getKVRedisClient } from './redis';
 
+import { serverEnv } from '@/env/server';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('rate-limit');
 
 const WINDOW_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-const MAX_REQUESTS = 25; // exports per week, per account or per anonymous client
 
 export interface RateLimitResult {
   success: boolean;
@@ -17,7 +17,8 @@ export interface RateLimitResult {
 export const exportRateLimit = {
   async limit(identifier: string): Promise<RateLimitResult> {
     const now = Date.now();
-    const denied: RateLimitResult = { success: false, limit: MAX_REQUESTS, remaining: 0, reset: now + WINDOW_MS };
+    const maxRequests = serverEnv.ZETORA_EXPORT_WEEKLY_LIMIT;
+    const denied: RateLimitResult = { success: false, limit: maxRequests, remaining: 0, reset: now + WINDOW_MS };
     const redis = getKVRedisClient();
     if (!redis) {
       log.warn('[rate-limit] Redis is not configured — denying export request');
@@ -34,11 +35,11 @@ export const exportRateLimit = {
       // command timeout to them but not to a transaction.
       await redis.zRemRangeByScore(key, 0, windowStart);
       const count = await redis.zCard(key);
-      if (count >= MAX_REQUESTS) return denied;
+      if (count >= maxRequests) return denied;
 
       await redis.zAdd(key, { score: now, value: `${now}-${Math.random().toString(36).slice(2)}` });
       await redis.pExpire(key, WINDOW_MS);
-      return { success: true, limit: MAX_REQUESTS, remaining: MAX_REQUESTS - count - 1, reset: now + WINDOW_MS };
+      return { success: true, limit: maxRequests, remaining: maxRequests - count - 1, reset: now + WINDOW_MS };
     } catch (error) {
       log.error('[rate-limit] limit() failed — denying export request:', error);
       return denied;

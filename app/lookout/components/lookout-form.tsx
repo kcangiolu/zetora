@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 import { TimezoneSelector } from './timezone-selector';
 import { TimePicker } from './time-picker';
 import { frequencyOptions, dayOfWeekOptions, LOOKOUT_SEARCH_MODES } from '../constants';
-import { LOOKOUT_LIMITS } from '@/lib/lookout/limits';
+import type { LookoutLimits } from '@/lib/lookout/limits';
 import { LookoutFormHookReturn } from '../hooks/use-lookout-form';
 import { useLocale } from '@/contexts/locale-context';
 
@@ -25,6 +25,7 @@ const WARNING_SHARE = 0.8;
 interface LookoutFormProps {
   formHook: LookoutFormHookReturn;
   isMutating: boolean;
+  limits: LookoutLimits;
   activeDailyLookouts: number;
   totalLookouts: number;
   canCreateMore: boolean;
@@ -36,6 +37,7 @@ interface LookoutFormProps {
 export function LookoutForm({
   formHook,
   isMutating,
+  limits,
   activeDailyLookouts,
   totalLookouts,
   canCreateMore,
@@ -253,13 +255,13 @@ export function LookoutForm({
               {selectedFrequency === 'daily' ? (
                 <ProgressRing
                   value={activeDailyLookouts}
-                  max={LOOKOUT_LIMITS.DAILY_LOOKOUTS}
+                  max={limits.daily}
                   size={24}
                   strokeWidth={2}
                   color={
-                    activeDailyLookouts >= LOOKOUT_LIMITS.DAILY_LOOKOUTS
+                    activeDailyLookouts >= limits.daily
                       ? 'danger'
-                      : activeDailyLookouts >= LOOKOUT_LIMITS.DAILY_LOOKOUTS * WARNING_SHARE
+                      : activeDailyLookouts >= limits.daily * WARNING_SHARE
                         ? 'warning'
                         : 'success'
                   }
@@ -268,13 +270,13 @@ export function LookoutForm({
               ) : (
                 <ProgressRing
                   value={totalLookouts}
-                  max={LOOKOUT_LIMITS.TOTAL_LOOKOUTS}
+                  max={limits.total}
                   size={24}
                   strokeWidth={2}
                   color={
-                    totalLookouts >= LOOKOUT_LIMITS.TOTAL_LOOKOUTS
+                    totalLookouts >= limits.total
                       ? 'danger'
-                      : totalLookouts >= LOOKOUT_LIMITS.TOTAL_LOOKOUTS * WARNING_SHARE
+                      : totalLookouts >= limits.total * WARNING_SHARE
                         ? 'warning'
                         : 'primary'
                   }
@@ -283,8 +285,8 @@ export function LookoutForm({
               )}
               <span className="text-xs text-muted-foreground/60">
                 {selectedFrequency === 'daily'
-                  ? `${Math.max(0, LOOKOUT_LIMITS.DAILY_LOOKOUTS - activeDailyLookouts)} daily left`
-                  : `${LOOKOUT_LIMITS.TOTAL_LOOKOUTS - totalLookouts} left`}
+                  ? `${Math.max(0, limits.daily - activeDailyLookouts)} daily left`
+                  : `${limits.total - totalLookouts} left`}
               </span>
             </div>
           )}

@@ -20,7 +20,6 @@ import { LookoutGrid, NewLookoutCard } from './components/lookout-grid';
 import { LookoutToolbar, type LookoutTab } from './components/lookout-toolbar';
 import { useLookoutForm } from './hooks/use-lookout-form';
 import { detectTimezone } from './utils/detect-timezone';
-import { LOOKOUT_LIMITS } from '@/lib/lookout/limits';
 
 // The timezone never changes during a visit, so there is nothing to subscribe to.
 const subscribeToNothing = () => () => {};
@@ -40,6 +39,7 @@ export default function LookoutPage() {
 
   const {
     lookouts: allLookouts,
+    limits,
     isLoading,
     error,
     createLookout,
@@ -73,8 +73,6 @@ export default function LookoutPage() {
     (lookout) => lookout.frequency === 'daily' && lookout.status === 'active',
   ).length;
   const totalLookouts = allLookouts.filter((lookout) => lookout.status !== 'archived').length;
-  const canCreateMore = totalLookouts < LOOKOUT_LIMITS.TOTAL_LOOKOUTS;
-  const canCreateDailyMore = activeDailyLookouts < LOOKOUT_LIMITS.DAILY_LOOKOUTS;
 
   const filteredLookouts = allLookouts.filter((lookout) =>
     activeTab === 'archived' ? lookout.status === 'archived' : lookout.status !== 'archived',
@@ -100,7 +98,7 @@ export default function LookoutPage() {
     }
   };
 
-  if (isUserLoading) {
+  if (isUserLoading || !limits) {
     return (
       <div className="flex-1 flex flex-col justify-center py-8">
         <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
@@ -109,6 +107,9 @@ export default function LookoutPage() {
       </div>
     );
   }
+
+  const canCreateMore = totalLookouts < limits.total;
+  const canCreateDailyMore = activeDailyLookouts < limits.daily;
 
   return (
     <>
@@ -145,7 +146,7 @@ export default function LookoutPage() {
                 />
                 <h1 className="text-xl font-semibold tracking-tight">Lookout</h1>
                 <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">
-                  {totalLookouts}/{LOOKOUT_LIMITS.TOTAL_LOOKOUTS}
+                  {totalLookouts}/{limits.total}
                 </span>
               </div>
 
@@ -158,6 +159,7 @@ export default function LookoutPage() {
                 formProps={{
                   formHook,
                   isMutating,
+                  limits,
                   activeDailyLookouts,
                   totalLookouts,
                   canCreateMore,

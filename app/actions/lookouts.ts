@@ -18,7 +18,7 @@ import {
   deleteBullMqSchedule,
   getLookoutScheduler,
 } from '@/lib/services/bullmq';
-import { LOOKOUT_LIMITS } from '@/lib/lookout/limits';
+import { getLookoutLimits, type LookoutLimits } from '@/lib/lookout/limits';
 import {
   nextCronRun,
   nextOnceRun,
@@ -153,25 +153,23 @@ async function requireOwnLookout(id: string) {
 }
 
 // Throws when one more lookout (`countsTowardTotal`), or one more active
-// daily lookout, would go over LOOKOUT_LIMITS.
+// daily lookout, would go over the lookout limits.
 async function assertWithinLimits(
   userId: string,
   { frequency, countsTowardTotal, excludeId }: { frequency: string; countsTowardTotal: boolean; excludeId?: string },
 ) {
+  const limits = getLookoutLimits();
   const others = (await getLookoutsByUserId({ userId })).filter((lookout) => lookout.id !== excludeId);
-  if (
-    countsTowardTotal &&
-    others.filter((lookout) => lookout.status !== 'archived').length >= LOOKOUT_LIMITS.TOTAL_LOOKOUTS
-  ) {
-    throw new Error(`You have reached the maximum limit of ${LOOKOUT_LIMITS.TOTAL_LOOKOUTS} lookouts`);
+  if (countsTowardTotal && others.filter((lookout) => lookout.status !== 'archived').length >= limits.total) {
+    throw new Error(`You have reached the maximum limit of ${limits.total} lookouts`);
   }
   if (
     frequency === 'daily' &&
     others.filter(
       (lookout) => lookout.frequency === 'daily' && (lookout.status === 'active' || lookout.status === 'running'),
-    ).length >= LOOKOUT_LIMITS.DAILY_LOOKOUTS
+    ).length >= limits.daily
   ) {
-    throw new Error(`You have reached the maximum limit of ${LOOKOUT_LIMITS.DAILY_LOOKOUTS} active daily lookouts`);
+    throw new Error(`You have reached the maximum limit of ${limits.daily} active daily lookouts`);
   }
 }
 
@@ -271,6 +269,14 @@ export async function getUserLookouts() {
     log.error('Error getting user lookouts:', error);
     return { success: false as const, error: error instanceof Error ? error.message : 'Unknown error' };
   }
+}
+
+export async function getUserLookoutLimits(): Promise<LookoutLimits> {
+  const user = await getCurrentUser();
+  if (!user) {
+    throw new Error('Authentication required');
+  }
+  return getLookoutLimits();
 }
 
 export async function updateLookoutStatusAction({

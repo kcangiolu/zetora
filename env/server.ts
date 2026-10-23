@@ -115,6 +115,13 @@ export const serverEnv = createEnv({
     // Messages one account can send per day, against runaway or looping use;
     // 0 turns the cap off.
     ZETORA_DAILY_MESSAGE_LIMIT: z.coerce.number().int().min(0).optional().default(500),
+    // Lookouts one account may keep (archived ones aside), and how many of
+    // them may be active with a daily frequency.
+    ZETORA_LOOKOUT_LIMIT: z.coerce.number().int().positive().optional().default(30),
+    ZETORA_DAILY_LOOKOUT_LIMIT: z.coerce.number().int().positive().optional().default(20),
+    // PDF and Word exports per week, per account (per IP for visitors of a
+    // public chat), since rendering is CPU-heavy.
+    ZETORA_EXPORT_WEEKLY_LIMIT: z.coerce.number().int().positive().optional().default(25),
     // Set to false to let new email/password accounts sign in without
     // confirming their address, for instances with no SMTP server.
     REQUIRE_EMAIL_VERIFICATION: z
