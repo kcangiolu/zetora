@@ -10,6 +10,8 @@ const log = createLogger('hermes-realtime');
 const CHANNEL_PREFIX = 'hermes:chat:';
 const ACTIVE_VIEWER_PREFIX = 'hermes:active:';
 const ACTIVE_VIEWER_TTL_S = 30;
+// How often a live viewer renews its marker: well within ACTIVE_VIEWER_TTL_S.
+export const ACTIVE_VIEWER_REFRESH_MS = 20_000;
 
 // A pub/sub channel per Hermes chat, on the resumable-stream Redis clients but not on
 // ai-resumable-stream itself: that library models one bounded LLM turn, while Hermes

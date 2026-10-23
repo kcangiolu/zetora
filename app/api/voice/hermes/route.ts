@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getUserById } from '@/lib/db/queries';
 import { assertHermesEnabled } from '@/lib/hermes/feature-flag';
-import { subscribeToHermesChat } from '@/lib/hermes/realtime';
+import { ACTIVE_VIEWER_REFRESH_MS, markHermesChatViewerActive, subscribeToHermesChat } from '@/lib/hermes/realtime';
 import { sendToHermes } from '@/lib/hermes/send';
 import { HermesSpeechTracker } from '@/lib/hermes/voice-reply';
 import { textOfParts } from '@/lib/text-parts';
@@ -60,6 +60,7 @@ export async function POST(req: NextRequest) {
   let controller: ReadableStreamDefaultController<Uint8Array> | null = null;
   let unsubscribe: () => void = () => {};
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
+  let viewerTimer: ReturnType<typeof setInterval> | undefined;
   let replied = false;
   let closed = false;
 
@@ -76,6 +77,7 @@ export async function POST(req: NextRequest) {
     closed = true;
     clearTimeout(idleTimer);
     clearTimeout(maxTimer);
+    clearInterval(viewerTimer);
     unsubscribe();
   };
   const finish = (error?: string) => {
@@ -153,6 +155,14 @@ export async function POST(req: NextRequest) {
 
   // Subscribed before the message goes out, so no frame of the reply can be missed.
   unsubscribe = await subscribeToHermesChat(chatId, onFrame);
+  // The voice page shows and speaks the reply: like an open chat tab, it keeps Hermes's
+  // messages in this chat from also arriving as push notifications. The marker outlives
+  // the turn by its TTL, which covers a final message landing after turn_end.
+  const markViewer = () => {
+    markHermesChatViewerActive(chatId).catch((error) => log.warn('Could not mark the voice chat as viewed:', error));
+  };
+  markViewer();
+  viewerTimer = setInterval(markViewer, ACTIVE_VIEWER_REFRESH_MS);
   const result = await sendToHermes({ user, chatId, text, voice: true });
   if (!result.ok) {
     stop();

@@ -1,10 +1,8 @@
 import { auth } from '@/lib/auth';
 import { getChatByIdForValidation } from '@/lib/db/queries';
 import { ChatSDKError } from '@/lib/errors';
-import { subscribeToHermesChat, markHermesChatViewerActive } from '@/lib/hermes/realtime';
+import { ACTIVE_VIEWER_REFRESH_MS, subscribeToHermesChat, markHermesChatViewerActive } from '@/lib/hermes/realtime';
 import { isHermesEnabled } from '@/lib/hermes/feature-flag';
-
-const ACTIVE_VIEWER_REFRESH_MS = 20_000;
 
 // Live delivery of Hermes agent-event frames (new messages, connection-status changes) to
 // an open tab, as plain SSE read by the browser's EventSource (hooks/use-hermes-stream.ts).

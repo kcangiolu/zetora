@@ -1,14 +1,20 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-const { subscribeToHermesChat, sendToHermes, getUserById, resolveVoiceRequestUserId } = vi.hoisted(() => ({
-  subscribeToHermesChat: vi.fn(),
-  sendToHermes: vi.fn(),
-  getUserById: vi.fn(),
-  resolveVoiceRequestUserId: vi.fn(),
-}));
+const { subscribeToHermesChat, markHermesChatViewerActive, sendToHermes, getUserById, resolveVoiceRequestUserId } =
+  vi.hoisted(() => ({
+    subscribeToHermesChat: vi.fn(),
+    markHermesChatViewerActive: vi.fn(),
+    sendToHermes: vi.fn(),
+    getUserById: vi.fn(),
+    resolveVoiceRequestUserId: vi.fn(),
+  }));
 
 vi.mock('@/lib/hermes/feature-flag', () => ({ assertHermesEnabled: () => null }));
-vi.mock('@/lib/hermes/realtime', () => ({ subscribeToHermesChat }));
+vi.mock('@/lib/hermes/realtime', () => ({
+  ACTIVE_VIEWER_REFRESH_MS: 20_000,
+  subscribeToHermesChat,
+  markHermesChatViewerActive,
+}));
 vi.mock('@/lib/hermes/send', () => ({ sendToHermes }));
 vi.mock('@/lib/db/queries', () => ({ getUserById }));
 vi.mock('@/lib/voice-session-token', () => ({ resolveVoiceRequestUserId }));
@@ -76,6 +82,7 @@ describe('POST /api/voice/hermes', () => {
     resolveVoiceRequestUserId.mockResolvedValue('user-1');
     getUserById.mockResolvedValue({ id: 'user-1', name: 'Ada' });
     sendToHermes.mockResolvedValue({ ok: true, messageId: 'm-1' });
+    markHermesChatViewerActive.mockResolvedValue(undefined);
     subscribeToHermesChat.mockImplementation(async (_chatId: string, listener: (frame: unknown) => void) => {
       emit = listener;
       return unsubscribe;
@@ -122,6 +129,21 @@ describe('POST /api/voice/hermes', () => {
     expect(body.trimEnd().endsWith('data: [DONE]')).toBe(true);
     expect(unsubscribe).toHaveBeenCalled();
     expect(sendToHermes).toHaveBeenCalledTimes(1);
+  });
+
+  it('marks the chat as viewed while the turn runs, so its replies send no push notification', async () => {
+    await post({ chatId: CHAT_ID, text: 'Tell me a story' });
+    expect(markHermesChatViewerActive).toHaveBeenCalledWith(CHAT_ID);
+
+    // A heartbeat keeps the turn alive past its idle timeout.
+    await vi.advanceTimersByTimeAsync(10_000);
+    emit({ kind: 'typing' });
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(markHermesChatViewerActive).toHaveBeenCalledTimes(2);
+
+    emit({ kind: 'turn_end', response: 'Once upon a time.' });
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(markHermesChatViewerActive).toHaveBeenCalledTimes(2);
   });
 
   it('stops the Hermes turn when the caller hangs up before it ends', async () => {
