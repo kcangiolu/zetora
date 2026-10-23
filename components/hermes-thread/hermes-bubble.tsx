@@ -126,7 +126,10 @@ export function HermesBubble({
   }
 
   return (
-    <div className={cn('flex flex-col gap-1.5', from === 'user' ? 'items-end' : 'items-start')} data-hermes-bubble>
+    <div
+      className={cn('flex w-full flex-col gap-1.5', from === 'user' ? 'items-end' : 'items-start')}
+      data-hermes-bubble
+    >
       {bubble}
       {selected && (
         <div
