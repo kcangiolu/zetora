@@ -10,6 +10,10 @@ const {
   updateChatVisibilityById,
   updateChatTitleById,
   updateChatPinnedById,
+  getComprehensiveUserData,
+  findMessages,
+  saveChat,
+  saveMessages,
 } = vi.hoisted(() => ({
   getUser: vi.fn(),
   getChatByIdForValidation: vi.fn(),
@@ -20,11 +24,15 @@ const {
   updateChatVisibilityById: vi.fn(),
   updateChatTitleById: vi.fn(),
   updateChatPinnedById: vi.fn(),
+  getComprehensiveUserData: vi.fn(),
+  findMessages: vi.fn(),
+  saveChat: vi.fn(),
+  saveMessages: vi.fn(),
 }));
 
 vi.mock('@/lib/auth-utils', () => ({ getUser }));
-vi.mock('@/lib/db', () => ({ db: {}, maindb: {} }));
-vi.mock('@/lib/user-data-server', () => ({ getComprehensiveUserData: vi.fn() }));
+vi.mock('@/lib/db', () => ({ db: { query: { message: { findMany: findMessages } } }, maindb: {} }));
+vi.mock('@/lib/user-data-server', () => ({ getComprehensiveUserData }));
 vi.mock('@/lib/search/chat-title', () => ({ generateTitleFromUserMessage: vi.fn() }));
 vi.mock('@/lib/db/queries', () => ({
   getChatByIdForValidation,
@@ -41,11 +49,12 @@ vi.mock('@/lib/db/queries', () => ({
   updateMessagePartsById: vi.fn(),
   hideContextImage: vi.fn(),
   unhideContextImage: vi.fn(),
-  saveChat: vi.fn(),
-  saveMessages: vi.fn(),
+  saveChat,
+  saveMessages,
 }));
 
 import {
+  branchOutChat,
   bulkDeleteChats,
   deleteChat,
   getRecentChats,
@@ -100,6 +109,68 @@ describe('chat mutations', () => {
     }));
     await expect(bulkDeleteChats(['mine', 'foreign'])).rejects.toThrow();
     expect(deleteChatById).not.toHaveBeenCalled();
+  });
+});
+
+describe('branchOutChat', () => {
+  const stored = (id: string, role: 'user' | 'assistant', minute: number) => ({
+    id,
+    chatId: 'chat-1',
+    role,
+    parts: [{ type: 'text', text: id }],
+    attachments: [],
+    createdAt: new Date(Date.UTC(2026, 0, 1, 0, minute)),
+    model: null,
+    inputTokens: null,
+    outputTokens: null,
+    totalTokens: null,
+    completionTime: null,
+    searchVector: null,
+    isCompactionSummary: false,
+    compactionReplacedCount: null,
+    hermesReaction: null,
+    hermesGatewayId: 'gateway-1',
+  });
+  const history = [
+    stored('q1', 'user', 1),
+    stored('a1', 'assistant', 2),
+    stored('q2', 'user', 3),
+    stored('a2', 'assistant', 4),
+    stored('q3', 'user', 5),
+    stored('a3', 'assistant', 6),
+  ];
+
+  beforeEach(() => {
+    findMessages.mockResolvedValue(history);
+  });
+
+  it('copies the conversation up to and including the chosen answer', async () => {
+    getComprehensiveUserData.mockResolvedValue(OWNER);
+    const result = await branchOutChat({ chatId: 'chat-1', messageId: 'a2' });
+
+    expect(result.success).toBe(true);
+    const [{ messages }] = saveMessages.mock.calls[0];
+    expect(messages.map((m: { parts: Array<{ text: string }> }) => m.parts[0].text)).toEqual(['q1', 'a1', 'q2', 'a2']);
+    for (const copy of messages) {
+      expect(copy.chatId).toBe(result.chatId);
+      expect(copy.hermesGatewayId).toBeNull();
+      expect(history.map((m) => m.id)).not.toContain(copy.id);
+    }
+    expect(saveChat).toHaveBeenCalledWith(expect.objectContaining({ id: result.chatId, userId: OWNER.id }));
+  });
+
+  it("refuses someone else's chat", async () => {
+    getComprehensiveUserData.mockResolvedValue(STRANGER);
+    await expect(branchOutChat({ chatId: 'chat-1', messageId: 'a2' })).resolves.toMatchObject({ success: false });
+    expect(findMessages).not.toHaveBeenCalled();
+    expect(saveMessages).not.toHaveBeenCalled();
+  });
+
+  it('refuses a message that is not an answer of this chat', async () => {
+    getComprehensiveUserData.mockResolvedValue(OWNER);
+    await expect(branchOutChat({ chatId: 'chat-1', messageId: 'q2' })).resolves.toMatchObject({ success: false });
+    await expect(branchOutChat({ chatId: 'chat-1', messageId: 'other' })).resolves.toMatchObject({ success: false });
+    expect(saveMessages).not.toHaveBeenCalled();
   });
 });
 

@@ -36,12 +36,6 @@ function useBusyAction(action: () => Promise<void>) {
   return [isBusy, run] as const;
 }
 
-// The user message that prompted an answer: the last one before it.
-function findPromptingUserMessage(messages: ChatMessage[], answerId: string): ChatMessage | undefined {
-  const answerIndex = messages.findIndex((m) => m.id === answerId);
-  return messages.slice(0, Math.max(answerIndex, 0)).findLast((m) => m.role === 'user');
-}
-
 // The buttons under an answer: edit, try again, delete, share, copy, read aloud, branch
 // out and export.
 export function ResponseActions({
@@ -68,7 +62,7 @@ export function ResponseActions({
   chatId?: string;
   selectedVisibilityType?: 'public' | 'private';
 }) {
-  const { getMessages, onRetryLastTurn, onDeleteLastTurn, onVisibilityChange } = useMessageActions();
+  const { onRetryLastTurn, onDeleteLastTurn, onVisibilityChange } = useMessageActions();
   const { copy } = useCopyToClipboard();
   const speech = useSpeech();
   const router = useRouter();
@@ -81,12 +75,11 @@ export function ResponseActions({
   const [isDeleting, deleteTurn] = useBusyAction(onDeleteLastTurn);
   const [isBranchingOut, branchOut] = useBusyAction(async () => {
     try {
-      const userMessage = findPromptingUserMessage(getMessages(), message.id);
-      if (!userMessage) {
-        sileo.error({ title: 'Could not find corresponding user message' });
+      if (!chatId) {
+        sileo.error({ title: 'Failed to branch out chat' });
         return;
       }
-      const result = await branchOutChat({ userMessage, assistantMessage: message });
+      const result = await branchOutChat({ chatId, messageId: message.id });
       if (!result.success || !result.chatId) {
         sileo.error({ title: result.error || 'Failed to branch out chat' });
         return;

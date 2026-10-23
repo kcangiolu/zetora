@@ -26,6 +26,7 @@ import type { ChatMessage } from '@/lib/types';
 import { eq, desc, ilike, and, or, asc, inArray, notExists, exists, sql } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import { saveChat, saveMessages } from '@/lib/db/queries';
+import { convertToUIMessages } from '@/lib/chat-messages';
 import { all, allSettled } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
@@ -333,6 +334,29 @@ export async function updateChatTitle(chatId: string, title: string) {
   }
 }
 
+// A copy of a stored message under a new id in another chat. The Hermes fields
+// stay behind: they tie the message to a gateway conversation the copy is not part of.
+function copyMessageToChat(messageItem: Message, chatId: string): Message {
+  return {
+    chatId,
+    id: uuidv7(),
+    role: messageItem.role,
+    parts: messageItem.parts,
+    attachments: messageItem.attachments ?? [],
+    createdAt: messageItem.createdAt,
+    model: messageItem.model ?? null,
+    inputTokens: messageItem.inputTokens ?? null,
+    outputTokens: messageItem.outputTokens ?? null,
+    totalTokens: messageItem.totalTokens ?? null,
+    completionTime: messageItem.completionTime ?? null,
+    searchVector: null,
+    isCompactionSummary: messageItem.isCompactionSummary,
+    compactionReplacedCount: messageItem.compactionReplacedCount ?? null,
+    hermesReaction: null,
+    hermesGatewayId: null,
+  };
+}
+
 export async function forkChat(
   originalChatId: string,
 ): Promise<{ success: boolean; newChatId?: string; error?: string }> {
@@ -361,24 +385,7 @@ export async function forkChat(
     const newChatId = uuidv7();
     const newChatTitle = originalChat.title ? `Fork of ${originalChat.title}` : 'Forked Chat';
 
-    const messagesToSave = messages.map((messageItem) => ({
-      chatId: newChatId,
-      id: uuidv7(),
-      role: messageItem.role,
-      parts: messageItem.parts,
-      attachments: messageItem.attachments ?? [],
-      createdAt: messageItem.createdAt,
-      model: messageItem.model ?? null,
-      inputTokens: messageItem.inputTokens ?? null,
-      outputTokens: messageItem.outputTokens ?? null,
-      totalTokens: messageItem.totalTokens ?? null,
-      completionTime: messageItem.completionTime ?? null,
-      searchVector: null,
-      isCompactionSummary: messageItem.isCompactionSummary,
-      compactionReplacedCount: messageItem.compactionReplacedCount ?? null,
-      hermesReaction: null,
-      hermesGatewayId: null,
-    }));
+    const messagesToSave = messages.map((messageItem) => copyMessageToChat(messageItem, newChatId));
 
     await all(
       {
@@ -408,14 +415,9 @@ export async function forkChat(
   }
 }
 
-// Branch out a chat - create a new chat with the current user and assistant message pair
-export async function branchOutChat({
-  userMessage,
-  assistantMessage,
-}: {
-  userMessage: ChatMessage;
-  assistantMessage: ChatMessage;
-}) {
+// Branch out a chat: a new chat holding the conversation up to and including one
+// answer, so the branch keeps the context that answer was given in.
+export async function branchOutChat({ chatId, messageId }: { chatId: string; messageId: string }) {
   'use server';
 
   try {
@@ -424,53 +426,32 @@ export async function branchOutChat({
       return { success: false, error: 'User not authenticated' };
     }
 
-    // Generate new chat ID and message IDs
+    const owningChat = await getChatByIdForValidation({ id: chatId });
+    if (!owningChat || owningChat.userId !== currentUser.id) {
+      return { success: false, error: 'Chat not found' };
+    }
+
+    const messages = await db.query.message.findMany({
+      where: eq(message.chatId, chatId),
+      orderBy: (fields, { asc }) => [asc(fields.createdAt), asc(fields.id)],
+    });
+    const answerIndex = messages.findIndex((m) => m.id === messageId);
+    if (answerIndex === -1 || messages[answerIndex].role !== 'assistant') {
+      return { success: false, error: 'Answer not found' };
+    }
+    const branchedMessages = messages.slice(0, answerIndex + 1);
+    const promptingUserMessage = branchedMessages.findLast((m) => m.role === 'user');
+    if (!promptingUserMessage) {
+      return { success: false, error: 'Could not find corresponding user message' };
+    }
+
     const newChatId = uuidv7();
-    const newUserMessageId = uuidv7();
-    const newAssistantMessageId = uuidv7();
 
     // Start title generation early (can run while we prepare messages)
-    const chatTitlePromise = generateTitleFromUserMessage({ message: userMessage, userId: currentUser.id });
+    const [titleMessage] = convertToUIMessages([promptingUserMessage]);
+    const chatTitlePromise = generateTitleFromUserMessage({ message: titleMessage, userId: currentUser.id });
 
-    // Prepare messages for saving
-    const messagesToSave = [
-      {
-        chatId: newChatId,
-        id: newUserMessageId,
-        role: 'user' as const,
-        parts: userMessage.parts,
-        attachments: [],
-        createdAt: new Date(),
-        model: userMessage.metadata?.model || null,
-        inputTokens: userMessage.metadata?.inputTokens ?? null,
-        outputTokens: null,
-        totalTokens: null,
-        completionTime: null,
-        searchVector: null,
-        isCompactionSummary: false,
-        compactionReplacedCount: null,
-        hermesReaction: null,
-        hermesGatewayId: null,
-      },
-      {
-        chatId: newChatId,
-        id: newAssistantMessageId,
-        role: 'assistant' as const,
-        parts: assistantMessage.parts,
-        attachments: [],
-        createdAt: new Date(),
-        model: assistantMessage.metadata?.model || null,
-        inputTokens: assistantMessage.metadata?.inputTokens ?? null,
-        outputTokens: assistantMessage.metadata?.outputTokens ?? null,
-        totalTokens: assistantMessage.metadata?.totalTokens ?? null,
-        completionTime: assistantMessage.metadata?.completionTime ?? null,
-        searchVector: null,
-        isCompactionSummary: false,
-        compactionReplacedCount: null,
-        hermesReaction: null,
-        hermesGatewayId: null,
-      },
-    ];
+    const messagesToSave = branchedMessages.map((messageItem) => copyMessageToChat(messageItem, newChatId));
 
     // Create chat first (messages have foreign key to chat), then save messages
     await all(
