@@ -154,10 +154,9 @@ export async function renderMarkdownPdf({ title, content: rawContent, meta = {} 
     const logoWidth = 20;
     const logoColor = rgb(0.15, 0.15, 0.15);
 
-    // Align logo top to sit above the text baseline (cap height ~0.7x font size)
+    // Center the logo on the title's capitals (cap height ~0.7x font size)
     const capHeight = titleSize * 0.7;
-    const baselineAdjust = 25; // nudge downward for visual alignment
-    const logoTop = y + capHeight + baselineAdjust;
+    const logoTop = y + capHeight / 2 + logoWidth / 2;
     const logoHeight = drawZetoraLogo(page, margin, logoTop, logoWidth, logoColor);
     const textX = margin + logoWidth + 8;
     const headerText = title ?? 'Zetora AI';
