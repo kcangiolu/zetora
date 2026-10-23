@@ -68,7 +68,13 @@ export function createBrowsePageTool({ emit, collectSources }: AgentToolContext,
       const browseResultsMap = await all(browseTasks, getBetterAllOptions());
       const results = urls.map((_, index) => browseResultsMap[`browse-${index}`]).filter(Boolean);
 
-      emit({ kind: 'browse_page', browseId, urls, index: total - 1, total, status: 'completed', results });
+      // The card only previews each page, and the AI SDK clones the whole message on
+      // every streamed chunk: full pages here would make the answer stream freeze the tab.
+      const previews = results.map((result) => ({
+        ...result,
+        content: result.content ? result.content.slice(0, 500) + '...' : '',
+      }));
+      emit({ kind: 'browse_page', browseId, urls, index: total - 1, total, status: 'completed', results: previews });
       return { urls, results };
     },
   });

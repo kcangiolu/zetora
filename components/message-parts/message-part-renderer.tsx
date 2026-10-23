@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo } from 'react';
 import type { DataUIPart, ReasoningUIPart } from 'ai';
 import { SPEC_DATA_PART_TYPE } from '@json-render/core';
 
@@ -34,6 +34,20 @@ interface MessagePartRendererProps {
   hiddenImageUrls?: Set<string>;
 }
 
+// Every part of a message renders through its own MessagePartRenderer, and a deep
+// research streams hundreds of data parts: filtering per part would cost
+// parts² on each streamed chunk, so all parts of one message version share one list.
+const dataPartsByMessageParts = new WeakMap<ChatMessage['parts'], DataUIPart<CustomUIDataTypes>[]>();
+
+function getDataParts(parts: ChatMessage['parts']): DataUIPart<CustomUIDataTypes>[] {
+  let dataParts = dataPartsByMessageParts.get(parts);
+  if (!dataParts) {
+    dataParts = parts.filter((p) => p.type.startsWith('data-')) as DataUIPart<CustomUIDataTypes>[];
+    dataPartsByMessageParts.set(parts, dataParts);
+  }
+  return dataParts;
+}
+
 // Renders one part of a message by its type.
 export const MessagePartRenderer = memo<MessagePartRendererProps>(function MessagePartRenderer({
   part,
@@ -54,10 +68,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(function Messa
   chatId,
   hiddenImageUrls,
 }) {
-  const annotations = useMemo(
-    () => message.parts.filter((p) => p.type.startsWith('data-')) as DataUIPart<CustomUIDataTypes>[],
-    [message.parts],
-  );
+  const annotations = getDataParts(message.parts);
   // The owner, or anyone on a private chat opened without an account.
   const canEdit = Boolean((user && isOwner) || (!user && selectedVisibilityType === 'private'));
 
