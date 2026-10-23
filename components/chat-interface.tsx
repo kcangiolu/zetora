@@ -1344,15 +1344,15 @@ const ChatInterface = memo(
             />
 
             <div
-              className={`w-full p-2 sm:p-4 relative ${
+              className={`w-full relative ${
                 uiStatus === 'ready' && messages.length === 0
-                  ? 'flex-1 flex! flex-col! items-center! justify-center!' // Center everything when no messages
-                  : 'flex flex-col! mt-4 flex-1 min-h-0' // Add top margin when showing messages; stretch so the virtualized list below can size against a fixed height
+                  ? 'p-2 sm:p-4 flex-1 flex! flex-col! items-center! justify-center!' // Center everything when no messages
+                  : 'py-2 sm:py-4 flex flex-col! mt-4 flex-1 min-h-0' // Add top margin when showing messages; stretch so the virtualized list below can size against a fixed height. No side padding: the list's scrollbar sits at the page edge
               }`}
             >
               <div
-                className={`w-full max-w-[95%] sm:max-w-2xl space-y-6 p-0 mx-auto transition-all duration-300 ${
-                  messages.length > 0 ? 'flex flex-col flex-1 min-h-0' : ''
+                className={`w-full space-y-6 p-0 mx-auto transition-all duration-300 ${
+                  messages.length > 0 ? 'flex flex-col flex-1 min-h-0' : 'max-w-[95%] sm:max-w-2xl'
                 }`}
               >
                 {uiStatus === 'ready' && messages.length === 0 && (

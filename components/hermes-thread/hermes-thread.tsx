@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode, type RefObject } from 'react';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
+import { ConversationList } from '@/components/conversation-column';
 import { Copy, EyeOff, RotateCcw } from 'lucide-react';
 import { sileo } from 'sileo';
 import { hideHermesMessageAction } from '@/app/actions/hermes';
@@ -59,7 +60,7 @@ export function HermesThread<Context>({
 
   const turns = useMemo(() => buildHermesTurns(messages, toolSteps), [messages, toolSteps]);
   // Stable across renders: a new components object would remount the footer each time.
-  const components = useMemo(() => ({ Footer: footer }), [footer]);
+  const components = useMemo(() => ({ List: ConversationList, Footer: footer }), [footer]);
   const lastTurn = turns.at(-1);
   const isLastTurnLive = Boolean(lastTurn && (isAgentBusy || summarizeHermesSteps(lastTurn.steps).running));
   const lastAgentEntry = lastTurn?.entries.findLast((entry) => entry.kind === 'message');

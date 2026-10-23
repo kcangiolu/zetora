@@ -13,6 +13,7 @@ import { ComprehensiveUserData } from '@/lib/user-data-server';
 import { cn } from '@/lib/utils';
 import { useTurnActions } from '@/hooks/use-turn-actions';
 import { HermesThread } from '@/components/hermes-thread/hermes-thread';
+import { ConversationColumn, ConversationList } from '@/components/conversation-column';
 import type { HermesToolStepView } from '@/lib/hermes/tool-steps';
 
 // react-virtuoso logs "Zero-sized element" as an ERROR, its lowest prop-settable
@@ -112,7 +113,7 @@ function MessagesFooter({ context }: { context: MessagesFooterContext }) {
     handleDelete,
   } = context;
   return (
-    <>
+    <ConversationColumn>
       {/* The agent's reply while it is still being written (Hermes's `draft` op). It lives
           here instead of in the message list because it is never persisted: the completed
           segment arrives separately as its own message, and the draft is cleared the
@@ -145,11 +146,14 @@ function MessagesFooter({ context }: { context: MessagesFooterContext }) {
           handleDelete={handleDelete}
         />
       )}
-    </>
+    </ConversationColumn>
   );
 }
 
-const VIRTUOSO_COMPONENTS: Components<ChatMessage, MessagesFooterContext> = { Footer: MessagesFooter };
+const VIRTUOSO_COMPONENTS: Components<ChatMessage, MessagesFooterContext> = {
+  List: ConversationList,
+  Footer: MessagesFooter,
+};
 
 const NO_HERMES_TOOL_STEPS: HermesToolStepView[] = [];
 
