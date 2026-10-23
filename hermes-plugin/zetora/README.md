@@ -14,6 +14,11 @@ It also reports the end of each turn of a Zetora conversation, with the turn's f
 (`post_llm_call` hook, `/relay/turn-event`). Zetora's voice page, in Hermes mode, needs it
 to know when the agent has finished: without the plugin it waits 15 seconds of silence.
 
+For a message spoken on Zetora's voice page, it asks the agent for a reply made to be heard
+(`pre_llm_call` hook): a few sentences of plain prose, no markdown, paths or URLs read out,
+and a one- or two-word transcript such as "okay" never taken as approval to act. Without the
+plugin, Hermes answers a spoken message like a typed one.
+
 ## Install
 
 On the machine running the Hermes gateway enrolled with Zetora:

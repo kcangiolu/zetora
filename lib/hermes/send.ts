@@ -20,7 +20,8 @@ import { createLogger } from '@/lib/logger';
 const log = createLogger('hermes-send');
 
 // Hermes shows a chat's topic in the session context of its prompt, as metadata it must not
-// take orders from: a description of the channel, so the agent answers in speakable prose.
+// take orders from. Zetora's Hermes plugin (hermes-plugin/zetora) matches this exact text to
+// tell a spoken message apart and ask for a speakable reply: change both together.
 const VOICE_CHAT_TOPIC =
   'Voice conversation: the user speaks through speech-to-text and hears every reply read aloud by text-to-speech.';
 
