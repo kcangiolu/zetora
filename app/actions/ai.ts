@@ -17,9 +17,18 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger('ai');
 
+// Enough of a long answer (a deep research report runs past 30,000 characters) to suggest
+// what to ask next; the rest only costs tokens.
+const SUGGESTION_CONTEXT_MAX_CHARS = 20_000;
+
 // The last exchange of a chat, as the chat interface sends it.
 const suggestionHistorySchema = z
-  .array(z.object({ role: z.enum(['user', 'assistant']), content: z.string().max(20_000) }))
+  .array(
+    z.object({
+      role: z.enum(['user', 'assistant']),
+      content: z.string().transform((text) => text.slice(0, SUGGESTION_CONTEXT_MAX_CHARS)),
+    }),
+  )
   .min(1)
   .max(10);
 
@@ -30,14 +39,14 @@ export async function suggestQuestions(rawHistory: unknown) {
   if (!suggestUser) {
     throw new Error('Authentication required');
   }
-  const history = suggestionHistorySchema.parse(rawHistory);
-
   const suggestPrefs = await getCachedUserPreferencesByUserId(suggestUser.id);
   const suggestPrefsMap = suggestPrefs?.preferences ?? {};
 
   if (suggestPrefs?.preferences?.['zetora-tertiary-followup-enabled'] === false) {
     return { questions: [] };
   }
+
+  const history = suggestionHistorySchema.parse(rawHistory);
 
   // Plain-text generation + JSON extraction (not the AI SDK's Output.object/
   // structured-outputs path): the 'followup' tertiary task can resolve to a
