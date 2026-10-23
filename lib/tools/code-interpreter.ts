@@ -134,8 +134,13 @@ export const codeInterpreterTool = tool({
         );
         files.push({ filename: file.filename, url, size: buffer.length });
       } catch (uploadError) {
+        log.error(`Failed to upload ${file.filename}:`, uploadError);
+        // A storage SDK error can have an empty message (a refused connection is an
+        // AggregateError): name it anyway, and say a rerun will not help, or the model
+        // keeps rewriting working code to get around a storage outage.
+        const reason = uploadError instanceof Error ? uploadError.message || uploadError.name : String(uploadError);
         fileErrors.push(
-          `Failed to upload ${file.filename}: ${uploadError instanceof Error ? uploadError.message : String(uploadError)}`,
+          `Failed to upload ${file.filename} (${reason}): the server's file storage failed, running the code again will not fix it.`,
         );
       }
     }
