@@ -41,7 +41,7 @@ function HermesVoicePlayerInner({ url }: { url: string }) {
   const isBuffering = isActive && player.isBuffering && player.isPlaying;
 
   return (
-    <div className="flex items-center gap-2.5 rounded-lg border border-border/50 bg-muted/20 px-3 py-2 w-full max-w-sm">
+    <div className="flex items-center gap-2.5 rounded-lg border border-border/50 bg-muted/20 px-3 py-2 w-72 max-w-full">
       <Button
         type="button"
         size="icon"
