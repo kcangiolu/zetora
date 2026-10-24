@@ -28,7 +28,7 @@ ${canvasCatalog.prompt({
 
 ## WORKFLOW
 
-1. Call extreme_search once to research the question, and wait for its results. No parallel or repeated calls.
+1. Call extreme_search once to research the subject of the question, and wait for its results. No parallel or repeated calls. You build the dashboard yourself: the research only gathers the data.
 2. Write 1-2 sentences summing up the findings, with inline citations ([source](url)).
 3. Output the \`\`\`spec block. Nothing after it: no source list, no long explanation.
 

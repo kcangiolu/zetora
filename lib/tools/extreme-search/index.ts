@@ -32,6 +32,7 @@ import { createFileQueryTool } from './agent-tools/file-query';
 import { createThinkingTool } from './agent-tools/thinking';
 import { createWebSearchTool } from './agent-tools/web-search';
 import { createXSearchTool } from './agent-tools/x-search';
+import { MAX_IDENTICAL_TOOL_CALLS, isRepeatingToolCall } from './loop-guard';
 import { buildAgentSystemPrompt, buildPlannerPrompt, normalizeResearchPlan, researchPlanSchema } from './prompts';
 import { resolveExtremeProviderStack } from './providers';
 
@@ -121,11 +122,16 @@ async function extremeSearch(
   // A wall-clock deadline too, so a run can never grow unbounded.
   const agentDeadline = EXTREME_WALL_CLOCK_MS > 0 ? Date.now() + EXTREME_WALL_CLOCK_MS : Number.POSITIVE_INFINITY;
 
-  await generateText({
+  const { steps } = await generateText({
     model: await resolveTertiaryModel('extreme-agent', preferences),
     // Stop in the chat aborts the whole run, the agent's tool calls included.
     abortSignal,
-    stopWhen: [stepCountIs(maxSteps), hasToolCall('done'), () => isPastDeadline(agentDeadline)],
+    stopWhen: [
+      stepCountIs(maxSteps),
+      hasToolCall('done'),
+      () => isPastDeadline(agentDeadline),
+      ({ steps }) => isRepeatingToolCall(steps),
+    ],
     activeTools,
     maxRetries: 2,
     system: buildAgentSystemPrompt(plan, {
@@ -169,6 +175,15 @@ async function extremeSearch(
     // The model can only stop by calling done: it must call a tool at every step.
     prepareStep: async () => ({ toolChoice: 'required' as const }),
   });
+
+  if (!steps.some((step) => step.toolCalls.some((call) => call?.toolName === 'done'))) {
+    const reason = isRepeatingToolCall(steps)
+      ? `the same tool call was repeated ${MAX_IDENTICAL_TOOL_CALLS} times`
+      : isPastDeadline(agentDeadline)
+        ? 'the wall-clock deadline passed'
+        : `the ${maxSteps}-step limit was reached`;
+    log.warn(`Research agent stopped without calling done: ${reason} (${steps.length} steps)`);
+  }
 
   context.emit({ kind: 'plan', status: { title: 'Research completed' } });
 

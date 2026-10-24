@@ -87,7 +87,7 @@ async function uploadChart(
 
 export function createCodeRunnerTool({ emit }: AgentToolContext) {
   return tool({
-    description: `Run Python code in a sandbox. IMPORTANT: Only ONE chart per execution — never create multiple charts in a single run. Use plt.show() to display charts, NOT plt.savefig() which does not work in this environment. Pre-installed libraries: ${PYTHON_LIBS_AVAILABLE.join(', ')}. Other packages will be auto-installed via pip.`,
+    description: `Run Python code in a sandbox. Every run starts from a fresh sandbox: files and variables from earlier runs are gone. IMPORTANT: Only ONE chart per execution — never create multiple charts in a single run. Use plt.show() to display charts, NOT plt.savefig() which does not work in this environment. Pre-installed libraries: ${PYTHON_LIBS_AVAILABLE.join(', ')}. Other packages will be auto-installed via pip.`,
     inputSchema: z.object({
       title: z.string().describe('The title of what you are running the code for'),
       code: z.string().describe('The Python code to run. Use plt.show() for charts, NOT savefig().'),
