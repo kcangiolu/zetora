@@ -20,7 +20,7 @@ interface VoiceClientOptions {
 
 export type VoiceAgent = 'zetora' | 'hermes';
 
-interface ConversationTurn {
+export interface ConversationTurn {
   role: 'user' | 'assistant' | 'tool';
   text: string;
   name?: string;

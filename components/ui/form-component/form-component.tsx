@@ -944,7 +944,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                       (!isHermesChat || isHermesEnabled())
                         ? () => {
                             setPlusMenuOpen(false);
-                            router.push(`/voice?chat=${chatId}&agent=${isHermesChat ? 'hermes' : 'zetora'}`);
+                            router.push(`/voice?chat=${chatId}`);
                           }
                         : undefined
                     }

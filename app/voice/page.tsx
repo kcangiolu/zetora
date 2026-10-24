@@ -8,7 +8,8 @@ import { VoiceMark } from '@/components/ui/voice-mark';
 import { VoicePicker } from '@/components/ui/voice-picker';
 import { ZetoraLogo } from '@/components/logos/zetora-logo';
 import { VoiceButton, type VoiceButtonState } from '@/components/ui/voice-button';
-import { useVoiceClient, type VoiceAgent, type VoiceType } from '@/hooks/use-voice-client';
+import { useVoiceClient, type ConversationTurn, type VoiceAgent, type VoiceType } from '@/hooks/use-voice-client';
+import { useContinuedVoiceChat } from '@/hooks/use-continued-voice-chat';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { useInstanceCapabilities } from '@/hooks/use-instance-capabilities';
@@ -35,15 +36,11 @@ function isVoiceType(value: string): value is VoiceType {
   return value === 'Ara' || value === 'Rex' || value === 'Sal' || value === 'Eve' || value === 'Leo';
 }
 
-export default function VoicePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ chat?: string | string[]; agent?: string | string[] }>;
-}) {
-  // A chat to continue by voice (the composer's "Continue by voice"), and who answers it.
-  const { chat, agent } = use(searchParams);
+export default function VoicePage({ searchParams }: { searchParams: Promise<{ chat?: string | string[] }> }) {
+  // A chat to continue by voice (the composer's "Continue by voice").
+  const { chat } = use(searchParams);
   const continuedChatId = typeof chat === 'string' ? chat : undefined;
-  const continuedAgent: VoiceAgent = agent === 'hermes' ? 'hermes' : 'zetora';
+  const continuedChat = useContinuedVoiceChat(continuedChatId);
   const [storedVoice, setStoredVoice] = useLocalStorage<string>(VOICE_STORAGE_KEY, 'Ara');
   const selectedVoice: VoiceType = isVoiceType(storedVoice) ? storedVoice : 'Ara';
   const [isMuted, setMuted] = useLocalStorage(MUTE_STORAGE_KEY, false);
@@ -62,14 +59,27 @@ export default function VoicePage({
   // Hermes answers through the local backend only: the cloud one runs xAI's own model.
   const canUseHermes = voiceBackend === 'local' && isHermesEnabled();
   const [storedAgent, setStoredAgent] = useLocalStorage<VoiceAgent>(AGENT_STORAGE_KEY, 'zetora');
-  // Continuing a chat needs the local backend, and Hermes for an Agent chat.
-  const continuesChat =
-    continuedChatId !== undefined && (continuedAgent === 'hermes' ? canUseHermes : voiceBackend === 'local');
+  const continuesChat = continuedChatId !== undefined;
+  // A continued chat is answered by the agent it belongs to, never the one picked last time.
   const voiceAgent: VoiceAgent = continuesChat
-    ? continuedAgent
+    ? (continuedChat.data?.agent ?? 'zetora')
     : canUseHermes && storedAgent === 'hermes'
       ? 'hermes'
       : 'zetora';
+  // Why the continued chat cannot be resumed here, shown in place of starting a new chat
+  // with another agent. Null while it loads, or when nothing stands in the way.
+  const continueError = !continuesChat
+    ? null
+    : continuedChat.error
+      ? continuedChat.error.message
+      : !continuedChat.data || !voiceBackend
+        ? null
+        : voiceBackend !== 'local'
+          ? 'Continuing a chat by voice needs the local Voice Backend: switch it in Settings > Voice.'
+          : continuedChat.data.agent === 'hermes' && !canUseHermes
+            ? 'This Agent chat is answered by Hermes Agent, which is not enabled on this instance.'
+            : null;
+  const canStart = Boolean(voiceBackend) && (!continuesChat || (continuedChat.data !== undefined && !continueError));
 
   const {
     agentState,
@@ -88,8 +98,22 @@ export default function VoicePage({
     muted: isMuted,
     backend: voiceBackend ?? 'cloud',
     agent: voiceAgent,
-    chatId: continuesChat ? continuedChatId : undefined,
+    chatId: continuedChatId,
   });
+
+  // A new session on the same page reads the chat again, so it also shows the last one's turns.
+  const refetchContinuedChat = continuedChat.refetch;
+  useEffect(() => {
+    if (isConnected && continuesChat) void refetchContinuedChat();
+  }, [isConnected, continuesChat, refetchContinuedChat]);
+
+  const transcript = useMemo<ConversationTurn[]>(
+    () => [
+      ...(continuedChat.data?.messages.map(({ role, content }) => ({ role, text: content })) ?? []),
+      ...conversation,
+    ],
+    [continuedChat.data, conversation],
+  );
 
   function formatMs(ms: number) {
     if (ms < 1000) return `${Math.round(ms)}ms`;
@@ -105,7 +129,7 @@ export default function VoicePage({
   useEffect(() => {
     if (!showTranscript || !transcriptBottomRef.current) return;
     transcriptBottomRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [conversation, showTranscript]);
+  }, [transcript, showTranscript]);
 
   useEffect(() => {
     if (!isProStatusLoading && !user) {
@@ -117,10 +141,10 @@ export default function VoicePage({
   const handleConnect = useCallback(async () => {
     if (isConnected || isConnecting) {
       disconnect();
-    } else if (voiceBackend) {
+    } else if (canStart) {
       await connect();
     }
-  }, [isConnected, isConnecting, voiceBackend, connect, disconnect]);
+  }, [isConnected, isConnecting, canStart, connect, disconnect]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -260,7 +284,7 @@ export default function VoicePage({
           </div>
 
           {/* Transcript accordion — shrink-0, header always visible when connected */}
-          {isConnected && conversation.length > 0 && (
+          {isConnected && transcript.length > 0 && (
             <div className="shrink-0 w-full rounded-xl border border-border/40 bg-card/30 overflow-hidden">
               {/* Toggle header */}
               <button
@@ -296,8 +320,8 @@ export default function VoicePage({
                       className="overflow-y-auto overflow-x-hidden px-3 pb-3 space-y-2 scroll-smooth border-t border-border/30"
                       style={{ maxHeight: 220 }}
                     >
-                      {conversation.slice(-14).map((turn, i) => {
-                        const globalIndex = Math.max(0, conversation.length - 14) + i;
+                      {transcript.slice(-14).map((turn, i) => {
+                        const globalIndex = Math.max(0, transcript.length - 14) + i;
                         if (turn.role === 'user') {
                           return (
                             <motion.div
@@ -324,7 +348,7 @@ export default function VoicePage({
                               className={cn('flex items-start gap-2 pt-2', turn.interrupted && 'opacity-50')}
                             >
                               <span className="font-pixel text-[9px] text-muted-foreground/40 tracking-wider pt-0.5 shrink-0 w-6 text-right">
-                                Zetora
+                                {voiceAgent === 'hermes' ? 'Hermes' : 'Zetora'}
                               </span>
                               <p className="text-xs leading-relaxed text-foreground/70">
                                 {turn.text}
@@ -474,15 +498,17 @@ export default function VoicePage({
                         </TabsList>
                       </Tabs>
                     )}
-                    <p className="text-center text-[11px] text-muted-foreground/50 py-2">
-                      {continuesChat
-                        ? voiceAgent === 'hermes'
-                          ? 'Continuing your Agent chat by voice'
-                          : 'Continuing your chat by voice'
-                        : voiceAgent === 'hermes'
-                          ? 'Your Hermes agent answers — the conversation is saved as an Agent chat'
-                          : 'Local backend — voice comes from your Custom TTS Server, the conversation is saved as a chat'}
-                    </p>
+                    {!continueError && (
+                      <p className="text-center text-[11px] text-muted-foreground/50 py-2">
+                        {continuesChat
+                          ? voiceAgent === 'hermes'
+                            ? 'Continuing your Agent chat by voice'
+                            : 'Continuing your chat by voice'
+                          : voiceAgent === 'hermes'
+                            ? 'Your Hermes agent answers — the conversation is saved as an Agent chat'
+                            : 'Local backend — voice comes from your Custom TTS Server, the conversation is saved as a chat'}
+                      </p>
+                    )}
                   </motion.div>
                 ) : isConnected ? (
                   <motion.div
@@ -531,12 +557,16 @@ export default function VoicePage({
                 </p>
               )}
 
+              {continueError && (
+                <p className="text-center text-[11px] text-muted-foreground/70 py-1">{continueError}</p>
+              )}
+
               {/* Action buttons */}
               <div className="flex items-center justify-center gap-2 w-full">
                 <VoiceButton
                   state={voiceButtonState}
                   onPress={handleConnect}
-                  disabled={!voiceBackend}
+                  disabled={!canStart && !isConnected && !isConnecting}
                   size="sm"
                   label={isConnected || isConnecting ? 'End session' : 'Start session'}
                   trailing={

@@ -31,8 +31,10 @@ const bodySchema = z.object({
     .max(2),
 });
 
-// Called by the s2s-service when the voice page continues a chat in Zetora mode: the chat's
-// latest messages, as the Voice model's conversation so far.
+// The chat's latest messages and who answers it. The voice page shows them above the
+// session's own turns and takes the agent from here, so a chat continues by voice only with
+// the agent it belongs to. The s2s-service, in Zetora mode, hands them to the Voice model
+// as the conversation so far; saving a turn still refuses a Hermes chat.
 export async function GET(req: NextRequest) {
   const userId = await resolveVoiceRequestUserId(req);
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -42,9 +44,7 @@ export async function GET(req: NextRequest) {
 
   const chat = await getChatByIdForValidation({ id: chatId.data });
   if (!chat || chat.userId !== userId) return NextResponse.json({ error: 'Chat not found' }, { status: 404 });
-  if ((await getHermesChatLock(chatId.data)) === 'hermes') {
-    return NextResponse.json({ error: 'This conversation belongs to Hermes Agent' }, { status: 409 });
-  }
+  const agent = (await getHermesChatLock(chatId.data)) === 'hermes' ? 'hermes' : 'zetora';
 
   const rows = await getMessagesByChatId({ id: chatId.data, limit: HISTORY_MAX_MESSAGES, mostRecent: true });
   const messages = rows.flatMap((row) => {
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
     if ((row.role !== 'user' && row.role !== 'assistant') || row.isCompactionSummary || !text) return [];
     return [{ role: row.role, content: text.slice(0, HISTORY_MESSAGE_MAX_CHARS) }];
   });
-  return NextResponse.json({ messages });
+  return NextResponse.json({ agent, messages });
 }
 
 // Called by the s2s-service after each turn the Voice model answers on the voice page

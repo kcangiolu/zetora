@@ -108,7 +108,7 @@ describe('GET /api/voice/transcript', () => {
     getHermesChatLock.mockResolvedValue('search');
   });
 
-  it("returns the chat's latest text messages, without tools, summaries or empty ones", async () => {
+  it('returns who answers the chat and its latest text messages, without tools, summaries or empty ones', async () => {
     getMessagesByChatId.mockResolvedValue([
       { role: 'user', parts: [{ type: 'text', text: 'Plan a trip to Rome' }], isCompactionSummary: false },
       { role: 'tool', parts: [{ type: 'text', text: 'raw tool output' }], isCompactionSummary: false },
@@ -125,6 +125,7 @@ describe('GET /api/voice/transcript', () => {
     ]);
     const response = await get(CHAT_ID);
     expect(await response.json()).toEqual({
+      agent: 'zetora',
       messages: [
         { role: 'user', content: 'Plan a trip to Rome' },
         { role: 'assistant', content: 'Day one: the Colosseum.' },
@@ -133,11 +134,24 @@ describe('GET /api/voice/transcript', () => {
     expect(getMessagesByChatId).toHaveBeenCalledWith({ id: CHAT_ID, limit: 20, mostRecent: true });
   });
 
-  it("refuses another user's chat, a Hermes chat and a request without a voice session", async () => {
+  it('names Hermes as the agent of a Hermes chat, so voice continues it only with Hermes', async () => {
+    getHermesChatLock.mockResolvedValue('hermes');
+    getMessagesByChatId.mockResolvedValue([
+      { role: 'user', parts: [{ type: 'text', text: 'Remind me tomorrow' }], isCompactionSummary: false },
+      { role: 'assistant', parts: [{ type: 'text', text: 'Done.' }], isCompactionSummary: false },
+    ]);
+    expect(await (await get(CHAT_ID)).json()).toEqual({
+      agent: 'hermes',
+      messages: [
+        { role: 'user', content: 'Remind me tomorrow' },
+        { role: 'assistant', content: 'Done.' },
+      ],
+    });
+  });
+
+  it("refuses another user's chat and a request without a voice session", async () => {
     getChatByIdForValidation.mockResolvedValueOnce({ id: CHAT_ID, userId: 'user-2' });
     expect((await get(CHAT_ID)).status).toBe(404);
-    getHermesChatLock.mockResolvedValueOnce('hermes');
-    expect((await get(CHAT_ID)).status).toBe(409);
     resolveVoiceRequestUserId.mockResolvedValueOnce(null);
     expect((await get(CHAT_ID)).status).toBe(401);
     expect(getMessagesByChatId).not.toHaveBeenCalled();
