@@ -86,6 +86,7 @@ function collectSearchQueries(events: ResearchEvent[]): Map<string, SearchQuery>
       const existing = queries.get(event.queryId);
       if (existing) {
         existing.status = event.status;
+        existing.error = event.error;
         existing.index = event.index;
         existing.total = event.total;
       } else {
@@ -95,6 +96,7 @@ function collectSearchQueries(events: ResearchEvent[]): Map<string, SearchQuery>
           index: event.index,
           total: event.total,
           status: event.status,
+          error: event.error,
           sources: [],
           content: [],
         });
@@ -157,6 +159,7 @@ export function deriveResearchView(annotations: DataExtremeSearchPart[]): Resear
         endDate: event.endDate,
         handles: event.handles,
         status: event.status,
+        error: event.error,
         result: event.result,
       });
     } else if (event.kind === 'file_query') {

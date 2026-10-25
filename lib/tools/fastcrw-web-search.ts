@@ -4,6 +4,7 @@ import type { SearchStrategy } from './web-search';
 import { fastCrwSearch } from '@/lib/search/fastcrw-client';
 
 import { createLogger } from '@/lib/logger';
+import { describeSearchError } from './search-errors';
 
 const log = createLogger('fastcrw-web-search');
 
@@ -20,7 +21,7 @@ export class FastCrwWebSearchStrategy implements SearchStrategy {
       dataStream?: UIMessageStreamWriter<ChatMessage>;
       abortSignal?: AbortSignal;
     },
-  ): Promise<{ searches: Array<{ query: string; results: any[]; images: any[] }> }> {
+  ): Promise<{ searches: Array<{ query: string; results: any[]; images: any[]; error?: string }> }> {
     const searches = await Promise.all(
       queries.map(async (query, i) => {
         const maxResults = options.maxResults[i] ?? 10;
@@ -81,7 +82,7 @@ export class FastCrwWebSearchStrategy implements SearchStrategy {
             },
           });
 
-          return { query, results: [], images: [] };
+          return { query, results: [], images: [], error: describeSearchError('fastCRW', error) };
         }
       }),
     );

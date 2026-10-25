@@ -232,8 +232,8 @@ export interface ExtremeSearchOptions {
 }
 
 // Deep research fetches page content in a second step, so its searches only
-// return links (content is empty) and never throw: a failed provider gives
-// no results, which lets the caller try the fallback provider.
+// return links (content is empty). A failed provider throws instead of
+// returning no results, so the caller can tell the research agent why.
 interface SearchProviderStrategy {
   search(query: string, options: ExtremeSearchOptions): Promise<SearchResult[]>;
 }
@@ -259,27 +259,22 @@ class ExaSearchStrategy implements SearchProviderStrategy {
   constructor(private exa: Exa) {}
 
   async search(query: string, { category, includeDomains, startDate }: ExtremeSearchOptions): Promise<SearchResult[]> {
-    try {
-      // exa-js takes no abort signal: the timeout only stops the wait.
-      const { results } = await withTimeout(
-        this.exa.search(query, {
-          numResults: EXTREME_SEARCH_RESULT_LIMIT,
-          type: 'auto',
-          ...(category && { category }),
-          ...(includeDomains && { includeDomains }),
-          ...(startDate && {
-            startPublishedDate: new Date(startDate).toISOString(),
-            endPublishedDate: new Date().toISOString(),
-          }),
+    // exa-js takes no abort signal: the timeout only stops the wait.
+    const { results } = await withTimeout(
+      this.exa.search(query, {
+        numResults: EXTREME_SEARCH_RESULT_LIMIT,
+        type: 'auto',
+        ...(category && { category }),
+        ...(includeDomains && { includeDomains }),
+        ...(startDate && {
+          startPublishedDate: new Date(startDate).toISOString(),
+          endPublishedDate: new Date().toISOString(),
         }),
-        EXA_SEARCH_TIMEOUT_MS,
-        `Exa search timed out for query "${query}"`,
-      );
-      return results.map((r) => linkResult({ ...r, title: r.title ?? undefined }));
-    } catch (error) {
-      log.error('[Exa] search error:', error);
-      return [];
-    }
+      }),
+      EXA_SEARCH_TIMEOUT_MS,
+      `Exa search timed out for query "${query}"`,
+    );
+    return results.map((r) => linkResult({ ...r, title: r.title ?? undefined }));
   }
 }
 
@@ -290,21 +285,16 @@ class SearXNGSearchStrategy implements SearchProviderStrategy {
     query: string,
     { category, includeDomains, startDate, abortSignal }: ExtremeSearchOptions,
   ): Promise<SearchResult[]> {
-    try {
-      const hits = await searxngSearch(
-        this.baseUrl,
-        {
-          q: withSiteFilter(query, includeDomains),
-          language: 'all',
-          time_range: searxngTimeRange(category === 'news' ? 'news' : 'general', startDate),
-        },
-        abortSignal,
-      );
-      return hits.slice(0, EXTREME_SEARCH_RESULT_LIMIT).map(linkResult);
-    } catch (error) {
-      log.error('[SearXNG] search error:', error);
-      return [];
-    }
+    const hits = await searxngSearch(
+      this.baseUrl,
+      {
+        q: withSiteFilter(query, includeDomains),
+        language: 'all',
+        time_range: searxngTimeRange(category === 'news' ? 'news' : 'general', startDate),
+      },
+      abortSignal,
+    );
+    return hits.slice(0, EXTREME_SEARCH_RESULT_LIMIT).map(linkResult);
   }
 }
 
@@ -315,21 +305,16 @@ class FastCrwSearchStrategy implements SearchProviderStrategy {
     query: string,
     { category, includeDomains, abortSignal }: ExtremeSearchOptions,
   ): Promise<SearchResult[]> {
-    try {
-      const hits = await fastCrwSearch(
-        this.baseUrl,
-        {
-          query: withSiteFilter(query, includeDomains),
-          limit: EXTREME_SEARCH_RESULT_LIMIT,
-          ...(category === 'news' && { category: 'news' as const }),
-        },
-        abortSignal,
-      );
-      return hits.map(linkResult);
-    } catch (error) {
-      log.error('[fastCRW] search error:', error);
-      return [];
-    }
+    const hits = await fastCrwSearch(
+      this.baseUrl,
+      {
+        query: withSiteFilter(query, includeDomains),
+        limit: EXTREME_SEARCH_RESULT_LIMIT,
+        ...(category === 'news' && { category: 'news' as const }),
+      },
+      abortSignal,
+    );
+    return hits.map(linkResult);
   }
 }
 
@@ -337,19 +322,14 @@ export class FirecrawlSearchStrategy implements SearchProviderStrategy {
   constructor(private firecrawl: FirecrawlApp) {}
 
   async search(query: string, { includeDomains }: ExtremeSearchOptions): Promise<SearchResult[]> {
-    try {
-      const firecrawlResults = await this.firecrawl.search(withSiteFilter(query, includeDomains), {
-        limit: EXTREME_SEARCH_RESULT_LIMIT,
-        scrapeOptions: { storeInCache: true },
-      });
+    const firecrawlResults = await this.firecrawl.search(withSiteFilter(query, includeDomains), {
+      limit: EXTREME_SEARCH_RESULT_LIMIT,
+      scrapeOptions: { storeInCache: true },
+    });
 
-      return (firecrawlResults.web ?? [])
-        .filter((r): r is SearchResultWeb => 'url' in r && typeof r.url === 'string')
-        .map((r) => linkResult({ url: r.url, title: r.title || r.url }));
-    } catch (error) {
-      log.error('[Firecrawl] search error:', error);
-      return [];
-    }
+    return (firecrawlResults.web ?? [])
+      .filter((r): r is SearchResultWeb => 'url' in r && typeof r.url === 'string')
+      .map((r) => linkResult({ url: r.url, title: r.title || r.url }));
   }
 }
 

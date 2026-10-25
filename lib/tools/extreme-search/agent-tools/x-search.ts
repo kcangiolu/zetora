@@ -3,6 +3,7 @@ import { generateText, stepCountIs, tool } from 'ai';
 import { z } from 'zod';
 
 import { createLogger } from '@/lib/logger';
+import { describeSearchError } from '@/lib/tools/search-errors';
 import { hydrateXPosts, resolveXSearchDateRange, sanitizeXHandles } from '@/lib/tools/x-citations';
 import { X_SEARCH_MODEL_ID } from '@/lib/tools/x-search';
 import { getFaviconUrl } from '@/lib/url';
@@ -120,8 +121,9 @@ export function createXSearchTool({ emit, collectSources }: AgentToolContext) {
             return { query, result };
           } catch (error) {
             log.error('X search error:', error);
-            emit({ ...event, status: 'error' });
-            return { query, result: { content: '', citations: [], sources: [], dateRange, handles } };
+            const message = describeSearchError('xAI', error);
+            emit({ ...event, status: 'error', error: message });
+            return { query, result: { content: '', citations: [], sources: [], dateRange, handles }, error: message };
           }
         }),
       );

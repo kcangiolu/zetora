@@ -65,6 +65,7 @@ export type DataExtremeSearchPart = {
         index: number;
         total: number;
         status: 'started' | 'reading_content' | 'completed' | 'error';
+        error?: string;
       }
     | {
         kind: 'source';
@@ -101,6 +102,7 @@ export type DataExtremeSearchPart = {
         endDate: string;
         handles?: string[];
         status: 'started' | 'completed' | 'error';
+        error?: string;
         result?: {
           content: string;
           citations: any[];

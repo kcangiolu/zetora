@@ -86,6 +86,32 @@ describe('webSearch agent tool', () => {
     expect(output).toMatchObject({ searches: [{ results: [{ url: 'https://b.test', content: 'snippet' }] }] });
   });
 
+  it('reports why a query failed instead of returning it as empty', async () => {
+    providerMocks.runExtremeSearchProvider
+      .mockRejectedValueOnce(new Error('SearXNG returned 500'))
+      .mockRejectedValueOnce(new Error('quota exceeded'));
+    const { context, events } = createContext();
+
+    const output = await createWebSearchTool(context, stack).execute!({ queries: ['q'] }, callOptions);
+
+    const error = 'SearXNG failed: SearXNG returned 500; Exa failed: quota exceeded';
+    expect(output).toEqual({ searches: [{ query: 'q', results: [], error }] });
+    expect(providerMocks.runExtremeContentExtraction).not.toHaveBeenCalled();
+    expect(events.at(-1)).toMatchObject({ kind: 'query', status: 'error', error });
+  });
+
+  it('drops the primary error when the fallback finds results', async () => {
+    providerMocks.runExtremeSearchProvider
+      .mockRejectedValueOnce(new Error('down'))
+      .mockResolvedValueOnce([link('https://a.test')]);
+    providerMocks.runExtremeContentExtraction.mockResolvedValue([]);
+    const { context } = createContext();
+
+    const output = await createWebSearchTool(context, stack).execute!({ queries: ['q'] }, callOptions);
+
+    expect(output).toEqual({ searches: [{ query: 'q', results: [link('https://a.test')] }] });
+  });
+
   it('skips reading content for a query without results', async () => {
     providerMocks.runExtremeSearchProvider.mockResolvedValue([]);
     const { context, events } = createContext();

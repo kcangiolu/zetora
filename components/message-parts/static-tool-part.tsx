@@ -17,6 +17,7 @@ import {
   Code,
   Sparkles,
   Download,
+  SearchX,
 } from 'lucide-react';
 import { MemoryIcon } from '@phosphor-icons/react';
 import { Spinner } from '../ui/spinner';
@@ -45,7 +46,7 @@ import { StockChartLoader, ToolErrorDisplay } from './shared';
 import { toImageCardState } from './mcp';
 import { DynamicToolInvocationCard, CodeContextTool } from './tools';
 import { useMessageActions } from '@/contexts/message-actions-context';
-import { ToolNotice } from './shared';
+import { SearchErrorsNotice, ToolNotice } from './shared';
 import { CurrentTimeCard, MemoriesFoundCard, MemoryAddedCard, PlacesResultCard } from './tool-cards';
 
 // Components that require browser APIs (Leaflet, charts) - load dynamically with ssr: false
@@ -245,11 +246,20 @@ export function StaticToolPart({ part, annotations, canEdit, chatId, hiddenImage
           case 'input-available':
           case 'output-available':
             return (
-              <MultiSearch
-                result={part.output || null}
-                args={part.input ? part.input : {}}
-                annotations={annotations as DataQueryCompletionPart[]}
-              />
+              <>
+                <SearchErrorsNotice searches={part.output?.searches} />
+                <MultiSearch
+                  result={part.output || null}
+                  args={part.input ? part.input : {}}
+                  annotations={annotations as DataQueryCompletionPart[]}
+                />
+              </>
+            );
+          case 'output-error':
+            return (
+              <ToolNotice tone="error" icon={SearchX} title="Web search failed">
+                {part.errorText}
+              </ToolNotice>
             );
         }
         break;
@@ -362,11 +372,20 @@ export function StaticToolPart({ part, annotations, canEdit, chatId, hiddenImage
             const academicSearchInput = part.input;
             const academicSearchOutput = part.output;
             return (
-              <AcademicPapersCard
-                response={academicSearchOutput || null}
-                args={academicSearchInput ? academicSearchInput : {}}
-                annotations={annotations as DataQueryCompletionPart[]}
-              />
+              <>
+                <SearchErrorsNotice searches={academicSearchOutput?.searches} />
+                <AcademicPapersCard
+                  response={academicSearchOutput || null}
+                  args={academicSearchInput ? academicSearchInput : {}}
+                  annotations={annotations as DataQueryCompletionPart[]}
+                />
+              </>
+            );
+          case 'output-error':
+            return (
+              <ToolNotice tone="error" icon={SearchX} title="Academic search failed">
+                {part.errorText}
+              </ToolNotice>
             );
         }
         break;
@@ -452,11 +471,20 @@ export function StaticToolPart({ part, annotations, canEdit, chatId, hiddenImage
             const redditSearchInput = part.input;
             const redditSearchOutput = part.output;
             return (
-              <RedditSearch
-                result={redditSearchOutput || null}
-                args={redditSearchInput ? redditSearchInput : {}}
-                annotations={annotations as DataQueryCompletionPart[]}
-              />
+              <>
+                <SearchErrorsNotice searches={redditSearchOutput?.searches} />
+                <RedditSearch
+                  result={redditSearchOutput || null}
+                  args={redditSearchInput ? redditSearchInput : {}}
+                  annotations={annotations as DataQueryCompletionPart[]}
+                />
+              </>
+            );
+          case 'output-error':
+            return (
+              <ToolNotice tone="error" icon={SearchX} title="Reddit search failed">
+                {part.errorText}
+              </ToolNotice>
             );
         }
         break;
@@ -469,11 +497,20 @@ export function StaticToolPart({ part, annotations, canEdit, chatId, hiddenImage
             const githubSearchInput = part.input;
             const githubSearchOutput = part.output;
             return (
-              <GitHubSearch
-                result={githubSearchOutput || null}
-                args={githubSearchInput ? githubSearchInput : {}}
-                annotations={annotations as DataQueryCompletionPart[]}
-              />
+              <>
+                <SearchErrorsNotice searches={githubSearchOutput?.searches} />
+                <GitHubSearch
+                  result={githubSearchOutput || null}
+                  args={githubSearchInput ? githubSearchInput : {}}
+                  annotations={annotations as DataQueryCompletionPart[]}
+                />
+              </>
+            );
+          case 'output-error':
+            return (
+              <ToolNotice tone="error" icon={SearchX} title="GitHub search failed">
+                {part.errorText}
+              </ToolNotice>
             );
         }
         break;
@@ -520,26 +557,35 @@ export function StaticToolPart({ part, annotations, canEdit, chatId, hiddenImage
             };
 
             return (
-              <XSearch
-                result={
-                  xSearchOutput
-                    ? {
-                        ...xSearchOutput,
-                        searches:
-                          xSearchOutput.searches?.map((search) => ({
-                            ...search,
-                            query: search.query || '',
-                            sources: search.sources?.filter((s): s is NonNullable<typeof s> => s !== null) || [],
-                            citations: (search.citations ?? []).map(normalizeCitation).filter(Boolean),
-                          })) || [],
-                        dateRange: xSearchOutput.dateRange || '',
-                        handles: xSearchOutput.handles || [],
-                      }
-                    : null
-                }
-                args={xSearchInput}
-                annotations={annotations as DataQueryCompletionPart[]}
-              />
+              <>
+                <SearchErrorsNotice searches={xSearchOutput?.searches} />
+                <XSearch
+                  result={
+                    xSearchOutput
+                      ? {
+                          ...xSearchOutput,
+                          searches:
+                            xSearchOutput.searches?.map((search) => ({
+                              ...search,
+                              query: search.query || '',
+                              sources: search.sources?.filter((s): s is NonNullable<typeof s> => s !== null) || [],
+                              citations: (search.citations ?? []).map(normalizeCitation).filter(Boolean),
+                            })) || [],
+                          dateRange: xSearchOutput.dateRange || '',
+                          handles: xSearchOutput.handles || [],
+                        }
+                      : null
+                  }
+                  args={xSearchInput}
+                  annotations={annotations as DataQueryCompletionPart[]}
+                />
+              </>
+            );
+          case 'output-error':
+            return (
+              <ToolNotice tone="error" icon={SearchX} title="X search failed">
+                {part.errorText}
+              </ToolNotice>
             );
         }
         break;
@@ -593,6 +639,12 @@ export function StaticToolPart({ part, annotations, canEdit, chatId, hiddenImage
               />
             );
           }
+          case 'output-error':
+            return (
+              <ToolNotice tone="error" icon={SearchX} title="YouTube search failed">
+                {part.errorText}
+              </ToolNotice>
+            );
         }
         break;
 

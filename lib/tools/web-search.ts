@@ -15,6 +15,7 @@ import { SelfHostedContentStrategy } from './self-hosted-content';
 import { EXA_SEARCH_TIMEOUT_MS, withTimeout } from '@/lib/timeouts';
 import { resolveFallbackSearchProvider, resolveSearchProvider } from '@/lib/instance/capabilities';
 import type { SearchProviderFor } from '@/lib/search/providers';
+import { describeSearchError, joinSearchErrors } from './search-errors';
 
 import { createLogger } from '@/lib/logger';
 import { isConfigured } from '@/ai/catalog/env';
@@ -131,7 +132,7 @@ export interface SearchStrategy {
       dataStream?: UIMessageStreamWriter<ChatMessage>;
       abortSignal?: AbortSignal;
     },
-  ): Promise<{ searches: Array<{ query: string; results: any[]; images: any[] }> }>;
+  ): Promise<{ searches: Array<{ query: string; results: any[]; images: any[]; error?: string }> }>;
 }
 
 // Helper function to format date for Firecrawl tbs parameter
@@ -263,7 +264,7 @@ class ParallelSearchStrategy implements SearchStrategy {
             },
           });
 
-          return { query, results: [], images: [] };
+          return { query, results: [], images: [], error: describeSearchError('Parallel AI', error) };
         }
       });
 
@@ -287,8 +288,9 @@ class ParallelSearchStrategy implements SearchStrategy {
         });
       });
 
+      const message = describeSearchError('Parallel AI', error);
       return {
-        searches: limitedQueries.map((query) => ({ query, results: [], images: [] })),
+        searches: limitedQueries.map((query) => ({ query, results: [], images: [], error: message })),
       };
     }
   }
@@ -437,6 +439,7 @@ class FirecrawlSearchStrategy implements SearchStrategy {
           query,
           results: [],
           images: [],
+          error: describeSearchError('Firecrawl', error),
         };
       }
     });
@@ -574,6 +577,7 @@ class ExaSearchStrategy implements SearchStrategy {
           query,
           results: [],
           images: [],
+          error: describeSearchError('Exa', error),
         };
       }
     });
@@ -743,7 +747,16 @@ export function webSearchTool(
       if (hasNoResults && fallbackProvider) {
         log.debug(`${searchProvider} returned no results, falling back to ${fallbackProvider}`);
         const fallbackStrategy = createSearchStrategy(fallbackProvider, clients, preferences, userId);
-        result = await fallbackStrategy.search(queries, searchOptions);
+        const primary = result;
+        const fallback = await fallbackStrategy.search(queries, searchOptions);
+        // A query the fallback found nothing for still failed on the primary.
+        result = {
+          searches: fallback.searches.map((search, i) => {
+            const error =
+              search.results.length > 0 ? undefined : joinSearchErrors(primary.searches[i]?.error, search.error);
+            return { ...search, ...(error && { error }) };
+          }),
+        };
       }
       // Bound what flows back into the model's context: dedupe across
       // queries, cap per domain and globally, truncate snippets.

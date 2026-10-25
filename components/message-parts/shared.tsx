@@ -3,6 +3,8 @@ import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { Chart03Icon } from '@hugeicons/core-free-icons';
 import { Spinner } from '../ui/spinner';
 import { pseudoRandom } from '@/lib/utils';
+import { searchErrorOf, searchErrors } from '@/lib/tools/search-errors';
+import { SearchX } from 'lucide-react';
 
 export function IconArrowInbox(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -178,6 +180,24 @@ export function ToolNotice({
         </div>
       </div>
     </div>
+  );
+}
+
+// Shown above a search card when some of its queries failed: the card alone
+// would show the failure as "no results".
+export function SearchErrorsNotice({ searches }: { searches: readonly (object | null | undefined)[] | undefined }) {
+  const errors = searchErrors(searches);
+  if (!searches || errors.length === 0) return null;
+  const failed = searches.filter((search) => searchErrorOf(search)).length;
+  const title = failed === searches.length ? 'Search failed' : `${failed} of ${searches.length} searches failed`;
+  return (
+    <ToolNotice tone="error" icon={SearchX} title={title}>
+      {errors.map((error) => (
+        <span key={error} className="block break-words">
+          {error}
+        </span>
+      ))}
+    </ToolNotice>
   );
 }
 

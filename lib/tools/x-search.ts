@@ -5,6 +5,7 @@ import { UIMessageStreamWriter } from 'ai';
 import { ChatMessage } from '@/lib/types';
 
 import { createLogger } from '@/lib/logger';
+import { describeSearchError } from '@/lib/tools/search-errors';
 import { dedupeCitations, hydrateXPosts, resolveXSearchDateRange, sanitizeXHandles } from '@/lib/tools/x-citations';
 
 // xAI's X search tool only runs on xAI's own models; the model here only
@@ -166,6 +167,7 @@ export function xSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>) {
               query,
               dateRange: `${effectiveStart} to ${effectiveEnd}`,
               handles: normalizedInclude || normalizedExclude || [],
+              error: describeSearchError('xAI', error),
             };
           }
         });

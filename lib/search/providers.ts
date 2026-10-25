@@ -8,6 +8,15 @@ import type { InstanceCapabilities } from '@/lib/instance/capabilities';
 export const SEARCH_PROVIDER_IDS = ['searxng', 'fastcrw', 'exa', 'firecrawl', 'parallel', 'notte'] as const;
 export type SearchProviderId = (typeof SEARCH_PROVIDER_IDS)[number];
 
+export const SEARCH_PROVIDER_LABELS: Record<SearchProviderId, string> = {
+  searxng: 'SearXNG',
+  fastcrw: 'fastCRW',
+  exa: 'Exa',
+  firecrawl: 'Firecrawl',
+  parallel: 'Parallel AI',
+  notte: 'Notte',
+};
+
 export const SEARCH_FUNCTION_PROVIDERS = {
   web: ['searxng', 'fastcrw', 'exa', 'firecrawl', 'parallel'],
   // Parallel AI has no query-based search endpoint usable here.

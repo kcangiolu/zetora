@@ -151,19 +151,15 @@ describe('runExtremeContentExtraction (per-URL fallback)', () => {
 });
 
 describe('runExtremeSearchProvider', () => {
-  it('warns and returns empty results when SearXNG is selected but unreachable', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({}) }),
-    );
+  it('rejects when SearXNG is selected but unreachable, so the failure is reported', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({}) }));
     const clients: ExtremeProviderClients = {
       exa: { search: vi.fn() } as any,
       firecrawl: { search: vi.fn() } as any,
       parallel: {} as any,
     };
 
-    const results = await runExtremeSearchProvider('searxng', clients, 'query');
-    expect(results).toEqual([]);
+    await expect(runExtremeSearchProvider('searxng', clients, 'query')).rejects.toThrow();
   });
 
   it('dispatches to Firecrawl when selected', async () => {

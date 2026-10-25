@@ -8,7 +8,8 @@ import Firecrawl from '@mendable/firecrawl-js';
 
 import { createLogger } from '@/lib/logger';
 import { resolveFallbackSearchProvider, resolveSearchProvider } from '@/lib/instance/capabilities';
-import type { SearchProviderFor } from '@/lib/search/providers';
+import { SEARCH_PROVIDER_LABELS, type SearchProviderFor } from '@/lib/search/providers';
+import { describeSearchError, joinSearchErrors } from './search-errors';
 import { fastCrwSearch } from '@/lib/search/fastcrw-client';
 import { searxngSearch } from '@/lib/search/searxng-client';
 
@@ -259,10 +260,12 @@ export function redditSearchTool(
           });
 
           let processedResults: RedditResult[] = [];
+          let searchError: string | undefined;
           try {
             processedResults = await runRedditProvider(provider, query, currentMaxResults, afterDate, abortSignal);
           } catch (primaryError) {
             log.error(`Reddit search ${provider} error for query "${query}":`, primaryError);
+            searchError = describeSearchError(SEARCH_PROVIDER_LABELS[provider], primaryError);
           }
 
           if (processedResults.length === 0 && fallbackProvider) {
@@ -275,8 +278,13 @@ export function redditSearchTool(
                 afterDate,
                 abortSignal,
               );
+              if (processedResults.length > 0) searchError = undefined;
             } catch (fallbackError) {
               log.error(`Reddit search ${fallbackProvider} fallback error for query "${query}":`, fallbackError);
+              searchError = joinSearchErrors(
+                searchError,
+                describeSearchError(SEARCH_PROVIDER_LABELS[fallbackProvider], fallbackError),
+              );
             }
           }
 
@@ -289,7 +297,7 @@ export function redditSearchTool(
               query,
               index,
               total: queries.length,
-              status: 'completed',
+              status: searchError ? 'error' : 'completed',
               resultsCount: resultsCount,
               imagesCount: 0,
             },
@@ -298,6 +306,7 @@ export function redditSearchTool(
           return {
             query,
             results: processedResults,
+            ...(searchError && { error: searchError }),
           };
         } catch (error) {
           log.error(`Reddit search error for query "${query}":`, error);
@@ -318,6 +327,7 @@ export function redditSearchTool(
           return {
             query,
             results: [],
+            error: describeSearchError('Reddit search', error),
           };
         }
       });

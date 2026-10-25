@@ -5,6 +5,7 @@ import { searxngSearch, searxngTimeRange } from '@/lib/search/searxng-client';
 import { mergeArchiveResults } from '@/lib/vector/archive-merge';
 
 import { createLogger } from '@/lib/logger';
+import { describeSearchError } from './search-errors';
 import { isHybridSearchAvailable } from '@/lib/instance/capabilities';
 import type { UserPreferenceValues } from '@/lib/db/schema';
 
@@ -32,7 +33,7 @@ export class SearXNGSearchStrategy implements SearchStrategy {
       dataStream?: UIMessageStreamWriter<ChatMessage>;
       abortSignal?: AbortSignal;
     },
-  ): Promise<{ searches: Array<{ query: string; results: any[]; images: any[] }> }> {
+  ): Promise<{ searches: Array<{ query: string; results: any[]; images: any[]; error?: string }> }> {
     const searches = await Promise.all(
       queries.map(async (query, i) => {
         const maxResults = options.maxResults[i] ?? 10;
@@ -99,7 +100,7 @@ export class SearXNGSearchStrategy implements SearchStrategy {
             },
           });
 
-          return { query, results: [], images: [] };
+          return { query, results: [], images: [], error: describeSearchError('SearXNG', error) };
         }
       }),
     );

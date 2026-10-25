@@ -9,6 +9,7 @@ import { TextShimmer } from '@/components/core/text-shimmer';
 import { Spinner } from '@/components/ui/spinner';
 import { getDisplayHostname, getHostFaviconUrl } from '@/lib/url';
 import { cn } from '@/lib/utils';
+import { searchErrors } from '@/lib/tools/search-errors';
 
 import { isTimelineItemRunning, type TimelineItem } from './research-data';
 import {
@@ -77,6 +78,19 @@ function StepNote({ children, shimmer }: { children: React.ReactNode; shimmer?: 
     );
   }
   return <p className="text-[11px] text-muted-foreground py-0.5 mt-0.5">{children}</p>;
+}
+
+// Searches that failed, so a failure never reads as "no sources found".
+function StepErrors({ errors }: { errors: string[] }) {
+  return (
+    <>
+      {errors.map((error) => (
+        <p key={error} className="text-[11px] text-destructive py-0.5 mt-0.5 break-words">
+          {error}
+        </p>
+      ))}
+    </>
+  );
 }
 
 function QueryChip({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
@@ -238,6 +252,7 @@ function WebSearchStep({
     new Map(group.queries.flatMap((q) => q.sources).map((source) => [source.url, source])).values(),
   );
   const title = announcedTitle || (activeQuery || group.queries[0])?.query || 'Searching';
+  const errors = searchErrors(group.queries);
 
   return (
     <StepFrame
@@ -285,6 +300,8 @@ function WebSearchStep({
           <StepNote shimmer>Reading content...</StepNote>
         ) : isRunning && live ? (
           <StepNote shimmer>Searching sources...</StepNote>
+        ) : errors.length > 0 ? (
+          <StepErrors errors={errors} />
         ) : (
           sources.length === 0 && !isRunning && <StepNote>No sources found for this search.</StepNote>
         )}
@@ -315,6 +332,7 @@ function XSearchStep({
     ).values(),
   );
   const title = announcedTitle || `X search: ${(activeSearch || first)?.query || 'Searching'}`;
+  const errors = searchErrors(group.searches);
 
   return (
     <StepFrame
@@ -370,7 +388,10 @@ function XSearchStep({
         )}
 
         {isRunning && live && <StepNote shimmer>Searching X posts...</StepNote>}
-        {!isRunning && citations.length === 0 && <StepNote>No X posts found for this search.</StepNote>}
+        {!isRunning && errors.length > 0 && <StepErrors errors={errors} />}
+        {!isRunning && errors.length === 0 && citations.length === 0 && (
+          <StepNote>No X posts found for this search.</StepNote>
+        )}
       </div>
     </StepFrame>
   );

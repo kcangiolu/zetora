@@ -2,6 +2,8 @@ import { tool } from 'ai';
 import { z } from 'zod';
 
 import { createLogger } from '@/lib/logger';
+import { SEARCH_PROVIDER_LABELS } from '@/lib/search/providers';
+import { describeSearchError, joinSearchErrors } from '@/lib/tools/search-errors';
 import type { SearchResult } from '@/lib/tools/self-hosted-content';
 
 import {
@@ -19,23 +21,49 @@ export function createWebSearchTool({ emit, collectSources }: AgentToolContext, 
   const { searchProvider, searchFallbackProvider, contentProvider, contentFallbackProvider, metadataEnabled, clients } =
     stack;
 
+  // Searches one query on the primary provider, then on the fallback when the primary found nothing.
+  async function findResults(
+    query: string,
+    options: ExtremeSearchOptions,
+  ): Promise<{ results: SearchResult[]; error?: string }> {
+    let results: SearchResult[] = [];
+    let error: string | undefined;
+    try {
+      results = await runExtremeSearchProvider(searchProvider, clients, query, options);
+    } catch (primaryError) {
+      log.error(`Extreme search: ${searchProvider} error for query "${query}":`, primaryError);
+      error = describeSearchError(SEARCH_PROVIDER_LABELS[searchProvider], primaryError);
+    }
+    if (results.length === 0 && searchFallbackProvider) {
+      log.debug(`Extreme search: ${searchProvider} returned no results, falling back to ${searchFallbackProvider}`);
+      try {
+        results = await runExtremeSearchProvider(searchFallbackProvider, clients, query, options);
+        if (results.length > 0) error = undefined;
+      } catch (fallbackError) {
+        log.error(`Extreme search: ${searchFallbackProvider} error for query "${query}":`, fallbackError);
+        error = joinSearchErrors(
+          error,
+          describeSearchError(SEARCH_PROVIDER_LABELS[searchFallbackProvider], fallbackError),
+        );
+      }
+    }
+    return { results, ...(error && { error }) };
+  }
+
   // Searches one query, then replaces the snippets with the pages' content when it can be read.
   async function searchQuery(
     query: string,
     queryId: string,
     options: ExtremeSearchOptions,
     onReadingContent: () => void,
-  ): Promise<SearchResult[]> {
-    let results = await runExtremeSearchProvider(searchProvider, clients, query, options);
-    if (results.length === 0 && searchFallbackProvider) {
-      log.debug(`Extreme search: ${searchProvider} returned no results, falling back to ${searchFallbackProvider}`);
-      results = await runExtremeSearchProvider(searchFallbackProvider, clients, query, options);
-    }
+  ): Promise<{ results: SearchResult[]; error?: string }> {
+    const { results, error } = await findResults(query, options);
+    if (error) return { results, error };
     log.info(`Found ${results.length} results for query "${query}"`);
 
     collectSources(...results);
     for (const { title, url, favicon } of results) emit({ kind: 'source', queryId, source: { title, url, favicon } });
-    if (results.length === 0) return results;
+    if (results.length === 0) return { results };
 
     try {
       onReadingContent();
@@ -49,7 +77,7 @@ export function createWebSearchTool({ emit, collectSources }: AgentToolContext, 
       );
       if (contents.length === 0) {
         log.info('getContents returned no results, using original search results');
-        return results;
+        return { results };
       }
 
       for (const content of contents) {
@@ -65,19 +93,21 @@ export function createWebSearchTool({ emit, collectSources }: AgentToolContext, 
         });
       }
 
-      return contents.map((content) => {
-        const original = results.find((r) => r.url === content.url);
-        return {
-          title: content.title || original?.title || '',
-          url: content.url,
-          content: content.content || original?.content || '',
-          publishedDate: content.publishedDate || original?.publishedDate || '',
-          favicon: content.favicon || original?.favicon || '',
-        };
-      });
+      return {
+        results: contents.map((content) => {
+          const original = results.find((r) => r.url === content.url);
+          return {
+            title: content.title || original?.title || '',
+            url: content.url,
+            content: content.content || original?.content || '',
+            publishedDate: content.publishedDate || original?.publishedDate || '',
+            favicon: content.favicon || original?.favicon || '',
+          };
+        }),
+      };
     } catch (error) {
       log.error('Error fetching content, using the original search results:', error);
-      return results;
+      return { results };
     }
   }
 
@@ -103,10 +133,14 @@ export function createWebSearchTool({ emit, collectSources }: AgentToolContext, 
         queries.map(async (query, index) => {
           const queryId = `${toolCallId}-${index}`;
           emit({ kind: 'query', queryId, query, index, total, status: 'started' });
-          const results = await searchQuery(query, queryId, options, () =>
+          const { results, error } = await searchQuery(query, queryId, options, () =>
             emit({ kind: 'query', queryId, query, index, total, status: 'reading_content' }),
           );
-          emit({ kind: 'query', queryId, query, index, total, status: 'completed' });
+          emit(
+            error
+              ? { kind: 'query', queryId, query, index, total, status: 'error', error }
+              : { kind: 'query', queryId, query, index, total, status: 'completed' },
+          );
           return {
             query,
             results: results.map(({ title, url, content, publishedDate, favicon }) => ({
@@ -116,6 +150,7 @@ export function createWebSearchTool({ emit, collectSources }: AgentToolContext, 
               publishedDate,
               favicon,
             })),
+            ...(error && { error }),
           };
         }),
       );

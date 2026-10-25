@@ -11,7 +11,8 @@ import { createLogger } from '@/lib/logger';
 import { fastCrwSearch } from '@/lib/search/fastcrw-client';
 import { searxngSearch } from '@/lib/search/searxng-client';
 import { resolveFallbackSearchProvider, resolveSearchProvider } from '@/lib/instance/capabilities';
-import type { SearchProviderFor } from '@/lib/search/providers';
+import { SEARCH_PROVIDER_LABELS, type SearchProviderFor } from '@/lib/search/providers';
+import { describeSearchError, joinSearchErrors } from './search-errors';
 
 const log = createLogger('academic-search');
 
@@ -150,18 +151,25 @@ export function academicSearchTool(
             });
 
             let processedResults: AcademicResult[] = [];
+            let searchError: string | undefined;
             try {
               processedResults = await runAcademicProvider(provider, query, currentMaxResults, abortSignal);
             } catch (primaryError) {
               log.error(`Academic search ${provider} error for query "${query}":`, primaryError);
+              searchError = describeSearchError(SEARCH_PROVIDER_LABELS[provider], primaryError);
             }
 
             if (processedResults.length === 0 && fallbackProvider) {
               try {
                 log.debug(`Academic search: ${provider} returned no results, falling back to ${fallbackProvider}`);
                 processedResults = await runAcademicProvider(fallbackProvider, query, currentMaxResults, abortSignal);
+                if (processedResults.length > 0) searchError = undefined;
               } catch (fallbackError) {
                 log.error(`Academic search ${fallbackProvider} fallback error for query "${query}":`, fallbackError);
+                searchError = joinSearchErrors(
+                  searchError,
+                  describeSearchError(SEARCH_PROVIDER_LABELS[fallbackProvider], fallbackError),
+                );
               }
             }
 
@@ -174,7 +182,7 @@ export function academicSearchTool(
                 query,
                 index,
                 total: queries.length,
-                status: 'completed',
+                status: searchError ? 'error' : 'completed',
                 resultsCount: resultsCount,
                 imagesCount: 0,
               },
@@ -183,6 +191,7 @@ export function academicSearchTool(
             return {
               query,
               results: processedResults,
+              ...(searchError && { error: searchError }),
             };
           } catch (error) {
             log.error(`Academic search error for query "${query}":`, error);
@@ -203,6 +212,7 @@ export function academicSearchTool(
             return {
               query,
               results: [],
+              error: describeSearchError('Academic search', error),
             };
           }
         });

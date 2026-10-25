@@ -8,7 +8,8 @@ import { serverEnv } from '@/env/server';
 
 import { createLogger } from '@/lib/logger';
 import { resolveFallbackSearchProvider, resolveSearchProvider } from '@/lib/instance/capabilities';
-import type { SearchProviderFor } from '@/lib/search/providers';
+import { SEARCH_PROVIDER_LABELS, type SearchProviderFor } from '@/lib/search/providers';
+import { describeSearchError, joinSearchErrors } from './search-errors';
 import { GITHUB_API_TIMEOUT_MS, withAbort } from '@/lib/timeouts';
 import { fastCrwSearch } from '@/lib/search/fastcrw-client';
 import { searxngSearch } from '@/lib/search/searxng-client';
@@ -327,18 +328,25 @@ export function githubSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>
           });
 
           let processedResults: GitHubResult[] = [];
+          let searchError: string | undefined;
           try {
             processedResults = await runGithubProvider(provider, query, currentMaxResults, abortSignal);
           } catch (primaryError) {
             log.error(`GitHub search ${provider} error for query "${query}":`, primaryError);
+            searchError = describeSearchError(SEARCH_PROVIDER_LABELS[provider], primaryError);
           }
 
           if (processedResults.length === 0 && fallbackProvider) {
             try {
               log.debug(`GitHub search: ${provider} returned no results, falling back to ${fallbackProvider}`);
               processedResults = await runGithubProvider(fallbackProvider, query, currentMaxResults, abortSignal);
+              if (processedResults.length > 0) searchError = undefined;
             } catch (fallbackError) {
               log.error(`GitHub search ${fallbackProvider} fallback error for query "${query}":`, fallbackError);
+              searchError = joinSearchErrors(
+                searchError,
+                describeSearchError(SEARCH_PROVIDER_LABELS[fallbackProvider], fallbackError),
+              );
             }
           }
 
@@ -353,7 +361,7 @@ export function githubSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>
                 query,
                 index,
                 total: queries.length,
-                status: 'completed',
+                status: searchError ? 'error' : 'completed',
                 resultsCount: 0,
                 imagesCount: 0,
               },
@@ -362,6 +370,7 @@ export function githubSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>
             return {
               query,
               results: [],
+              ...(searchError && { error: searchError }),
             };
           }
 
@@ -403,6 +412,7 @@ export function githubSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>
           return {
             query,
             results: [],
+            error: describeSearchError('GitHub search', error),
           };
         }
       });

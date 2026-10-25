@@ -302,6 +302,7 @@ export interface SearchQuery {
   index?: number;
   total?: number;
   status: 'started' | 'reading_content' | 'completed' | 'error';
+  error?: string;
   sources: ExtremeSearchSource[];
   content: Array<{ title: string; url: string; text: string; favicon?: string }>;
 }
@@ -335,6 +336,7 @@ export interface XSearchExecution {
   endDate: string;
   handles?: string[];
   status: 'started' | 'completed' | 'error';
+  error?: string;
   result?: {
     content: string;
     citations: any[];
