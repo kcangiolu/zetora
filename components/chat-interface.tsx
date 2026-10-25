@@ -5,7 +5,7 @@ import React, { memo, useCallback, useEffect, useMemo, useRef, useReducer, useSt
 import Link from 'next/link';
 
 // Third-party library imports
-import { useChat } from '@ai-sdk/react';
+import { useChat, type UseChatHelpers } from '@ai-sdk/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'motion/react';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
@@ -73,8 +73,8 @@ import { useModels } from '@/hooks/use-models';
 // State management imports
 import { chatReducer, createInitialState, type ChatState } from '@/components/chat-state';
 import { useDataStream } from './data-stream-provider';
-import { DefaultChatTransport } from 'ai';
 import { ChatMessage } from '@/lib/types';
+import { ResumableChatTransport, withoutUnfinishedReply } from '@/lib/chat-resume';
 import { placeCompactionSummary } from '@/lib/compaction-summary';
 import type { ElicitationData } from '@/components/mcp-elicitation-modal';
 import { useChatActions } from '@/hooks/use-chat-actions';
@@ -362,6 +362,8 @@ const ChatInterface = memo(
     const sessionEnabledSourcesRef = useRef(sessionEnabledSources);
     const isTemporaryChatRef = useRef(isTemporaryChat);
     const skipCacheRef = useRef(false);
+    // The transport is built before useChat returns setMessages.
+    const setChatMessagesRef = useRef<UseChatHelpers<ChatMessage>['setMessages'] | null>(null);
 
     useEffect(() => {
       selectedModelRef.current = effectiveSelectedModel;
@@ -382,8 +384,9 @@ const ChatInterface = memo(
 
     const transport = useMemo(
       () =>
-        new DefaultChatTransport({
+        new ResumableChatTransport({
           api: '/api/search',
+          onReconnected: () => setChatMessagesRef.current?.(withoutUnfinishedReply),
           fetch: async (url, options) => {
             if (options?.body && skipCacheRef.current) {
               const body = JSON.parse(options.body as string);
@@ -585,6 +588,10 @@ const ChatInterface = memo(
       },
       messages: initialMessages || [],
     });
+
+    useEffect(() => {
+      setChatMessagesRef.current = setMessages;
+    }, [setMessages]);
 
     // Merges Hermes agent replies into the same `messages` list the normal LLM path
     // populates — see hooks/use-hermes-stream.ts. The user's own message is appended
@@ -850,10 +857,13 @@ const ChatInterface = memo(
       // stream, which a Hermes turn never creates — so the hook's "last message is the
       // user's" condition (true for every Agent chat waiting on its agent) produced a
       // guaranteed not_found:stream error card, complete with Retry and Delete buttons
-      // that mean nothing here.
-      autoResume: !isManuallyStopping && !isHermesChat,
+      // that mean nothing here. Nor in a temporary chat: no stream or chat is saved for
+      // the resume route to find, so a dropped connection would become a "not found".
+      autoResume: !isManuallyStopping && !isHermesChat && !isTemporaryChat,
       initialMessages: initialMessages || [],
+      messages,
       status,
+      error,
       resumeStream,
       clearError,
     });
