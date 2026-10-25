@@ -111,7 +111,7 @@ export function getSearchGroups(searchProvider: SearchProvider = 'exa') {
     {
       id: 'x' as const,
       name: 'X',
-      description: 'Search X posts',
+      description: 'Search X posts through xAI (Grok)',
       icon: NewTwitterIcon,
       show: true,
     },

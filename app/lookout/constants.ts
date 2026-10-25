@@ -18,7 +18,7 @@ export const LOOKOUT_SEARCH_MODES = [
   { value: 'reddit', label: 'Reddit', icon: RedditIcon, description: 'Search Reddit posts' },
   { value: 'github', label: 'GitHub', icon: Github01Icon, description: 'Search GitHub repositories' },
   { value: 'stocks', label: 'Stocks', icon: AppleStocksIcon, description: 'Stock information' },
-  { value: 'x', label: 'X', icon: NewTwitterIcon, description: 'Search X posts' },
+  { value: 'x', label: 'X', icon: NewTwitterIcon, description: 'Search X posts through xAI (Grok)' },
 ] as const;
 
 export const frequencyOptions = [

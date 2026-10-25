@@ -142,7 +142,9 @@ const XSearchLoadingState: React.FC<{ queries: string[]; annotations: DataUIPart
               <div className="p-1 rounded bg-background/80 shrink-0">
                 <XLogoIcon className="h-2.5 w-2.5 text-foreground" />
               </div>
-              <span className="font-pixel text-xs text-muted-foreground/80 uppercase tracking-wider">X Search</span>
+              <span className="font-pixel text-xs text-muted-foreground/80 uppercase tracking-wider">
+                X Search · via xAI
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-muted-foreground/60 tabular-nums">{totalSources || 0}</span>
@@ -350,7 +352,9 @@ const XSearch: React.FC<XSearchProps> = ({ result, args, annotations = [] }) => 
               <XLogoIcon className="size-5 text-foreground" />
             </div>
             <div className="flex flex-col items-start gap-0.5 min-w-0">
-              <span className="font-pixel text-xs text-muted-foreground/80 uppercase tracking-wider">X Search</span>
+              <span className="font-pixel text-xs text-muted-foreground/80 uppercase tracking-wider">
+                X Search · via xAI
+              </span>
               <span className="text-[8.5px] text-muted-foreground/60 truncate">
                 {tweetCitations.length} posts {start !== 'Unknown' ? `· ${start} - ${end}` : ''}
               </span>
