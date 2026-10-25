@@ -5,11 +5,13 @@ import Link from 'next/link';
 import { motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, RefreshCw, TriangleAlert } from 'lucide-react';
+import { reloadIfStaleDeployment } from '@/lib/stale-deployment';
 
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     // Log the error to an error reporting service
     console.error(error);
+    reloadIfStaleDeployment(error);
   }, [error]);
 
   return (

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { baumans, beVietnamPro, geist } from '@/lib/fonts';
 import { AnimatePresence, motion } from 'motion/react';
 import { writeClipboardText } from '@/hooks/use-copy-to-clipboard';
+import { reloadIfStaleDeployment } from '@/lib/stale-deployment';
 
 interface GlobalErrorProps {
   error: Error & { digest?: string };
@@ -22,6 +23,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
     // e.g. reportError(error);
 
     console.error('[GlobalErrorBoundary]', error);
+    reloadIfStaleDeployment(error);
   }, [error]);
 
   const details = [

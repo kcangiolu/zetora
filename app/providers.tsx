@@ -1,15 +1,19 @@
 'use client';
 
 import { ThemeProvider } from 'next-themes';
-import { ReactNode } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactNode, useEffect } from 'react';
+import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { UserProvider } from '@/contexts/user-context';
 import { DataStreamProvider } from '@/components/data-stream-provider';
 import { SpeechProvider } from '@/contexts/speech-context';
 import { LocaleProvider } from '@/contexts/locale-context';
+import { reloadIfStaleDeployment } from '@/lib/stale-deployment';
 
 // Create a client
 const queryClient = new QueryClient({
+  // Server Actions called through queries and mutations reject here, never reaching an error boundary.
+  queryCache: new QueryCache({ onError: reloadIfStaleDeployment }),
+  mutationCache: new MutationCache({ onError: reloadIfStaleDeployment }),
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // 5 minutes - increased to reduce unnecessary refetches
@@ -35,6 +39,19 @@ export function Providers({
   nonce: string | undefined;
   locale: string;
 }) {
+  // Lazy chunks load outside React (dynamic imports in event handlers), so a
+  // failure there never reaches an error boundary.
+  useEffect(() => {
+    const onError = (event: ErrorEvent) => reloadIfStaleDeployment(event.error);
+    const onRejection = (event: PromiseRejectionEvent) => reloadIfStaleDeployment(event.reason);
+    window.addEventListener('error', onError);
+    window.addEventListener('unhandledrejection', onRejection);
+    return () => {
+      window.removeEventListener('error', onError);
+      window.removeEventListener('unhandledrejection', onRejection);
+    };
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <UserProvider>
