@@ -142,4 +142,4 @@ The `selfhosted` profile groups the CPU-only services, from `minio` to `bullmq`.
 - `pnpm test` / `test:coverage` — Vitest unit tests for pure/business-logic modules (`tests/`).
 - `pnpm build` — Next.js standalone build.
 - `pnpm knip` — unused files, exports and dependencies.
-- CI (`.github/workflows/ci.yml`) runs lint, knip, typecheck, tests, build and a `docker compose config` check on every push and pull request to `main`.
+- CI (`.github/workflows/ci.yml`) runs lint, a Prettier check, knip, typecheck, tests, a check that the migrations match `lib/db/schema.ts`, the relay service and Hermes plugin checks, build and a `docker compose config` check on every push and pull request to `main`.

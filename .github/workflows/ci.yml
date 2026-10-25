@@ -43,7 +43,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Lint
-        run: pnpm lint
+        run: pnpm lint --max-warnings 0
+
+      - name: Format check
+        run: pnpm exec prettier --check .
 
       - name: Dead code check
         run: pnpm knip
@@ -54,12 +57,35 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
+      # drizzle-kit writes a new migration when lib/db/schema.ts has changes
+      # no committed migration covers; it only reads the schema, no database.
+      - name: Migrations match the schema
+        run: |
+          pnpm exec drizzle-kit generate
+          if [ -n "$(git status --porcelain -- drizzle/)" ]; then
+            git status --porcelain -- drizzle/
+            echo "lib/db/schema.ts has changes without a migration: run pnpm exec drizzle-kit generate and commit it."
+            exit 1
+          fi
+
       - name: Hermes relay checks
         working-directory: hermes-relay-service
         run: |
           npm ci
           npx tsc -p tsconfig.json --noEmit
           npm test
+
+      # The plugin runs inside Hermes, which this CI doesn't have: pyflakes and
+      # syntax errors are what can be checked without it.
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Hermes plugin checks
+        run: |
+          pip install --quiet ruff==0.17.2
+          ruff check --select F,E9 hermes-plugin
 
       - name: Build
         run: pnpm build

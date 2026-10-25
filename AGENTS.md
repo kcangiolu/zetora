@@ -42,7 +42,7 @@ pnpm test
 pnpm fix       # Prettier on the whole repository: CI fails on an unformatted file
 ```
 
-Behavior a test can pin goes in `tests/` (Vitest). Changes to `hermes-relay-service` also run its own `npm test`.
+Behavior a test can pin goes in `tests/` (Vitest). Changes to `hermes-relay-service` also run its own `npm test`, and changes to `hermes-plugin` pass `ruff check --select F,E9 hermes-plugin`.
 
 ## Commits
 
