@@ -82,7 +82,14 @@ describe('academicSearchTool provider selection', () => {
         success: true,
         data: {
           results: [
-            { url: 'https://arxiv.org/abs/1234', title: 'paper', snippet: 'desc', description: '', score: 1, category: '' },
+            {
+              url: 'https://arxiv.org/abs/1234',
+              title: 'paper',
+              snippet: 'desc',
+              description: '',
+              score: 1,
+              category: '',
+            },
           ],
         },
       },

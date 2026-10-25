@@ -120,6 +120,9 @@ Based on your analysis, provide your response in the following JSON formats if y
     };
   } catch (error) {
     log.error('Error routing with auto router:', error);
-    return { success: false, error: error instanceof ModelUnavailableError ? error.message : 'Auto Router failed to route the query' };
+    return {
+      success: false,
+      error: error instanceof ModelUnavailableError ? error.message : 'Auto Router failed to route the query',
+    };
   }
 }

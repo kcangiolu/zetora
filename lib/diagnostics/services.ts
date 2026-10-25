@@ -154,8 +154,7 @@ export const SERVICE_CHECKS: ServiceCheckDefinition[] = [
     id: 'bullmq',
     label: 'BullMQ Redis (lookouts)',
     configured: () => serverEnv.LOOKOUT_SCHEDULER === 'bullmq',
-    run: () =>
-      redisPing(process.env.BULLMQ_REDIS_URL || 'redis://localhost:6381', process.env.BULLMQ_REDIS_PASSWORD),
+    run: () => redisPing(process.env.BULLMQ_REDIS_URL || 'redis://localhost:6381', process.env.BULLMQ_REDIS_PASSWORD),
   },
   {
     id: 's2s',

@@ -82,15 +82,26 @@ describe('dedupeAndCapSearches', () => {
   });
 
   it('caps results per domain', () => {
-    const searches = [entry('q1', [1, 2, 3, 4, 5].map((i) => `https://same.com/p${i}`))];
+    const searches = [
+      entry(
+        'q1',
+        [1, 2, 3, 4, 5].map((i) => `https://same.com/p${i}`),
+      ),
+    ];
     const capped = dedupeAndCapSearches(searches, { perDomainCap: 3 });
     expect(capped[0].results).toHaveLength(3);
   });
 
   it('applies the global cap round-robin so every query keeps its best hits', () => {
     const searches = [
-      entry('q1', [1, 2, 3, 4].map((i) => `https://a${i}.com/`)),
-      entry('q2', [1, 2, 3, 4].map((i) => `https://b${i}.com/`)),
+      entry(
+        'q1',
+        [1, 2, 3, 4].map((i) => `https://a${i}.com/`),
+      ),
+      entry(
+        'q2',
+        [1, 2, 3, 4].map((i) => `https://b${i}.com/`),
+      ),
     ];
     const capped = dedupeAndCapSearches(searches, { globalCap: 4 });
     expect(capped[0].results).toHaveLength(2);

@@ -43,9 +43,9 @@ export function SystemPromptSection() {
             <div>
               <p className="text-sm font-medium">System Prompt</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Replaces Zetora&apos;s entire default system prompt for Auto mode — including the tool-calling
-                protocol and citation rules. A malformed prompt can break tool use. Other modes (Canvas, Deep
-                Research, Extreme Search, …) are unaffected. Leave empty to use the default.
+                Replaces Zetora&apos;s entire default system prompt for Auto mode — including the tool-calling protocol
+                and citation rules. A malformed prompt can break tool use. Other modes (Canvas, Deep Research, Extreme
+                Search, …) are unaffected. Leave empty to use the default.
               </p>
             </div>
           </div>

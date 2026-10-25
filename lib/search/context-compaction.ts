@@ -101,7 +101,10 @@ export async function maybeCompactContext({
     const promptMessages: ModelMessage[] = [
       ...(existingSummaryText
         ? [
-            { role: 'user' as const, content: `Existing summary of the conversation so far:\n\n${existingSummaryText}` },
+            {
+              role: 'user' as const,
+              content: `Existing summary of the conversation so far:\n\n${existingSummaryText}`,
+            },
             {
               role: 'assistant' as const,
               content: 'Understood — I will preserve this and extend it with the new turns.',
@@ -113,11 +116,7 @@ export async function maybeCompactContext({
       { role: 'user' as const, content: 'Now produce the single updated summary, per your instructions.' },
     ];
 
-    const compactionModel = await resolveTertiaryModel(
-      'context-compaction',
-      preferences ?? null,
-      userId,
-    );
+    const compactionModel = await resolveTertiaryModel('context-compaction', preferences ?? null, userId);
     const foldInTokens = estimateTokenCount(promptMessages);
     log.info(
       `Compacting ${foldInTurns.length} turn(s) / ~${foldInTokens} estimated tokens (existing summary: ${existingSummaryText ? 'yes' : 'no'})`,

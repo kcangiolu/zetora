@@ -32,11 +32,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  getRecentChats,
-  updateChatPinned,
-  updateChatVisibility,
-} from '@/app/actions';
+import { getRecentChats, updateChatPinned, updateChatVisibility } from '@/app/actions';
 import {
   Sidebar,
   SidebarContent,
@@ -605,192 +601,194 @@ export const AppSidebar = memo(({ user }: AppSidebarProps) => {
 
   return (
     <>
-    <Sidebar
-      collapsible="icon"
-      className="shadow-none! border-none! **:data-[slot=sidebar-inner]:light:bg-primary/10 **:data-[slot=sidebar-inner]:dark:bg-primary/4 **:data-[slot=sidebar-inner]:colourful:bg-primary/10 **:data-[slot=sidebar-inner]:text-sidebar-foreground **:data-[slot=sidebar-gap]:bg-transparent"
-    >
-      {/* Header */}
-      <SidebarHeader className="p-0!">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <div className="relative flex items-center w-full h-12 px-2 overflow-visible">
-              <Button
+      <Sidebar
+        collapsible="icon"
+        className="shadow-none! border-none! **:data-[slot=sidebar-inner]:light:bg-primary/10 **:data-[slot=sidebar-inner]:dark:bg-primary/4 **:data-[slot=sidebar-inner]:colourful:bg-primary/10 **:data-[slot=sidebar-inner]:text-sidebar-foreground **:data-[slot=sidebar-gap]:bg-transparent"
+      >
+        {/* Header */}
+        <SidebarHeader className="p-0!">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <div className="relative flex items-center w-full h-12 px-2 overflow-visible">
+                <Button
+                  asChild
+                  variant="ghost"
+                  className="h-auto w-fit group-data-[collapsible=icon]:p-0 py-1 px-2 justify-start hover:bg-primary/10!"
+                >
+                  <Link
+                    href="/new"
+                    onClick={closeMobileSidebar}
+                    aria-label="New chat"
+                    className="inline-flex items-center gap-1 w-fit group-data-[collapsible=icon]:mx-auto"
+                  >
+                    <div className="flex items-center justify-center size-6 shrink-0 transition-opacity duration-200 group-data-[collapsible=icon]:group-hover:opacity-0">
+                      <ZetoraLogo className="size-6 text-primary" />
+                    </div>
+                    <div className="flex flex-row items-center gap-2 leading-none group-data-[collapsible=icon]:hidden">
+                      <span className="font-be-vietnam-pro font-light tracking-tighter text-xl">zetora</span>
+                    </div>
+                  </Link>
+                </Button>
+
+                {/* Expanded state trigger on the right of the logo */}
+                <div className="absolute top-2 right-2 group-data-[collapsible=icon]:hidden">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <SidebarTrigger className="size-8" />
+                    </TooltipTrigger>
+                    <TooltipContent side="right" align="center" hidden={state !== 'expanded' || isMobile}>
+                      Close Sidebar <span className="text-xs text-secondary pl-0.5">⌘B</span>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+
+                {/* Collapsed state: show trigger on hover overlay */}
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 pointer-events-none group-data-[collapsible=icon]:group-hover:opacity-100 group-data-[collapsible=icon]:group-hover:pointer-events-auto">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <SidebarTrigger className="size-8 transition-opacity duration-200 opacity-0 group-data-[collapsible=icon]:group-hover:opacity-100" />
+                    </TooltipTrigger>
+                    <TooltipContent side="right" align="center" hidden={state !== 'collapsed' || isMobile}>
+                      Open Sidebar
+                      <span className="text-xs text-secondary pl-1">⌘B</span>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarHeader>
+
+        {/* Static Navigation - does not scroll */}
+        <SidebarGroup className="p-2 pb-0 gap-0 shrink-0">
+          <SidebarMenu className="group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center">
+            {/* New Chat - Primary Action */}
+            <SidebarMenuItem>
+              <SidebarMenuButton
                 asChild
-                variant="ghost"
-                className="h-auto w-fit group-data-[collapsible=icon]:p-0 py-1 px-2 justify-start hover:bg-primary/10!"
+                tooltip="New Chat"
+                className="bg-primary/10 hover:bg-primary/20 text-sidebar-accent-foreground font-medium transition-all duration-200 active:scale-[0.98]"
               >
                 <Link
+                  prefetch
                   href="/new"
                   onClick={closeMobileSidebar}
-                  aria-label="New chat"
-                  className="inline-flex items-center gap-1 w-fit group-data-[collapsible=icon]:mx-auto"
+                  className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-full"
                 >
-                  <div className="flex items-center justify-center size-6 shrink-0 transition-opacity duration-200 group-data-[collapsible=icon]:group-hover:opacity-0">
-                    <ZetoraLogo className="size-6 text-primary" />
-                  </div>
-                  <div className="flex flex-row items-center gap-2 leading-none group-data-[collapsible=icon]:hidden">
-                    <span className="font-be-vietnam-pro font-light tracking-tighter text-xl">zetora</span>
-                  </div>
+                  <PlusIcon size={18} weight="bold" />
+                  <span className="group-data-[collapsible=icon]:hidden">New Search</span>
                 </Link>
-              </Button>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
 
-              {/* Expanded state trigger on the right of the logo */}
-              <div className="absolute top-2 right-2 group-data-[collapsible=icon]:hidden">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <SidebarTrigger className="size-8" />
-                  </TooltipTrigger>
-                  <TooltipContent side="right" align="center" hidden={state !== 'expanded' || isMobile}>
-                    Close Sidebar <span className="text-xs text-secondary pl-0.5">⌘B</span>
-                  </TooltipContent>
-                </Tooltip>
+            {user && (
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Search Library"
+                  className={cn(
+                    'hover:bg-primary/10 transition-all duration-200',
+                    pathname === '/searches' || pathname?.startsWith('/searches/')
+                      ? 'bg-primary/15 text-foreground font-medium'
+                      : '',
+                  )}
+                >
+                  <Link
+                    href="/searches"
+                    onClick={closeMobileSidebar}
+                    className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-full"
+                  >
+                    <HugeiconsIcon icon={FolderLibraryIcon} size={18} />
+                    <span className="group-data-[collapsible=icon]:hidden">Search Library</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
+
+            {/* Tools Section Label */}
+            {user && (lookoutEnabled || voiceEnabled || appsEnabled) && (
+              <div className="px-2 py-1.5 group-data-[collapsible=icon]:hidden">
+                <span className="font-pixel text-[11px] text-muted-foreground/60 uppercase tracking-[0.12em]">
+                  Tools
+                </span>
               </div>
+            )}
 
-              {/* Collapsed state: show trigger on hover overlay */}
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 pointer-events-none group-data-[collapsible=icon]:group-hover:opacity-100 group-data-[collapsible=icon]:group-hover:pointer-events-auto">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <SidebarTrigger className="size-8 transition-opacity duration-200 opacity-0 group-data-[collapsible=icon]:group-hover:opacity-100" />
-                  </TooltipTrigger>
-                  <TooltipContent side="right" align="center" hidden={state !== 'collapsed' || isMobile}>
-                    Open Sidebar
-                    <span className="text-xs text-secondary pl-1">⌘B</span>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            </div>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
-
-      {/* Static Navigation - does not scroll */}
-      <SidebarGroup className="p-2 pb-0 gap-0 shrink-0">
-        <SidebarMenu className="group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center">
-          {/* New Chat - Primary Action */}
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              tooltip="New Chat"
-              className="bg-primary/10 hover:bg-primary/20 text-sidebar-accent-foreground font-medium transition-all duration-200 active:scale-[0.98]"
-            >
-              <Link
-                prefetch
-                href="/new"
-                onClick={closeMobileSidebar}
-                className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-full"
-              >
-                <PlusIcon size={18} weight="bold" />
-                <span className="group-data-[collapsible=icon]:hidden">New Search</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-
-          {user && (
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                tooltip="Search Library"
-                className={cn(
-                  'hover:bg-primary/10 transition-all duration-200',
-                  pathname === '/searches' || pathname?.startsWith('/searches/')
-                    ? 'bg-primary/15 text-foreground font-medium'
-                    : '',
-                )}
-              >
-                <Link
-                  href="/searches"
-                  onClick={closeMobileSidebar}
-                  className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-full"
+            {/* Lookout */}
+            {user && lookoutEnabled && (
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Lookout"
+                  className={cn(
+                    'hover:bg-primary/10 transition-all duration-200',
+                    pathname === '/lookout' || pathname?.startsWith('/lookout/')
+                      ? 'bg-primary/15 text-foreground font-medium'
+                      : '',
+                  )}
                 >
-                  <HugeiconsIcon icon={FolderLibraryIcon} size={18} />
-                  <span className="group-data-[collapsible=icon]:hidden">Search Library</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )}
+                  <Link
+                    href="/lookout"
+                    onClick={closeMobileSidebar}
+                    className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-full"
+                  >
+                    <HugeiconsIcon icon={BinocularsIcon} size={18} />
+                    <span className="group-data-[collapsible=icon]:hidden">Lookout</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
 
-          {/* Tools Section Label */}
-          {user && (lookoutEnabled || voiceEnabled || appsEnabled) && (
-            <div className="px-2 py-1.5 group-data-[collapsible=icon]:hidden">
-              <span className="font-pixel text-[11px] text-muted-foreground/60 uppercase tracking-[0.12em]">Tools</span>
-            </div>
-          )}
-
-          {/* Lookout */}
-          {user && lookoutEnabled && (
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                tooltip="Lookout"
-                className={cn(
-                  'hover:bg-primary/10 transition-all duration-200',
-                  pathname === '/lookout' || pathname?.startsWith('/lookout/')
-                    ? 'bg-primary/15 text-foreground font-medium'
-                    : '',
-                )}
-              >
-                <Link
-                  href="/lookout"
-                  onClick={closeMobileSidebar}
-                  className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-full"
+            {/* Apps */}
+            {user && process.env.NEXT_PUBLIC_MCP_ENABLED === 'true' && appsEnabled && (
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Apps"
+                  className={cn(
+                    'hover:bg-primary/10 transition-all duration-200',
+                    pathname === '/apps' || pathname?.startsWith('/apps/')
+                      ? 'bg-primary/15 text-foreground font-medium'
+                      : '',
+                  )}
                 >
-                  <HugeiconsIcon icon={BinocularsIcon} size={18} />
-                  <span className="group-data-[collapsible=icon]:hidden">Lookout</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )}
+                  <Link
+                    href="/apps"
+                    onClick={closeMobileSidebar}
+                    className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-full"
+                  >
+                    <AppsIcon width={18} height={18} />
+                    <span className="group-data-[collapsible=icon]:hidden">Apps</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
 
-          {/* Apps */}
-          {user && process.env.NEXT_PUBLIC_MCP_ENABLED === 'true' && appsEnabled && (
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                tooltip="Apps"
-                className={cn(
-                  'hover:bg-primary/10 transition-all duration-200',
-                  pathname === '/apps' || pathname?.startsWith('/apps/')
-                    ? 'bg-primary/15 text-foreground font-medium'
-                    : '',
-                )}
-              >
-                <Link
-                  href="/apps"
-                  onClick={closeMobileSidebar}
-                  className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-full"
+            {/* Voice */}
+            {user && voiceEnabled && (
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Voice"
+                  className={cn(
+                    'hover:bg-primary/10 transition-all duration-200',
+                    pathname === '/voice' ? 'bg-primary/15 text-foreground font-medium' : '',
+                  )}
                 >
-                  <AppsIcon width={18} height={18} />
-                  <span className="group-data-[collapsible=icon]:hidden">Apps</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )}
+                  <Link
+                    href="/voice"
+                    onClick={closeMobileSidebar}
+                    className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-full"
+                  >
+                    <AudioLinesIcon size={18} />
+                    <span className="group-data-[collapsible=icon]:hidden">Voice</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
 
-          {/* Voice */}
-          {user && voiceEnabled && (
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                tooltip="Voice"
-                className={cn(
-                  'hover:bg-primary/10 transition-all duration-200',
-                  pathname === '/voice' ? 'bg-primary/15 text-foreground font-medium' : '',
-                )}
-              >
-                <Link
-                  href="/voice"
-                  onClick={closeMobileSidebar}
-                  className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-full"
-                >
-                  <AudioLinesIcon size={18} />
-                  <span className="group-data-[collapsible=icon]:hidden">Voice</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )}
-
-          {/* Build */}
-          {/* {user && (
+            {/* Build */}
+            {/* {user && (
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
@@ -815,313 +813,371 @@ export const AppSidebar = memo(({ user }: AppSidebarProps) => {
             </SidebarMenuItem>
           )} */}
 
-          {/* Guest Info Links when signed out */}
-          {!user &&
-            signedOutLinks.map((link) => {
-              const Icon = link.icon;
-              const content = (
-                <>
-                  <Icon size={18} weight="regular" />
-                  <span className="group-data-[collapsible=icon]:hidden">{link.label}</span>
-                </>
-              );
+            {/* Guest Info Links when signed out */}
+            {!user &&
+              signedOutLinks.map((link) => {
+                const Icon = link.icon;
+                const content = (
+                  <>
+                    <Icon size={18} weight="regular" />
+                    <span className="group-data-[collapsible=icon]:hidden">{link.label}</span>
+                  </>
+                );
 
-              return (
-                <SidebarMenuItem key={link.id}>
-                  <SidebarMenuButton asChild tooltip={link.label} className="hover:bg-primary/10">
-                    {link.external ? (
-                      <a
-                        href={link.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={closeMobileSidebar}
-                        className="flex items-center gap-2 w-full"
-                      >
-                        {content}
-                      </a>
-                    ) : (
-                      <Link
-                        prefetch
-                        href={link.href}
-                        onClick={closeMobileSidebar}
-                        className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-full"
-                      >
-                        {content}
-                      </Link>
-                    )}
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              );
-            })}
-        </SidebarMenu>
+                return (
+                  <SidebarMenuItem key={link.id}>
+                    <SidebarMenuButton asChild tooltip={link.label} className="hover:bg-primary/10">
+                      {link.external ? (
+                        <a
+                          href={link.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={closeMobileSidebar}
+                          className="flex items-center gap-2 w-full"
+                        >
+                          {content}
+                        </a>
+                      ) : (
+                        <Link
+                          prefetch
+                          href={link.href}
+                          onClick={closeMobileSidebar}
+                          className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-full"
+                        >
+                          {content}
+                        </Link>
+                      )}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+          </SidebarMenu>
 
-        {/* Recent section title - fixed, does not scroll */}
-        {user && (
-          <button
-            type="button"
-            onClick={() => setIsRecentCollapsed((prev) => !prev)}
-            className="px-2 pt-2 pb-1 group-data-[collapsible=icon]:hidden flex w-full items-center justify-between text-left text-muted-foreground/80 hover:text-foreground transition-colors"
-            aria-expanded={!isRecentCollapsed}
-          >
-            <span className="font-pixel text-[11px] uppercase tracking-[0.12em]">Recent</span>
-            <ChevronDown
-              className={cn('h-3 w-3 transition-transform duration-150', isRecentCollapsed ? '-rotate-90' : 'rotate-0')}
-            />
-          </button>
-        )}
-      </SidebarGroup>
+          {/* Recent section title - fixed, does not scroll */}
+          {user && (
+            <button
+              type="button"
+              onClick={() => setIsRecentCollapsed((prev) => !prev)}
+              className="px-2 pt-2 pb-1 group-data-[collapsible=icon]:hidden flex w-full items-center justify-between text-left text-muted-foreground/80 hover:text-foreground transition-colors"
+              aria-expanded={!isRecentCollapsed}
+            >
+              <span className="font-pixel text-[11px] uppercase tracking-[0.12em]">Recent</span>
+              <ChevronDown
+                className={cn(
+                  'h-3 w-3 transition-transform duration-150',
+                  isRecentCollapsed ? '-rotate-90' : 'rotate-0',
+                )}
+              />
+            </button>
+          )}
+        </SidebarGroup>
 
-      {/* Scrollable Content - only recent chats scroll */}
-      <SidebarContent className="p-2 pt-0">
-        <SidebarMenu className="group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center">
-          {/* Recent Chats - With Date Grouping */}
-          {user && !isRecentCollapsed && (
-            <>
-              {/* Expanded state - chat list */}
-              <div className="group-data-[collapsible=icon]:hidden">
-                {isChatsLoading && !recentChats.length ? (
-                  // Loading skeletons with staggered animation
-                  Array.from({ length: 5 }).map((_, index) => (
-                    <SidebarMenuItem key={`chat-skeleton-${index}`}>
-                      <div
-                        className="flex items-center w-full gap-2 rounded-md px-2 py-1.5 animate-pulse"
-                        style={{ animationDelay: `${index * 100}ms` }}
-                      >
-                        <Skeleton className="h-4 flex-1 bg-primary/10 rounded" />
+        {/* Scrollable Content - only recent chats scroll */}
+        <SidebarContent className="p-2 pt-0">
+          <SidebarMenu className="group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center">
+            {/* Recent Chats - With Date Grouping */}
+            {user && !isRecentCollapsed && (
+              <>
+                {/* Expanded state - chat list */}
+                <div className="group-data-[collapsible=icon]:hidden">
+                  {isChatsLoading && !recentChats.length ? (
+                    // Loading skeletons with staggered animation
+                    Array.from({ length: 5 }).map((_, index) => (
+                      <SidebarMenuItem key={`chat-skeleton-${index}`}>
+                        <div
+                          className="flex items-center w-full gap-2 rounded-md px-2 py-1.5 animate-pulse"
+                          style={{ animationDelay: `${index * 100}ms` }}
+                        >
+                          <Skeleton className="h-4 flex-1 bg-primary/10 rounded" />
+                        </div>
+                      </SidebarMenuItem>
+                    ))
+                  ) : recentChats.length > 0 ? (
+                    <>
+                      {pinnedRecentChats.length > 0 && (
+                        <div className="mb-2">
+                          <div className="px-2 py-1">
+                            <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-[0.12em]">
+                              Pinned
+                            </span>
+                          </div>
+                          {pinnedRecentChats.map((chat: any) => {
+                            const isCurrentChat = pathname?.includes(chat.id);
+                            const isPublic = chat.visibility === 'public';
+                            const normalizedVisibility: VisibilityType = isPublic ? 'public' : 'private';
+                            const isMenuOpen = openMenuChatId === chat.id;
+                            const isPinned = Boolean(chat.isPinned);
+
+                            const handleRenameClick = () => {
+                              setRenameTarget({ id: chat.id, title: chat.title });
+                              setRenameValue(chat.title || 'Untitled Chat');
+                            };
+
+                            const handleShareClick = () => {
+                              setShareTarget({ id: chat.id, visibility: normalizedVisibility });
+                              setShareVisibility(normalizedVisibility);
+                              setShareDialogOpen(true);
+                            };
+
+                            const handleDeleteClick = () => {
+                              setDeleteTarget({ id: chat.id, title: chat.title });
+                            };
+
+                            return (
+                              <SidebarMenuItem key={chat.id}>
+                                <DropdownMenu
+                                  open={isMenuOpen}
+                                  onOpenChange={(open) => setOpenMenuChatId(open ? chat.id : null)}
+                                >
+                                  <div
+                                    className={cn(
+                                      'group flex items-center w-full rounded-md transition-all duration-200',
+                                      isCurrentChat || isMenuOpen ? 'bg-primary/15' : 'hover:bg-primary/8',
+                                    )}
+                                  >
+                                    <Link
+                                      prefetch
+                                      href={`/search/${chat.id}`}
+                                      onClick={closeMobileSidebar}
+                                      className={cn(
+                                        'flex items-center gap-2 flex-1 min-w-0 px-2 py-1.5',
+                                        isCurrentChat && 'font-medium',
+                                      )}
+                                    >
+                                      {chat.isHermesChat && <HermesModeDot />}
+                                      {isPublic && <Globe className="h-3.5 w-3.5 shrink-0 opacity-60" />}
+                                      <span className="truncate flex-1 text-sm">{chat.title || 'Untitled Chat'}</span>
+                                    </Link>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 opacity-60 hover:opacity-100 data-[state=open]:opacity-100 text-muted-foreground hover:text-foreground shrink-0 mr-1 transition-opacity duration-150"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <MoreHorizontal className="h-4 w-4" />
+                                        <span className="sr-only">Open chat actions</span>
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="start" side="right" sideOffset={20}>
+                                      <DropdownMenuItem onClick={() => togglePinnedChat(chat.id)}>
+                                        {isPinned ? (
+                                          <PinOff className="h-4 w-4 mr-2" />
+                                        ) : (
+                                          <Pin className="h-4 w-4 mr-2" />
+                                        )}
+                                        {isPinned ? 'Unpin' : 'Pin'}
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={handleRenameClick}>
+                                        <Pencil className="h-4 w-4 mr-2" />
+                                        Edit title
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={handleShareClick}>
+                                        <Share2 className="h-4 w-4 mr-2" />
+                                        Share
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        onClick={handleDeleteClick}
+                                        className="text-destructive focus:text-destructive"
+                                      >
+                                        <Trash2 className="h-4 w-4 mr-2 text-destructive" />
+                                        Delete
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </div>
+                                </DropdownMenu>
+                              </SidebarMenuItem>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {/* Date-grouped chats */}
+                      {groupedChats.map((group) => (
+                        <div key={group.label} className="mb-2">
+                          <div className="px-2 py-1">
+                            <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-[0.12em]">
+                              {group.label}
+                            </span>
+                          </div>
+                          {group.chats.map((chat: any) => {
+                            const isCurrentChat = pathname?.includes(chat.id);
+                            const isPublic = chat.visibility === 'public';
+                            const normalizedVisibility: VisibilityType = isPublic ? 'public' : 'private';
+                            const isMenuOpen = openMenuChatId === chat.id;
+                            const isPinned = Boolean(chat.isPinned);
+
+                            const handleRenameClick = () => {
+                              setRenameTarget({ id: chat.id, title: chat.title });
+                              setRenameValue(chat.title || 'Untitled Chat');
+                            };
+
+                            const handleShareClick = () => {
+                              setShareTarget({ id: chat.id, visibility: normalizedVisibility });
+                              setShareVisibility(normalizedVisibility);
+                              setShareDialogOpen(true);
+                            };
+
+                            const handleDeleteClick = () => {
+                              setDeleteTarget({ id: chat.id, title: chat.title });
+                            };
+
+                            return (
+                              <SidebarMenuItem key={chat.id}>
+                                <DropdownMenu
+                                  open={isMenuOpen}
+                                  onOpenChange={(open) => setOpenMenuChatId(open ? chat.id : null)}
+                                >
+                                  <div
+                                    className={cn(
+                                      'group flex items-center w-full rounded-md transition-all duration-200',
+                                      isCurrentChat || isMenuOpen ? 'bg-primary/15' : 'hover:bg-primary/8',
+                                    )}
+                                  >
+                                    <Link
+                                      prefetch
+                                      href={`/search/${chat.id}`}
+                                      onClick={closeMobileSidebar}
+                                      className={cn(
+                                        'flex items-center gap-2 flex-1 min-w-0 px-2 py-1.5',
+                                        isCurrentChat && 'font-medium',
+                                      )}
+                                    >
+                                      {chat.isHermesChat && <HermesModeDot />}
+                                      {isPublic && <Globe className="h-3.5 w-3.5 shrink-0 opacity-60" />}
+                                      <span className="truncate flex-1 text-sm">{chat.title || 'Untitled Chat'}</span>
+                                    </Link>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 opacity-60 hover:opacity-100 data-[state=open]:opacity-100 text-muted-foreground hover:text-foreground shrink-0 mr-1 transition-opacity duration-150"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <MoreHorizontal className="h-4 w-4" />
+                                        <span className="sr-only">Open chat actions</span>
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="start" side="right" sideOffset={20}>
+                                      <DropdownMenuItem onClick={() => togglePinnedChat(chat.id)}>
+                                        {isPinned ? (
+                                          <PinOff className="h-4 w-4 mr-2" />
+                                        ) : (
+                                          <Pin className="h-4 w-4 mr-2" />
+                                        )}
+                                        {isPinned ? 'Unpin' : 'Pin'}
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={handleRenameClick}>
+                                        <Pencil className="h-4 w-4 mr-2" />
+                                        Edit title
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={handleShareClick}>
+                                        <Share2 className="h-4 w-4 mr-2" />
+                                        Share
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        onClick={handleDeleteClick}
+                                        className="text-destructive focus:text-destructive"
+                                      >
+                                        <Trash2 className="h-4 w-4 mr-2 text-destructive" />
+                                        Delete
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </div>
+                                </DropdownMenu>
+                              </SidebarMenuItem>
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </>
+                  ) : (
+                    <SidebarMenuItem>
+                      <div className="px-2 py-1.5">
+                        <span className="text-sm text-sidebar-foreground/50">No chats yet</span>
                       </div>
                     </SidebarMenuItem>
-                  ))
-                ) : recentChats.length > 0 ? (
-                  <>
-                    {pinnedRecentChats.length > 0 && (
-                      <div className="mb-2">
-                        <div className="px-2 py-1">
-                          <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-[0.12em]">
-                            Pinned
-                          </span>
-                        </div>
-                        {pinnedRecentChats.map((chat: any) => {
-                          const isCurrentChat = pathname?.includes(chat.id);
-                          const isPublic = chat.visibility === 'public';
-                          const normalizedVisibility: VisibilityType = isPublic ? 'public' : 'private';
-                          const isMenuOpen = openMenuChatId === chat.id;
-                          const isPinned = Boolean(chat.isPinned);
+                  )}
+                </div>
+              </>
+            )}
+          </SidebarMenu>
+        </SidebarContent>
 
-                          const handleRenameClick = () => {
-                            setRenameTarget({ id: chat.id, title: chat.title });
-                            setRenameValue(chat.title || 'Untitled Chat');
-                          };
-
-                          const handleShareClick = () => {
-                            setShareTarget({ id: chat.id, visibility: normalizedVisibility });
-                            setShareVisibility(normalizedVisibility);
-                            setShareDialogOpen(true);
-                          };
-
-                          const handleDeleteClick = () => {
-                            setDeleteTarget({ id: chat.id, title: chat.title });
-                          };
-
-                          return (
-                            <SidebarMenuItem key={chat.id}>
-                              <DropdownMenu
-                                open={isMenuOpen}
-                                onOpenChange={(open) => setOpenMenuChatId(open ? chat.id : null)}
+        {/* Footer - User Account with Dropdown Menu */}
+        <SidebarFooter className="group-data-[collapsible=icon]:border-none border-t border-border p-0 gap-0">
+          {user ? (
+            <SidebarMenu className="gap-0">
+              <SidebarMenuItem>
+                {/* Expanded state - full user card as dropdown trigger */}
+                <div className="group-data-[collapsible=icon]:hidden">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="flex w-full items-center justify-between gap-2 px-3 py-4 text-left outline-hidden ring-0 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-0 active:bg-primary/20 active:text-sidebar-accent-foreground">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div className="relative shrink-0">
+                            <Avatar className="h-8 w-8 overflow-hidden rounded-full mask-[radial-gradient(white,black)] [-webkit-mask-image:-webkit-radial-gradient(white,black)]">
+                              <AvatarImage src={user.image || ''} className={cn(blurPersonalInfo && 'blur-sm')} />
+                              <AvatarFallback
+                                className={cn(
+                                  'bg-primary text-primary-foreground font-semibold',
+                                  blurPersonalInfo && 'blur-sm',
+                                )}
                               >
-                                <div
-                                  className={cn(
-                                    'group flex items-center w-full rounded-md transition-all duration-200',
-                                    isCurrentChat || isMenuOpen ? 'bg-primary/15' : 'hover:bg-primary/8',
-                                  )}
-                                >
-                                  <Link
-                                    prefetch
-                                    href={`/search/${chat.id}`}
-                                    onClick={closeMobileSidebar}
-                                    className={cn(
-                                      'flex items-center gap-2 flex-1 min-w-0 px-2 py-1.5',
-                                      isCurrentChat && 'font-medium',
-                                    )}
-                                  >
-                                    {chat.isHermesChat && <HermesModeDot />}
-                                    {isPublic && <Globe className="h-3.5 w-3.5 shrink-0 opacity-60" />}
-                                    <span className="truncate flex-1 text-sm">{chat.title || 'Untitled Chat'}</span>
-                                  </Link>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-7 w-7 opacity-60 hover:opacity-100 data-[state=open]:opacity-100 text-muted-foreground hover:text-foreground shrink-0 mr-1 transition-opacity duration-150"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <MoreHorizontal className="h-4 w-4" />
-                                      <span className="sr-only">Open chat actions</span>
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="start" side="right" sideOffset={20}>
-                                    <DropdownMenuItem onClick={() => togglePinnedChat(chat.id)}>
-                                      {isPinned ? (
-                                        <PinOff className="h-4 w-4 mr-2" />
-                                      ) : (
-                                        <Pin className="h-4 w-4 mr-2" />
-                                      )}
-                                      {isPinned ? 'Unpin' : 'Pin'}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={handleRenameClick}>
-                                      <Pencil className="h-4 w-4 mr-2" />
-                                      Edit title
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={handleShareClick}>
-                                      <Share2 className="h-4 w-4 mr-2" />
-                                      Share
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                      onClick={handleDeleteClick}
-                                      className="text-destructive focus:text-destructive"
-                                    >
-                                      <Trash2 className="h-4 w-4 mr-2 text-destructive" />
-                                      Delete
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </div>
-                              </DropdownMenu>
-                            </SidebarMenuItem>
-                          );
-                        })}
-                      </div>
-                    )}
-                    {/* Date-grouped chats */}
-                    {groupedChats.map((group) => (
-                      <div key={group.label} className="mb-2">
-                        <div className="px-2 py-1">
-                          <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-[0.12em]">
-                            {group.label}
-                          </span>
+                                {user.name
+                                  ? user.name
+                                      .split(' ')
+                                      .map((n: string) => n[0])
+                                      .join('')
+                                      .toUpperCase()
+                                  : 'U'}
+                              </AvatarFallback>
+                            </Avatar>
+                          </div>
+                          <div className="flex flex-col gap-0.25 leading-none flex-1 min-w-0 items-start">
+                            <span
+                              className={cn(
+                                'font-semibold text-sm truncate text-sidebar-foreground text-left w-full',
+                                blurPersonalInfo && 'blur-sm',
+                              )}
+                            >
+                              {user.name || 'User'}
+                            </span>
+                            <span className="text-xs text-sidebar-foreground/70 truncate text-left w-full">Zetora</span>
+                          </div>
                         </div>
-                        {group.chats.map((chat: any) => {
-                          const isCurrentChat = pathname?.includes(chat.id);
-                          const isPublic = chat.visibility === 'public';
-                          const normalizedVisibility: VisibilityType = isPublic ? 'public' : 'private';
-                          const isMenuOpen = openMenuChatId === chat.id;
-                          const isPinned = Boolean(chat.isPinned);
+                        <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      side="top"
+                      align="center"
+                      className="w-62"
+                      sideOffset={4}
+                      collisionPadding={{ bottom: 20 }}
+                    >
+                      <UserDropdownContent
+                        user={user}
+                        blurPersonalInfo={Boolean(blurPersonalInfo)}
+                        closeMobileSidebar={closeMobileSidebar}
+                        onShortcutsOpen={() => setKeyboardShortcutsOpen(true)}
+                      />
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
 
-                          const handleRenameClick = () => {
-                            setRenameTarget({ id: chat.id, title: chat.title });
-                            setRenameValue(chat.title || 'Untitled Chat');
-                          };
-
-                          const handleShareClick = () => {
-                            setShareTarget({ id: chat.id, visibility: normalizedVisibility });
-                            setShareVisibility(normalizedVisibility);
-                            setShareDialogOpen(true);
-                          };
-
-                          const handleDeleteClick = () => {
-                            setDeleteTarget({ id: chat.id, title: chat.title });
-                          };
-
-                          return (
-                            <SidebarMenuItem key={chat.id}>
-                              <DropdownMenu
-                                open={isMenuOpen}
-                                onOpenChange={(open) => setOpenMenuChatId(open ? chat.id : null)}
-                              >
-                                <div
-                                  className={cn(
-                                    'group flex items-center w-full rounded-md transition-all duration-200',
-                                    isCurrentChat || isMenuOpen ? 'bg-primary/15' : 'hover:bg-primary/8',
-                                  )}
-                                >
-                                  <Link
-                                    prefetch
-                                    href={`/search/${chat.id}`}
-                                    onClick={closeMobileSidebar}
-                                    className={cn(
-                                      'flex items-center gap-2 flex-1 min-w-0 px-2 py-1.5',
-                                      isCurrentChat && 'font-medium',
-                                    )}
-                                  >
-                                    {chat.isHermesChat && <HermesModeDot />}
-                                    {isPublic && <Globe className="h-3.5 w-3.5 shrink-0 opacity-60" />}
-                                    <span className="truncate flex-1 text-sm">{chat.title || 'Untitled Chat'}</span>
-                                  </Link>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-7 w-7 opacity-60 hover:opacity-100 data-[state=open]:opacity-100 text-muted-foreground hover:text-foreground shrink-0 mr-1 transition-opacity duration-150"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <MoreHorizontal className="h-4 w-4" />
-                                      <span className="sr-only">Open chat actions</span>
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="start" side="right" sideOffset={20}>
-                                    <DropdownMenuItem onClick={() => togglePinnedChat(chat.id)}>
-                                      {isPinned ? (
-                                        <PinOff className="h-4 w-4 mr-2" />
-                                      ) : (
-                                        <Pin className="h-4 w-4 mr-2" />
-                                      )}
-                                      {isPinned ? 'Unpin' : 'Pin'}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={handleRenameClick}>
-                                      <Pencil className="h-4 w-4 mr-2" />
-                                      Edit title
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={handleShareClick}>
-                                      <Share2 className="h-4 w-4 mr-2" />
-                                      Share
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                      onClick={handleDeleteClick}
-                                      className="text-destructive focus:text-destructive"
-                                    >
-                                      <Trash2 className="h-4 w-4 mr-2 text-destructive" />
-                                      Delete
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </div>
-                              </DropdownMenu>
-                            </SidebarMenuItem>
-                          );
-                        })}
-                      </div>
-                    ))}
-                  </>
-                ) : (
-                  <SidebarMenuItem>
-                    <div className="px-2 py-1.5">
-                      <span className="text-sm text-sidebar-foreground/50">No chats yet</span>
-                    </div>
-                  </SidebarMenuItem>
-                )}
-              </div>
-            </>
-          )}
-        </SidebarMenu>
-
-      </SidebarContent>
-
-      {/* Footer - User Account with Dropdown Menu */}
-      <SidebarFooter className="group-data-[collapsible=icon]:border-none border-t border-border p-0 gap-0">
-        {user ? (
-          <SidebarMenu className="gap-0">
-            <SidebarMenuItem>
-              {/* Expanded state - full user card as dropdown trigger */}
-              <div className="group-data-[collapsible=icon]:hidden">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="flex w-full items-center justify-between gap-2 px-3 py-4 text-left outline-hidden ring-0 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-0 active:bg-primary/20 active:text-sidebar-accent-foreground">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="relative shrink-0">
-                          <Avatar className="h-8 w-8 overflow-hidden rounded-full mask-[radial-gradient(white,black)] [-webkit-mask-image:-webkit-radial-gradient(white,black)]">
+                {/* Collapsed state - avatar with dropdown */}
+                <div className="hidden group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center py-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-10 w-10 p-0 overflow-visible">
+                        <div className="relative">
+                          <Avatar className="h-6 w-6 overflow-hidden rounded-full mask-[radial-gradient(white,black)] [-webkit-mask-image:-webkit-radial-gradient(white,black)]">
                             <AvatarImage src={user.image || ''} className={cn(blurPersonalInfo && 'blur-sm')} />
                             <AvatarFallback
                               className={cn(
-                                'bg-primary text-primary-foreground font-semibold',
+                                'bg-primary text-primary-foreground font-semibold text-xs',
                                 blurPersonalInfo && 'blur-sm',
                               )}
                             >
@@ -1135,195 +1191,138 @@ export const AppSidebar = memo(({ user }: AppSidebarProps) => {
                             </AvatarFallback>
                           </Avatar>
                         </div>
-                        <div className="flex flex-col gap-0.25 leading-none flex-1 min-w-0 items-start">
-                          <span
-                            className={cn(
-                              'font-semibold text-sm truncate text-sidebar-foreground text-left w-full',
-                              blurPersonalInfo && 'blur-sm',
-                            )}
-                          >
-                            {user.name || 'User'}
-                          </span>
-                          <span className="text-xs text-sidebar-foreground/70 truncate text-left w-full">Zetora</span>
-                        </div>
-                      </div>
-                      <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    side="top"
-                    align="center"
-                    className="w-62"
-                    sideOffset={4}
-                    collisionPadding={{ bottom: 20 }}
-                  >
-                    <UserDropdownContent
-                      user={user}
-                      blurPersonalInfo={Boolean(blurPersonalInfo)}
-                      closeMobileSidebar={closeMobileSidebar}
-                      onShortcutsOpen={() => setKeyboardShortcutsOpen(true)}
-                    />
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-
-              {/* Collapsed state - avatar with dropdown */}
-              <div className="hidden group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center py-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-10 w-10 p-0 overflow-visible">
-                      <div className="relative">
-                        <Avatar className="h-6 w-6 overflow-hidden rounded-full mask-[radial-gradient(white,black)] [-webkit-mask-image:-webkit-radial-gradient(white,black)]">
-                          <AvatarImage src={user.image || ''} className={cn(blurPersonalInfo && 'blur-sm')} />
-                          <AvatarFallback
-                            className={cn(
-                              'bg-primary text-primary-foreground font-semibold text-xs',
-                              blurPersonalInfo && 'blur-sm',
-                            )}
-                          >
-                            {user.name
-                              ? user.name
-                                  .split(' ')
-                                  .map((n: string) => n[0])
-                                  .join('')
-                                  .toUpperCase()
-                              : 'U'}
-                          </AvatarFallback>
-                        </Avatar>
-                      </div>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent side="right" align="end" className="w-60">
-                    <UserDropdownContent
-                      user={user}
-                      blurPersonalInfo={Boolean(blurPersonalInfo)}
-                      closeMobileSidebar={closeMobileSidebar}
-                      onShortcutsOpen={() => setKeyboardShortcutsOpen(true)}
-                    />
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        ) : (
-          <SidebarMenu className="gap-0 p-2">
-            {/* Expanded state */}
-            <SidebarMenuItem className="group-data-[collapsible=icon]:hidden">
-              <Link
-                prefetch={true}
-                href="/sign-in"
-                onClick={closeMobileSidebar}
-                className="flex items-center gap-3 rounded-xl px-3 py-2.5 bg-primary/5 hover:bg-primary/10 transition-colors"
-              >
-                <div className="flex items-center justify-center size-7 rounded-lg bg-primary/10">
-                  <SignIn size={16} weight="regular" className="text-primary" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent side="right" align="end" className="w-60">
+                      <UserDropdownContent
+                        user={user}
+                        blurPersonalInfo={Boolean(blurPersonalInfo)}
+                        closeMobileSidebar={closeMobileSidebar}
+                        onShortcutsOpen={() => setKeyboardShortcutsOpen(true)}
+                      />
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-                <span className="text-sm font-medium truncate">Sign In</span>
-              </Link>
-            </SidebarMenuItem>
-
-            {/* Collapsed state */}
-            <SidebarMenuItem className="hidden group-data-[collapsible=icon]:block">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    prefetch={true}
-                    href="/sign-in"
-                    onClick={closeMobileSidebar}
-                    className="flex items-center justify-center size-8 mx-auto rounded-md bg-primary/10 hover:bg-primary/15 transition-colors"
-                  >
-                    <SignIn size={16} weight="regular" className="text-primary" />
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent side="right" align="center">
-                  Sign In
-                </TooltipContent>
-              </Tooltip>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        )}
-      </SidebarFooter>
-
-      {user && (
-        <>
-          <Dialog open={Boolean(renameTarget)} onOpenChange={(open) => (!open ? closeRenameDialog() : null)}>
-            <DialogContent className="sm:max-w-[420px]">
-              <DialogHeader>
-                <DialogTitle>Edit title</DialogTitle>
-              </DialogHeader>
-              <div className="pt-2">
-                <Input
-                  value={renameValue}
-                  onChange={(e) => setRenameValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleRenameSubmit();
-                    }
-                    if (e.key === 'Escape') {
-                      e.preventDefault();
-                      closeRenameDialog();
-                    }
-                  }}
-                  maxLength={100}
-                  placeholder="Enter title..."
-                  autoFocus
-                />
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={closeRenameDialog}>
-                  Cancel
-                </Button>
-                <Button onClick={handleRenameSubmit} disabled={isRenaming}>
-                  {isRenaming ? 'Saving…' : 'Save'}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          <ShareDialog
-            isOpen={Boolean(shareDialogOpen && shareTarget)}
-            onOpenChange={(open) => {
-              if (open) {
-                setShareDialogOpen(true);
-              } else {
-                closeShareDialog();
-              }
-            }}
-            chatId={shareTarget?.id ?? null}
-            selectedVisibilityType={shareVisibility}
-            onVisibilityChange={handleShareVisibilityChange}
-            isOwner
-            user={user}
-          />
-
-          <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => (!open ? closeDeleteDialog() : null)}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete this chat?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete{' '}
-                  <span className="font-medium text-foreground">{deleteTarget?.title || 'this chat'}</span> and all of
-                  its content.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleConfirmDelete}
-                  disabled={isDeleting}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              </SidebarMenuItem>
+            </SidebarMenu>
+          ) : (
+            <SidebarMenu className="gap-0 p-2">
+              {/* Expanded state */}
+              <SidebarMenuItem className="group-data-[collapsible=icon]:hidden">
+                <Link
+                  prefetch={true}
+                  href="/sign-in"
+                  onClick={closeMobileSidebar}
+                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 bg-primary/5 hover:bg-primary/10 transition-colors"
                 >
-                  {isDeleting ? 'Deleting…' : 'Delete'}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </>
-      )}
+                  <div className="flex items-center justify-center size-7 rounded-lg bg-primary/10">
+                    <SignIn size={16} weight="regular" className="text-primary" />
+                  </div>
+                  <span className="text-sm font-medium truncate">Sign In</span>
+                </Link>
+              </SidebarMenuItem>
 
-    </Sidebar>
-    <KeyboardShortcutsDialog open={keyboardShortcutsOpen} onOpenChange={setKeyboardShortcutsOpen} />
+              {/* Collapsed state */}
+              <SidebarMenuItem className="hidden group-data-[collapsible=icon]:block">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link
+                      prefetch={true}
+                      href="/sign-in"
+                      onClick={closeMobileSidebar}
+                      className="flex items-center justify-center size-8 mx-auto rounded-md bg-primary/10 hover:bg-primary/15 transition-colors"
+                    >
+                      <SignIn size={16} weight="regular" className="text-primary" />
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" align="center">
+                    Sign In
+                  </TooltipContent>
+                </Tooltip>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          )}
+        </SidebarFooter>
+
+        {user && (
+          <>
+            <Dialog open={Boolean(renameTarget)} onOpenChange={(open) => (!open ? closeRenameDialog() : null)}>
+              <DialogContent className="sm:max-w-[420px]">
+                <DialogHeader>
+                  <DialogTitle>Edit title</DialogTitle>
+                </DialogHeader>
+                <div className="pt-2">
+                  <Input
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleRenameSubmit();
+                      }
+                      if (e.key === 'Escape') {
+                        e.preventDefault();
+                        closeRenameDialog();
+                      }
+                    }}
+                    maxLength={100}
+                    placeholder="Enter title..."
+                    autoFocus
+                  />
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={closeRenameDialog}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleRenameSubmit} disabled={isRenaming}>
+                    {isRenaming ? 'Saving…' : 'Save'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <ShareDialog
+              isOpen={Boolean(shareDialogOpen && shareTarget)}
+              onOpenChange={(open) => {
+                if (open) {
+                  setShareDialogOpen(true);
+                } else {
+                  closeShareDialog();
+                }
+              }}
+              chatId={shareTarget?.id ?? null}
+              selectedVisibilityType={shareVisibility}
+              onVisibilityChange={handleShareVisibilityChange}
+              isOwner
+              user={user}
+            />
+
+            <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => (!open ? closeDeleteDialog() : null)}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete this chat?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete{' '}
+                    <span className="font-medium text-foreground">{deleteTarget?.title || 'this chat'}</span> and all of
+                    its content.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleConfirmDelete}
+                    disabled={isDeleting}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    {isDeleting ? 'Deleting…' : 'Delete'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </>
+        )}
+      </Sidebar>
+      <KeyboardShortcutsDialog open={keyboardShortcutsOpen} onOpenChange={setKeyboardShortcutsOpen} />
     </>
   );
 });

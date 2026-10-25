@@ -17,7 +17,7 @@
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsgo --noEmit",
     "typecheck:watch": "tsgo --noEmit --watch",
-    "fix": "prettier --write . --ignore-path .gitignore",
+    "fix": "prettier --write .",
     "knip": "knip",
     "db:migrate": "node --env-file=.env.local scripts/migrate.js",
     "email:dev": "email dev --dir ./components/emails"

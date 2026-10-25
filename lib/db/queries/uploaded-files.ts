@@ -123,7 +123,9 @@ export async function linkUploadedFilesToChats(messages: Array<Pick<Message, 'ch
   const urlsByChatId = new Map<string, string[]>();
   for (const messageItem of messages) {
     if (messageItem.role !== 'user') continue;
-    const parts = Array.isArray(messageItem.parts) ? (messageItem.parts as Array<{ type?: string; url?: unknown }>) : [];
+    const parts = Array.isArray(messageItem.parts)
+      ? (messageItem.parts as Array<{ type?: string; url?: unknown }>)
+      : [];
     for (const part of parts) {
       if (part.type !== 'file' || typeof part.url !== 'string') continue;
       const urls = urlsByChatId.get(messageItem.chatId) ?? [];

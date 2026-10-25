@@ -72,8 +72,7 @@ export function SkillsSection() {
       <div>
         <h4 className={cn('font-medium', isMobile ? 'text-[13px]' : 'text-sm')}>Skill Directory</h4>
         <p className={cn('text-muted-foreground mt-1', isMobile ? 'text-[11px] leading-relaxed' : 'text-xs')}>
-          Skills are playbooks that guide the AI through complex tasks. Enable the ones you want active in your
-          chats.
+          Skills are playbooks that guide the AI through complex tasks. Enable the ones you want active in your chats.
         </p>
       </div>
 
@@ -125,4 +124,3 @@ export function SkillsSection() {
     </div>
   );
 }
-

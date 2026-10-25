@@ -186,10 +186,12 @@ export function appendGeneratedImagePartsToLastUserMessage(
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i];
     if (!isUserMessage(msg)) continue;
-    const labeledParts = images.flatMap((img, idx): Array<TextPart | ImagePart> => [
-      { type: 'text', text: buildGeneratedImageLabel(img, idx, images.length, currentTurnIndex) },
-      { type: 'image', image: img.url, mediaType: img.contentType },
-    ]);
+    const labeledParts = images.flatMap(
+      (img, idx): Array<TextPart | ImagePart> => [
+        { type: 'text', text: buildGeneratedImageLabel(img, idx, images.length, currentTurnIndex) },
+        { type: 'image', image: img.url, mediaType: img.contentType },
+      ],
+    );
     if (Array.isArray(msg.content)) {
       msg.content.push(...labeledParts);
     } else {
@@ -203,9 +205,15 @@ export function appendGeneratedImagePartsToLastUserMessage(
 // Gives each image an explicit ordinal + recency + prompt so a model shown
 // several at once (e.g. "critique the most recent one") has textual grounding
 // to keep them distinct instead of a bare unlabeled sibling-image array.
-function buildGeneratedImageLabel(img: GeneratedImageRef, idx: number, total: number, currentTurnIndex: number): string {
+function buildGeneratedImageLabel(
+  img: GeneratedImageRef,
+  idx: number,
+  total: number,
+  currentTurnIndex: number,
+): string {
   const turnsAgo = currentTurnIndex - img.turnIndex;
-  const recency = turnsAgo <= 0 ? 'most recent, generated just now' : `generated ${turnsAgo} turn${turnsAgo === 1 ? '' : 's'} ago`;
+  const recency =
+    turnsAgo <= 0 ? 'most recent, generated just now' : `generated ${turnsAgo} turn${turnsAgo === 1 ? '' : 's'} ago`;
   const promptPart = img.prompt ? `, prompt: "${img.prompt}"` : '';
   return `\n\n[Image ${idx + 1} of ${total} — ${recency}${promptPart}. When discussing this image, refer to it as "Image ${idx + 1}".]`;
 }
@@ -214,9 +222,15 @@ function buildGeneratedImageLabel(img: GeneratedImageRef, idx: number, total: nu
 // directly — those otherwise have no per-image label at all, only a flat
 // URL list at the very end of the conversation (buildImageInstruction),
 // decoupled from wherever the pixels actually sit in history.
-function buildUploadedImageLabel(img: ContextImageRef, ordinal: number, total: number, currentTurnIndex: number): string {
+function buildUploadedImageLabel(
+  img: ContextImageRef,
+  ordinal: number,
+  total: number,
+  currentTurnIndex: number,
+): string {
   const turnsAgo = currentTurnIndex - img.turnIndex;
-  const recency = turnsAgo <= 0 ? 'most recent, attached just now' : `attached ${turnsAgo} turn${turnsAgo === 1 ? '' : 's'} ago`;
+  const recency =
+    turnsAgo <= 0 ? 'most recent, attached just now' : `attached ${turnsAgo} turn${turnsAgo === 1 ? '' : 's'} ago`;
   return `\n\n[Uploaded image ${ordinal} of ${total} — ${recency}. When discussing this image, refer to it as "Uploaded image ${ordinal}".]`;
 }
 
@@ -243,7 +257,10 @@ export function labelUploadedImagesInPlace(
       // convertToModelMessages puts a file part's URL in `data`.
       if (part.type === 'file' && typeof part.data === 'string' && ordinalByUrl.has(part.data)) {
         const ordinal = ordinalByUrl.get(part.data)!;
-        labeled.push({ type: 'text', text: buildUploadedImageLabel(uploadedImages[ordinal - 1], ordinal, total, currentTurnIndex) });
+        labeled.push({
+          type: 'text',
+          text: buildUploadedImageLabel(uploadedImages[ordinal - 1], ordinal, total, currentTurnIndex),
+        });
         touched = true;
       }
       labeled.push(part);
@@ -270,7 +287,9 @@ export function buildImageInstruction(
   generatedImages: GeneratedImageRef[],
   visionEnabled: boolean,
 ): string {
-  const uploadedLines = uploadedImages.map((f, i) => `Uploaded image ${i + 1} (${f.name || 'unnamed image'}): ${f.url}`);
+  const uploadedLines = uploadedImages.map(
+    (f, i) => `Uploaded image ${i + 1} (${f.name || 'unnamed image'}): ${f.url}`,
+  );
   const generatedLines = generatedImages.map(
     (f, i) => `Generated image ${i + 1}${f.prompt ? ` (prompt: "${f.prompt}")` : ''}: ${f.url}`,
   );

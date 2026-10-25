@@ -27,7 +27,15 @@ function turnMessage(
     id,
     role,
     parts: [{ type: 'text', text }],
-    metadata: { createdAt, model: '', completionTime: null, inputTokens: null, outputTokens: null, totalTokens: null, ...extraMetadata },
+    metadata: {
+      createdAt,
+      model: '',
+      completionTime: null,
+      inputTokens: null,
+      outputTokens: null,
+      totalTokens: null,
+      ...extraMetadata,
+    },
   } as unknown as ChatMessage;
 }
 
@@ -37,7 +45,9 @@ function buildTurns(count: number, startMinute = 0): ChatMessage[] {
   const messages: ChatMessage[] = [];
   for (let i = 0; i < count; i++) {
     const minute = startMinute + i * 2;
-    messages.push(turnMessage(`u${i}`, 'user', `question ${i}`, `2026-01-01T00:${String(minute).padStart(2, '0')}:00.000Z`));
+    messages.push(
+      turnMessage(`u${i}`, 'user', `question ${i}`, `2026-01-01T00:${String(minute).padStart(2, '0')}:00.000Z`),
+    );
     messages.push(
       turnMessage(`a${i}`, 'assistant', `answer ${i}`, `2026-01-01T00:${String(minute + 1).padStart(2, '0')}:00.000Z`),
     );
@@ -132,10 +142,16 @@ describe('maybeCompactContext', () => {
   });
 
   it('extends an existing summary incrementally instead of starting over', async () => {
-    const existingSummary = turnMessage('summary-0', 'assistant', 'ignored — real text comes from parts below', '2026-01-01T00:03:30.000Z', {
-      isCompactionSummary: true,
-      compactionReplacedCount: 4,
-    });
+    const existingSummary = turnMessage(
+      'summary-0',
+      'assistant',
+      'ignored — real text comes from parts below',
+      '2026-01-01T00:03:30.000Z',
+      {
+        isCompactionSummary: true,
+        compactionReplacedCount: 4,
+      },
+    );
     existingSummary.parts = [{ type: 'text', text: 'previously: the user discussed X.' }] as any;
 
     // Two turns already covered (before the summary's cutoff, would already

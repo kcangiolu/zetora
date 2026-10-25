@@ -22,8 +22,7 @@ interface ToolContext {
 }
 
 export const generateImageTool = tool({
-  description:
-    'Generate an image from a text prompt using the user-configured image generation provider.',
+  description: 'Generate an image from a text prompt using the user-configured image generation provider.',
   inputSchema: z.object({
     prompt: z.string().describe('Detailed image generation prompt describing what to create'),
     size: z

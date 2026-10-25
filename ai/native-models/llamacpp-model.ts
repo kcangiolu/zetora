@@ -21,7 +21,13 @@ import {
   type ParseResult,
 } from '@ai-sdk/provider-utils';
 import { renderLlamaCppPrompt } from './llamacpp-prompt';
-import { llamaCppChunkSchema, llamaCppErrorSchema, llamaCppResponseSchema, type LlamaCppChunk, type LlamaCppResponse } from './types';
+import {
+  llamaCppChunkSchema,
+  llamaCppErrorSchema,
+  llamaCppResponseSchema,
+  type LlamaCppChunk,
+  type LlamaCppResponse,
+} from './types';
 
 export interface LlamaCppModelConfig {
   providerId: string;

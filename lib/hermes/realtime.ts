@@ -59,10 +59,7 @@ export async function publishHermesEvent(chatId: string, payload: unknown): Prom
 
 // Registers `listener` for every event published on `chatId` and returns an unsubscribe
 // function. Callers (the SSE route) must call it when the client disconnects.
-export async function subscribeToHermesChat(
-  chatId: string,
-  listener: (payload: unknown) => void,
-): Promise<() => void> {
+export async function subscribeToHermesChat(chatId: string, listener: (payload: unknown) => void): Promise<() => void> {
   const subscribed = await ensureSubscribed();
   if (!subscribed) return () => {};
 

@@ -32,9 +32,7 @@ export const downloadFileTool = tool({
   description:
     'Upload a file generated in the sandbox to cloud storage and return a secure download link. Use after generating a document (PDF, DOCX, PPTX, XLSX, CSV, ZIP) via code_interpreter.',
   inputSchema: z.object({
-    content: z
-      .string()
-      .describe('Base64-encoded file content (without the data:... prefix, just raw base64 string)'),
+    content: z.string().describe('Base64-encoded file content (without the data:... prefix, just raw base64 string)'),
     filename: z
       .string()
       .describe('Suggested download filename with extension, e.g. "report.pdf", "presentation.pptx", "data.xlsx"'),
@@ -64,8 +62,11 @@ export const downloadFileTool = tool({
         // No authenticated user in context — keep the file usable without a
         // Downloads-panel record (nothing to attribute it to).
         const key = `zetora/downloads/${nanoid()}-${filename}`;
-        const { client: storageClient, bucketName: STORAGE_BUCKET_NAME, publicUrl: STORAGE_PUBLIC_URL } =
-          getStorageClient();
+        const {
+          client: storageClient,
+          bucketName: STORAGE_BUCKET_NAME,
+          publicUrl: STORAGE_PUBLIC_URL,
+        } = getStorageClient();
         await storageClient.send(
           new PutObjectCommand({
             Bucket: STORAGE_BUCKET_NAME,

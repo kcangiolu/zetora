@@ -78,7 +78,12 @@ export function ImageCompareSlider({ beforeUrl, afterUrl, beforeAlt, afterAlt, c
         className,
       )}
     >
-      <img src={afterUrl} alt={afterAlt || 'After'} className="block w-full h-auto pointer-events-none" draggable={false} />
+      <img
+        src={afterUrl}
+        alt={afterAlt || 'After'}
+        className="block w-full h-auto pointer-events-none"
+        draggable={false}
+      />
       <div
         className="pointer-events-none absolute inset-0 overflow-hidden"
         style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}

@@ -36,8 +36,14 @@ describe('createReasoningDelimiterMiddleware — close delimiter without the whi
 
     const content = await collect(middleware, text);
 
-    const reasoningParts = content.filter((p) => p.type === 'reasoning').map((p) => p.text).join('');
-    const textParts = content.filter((p) => p.type === 'text').map((p) => p.text).join('');
+    const reasoningParts = content
+      .filter((p) => p.type === 'reasoning')
+      .map((p) => p.text)
+      .join('');
+    const textParts = content
+      .filter((p) => p.type === 'text')
+      .map((p) => p.text)
+      .join('');
 
     expect(reasoningParts).toContain('should search for it.');
     expect(textParts).toBe('Voici la réponse finale pour l’utilisateur.');
@@ -52,7 +58,10 @@ describe('createReasoningDelimiterMiddleware — close delimiter without the whi
       '<|channel>thought\nThe user wants to know X. I should search for it.<channel|>Voici la réponse finale pour l’utilisateur.';
 
     const content = await collect(middleware, text);
-    const textParts = content.filter((p) => p.type === 'text').map((p) => p.text).join('');
+    const textParts = content
+      .filter((p) => p.type === 'text')
+      .map((p) => p.text)
+      .join('');
 
     // With the old, unwidened delimiter this is empty — the whole thing,
     // including the real answer, stays classified as reasoning.

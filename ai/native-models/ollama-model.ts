@@ -109,7 +109,10 @@ function buildOllamaTools(tools: LanguageModelV3CallOptions['tools']) {
     if (tool.type !== 'function') {
       throw new UnsupportedFunctionalityError({ functionality: `provider-executed tool "${tool.name}"` });
     }
-    return { type: 'function', function: { name: tool.name, description: tool.description, parameters: tool.inputSchema } };
+    return {
+      type: 'function',
+      function: { name: tool.name, description: tool.description, parameters: tool.inputSchema },
+    };
   });
 }
 
@@ -316,7 +319,12 @@ export class OllamaNativeLanguageModel implements LanguageModelV3 {
               controller.enqueue({ type: 'tool-input-start', id, toolName: toolCall.function.name });
               controller.enqueue({ type: 'tool-input-delta', id, delta: argsJson });
               controller.enqueue({ type: 'tool-input-end', id });
-              controller.enqueue({ type: 'tool-call', toolCallId: id, toolName: toolCall.function.name, input: argsJson });
+              controller.enqueue({
+                type: 'tool-call',
+                toolCallId: id,
+                toolName: toolCall.function.name,
+                input: argsJson,
+              });
             }
 
             if (value.done) {

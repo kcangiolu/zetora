@@ -71,7 +71,6 @@ export async function resolveTertiaryModel(
   preferences: UserPreferenceValues | null,
   userId?: string,
 ) {
-
   // resolveModel handles catalog and custom-{providerId}-{name} ids alike,
   // and (given userId) applies the same anonymization/xml-parsing wrapping
   // it would for the main chat model.

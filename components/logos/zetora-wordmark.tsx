@@ -61,12 +61,16 @@ function buildWordmark() {
     const barTop = midY - T / 2;
     const barBot = midY + T / 2;
     solid.push(chamferPoly(x0, XH_TOP, x1, BASE, C));
-    solid.push(`M ${pt(x0 + T * 0.5, barTop)} L ${pt(x1 - T * 0.5, barTop)} L ${pt(x1 - T * 0.5, barBot)} L ${pt(x0 + T * 0.5, barBot)} Z`);
+    solid.push(
+      `M ${pt(x0 + T * 0.5, barTop)} L ${pt(x1 - T * 0.5, barTop)} L ${pt(x1 - T * 0.5, barBot)} L ${pt(x0 + T * 0.5, barBot)} Z`,
+    );
     const hx0 = x0 + T;
     const hx1 = x1 - T;
     holes.push(`M ${pt(hx0, XH_TOP + T)} L ${pt(hx1, XH_TOP + T)} L ${pt(hx1, barTop)} L ${pt(hx0, barTop)} Z`);
     holes.push(`M ${pt(hx0, barBot)} L ${pt(hx1, barBot)} L ${pt(hx1, BASE - T)} L ${pt(hx0, BASE - T)} Z`);
-    holes.push(`M ${pt(x1 - T - 3, barTop - T * 0.05)} L ${pt(x1 + 3, barTop - T * 0.05)} L ${pt(x1 + 3, barBot + T * 0.05)} L ${pt(x1 - T - 3, barBot + T * 0.05)} Z`);
+    holes.push(
+      `M ${pt(x1 - T - 3, barTop - T * 0.05)} L ${pt(x1 + 3, barTop - T * 0.05)} L ${pt(x1 + 3, barBot + T * 0.05)} L ${pt(x1 - T - 3, barBot + T * 0.05)} Z`,
+    );
     x = x1 + WM.gap;
   }
 
@@ -98,7 +102,9 @@ function buildWordmark() {
     const x0 = x;
     const x1 = x0 + w;
     solid.push(chamferPoly(x0, XH_TOP, x0 + T, BASE, C, { tl: true, tr: true, bl: false, br: false }));
-    solid.push(chamferPoly(x0 + T, XH_TOP, x1, XH_TOP + T * 0.85, C * 0.6, { tl: false, tr: true, bl: false, br: false }));
+    solid.push(
+      chamferPoly(x0 + T, XH_TOP, x1, XH_TOP + T * 0.85, C * 0.6, { tl: false, tr: true, bl: false, br: false }),
+    );
     x = x1 + WM.gap;
   }
 
@@ -111,7 +117,9 @@ function buildWordmark() {
     addRing(x0, BASE - bowlH, x1, BASE);
     solid.push(chamferPoly(x1 - T, XH_TOP, x1, BASE, C, { tl: true, tr: true, bl: false, br: false }));
     const earW = w * 0.34;
-    solid.push(chamferPoly(x1 - T - earW, XH_TOP, x1, XH_TOP + T * 0.75, C * 0.6, { tl: true, tr: false, bl: false, br: false }));
+    solid.push(
+      chamferPoly(x1 - T - earW, XH_TOP, x1, XH_TOP + T * 0.75, C * 0.6, { tl: true, tr: false, bl: false, br: false }),
+    );
     x = x1 + WM.gap;
   }
 

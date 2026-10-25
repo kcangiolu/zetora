@@ -13,13 +13,7 @@ interface EmptyStateProps {
   variant?: 'default' | 'dashed';
 }
 
-function EmptyState({
-  icon = BinocularsIcon,
-  title,
-  description,
-  children,
-  variant = 'dashed',
-}: EmptyStateProps) {
+function EmptyState({ icon = BinocularsIcon, title, description, children, variant = 'dashed' }: EmptyStateProps) {
   return (
     <Card
       className={`shadow-none rounded-xl ${variant === 'dashed' ? 'border-dashed border-border/60' : 'border-border/60'}`}

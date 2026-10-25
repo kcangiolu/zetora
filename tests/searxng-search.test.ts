@@ -76,10 +76,7 @@ describe('SearXNGSearchStrategy', () => {
   });
 
   it('returns empty results and does not throw on a non-ok response', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({}) }),
-    );
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({}) }));
     const strategy = new SearXNGSearchStrategy('http://searxng.local');
 
     const { searches } = await strategy.search(['query'], {

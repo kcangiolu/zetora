@@ -1203,12 +1203,7 @@ const ChatInterface = memo(
                                 className="rounded-md p-0! m-0! size-7"
                               />
                               <AvatarFallback className="rounded-md text-xs p-0 m-0 size-7">
-                                {(
-                                  chatMeta?.user?.name ||
-                                  user.name ||
-                                  user.email ||
-                                  '?'
-                                ).charAt(0)}
+                                {(chatMeta?.user?.name || user.name || user.email || '?').charAt(0)}
                               </AvatarFallback>
                             </Avatar>
                           </button>
@@ -1311,7 +1306,8 @@ const ChatInterface = memo(
                                 onClick={handleManualCompact}
                                 disabled={uiStatus === 'submitted' || uiStatus === 'streaming' || isCompacting}
                               >
-                                <FoldVertical className="h-4 w-4" /> {isCompacting ? 'Compacting…' : 'Compact conversation'}
+                                <FoldVertical className="h-4 w-4" />{' '}
+                                {isCompacting ? 'Compacting…' : 'Compact conversation'}
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />
@@ -1431,91 +1427,89 @@ const ChatInterface = memo(
 
               {/* Single Form Component with dynamic positioning */}
               {((user && isOwner) || (!initialChatId && user)) && (
-                  <div
-                    className={cn(
-                      'transition-all duration-100',
-                      messages.length === 0 && !chatState.hasSubmitted
-                        ? 'relative w-full max-w-2xl mx-auto'
-                        : `fixed bottom-0 z-20 pb-6! sm:pb-2.5! mt-1 p-0 w-full max-w-[95%] sm:max-w-2xl mx-auto ${
-                            state === 'expanded'
-                              ? 'left-0 right-0 md:left-[calc(var(--sidebar-width))] md:right-0'
-                              : 'left-0 right-0 md:left-[calc(var(--sidebar-width-icon))] md:right-0'
-                          }`,
+                <div
+                  className={cn(
+                    'transition-all duration-100',
+                    messages.length === 0 && !chatState.hasSubmitted
+                      ? 'relative w-full max-w-2xl mx-auto'
+                      : `fixed bottom-0 z-20 pb-6! sm:pb-2.5! mt-1 p-0 w-full max-w-[95%] sm:max-w-2xl mx-auto ${
+                          state === 'expanded'
+                            ? 'left-0 right-0 md:left-[calc(var(--sidebar-width))] md:right-0'
+                            : 'left-0 right-0 md:left-[calc(var(--sidebar-width-icon))] md:right-0'
+                        }`,
+                  )}
+                >
+                  <AnimatePresence>
+                    {showScrollToBottom && messages.length > 0 && (
+                      <motion.button
+                        type="button"
+                        initial={{ opacity: 0, y: 8, scale: 0.9 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 8, scale: 0.9 }}
+                        transition={{ duration: 0.15 }}
+                        onClick={handleScrollToBottomClick}
+                        aria-label="Scroll to latest message"
+                        className="absolute -top-14 left-1/2 -translate-x-1/2 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background shadow-md hover:bg-accent transition-colors"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </motion.button>
                     )}
-                  >
-                    <AnimatePresence>
-                      {showScrollToBottom && messages.length > 0 && (
-                        <motion.button
-                          type="button"
-                          initial={{ opacity: 0, y: 8, scale: 0.9 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: 8, scale: 0.9 }}
-                          transition={{ duration: 0.15 }}
-                          onClick={handleScrollToBottomClick}
-                          aria-label="Scroll to latest message"
-                          className="absolute -top-14 left-1/2 -translate-x-1/2 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background shadow-md hover:bg-accent transition-colors"
-                        >
-                          <ChevronDown className="h-4 w-4" />
-                        </motion.button>
-                      )}
-                    </AnimatePresence>
-                    <FormComponent
-                      chatId={chatId}
-                      user={user!}
-                      input={input}
-                      setInput={setInput}
-                      attachments={chatState.attachments}
-                      setAttachments={setAttachments}
-                      fileInputRef={fileInputRef}
-                      inputRef={inputRef}
-                      stop={stop}
-                      hasMessages={messages.length > 0}
-                      setMessages={setMessages}
-                      sendMessage={sendMessageWithAutoRouting}
-                      selectedModel={selectedModel}
-                      setSelectedModel={handleModelChange}
-                      reasoningEffort={reasoningEffort}
-                      setReasoningEffort={setReasoningEffort}
-                      visionEnabled={visionEnabled}
-                      onToggleVision={toggleVision}
-                      resetSuggestedQuestions={resetSuggestedQuestions}
-                      lastSubmittedQueryRef={lastSubmittedQueryRef}
-                      selectedGroup={effectiveSelectedGroup}
-                      setSelectedGroup={setSelectedGroup}
-                      hermesChatLock={chatLock}
-                      isHermesChat={isHermesChat}
-                      onHermesMessageSent={handleHermesMessageSent}
-                      status={uiStatus}
-                      setHasSubmitted={setHasSubmitted}
-                      isTemporaryChatEnabled={isTemporaryChat}
-                      isTemporaryChat={isTemporaryChat}
-                      isTemporaryChatLocked={isTemporaryChatLocked}
-                      setIsTemporaryChatEnabled={setIsTemporaryChatEnabled}
-                      autoRoutedModel={autoRoutedModel}
-                      onBeforeSubmit={startTransitioning}
-                    />
+                  </AnimatePresence>
+                  <FormComponent
+                    chatId={chatId}
+                    user={user!}
+                    input={input}
+                    setInput={setInput}
+                    attachments={chatState.attachments}
+                    setAttachments={setAttachments}
+                    fileInputRef={fileInputRef}
+                    inputRef={inputRef}
+                    stop={stop}
+                    hasMessages={messages.length > 0}
+                    setMessages={setMessages}
+                    sendMessage={sendMessageWithAutoRouting}
+                    selectedModel={selectedModel}
+                    setSelectedModel={handleModelChange}
+                    reasoningEffort={reasoningEffort}
+                    setReasoningEffort={setReasoningEffort}
+                    visionEnabled={visionEnabled}
+                    onToggleVision={toggleVision}
+                    resetSuggestedQuestions={resetSuggestedQuestions}
+                    lastSubmittedQueryRef={lastSubmittedQueryRef}
+                    selectedGroup={effectiveSelectedGroup}
+                    setSelectedGroup={setSelectedGroup}
+                    hermesChatLock={chatLock}
+                    isHermesChat={isHermesChat}
+                    onHermesMessageSent={handleHermesMessageSent}
+                    status={uiStatus}
+                    setHasSubmitted={setHasSubmitted}
+                    isTemporaryChatEnabled={isTemporaryChat}
+                    isTemporaryChat={isTemporaryChat}
+                    isTemporaryChatLocked={isTemporaryChatLocked}
+                    setIsTemporaryChatEnabled={setIsTemporaryChatEnabled}
+                    autoRoutedModel={autoRoutedModel}
+                    onBeforeSubmit={startTransitioning}
+                  />
 
-                    {/* Example Categories - shown on a fresh, non-temporary chat */}
-                    {messages.length === 0 && !chatState.hasSubmitted && !isTemporaryChat && (
-                      <div className="mt-5 space-y-2.5">
-                        <ExampleCategories onSelectExample={handleExampleSelect} />
-                      </div>
-                    )}
-                  </div>
-                )}
+                  {/* Example Categories - shown on a fresh, non-temporary chat */}
+                  {messages.length === 0 && !chatState.hasSubmitted && !isTemporaryChat && (
+                    <div className="mt-5 space-y-2.5">
+                      <ExampleCategories onSelectExample={handleExampleSelect} />
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Form backdrop overlay - hides content below form when in submitted mode */}
-              {((user && isOwner) || (!initialChatId && user)) &&
-                (messages.length > 0 || chatState.hasSubmitted) && (
-                  <div
-                    className={`fixed right-0 bottom-0! h-24 sm:h-20! z-10 bg-linear-to-t from-background via-background/95 to-background/80 backdrop-blur-sm pointer-events-none ${
-                      state === 'expanded'
-                        ? 'left-0 md:left-[calc(var(--sidebar-width))]'
-                        : 'left-0 md:left-[calc(var(--sidebar-width-icon))]'
-                    }`}
-                  />
-                )}
-
+              {((user && isOwner) || (!initialChatId && user)) && (messages.length > 0 || chatState.hasSubmitted) && (
+                <div
+                  className={`fixed right-0 bottom-0! h-24 sm:h-20! z-10 bg-linear-to-t from-background via-background/95 to-background/80 backdrop-blur-sm pointer-events-none ${
+                    state === 'expanded'
+                      ? 'left-0 md:left-[calc(var(--sidebar-width))]'
+                      : 'left-0 md:left-[calc(var(--sidebar-width-icon))]'
+                  }`}
+                />
+              )}
             </div>
           </div>
         </SidebarInset>

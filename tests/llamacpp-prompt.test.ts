@@ -16,10 +16,7 @@ function mockFetch(propsBody: unknown, ok = true) {
 describe('renderLlamaCppPrompt', () => {
   it('renders using the server chat_template from /props', async () => {
     const fetchMock = mockFetch({ chat_template: CHATML_TEMPLATE, eos_token: '<|im_end|>' });
-    const prompt: LanguageModelV3Prompt = [
-      { role: 'system', content: 'You are helpful.' },
-      textMsg('user', 'Hi'),
-    ];
+    const prompt: LanguageModelV3Prompt = [{ role: 'system', content: 'You are helpful.' }, textMsg('user', 'Hi')];
 
     const result = await renderLlamaCppPrompt(prompt, {
       rootURL: 'http://llama-template.test',
@@ -79,9 +76,7 @@ describe('renderLlamaCppPrompt', () => {
       fetch: fetchMock as unknown as typeof fetch,
     });
 
-    expect(result.promptText).toBe(
-      '<|im_start|>user\nSay hi<|im_end|>\n<|im_start|>assistant\nJe voudrais',
-    );
+    expect(result.promptText).toBe('<|im_start|>user\nSay hi<|im_end|>\n<|im_start|>assistant\nJe voudrais');
   });
 
   it('caches /props per rootURL — a second render does not refetch', async () => {

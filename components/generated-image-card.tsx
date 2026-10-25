@@ -113,7 +113,12 @@ export function GeneratedImageCard({
           />
         )}
         {imageUrl && mode === 'edit' && sourceImageUrl && (revealed || skipAnimation) ? (
-          <ImageCompareSlider beforeUrl={sourceImageUrl} afterUrl={imageUrl} beforeAlt="Image originale" afterAlt={prompt || 'Edited image'} />
+          <ImageCompareSlider
+            beforeUrl={sourceImageUrl}
+            afterUrl={imageUrl}
+            beforeAlt="Image originale"
+            afterAlt={prompt || 'Edited image'}
+          />
         ) : (
           imageUrl && (
             <motion.img
@@ -166,7 +171,11 @@ function DiffusionPlaceholder({
       }}
     >
       {sourceImageUrl && (
-        <img src={sourceImageUrl} alt="" className="absolute inset-0 w-full h-full object-cover blur-md scale-110 opacity-50" />
+        <img
+          src={sourceImageUrl}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover blur-md scale-110 opacity-50"
+        />
       )}
       <div
         className={cn('absolute inset-[-10%]', !prefersReducedMotion && 'animate-diffusion-drift')}

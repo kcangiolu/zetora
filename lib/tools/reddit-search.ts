@@ -72,7 +72,11 @@ function getTimeRangeAtIndex(timeRanges: TimeRange[] | undefined, index: number)
   return timeRanges[index] ?? timeRanges[0];
 }
 
-async function searchRedditWithParallel(query: string, maxResults: number, afterDate?: string): Promise<RedditResult[]> {
+async function searchRedditWithParallel(
+  query: string,
+  maxResults: number,
+  afterDate?: string,
+): Promise<RedditResult[]> {
   const response = (await parallel.beta.search({
     objective: query,
     search_queries: [query],

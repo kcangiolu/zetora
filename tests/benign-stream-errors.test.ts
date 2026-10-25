@@ -64,12 +64,7 @@ describe('dropBenignTextPartErrors', () => {
   });
 
   it('passes every other chunk type through unchanged', async () => {
-    const chunks: Chunk[] = [
-      { type: 'start' },
-      { type: 'reasoning-delta' },
-      { type: 'tool-call' },
-      { type: 'finish' },
-    ];
+    const chunks: Chunk[] = [{ type: 'start' }, { type: 'reasoning-delta' }, { type: 'tool-call' }, { type: 'finish' }];
     const out = await collect(dropBenignTextPartErrors(streamOf(chunks)));
     expect(out).toEqual(chunks);
   });

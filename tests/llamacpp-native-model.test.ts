@@ -144,12 +144,16 @@ describe('LlamaCppNativeLanguageModel.doGenerate', () => {
 
 describe('LlamaCppNativeLanguageModel.doStream', () => {
   it('streams text deltas and a finish part derived from the final SSE chunk', async () => {
-    const fetchMock = makeFetch(() =>
-      new Response(sseStream([
-        { content: 'Bon', stop: false },
-        { content: 'jour', stop: false },
-        { content: '', stop: true, stopped_limit: true, tokens_predicted: 2, tokens_evaluated: 5 },
-      ]), { status: 200, headers: { 'content-type': 'text/event-stream' } }),
+    const fetchMock = makeFetch(
+      () =>
+        new Response(
+          sseStream([
+            { content: 'Bon', stop: false },
+            { content: 'jour', stop: false },
+            { content: '', stop: true, stopped_limit: true, tokens_predicted: 2, tokens_evaluated: 5 },
+          ]),
+          { status: 200, headers: { 'content-type': 'text/event-stream' } },
+        ),
     );
 
     const model = new LlamaCppNativeLanguageModel('qwen3', {
@@ -179,11 +183,12 @@ describe('LlamaCppNativeLanguageModel.doStream', () => {
   });
 
   it('surfaces an inline error chunk without throwing out of the stream', async () => {
-    const fetchMock = makeFetch(() =>
-      new Response(sseStream([{ error: { message: 'context overflow', type: 'server_error' } }]), {
-        status: 200,
-        headers: { 'content-type': 'text/event-stream' },
-      }),
+    const fetchMock = makeFetch(
+      () =>
+        new Response(sseStream([{ error: { message: 'context overflow', type: 'server_error' } }]), {
+          status: 200,
+          headers: { 'content-type': 'text/event-stream' },
+        }),
     );
 
     const model = new LlamaCppNativeLanguageModel('qwen3', {

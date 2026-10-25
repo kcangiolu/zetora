@@ -109,10 +109,7 @@ async function fetchGithubRepoMetadata(
 // authoritative repo metadata straight from the GitHub REST API, since neither
 // search backend's scraped/snippet content reliably carries exact star counts,
 // language, or last-push date.
-async function enrichGithubResultsWithApi(
-  results: GitHubResult[],
-  abortSignal?: AbortSignal,
-): Promise<GitHubResult[]> {
+async function enrichGithubResultsWithApi(results: GitHubResult[], abortSignal?: AbortSignal): Promise<GitHubResult[]> {
   const repoKeys = new Set<string>();
   for (const result of results) {
     const match = result.url.match(/github\.com\/([^/]+)\/([^/]+)/);
@@ -263,7 +260,10 @@ export type GitHubResult = {
 
 // Only built when this instance has a GitHub search provider (see
 // lib/search/tool-loader.ts).
-export function githubSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>, preferences?: Record<string, unknown>) {
+export function githubSearchTool(
+  dataStream?: UIMessageStreamWriter<ChatMessage>,
+  preferences?: Record<string, unknown>,
+) {
   const provider = resolveSearchProvider('github', preferences?.['zetora-github-search-provider']);
   if (!provider) throw new Error('No GitHub search provider is configured on this instance');
   const fallbackProvider =

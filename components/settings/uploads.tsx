@@ -529,4 +529,3 @@ export function UploadsSection() {
 }
 
 // ─── Downloads (AI-generated files) ────────────────────────────────────────
-

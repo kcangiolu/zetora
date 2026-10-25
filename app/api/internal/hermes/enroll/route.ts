@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { assertInternalHermesAuth } from '@/lib/hermes/internal-auth';
 import { assertHermesEnabled } from '@/lib/hermes/feature-flag';
-import {
-  getPendingHermesConnectorByEnrollmentTokenHash,
-  markHermesConnectorEnrolled,
-} from '@/lib/db/queries/hermes';
+import { getPendingHermesConnectorByEnrollmentTokenHash, markHermesConnectorEnrolled } from '@/lib/db/queries/hermes';
 import { encryptGatewaySecret, generateGatewaySecret, hashEnrollmentToken } from '@/lib/hermes/crypto';
 import { createLogger } from '@/lib/logger';
 

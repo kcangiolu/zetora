@@ -12,7 +12,10 @@ export interface DeliverResult {
   error?: string;
 }
 
-export async function deliverToGateway(params: { gatewayId: string; event: Record<string, unknown> }): Promise<DeliverResult> {
+export async function deliverToGateway(params: {
+  gatewayId: string;
+  event: Record<string, unknown>;
+}): Promise<DeliverResult> {
   const res = await fetch(`${serverEnv.HERMES_RELAY_SERVICE_URL}/control/deliver`, {
     signal: AbortSignal.timeout(INTERNAL_SERVICE_TIMEOUT_MS),
     method: 'POST',

@@ -65,26 +65,26 @@ docs/screenshots/       Images shown in the README
 
 ## API routes (`app/api`)
 
-| Route                                             | Purpose                                                           |
-| ------------------------------------------------- | ----------------------------------------------------------------- |
-| `search` (POST)                                   | Main chat/search endpoint — streams AI responses with tools       |
-| `search/[id]/stream`, `search/[id]/stop`          | Resumable stream reconnect / stop                                 |
-| `auth/[...all]`                                   | Better Auth handler                                               |
-| `upload`, `downloads`, `proxy-image`              | File uploads, generated files, image proxying                     |
-| `export/docx`, `export/pdf`                       | Chat export                                                       |
-| `lookout`                                         | Scheduled search execution (QStash callback)                       |
-| `mcp/*`                                           | MCP server CRUD, OAuth flows, elicitation, apps bridge            |
-| `models`, `instance/capabilities`                 | Model picker catalog, what this instance has configured           |
-| `custom-providers*`                               | Custom OpenAI-compatible provider management (detect, models)     |
-| `tts/stream`, `transcribe`                        | Voice synthesis, transcription                                    |
-| `voice/cloud-session`, `voice/local-session`      | Cloud (xAI) and local speech-to-speech sessions                   |
-| `voice/hermes`                                    | Hermes Agent replies for local voice (s2s-service)                |
-| `voice/transcript`                                | Saves local voice turns as a chat, reads a continued chat back    |
-| `v1/chat/completions`                             | OpenAI-compatible endpoint (used by the speech-to-speech service) |
-| `hermes/*`, `internal/hermes/*`                   | Hermes Agent connector (user side / relay side)                   |
-| `og/*`, `link-metadata`                           | Share images, link previews                                       |
-| `diagnostics/services`                            | Health of the configured services, for Settings                   |
-| `suggest`, `raycast`, `preferences`               | Misc features                                                     |
+| Route                                        | Purpose                                                           |
+| -------------------------------------------- | ----------------------------------------------------------------- |
+| `search` (POST)                              | Main chat/search endpoint — streams AI responses with tools       |
+| `search/[id]/stream`, `search/[id]/stop`     | Resumable stream reconnect / stop                                 |
+| `auth/[...all]`                              | Better Auth handler                                               |
+| `upload`, `downloads`, `proxy-image`         | File uploads, generated files, image proxying                     |
+| `export/docx`, `export/pdf`                  | Chat export                                                       |
+| `lookout`                                    | Scheduled search execution (QStash callback)                      |
+| `mcp/*`                                      | MCP server CRUD, OAuth flows, elicitation, apps bridge            |
+| `models`, `instance/capabilities`            | Model picker catalog, what this instance has configured           |
+| `custom-providers*`                          | Custom OpenAI-compatible provider management (detect, models)     |
+| `tts/stream`, `transcribe`                   | Voice synthesis, transcription                                    |
+| `voice/cloud-session`, `voice/local-session` | Cloud (xAI) and local speech-to-speech sessions                   |
+| `voice/hermes`                               | Hermes Agent replies for local voice (s2s-service)                |
+| `voice/transcript`                           | Saves local voice turns as a chat, reads a continued chat back    |
+| `v1/chat/completions`                        | OpenAI-compatible endpoint (used by the speech-to-speech service) |
+| `hermes/*`, `internal/hermes/*`              | Hermes Agent connector (user side / relay side)                   |
+| `og/*`, `link-metadata`                      | Share images, link previews                                       |
+| `diagnostics/services`                       | Health of the configured services, for Settings                   |
+| `suggest`, `raycast`, `preferences`          | Misc features                                                     |
 
 ## Environment & configuration
 

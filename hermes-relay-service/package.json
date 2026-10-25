@@ -2,7 +2,7 @@
   "name": "hermes-relay-service",
   "version": "0.1.0",
   "private": true,
-  "description": "Zetora's connector implementation of Hermes Agent's relay/connector protocol (see docs/relay-connector-contract.md on the Hermes side). Terminates the public /relay WebSocket + /relay/enroll HTTP surface; holds no database credentials \u2014 every trust decision and durable write is delegated to zetora-app's /api/internal/hermes/* routes.",
+  "description": "Zetora's connector implementation of Hermes Agent's relay/connector protocol (see docs/relay-connector-contract.md on the Hermes side). Terminates the public /relay WebSocket + /relay/enroll HTTP surface; holds no database credentials — every trust decision and durable write is delegated to zetora-app's /api/internal/hermes/* routes.",
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",

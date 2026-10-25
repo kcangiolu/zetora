@@ -94,10 +94,7 @@ function TwoFactorOtpEmail({ otp }: TwoFactorOtpEmailProps) {
                 >
                   {otp}
                 </Text>
-                <Text
-                  className="text-brand-muted-foreground m-0"
-                  style={{ fontSize: '12px', marginTop: '20px' }}
-                >
+                <Text className="text-brand-muted-foreground m-0" style={{ fontSize: '12px', marginTop: '20px' }}>
                   This code expires in a few minutes.
                 </Text>
               </Section>

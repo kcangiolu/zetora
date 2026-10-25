@@ -29,7 +29,11 @@ export function HermesTab({ user }: { user: SettingsUser }) {
   const { copied, copy } = useCopyToClipboard();
   const [isSendingTest, setIsSendingTest] = useState(false);
 
-  const { data: statusData, isLoading: isStatusLoading, isError: isStatusError } = useQuery({
+  const {
+    data: statusData,
+    isLoading: isStatusLoading,
+    isError: isStatusError,
+  } = useQuery({
     queryKey: ['hermesConnectorStatus', user?.id],
     queryFn: () => getHermesConnectorStatusAction(),
     enabled: !!user,
@@ -148,8 +152,7 @@ export function HermesTab({ user }: { user: SettingsUser }) {
         <HugeiconsIcon icon={InformationCircleIcon} className="h-4 w-4 text-primary" />
         <AlertTitle className="text-foreground text-sm">Experimental</AlertTitle>
         <AlertDescription className="text-muted-foreground text-xs">
-          Hermes&apos;s relay protocol is still evolving on their side — this connector may need updates as it
-          changes.
+          Hermes&apos;s relay protocol is still evolving on their side — this connector may need updates as it changes.
         </AlertDescription>
       </Alert>
 

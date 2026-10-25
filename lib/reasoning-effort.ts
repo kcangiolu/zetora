@@ -54,7 +54,7 @@ export const dropReasoningPartsMiddleware: LanguageModelMiddleware = {
   specificationVersion: 'v3',
   wrapGenerate: async ({ doGenerate }) => {
     const { content, ...rest } = await doGenerate();
-    return { content: content.filter(part => part.type !== 'reasoning'), ...rest };
+    return { content: content.filter((part) => part.type !== 'reasoning'), ...rest };
   },
   wrapStream: async ({ doStream }) => {
     const { stream, ...rest } = await doStream();
@@ -62,7 +62,11 @@ export const dropReasoningPartsMiddleware: LanguageModelMiddleware = {
       stream: stream.pipeThrough(
         new TransformStream<LanguageModelV3StreamPart, LanguageModelV3StreamPart>({
           transform(chunk, controller) {
-            if (chunk.type === 'reasoning-start' || chunk.type === 'reasoning-delta' || chunk.type === 'reasoning-end') {
+            if (
+              chunk.type === 'reasoning-start' ||
+              chunk.type === 'reasoning-delta' ||
+              chunk.type === 'reasoning-end'
+            ) {
               return;
             }
             controller.enqueue(chunk);
@@ -226,7 +230,8 @@ export function getCustomReasoningOverrides(
       // relies on masking (and dropReasoningPartsMiddleware). vLLM and llama.cpp
       // pass chat_template_kwargs to their Jinja template, where unknown keys are
       // ignored, so they also get the real enable_thinking switch.
-      const supportsTemplateKwargs = backend.backendKind === 'vllm' || (demotedToShim && backend.backendKind === 'llamacpp');
+      const supportsTemplateKwargs =
+        backend.backendKind === 'vllm' || (demotedToShim && backend.backendKind === 'llamacpp');
       return {
         providerOptions: supportsTemplateKwargs
           ? { [backend.providerId]: { chat_template_kwargs: { enable_thinking: false } } }

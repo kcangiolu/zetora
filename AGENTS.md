@@ -39,10 +39,8 @@ pnpm typecheck # also fails on an unused import, variable or parameter (name a p
 pnpm lint      # no warning: CI allows none
 pnpm knip
 pnpm test
-pnpm exec prettier --write <the files you touched>
+pnpm fix       # Prettier on the whole repository: CI fails on an unformatted file
 ```
-
-Format only the files you changed: `pnpm fix` rewrites the whole repository, lockfile and migration snapshots included.
 
 Behavior a test can pin goes in `tests/` (Vitest). Changes to `hermes-relay-service` also run its own `npm test`.
 

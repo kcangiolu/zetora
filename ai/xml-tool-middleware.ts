@@ -21,7 +21,8 @@ const lenientMorphXmlProtocol = morphXmlProtocol({
 const lenientMorphXmlToolMiddleware: Pick<LanguageModelMiddleware, 'wrapStream' | 'wrapGenerate'> = {
   wrapStream: ({ doStream, doGenerate, params }) =>
     parserWrapStream({ protocol: lenientMorphXmlProtocol, doStream, doGenerate, params }),
-  wrapGenerate: ({ doGenerate, params }) => parserWrapGenerate({ protocol: lenientMorphXmlProtocol, doGenerate, params }),
+  wrapGenerate: ({ doGenerate, params }) =>
+    parserWrapGenerate({ protocol: lenientMorphXmlProtocol, doGenerate, params }),
 };
 
 // Models drift between tool-call syntaxes regardless of the format they were

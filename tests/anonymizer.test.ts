@@ -8,11 +8,13 @@ vi.mock('@/lib/anonymizer/client', () => ({ detectEntities }));
 const vault = new Map<string, { entityType: string; originalEnc: string }>();
 
 vi.mock('@/lib/db/queries', () => ({
-  upsertPiiAliases: vi.fn(async (_userId: string, entries: Array<{ token: string; entityType: string; originalEnc: string }>) => {
-    for (const entry of entries) {
-      if (!vault.has(entry.token)) vault.set(entry.token, entry);
-    }
-  }),
+  upsertPiiAliases: vi.fn(
+    async (_userId: string, entries: Array<{ token: string; entityType: string; originalEnc: string }>) => {
+      for (const entry of entries) {
+        if (!vault.has(entry.token)) vault.set(entry.token, entry);
+      }
+    },
+  ),
   getPiiAliasesByTokens: vi.fn(async (_userId: string, tokens: string[]) =>
     tokens.filter((t) => vault.has(t)).map((token) => ({ token, originalEnc: vault.get(token)!.originalEnc })),
   ),
@@ -128,7 +130,9 @@ describe('anonymizeModelMessages', () => {
   it('masks system string content and user/assistant text parts', async () => {
     detectEntities.mockImplementation(async (text: string) => {
       const idx = text.indexOf('Acme Corp');
-      return idx === -1 ? [] : [{ start: idx, end: idx + 'Acme Corp'.length, type: 'ORG', score: 0.9, text: 'Acme Corp' }];
+      return idx === -1
+        ? []
+        : [{ start: idx, end: idx + 'Acme Corp'.length, type: 'ORG', score: 0.9, text: 'Acme Corp' }];
     });
 
     const prompt = [
@@ -153,14 +157,16 @@ describe('anonymizeToolInput', () => {
   it('recursively masks string leaves in nested objects/arrays', async () => {
     detectEntities.mockImplementation(async (text: string) => {
       const idx = text.indexOf('Jane Doe');
-      return idx === -1 ? [] : [{ start: idx, end: idx + 'Jane Doe'.length, type: 'PERSON', score: 0.9, text: 'Jane Doe' }];
+      return idx === -1
+        ? []
+        : [{ start: idx, end: idx + 'Jane Doe'.length, type: 'PERSON', score: 0.9, text: 'Jane Doe' }];
     });
 
     const input = { query: 'Find news about Jane Doe', filters: ['Jane Doe', { nested: 'Jane Doe' }] };
     const masked = (await anonymizeToolInput(input, ctx)) as typeof input;
 
     expect(masked.query).not.toContain('Jane Doe');
-    expect((masked.filters[0] as string)).not.toContain('Jane Doe');
+    expect(masked.filters[0] as string).not.toContain('Jane Doe');
     expect((masked.filters[1] as any).nested).not.toContain('Jane Doe');
   });
 });

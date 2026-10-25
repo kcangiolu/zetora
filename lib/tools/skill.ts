@@ -40,11 +40,7 @@ export function createSkillTool(enabledSkillIds: SkillId[], userPreferences?: Re
       const combinedInstructions = skills
         .map((s) => {
           const customPrompt =
-            s.id === 'image-generation'
-              ? customImageGenPrompt
-              : s.id === 'image-editing'
-                ? customImageEditPrompt
-                : '';
+            s.id === 'image-generation' ? customImageGenPrompt : s.id === 'image-editing' ? customImageEditPrompt : '';
           const extra = customPrompt ? `\n\n### User-Provided Guidance\n\n${customPrompt}` : '';
           return `## Skill: ${s.name}\n\n${s.instructions}${extra}`;
         })

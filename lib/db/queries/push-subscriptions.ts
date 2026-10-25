@@ -74,7 +74,10 @@ export async function deletePushSubscriptionByEndpoint({ userId, endpoint }: { u
 
 export async function touchPushSubscriptionLastUsed(endpoint: string) {
   try {
-    await maindb.update(pushSubscription).set({ lastUsedAt: new Date() }).where(eq(pushSubscription.endpoint, endpoint));
+    await maindb
+      .update(pushSubscription)
+      .set({ lastUsedAt: new Date() })
+      .where(eq(pushSubscription.endpoint, endpoint));
   } catch (error) {
     throw databaseError('Failed to update push subscription', error);
   }

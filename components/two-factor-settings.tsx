@@ -208,9 +208,7 @@ export function TwoFactorSettings({ enabled: initialEnabled, isMobile }: TwoFact
               Scan this QR code with your authenticator app (Google Authenticator, 1Password, Authy…).
             </p>
             <div className="flex justify-center bg-white rounded-lg p-3 w-fit mx-auto">
-              {qrDataUrl && (
-                <img src={qrDataUrl} alt="Authenticator QR code" width={180} height={180} />
-              )}
+              {qrDataUrl && <img src={qrDataUrl} alt="Authenticator QR code" width={180} height={180} />}
             </div>
             <p className="text-[11px] text-muted-foreground text-center mt-2 break-all font-mono">
               {extractSecret(totpURI)}
@@ -239,9 +237,7 @@ export function TwoFactorSettings({ enabled: initialEnabled, isMobile }: TwoFact
           </div>
 
           <form onSubmit={handleConfirmEnroll} className="space-y-3 pt-1 border-t border-border/40">
-            <p className="text-xs text-muted-foreground pt-3">
-              Enter the 6-digit code from your app to confirm setup.
-            </p>
+            <p className="text-xs text-muted-foreground pt-3">Enter the 6-digit code from your app to confirm setup.</p>
             <Input
               type="text"
               inputMode="numeric"

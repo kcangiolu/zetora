@@ -431,7 +431,12 @@ export const getMessagesByChatId = cache(
     limit = 50,
     offset = 0,
     mostRecent = false,
-  }: { id: string; limit?: number; offset?: number; mostRecent?: boolean }) => {
+  }: {
+    id: string;
+    limit?: number;
+    offset?: number;
+    mostRecent?: boolean;
+  }) => {
     try {
       // A compaction summary shares its createdAt with the last message it
       // covers: isCompactionSummary breaks that tie so it sorts right after.

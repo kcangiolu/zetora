@@ -169,7 +169,10 @@ async function scrapeWithFastCrw(
   }
 }
 
-async function scrapeWithNotte(url: string, maxContentChars: number = SEARCH_CONTENT_MAX_CHARS): Promise<SearchResult | null> {
+async function scrapeWithNotte(
+  url: string,
+  maxContentChars: number = SEARCH_CONTENT_MAX_CHARS,
+): Promise<SearchResult | null> {
   try {
     const result = await scrapeWebpageWithNotte({
       url,
@@ -365,7 +368,9 @@ export class NotteContentStrategy implements ContentExtractionStrategy {
     if (uniqueUrls.length === 0 || !serverEnv.NOTTE_API_KEY || serverEnv.NOTTE_API_KEY === 'placeholder') return [];
 
     const notteResults = await all(
-      Object.fromEntries(uniqueUrls.map((url, i) => [`nt:${i}`, async () => scrapeWithNotte(url, this.maxContentChars)])),
+      Object.fromEntries(
+        uniqueUrls.map((url, i) => [`nt:${i}`, async () => scrapeWithNotte(url, this.maxContentChars)]),
+      ),
       getBetterAllOptions(),
     );
 

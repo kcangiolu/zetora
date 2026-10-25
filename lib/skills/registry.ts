@@ -330,8 +330,7 @@ zetora_save_file('/tmp/output.pptx', 'presentation.pptx')
   pdf: {
     id: 'pdf',
     name: 'PDF Document',
-    description:
-      'Create PDF documents. ONLY when the user explicitly asks to create a PDF document or report.',
+    description: 'Create PDF documents. ONLY when the user explicitly asks to create a PDF document or report.',
     category: 'CONTENT',
     section: 'other',
     suggestedTools: ['code_interpreter'],

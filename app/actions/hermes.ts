@@ -103,7 +103,6 @@ export async function getHermesConnectorStatusAction() {
   };
 }
 
-
 export async function revokeHermesConnectorAction() {
   'use server';
 

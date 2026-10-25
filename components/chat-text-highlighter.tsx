@@ -146,4 +146,3 @@ export const ChatTextHighlighter: React.FC<ChatTextHighlighterProps> = ({ childr
     </div>
   );
 };
-

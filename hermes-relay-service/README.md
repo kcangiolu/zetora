@@ -16,7 +16,7 @@ This service is deliberately a thin, stateless "dumb pipe":
 - It holds **no Postgres credentials and no Drizzle import**. Every trust decision
   (is this enrollment token valid? is this gateway's HMAC valid?) and every durable write
   is delegated to `zetora-app`'s `/api/internal/hermes/*` routes, gated by
-  `HERMES_RELAY_INTERNAL_SECRET`. See `src/internalClient.ts` — it is the *only* file that
+  `HERMES_RELAY_INTERNAL_SECRET`. See `src/internalClient.ts` — it is the _only_ file that
   talks to `zetora-app`.
 - All wire-format knowledge (frame shapes, HMAC scheme, the descriptor payload) lives under
   `src/adapter/`. If the relay protocol changes, only that directory should need to change —
@@ -29,8 +29,8 @@ This service is deliberately a thin, stateless "dumb pipe":
 The relay contract's later phases (§6/§7 in the doc) describe a **shared bot fronting many
 tenants** — author-first routing, per-instance scope grants, a relevance-policy management
 plane, account-linking DMs, etc. **None of that applies here.** Every Zetora user runs their
-*own* independent Hermes gateway and dials in with their *own* per-gateway secret — one
-WebSocket connection already *is* one tenant boundary. If you find yourself reaching for
+_own_ independent Hermes gateway and dials in with their _own_ per-gateway secret — one
+WebSocket connection already _is_ one tenant boundary. If you find yourself reaching for
 `scope_id`/`guild_id` multi-tenant-guild logic, a capability vault, or the `/manage/*`
 routes from that part of the doc, stop — it doesn't apply to Zetora's shape of the feature
 and porting it in would be unnecessary complexity, not correctness.
@@ -40,10 +40,11 @@ and porting it in would be unnecessary complexity, not correctness.
 `config.contractVersion` is hardcoded and logged on every connection. The contract is
 additive-only within a version (per its own §9) — bumping this is a deliberate act when a
 new field/op is actually adopted, never automatic. The EXPERIMENTAL status means a
-*breaking* change is possible without notice; containing all wire knowledge to
+_breaking_ change is possible without notice; containing all wire knowledge to
 `src/adapter/` (above) is the mitigation, not a guarantee it never happens.
 
 ## Wire frames (verified against `gateway/relay/ws_transport.py` on the Hermes side, not
+
 just the prose doc)
 
 Newline-delimited JSON over one WebSocket:
@@ -57,11 +58,11 @@ connector -> gateway   : descriptor, inbound, outbound_result, interrupt_inbound
   `descriptor {type, descriptor}` (the `CapabilityDescriptor`). This is the entire Phase 0
   scope.
 - `outbound {type, requestId, action}` — the agent's send/prompt actions, flowing gateway →
-  connector (i.e. Hermes asks *us* to deliver to the real chat surface). We reply
+  connector (i.e. Hermes asks _us_ to deliver to the real chat surface). We reply
   `outbound_result {type, requestId, result}`. `edit`/`typing`/etc. actions are not handled —
   `supported_ops` in the descriptor only advertises `send`/`prompt`, so Hermes never sends
   them.
-- `inbound {type, event, bufferId?}` — flows connector → gateway: how *we* push a Zetora
+- `inbound {type, event, bufferId?}` — flows connector → gateway: how _we_ push a Zetora
   user's message (or a button click) to Hermes.
 
 The upgrade bearer token (`Authorization: Bearer <token>`) is

@@ -8,7 +8,6 @@ import { insertUploadedFile } from '@/lib/db/queries';
 
 import { createLogger } from '@/lib/logger';
 
-
 const log = createLogger('upload-confirm');
 
 const ConfirmRequestSchema = z.object({
@@ -49,9 +48,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { client: storageClient, bucketName: storageBucket, publicUrl: storagePublicUrl } = getStorageClient();
-    const head = await storageClient
-      .send(new HeadObjectCommand({ Bucket: storageBucket, Key: key }))
-      .catch(() => null);
+    const head = await storageClient.send(new HeadObjectCommand({ Bucket: storageBucket, Key: key })).catch(() => null);
     if (!head) {
       return NextResponse.json({ error: 'Uploaded file not found' }, { status: 404 });
     }

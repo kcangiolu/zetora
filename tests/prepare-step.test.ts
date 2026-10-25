@@ -11,9 +11,7 @@ const base = {
 
 describe('resolvePrepareStepOverride', () => {
   it('returns undefined for MCP group (tools stay available)', () => {
-    expect(
-      resolvePrepareStepOverride({ ...base, group: 'mcp', latestStepHasToolRoundTrip: true }),
-    ).toBeUndefined();
+    expect(resolvePrepareStepOverride({ ...base, group: 'mcp', latestStepHasToolRoundTrip: true })).toBeUndefined();
   });
 
   describe('budget safety net', () => {

@@ -12,10 +12,7 @@ import type { ChatMessage } from '@/lib/types';
 // only ever sees pseudonyms, so its tool-call args are already tokenized —
 // this just catches anything that slips through (e.g. a hallucinated real
 // value) before it reaches a tool that calls out to a cloud service.
-function withEgressAnonymization<T extends { execute?: (...args: any[]) => any }>(
-  tool: T,
-  ctx: AnonymizeContext,
-): T {
+function withEgressAnonymization<T extends { execute?: (...args: any[]) => any }>(tool: T, ctx: AnonymizeContext): T {
   if (typeof tool?.execute !== 'function') return tool;
   const originalExecute = tool.execute.bind(tool);
   return {

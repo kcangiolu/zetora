@@ -43,9 +43,9 @@ describe('resolveHermesAttachments', () => {
   it('keeps the bucket path of a path-style public URL', () => {
     const minio = 'http://localhost:9000/zetora-uploads';
     const own = `${minio}/zetora/users/${USER}/abc.pdf`;
-    expect(resolveHermesAttachments({ attachments: [{ url: own }], userId: USER, storagePublicUrl: minio }).media).toEqual(
-      [{ url: own, mime: '', name: null }],
-    );
+    expect(
+      resolveHermesAttachments({ attachments: [{ url: own }], userId: USER, storagePublicUrl: minio }).media,
+    ).toEqual([{ url: own, mime: '', name: null }]);
     // Same object name, but outside the bucket the public URL points at.
     expect(
       resolveHermesAttachments({

@@ -22,7 +22,13 @@ export type ManualCompactionResult =
 // pipeline (phase-1 filtering, fold-in selection, tertiary-model
 // summarization), just forced regardless of how close the chat is to its
 // context budget, so it can be tested/used on demand from the chat header.
-export async function manualCompactChat({ chatId, model }: { chatId: string; model: string }): Promise<ManualCompactionResult> {
+export async function manualCompactChat({
+  chatId,
+  model,
+}: {
+  chatId: string;
+  model: string;
+}): Promise<ManualCompactionResult> {
   const user = await getUser();
   if (!user) throw new Error('Unauthorized');
 

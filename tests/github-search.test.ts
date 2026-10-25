@@ -79,7 +79,14 @@ describe('githubSearchTool provider selection', () => {
         success: true,
         data: {
           results: [
-            { url: 'https://github.com/foo/bar', title: 'bar', snippet: 'desc', description: '', score: 1, category: '' },
+            {
+              url: 'https://github.com/foo/bar',
+              title: 'bar',
+              snippet: 'desc',
+              description: '',
+              score: 1,
+              category: '',
+            },
           ],
         },
       },

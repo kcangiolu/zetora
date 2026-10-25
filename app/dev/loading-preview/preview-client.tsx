@@ -3,11 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Search, Globe, MapPin, Code, Film, Sparkles, Loader2 } from 'lucide-react';
 import { GeneratedImageCard, GeneratedImageCardProps } from '@/components/generated-image-card';
-import {
-  SearchLoadingState,
-  NearbySearchSkeleton,
-  CodeInterpreterView,
-} from '@/components/tool-invocation-list-view';
+import { SearchLoadingState, NearbySearchSkeleton, CodeInterpreterView } from '@/components/tool-invocation-list-view';
 import { StockChartLoader } from '@/components/message-parts/shared';
 import { StreamingIndicator } from '@/components/streaming-indicator';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -159,14 +155,30 @@ export function LoadingPreviewClient() {
     <div className="mx-auto max-w-3xl px-6 py-10 space-y-12">
       <div>
         <h1 className="text-xl font-semibold">Loading states preview</h1>
-        <p className="text-sm text-muted-foreground">Dev-only playground. Cycle themes + reduced-motion to check all variants.</p>
+        <p className="text-sm text-muted-foreground">
+          Dev-only playground. Cycle themes + reduced-motion to check all variants.
+        </p>
       </div>
 
       <section className="space-y-4">
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Generated image card</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <DemoImageCard mode="generate" prompt="A cabin in a snowy forest at dusk, warm light in the windows" size="1024x1024" seed="a" w={1024} h={1024} />
-          <DemoImageCard mode="generate" prompt="Wide cinematic shot of a desert highway at sunset" size="1792x1024" seed="b" w={1792} h={1024} />
+          <DemoImageCard
+            mode="generate"
+            prompt="A cabin in a snowy forest at dusk, warm light in the windows"
+            size="1024x1024"
+            seed="a"
+            w={1024}
+            h={1024}
+          />
+          <DemoImageCard
+            mode="generate"
+            prompt="Wide cinematic shot of a desert highway at sunset"
+            size="1792x1024"
+            seed="b"
+            w={1792}
+            h={1024}
+          />
           <DemoImageCard
             mode="edit"
             prompt="Make the sky purple and add stars"
@@ -177,7 +189,11 @@ export function LoadingPreviewClient() {
           />
           <div className="space-y-2">
             <p className="text-sm font-medium">generate — error</p>
-            <GeneratedImageCard mode="generate" state="output-error" error="Image generation failed (500): provider timeout" />
+            <GeneratedImageCard
+              mode="generate"
+              state="output-error"
+              error="Image generation failed (500): provider timeout"
+            />
           </div>
         </div>
       </section>
@@ -197,11 +213,14 @@ export function LoadingPreviewClient() {
         </h2>
         <p className="text-xs text-muted-foreground">
           Each search tool (reddit-search.tsx, github-search.tsx, academic-papers.tsx, file-query-search.tsx,
-          x-search.tsx) defines its own near-identical collapsible accordion — two visual variants below,
-          plus multi-search.tsx&apos;s image-strip skeleton.
+          x-search.tsx) defines its own near-identical collapsible accordion — two visual variants below, plus
+          multi-search.tsx&apos;s image-strip skeleton.
         </p>
         <div className="space-y-3">
-          <RedditSearch result={null} args={{ queries: ['best budget mechanical keyboards', 'r/programming hot takes on AI'] }} />
+          <RedditSearch
+            result={null}
+            args={{ queries: ['best budget mechanical keyboards', 'r/programming hot takes on AI'] }}
+          />
           <GitHubSearch result={null} args={{ queries: ['react state management 2026', 'rust cli tools'] }} />
           <MultiSearch
             result={null}
@@ -223,10 +242,12 @@ export function LoadingPreviewClient() {
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Map loading (map-components.tsx)</h2>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+          Map loading (map-components.tsx)
+        </h2>
         <p className="text-xs text-muted-foreground">
-          Plain embedded map (not the nearby-search view above): raw ring-spinner overlay while the map tiles
-          load, and a static skeleton for the dynamic-import fallback.
+          Plain embedded map (not the nearby-search view above): raw ring-spinner overlay while the map tiles load, and
+          a static skeleton for the dynamic-import fallback.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="relative w-full h-48 rounded-lg overflow-hidden bg-neutral-100 dark:bg-neutral-900">
@@ -256,7 +277,9 @@ export function LoadingPreviewClient() {
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Code interpreter (running)</h2>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+          Code interpreter (running)
+        </h2>
         <CodeInterpreterView
           code={'import pandas as pd\n\ndf = pd.read_csv("data.csv")\ndf.describe()'}
           language="python"
@@ -270,8 +293,8 @@ export function LoadingPreviewClient() {
           Agent live session log (opencode-session-card.tsx)
         </h2>
         <p className="text-xs text-muted-foreground">
-          Static reproduction only — the real component streams from a live session via SSE hooks
-          (useLiveSessionTail), unsafe to mount against a fake session id here.
+          Static reproduction only — the real component streams from a live session via SSE hooks (useLiveSessionTail),
+          unsafe to mount against a fake session id here.
         </p>
         <div className="w-full max-w-lg rounded-xl border border-border/60 overflow-hidden bg-card/30">
           <div className="flex items-center gap-2 border-b border-border/60 bg-muted/20 px-4 py-2.5 text-xs font-medium text-muted-foreground">
@@ -320,7 +343,10 @@ export function LoadingPreviewClient() {
             />
             <div className="absolute inset-0 bg-background/20" />
           </div>
-          <Badge variant="outline" className="relative z-10 flex items-center gap-2 border-border/50 bg-background/70 text-sm">
+          <Badge
+            variant="outline"
+            className="relative z-10 flex items-center gap-2 border-border/50 bg-background/70 text-sm"
+          >
             <Spinner className="size-4" />
             <TextLoop interval={2}>
               <TextShimmer>Analyzing @username...</TextShimmer>

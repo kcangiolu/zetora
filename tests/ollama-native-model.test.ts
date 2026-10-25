@@ -64,9 +64,7 @@ describe('OllamaNativeLanguageModel.doGenerate', () => {
       fetch: fetchMock as unknown as typeof fetch,
     });
 
-    const result = await model.doGenerate(
-      callOptions({ providerOptions: { olla: { think: true, num_ctx: 8192 } } }),
-    );
+    const result = await model.doGenerate(callOptions({ providerOptions: { olla: { think: true, num_ctx: 8192 } } }));
 
     expect(result.content).toEqual([{ type: 'text', text: 'Bonjour !' }]);
     expect(result.finishReason).toEqual({ unified: 'stop', raw: 'stop' });
@@ -104,7 +102,9 @@ describe('OllamaNativeLanguageModel.doGenerate', () => {
     ]);
 
     await expect(
-      model.doGenerate(callOptions({ tools: [{ type: 'provider', id: 'anthropic.web_search', name: 'web_search', args: {} }] })),
+      model.doGenerate(
+        callOptions({ tools: [{ type: 'provider', id: 'anthropic.web_search', name: 'web_search', args: {} }] }),
+      ),
     ).rejects.toThrow(/provider-executed/);
   });
 });
@@ -126,11 +126,12 @@ describe('OllamaNativeLanguageModel.doStream', () => {
     const fullLine2 = `${JSON.stringify({ message: { role: 'assistant', content: 'Bonjour' }, done: false })}\n`;
     const splitPoint = Math.floor(fullLine2.length / 2);
 
-    const fetchMock = makeFetch(() =>
-      new Response(
-        ndjsonStreamFromChunks([line1, fullLine2.slice(0, splitPoint), fullLine2.slice(splitPoint), line3]),
-        { status: 200, headers: { 'content-type': 'application/x-ndjson' } },
-      ),
+    const fetchMock = makeFetch(
+      () =>
+        new Response(
+          ndjsonStreamFromChunks([line1, fullLine2.slice(0, splitPoint), fullLine2.slice(splitPoint), line3]),
+          { status: 200, headers: { 'content-type': 'application/x-ndjson' } },
+        ),
     );
 
     const model = new OllamaNativeLanguageModel('qwen3', {
@@ -172,9 +173,7 @@ describe('OllamaNativeLanguageModel.doStream', () => {
       done_reason: 'stop',
     })}\n`;
 
-    const fetchMock = makeFetch(
-      () => new Response(ndjsonStreamFromChunks([chunk]), { status: 200 }),
-    );
+    const fetchMock = makeFetch(() => new Response(ndjsonStreamFromChunks([chunk]), { status: 200 }));
     const model = new OllamaNativeLanguageModel('qwen3', {
       providerId: 'olla',
       rootURL: 'http://ollama-stream-tools.test',
@@ -185,7 +184,14 @@ describe('OllamaNativeLanguageModel.doStream', () => {
     const parts = await collect(stream);
 
     const types = parts.map((p) => p.type);
-    expect(types).toEqual(['stream-start', 'tool-input-start', 'tool-input-delta', 'tool-input-end', 'tool-call', 'finish']);
+    expect(types).toEqual([
+      'stream-start',
+      'tool-input-start',
+      'tool-input-delta',
+      'tool-input-end',
+      'tool-call',
+      'finish',
+    ]);
 
     const toolCall = parts.find((p) => p.type === 'tool-call');
     expect(toolCall).toMatchObject({ toolName: 'get_weather', input: JSON.stringify({ city: 'Paris' }) });

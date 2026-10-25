@@ -25,7 +25,10 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <div className="w-full max-w-md">
             {/* Logo */}
             <Link href="/" className="inline-flex items-center mb-12 group">
-              <ZetoraWordmark height={40} className="text-primary transition-transform duration-300 group-hover:scale-110" />
+              <ZetoraWordmark
+                height={40}
+                className="text-primary transition-transform duration-300 group-hover:scale-110"
+              />
             </Link>
 
             {/* Tagline */}

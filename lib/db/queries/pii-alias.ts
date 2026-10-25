@@ -18,7 +18,14 @@ export async function upsertPiiAliases(userId: string, entries: PiiAliasEntry[])
 
   await maindb
     .insert(piiAlias)
-    .values(entries.map((entry) => ({ userId, token: entry.token, entityType: entry.entityType, originalEnc: entry.originalEnc })))
+    .values(
+      entries.map((entry) => ({
+        userId,
+        token: entry.token,
+        entityType: entry.entityType,
+        originalEnc: entry.originalEnc,
+      })),
+    )
     .onConflictDoNothing();
 }
 

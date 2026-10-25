@@ -7,11 +7,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils';
 import { getReasoningControl } from '@/ai/models';
 import { useModels } from '@/hooks/use-models';
-import {
-  REASONING_EFFORT_LEVELS,
-  type ReasoningEffort,
-  type ReasoningCapability,
-} from '@/lib/reasoning-effort-types';
+import { REASONING_EFFORT_LEVELS, type ReasoningEffort, type ReasoningCapability } from '@/lib/reasoning-effort-types';
 
 const EFFORT_LABEL: Record<ReasoningEffort, string> = {
   auto: 'Auto',
@@ -23,13 +19,16 @@ const EFFORT_LABEL: Record<ReasoningEffort, string> = {
 
 // The three non-'full' capabilities all render the same binary show/hide
 // button — they differ only in how honestly they can describe what it does.
-const BINARY_CAPABILITY_TOOLTIP: Record<'binary-guaranteed' | 'best-effort' | 'mask-only', (hidden: boolean) => string> = {
+const BINARY_CAPABILITY_TOOLTIP: Record<
+  'binary-guaranteed' | 'best-effort' | 'mask-only',
+  (hidden: boolean) => string
+> = {
   'binary-guaranteed': (hidden) =>
     `Reasoning ${hidden ? 'off' : 'on'} — this provider has a real on/off switch, but no distinct effort levels for this backend.`,
   'best-effort': (hidden) =>
     hidden
       ? "Reasoning off (best effort) — a real disable signal is sent, but whether it's honored depends on the model's own chat template, so it isn't guaranteed."
-      : "Reasoning on — no distinct effort levels are guaranteed for this backend, and turning this off is a best-effort attempt, not a guarantee.",
+      : 'Reasoning on — no distinct effort levels are guaranteed for this backend, and turning this off is a best-effort attempt, not a guarantee.',
   'mask-only': (hidden) =>
     `Reasoning ${hidden ? 'hidden' : 'shown'} — this provider doesn't support reasoning-effort control, this toggle only shows or hides the model's thinking output.`,
 };

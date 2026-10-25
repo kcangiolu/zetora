@@ -1,0 +1,4 @@
+# Written by pnpm and drizzle-kit: formatting them makes noise in every later
+# regeneration, and a shipped migration's files must not change.
+pnpm-lock.yaml
+drizzle/migrations/

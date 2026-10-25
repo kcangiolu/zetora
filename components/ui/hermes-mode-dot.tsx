@@ -8,8 +8,7 @@ export function HermesModeDot({ className }: { className?: string }) {
     <span
       className={cn('inline-block size-1.5 rounded-full shrink-0', className)}
       style={{
-        background:
-          'conic-gradient(from 180deg, #ef4444, #f97316, #eab308, #22c55e, #3b82f6, #a855f7, #ef4444)',
+        background: 'conic-gradient(from 180deg, #ef4444, #f97316, #eab308, #22c55e, #3b82f6, #a855f7, #ef4444)',
       }}
       aria-label="Agent mode conversation"
       title="Agent mode conversation"
