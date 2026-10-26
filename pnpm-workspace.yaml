@@ -23,7 +23,10 @@ overrides:
   hono: '>=4.12.25'
   undici: '>=8.12.2'
   sharp: '>=0.35.5'
-  '@ai-sdk/provider-utils': 4.0.27
+  # One copy of each for the whole AI SDK: ai and every @ai-sdk package pin
+  # these exactly, and @ai-sdk-tool/parser pins older ones.
+  '@ai-sdk/provider': 3.0.19
+  '@ai-sdk/provider-utils': 4.0.62
   esbuild: '>=0.28.1'
   postcss: '>=8.5.10'
   uuid: '>=11.1.1'
