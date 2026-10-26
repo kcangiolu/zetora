@@ -9,14 +9,16 @@ import { cn } from '@/lib/utils';
 // body in place so the page does not appear to move, except in a home screen
 // app, where it skips the pinning. There the page behind jumps to the top, iOS
 // scrolls it back on every touch and vaul scrolls it up again, so taps inside
-// the drawer land on a moving page and get lost. `disablePreventScroll={false}`
-// turns that scroll handling off; Radix's own scroll lock still holds the page.
+// the drawer land on a moving page and get lost. `repositionInputs={false}`
+// turns that scroll handling off, and with it vaul's lift of the drawer above
+// the keyboard, which there adds to the lift iOS already applies and pushes the
+// drawer's inputs off screen. Radix's own scroll lock still holds the page.
 function isStandaloneApp() {
   return typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches;
 }
 
 function Drawer({ ...props }: React.ComponentProps<typeof DrawerPrimitive.Root>) {
-  return <DrawerPrimitive.Root data-slot="drawer" disablePreventScroll={!isStandaloneApp()} {...props} />;
+  return <DrawerPrimitive.Root data-slot="drawer" repositionInputs={!isStandaloneApp()} {...props} />;
 }
 
 function DrawerTrigger({ ...props }: React.ComponentProps<typeof DrawerPrimitive.Trigger>) {
