@@ -8,6 +8,22 @@ interface SearchResult {
   payload: Record<string, any>;
 }
 
+// Qdrant fixes a collection's vector size when it is created: after a change of
+// Search Embedding model, every write and search fails with a bare "Vector
+// dimension error". Say what happened and how to rebuild the index instead.
+export function describeQdrantError(action: string, collection: string, error: unknown): string {
+  const text = JSON.stringify(error);
+  const mismatch = /Vector dimension error: expected dim: (\d+), got (\d+)/.exec(text);
+  if (mismatch) {
+    return (
+      `Qdrant collection ${collection} holds ${mismatch[1]}-dimension vectors but the Search Embedding model ` +
+      `gives ${mismatch[2]}: it was built with another model. Delete the collection to rebuild it ` +
+      `(DELETE /collections/${collection} on Qdrant).`
+    );
+  }
+  return `Failed to ${action}: ${text}`;
+}
+
 // Only called when isHybridSearchAvailable() (lib/instance/capabilities.ts).
 export function getQdrantClient() {
   if (!process.env.QDRANT_URL) throw new Error('QDRANT_URL is not set');
@@ -50,8 +66,7 @@ export function getQdrantClient() {
       });
 
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(`Failed to upsert: ${JSON.stringify(err)}`);
+        throw new Error(describeQdrantError('upsert', collectionName, await res.json()));
       }
     },
 
@@ -83,8 +98,7 @@ export function getQdrantClient() {
       });
 
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(`Failed to search: ${JSON.stringify(err)}`);
+        throw new Error(describeQdrantError('search', collectionName, await res.json()));
       }
 
       const data = await res.json();
