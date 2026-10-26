@@ -6,7 +6,6 @@ allowBuilds:
   core-js: true
   esbuild: true
   msgpackr-extract: true
-  sharp: true
   sqlite3: true
   unrs-resolver: true
 
@@ -23,6 +22,7 @@ overrides:
   form-data: '>=4.0.6'
   hono: '>=4.12.25'
   undici: '>=8.12.2'
+  sharp: '>=0.35.5'
   '@ai-sdk/provider-utils': 4.0.27
   esbuild: '>=0.28.1'
   postcss: '>=8.5.10'
