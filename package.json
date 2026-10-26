@@ -149,7 +149,7 @@
     "tailwind-merge": "^3.5.0",
     "tailwind-scrollbar": "4.0.2",
     "three": "^0.183.2",
-    "undici": "8.11.2",
+    "undici": "8.12.3",
     "uuid": "^13.0.0",
     "valyu-js": "^2.7.2",
     "vaul": "^1.1.2",
