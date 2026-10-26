@@ -41,7 +41,7 @@ describe('text matching', () => {
   });
 
   const entries = [
-    { id: 'proxy', text: 'Uses SWAG as reverse proxy on SERVER-ACCESS', keywords: ['nginx', 'certificat', 'domaine'] },
+    { id: 'proxy', text: 'Uses Caddy as reverse proxy at home', keywords: ['nginx', 'certificat', 'domaine'] },
     { id: 'diet', text: 'Is vegetarian', keywords: ['viande', 'recette', 'restaurant'] },
     { id: 'car', text: 'Drives an electric car', keywords: ['voiture', 'Tesla'] },
   ];
