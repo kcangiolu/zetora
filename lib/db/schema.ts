@@ -398,6 +398,9 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-tertiary-context-compaction-provider'?: string;
       'zetora-tertiary-context-compaction-effort'?: 'auto' | 'low' | 'medium' | 'high' | 'off';
       'zetora-tertiary-context-compaction-enabled'?: boolean;
+      'zetora-tertiary-search-rerank-model'?: string;
+      'zetora-tertiary-search-rerank-provider'?: string;
+      'zetora-tertiary-search-rerank-effort'?: 'auto' | 'low' | 'medium' | 'high' | 'off';
       'zetora-memory-enabled'?: boolean;
       'zetora-apps-enabled'?: boolean;
       'zetora-canvas-enabled'?: boolean;

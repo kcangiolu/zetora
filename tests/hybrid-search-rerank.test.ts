@@ -26,12 +26,12 @@ beforeEach(() => {
 });
 
 describe('hybrid search reranking', () => {
-  it('asks the model for scores without thinking, as the user', async () => {
+  it('runs on the reranking model, as the user', async () => {
     generateText.mockResolvedValue({ text: '[{"index":0,"score":2},{"index":1,"score":9}]' });
 
     const fused = await hybridSearch('query', results, preferences, 'user-1');
 
-    expect(resolveTertiaryModel).toHaveBeenCalledWith('default', preferences, 'user-1', 'off');
+    expect(resolveTertiaryModel).toHaveBeenCalledWith('search-rerank', preferences, 'user-1');
     expect(fused.map((r) => r.title)).toEqual(['B', 'A']);
   });
 

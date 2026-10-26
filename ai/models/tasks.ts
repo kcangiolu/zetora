@@ -16,6 +16,7 @@ export const TERTIARY_TASKS = [
   'voice',
   'memory-curator',
   'context-compaction',
+  'search-rerank',
 ] as const;
 
 export type TertiaryTask = (typeof TERTIARY_TASKS)[number];
@@ -35,6 +36,7 @@ export const TASK_LABELS: Record<TertiaryTask, string> = {
   voice: 'Voice (Local Backend)',
   'memory-curator': 'Memory',
   'context-compaction': 'Context Compaction',
+  'search-rerank': 'Search Reranking',
 };
 
 // Memory has no instance model: without a model picked for it, the chat's
@@ -54,6 +56,7 @@ export const TASK_ENV_KEYS: Record<TertiaryTask, string | null> = {
   voice: 'ZETORA_MODEL_VOICE',
   'memory-curator': null,
   'context-compaction': 'ZETORA_MODEL_CONTEXT_COMPACTION',
+  'search-rerank': 'ZETORA_MODEL_SEARCH_RERANK',
 };
 
 // Where each task's model is saved in the user's preferences.

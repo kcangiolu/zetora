@@ -66,7 +66,7 @@ describe('getTaskModelIds', () => {
     const ids = getTaskModelIds();
     expect(ids.voice).toBe('acme:big');
     expect(ids['lang-detect']).toBeNull();
-    expect(Object.keys(ids)).toHaveLength(14);
+    expect(Object.keys(ids)).toHaveLength(15);
   });
 });
 

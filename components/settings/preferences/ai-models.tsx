@@ -727,6 +727,14 @@ export function AiModelsTab({
               recommendedEffort="off"
               description="Summarizes older messages when a chat nears its context limit, instead of silently dropping them"
             />
+            <TertiaryModelRow
+              task="search-rerank"
+              modelKey="zetora-tertiary-search-rerank-model"
+              providerKey="zetora-tertiary-search-rerank-provider"
+              effortKey="zetora-tertiary-search-rerank-effort"
+              recommendedEffort="off"
+              description="Orders web search results when Reranking is on (Settings → Search). Every search answer waits for it."
+            />
           </div>
         </div>
       </div>

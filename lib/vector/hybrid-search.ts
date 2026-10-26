@@ -72,9 +72,7 @@ async function rerankResults(
   }
 
   try {
-    // A reasoning model thinks for thousands of tokens before a list of scores,
-    // over a minute that every search answer would wait for.
-    const model = await resolveTertiaryModel('default', preferences, userId, 'off');
+    const model = await resolveTertiaryModel('search-rerank', preferences, userId);
 
     const documentsBlock = candidates
       .map((c, i) => `Document ${i}: ${c.title}\n${c.content.slice(0, 1000)}\n---`)
