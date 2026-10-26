@@ -18,6 +18,9 @@ export const FASTCRW_SCRAPE_TIMEOUT_MS = envMs('ZETORA_FETCH_TIMEOUT_FASTCRW_SCR
 // otherwise hold every answer for the ~30s fastCRW takes to give up on it.
 // A single page the user asked for (retrieve) keeps fastCRW's own deadline.
 export const FASTCRW_SCRAPE_DEADLINE_MS = envMs('ZETORA_FASTCRW_SCRAPE_DEADLINE', 8_000);
+// The LLM reranking of hybrid search results holds every web_search answer
+// until it returns; past this budget the fused order is kept instead.
+export const RERANK_TIMEOUT_MS = envMs('ZETORA_RERANK_TIMEOUT', 10_000);
 export const METADATA_TIMEOUT_MS = envMs('ZETORA_FETCH_TIMEOUT_METADATA', 10_000);
 // Slightly above the server-side maxDurationMinutes (2 min) Notte enforces.
 export const NOTTE_TIMEOUT_MS = envMs('ZETORA_FETCH_TIMEOUT_NOTTE', 150_000);

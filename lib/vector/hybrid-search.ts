@@ -5,6 +5,7 @@ import { SEARCH_INDEX_COLLECTION } from './constants';
 import { buildUserFilter } from './qdrant-filters';
 import { getEmbeddingModel } from '@/ai/embeddings';
 import { resolveTertiaryModel } from '@/ai/tertiary';
+import { RERANK_TIMEOUT_MS, withAbort } from '@/lib/timeouts';
 
 import { createLogger } from '@/lib/logger';
 
@@ -63,13 +64,17 @@ async function rerankResults(
   candidates: HybridResult[],
   topK: number,
   preferences: Record<string, unknown>,
+  userId: string | undefined,
+  abortSignal: AbortSignal | undefined,
 ): Promise<HybridResult[]> {
   if (preferences['zetora-rerank-enabled'] !== true || candidates.length === 0) {
     return candidates.slice(0, topK);
   }
 
   try {
-    const model = await resolveTertiaryModel('default', preferences);
+    // A reasoning model thinks for thousands of tokens before a list of scores,
+    // over a minute that every search answer would wait for.
+    const model = await resolveTertiaryModel('default', preferences, userId, 'off');
 
     const documentsBlock = candidates
       .map((c, i) => `Document ${i}: ${c.title}\n${c.content.slice(0, 1000)}\n---`)
@@ -77,6 +82,7 @@ async function rerankResults(
 
     const { text } = await generateText({
       model,
+      abortSignal: withAbort(abortSignal, RERANK_TIMEOUT_MS),
       prompt:
         `Query: ${query}\n\n` +
         `For each document below, rate how well it answers the query on a scale of 1-10. ` +
@@ -105,6 +111,7 @@ export async function hybridSearch(
   searxngResults: { url: string; title: string; content: string }[],
   preferences: Record<string, unknown>,
   userId?: string,
+  abortSignal?: AbortSignal,
 ): Promise<HybridResult[]> {
   if (preferences['zetora-hybrid-search-enabled'] !== true) {
     return searxngOnlyResults(searxngResults);
@@ -188,7 +195,7 @@ export async function hybridSearch(
     // fused candidate by default (topK = fused.length) — live SearXNG
     // results are never dropped here, only reordered/annotated.
     const fused = Array.from(allResults.values()).sort((a, b) => b.score - a.score);
-    const reranked = await rerankResults(query, fused, fused.length, preferences);
+    const reranked = await rerankResults(query, fused, fused.length, preferences, userId, abortSignal);
 
     log.debug(`[HYBRID-SEARCH] RRF fusion applied, ${fused.length} candidates → ${reranked.length} after reranking`);
 

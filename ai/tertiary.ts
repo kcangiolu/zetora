@@ -70,6 +70,9 @@ export async function resolveTertiaryModel(
   task: TertiaryTask,
   preferences: UserPreferenceValues | null,
   userId?: string,
+  // For a caller whose output is a mechanical answer (scores, labels) where
+  // the model's thinking only adds latency, whatever effort the task is set to.
+  effortOverride?: ReasoningEffort,
 ) {
   // resolveModel handles catalog and custom-{providerId}-{name} ids alike,
   // and (given userId) applies the same anonymization/xml-parsing wrapping
@@ -82,7 +85,9 @@ export async function resolveTertiaryModel(
   // thinking (DeepSeek, Kimi, Qwen...) — so its thinking is always off. There's
   // no UI control for this task's effort (Settings hides it).
   const effort: ReasoningEffort =
-    task === 'extreme-agent' ? 'off' : (preferences?.[effortPrefKey(task)] ?? TASK_RECOMMENDED_EFFORT[task]);
+    task === 'extreme-agent'
+      ? 'off'
+      : (effortOverride ?? preferences?.[effortPrefKey(task)] ?? TASK_RECOMMENDED_EFFORT[task]);
 
   let applyMaskMiddleware = false;
 

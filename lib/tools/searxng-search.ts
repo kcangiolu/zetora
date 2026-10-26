@@ -122,6 +122,7 @@ export class SearXNGSearchStrategy implements SearchStrategy {
           allSearxngResults.map((r) => ({ url: r.url, title: r.title, content: r.content })),
           this.preferences,
           this.userId,
+          options.abortSignal,
         );
         const archiveResults = mergeArchiveResults(fusedResults);
         if (archiveResults.length > 0) {
