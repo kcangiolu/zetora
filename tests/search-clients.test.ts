@@ -42,6 +42,41 @@ describe('searxngSearch', () => {
   });
 });
 
+describe('searxngSearch without results', () => {
+  it('throws when no engine answered, naming each one and why', async () => {
+    stubFetch({
+      ok: true,
+      body: {
+        results: [],
+        unresponsive_engines: [
+          ['bing', 'timeout'],
+          ['wikipedia', 'timeout'],
+          ['bing', 'timeout'],
+        ],
+      },
+    });
+    await expect(searxngSearch('http://searxng.local', { q: 'query' })).rejects.toThrow(
+      'no engine answered: bing (timeout), wikipedia (timeout)',
+    );
+  });
+
+  it('returns an empty list when the engines answered with nothing', async () => {
+    stubFetch({ ok: true, body: { results: [], unresponsive_engines: [] } });
+    await expect(searxngSearch('http://searxng.local', { q: 'query' })).resolves.toEqual([]);
+  });
+
+  it('keeps the results of the engines that answered', async () => {
+    stubFetch({
+      ok: true,
+      body: {
+        results: [{ url: 'https://a.com', title: 'A', content: 'c' }],
+        unresponsive_engines: [['bing', 'timeout']],
+      },
+    });
+    await expect(searxngSearch('http://searxng.local', { q: 'query' })).resolves.toHaveLength(1);
+  });
+});
+
 describe('searxngTimeRange', () => {
   it('picks the smallest range covering the start date', () => {
     vi.useFakeTimers();

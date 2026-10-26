@@ -38,7 +38,7 @@ export function searxngTimeRange(topic: 'general' | 'news', startDate?: string |
   return topic === 'news' ? 'week' : '';
 }
 
-/** Throws on a network error, a timeout or a non-2xx response. */
+/** Throws on a network error, a timeout, a non-2xx response, or no result because no engine answered. */
 export async function searxngSearch(
   baseUrl: string,
   query: SearxngQuery,
@@ -56,6 +56,16 @@ export async function searxngSearch(
     throw new Error(`SearXNG returned ${response.status}`);
   }
 
-  const data: { results?: SearxngHit[] } = await response.json();
-  return data.results ?? [];
+  const data: { results?: SearxngHit[]; unresponsive_engines?: unknown } = await response.json();
+  const results = data.results ?? [];
+  // SearXNG answers 200 even when every engine timed out or was blocked: an empty
+  // list would read as "nothing exists" rather than "the search failed".
+  const unresponsive = Array.isArray(data.unresponsive_engines) ? data.unresponsive_engines : [];
+  if (results.length === 0 && unresponsive.length > 0) {
+    const engines = unresponsive.map((entry) =>
+      Array.isArray(entry) && entry.length >= 2 ? `${entry[0]} (${entry[1]})` : String(entry),
+    );
+    throw new Error(`no engine answered: ${[...new Set(engines)].join(', ')}`);
+  }
+  return results;
 }
