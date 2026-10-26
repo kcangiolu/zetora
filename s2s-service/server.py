@@ -349,6 +349,9 @@ async def respond(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSessio
     user_text = session.history[-1]["content"]
     assistant_text = ""
     sentence_buf = ""
+    # The reply's tool calls and their compact results, sent by the app at the end of the
+    # stream: kept in the history so the next turns know what was looked up.
+    tool_history: list = []
 
     try:
         async with client.stream(
@@ -372,6 +375,10 @@ async def respond(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSessio
                 tool = chunk.get("tool")
                 if isinstance(tool, dict):
                     await send_tool_step(ws, tool)
+                    continue
+                history = chunk.get("history")
+                if isinstance(history, list):
+                    tool_history = history
                     continue
                 delta = chunk.get("choices", [{}])[0].get("delta", {}).get("content") or ""
                 if not delta:
@@ -402,6 +409,7 @@ async def respond(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSessio
                 turn.append({"role": "assistant", "text": assistant_text.strip()})
             session.saves.put_nowait(turn)
 
+    session.history.extend(tool_history)
     if assistant_text.strip():
         session.history.append({"role": "assistant", "content": assistant_text.strip()})
     await send_json(ws, {"type": "response.output_audio_transcript.done"})
@@ -409,8 +417,9 @@ async def respond(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSessio
 
 
 async def send_tool_step(ws: WebSocket, tool: dict) -> None:
-    """A tool step of the Hermes agent, as the realtime events the Voice page already shows
-    for the cloud backend's tool calls. A successful finish adds nothing worth showing."""
+    """A tool step of the reply (Voice model or Hermes agent), as the realtime events the
+    Voice page already shows for the cloud backend's tool calls. A successful finish adds
+    nothing worth showing; a failure shows its reason."""
     call_id, name = tool.get("callId"), tool.get("name")
     status = tool.get("status")
     if status == "running":

@@ -3,7 +3,8 @@ import { SYNTHESIS_NUDGE } from '@/lib/search/prepare-step';
 
 // Wiring test for the local-voice LLM stage (/api/v1/chat/completions). It runs
 // the tool loop server-side and must forward ONLY the final spoken text — never
-// tool-call XML/JSON — through the OpenAI-compatible SSE stream. We mock the
+// tool-call XML/JSON — through the OpenAI-compatible SSE stream, with tool steps as
+// separate `tool` and `history` chunks. We mock the
 // `ai` module (repo convention, see auto-router.test.ts) and the collaborators,
 // then assert how streamText is configured and what the stream emits. The real
 // resolvePrepareStepOverride is exercised through the captured prepareStep.
@@ -41,7 +42,19 @@ import { POST } from '@/app/api/v1/chat/completions/route';
 const VOICE_TOOLS = ['web_search', 'retrieve', 'get_weather_data', 'datetime'];
 
 async function* textDeltas(...parts: string[]) {
-  for (const p of parts) yield p;
+  for (const text of parts) yield { type: 'text-delta', text };
+}
+
+async function* streamParts(...parts: unknown[]) {
+  for (const part of parts) yield part;
+}
+
+// The data chunks of an SSE body, without [DONE] and keepalive comments.
+function dataChunks(body: string): Record<string, unknown>[] {
+  return body
+    .split('\n\n')
+    .filter((line) => line.startsWith('data: {'))
+    .map((line) => JSON.parse(line.slice('data: '.length)));
 }
 
 const post = (body: unknown) =>
@@ -69,7 +82,7 @@ beforeEach(() => {
     get_weather_data: { execute: vi.fn() },
     datetime: { execute: vi.fn() },
   });
-  streamText.mockReturnValue({ textStream: textDeltas('Here is ', 'the answer.') });
+  streamText.mockReturnValue({ fullStream: textDeltas('Here is ', 'the answer.') });
 });
 
 describe('POST /api/v1/chat/completions (local voice LLM stage)', () => {
@@ -126,7 +139,7 @@ describe('POST /api/v1/chat/completions (local voice LLM stage)', () => {
   });
 
   it('streams only the final text as OpenAI chunks and never leaks tool markup', async () => {
-    streamText.mockReturnValueOnce({ textStream: textDeltas('Paris ', 'is sunny.') });
+    streamText.mockReturnValueOnce({ fullStream: textDeltas('Paris ', 'is sunny.') });
     const res = await post({ messages: [{ role: 'user', content: 'weather in paris?' }] });
     const body = await res.text();
 
@@ -139,9 +152,101 @@ describe('POST /api/v1/chat/completions (local voice LLM stage)', () => {
     expect(body).not.toContain('tool_call');
   });
 
+  it('sends each tool step and ends with the calls and compact results for the history', async () => {
+    const call = { toolCallId: 'call-1', toolName: 'web_search', input: { queries: ['DanMachi volume 22'] } };
+    streamText.mockReturnValueOnce({
+      fullStream: streamParts(
+        { type: 'start-step' },
+        { type: 'text-delta', text: 'Let me check.' },
+        { type: 'tool-call', ...call },
+        {
+          type: 'tool-result',
+          ...call,
+          output: {
+            searches: [
+              {
+                query: 'DanMachi volume 22',
+                results: [{ title: 'T', url: 'https://example.com', content: 'long page' }],
+                images: [],
+              },
+            ],
+          },
+        },
+        { type: 'start-step' },
+        { type: 'text-delta', text: 'Volume 22 is out.' },
+      ),
+    });
+
+    const chunks = dataChunks(await (await post({ messages: [{ role: 'user', content: 'DanMachi?' }] })).text());
+
+    expect(chunks.filter((chunk) => 'tool' in chunk).map((chunk) => chunk.tool)).toEqual([
+      { callId: 'call-1', name: 'web_search', preview: 'DanMachi volume 22', status: 'running' },
+      { callId: 'call-1', name: 'web_search', preview: null, status: 'ok' },
+    ]);
+    const text = chunks
+      .flatMap((chunk) => (Array.isArray(chunk.choices) ? chunk.choices : []))
+      .map((choice) => choice.delta?.content ?? '')
+      .join('');
+    expect(text).toBe('Let me check. Volume 22 is out.');
+    const history = chunks.find((chunk) => 'history' in chunk)?.history;
+    expect(history).toEqual([
+      { role: 'assistant', content: [{ type: 'tool-call', ...call }] },
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-1',
+            toolName: 'web_search',
+            output: {
+              type: 'text',
+              value: JSON.stringify({
+                searches: [{ query: 'DanMachi volume 22', results: [{ title: 'T', url: 'https://example.com' }] }],
+              }),
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('shows why a tool failed, whether it threw or its searches failed', async () => {
+    const search = { toolCallId: 'call-1', toolName: 'web_search', input: { queries: ['q'] } };
+    const weather = { toolCallId: 'call-2', toolName: 'get_weather_data', input: { location: 'Paris' } };
+    streamText.mockReturnValueOnce({
+      fullStream: streamParts(
+        { type: 'tool-call', ...search },
+        { type: 'tool-call', ...weather },
+        {
+          type: 'tool-result',
+          ...search,
+          output: { searches: [{ query: 'q', results: [], images: [], error: 'SearXNG failed: no engine answered' }] },
+        },
+        { type: 'tool-error', ...weather, error: new Error('Weather API returned 503') },
+        { type: 'text-delta', text: 'The search did not work.' },
+      ),
+    });
+
+    const chunks = dataChunks(await (await post({ messages: [{ role: 'user', content: 'hi' }] })).text());
+
+    expect(chunks.filter((chunk) => 'tool' in chunk).map((chunk) => chunk.tool)).toEqual([
+      { callId: 'call-1', name: 'web_search', preview: 'q', status: 'running' },
+      { callId: 'call-2', name: 'get_weather_data', preview: 'Paris', status: 'running' },
+      { callId: 'call-1', name: 'web_search', preview: null, status: 'SearXNG failed: no engine answered' },
+      { callId: 'call-2', name: 'get_weather_data', preview: null, status: 'Weather API returned 503' },
+    ]);
+    const history = chunks.find((chunk) => 'history' in chunk)?.history;
+    expect(JSON.stringify(history)).toContain('{"type":"error-text","value":"Weather API returned 503"}');
+  });
+
+  it('sends no history chunk when the reply called no tool', async () => {
+    const chunks = dataChunks(await (await post({ messages: [{ role: 'user', content: 'hi' }] })).text());
+    expect(chunks.some((chunk) => 'history' in chunk)).toBe(false);
+  });
+
   it('scrubs orphan anonymization tokens the model invented instead of speaking them raw', async () => {
     streamText.mockReturnValueOnce({
-      textStream: textDeltas('Elon works at ', '⟦ORGANIZATION_32e8be4b88⟧', ', I think.'),
+      fullStream: textDeltas('Elon works at ', '⟦ORGANIZATION_32e8be4b88⟧', ', I think.'),
     });
     const res = await post({ messages: [{ role: 'user', content: 'who does Elon work for?' }] });
     const body = await res.text();
@@ -155,7 +260,7 @@ describe('POST /api/v1/chat/completions (local voice LLM stage)', () => {
   it('scrubs an orphan token even when its delimiters are split across deltas', async () => {
     streamText.mockReturnValueOnce({
       // "⟦PERSON_c1a7ff3914⟧" split mid-token across three deltas.
-      textStream: textDeltas('Hello ', '⟦PERSON_c1a7f', 'f3914⟧', ', nice to meet you.'),
+      fullStream: textDeltas('Hello ', '⟦PERSON_c1a7f', 'f3914⟧', ', nice to meet you.'),
     });
     const res = await post({ messages: [{ role: 'user', content: 'hi' }] });
     const body = await res.text();
@@ -193,7 +298,7 @@ describe('POST /api/v1/chat/completions (local voice LLM stage)', () => {
 
   it('reports a model error in the stream instead of ending with an empty reply', async () => {
     streamText.mockImplementationOnce((options: { onError: (event: { error: unknown }) => void }) => ({
-      textStream: (async function* () {
+      fullStream: (async function* () {
         options.onError({ error: new Error('Authentication Fails, Your api key: ****b431 is invalid') });
       })(),
     }));
@@ -236,9 +341,9 @@ describe('POST /api/v1/chat/completions (local voice LLM stage)', () => {
         releaseAnswer = resolve;
       });
       streamText.mockReturnValueOnce({
-        textStream: (async function* () {
+        fullStream: (async function* () {
           await answerReady;
-          yield 'Found it.';
+          yield { type: 'text-delta', text: 'Found it.' };
         })(),
       });
 

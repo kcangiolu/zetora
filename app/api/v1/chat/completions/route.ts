@@ -8,7 +8,8 @@ import { resolvePrepareStepOverride } from '@/lib/search/prepare-step';
 import { getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { resolveVoiceRequestUserId } from '@/lib/voice-session-token';
 import { StreamTokenBuffer } from '@/ai/anonymization-middleware';
-import { TOKEN_PATTERN } from '@/lib/anonymizer/pseudonymize';
+import { deanonymizeText, TOKEN_PATTERN } from '@/lib/anonymizer/pseudonymize';
+import { voiceToolHistory, voiceToolPreview, voiceToolStatus, type VoiceToolCall } from '@/lib/voice-tool-steps';
 
 import { createLogger } from '@/lib/logger';
 
@@ -35,8 +36,9 @@ weather, or anything you are not confident you know, call a tool before answerin
 - datetime — for the current date/time.
 After the tool returns, answer in one or two natural spoken sentences. Never read out
 raw URLs, markdown, or the tool output verbatim — summarize it conversationally. For
-simple greetings or chit-chat, just reply without any tool. Never mention technical
-issues, tool errors, or retries out loud — silently retry or answer with what you have.`;
+simple greetings or chit-chat, just reply without any tool. If a tool failed, say in a few
+words that the search did not work, without technical details, and never claim you did
+not call a tool you called.`;
 
 // OpenAI-compatible /v1/chat/completions, streaming-only. Built for the local
 // s2s-service LLM stage. The model is resolved the same way every other
@@ -44,9 +46,11 @@ issues, tool errors, or retries out loud — silently retry or answer with what 
 // caller — this keeps voice consistent with chat-title/followup/etc. and
 // picks up anonymization middleware for free via resolveTertiaryModel.
 //
-// Tools run server-side here: the AI SDK drives the tool loop and only the final
-// spoken answer flows out through result.textStream (tool-calls are separate
-// parts, never in textStream), so s2s-service needs no changes.
+// Tools run server-side here: the AI SDK drives the tool loop and only the spoken
+// text flows out as content deltas. Each tool step rides along as a `tool` chunk,
+// the shape /api/voice/hermes sends, so the Voice page shows it; the steps' calls
+// and compact results end the stream as a `history` chunk, which the s2s-service
+// keeps in the conversation it sends with the next turn.
 export async function POST(req: NextRequest) {
   const userId = await resolveVoiceRequestUserId(req);
   if (!userId) return new Response('Unauthorized', { status: 401 });
@@ -161,17 +165,52 @@ export async function POST(req: NextRequest) {
       // Tool calls (a slow search) can go quiet for longer than the caller's
       // read timeout. An SSE comment line resets it and is ignored by parsers.
       keepAlive = setInterval(() => controller.enqueue(encoder.encode(': keepalive\n\n')), KEEPALIVE_INTERVAL_MS);
+      const toolCalls = new Map<string, VoiceToolCall>();
+      const history: ModelMessage[] = [];
+      const sendToolStep = (call: VoiceToolCall, status: string, preview: string | null) =>
+        send({ tool: { callId: call.toolCallId, name: call.toolName, preview, status } });
+      // Each step's text is generated on its own: without a space, the text before a
+      // tool call and the answer after it run together ("Let me check.Here it is").
+      let textSoFar = '';
+      let newStep = false;
       try {
-        for await (const delta of result.textStream) {
-          const resolved = scrubTokens(await tokenBuffer.push(delta));
-          if (resolved) {
-            send({
-              id,
-              object: 'chat.completion.chunk',
-              created,
-              model: modelId,
-              choices: [{ index: 0, delta: { content: resolved }, finish_reason: null }],
-            });
+        for await (const part of result.fullStream) {
+          if (part.type === 'start-step') {
+            newStep = textSoFar !== '';
+          } else if (part.type === 'text-delta') {
+            let delta = part.text;
+            if (newStep && delta) {
+              if (!/\s$/.test(textSoFar) && !/^\s/.test(delta)) delta = ` ${delta}`;
+              newStep = false;
+            }
+            textSoFar += delta;
+            const resolved = scrubTokens(await tokenBuffer.push(delta));
+            if (resolved) {
+              send({
+                id,
+                object: 'chat.completion.chunk',
+                created,
+                model: modelId,
+                choices: [{ index: 0, delta: { content: resolved }, finish_reason: null }],
+              });
+            }
+          } else if (part.type === 'tool-call') {
+            const call = { toolCallId: part.toolCallId, toolName: part.toolName, input: part.input };
+            toolCalls.set(call.toolCallId, call);
+            // The model wrote the input in pseudonyms: the page shows the real values.
+            const preview = voiceToolPreview(call.input);
+            sendToolStep(call, 'running', preview && scrubTokens(await deanonymizeText(preview, { userId })));
+          } else if (part.type === 'tool-result' || part.type === 'tool-error') {
+            const call = toolCalls.get(part.toolCallId);
+            if (!call) continue;
+            if (part.type === 'tool-result') {
+              sendToolStep(call, voiceToolStatus(part.output), null);
+              history.push(...voiceToolHistory(call, { output: part.output }));
+            } else {
+              const error = part.error instanceof Error ? part.error.message : String(part.error);
+              sendToolStep(call, error, null);
+              history.push(...voiceToolHistory(call, { error }));
+            }
           }
         }
         if (modelError !== undefined && !req.signal.aborted) {
@@ -192,6 +231,7 @@ export async function POST(req: NextRequest) {
             choices: [{ index: 0, delta: { content: remaining }, finish_reason: null }],
           });
         }
+        if (history.length > 0) send({ history });
         send({
           id,
           object: 'chat.completion.chunk',
