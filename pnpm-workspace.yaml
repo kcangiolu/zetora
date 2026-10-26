@@ -33,5 +33,5 @@ overrides:
   # Only reachable today through @react-email/preview-server's pinned inner
   # copy (dev-only `email:dev` script, never deployed) — deduped up to the
   # same versions the app itself already uses.
-  next: '>=16.2.5'
+  next: '>=16.4.3'
   ws: '>=8.21.0'

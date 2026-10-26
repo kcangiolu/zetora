@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { AppsIcon } from '@/components/icons/apps-icon';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { useWebHaptics } from 'web-haptics/react';
 
 interface McpServerSelectorProps {
@@ -20,6 +21,7 @@ export const McpServerSelector: React.FC<McpServerSelectorProps> = React.memo(({
   const [search, setSearch] = useState('');
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const haptics = useWebHaptics();
 
   const { data, isLoading } = useQuery({
@@ -135,7 +137,7 @@ export const McpServerSelector: React.FC<McpServerSelectorProps> = React.memo(({
                     return;
                   }
                   haptics.trigger('warning');
-                  window.location.href = '/apps';
+                  router.push('/apps');
                 }}
                 className={cn(
                   'flex items-center gap-2.5 px-2 py-2 rounded-md transition-colors',
@@ -151,7 +153,7 @@ export const McpServerSelector: React.FC<McpServerSelectorProps> = React.memo(({
                       onClick={(e) => {
                         e.stopPropagation();
                         haptics.trigger('warning');
-                        window.location.href = '/apps';
+                        router.push('/apps');
                       }}
                       className="inline-flex items-center gap-1 text-[11px] text-primary hover:text-primary/85 transition-colors"
                     >
@@ -215,7 +217,7 @@ export const McpServerSelector: React.FC<McpServerSelectorProps> = React.memo(({
                     return;
                   }
                   haptics.trigger('warning');
-                  window.location.href = '/apps';
+                  router.push('/apps');
                 }}
                 className={cn(
                   'flex items-center gap-3.5 px-3 py-3 rounded-xl transition-colors',
@@ -233,7 +235,7 @@ export const McpServerSelector: React.FC<McpServerSelectorProps> = React.memo(({
                       onClick={(e) => {
                         e.stopPropagation();
                         haptics.trigger('warning');
-                        window.location.href = '/apps';
+                        router.push('/apps');
                       }}
                       className="inline-flex items-center gap-1 text-[12px] text-primary hover:text-primary/85 transition-colors mt-0.5"
                     >

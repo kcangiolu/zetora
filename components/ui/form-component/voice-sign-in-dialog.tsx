@@ -6,6 +6,7 @@ import { LockIcon } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 
 const FEATURES = [
   { title: 'Voice input', desc: 'Record & transcribe' },
@@ -16,6 +17,7 @@ const FEATURES = [
 
 // Voice input needs an account.
 export function VoiceSignInDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const router = useRouter();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[400px] p-0 gap-0 overflow-hidden" showCloseButton={false}>
@@ -56,7 +58,7 @@ export function VoiceSignInDialog({ open, onOpenChange }: { open: boolean; onOpe
 
           <Button
             onClick={() => {
-              window.location.href = '/sign-in';
+              router.push('/sign-in');
             }}
             className="w-full rounded-lg h-9"
           >

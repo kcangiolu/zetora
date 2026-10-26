@@ -387,14 +387,14 @@ const FormComponent: React.FC<FormComponentProps> = ({
       if (!group) return;
       if ('requireAuth' in group && group.requireAuth && !user) {
         haptics.trigger('warning');
-        window.location.href = '/sign-in';
+        router.push('/sign-in');
         return;
       }
       haptics.trigger('selection');
       if (selectedGroup === modeId) setSelectedGroup('auto');
       else handleGroupSelect(group);
     },
-    [searchGroups, user, selectedGroup, setSelectedGroup, handleGroupSelect, haptics, setPlusMenuOpen],
+    [searchGroups, user, router, selectedGroup, setSelectedGroup, handleGroupSelect, haptics, setPlusMenuOpen],
   );
 
   useEffect(() => {

@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { MarkdownRenderer } from '@/components/markdown';
+import { useRouter } from 'next/navigation';
 import { sileo } from 'sileo';
 import { selectUploadableFiles, uploadFiles } from '@/components/ui/form-component/upload-files';
 import {
@@ -105,6 +106,7 @@ const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
   isOwner = true,
   selectedVisibilityType,
 }) => {
+  const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
   const canDelete = handleDelete && ((user && isOwner) || (!user && selectedVisibilityType === 'private'));
   const parsedError = error ? parseChatSDKError(error.message) : null;
@@ -171,7 +173,7 @@ const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
   const handleAction = (action: string) => {
     switch (action) {
       case 'signin':
-        window.location.href = '/sign-in';
+        router.push('/sign-in');
         break;
       case 'retry':
         if (handleRetry) {
