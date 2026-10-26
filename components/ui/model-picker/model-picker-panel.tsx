@@ -25,20 +25,6 @@ function getGroupKey(model: Model): string {
   return model.provider === 'custom' && model.customProviderId ? `custom:${model.customProviderId}` : model.provider;
 }
 
-// Brings `item` into view by scrolling `container` alone. scrollIntoView would
-// also scroll every scrollable ancestor, the window included: in an iOS home
-// screen app, where the drawer leaves the page scrollable behind it, that moves
-// the page under the open picker and the taps on it get lost.
-function scrollWithin(container: HTMLElement, item: HTMLElement, behavior: ScrollBehavior) {
-  const box = container.getBoundingClientRect();
-  const target = item.getBoundingClientRect();
-  const offset = (start: number, end: number, boxStart: number, boxEnd: number) =>
-    start < boxStart ? start - boxStart : end > boxEnd ? end - boxEnd : 0;
-  const top = offset(target.top, target.bottom, box.top, box.bottom);
-  const left = offset(target.left, target.right, box.left, box.right);
-  if (top || left) container.scrollBy({ top, left, behavior });
-}
-
 function groupIconProvider(groupKey: string): string {
   return groupKey.startsWith('custom:') ? 'custom' : groupKey;
 }
@@ -270,15 +256,10 @@ export function ModelPickerPanel({ models, selectedModel, onSelect, idPrefix }: 
   );
   const resetFocus = () => setFocusedIndex(-1);
 
-  // The first scroll, on open, is instant: a tap during a smooth scroll only
-  // stops the scroll and never reaches the model under the finger.
-  const hasScrolledRef = useRef(false);
   useEffect(() => {
-    const list = modelListRef.current;
-    if (focusedIndex < 0 || !list) return;
-    const item = list.querySelectorAll<HTMLElement>('[data-model-index]')[focusedIndex];
-    if (item) scrollWithin(list, item, hasScrolledRef.current ? 'smooth' : 'auto');
-    hasScrolledRef.current = true;
+    if (focusedIndex < 0 || !modelListRef.current) return;
+    const item = modelListRef.current.querySelectorAll<HTMLElement>('[data-model-index]')[focusedIndex];
+    item?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [focusedIndex]);
 
   const selectTab = (tab: string) => {
@@ -302,9 +283,9 @@ export function ModelPickerPanel({ models, selectedModel, onSelect, idPrefix }: 
       const current = tabs.indexOf(selectedTab);
       const next = e.key === 'ArrowLeft' ? (current - 1 + tabs.length) % tabs.length : (current + 1) % tabs.length;
       selectTab(tabs[next]);
-      const sidebar = providerSidebarRef.current;
-      const tab = sidebar?.querySelectorAll<HTMLElement>('button')[next];
-      if (sidebar && tab) scrollWithin(sidebar, tab, 'smooth');
+      providerSidebarRef.current
+        ?.querySelectorAll<HTMLElement>('button')
+        [next]?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
       return;
     }
 
