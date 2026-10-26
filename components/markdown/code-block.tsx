@@ -1,6 +1,5 @@
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { useTheme } from 'next-themes';
-import Latex from 'react-latex-next';
 import { Lexer } from 'marked';
 import React, { useCallback, useMemo, useState, lazy, Suspense, useEffect } from 'react';
 import { cn } from '@/lib/utils';
@@ -9,6 +8,7 @@ import { sileo } from 'sileo';
 import type { CitationLink, CitationGroup } from './shared';
 import { parseTaggedLinkContent } from './shared';
 import { keepInlineLinkText } from '@/lib/markdown-inline-links';
+import { renderLatexFormula, type LatexDelimiter } from '@/lib/markdown-latex';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { geistMono } from '@/lib/fonts';
 import { useHydrated } from '@/hooks/use-hydrated';
@@ -1304,10 +1304,16 @@ class LatexErrorBoundary extends React.Component<
   }
 }
 
+// Rendered as a child of the error boundary so a formula KaTeX rejects
+// reaches the boundary instead of failing the whole message.
+function LatexFormula({ formula, delimiters }: { formula: string; delimiters: readonly LatexDelimiter[] }) {
+  return <span dangerouslySetInnerHTML={{ __html: renderLatexFormula(formula, delimiters) }} />;
+}
+
 // Safe LaTeX wrapper with error handling
 export const SafeLatex: React.FC<{
   children: string;
-  delimiters: Array<{ left: string; right: string; display: boolean }>;
+  delimiters: LatexDelimiter[];
   isBlock?: boolean;
 }> = React.memo(({ children, delimiters, isBlock = false }) => {
   // Fallback: render raw LaTeX text in a code-style format
@@ -1331,9 +1337,7 @@ export const SafeLatex: React.FC<{
   // Keyed on the formula so new LaTeX gets a fresh attempt at rendering
   return (
     <LatexErrorBoundary key={children} fallback={rawLatex}>
-      <Latex delimiters={delimiters} strict={false}>
-        {children}
-      </Latex>
+      <LatexFormula formula={children} delimiters={delimiters} />
     </LatexErrorBoundary>
   );
 });
