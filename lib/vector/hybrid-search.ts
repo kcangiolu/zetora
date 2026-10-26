@@ -110,7 +110,7 @@ export async function hybridSearch(
     return searxngOnlyResults(searxngResults);
   }
 
-  const embeddingModel = await getEmbeddingModel(preferences);
+  const embeddingModel = await getEmbeddingModel(preferences, userId);
 
   // Without an embedding model, return the SearXNG results as-is
   if (!embeddingModel) {

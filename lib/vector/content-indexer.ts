@@ -80,7 +80,7 @@ export async function indexSearchResults(
   userId?: string,
 ): Promise<void> {
   try {
-    const embeddingModel = await getEmbeddingModel(preferences);
+    const embeddingModel = await getEmbeddingModel(preferences, userId);
     if (!embeddingModel) return;
 
     if (preferences['zetora-content-indexing-enabled'] !== true) return;

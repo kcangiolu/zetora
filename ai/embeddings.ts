@@ -9,10 +9,12 @@ import type { UserPreferenceValues } from '@/lib/db/schema';
 // preference value (a "custom-{providerId}-{modelName}" id) to an AI SDK
 // EmbeddingModel, or null if unset/unresolvable. Doesn't gate on any
 // "enabled" preference itself — callers decide what that means for them.
-async function resolveCustomEmbeddingModel(selectedId: string | undefined) {
+// Without a userId, the user's own providers come from the session cookie,
+// which a request authenticated otherwise (the voice service) does not carry.
+async function resolveCustomEmbeddingModel(selectedId: string | undefined, userId?: string) {
   if (!selectedId) return null;
 
-  const providers = await getCustomProviders();
+  const providers = await getCustomProviders(userId);
   const parsed = parseCustomModelId(selectedId, providers);
   if (!parsed) return null;
 
@@ -22,9 +24,12 @@ async function resolveCustomEmbeddingModel(selectedId: string | undefined) {
 // Used by hybrid-search's Qdrant content indexing — opt-in, gated behind its
 // own "Search Embedding" toggle in Settings > Search (only meaningful once
 // Qdrant is enabled).
-export async function getEmbeddingModel(preferences: Record<string, unknown>) {
+export async function getEmbeddingModel(preferences: Record<string, unknown>, userId: string | undefined) {
   if (preferences['zetora-embedding-enabled'] !== true) return null;
-  const model = await resolveCustomEmbeddingModel(preferences['zetora-embedding-provider'] as string | undefined);
+  const model = await resolveCustomEmbeddingModel(
+    preferences['zetora-embedding-provider'] as string | undefined,
+    userId,
+  );
   if (!model) {
     throw new ModelUnavailableError(
       'Search Embedding is on but its model is not available: pick one in Settings → Search.',
