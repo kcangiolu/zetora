@@ -195,7 +195,7 @@ export default function VoicePage({ searchParams }: { searchParams: Promise<{ ch
       <div className="relative flex h-dvh w-full flex-col items-center justify-center overflow-hidden bg-background">
         <div className="flex flex-col items-center gap-4">
           <ZetoraLogo className="size-10 sm:size-12 animate-pulse motion-reduce:animate-none" />
-          <p className="font-pixel text-xs text-muted-foreground/50 tracking-wider">Loading</p>
+          <p className="text-xs text-muted-foreground/50">Loading</p>
         </div>
       </div>
     );
@@ -218,7 +218,7 @@ export default function VoicePage({ searchParams }: { searchParams: Promise<{ ch
                 <ArrowLeft className="size-4 sm:size-5" />
               </button>
               <ZetoraLogo className="shrink-0 size-7 sm:size-8" />
-              <h1 className="font-pixel text-base sm:text-2xl text-foreground tracking-wider">Voice</h1>
+              <h1 className="text-base sm:text-xl font-semibold tracking-tight text-foreground">Voice</h1>
             </div>
 
             <div
@@ -233,7 +233,7 @@ export default function VoicePage({ searchParams }: { searchParams: Promise<{ ch
                 className={cn('size-1.5 rounded-full transition-colors duration-150', statusColor)}
                 aria-hidden="true"
               />
-              <span className="font-pixel text-[10px] text-foreground/60 tracking-wider">{statusText}</span>
+              <span className="text-[11px] font-medium text-foreground/60">{statusText}</span>
             </div>
           </div>
 
@@ -276,7 +276,7 @@ export default function VoicePage({ searchParams }: { searchParams: Promise<{ ch
                 className="h-full w-full"
               />
               {!isConnected && (
-                <p className="absolute -bottom-7 left-0 right-0 text-center font-pixel text-sm text-muted-foreground/30 tracking-wider">
+                <p className="absolute -bottom-7 left-0 right-0 text-center text-sm text-muted-foreground/30">
                   Press start to begin
                 </p>
               )}
@@ -295,7 +295,7 @@ export default function VoicePage({ searchParams }: { searchParams: Promise<{ ch
               >
                 <div className="flex items-center gap-2">
                   <MessageSquare className="size-3.5 text-muted-foreground/60" aria-hidden />
-                  <span className="font-pixel text-[9px] text-muted-foreground/60 tracking-wider uppercase">
+                  <span className="text-[10px] font-medium text-muted-foreground/60 tracking-wider uppercase">
                     Transcript
                   </span>
                 </div>
@@ -331,7 +331,7 @@ export default function VoicePage({ searchParams }: { searchParams: Promise<{ ch
                               transition={{ duration: 0.2 }}
                               className="flex items-start gap-2 pt-2"
                             >
-                              <span className="font-pixel text-[9px] text-muted-foreground/40 tracking-wider pt-0.5 shrink-0 w-6 text-right">
+                              <span className="text-[10px] font-medium text-muted-foreground/40 pt-0.5 shrink-0 w-6 text-right">
                                 You
                               </span>
                               <p className="text-xs leading-relaxed text-foreground/50">{turn.text}</p>
@@ -347,7 +347,7 @@ export default function VoicePage({ searchParams }: { searchParams: Promise<{ ch
                               transition={{ duration: 0.2 }}
                               className={cn('flex items-start gap-2 pt-2', turn.interrupted && 'opacity-50')}
                             >
-                              <span className="font-pixel text-[9px] text-muted-foreground/40 tracking-wider pt-0.5 shrink-0 w-6 text-right">
+                              <span className="text-[10px] font-medium text-muted-foreground/40 pt-0.5 shrink-0 w-6 text-right">
                                 {voiceAgent === 'hermes' ? 'Hermes' : 'Zetora'}
                               </span>
                               <p className="text-xs leading-relaxed text-foreground/70">
@@ -399,7 +399,7 @@ export default function VoicePage({ searchParams }: { searchParams: Promise<{ ch
                                 <div className="flex flex-col gap-1 w-full min-w-0">
                                   <div className="inline-flex items-center gap-1.5 w-fit rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5">
                                     <ToolIcon className="size-3 text-primary shrink-0" aria-hidden />
-                                    <span className="font-pixel text-[9px] text-primary tracking-wider uppercase">
+                                    <span className="text-[10px] font-medium text-primary tracking-wider uppercase">
                                       {toolLabel}
                                     </span>
                                   </div>
@@ -426,7 +426,7 @@ export default function VoicePage({ searchParams }: { searchParams: Promise<{ ch
                                 <div className="rounded-md border border-border/50 bg-muted/30 px-2 py-1.5 w-full min-w-0">
                                   <div className="flex items-center gap-1.5 mb-1">
                                     <ToolIcon className="size-2.5 text-muted-foreground shrink-0" aria-hidden />
-                                    <span className="font-pixel text-[8px] text-muted-foreground/60 tracking-wider uppercase">
+                                    <span className="text-[10px] font-medium text-muted-foreground/60 tracking-wider uppercase">
                                       {toolLabel} result
                                     </span>
                                   </div>
@@ -569,11 +569,7 @@ export default function VoicePage({ searchParams }: { searchParams: Promise<{ ch
                   disabled={!canStart && !isConnected && !isConnecting}
                   size="sm"
                   label={isConnected || isConnecting ? 'End session' : 'Start session'}
-                  trailing={
-                    <kbd className="hidden font-pixel text-[9px] text-muted-foreground/40 tracking-wider sm:inline">
-                      ⌥ Space
-                    </kbd>
-                  }
+                  trailing={<kbd className="hidden text-[10px] text-muted-foreground/40 sm:inline">⌥ Space</kbd>}
                   className="flex-1 shadow-none border"
                 />
                 <button
