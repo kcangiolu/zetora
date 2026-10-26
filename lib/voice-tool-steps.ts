@@ -1,5 +1,5 @@
 import type { ModelMessage } from 'ai';
-import { searchErrors } from '@/lib/tools/search-errors';
+import { searchFailureSummary } from '@/lib/tools/search-errors';
 
 // What the Voice page, the saved chat and the next turns know of the tools a spoken reply
 // called: the page shows each step, the chat keeps it as the same tool part a written
@@ -36,10 +36,11 @@ export function voiceToolPreview(input: unknown): string | null {
   return null;
 }
 
-/** "ok", or why the tool failed, the same status a Hermes tool step carries. */
+/** "ok", or what failed, the same status a Hermes tool step carries. The model gets the
+ * provider's errors in the tool output; the page says it in plain words. */
 export function voiceToolStatus(output: unknown): string {
-  const errors = isRecord(output) && Array.isArray(output.searches) ? searchErrors(output.searches) : [];
-  return errors.length > 0 ? errors.join('; ') : 'ok';
+  const summary = isRecord(output) && Array.isArray(output.searches) ? searchFailureSummary(output.searches) : null;
+  return summary ? `${summary.title}. ${summary.explanation}` : 'ok';
 }
 
 // Titles and links of the first results only: enough for a follow-up question about the

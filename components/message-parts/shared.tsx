@@ -3,7 +3,7 @@ import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { Chart03Icon } from '@hugeicons/core-free-icons';
 import { Spinner } from '../ui/spinner';
 import { pseudoRandom } from '@/lib/utils';
-import { searchErrorOf, searchErrors } from '@/lib/tools/search-errors';
+import { searchErrors, searchFailureSummary } from '@/lib/tools/search-errors';
 import { SearchX } from 'lucide-react';
 
 export function IconArrowInbox(props: React.SVGProps<SVGSVGElement>) {
@@ -184,16 +184,16 @@ export function ToolNotice({
 }
 
 // Shown above a search card when some of its queries failed: the card alone
-// would show the failure as "no results".
+// would show the failure as "no results". A partial failure is a warning, not an
+// error: the reply still rests on the other searches.
 export function SearchErrorsNotice({ searches }: { searches: readonly (object | null | undefined)[] | undefined }) {
-  const errors = searchErrors(searches);
-  if (!searches || errors.length === 0) return null;
-  const failed = searches.filter((search) => searchErrorOf(search)).length;
-  const title = failed === searches.length ? 'Search failed' : `${failed} of ${searches.length} searches failed`;
+  const summary = searchFailureSummary(searches);
+  if (!summary) return null;
   return (
-    <ToolNotice tone="error" icon={SearchX} title={title}>
-      {errors.map((error) => (
-        <span key={error} className="block break-words">
+    <ToolNotice tone={summary.failed === summary.total ? 'error' : 'empty'} icon={SearchX} title={summary.title}>
+      <span className="block">{summary.explanation}</span>
+      {searchErrors(searches).map((error) => (
+        <span key={error} className="block break-words mt-1 opacity-70">
           {error}
         </span>
       ))}

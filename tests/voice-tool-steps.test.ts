@@ -28,7 +28,7 @@ describe('voiceToolStatus', () => {
     expect(voiceToolStatus({ temperature: 12 })).toBe('ok');
   });
 
-  it('gives the distinct reasons of the failed searches', () => {
+  it('says in plain words how many searches failed and what the reply rests on', () => {
     expect(
       voiceToolStatus({
         searches: [
@@ -37,7 +37,7 @@ describe('voiceToolStatus', () => {
           { query: 'c', results: [{ url: 'https://example.com' }] },
         ],
       }),
-    ).toBe('SearXNG failed: no engine answered');
+    ).toBe('2 of 3 searches failed. The reply uses the results of the other searches.');
   });
 });
 

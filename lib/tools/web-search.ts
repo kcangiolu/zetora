@@ -15,7 +15,7 @@ import { SelfHostedContentStrategy } from './self-hosted-content';
 import { EXA_SEARCH_TIMEOUT_MS, withTimeout } from '@/lib/timeouts';
 import { resolveFallbackSearchProvider, resolveSearchProvider } from '@/lib/instance/capabilities';
 import type { SearchProviderFor } from '@/lib/search/providers';
-import { describeSearchError, joinSearchErrors } from './search-errors';
+import { describeSearchError, fallBackOnFailedQueries } from './search-errors';
 
 import { createLogger } from '@/lib/logger';
 import { isConfigured } from '@/ai/catalog/env';
@@ -743,18 +743,25 @@ export function webSearchTool(
         abortSignal,
       };
       let result = await strategy.search(queries, searchOptions);
-      const hasNoResults = result.searches.every((s) => s.results.length === 0);
-      if (hasNoResults && fallbackProvider) {
-        log.debug(`${searchProvider} returned no results, falling back to ${fallbackProvider}`);
+      if (fallbackProvider) {
         const fallbackStrategy = createSearchStrategy(fallbackProvider, clients, preferences, userId);
-        const primary = result;
-        const fallback = await fallbackStrategy.search(queries, searchOptions);
-        // A query the fallback found nothing for still failed on the primary.
         result = {
-          searches: fallback.searches.map((search, i) => {
-            const error =
-              search.results.length > 0 ? undefined : joinSearchErrors(primary.searches[i]?.error, search.error);
-            return { ...search, ...(error && { error }) };
+          searches: await fallBackOnFailedQueries(result.searches, async (indices) => {
+            log.debug(`${searchProvider} found nothing for ${indices.length} queries, trying ${fallbackProvider}`);
+            const pick = <T>(values: T[] | undefined) => values && indices.map((i) => values[i]);
+            const fallback = await fallbackStrategy.search(
+              indices.map((i) => queries[i]),
+              {
+                ...searchOptions,
+                maxResults: pick(searchOptions.maxResults) ?? [],
+                topics: pick(searchOptions.topics) ?? [],
+                quality: pick(searchOptions.quality) ?? [],
+                startDates: pick(searchOptions.startDates),
+                // Progress events carry the query's index: a subset would update the wrong ones.
+                dataStream: indices.length === queries.length ? dataStream : undefined,
+              },
+            );
+            return fallback.searches;
           }),
         };
       }

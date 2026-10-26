@@ -232,7 +232,12 @@ describe('POST /api/v1/chat/completions (local voice LLM stage)', () => {
     expect(chunks.filter((chunk) => 'tool' in chunk).map((chunk) => chunk.tool)).toEqual([
       { callId: 'call-1', name: 'web_search', preview: 'q', status: 'running' },
       { callId: 'call-2', name: 'get_weather_data', preview: 'Paris', status: 'running' },
-      { callId: 'call-1', name: 'web_search', preview: null, status: 'SearXNG failed: no engine answered' },
+      {
+        callId: 'call-1',
+        name: 'web_search',
+        preview: null,
+        status: 'Search failed. The reply could not use any web results.',
+      },
       { callId: 'call-2', name: 'get_weather_data', preview: null, status: 'Weather API returned 503' },
     ]);
     const weatherStep = chunks.filter((chunk) => 'step' in chunk)[1].step;

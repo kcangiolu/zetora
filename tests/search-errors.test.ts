@@ -1,7 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { APICallError } from 'ai';
 
-import { describeSearchError, joinSearchErrors, searchErrors } from '@/lib/tools/search-errors';
+import {
+  describeSearchError,
+  fallBackOnFailedQueries,
+  joinSearchErrors,
+  searchErrors,
+  searchFailureSummary,
+} from '@/lib/tools/search-errors';
 
 describe('describeSearchError', () => {
   it('names the provider and the HTTP status of an API call error', () => {
@@ -40,5 +46,50 @@ describe('searchErrors', () => {
       searchErrors([{ query: 'a', error: 'xAI failed' }, { query: 'b', error: 'xAI failed' }, { query: 'c' }, null]),
     ).toEqual(['xAI failed']);
     expect(searchErrors(undefined)).toEqual([]);
+  });
+});
+
+describe('searchFailureSummary', () => {
+  it('has nothing to say when every search worked', () => {
+    expect(searchFailureSummary([{ query: 'a', results: [] }])).toBeNull();
+  });
+
+  it('tells a partial failure apart from a full one', () => {
+    expect(searchFailureSummary([{ error: 'x' }, { query: 'b' }])).toEqual({
+      failed: 1,
+      total: 2,
+      title: '1 of 2 searches failed',
+      explanation: 'The reply uses the results of the other searches.',
+    });
+    expect(searchFailureSummary([{ error: 'x' }])?.title).toBe('Search failed');
+  });
+});
+
+describe('fallBackOnFailedQueries', () => {
+  type Search = { query: string; results: { url: string }[]; error?: string };
+  const ok = (query: string): Search => ({ query, results: [{ url: `https://example.com/${query}` }] });
+
+  it('leaves the searches alone when none failed', async () => {
+    const runFallback = vi.fn();
+    const searches = [ok('a'), ok('b')];
+    expect(await fallBackOnFailedQueries(searches, runFallback)).toBe(searches);
+    expect(runFallback).not.toHaveBeenCalled();
+  });
+
+  it('runs the fallback on the failed queries only and puts its results in their place', async () => {
+    const runFallback = vi.fn(async () => [ok('b'), { query: 'c', results: [], error: 'Exa failed: quota' }]);
+    const merged = await fallBackOnFailedQueries(
+      [
+        ok('a'),
+        { query: 'b', results: [], error: 'SearXNG failed: timeout' },
+        { query: 'c', results: [], error: 'SearXNG failed: timeout' },
+      ],
+      runFallback,
+    );
+
+    expect(runFallback).toHaveBeenCalledWith([1, 2]);
+    expect(merged[0]).toEqual(ok('a'));
+    expect(merged[1]).toEqual({ ...ok('b'), error: undefined });
+    expect(merged[2].error).toBe('SearXNG failed: timeout; Exa failed: quota');
   });
 });
