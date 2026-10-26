@@ -1,5 +1,6 @@
 import { after, NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import type { ModelMessage } from 'ai';
 import {
   getChatByIdForValidation,
   getHermesChatLock,
@@ -11,6 +12,7 @@ import {
 import { textOfParts } from '@/lib/text-parts';
 import { generateTitleFromUserMessage, UNTITLED_CHAT_TITLE } from '@/lib/search/chat-title';
 import { resolveVoiceRequestUserId } from '@/lib/voice-session-token';
+import { VOICE_TOOL_NAMES, voiceToolHistoryFromParts } from '@/lib/voice-tool-steps';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('api-voice-transcript');
@@ -23,18 +25,40 @@ const HISTORY_MESSAGE_MAX_CHARS = 2000;
 
 const partsSchema = z.array(z.record(z.string(), z.unknown()));
 
+// A reply's tool steps, saved as the tool parts a written reply saves so the chat shows
+// their cards. Only the Voice model's own tools: this route writes what the s2s-service
+// sends into the user's chat.
+const toolPartSchema = z.object({
+  type: z.enum(VOICE_TOOL_NAMES.map((name) => `tool-${name}`)),
+  toolCallId: z.string().min(1),
+  state: z.enum(['output-available', 'output-error']),
+  input: z.unknown(),
+  output: z.unknown().optional(),
+  errorText: z.string().optional(),
+});
+
 const bodySchema = z.object({
   chatId: z.string().uuid(),
   messages: z
-    .array(z.object({ role: z.enum(['user', 'assistant']), text: z.string().trim().min(1) }))
+    .array(
+      z
+        .object({
+          role: z.enum(['user', 'assistant']),
+          text: z.string().trim(),
+          toolParts: z.array(toolPartSchema).max(20).optional(),
+        })
+        // A reply cut short during its search has steps but no text yet.
+        .refine((m) => m.text !== '' || (m.role === 'assistant' && (m.toolParts?.length ?? 0) > 0)),
+    )
     .min(1)
     .max(2),
 });
 
-// The chat's latest messages and who answers it. The voice page shows them above the
+// The chat's latest messages and who answers it. The voice page shows `messages` above the
 // session's own turns and takes the agent from here, so a chat continues by voice only with
-// the agent it belongs to. The s2s-service, in Zetora mode, hands them to the Voice model
-// as the conversation so far; saving a turn still refuses a Hermes chat.
+// the agent it belongs to. The s2s-service, in Zetora mode, hands `history` to the Voice
+// model as the conversation so far: the same messages, with the searches the replies made;
+// saving a turn still refuses a Hermes chat.
 export async function GET(req: NextRequest) {
   const userId = await resolveVoiceRequestUserId(req);
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -47,13 +71,19 @@ export async function GET(req: NextRequest) {
   const agent = (await getHermesChatLock(chatId.data)) === 'hermes' ? 'hermes' : 'zetora';
 
   const rows = await getMessagesByChatId({ id: chatId.data, limit: HISTORY_MAX_MESSAGES, mostRecent: true });
-  const messages = rows.flatMap((row) => {
-    const parts = partsSchema.safeParse(row.parts);
-    const text = parts.success ? textOfParts(parts.data).trim() : '';
-    if ((row.role !== 'user' && row.role !== 'assistant') || row.isCompactionSummary || !text) return [];
-    return [{ role: row.role, content: text.slice(0, HISTORY_MESSAGE_MAX_CHARS) }];
-  });
-  return NextResponse.json({ agent, messages });
+  const messages: { role: 'user' | 'assistant'; content: string }[] = [];
+  const history: ModelMessage[] = [];
+  for (const row of rows) {
+    if ((row.role !== 'user' && row.role !== 'assistant') || row.isCompactionSummary) continue;
+    const parsed = partsSchema.safeParse(row.parts);
+    const parts = parsed.success ? parsed.data : [];
+    const text = textOfParts(parts).trim().slice(0, HISTORY_MESSAGE_MAX_CHARS);
+    if (row.role === 'assistant') history.push(...voiceToolHistoryFromParts(parts));
+    if (!text) continue;
+    messages.push({ role: row.role, content: text });
+    history.push({ role: row.role, content: text });
+  }
+  return NextResponse.json({ agent, messages, history });
 }
 
 // Called by the s2s-service after each turn the Voice model answers on the voice page
@@ -95,7 +125,7 @@ export async function POST(req: NextRequest) {
       id: crypto.randomUUID(),
       chatId,
       role: m.role,
-      parts: [{ type: 'text' as const, text: m.text }],
+      parts: [...(m.toolParts ?? []), ...(m.text ? [{ type: 'text' as const, text: m.text }] : [])],
       attachments: [],
       createdAt: new Date(now + i),
       model: null,

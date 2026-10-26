@@ -9,15 +9,18 @@ import { getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { resolveVoiceRequestUserId } from '@/lib/voice-session-token';
 import { StreamTokenBuffer } from '@/ai/anonymization-middleware';
 import { deanonymizeText, TOKEN_PATTERN } from '@/lib/anonymizer/pseudonymize';
-import { voiceToolHistory, voiceToolPreview, voiceToolStatus, type VoiceToolCall } from '@/lib/voice-tool-steps';
+import {
+  VOICE_TOOL_NAMES,
+  voiceToolHistory,
+  voiceToolPart,
+  voiceToolPreview,
+  voiceToolStatus,
+  type VoiceToolCall,
+} from '@/lib/voice-tool-steps';
 
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('v1-chat-completions');
-
-// Small curated toolset for spoken conversations — kept intentionally narrow so
-// the prompt stays light and turns stay low-latency.
-const VOICE_TOOL_NAMES = ['web_search', 'retrieve', 'get_weather_data', 'datetime'];
 
 // Well under s2s-service's read timeout (REQUEST_TIMEOUT_S).
 const KEEPALIVE_INTERVAL_MS = 10_000;
@@ -48,9 +51,9 @@ not call a tool you called.`;
 //
 // Tools run server-side here: the AI SDK drives the tool loop and only the spoken
 // text flows out as content deltas. Each tool step rides along as a `tool` chunk,
-// the shape /api/voice/hermes sends, so the Voice page shows it; the steps' calls
-// and compact results end the stream as a `history` chunk, which the s2s-service
-// keeps in the conversation it sends with the next turn.
+// the shape /api/voice/hermes sends, so the Voice page shows it. A finished step
+// also carries a `step`: the tool part the s2s-service saves with the turn, and
+// the compact messages it keeps in the conversation it sends with the next turn.
 export async function POST(req: NextRequest) {
   const userId = await resolveVoiceRequestUserId(req);
   if (!userId) return new Response('Unauthorized', { status: 401 });
@@ -166,9 +169,17 @@ export async function POST(req: NextRequest) {
       // read timeout. An SSE comment line resets it and is ignored by parsers.
       keepAlive = setInterval(() => controller.enqueue(encoder.encode(': keepalive\n\n')), KEEPALIVE_INTERVAL_MS);
       const toolCalls = new Map<string, VoiceToolCall>();
-      const history: ModelMessage[] = [];
       const sendToolStep = (call: VoiceToolCall, status: string, preview: string | null) =>
         send({ tool: { callId: call.toolCallId, name: call.toolName, preview, status } });
+      const sendFinishedStep = (
+        call: VoiceToolCall,
+        status: string,
+        outcome: { output: unknown } | { error: string },
+      ) =>
+        send({
+          tool: { callId: call.toolCallId, name: call.toolName, preview: null, status },
+          step: { part: voiceToolPart(call, outcome), history: voiceToolHistory(call, outcome) },
+        });
       // Each step's text is generated on its own: without a space, the text before a
       // tool call and the answer after it run together ("Let me check.Here it is").
       let textSoFar = '';
@@ -204,12 +215,10 @@ export async function POST(req: NextRequest) {
             const call = toolCalls.get(part.toolCallId);
             if (!call) continue;
             if (part.type === 'tool-result') {
-              sendToolStep(call, voiceToolStatus(part.output), null);
-              history.push(...voiceToolHistory(call, { output: part.output }));
+              sendFinishedStep(call, voiceToolStatus(part.output), { output: part.output });
             } else {
               const error = part.error instanceof Error ? part.error.message : String(part.error);
-              sendToolStep(call, error, null);
-              history.push(...voiceToolHistory(call, { error }));
+              sendFinishedStep(call, error, { error });
             }
           }
         }
@@ -231,7 +240,6 @@ export async function POST(req: NextRequest) {
             choices: [{ index: 0, delta: { content: remaining }, finish_reason: null }],
           });
         }
-        if (history.length > 0) send({ history });
         send({
           id,
           object: 'chat.completion.chunk',

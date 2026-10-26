@@ -72,6 +72,42 @@ describe('POST /api/voice/transcript', () => {
     expect(updateChatTitleById).toHaveBeenCalledWith({ chatId: CHAT_ID, title: 'Capital of France' });
   });
 
+  it("saves a reply's tool steps as the tool parts a written reply saves, before its text", async () => {
+    const toolPart = {
+      type: 'tool-web_search',
+      toolCallId: 'call-1',
+      state: 'output-available',
+      input: { queries: ['capital of France'] },
+      output: { searches: [{ query: 'capital of France', results: [], images: [] }] },
+    };
+    await post({ chatId: CHAT_ID, messages: [TURN[0], { ...TURN[1], toolParts: [toolPart] }] });
+    expect(saveMessages.mock.calls[0][0].messages[1].parts).toEqual([toolPart, { type: 'text', text: 'Paris.' }]);
+  });
+
+  it('saves a reply cut short during its search with its steps only', async () => {
+    const toolPart = {
+      type: 'tool-web_search',
+      toolCallId: 'call-1',
+      state: 'output-error',
+      input: {},
+      errorText: 'failed',
+    };
+    expect(
+      (await post({ chatId: CHAT_ID, messages: [TURN[0], { role: 'assistant', text: '', toolParts: [toolPart] }] }))
+        .status,
+    ).toBe(200);
+    expect(saveMessages.mock.calls[0][0].messages[1].parts).toEqual([toolPart]);
+  });
+
+  it("refuses a tool that is not one of the Voice model's, and an empty message", async () => {
+    const foreign = { type: 'tool-code_interpreter', toolCallId: 'call-1', state: 'output-available', input: {} };
+    expect((await post({ chatId: CHAT_ID, messages: [TURN[0], { ...TURN[1], toolParts: [foreign] }] })).status).toBe(
+      400,
+    );
+    expect((await post({ chatId: CHAT_ID, messages: [{ role: 'user', text: ' ' }] })).status).toBe(400);
+    expect(saveMessages).not.toHaveBeenCalled();
+  });
+
   it("adds to the user's existing chat without creating or renaming it", async () => {
     getChatByIdForValidation.mockResolvedValue({ id: CHAT_ID, userId: 'user-1' });
     await post({ chatId: CHAT_ID, messages: TURN });
@@ -124,13 +160,11 @@ describe('GET /api/voice/transcript', () => {
       { role: 'assistant', parts: [{ type: 'file', url: 'x' }], isCompactionSummary: false },
     ]);
     const response = await get(CHAT_ID);
-    expect(await response.json()).toEqual({
-      agent: 'zetora',
-      messages: [
-        { role: 'user', content: 'Plan a trip to Rome' },
-        { role: 'assistant', content: 'Day one: the Colosseum.' },
-      ],
-    });
+    const messages = [
+      { role: 'user', content: 'Plan a trip to Rome' },
+      { role: 'assistant', content: 'Day one: the Colosseum.' },
+    ];
+    expect(await response.json()).toEqual({ agent: 'zetora', messages, history: messages });
     expect(getMessagesByChatId).toHaveBeenCalledWith({ id: CHAT_ID, limit: 20, mostRecent: true });
   });
 
@@ -140,13 +174,42 @@ describe('GET /api/voice/transcript', () => {
       { role: 'user', parts: [{ type: 'text', text: 'Remind me tomorrow' }], isCompactionSummary: false },
       { role: 'assistant', parts: [{ type: 'text', text: 'Done.' }], isCompactionSummary: false },
     ]);
-    expect(await (await get(CHAT_ID)).json()).toEqual({
-      agent: 'hermes',
-      messages: [
-        { role: 'user', content: 'Remind me tomorrow' },
-        { role: 'assistant', content: 'Done.' },
-      ],
+    const messages = [
+      { role: 'user', content: 'Remind me tomorrow' },
+      { role: 'assistant', content: 'Done.' },
+    ];
+    expect(await (await get(CHAT_ID)).json()).toEqual({ agent: 'hermes', messages, history: messages });
+  });
+
+  it('gives the Voice model the searches the replies made, before their text', async () => {
+    getMessagesByChatId.mockResolvedValue([
+      { role: 'user', parts: [{ type: 'text', text: 'Latest DanMachi volume?' }], isCompactionSummary: false },
+      {
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-web_search',
+            toolCallId: 'call-1',
+            state: 'output-error',
+            input: { queries: ['DanMachi'] },
+            errorText: 'SearXNG failed: no engine answered',
+          },
+          { type: 'text', text: 'The search did not work.' },
+        ],
+        isCompactionSummary: false,
+      },
+    ]);
+    const { messages, history } = await (await get(CHAT_ID)).json();
+    expect(messages).toHaveLength(2);
+    expect(history.map((m: { role: string }) => m.role)).toEqual(['user', 'assistant', 'tool', 'assistant']);
+    expect(history[1].content[0]).toEqual({
+      type: 'tool-call',
+      toolCallId: 'call-1',
+      toolName: 'web_search',
+      input: { queries: ['DanMachi'] },
     });
+    expect(history[2].content[0].output).toEqual({ type: 'error-text', value: 'SearXNG failed: no engine answered' });
+    expect(history[3]).toEqual({ role: 'assistant', content: 'The search did not work.' });
   });
 
   it("refuses another user's chat and a request without a voice session", async () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { voiceToolPreview, voiceToolStatus } from '@/lib/voice-tool-steps';
+import { voiceToolHistoryFromParts, voiceToolPreview, voiceToolStatus } from '@/lib/voice-tool-steps';
 
 describe('voiceToolPreview', () => {
   it('joins the queries of a search', () => {
@@ -38,5 +38,30 @@ describe('voiceToolStatus', () => {
         ],
       }),
     ).toBe('SearXNG failed: no engine answered');
+  });
+});
+
+describe('voiceToolHistoryFromParts', () => {
+  it('keeps only finished steps of the Voice model tools', () => {
+    const history = voiceToolHistoryFromParts([
+      { type: 'text', text: 'hello' },
+      { type: 'tool-code_interpreter', toolCallId: 'a', state: 'output-available', input: {}, output: 'x' },
+      { type: 'tool-web_search', toolCallId: 'b', state: 'input-available', input: {} },
+      { type: 'tool-datetime', toolCallId: 'c', state: 'output-available', input: {}, output: '2026-10-26' },
+    ]);
+    expect(history).toEqual([
+      { role: 'assistant', content: [{ type: 'tool-call', toolCallId: 'c', toolName: 'datetime', input: {} }] },
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'c',
+            toolName: 'datetime',
+            output: { type: 'text', value: '2026-10-26' },
+          },
+        ],
+      },
+    ]);
   });
 });

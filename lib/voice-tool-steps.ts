@@ -1,9 +1,14 @@
 import type { ModelMessage } from 'ai';
 import { searchErrors } from '@/lib/tools/search-errors';
 
-// What the Voice page and the next turns know of the tools a spoken reply called: the
-// page shows each step, and the history keeps a compact trace of it, since the s2s-service
-// otherwise only remembers the reply's text and the model would believe it never searched.
+// What the Voice page, the saved chat and the next turns know of the tools a spoken reply
+// called: the page shows each step, the chat keeps it as the same tool part a written
+// reply saves, and the history carries a compact trace of it, or the model would believe
+// it never searched.
+
+// Small curated toolset for spoken conversations — kept intentionally narrow so the
+// prompt stays light and turns stay low-latency.
+export const VOICE_TOOL_NAMES = ['web_search', 'retrieve', 'get_weather_data', 'datetime'];
 
 const PREVIEW_MAX_CHARS = 120;
 const HISTORY_RESULTS_PER_SEARCH = 5;
@@ -60,11 +65,10 @@ export interface VoiceToolCall {
   input: unknown;
 }
 
+type VoiceToolOutcome = { output: unknown } | { error: string };
+
 /** The call and its result as the two messages the next turn's history carries. */
-export function voiceToolHistory(
-  call: VoiceToolCall,
-  outcome: { output: unknown } | { error: string },
-): ModelMessage[] {
+export function voiceToolHistory(call: VoiceToolCall, outcome: VoiceToolOutcome): ModelMessage[] {
   return [
     { role: 'assistant', content: [{ type: 'tool-call', ...call }] },
     {
@@ -82,4 +86,35 @@ export function voiceToolHistory(
       ],
     },
   ];
+}
+
+/** The finished call as the tool part a written reply saves, so the chat shows its card. */
+export interface VoiceToolPart {
+  type: string;
+  toolCallId: string;
+  state: 'output-available' | 'output-error';
+  input: unknown;
+  output?: unknown;
+  errorText?: string;
+}
+
+export function voiceToolPart(call: VoiceToolCall, outcome: VoiceToolOutcome): VoiceToolPart {
+  const base = { type: `tool-${call.toolName}`, toolCallId: call.toolCallId, input: call.input };
+  return 'error' in outcome
+    ? { ...base, state: 'output-error', errorText: outcome.error }
+    : { ...base, state: 'output-available', output: outcome.output };
+}
+
+/** The voice tool steps among a saved message's parts, as history messages. */
+export function voiceToolHistoryFromParts(parts: readonly Record<string, unknown>[]): ModelMessage[] {
+  return parts.flatMap((part) => {
+    const toolName = typeof part.type === 'string' && part.type.startsWith('tool-') ? part.type.slice(5) : '';
+    if (!VOICE_TOOL_NAMES.includes(toolName) || typeof part.toolCallId !== 'string') return [];
+    const call = { toolCallId: part.toolCallId, toolName, input: part.input };
+    if (part.state === 'output-available') return voiceToolHistory(call, { output: part.output });
+    if (part.state === 'output-error') {
+      return voiceToolHistory(call, { error: typeof part.errorText === 'string' ? part.errorText : 'Tool failed' });
+    }
+    return [];
+  });
 }

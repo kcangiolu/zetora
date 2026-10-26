@@ -4,7 +4,7 @@ import { SYNTHESIS_NUDGE } from '@/lib/search/prepare-step';
 // Wiring test for the local-voice LLM stage (/api/v1/chat/completions). It runs
 // the tool loop server-side and must forward ONLY the final spoken text — never
 // tool-call XML/JSON — through the OpenAI-compatible SSE stream, with tool steps as
-// separate `tool` and `history` chunks. We mock the
+// separate `tool` chunks. We mock the
 // `ai` module (repo convention, see auto-router.test.ts) and the collaborators,
 // then assert how streamText is configured and what the stream emits. The real
 // resolvePrepareStepOverride is exercised through the captured prepareStep.
@@ -152,26 +152,23 @@ describe('POST /api/v1/chat/completions (local voice LLM stage)', () => {
     expect(body).not.toContain('tool_call');
   });
 
-  it('sends each tool step and ends with the calls and compact results for the history', async () => {
+  it('sends each tool step, its part to save and its compact trace for the history', async () => {
     const call = { toolCallId: 'call-1', toolName: 'web_search', input: { queries: ['DanMachi volume 22'] } };
+    const output = {
+      searches: [
+        {
+          query: 'DanMachi volume 22',
+          results: [{ title: 'T', url: 'https://example.com', content: 'long page' }],
+          images: [],
+        },
+      ],
+    };
     streamText.mockReturnValueOnce({
       fullStream: streamParts(
         { type: 'start-step' },
         { type: 'text-delta', text: 'Let me check.' },
         { type: 'tool-call', ...call },
-        {
-          type: 'tool-result',
-          ...call,
-          output: {
-            searches: [
-              {
-                query: 'DanMachi volume 22',
-                results: [{ title: 'T', url: 'https://example.com', content: 'long page' }],
-                images: [],
-              },
-            ],
-          },
-        },
+        { type: 'tool-result', ...call, output },
         { type: 'start-step' },
         { type: 'text-delta', text: 'Volume 22 is out.' },
       ),
@@ -188,26 +185,29 @@ describe('POST /api/v1/chat/completions (local voice LLM stage)', () => {
       .map((choice) => choice.delta?.content ?? '')
       .join('');
     expect(text).toBe('Let me check. Volume 22 is out.');
-    const history = chunks.find((chunk) => 'history' in chunk)?.history;
-    expect(history).toEqual([
-      { role: 'assistant', content: [{ type: 'tool-call', ...call }] },
-      {
-        role: 'tool',
-        content: [
-          {
-            type: 'tool-result',
-            toolCallId: 'call-1',
-            toolName: 'web_search',
-            output: {
-              type: 'text',
-              value: JSON.stringify({
-                searches: [{ query: 'DanMachi volume 22', results: [{ title: 'T', url: 'https://example.com' }] }],
-              }),
+    const step = chunks.find((chunk) => 'step' in chunk)?.step;
+    expect(step).toEqual({
+      part: { type: 'tool-web_search', toolCallId: 'call-1', state: 'output-available', input: call.input, output },
+      history: [
+        { role: 'assistant', content: [{ type: 'tool-call', ...call }] },
+        {
+          role: 'tool',
+          content: [
+            {
+              type: 'tool-result',
+              toolCallId: 'call-1',
+              toolName: 'web_search',
+              output: {
+                type: 'text',
+                value: JSON.stringify({
+                  searches: [{ query: 'DanMachi volume 22', results: [{ title: 'T', url: 'https://example.com' }] }],
+                }),
+              },
             },
-          },
-        ],
-      },
-    ]);
+          ],
+        },
+      ],
+    });
   });
 
   it('shows why a tool failed, whether it threw or its searches failed', async () => {
@@ -235,13 +235,11 @@ describe('POST /api/v1/chat/completions (local voice LLM stage)', () => {
       { callId: 'call-1', name: 'web_search', preview: null, status: 'SearXNG failed: no engine answered' },
       { callId: 'call-2', name: 'get_weather_data', preview: null, status: 'Weather API returned 503' },
     ]);
-    const history = chunks.find((chunk) => 'history' in chunk)?.history;
-    expect(JSON.stringify(history)).toContain('{"type":"error-text","value":"Weather API returned 503"}');
-  });
-
-  it('sends no history chunk when the reply called no tool', async () => {
-    const chunks = dataChunks(await (await post({ messages: [{ role: 'user', content: 'hi' }] })).text());
-    expect(chunks.some((chunk) => 'history' in chunk)).toBe(false);
+    const weatherStep = chunks.filter((chunk) => 'step' in chunk)[1].step;
+    expect(weatherStep).toMatchObject({
+      part: { type: 'tool-get_weather_data', state: 'output-error', errorText: 'Weather API returned 503' },
+    });
+    expect(JSON.stringify(weatherStep)).toContain('{"type":"error-text","value":"Weather API returned 503"}');
   });
 
   it('scrubs orphan anonymization tokens the model invented instead of speaking them raw', async () => {

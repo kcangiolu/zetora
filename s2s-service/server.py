@@ -349,8 +349,10 @@ async def respond(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSessio
     user_text = session.history[-1]["content"]
     assistant_text = ""
     sentence_buf = ""
-    # The reply's tool calls and their compact results, sent by the app at the end of the
-    # stream: kept in the history so the next turns know what was looked up.
+    # The reply's finished tool steps, as the app sends them: the tool parts saved with the
+    # turn, and the compact calls and results kept in the history so the next turns know
+    # what was looked up.
+    tool_parts: list = []
     tool_history: list = []
 
     try:
@@ -375,10 +377,10 @@ async def respond(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSessio
                 tool = chunk.get("tool")
                 if isinstance(tool, dict):
                     await send_tool_step(ws, tool)
-                    continue
-                history = chunk.get("history")
-                if isinstance(history, list):
-                    tool_history = history
+                    step = chunk.get("step")
+                    if isinstance(step, dict):
+                        tool_parts.append(step.get("part"))
+                        tool_history.extend(step.get("history") or [])
                     continue
                 delta = chunk.get("choices", [{}])[0].get("delta", {}).get("content") or ""
                 if not delta:
@@ -405,8 +407,8 @@ async def respond(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSessio
         # A reply cut short by the user is saved as far as it got.
         if session.agent == "zetora":
             turn = [{"role": "user", "text": user_text}]
-            if assistant_text.strip():
-                turn.append({"role": "assistant", "text": assistant_text.strip()})
+            if assistant_text.strip() or tool_parts:
+                turn.append({"role": "assistant", "text": assistant_text.strip(), "toolParts": tool_parts})
             session.saves.put_nowait(turn)
 
     session.history.extend(tool_history)
@@ -441,7 +443,8 @@ async def send_tool_step(ws: WebSocket, tool: dict) -> None:
 
 
 async def load_history(client: httpx.AsyncClient, ws: WebSocket, session: VoiceSession) -> None:
-    """The continued chat's latest messages, as the Voice model's conversation so far."""
+    """The continued chat's latest messages, with the searches its replies made, as the Voice
+    model's conversation so far."""
     try:
         response = await client.get(
             f"{APP_URL}/api/voice/transcript",
@@ -450,7 +453,7 @@ async def load_history(client: httpx.AsyncClient, ws: WebSocket, session: VoiceS
             timeout=REQUEST_TIMEOUT_S,
         )
         await _raise_for_status(response)
-        session.history = response.json()["messages"]
+        session.history = response.json()["history"]
     except Exception as exc:
         await send_error(ws, f"Loading the conversation failed: {exc}")
 
