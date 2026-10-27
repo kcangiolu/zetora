@@ -94,6 +94,8 @@ const nextConfig: NextConfig = {
     '@mathjax/mathjax-newcm-font',
   ],
   devIndicators: false,
+  // AGENTS.md is the repository's own rules; next dev would append a block to it.
+  agentRules: false,
   // Webpack fallback alias for environments not using Turbopack
   webpack: (config, { isServer }) => {
     config.resolve = config.resolve || {};
