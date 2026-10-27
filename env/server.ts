@@ -69,7 +69,8 @@ export const serverEnv = createEnv({
     SMTP_USER: z.string().optional(),
     SMTP_PASS: z.string().optional(),
     SMTP_FROM: z.string().optional(),
-    SMTP_SECURE: z.coerce.boolean().optional().default(false),
+    // stringbool, not coerce.boolean: the latter reads "false" as true.
+    SMTP_SECURE: z.stringbool().optional().default(false),
     // Public contact address shown on the privacy policy page.
     CONTACT_EMAIL: z.string().email().optional(),
     SPOTIFY_CLIENT_ID: z.string().optional().default('placeholder'),
@@ -106,7 +107,7 @@ export const serverEnv = createEnv({
     // Set to false to close new account creation (email/password and social),
     // e.g. when the app is not behind an external gate such as Authelia.
     // NB: z.coerce.boolean() would treat the string "false" as truthy, so this
-    // parses explicitly instead (see the SMTP_SECURE footgun above).
+    // parses explicitly instead.
     ALLOW_SIGNUPS: z
       .string()
       .optional()
