@@ -17,35 +17,37 @@ function getMathJax() {
     RegisterHTMLHandler(adaptor);
     const document = mathjax.document('', {
       InputJax: new TeX({ packages: ['base', 'ams'] }),
-      OutputJax: new SVG({ fontCache: 'local', fontData: MathJaxNewcmFont }),
+      // Inline line breaking splits a formula across several <svg> elements,
+      // and the PDF draws each formula as a single image.
+      OutputJax: new SVG({ fontCache: 'local', fontData: MathJaxNewcmFont, linebreaks: { inline: false } }),
     });
     mathJax = { adaptor, document };
   }
   return mathJax;
 }
 
-// The SVG markup MathJax renders for a formula.
+// The SVG markup MathJax renders for a formula. Throws on a formula MathJax
+// cannot parse, whose SVG would only be its error message on a filled box:
+// callers fall back to plain text.
 export function renderMathSvg(latex: string, display: boolean): string {
   const { adaptor, document } = getMathJax();
-  return extractMathSvg(adaptor.outerHTML(document.convert(latex, { display })));
+  const svg = extractMathSvg(adaptor.outerHTML(document.convert(latex, { display })));
+  const error = svg.match(/data-mjx-error="([^"]*)"/);
+  if (error) throw new Error(`MathJax could not parse the formula: ${error[1]}`);
+  return svg;
 }
 
+// Greedy: stretchy accents and bars (\overline...) nest <svg> elements inside
+// the outer one.
 function extractMathSvg(markup: string) {
-  const match = markup.match(/<svg[^>]*>[\s\S]*?<\/svg>/);
+  const match = markup.match(/<svg[^>]*>[\s\S]*<\/svg>/);
   if (!match) throw new Error('No SVG element found in MathJax output');
   return match[0];
 }
 
 // Strips strokes, borders and opacity, which sharp rasterizes as stray lines.
-export function cleanMathSvg(
-  svg: string,
-  options: {
-    removeRectElements?: boolean;
-    removeLineElements?: boolean;
-    removeRectStrokes?: boolean;
-    removeLineStrokes?: boolean;
-  },
-) {
+// Filled <rect> elements stay: they draw fraction bars, roots and overlines.
+export function cleanMathSvg(svg: string) {
   let out = svg;
   out = out.replace(/stroke="[^"]*"/g, '');
   out = out.replace(/stroke-width="[^"]*"/g, '');
@@ -66,16 +68,6 @@ export function cleanMathSvg(
       .replace(/^;|;$/g, '');
     return cleaned ? `style="${cleaned}"` : '';
   });
-  if (options.removeRectElements) {
-    out = out.replace(/<rect\b[^>]*\/>/g, '');
-    out = out.replace(/<rect\b[^>]*>[\s\S]*?<\/rect>/g, '');
-  }
-  if (options.removeLineElements) {
-    out = out.replace(/<line\b[^>]*\/>/g, '');
-    out = out.replace(/<line\b[^>]*>[\s\S]*?<\/line>/g, '');
-  }
-  if (options.removeRectStrokes) out = out.replace(/<rect[^>]*stroke[^>]*>/g, '');
-  if (options.removeLineStrokes) out = out.replace(/<line[^>]*stroke[^>]*>/g, '');
   return out;
 }
 

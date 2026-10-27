@@ -5,6 +5,7 @@ import { CitationRegistry } from '@/lib/export/citations';
 import { latexToText } from '@/lib/export/docx/preprocess';
 import { matricesToText, numberFootnotesAndCitations } from '@/lib/export/markdown';
 import { wrapText } from '@/lib/export/pdf/layout';
+import { cleanMathSvg, renderMathSvg } from '@/lib/export/pdf/math';
 import { preprocessMarkdown } from '@/lib/export/pdf/preprocess';
 import { splitMathInline, type PdfFonts } from '@/lib/export/pdf/segments';
 
@@ -65,6 +66,34 @@ describe('splitMathInline', () => {
   it('draws Greek letters with the Symbol font', () => {
     const segs = splitMathInline('α = 1', fonts.regular, 12, fonts);
     expect(segs[0]).toMatchObject({ text: 'α', font: fonts.greek });
+  });
+});
+
+describe('renderMathSvg', () => {
+  const glyphs = (svg: string) => (svg.match(/<use /g) ?? []).length;
+
+  it('renders a whole inline formula as one SVG', () => {
+    // E, =, m, c, 2: inline line breaking would leave only E in the first <svg>.
+    expect(glyphs(renderMathSvg('E=mc^2', false))).toBe(5);
+  });
+
+  it('keeps the nested SVG of a stretchy bar', () => {
+    const svg = renderMathSvg('\\overline{z} + 1', false);
+    expect(svg.match(/<svg/g)?.length).toBe(svg.match(/<\/svg>/g)?.length);
+    // The "1" after the bar sits past the nested SVG's closing tag.
+    expect(svg).toContain('data-c="31"');
+  });
+
+  it('throws on a formula MathJax cannot parse', () => {
+    expect(() => renderMathSvg('\\frac{a', false)).toThrow(/Missing close brace/);
+  });
+});
+
+describe('cleanMathSvg', () => {
+  it('drops strokes but keeps the filled rect of a fraction bar', () => {
+    const svg = cleanMathSvg(renderMathSvg('\\frac{a}{b}', true));
+    expect(svg).not.toMatch(/stroke/);
+    expect(svg).toMatch(/<rect /);
   });
 });
 

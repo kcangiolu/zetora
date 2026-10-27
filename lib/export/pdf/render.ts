@@ -108,7 +108,6 @@ export async function renderMarkdownPdf({ title, content: rawContent, meta = {} 
   const MATH_DISPLAY_SPACING_MULTIPLIER = 0.65;
   const MATH_INLINE_HEIGHT_MULTIPLIER = 0.95;
   const MATH_INLINE_MIN_HEIGHT_MULTIPLIER = 0.75;
-  const MATH_INLINE_MAX_WIDTH_MULTIPLIER = 3.5;
   const MATH_INLINE_BASELINE_MULTIPLIER = 0.36;
 
   const addPage = () => pdfDoc.addPage([pageWidth, pageHeight]);
@@ -141,6 +140,8 @@ export async function renderMarkdownPdf({ title, content: rawContent, meta = {} 
         width: Math.round(tempPngImg.width * scaleFactor),
         height: Math.round(tempPngImg.height * scaleFactor),
         fit: 'contain',
+        // Rounding the size can leave a pixel of padding, black by default.
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
       })
       .toBuffer();
     const pngImg = await pdfDoc.embedPng(pngBuf);
@@ -339,10 +340,12 @@ export async function renderMarkdownPdf({ title, content: rawContent, meta = {} 
     if (line.length) flushLine();
   };
 
-  const drawMathBlock = async (latex: string, baseSize: number) => {
+  // Returns false when the formula could not be drawn, for the caller to
+  // write it as text instead.
+  const drawMathBlock = async (latex: string, baseSize: number): Promise<boolean> => {
     try {
       const baseSvg = renderMathSvg(latex, true);
-      const cleanSvg = cleanMathSvg(baseSvg, { removeRectElements: true, removeLineElements: true });
+      const cleanSvg = cleanMathSvg(baseSvg);
 
       // Parse ex-based height to estimate natural display size
       const heightExMatch = baseSvg.match(/height\s*=\s*"([\d.]+)ex"/) || baseSvg.match(/height:\s*([\d.]+)ex/);
@@ -387,8 +390,10 @@ export async function renderMarkdownPdf({ title, content: rawContent, meta = {} 
         page = addPage();
         y = pageHeight - margin;
       }
+      return true;
     } catch (e) {
       log.warn('MathJax display render failed:', e instanceof Error ? e.message : String(e));
+      return false;
     }
   };
 
@@ -397,7 +402,7 @@ export async function renderMarkdownPdf({ title, content: rawContent, meta = {} 
       if (seg.latex && !seg.center) {
         try {
           const baseSvg = renderMathSvg(seg.latex, false);
-          const cleanSvg = cleanMathSvg(baseSvg, { removeRectStrokes: true, removeLineStrokes: true });
+          const cleanSvg = cleanMathSvg(baseSvg);
 
           const scaleFactor = MATH_SVG_SCALE_FACTOR;
           let pngImg;
@@ -411,14 +416,13 @@ export async function renderMarkdownPdf({ title, content: rawContent, meta = {} 
           const targetH = Math.min(baseSize, baseSize * MATH_INLINE_HEIGHT_MULTIPLIER);
           const aspectRatio = pngImg.width / pngImg.height;
 
-          const maxInlineW = baseSize * MATH_INLINE_MAX_WIDTH_MULTIPLIER;
           const minInlineH = baseSize * MATH_INLINE_MIN_HEIGHT_MULTIPLIER;
 
           let finalH = Math.max(targetH, minInlineH);
           let finalW = finalH * aspectRatio;
 
-          if (finalW > maxInlineW) {
-            finalW = maxInlineW;
+          if (finalW > maxLineWidth) {
+            finalW = maxLineWidth;
             finalH = finalW / aspectRatio;
           }
 
@@ -508,9 +512,12 @@ export async function renderMarkdownPdf({ title, content: rawContent, meta = {} 
     for (const seg of segments) {
       if (seg.latex && seg.center) {
         if (line.length) flushLine();
-        await drawMathBlock(seg.latex, baseSize);
-        available = maxLineWidth - indent;
-        continue;
+        if (await drawMathBlock(seg.latex, baseSize)) {
+          available = maxLineWidth - indent;
+          continue;
+        }
+        seg.text = simplifyLatex(seg.latex);
+        delete seg.latex;
       }
       if (seg.break) {
         if (line.length) flushLine();
