@@ -22,7 +22,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   const { session, chat, latestStreamId } = await all(
     {
       async session() {
-        return auth.api.getSession(req);
+        return auth.api.getSession({ headers: req.headers });
       },
       async chat() {
         return getChatById({ id: chatId }).catch(() => null);

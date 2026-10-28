@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'chatId and either text or an attachment are required' }, { status: 400 });
   }
 
-  const session = await auth.api.getSession(req);
+  const session = await auth.api.getSession({ headers: req.headers });
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

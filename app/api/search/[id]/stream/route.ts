@@ -29,7 +29,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const { session, chat, streamIds } = await all(
     {
       async session() {
-        return auth.api.getSession(req);
+        return auth.api.getSession({ headers: req.headers });
       },
       async chat() {
         return getChatById({ id: chatId }).catch(() => null);
