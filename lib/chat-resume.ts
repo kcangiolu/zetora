@@ -1,4 +1,3 @@
-import { DefaultChatTransport, type HttpChatTransportInitOptions } from 'ai';
 import type { ChatMessage } from '@/lib/types';
 
 // Delays before each automatic re-attach after a dropped stream. The first
@@ -26,36 +25,4 @@ export function isConnectionLoss(error: Error | undefined): boolean {
  */
 export function hasUnfinishedReply(messages: ChatMessage[]): boolean {
   return messages.at(-1)?.role === 'assistant';
-}
-
-/**
- * The resume route replays the latest turn from its first chunk, or sends the
- * whole saved message once it has finished. Either way the partial reply
- * already on screen must go first, or the replayed text is appended after it.
- */
-export function withoutUnfinishedReply(messages: ChatMessage[]): ChatMessage[] {
-  return hasUnfinishedReply(messages) ? messages.slice(0, -1) : messages;
-}
-
-type ResumableChatTransportOptions = HttpChatTransportInitOptions<ChatMessage> & {
-  // Called once a resume request got a stream back, before the chat reads its
-  // last message to decide which message the stream continues.
-  onReconnected: () => void;
-};
-
-export class ResumableChatTransport extends DefaultChatTransport<ChatMessage> {
-  private readonly onReconnected: () => void;
-
-  constructor({ onReconnected, ...options }: ResumableChatTransportOptions) {
-    super(options);
-    this.onReconnected = onReconnected;
-  }
-
-  override async reconnectToStream(
-    options: Parameters<DefaultChatTransport<ChatMessage>['reconnectToStream']>[0],
-  ): ReturnType<DefaultChatTransport<ChatMessage>['reconnectToStream']> {
-    const stream = await super.reconnectToStream(options);
-    if (stream) this.onReconnected();
-    return stream;
-  }
 }

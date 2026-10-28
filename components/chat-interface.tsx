@@ -5,7 +5,7 @@ import React, { memo, useCallback, useEffect, useMemo, useRef, useReducer, useSt
 import Link from 'next/link';
 
 // Third-party library imports
-import { useChat, type UseChatHelpers } from '@ai-sdk/react';
+import { Chat, useChat } from '@ai-sdk/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'motion/react';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
@@ -73,8 +73,8 @@ import { useModels } from '@/hooks/use-models';
 // State management imports
 import { chatReducer, createInitialState, type ChatState } from '@/components/chat-state';
 import { useDataStream } from './data-stream-provider';
+import { DefaultChatTransport, type ChatInit } from 'ai';
 import { ChatMessage } from '@/lib/types';
-import { ResumableChatTransport, withoutUnfinishedReply } from '@/lib/chat-resume';
 import { placeCompactionSummary } from '@/lib/compaction-summary';
 import type { ElicitationData } from '@/components/mcp-elicitation-modal';
 import { useChatActions } from '@/hooks/use-chat-actions';
@@ -96,6 +96,8 @@ interface ChatInterfaceProps {
 }
 
 const NO_HERMES_TOOL_STEPS: HermesToolStepView[] = [];
+
+type ChatCallbacks = Pick<ChatInit<ChatMessage>, 'onData' | 'onFinish' | 'onError'>;
 
 interface AutoRouterConfig {
   routes: Array<{
@@ -352,7 +354,7 @@ const ChatInterface = memo(
     const isExistingChat = Boolean(openChatId);
     const isTemporaryChat = isTemporaryChatEnabled && !isExistingChat;
 
-    // useChat keeps the transport it got first, so the request reads the
+    // The chat keeps the transport it got first, so the request reads the
     // current settings through refs, updated after every render.
     const selectedModelRef = useRef(effectiveSelectedModel);
     const reasoningEffortRef = useRef(reasoningEffort);
@@ -362,8 +364,6 @@ const ChatInterface = memo(
     const sessionEnabledSourcesRef = useRef(sessionEnabledSources);
     const isTemporaryChatRef = useRef(isTemporaryChat);
     const skipCacheRef = useRef(false);
-    // The transport is built before useChat returns setMessages.
-    const setChatMessagesRef = useRef<UseChatHelpers<ChatMessage>['setMessages'] | null>(null);
 
     useEffect(() => {
       selectedModelRef.current = effectiveSelectedModel;
@@ -384,9 +384,8 @@ const ChatInterface = memo(
 
     const transport = useMemo(
       () =>
-        new ResumableChatTransport({
+        new DefaultChatTransport<ChatMessage>({
           api: '/api/search',
-          onReconnected: () => setChatMessagesRef.current?.(withoutUnfinishedReply),
           fetch: async (url, options) => {
             if (options?.body && skipCacheRef.current) {
               const body = JSON.parse(options.body as string);
@@ -423,6 +422,26 @@ const ChatInterface = memo(
       [chatId, initialChatId],
     );
 
+    // The handlers of the latest render, read by the chat built below.
+    const chatCallbacksRef = useRef<ChatCallbacks | null>(null);
+    const [startingMessages] = useState(() => initialMessages || []);
+    // Built here rather than by useChat, which hands the SDK a stand-in for the
+    // transport without its resumeStreamIsReplay flag. Without the flag, the SDK
+    // appends a resumed stream, which replays the turn from its first chunk, to
+    // the partial reply already on screen instead of starting that reply over.
+    const chat = useMemo(
+      () =>
+        new Chat<ChatMessage>({
+          id: chatId,
+          transport,
+          messages: startingMessages,
+          onData: (dataPart) => chatCallbacksRef.current?.onData?.(dataPart),
+          onFinish: (event) => chatCallbacksRef.current?.onFinish?.(event),
+          onError: (chatError) => chatCallbacksRef.current?.onError?.(chatError),
+        }),
+      [chatId, transport, startingMessages],
+    );
+
     const {
       messages,
       sendMessage,
@@ -433,11 +452,9 @@ const ChatInterface = memo(
       error,
       resumeStream,
       clearError,
-    } = useChat<ChatMessage>({
-      id: chatId,
-      // resume: true,
-      transport,
-      experimental_throttle: 100,
+    } = useChat<ChatMessage>({ chat, experimental_throttle: 100 });
+
+    const chatCallbacks: ChatCallbacks = {
       onData: (dataPart) => {
         // Handle auto-routed model info from server
         if (dataPart.type === 'data-auto_routed_model') {
@@ -586,12 +603,11 @@ const ChatInterface = memo(
 
         console.error('Chat error:', error.cause, error.message);
       },
-      messages: initialMessages || [],
-    });
+    };
 
     useEffect(() => {
-      setChatMessagesRef.current = setMessages;
-    }, [setMessages]);
+      chatCallbacksRef.current = chatCallbacks;
+    });
 
     // Merges Hermes agent replies into the same `messages` list the normal LLM path
     // populates — see hooks/use-hermes-stream.ts. The user's own message is appended
@@ -865,6 +881,7 @@ const ChatInterface = memo(
       status,
       error,
       resumeStream,
+      stopReading: stopStream,
       clearError,
     });
 
