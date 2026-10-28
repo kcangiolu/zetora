@@ -20,6 +20,12 @@ const REQUIRED_VARIABLES = [
   'S3_REGION',
 ] as const;
 
+// Storage asked for while the S3_* variables are missing. Its message names
+// them and is meant for the user as is.
+export class StorageNotConfiguredError extends Error {
+  override name = 'StorageNotConfiguredError';
+}
+
 let clients: StorageClients | null = null;
 
 export function getStorageClient(): StorageClients {
@@ -27,7 +33,7 @@ export function getStorageClient(): StorageClients {
 
   const missing = REQUIRED_VARIABLES.filter((name) => !process.env[name]);
   if (missing.length > 0) {
-    throw new Error(`File storage is not configured: set ${missing.join(', ')} (see .env.example)`);
+    throw new StorageNotConfiguredError(`File storage is not configured: set ${missing.join(', ')} (see .env.example)`);
   }
 
   const credentials = {

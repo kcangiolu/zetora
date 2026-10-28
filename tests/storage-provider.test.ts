@@ -29,7 +29,12 @@ describe('getStorageClient', () => {
   });
 
   it('names every missing variable instead of assuming a default', async () => {
-    const { getStorageClient } = await loadStorage({ ...S3_ENV, S3_ENDPOINT: '', S3_REGION: '' });
+    const { getStorageClient, StorageNotConfiguredError } = await loadStorage({
+      ...S3_ENV,
+      S3_ENDPOINT: '',
+      S3_REGION: '',
+    });
+    expect(() => getStorageClient()).toThrow(StorageNotConfiguredError);
     expect(() => getStorageClient()).toThrow('File storage is not configured: set S3_ENDPOINT, S3_REGION');
   });
 });

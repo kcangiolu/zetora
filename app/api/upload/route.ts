@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { nanoid } from 'nanoid';
 
 import { auth } from '@/lib/auth';
-import { getStorageClient } from '@/lib/storage';
+import { getStorageClient, StorageNotConfiguredError } from '@/lib/storage';
 
 import { getUploadedFilesByUserId, deleteUploadedFileByUrl, decodeUploadedFilesCursor } from '@/lib/db/queries';
 
@@ -220,6 +220,9 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     log.error('Error generating presigned URL:', error);
+    if (error instanceof StorageNotConfiguredError) {
+      return NextResponse.json({ error: error.message }, { status: 503 });
+    }
     return NextResponse.json({ error: 'Failed to generate upload URL' }, { status: 500 });
   }
 }

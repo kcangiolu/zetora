@@ -16,8 +16,12 @@ export async function uploadFileToStorage(file: File): Promise<StoredUpload> {
     body: JSON.stringify({ filename: file.name, contentType: file.type, size: file.size }),
   });
   if (!presignResponse.ok) {
-    const errorText = await presignResponse.text();
-    throw new Error(`Failed to get upload URL: ${presignResponse.status} ${errorText}`);
+    const body: unknown = await presignResponse.json().catch(() => null);
+    const reason =
+      body && typeof body === 'object' && 'error' in body && typeof body.error === 'string'
+        ? body.error
+        : `HTTP ${presignResponse.status}`;
+    throw new Error(`Failed to get upload URL: ${reason}`);
   }
   const { presignedUrl, key, contentType } = await presignResponse.json();
 
