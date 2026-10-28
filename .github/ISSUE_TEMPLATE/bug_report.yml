@@ -1,0 +1,71 @@
+name: Bug report
+description: Something does not work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The release (v0.1.0) or the commit (`git rev-parse --short HEAD`).
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How Zetora runs
+      options:
+        - Docker Compose, images built from source (docker-compose.build.yml)
+        - Docker Compose, images from my own registry
+        - pnpm dev
+        - Other (say how below)
+    validations:
+      required: true
+  - type: checkboxes
+    id: profiles
+    attributes:
+      label: Compose profiles enabled
+      description: Leave all unchecked for the minimal setup or `pnpm dev`.
+      options:
+        - label: minio
+        - label: searxng
+        - label: fastcrw
+        - label: sandbox
+        - label: bullmq
+        - label: qdrant
+        - label: presidio
+        - label: voice
+        - label: tts
+        - label: hermes
+  - type: input
+    id: model
+    attributes:
+      label: AI provider and model
+      description: If the problem involves an answer, e.g. `anthropic:claude-sonnet-5-5` or a custom llama.cpp endpoint.
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device
+      description: If the problem is in the interface.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Server logs (`docker compose logs zetora.app`) or browser console errors. Remove API keys, emails and other secrets first.
+      render: text
