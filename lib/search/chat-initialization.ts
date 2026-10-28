@@ -200,7 +200,10 @@ export function initializeChatAndChecks({
                 userId: user.userId,
               }),
             )
-            .catch(() => 'New Chat');
+            .catch((error) => {
+              log.error('Failed to generate chat title:', error);
+              return 'New Chat';
+            });
           return { isNewChat: true, titlePromise };
         } else {
           // Stream ID already created in parallel via earlyStreamIdPromise
