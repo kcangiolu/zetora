@@ -13,9 +13,11 @@ import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { geistMono } from '@/lib/fonts';
 import { useHydrated } from '@/hooks/use-hydrated';
 import { isDarkTheme } from '@/lib/themes';
+import { tailwindTokenNames } from '@/lib/syntax-highlight-tokens';
 
 // Custom syntax themes that match Zetora's design system
 const zetoraDarkTheme: { [key: string]: React.CSSProperties } = {
+  ...tailwindTokenNames,
   'code[class*="language-"]': { color: '#e1e4e8', background: 'transparent' },
   'pre[class*="language-"]': { color: '#e1e4e8', background: 'transparent' },
   comment: { color: '#6a737d' },
@@ -51,6 +53,7 @@ const zetoraDarkTheme: { [key: string]: React.CSSProperties } = {
 };
 
 const zetoraLightTheme: { [key: string]: React.CSSProperties } = {
+  ...tailwindTokenNames,
   'code[class*="language-"]': { color: '#24292e', background: 'transparent' },
   'pre[class*="language-"]': { color: '#24292e', background: 'transparent' },
   comment: { color: '#6a737d' },
