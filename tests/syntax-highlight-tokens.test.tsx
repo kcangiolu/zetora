@@ -1,4 +1,3 @@
-import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Prism } from 'react-syntax-highlighter';
 import { describe, it, expect } from 'vitest';
@@ -6,7 +5,11 @@ import { describe, it, expect } from 'vitest';
 import { tailwindTokenNames } from '@/lib/syntax-highlight-tokens';
 
 function renderedClassNames(code: string, language: string): Set<string> {
-  const html = renderToStaticMarkup(createElement(Prism, { language, style: tailwindTokenNames, children: code }));
+  const html = renderToStaticMarkup(
+    <Prism language={language} style={tailwindTokenNames}>
+      {code}
+    </Prism>,
+  );
   return new Set([...html.matchAll(/class="([^"]*)"/g)].flatMap((match) => match[1].split(' ')));
 }
 
