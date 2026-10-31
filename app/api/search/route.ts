@@ -39,6 +39,7 @@ import { getCustomProviders } from '@/lib/custom-providers';
 import type { ReasoningEffort } from '@/lib/reasoning-effort-types';
 import { getStartWithStrategy } from '@/lib/chat-commands-server';
 import { dropBenignTextPartErrors } from '@/lib/search/benign-stream-errors';
+import { withSseKeepAlive } from '@/lib/search/sse-keep-alive';
 import { loadConfiguredTools } from '@/lib/search/tool-loader';
 import { loadMemoryContext } from '@/lib/memory/context';
 import { runMemoryTurnUpdate } from '@/lib/memory/jobs';
@@ -584,8 +585,8 @@ export async function POST(req: Request) {
       waitUntil: after,
     });
     const resumableStream = await context.startStream(stream as ReadableStream<any>);
-    return new Response(resumableStream.pipeThrough(new JsonToSseTransformStream()));
+    return new Response(withSseKeepAlive(resumableStream.pipeThrough(new JsonToSseTransformStream())));
   }
 
-  return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
+  return new Response(withSseKeepAlive(stream.pipeThrough(new JsonToSseTransformStream())));
 }

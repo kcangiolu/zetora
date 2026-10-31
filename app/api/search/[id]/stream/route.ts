@@ -5,6 +5,7 @@ import type { ChatMessage } from '@/lib/types';
 import { createUIMessageStream, JsonToSseTransformStream } from 'ai';
 import { createResumableUIMessageStream } from 'ai-resumable-stream';
 import { getResumableStreamClients } from '@/lib/redis';
+import { withSseKeepAlive } from '@/lib/search/sse-keep-alive';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
@@ -109,5 +110,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return new Response(restoredStream.pipeThrough(new JsonToSseTransformStream()), { status: 200 });
   }
 
-  return new Response((stream as ReadableStream<any>).pipeThrough(new JsonToSseTransformStream()), { status: 200 });
+  return new Response(withSseKeepAlive((stream as ReadableStream<any>).pipeThrough(new JsonToSseTransformStream())), {
+    status: 200,
+  });
 }
