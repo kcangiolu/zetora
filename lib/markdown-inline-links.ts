@@ -8,10 +8,26 @@
 // and so is a link right after another one (a citation group) or right after
 // an opening parenthesis ("… heat ([NASA](url)).").
 const LINK_INSIDE_SENTENCE =
-  /(?<!!|\(|\]\(https?:\/\/[^\s)]+\)[ \t]*)\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)(?=[ \t]*[\p{Ll}\p{N}.,;:!?)%"'’»])/gu;
+  /(?<!!|\(|\]\(https?:\/\/[^\s)]+\)[ \t]*)\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)(?=[ \t]*([\p{Ll}\p{N}.,;:!?)%"'’»]))/gu;
+
+// A citation placed before the sentence's closing punctuation ("… acetate
+// [The Science of Alcohol Intolerance](url).") is followed by punctuation too,
+// and keeping its words would paste the source's title into the sentence. Words
+// a sentence links are short and rarely capitalized; a source title starts with
+// a capital and is long, or carries a title separator.
+const TITLE_SEPARATOR = /[:?|]|\s[-–—]\s/;
+const TITLE_MIN_WORDS = 4;
+
+function looksLikeSourceTitle(text: string): boolean {
+  if (!/^\p{Lu}/u.test(text)) return false;
+  return TITLE_SEPARATOR.test(text) || text.trim().split(/\s+/).length >= TITLE_MIN_WORDS;
+}
 
 export function keepInlineLinkText(markdown: string): string {
-  return markdown.replace(LINK_INSIDE_SENTENCE, (link, text: string, url: string) =>
-    text === url ? link : `${text} ${link}`,
-  );
+  return markdown.replace(LINK_INSIDE_SENTENCE, (link, text: string, url: string, next: string) => {
+    if (text === url) return link;
+    const followedByWord = /[\p{Ll}\p{N}]/u.test(next);
+    if (!followedByWord && looksLikeSourceTitle(text)) return link;
+    return `${text} ${link}`;
+  });
 }

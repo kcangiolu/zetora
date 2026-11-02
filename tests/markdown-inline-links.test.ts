@@ -34,6 +34,21 @@ describe('keepInlineLinkText', () => {
     expect(keepInlineLinkText(parenthesized)).toBe(parenthesized);
   });
 
+  it('leaves a source title cited before closing punctuation as a bare chip', () => {
+    const allCaps = `converts it to acetate [THE SCIENCE OF ALCOHOL INTOLERANCE: TOXINS AND MECHANISMS](${URL}). If`;
+    const question = `the threshold is lowered [Migraine and Alcohol-Is It Really That Harmful?](${URL}) :`;
+    const longTitle = `Webb stays cold [How Webb Stays Cold Far From Home](${URL}), which`;
+    expect(keepInlineLinkText(allCaps)).toBe(allCaps);
+    expect(keepInlineLinkText(question)).toBe(question);
+    expect(keepInlineLinkText(longTitle)).toBe(longTitle);
+  });
+
+  it('keeps short capitalized words before punctuation', () => {
+    expect(keepInlineLinkText(`it launched from [French Guiana](${URL}).`)).toBe(
+      `it launched from French Guiana [French Guiana](${URL}).`,
+    );
+  });
+
   it('leaves bare-URL links and images alone', () => {
     const bare = `see [${URL}](${URL}) for details`;
     const image = `![sunshield](${URL}) shown here`;
