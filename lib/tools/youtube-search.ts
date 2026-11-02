@@ -7,6 +7,7 @@ import { getBetterAllOptions } from '@/lib/better-all';
 
 import { createLogger } from '@/lib/logger';
 import { formatClockDuration } from '@/lib/format';
+import { createSupadataCaller, type SupadataCall } from '@/lib/tools/supadata-caller';
 
 const log = createLogger('youtube-search');
 
@@ -68,6 +69,10 @@ interface SupadataYouTubeVideo {
 }
 
 const SEARCH_LIMIT = 12;
+// A video without a transcript takes Supadata about 9 s to report, so a dozen lookups through
+// the caller's few slots need around half a minute; whatever is still pending past this budget
+// is dropped and those videos keep their search data only.
+const TOOL_TIME_BUDGET_MS = 45_000;
 const YOUTUBE_BASE_URL = 'https://www.youtube.com/watch?v=';
 const searchModeEnum = z.enum(['general', 'channel', 'playlist']);
 const channelVideoTypeEnum = z.enum(['all', 'video', 'short', 'live']);
@@ -146,115 +151,68 @@ function generateChaptersFromTranscriptChunks(
   return chapters.length > 0 ? chapters : undefined;
 }
 
-async function buildTranscriptArtifacts(supadata: Supadata, videoUrl: string, fallbackDescription?: string) {
-  // Check for chapters in description first - skip transcript if we have them
-  const timestampsFromDescription = extractChaptersFromDescription(fallbackDescription);
+function transcriptArtifacts(
+  content: TranscriptChunk[] | string | undefined,
+  timestampsFromDescription?: string[],
+  fallbackDescription?: string,
+) {
+  const chunks = Array.isArray(content) ? content : undefined;
+  const transcriptText = Array.isArray(content) ? content.map((c) => c.text).join('\n') : content;
 
-  const maxRetries = 2;
-  const retryDelay = 1000; // 1 second
-
-  for (let retry = 0; retry < maxRetries; retry++) {
-    try {
-      // Use 'native' mode - faster, only fetches existing transcripts (no AI generation)
-      const transcriptResult = await supadata.transcript({
-        url: videoUrl,
-        lang: 'en',
-        text: false, // Get timestamped chunks
-        mode: 'native', // Only fetch existing transcripts - fast
-      });
-
-      // Check if we got a jobId (async processing) vs immediate result
-      if ('jobId' in transcriptResult) {
-        // For async jobs, poll with shorter intervals
-        let attempts = 0;
-        const maxAttempts = 5;
-        const pollInterval = 1500; // 1.5 seconds
-
-        while (attempts < maxAttempts) {
-          await new Promise((resolve) => setTimeout(resolve, pollInterval));
-          const jobResult = await supadata.transcript.getJobStatus(transcriptResult.jobId);
-
-          if (jobResult.status === 'completed' && jobResult.result) {
-            const content = jobResult.result.content;
-            const chunks = Array.isArray(content) ? content : undefined;
-            const transcriptText = chunks
-              ? chunks.map((c) => c.text).join('\n')
-              : typeof content === 'string'
-                ? content
-                : undefined;
-
-            return {
-              transcriptText,
-              timestamps: timestampsFromDescription ?? generateChaptersFromTranscriptChunks(chunks),
-              description: fallbackDescription,
-              transcriptChunks: chunks,
-            };
-          } else if (jobResult.status === 'failed') {
-            break; // Don't retry failed jobs
-          }
-          attempts++;
-        }
-
-        // Job didn't complete in time - return with description chapters only
-        return {
-          transcriptText: undefined,
-          timestamps: timestampsFromDescription,
-          description: fallbackDescription,
-          transcriptChunks: undefined,
-        };
-      }
-
-      // Immediate result
-      const content = transcriptResult.content;
-      const chunks = Array.isArray(content) ? content : undefined;
-      const transcriptText = chunks
-        ? chunks.map((c) => c.text).join('\n')
-        : typeof content === 'string'
-          ? content
-          : undefined;
-
-      return {
-        transcriptText,
-        timestamps: timestampsFromDescription ?? generateChaptersFromTranscriptChunks(chunks),
-        description: fallbackDescription,
-        transcriptChunks: chunks,
-      };
-    } catch (error) {
-      // Only retry on network errors, not on "transcript unavailable"
-      const isRetryable = error instanceof Error && !error.message.includes('unavailable');
-      if (isRetryable && retry < maxRetries - 1) {
-        await new Promise((resolve) => setTimeout(resolve, retryDelay));
-        continue;
-      }
-    }
-  }
-
-  // Return with description chapters only
   return {
-    transcriptText: undefined,
-    timestamps: timestampsFromDescription,
+    transcriptText,
+    timestamps: timestampsFromDescription ?? generateChaptersFromTranscriptChunks(chunks),
     description: fallbackDescription,
-    transcriptChunks: undefined,
+    transcriptChunks: chunks,
   };
 }
 
-async function fetchMetadataWithRetry(supadata: Supadata, videoUrl: string, videoId: string) {
-  const maxRetries = 2;
-  const retryDelay = 1000; // 1 second
+async function buildTranscriptArtifacts(
+  supadataCall: SupadataCall,
+  supadata: Supadata,
+  videoUrl: string,
+  fallbackDescription?: string,
+) {
+  const timestampsFromDescription = extractChaptersFromDescription(fallbackDescription);
+  const withoutTranscript = transcriptArtifacts(undefined, timestampsFromDescription, fallbackDescription);
 
-  for (let retry = 0; retry < maxRetries; retry++) {
-    try {
-      const metadata = await supadata.metadata({ url: videoUrl });
-      return metadata;
-    } catch (error) {
-      if (retry < maxRetries - 1) {
-        await new Promise((resolve) => setTimeout(resolve, retryDelay));
-        continue;
-      }
-      log.warn(`⚠️ Supadata metadata failed for ${videoId}:`, error);
+  try {
+    // 'native' only fetches existing transcripts (no AI generation), which is fast. A video
+    // without one comes back as a 206 with an error body, which the SDK returns as a result.
+    const transcriptResult = await supadataCall('transcript', () =>
+      supadata.transcript({ url: videoUrl, lang: 'en', text: false, mode: 'native' }),
+    );
+
+    if (!('jobId' in transcriptResult)) {
+      return transcriptArtifacts(transcriptResult.content, timestampsFromDescription, fallbackDescription);
     }
+
+    const maxAttempts = 5;
+    const pollInterval = 1500;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, pollInterval));
+      const jobResult = await supadataCall('transcript job', () =>
+        supadata.transcript.getJobStatus(transcriptResult.jobId),
+      );
+      if (jobResult.status === 'completed' && jobResult.result) {
+        return transcriptArtifacts(jobResult.result.content, timestampsFromDescription, fallbackDescription);
+      }
+      if (jobResult.status === 'failed') break;
+    }
+  } catch (error) {
+    log.warn(`⚠️ Supadata transcript skipped for ${videoUrl}:`, error instanceof Error ? error.message : error);
   }
-  return null;
+
+  return withoutTranscript;
+}
+
+async function fetchMetadata(supadataCall: SupadataCall, supadata: Supadata, videoUrl: string, videoId: string) {
+  try {
+    return await supadataCall('metadata', () => supadata.metadata({ url: videoUrl }));
+  } catch (error) {
+    log.warn(`⚠️ Supadata metadata failed for ${videoId}:`, error);
+    return null;
+  }
 }
 
 function mapTimeRangeToSupadata(timeRange: TimeRange) {
@@ -295,17 +253,19 @@ function extractPlaylistId(query: string) {
   return null;
 }
 
-async function resolveChannelIdFromQuery(supadata: Supadata, query: string) {
+async function resolveChannelIdFromQuery(supadataCall: SupadataCall, supadata: Supadata, query: string) {
   const normalized = normalizeHandle(query);
   if (!normalized) return null;
 
   try {
-    const searchResult = await supadata.youtube.search({
-      query: normalized,
-      type: 'channel',
-      limit: 5,
-      sortBy: 'relevance',
-    });
+    const searchResult = await supadataCall('channel search', () =>
+      supadata.youtube.search({
+        query: normalized,
+        type: 'channel',
+        limit: 5,
+        sortBy: 'relevance',
+      }),
+    );
 
     const channelResults = (searchResult?.results ?? []) as Array<{
       type?: string;
@@ -331,7 +291,7 @@ async function resolveChannelIdFromQuery(supadata: Supadata, query: string) {
   }
 }
 
-async function resolvePlaylistIdFromQuery(supadata: Supadata, query: string) {
+async function resolvePlaylistIdFromQuery(supadataCall: SupadataCall, supadata: Supadata, query: string) {
   const playlistId = extractPlaylistId(query);
   if (playlistId) return playlistId;
 
@@ -339,12 +299,14 @@ async function resolvePlaylistIdFromQuery(supadata: Supadata, query: string) {
   if (!trimmed) return null;
 
   try {
-    const searchResult = await supadata.youtube.search({
-      query: trimmed,
-      type: 'playlist',
-      limit: 5,
-      sortBy: 'relevance',
-    });
+    const searchResult = await supadataCall('playlist search', () =>
+      supadata.youtube.search({
+        query: trimmed,
+        type: 'playlist',
+        limit: 5,
+        sortBy: 'relevance',
+      }),
+    );
 
     const playlistResults = (searchResult?.results ?? []) as Array<{
       type?: string;
@@ -361,12 +323,14 @@ async function resolvePlaylistIdFromQuery(supadata: Supadata, query: string) {
 }
 
 async function getVideosForMode({
+  supadataCall,
   supadata,
   query,
   timeRange,
   mode,
   channelVideoType,
 }: {
+  supadataCall: SupadataCall;
   supadata: Supadata;
   query: string;
   timeRange: TimeRange;
@@ -375,13 +339,15 @@ async function getVideosForMode({
 }) {
   if (mode === 'general') {
     const uploadDateFilter = mapTimeRangeToSupadata(timeRange);
-    const searchResult = await supadata.youtube.search({
-      query,
-      type: 'video',
-      ...(uploadDateFilter ? { uploadDate: uploadDateFilter } : {}),
-      limit: SEARCH_LIMIT,
-      sortBy: 'relevance',
-    });
+    const searchResult = await supadataCall('search', () =>
+      supadata.youtube.search({
+        query,
+        type: 'video',
+        ...(uploadDateFilter ? { uploadDate: uploadDateFilter } : {}),
+        limit: SEARCH_LIMIT,
+        sortBy: 'relevance',
+      }),
+    );
 
     const rawVideos = (searchResult?.results ?? []) as SupadataYouTubeVideo[];
     return dedupeVideos(rawVideos.filter((result) => result.type === 'video'));
@@ -390,11 +356,13 @@ async function getVideosForMode({
   const fetchChannelVideos = async (channelQuery: string) => {
     if (!channelQuery.trim()) return [];
     try {
-      const ids = await supadata.youtube.channel.videos({
-        id: channelQuery,
-        limit: SEARCH_LIMIT,
-        type: channelVideoType ?? 'all',
-      });
+      const ids = await supadataCall('channel videos', () =>
+        supadata.youtube.channel.videos({
+          id: channelQuery,
+          limit: SEARCH_LIMIT,
+          type: channelVideoType ?? 'all',
+        }),
+      );
       return flattenVideoIds(ids);
     } catch (error) {
       log.warn('⚠️ Supadata channel.videos failed', { channelQuery, error });
@@ -405,10 +373,12 @@ async function getVideosForMode({
   const fetchPlaylistVideos = async (playlistId: string | null) => {
     if (!playlistId) return [];
     try {
-      const ids = await supadata.youtube.playlist.videos({
-        id: playlistId,
-        limit: SEARCH_LIMIT,
-      });
+      const ids = await supadataCall('playlist videos', () =>
+        supadata.youtube.playlist.videos({
+          id: playlistId,
+          limit: SEARCH_LIMIT,
+        }),
+      );
       return flattenVideoIds(ids);
     } catch (error) {
       log.warn('⚠️ Supadata playlist.videos failed', { playlistId, error });
@@ -420,7 +390,7 @@ async function getVideosForMode({
     mode === 'channel'
       ? await (async () => {
           // First, try to resolve the channel identifier from the query
-          const resolvedId = await resolveChannelIdFromQuery(supadata, query);
+          const resolvedId = await resolveChannelIdFromQuery(supadataCall, supadata, query);
           const channelIdentifier = resolvedId || query;
 
           // Now fetch videos using the resolved identifier
@@ -432,7 +402,7 @@ async function getVideosForMode({
           const directIds = await fetchPlaylistVideos(preExtractedId ?? query);
           if (directIds.length > 0) return directIds;
 
-          const resolvedId = await resolvePlaylistIdFromQuery(supadata, query);
+          const resolvedId = await resolvePlaylistIdFromQuery(supadataCall, supadata, query);
           if (!resolvedId) return directIds;
           return fetchPlaylistVideos(resolvedId);
         })();
@@ -440,6 +410,7 @@ async function getVideosForMode({
   if (normalizedIds.length === 0) {
     log.warn(`⚠️ No video IDs resolved for mode="${mode}". Falling back to general search.`);
     return getVideosForMode({
+      supadataCall,
       supadata,
       query,
       timeRange,
@@ -457,7 +428,7 @@ async function getVideosForMode({
           id,
           async () => {
             const url = `${YOUTUBE_BASE_URL}${id}`;
-            const metadata = await supadata.metadata({ url });
+            const metadata = await supadataCall('metadata', () => supadata.metadata({ url }));
             return { id, metadata };
           },
         ]),
@@ -536,10 +507,12 @@ export const youtubeSearchTool = tool({
       const supadata = new Supadata({
         apiKey: serverEnv.SUPADATA_API_KEY,
       });
+      const supadataCall = createSupadataCaller({ deadlineMs: Date.now() + TOOL_TIME_BUDGET_MS });
 
       log.debug('🔎 Supadata YouTube search', { query, timeRange, mode, channelVideoType });
 
       const videoResults = await getVideosForMode({
+        supadataCall,
         supadata,
         query,
         timeRange,
@@ -576,12 +549,17 @@ export const youtubeSearchTool = tool({
 
                 try {
                   // Only fetch transcript - metadata is often redundant with search data
-                  const transcripts = await buildTranscriptArtifacts(supadata, video.url ?? videoUrl, v.description);
+                  const transcripts = await buildTranscriptArtifacts(
+                    supadataCall,
+                    supadata,
+                    video.url ?? videoUrl,
+                    v.description,
+                  );
 
                   // Only fetch metadata if we don't have basic data from search
                   const metadata = hasBasicData
                     ? null
-                    : await fetchMetadataWithRetry(supadata, video.url ?? videoUrl, videoId);
+                    : await fetchMetadata(supadataCall, supadata, video.url ?? videoUrl, videoId);
 
                   const metadataAuthor = metadata?.author;
                   const metadataStats = metadata?.stats;
