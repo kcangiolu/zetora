@@ -429,18 +429,26 @@ const ChatInterface = memo(
     // transport without its resumeStreamIsReplay flag. Without the flag, the SDK
     // appends a resumed stream, which replays the turn from its first chunk, to
     // the partial reply already on screen instead of starting that reply over.
-    const chat = useMemo(
-      () =>
-        new Chat<ChatMessage>({
-          id: chatId,
-          transport,
-          messages: startingMessages,
-          onData: (dataPart) => chatCallbacksRef.current?.onData?.(dataPart),
-          onFinish: (event) => chatCallbacksRef.current?.onFinish?.(event),
-          onError: (chatError) => chatCallbacksRef.current?.onError?.(chatError),
-        }),
-      [chatId, transport, startingMessages],
-    );
+    // The chat the component shows. A chat left behind still settles its last request, and
+    // its events must not reach the handlers of the chat shown now.
+    const mountedChatRef = useRef<Chat<ChatMessage> | null>(null);
+    const chat = useMemo(() => {
+      const instance: Chat<ChatMessage> = new Chat<ChatMessage>({
+        id: chatId,
+        transport,
+        messages: startingMessages,
+        onData: (dataPart) => {
+          if (mountedChatRef.current === instance) chatCallbacksRef.current?.onData?.(dataPart);
+        },
+        onFinish: (event) => {
+          if (mountedChatRef.current === instance) chatCallbacksRef.current?.onFinish?.(event);
+        },
+        onError: (chatError) => {
+          if (mountedChatRef.current === instance) chatCallbacksRef.current?.onError?.(chatError);
+        },
+      });
+      return instance;
+    }, [chatId, transport, startingMessages]);
 
     const {
       messages,
@@ -453,6 +461,21 @@ const ChatInterface = memo(
       resumeStream,
       clearError,
     } = useChat<ChatMessage>({ chat, experimental_throttle: 100 });
+
+    // Leaving the chat, or swapping it for another, aborts the request the old chat still reads:
+    // the server keeps feeding a reply's stream until the reply ends, minutes later, beside the
+    // request of the chat opened next. Only the reading stops; the server finishes the reply.
+    // StrictMode unmounts and remounts once on load in development, synchronously, so the stop
+    // waits a task and is skipped when the same chat came back.
+    useEffect(() => {
+      mountedChatRef.current = chat;
+      return () => {
+        mountedChatRef.current = null;
+        setTimeout(() => {
+          if (mountedChatRef.current !== chat) void chat.stop();
+        }, 0);
+      };
+    }, [chat]);
 
     const chatCallbacks: ChatCallbacks = {
       onData: (dataPart) => {
