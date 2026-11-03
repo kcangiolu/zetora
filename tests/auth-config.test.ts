@@ -111,6 +111,31 @@ describe('auth configuration', () => {
     const { options: development } = await loadAuth({ ...env, NODE_ENV: 'development', ALLOWED_ORIGINS: '' });
     expect(development.trustedOrigins).toEqual(['http://localhost:3000', 'https://chat.example.org']);
   });
+
+  // The Drizzle adapter drops fields its table does not declare, so a plugin
+  // field missing here turns into an UPDATE with an empty SET at runtime.
+  it('declares every column the auth plugins read and write', async () => {
+    const { options } = await loadAuth({});
+    const { getTableColumns } = await import('drizzle-orm');
+    const { user, twoFactor } = await import('@/lib/db/schema');
+    const tables = { user, twoFactor };
+
+    const missing: string[] = [];
+    for (const plugin of options.plugins ?? []) {
+      for (const [model, { fields }] of Object.entries(plugin.schema ?? {})) {
+        const table = model in tables ? tables[model as keyof typeof tables] : undefined;
+        if (!table) {
+          missing.push(`${plugin.id}: table for model ${model}`);
+          continue;
+        }
+        const columns = getTableColumns(table);
+        for (const field of Object.keys(fields)) {
+          if (!(field in columns)) missing.push(`${plugin.id}: ${model}.${field}`);
+        }
+      }
+    }
+    expect(missing).toEqual([]);
+  });
 });
 
 describe('auth route', () => {
