@@ -13,14 +13,22 @@ const LINK_INSIDE_SENTENCE =
 // A citation placed before the sentence's closing punctuation ("… acetate
 // [The Science of Alcohol Intolerance](url).") is followed by punctuation too,
 // and keeping its words would paste the source's title into the sentence. Words
-// a sentence links are short and rarely capitalized; a source title starts with
-// a capital and is long, or carries a title separator.
-const TITLE_SEPARATOR = /[:?|]|\s[-–—]\s/;
+// a sentence links are short and usually start in lowercase; a source title
+// does not start in lowercase (scripts without case, such as Japanese, never
+// do) and is long or carries a title separator. Scripts written without spaces
+// have no words to count, hence the length in characters as well.
+const TITLE_SEPARATOR = /[:?|：？｜]|\s[-–—]\s/;
 const TITLE_MIN_WORDS = 4;
+const TITLE_MIN_CHARACTERS = 30;
 
 function looksLikeSourceTitle(text: string): boolean {
-  if (!/^\p{Lu}/u.test(text)) return false;
-  return TITLE_SEPARATOR.test(text) || text.trim().split(/\s+/).length >= TITLE_MIN_WORDS;
+  const title = text.trim();
+  if (/^\p{Ll}/u.test(title)) return false;
+  return (
+    TITLE_SEPARATOR.test(title) ||
+    title.split(/\s+/).length >= TITLE_MIN_WORDS ||
+    [...title].length >= TITLE_MIN_CHARACTERS
+  );
 }
 
 export function keepInlineLinkText(markdown: string): string {

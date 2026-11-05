@@ -43,6 +43,17 @@ describe('keepInlineLinkText', () => {
     expect(keepInlineLinkText(longTitle)).toBe(longTitle);
   });
 
+  it('leaves a title in a script without case as a bare chip', () => {
+    const withSeparator = `on AT-X [目覚めたら最強装備と宇宙船持ちだったので - WEBザテレビジョン](${URL}).`;
+    const withoutSpaces = `on AT-X [目覚めたら最強装備と宇宙船持ちだったので、一戸建て目指して傭兵として自由に生きたい](${URL}).`;
+    expect(keepInlineLinkText(withSeparator)).toBe(withSeparator);
+    expect(keepInlineLinkText(withoutSpaces)).toBe(withoutSpaces);
+  });
+
+  it('keeps a short linked name in a script without case', () => {
+    expect(keepInlineLinkText(`aired on [東京MX](${URL}).`)).toBe(`aired on 東京MX [東京MX](${URL}).`);
+  });
+
   it('keeps short capitalized words before punctuation', () => {
     expect(keepInlineLinkText(`it launched from [French Guiana](${URL}).`)).toBe(
       `it launched from French Guiana [French Guiana](${URL}).`,
