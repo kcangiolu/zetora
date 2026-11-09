@@ -94,15 +94,15 @@ describe('setup.sh', () => {
     expect(settings).toMatch(/secret_key: '[0-9a-f]{64}'/);
   });
 
-  it('points a local endpoint at the host and leaves the models to Settings', () => {
-    const result = run(['5', 'http://localhost:11434/v1', '']);
+  it('points a local endpoint at the host and names its models as custom ones', () => {
+    const result = run(['5', 'http://localhost:11434/v1', '', 'qwen3:8b', 'not"valid', 'org/tiny']);
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain('Settings > AI Models');
     const env = writtenEnv();
     expect(JSON.parse((env.get('CUSTOM_AI_PROVIDERS') ?? '').slice(1, -1))).toEqual([
       { id: 'local', name: 'Local', baseURL: 'http://host.docker.internal:11434/v1', apiKey: 'local' },
     ]);
-    expect(env.get('ZETORA_MODEL_DEFAULT')).toBe('');
+    expect(env.get('ZETORA_MODEL_DEFAULT')).toBe('custom-local-qwen3:8b');
+    expect(env.get('ZETORA_MODEL_CHAT_TITLE')).toBe('custom-local-org/tiny');
   });
 
   it('asks again after an answer it cannot use', () => {

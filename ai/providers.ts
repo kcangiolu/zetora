@@ -344,7 +344,9 @@ export async function resolveModel(
     const models = await getCustomModels(userId);
     const model = models.find((m) => m.id === modelId);
     if (!model) {
-      throw new ModelUnavailableError(`${modelId} no longer exists in your custom providers. Pick another model.`);
+      throw new ModelUnavailableError(
+        `${modelId} is not available: its custom provider does not list it, or is not answering. Check the provider, or pick another model.`,
+      );
     } else {
       const providers = await getCustomProviders(userId);
       const providerConfig = providers.find((p) => p.id === model.providerId);

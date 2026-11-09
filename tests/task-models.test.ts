@@ -19,6 +19,14 @@ vi.mock('@/ai/catalog/store', () => ({
   getCatalogEntry: (id: string) => ENTRIES.find((e) => e.id === id),
 }));
 
+vi.mock('@/lib/custom-providers', async (importOriginal) => {
+  const { parseCustomModelId } = await importOriginal<typeof import('@/lib/custom-providers')>();
+  return {
+    parseCustomModelId,
+    getOperatorProviders: () => [{ id: 'local', name: 'Local', baseURL: 'http://192.0.2.1/v1' }],
+  };
+});
+
 import {
   getTaskModel,
   getTaskModelIds,
@@ -54,6 +62,21 @@ describe('getTaskModel', () => {
     expect(getTaskModel('auto-router', {})).toBe('zetora-arch-router');
   });
 
+  it('accepts a model of a provider the instance declares', () => {
+    vi.stubEnv('ZETORA_MODEL_CHAT_TITLE', 'custom-local-qwen3:8b');
+    expect(getTaskModel('chat-title', {})).toBe('custom-local-qwen3:8b');
+  });
+
+  it('refuses a custom model whose provider the instance does not declare', () => {
+    vi.stubEnv('ZETORA_MODEL_CHAT_TITLE', 'custom-someone-qwen3:8b');
+    expect(() => getTaskModel('chat-title', {})).toThrow('is not in CUSTOM_AI_PROVIDERS');
+  });
+
+  it('refuses a declared provider with no model name', () => {
+    vi.stubEnv('ZETORA_MODEL_CHAT_TITLE', 'custom-local-');
+    expect(() => getTaskModel('chat-title', {})).toThrow('is not available');
+  });
+
   it('has no instance model for memory', () => {
     expect(() => getTaskModel('memory-curator', {})).toThrow('Pick one in Settings → AI Models.');
   });
@@ -74,6 +97,7 @@ describe('getUnavailableTaskModels', () => {
   it('reports variables naming a model the catalog cannot reach', () => {
     vi.stubEnv('ZETORA_MODEL_VOICE', 'acme:big');
     vi.stubEnv('ZETORA_MODEL_FOLLOWUP', 'acme:retired');
-    expect(getUnavailableTaskModels()).toEqual({ followup: 'acme:retired' });
+    vi.stubEnv('ZETORA_MODEL_ENHANCE', 'custom-someone-small');
+    expect(getUnavailableTaskModels()).toEqual({ followup: 'acme:retired', enhance: 'custom-someone-small' });
   });
 });

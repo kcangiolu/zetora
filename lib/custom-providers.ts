@@ -80,7 +80,7 @@ const visionCache = globalCache<boolean>('__zetoraCustomVisionCache', PROBE_CACH
 // the already-resolved user in directly — otherwise getUser() reads the
 // request's cookies via next/headers and silently sees no one signed in.
 // Providers the operator declares in CUSTOM_AI_PROVIDERS, shared by every user.
-function getOperatorProviders(): CustomProviderConfig[] {
+export function getOperatorProviders(): CustomProviderConfig[] {
   if (!serverEnv.CUSTOM_AI_PROVIDERS) return [];
   let parsed: unknown;
   try {

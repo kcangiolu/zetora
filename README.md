@@ -251,7 +251,7 @@ The script asks where your models come from, writes `.env` with generated secret
 This install is for trying Zetora on your own machine:
 
 - **It answers on this machine only** (`ZETORA_BIND=127.0.0.1`). Accounts need no email confirmation and sign-ups are open, so anyone reaching the port could use your provider key. Before opening it to others, follow [Option 2](#option-2--self-hosted-stack-docker-compose): set your public URL, an SMTP server or `ALLOW_SIGNUPS=false`, and a reverse proxy with TLS.
-- **Each function gets one of the two models you name**, and any of them can be changed in Settings → AI Models. With a local endpoint, you pick all of them there: `ZETORA_MODEL_*` only accepts models from the catalog. The model server must listen on more than `127.0.0.1` for the app's container to reach it (for Ollama, `OLLAMA_HOST=0.0.0.0`).
+- **Each function gets one of the two models you name**, and any of them can be changed in Settings → AI Models. A local endpoint works the same way, and the app's container must be able to reach its server: it has to listen on more than `127.0.0.1` (for Ollama, `OLLAMA_HOST=0.0.0.0`), and a firewall must let containers through (with ufw: `sudo ufw allow from 172.16.0.0/12 to any port 11434`). The script warns you if it cannot get through.
 - **File uploads, code execution and Lookouts stay off** until you set `S3_*`, `SANDBOX_PROVIDER` and `LOOKOUT_SCHEDULER` (see [Choose a setup](#choose-a-setup)). Each reports what is missing when used.
 
 Port 3333, 5432, 6379 or 8090 already taken on your machine stops the start with an error naming the port.

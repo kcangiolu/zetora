@@ -228,7 +228,11 @@ export function TertiaryModelRow({
   const taskModelId = taskModelIds?.[task];
   const taskModelLabel =
     defaultModelLabel ??
-    (taskModelId === ARCH_ROUTER_MODEL.id ? ARCH_ROUTER_MODEL.label : getModel(taskModelId ?? undefined)?.label);
+    (taskModelId === ARCH_ROUTER_MODEL.id
+      ? ARCH_ROUTER_MODEL.label
+      : // A custom provider's models are listed only while it answers, and the
+        // task is configured either way.
+        (getModel(taskModelId ?? undefined)?.label ?? taskModelId ?? undefined));
   const envKey = TASK_ENV_KEYS[task];
   const unavailableModel = unavailableTaskModels?.[task];
 
@@ -246,8 +250,9 @@ export function TertiaryModelRow({
           <p className="text-xs text-destructive mt-1">
             {unavailableModel ? (
               <>
-                {envKey}={unavailableModel} is not available (not in the model catalog, or its provider has no API key):
-                this feature will not work. Pick a model here, or fix {envKey} in .env.
+                {envKey}={unavailableModel} is not available (not in the model catalog, its provider has no API key, or
+                its custom provider is not in CUSTOM_AI_PROVIDERS): this feature will not work. Pick a model here, or
+                fix {envKey} in .env.
               </>
             ) : (
               <>

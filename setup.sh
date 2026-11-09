@@ -14,6 +14,9 @@ APP_URL='http://localhost:3333'
 MAIN_MODEL_VARS='ZETORA_MODEL_DEFAULT ZETORA_MODEL_EXTREME_PLANNER ZETORA_MODEL_EXTREME_AGENT ZETORA_MODEL_TRANSLATE_VISION ZETORA_MODEL_CONTEXT_COMPACTION'
 SMALL_MODEL_VARS='ZETORA_MODEL_CHAT_TITLE ZETORA_MODEL_FOLLOWUP ZETORA_MODEL_ENHANCE ZETORA_MODEL_TOOL_REPAIR ZETORA_MODEL_AUTO_ROUTER ZETORA_MODEL_TRANSLATE_TEXT ZETORA_MODEL_LANG_DETECT ZETORA_MODEL_VOICE ZETORA_MODEL_SEARCH_RERANK'
 
+CATALOG_MODEL_FORM='^[A-Za-z0-9._-]+:[A-Za-z0-9._/:-]+$'
+LOCAL_MODEL_FORM='^[A-Za-z0-9._/:-]+$'
+
 start_stack=true
 case "${1:-}" in
   '') ;;
@@ -57,14 +60,15 @@ ask_key() {
   done
 }
 
+# $2 is the form the answer must have, $3 what to say when it does not.
 ask_model() {
   while true; do
     ask "$1"
     REPLY="${REPLY//[[:space:]]/}"
-    if [[ "$REPLY" =~ ^[A-Za-z0-9._-]+:[A-Za-z0-9._/:-]+$ ]]; then
+    if [[ "$REPLY" =~ $2 ]]; then
       return
     fi
-    printf 'Use the lab:model form, as in the example.\n'
+    printf '%s\n' "$3"
   done
 }
 
@@ -150,14 +154,18 @@ if [ "$provider_key_var" = 'CUSTOM_AI_PROVIDERS' ]; then
     *\'* | *\"* | *\\*) die 'the key cannot contain quotes or backslashes. Nothing was written.' ;;
   esac
   provider_value="'[{\"id\":\"local\",\"name\":\"Local\",\"baseURL\":\"$endpoint_url\",\"apiKey\":\"${endpoint_key:-local}\"}]'"
-  main_model=''
-  small_model=''
+  # The id above is what makes these names custom-local-*, see .env.example.
+  printf 'Name the models as your server lists them. The same name twice is fine.\n'
+  ask_model 'Main model, for chat and research: ' "$LOCAL_MODEL_FORM" 'Use the name your server lists, without spaces.'
+  main_model="custom-local-$REPLY"
+  ask_model 'Small model, for titles and suggestions: ' "$LOCAL_MODEL_FORM" 'Use the name your server lists, without spaces.'
+  small_model="custom-local-$REPLY"
 else
   ask_key "$provider_key_var: "
   provider_value="'$REPLY'"
-  ask_model "Main model, for chat and research (e.g. $main_example): "
+  ask_model "Main model, for chat and research (e.g. $main_example): " "$CATALOG_MODEL_FORM" 'Use the lab:model form, as in the example.'
   main_model="$REPLY"
-  ask_model "Small model, for titles and suggestions (e.g. $small_example): "
+  ask_model "Small model, for titles and suggestions (e.g. $small_example): " "$CATALOG_MODEL_FORM" 'Use the lab:model form, as in the example.'
   small_model="$REPLY"
 fi
 
@@ -209,11 +217,7 @@ set_env SEARXNG_URL http://searxng:8080
 mv "$env_draft" .env
 printf '\nWrote .env.\n'
 
-if [ -z "$main_model" ]; then
-  next_step="Create your account, then pick your models in Settings > AI Models."
-else
-  next_step='Create your account: no email is sent, you are signed in right away.'
-fi
+next_step='Create your account: no email is sent, you are signed in right away.'
 
 if [ "$start_stack" = false ]; then
   printf 'Start it with: docker compose up -d --build\nThen open %s\n%s\n' "$APP_URL" "$next_step"
@@ -236,4 +240,12 @@ until curl -fsS -o /dev/null "$APP_URL"; do
 done 2>/dev/null
 
 printf '\n\nZetora is running: %s\n%s\n' "$APP_URL" "$next_step"
+
+# Only the app's container can tell: a server the host reaches may still be
+# closed to containers. Any HTTP answer will do, as this call sends no key.
+if [ "$provider_key_var" = 'CUSTOM_AI_PROVIDERS' ] &&
+  ! docker compose exec -T zetora.app node -e "fetch(process.argv[1], { signal: AbortSignal.timeout(5000) }).then(() => process.exit(0), () => process.exit(1))" "${endpoint_url%/}/models"; then
+  printf '\nWarning: the app cannot reach %s, so chats will fail until it can.\n' "$endpoint_url"
+  printf 'Check that the model server listens on more than 127.0.0.1, and that no firewall blocks containers\nfrom its port (with ufw: sudo ufw allow from 172.16.0.0/12 to any port PORT).\n'
+fi
 printf 'It only answers on this machine. To open it to others, see "Option 2" in README.md.\n'
