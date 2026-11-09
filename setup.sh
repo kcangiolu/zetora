@@ -102,13 +102,14 @@ if [ "$start_stack" = true ]; then
 fi
 
 printf 'Zetora setup\n\nWhere should the models come from?\n'
-printf '  1) Anthropic\n  2) OpenAI\n  3) Google AI Studio\n  4) OpenRouter (any lab)\n  5) A local or OpenAI-compatible endpoint (Ollama, llama.cpp...)\n'
+printf '  1) Anthropic\n  2) OpenAI\n  3) Google AI Studio\n  4) DeepSeek\n  5) Zhipu AI (GLM)\n  6) MiniMax\n'
+printf '  7) OpenRouter (any lab)\n  8) A local or OpenAI-compatible endpoint (Ollama, llama.cpp...)\n'
 
 provider_key_var=''
 main_example=''
 small_example=''
 while [ -z "$provider_key_var" ]; do
-  ask 'Choice [1-5]: '
+  ask 'Choice [1-8]: '
   case "$REPLY" in
     1)
       provider_key_var='ANTHROPIC_API_KEY'
@@ -117,21 +118,36 @@ while [ -z "$provider_key_var" ]; do
       ;;
     2)
       provider_key_var='OPENAI_API_KEY'
-      main_example='openai:gpt-5.5'
-      small_example='openai:gpt-5.4-mini'
+      main_example='openai:gpt-6.1-sol'
+      small_example='openai:gpt-6-luna'
       ;;
     3)
       provider_key_var='GOOGLE_AI_STUDIO_API_KEY'
-      main_example='google:gemini-3.8-flash'
+      main_example='google:gemini-4-argon'
       small_example='google:gemini-3.5-flash-lite'
       ;;
     4)
+      provider_key_var='DEEPSEEK_API_KEY'
+      main_example='deepseek:deepseek-flash'
+      small_example='deepseek:deepseek-flash'
+      ;;
+    5)
+      provider_key_var='ZAI_API_KEY'
+      main_example='zhipu:glm-5.3-flashx'
+      small_example='zhipu:glm-5.3-flash'
+      ;;
+    6)
+      provider_key_var='MINIMAX_API_KEY'
+      main_example='minimax:MiniMax-M3'
+      small_example='minimax:MiniMax-M3.1-Flash'
+      ;;
+    7)
       provider_key_var='OPENROUTER_API_KEY'
       main_example='anthropic:claude-sonnet-5-5'
-      small_example='google:gemini-3.5-flash-lite'
+      small_example='anthropic:claude-haiku-5-5'
       ;;
-    5) provider_key_var='CUSTOM_AI_PROVIDERS' ;;
-    *) printf 'Pick a number from 1 to 5.\n' ;;
+    8) provider_key_var='CUSTOM_AI_PROVIDERS' ;;
+    *) printf 'Pick a number from 1 to 8.\n' ;;
   esac
 done
 

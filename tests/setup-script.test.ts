@@ -95,7 +95,7 @@ describe('setup.sh', () => {
   });
 
   it('points a local endpoint at the host and names its models as custom ones', () => {
-    const result = run(['5', 'http://localhost:11434/v1', '', 'qwen3:8b', 'not"valid', 'org/tiny']);
+    const result = run(['8', 'http://localhost:11434/v1', '', 'qwen3:8b', 'not"valid', 'org/tiny']);
     expect(result.status).toBe(0);
     const env = writtenEnv();
     expect(JSON.parse((env.get('CUSTOM_AI_PROVIDERS') ?? '').slice(1, -1))).toEqual([
@@ -105,8 +105,18 @@ describe('setup.sh', () => {
     expect(env.get('ZETORA_MODEL_CHAT_TITLE')).toBe('custom-local-org/tiny');
   });
 
+  it.each([
+    ['4', 'DEEPSEEK_API_KEY'],
+    ['5', 'ZAI_API_KEY'],
+    ['6', 'MINIMAX_API_KEY'],
+    ['7', 'OPENROUTER_API_KEY'],
+  ])('stores the key of menu choice %s in %s', (choice, keyVar) => {
+    expect(run([choice, 'test-key', 'acme:big', 'acme:small']).status).toBe(0);
+    expect(writtenEnv().get(keyVar)).toBe("'test-key'");
+  });
+
   it('asks again after an answer it cannot use', () => {
-    const result = run(['9', '2', '', 'test-key', 'no-lab-prefix', 'acme:big', 'acme:small']);
+    const result = run(['0', '2', '', 'test-key', 'no-lab-prefix', 'acme:big', 'acme:small']);
     expect(result.status).toBe(0);
     const env = writtenEnv();
     expect(env.get('OPENAI_API_KEY')).toBe("'test-key'");
