@@ -158,7 +158,7 @@ Pick one row, set `COMPOSE_PROFILES` in `.env` to its value, then point the matc
 
 Zetora only offers what the instance has. A search provider shows up in Settings and in the chat's sources once its API key or URL is set; Hybrid Search once `QDRANT_URL` is; Data protection once `ANONYMIZER_API_URL` is; the cloud voice backend once `XAI_API_KEY` is and the local one once `VOICE_S2S_URL` is. With the bundled containers, these URLs are the Docker service names given in `.env.example`. Each search function picks the user's choice when the instance has it, else the first available provider in a fixed order: the self-hosted services, then Exa, Firecrawl and Parallel. A function with no provider at all is not offered, and Settings says what it needs. Fallback providers are off unless the user turns them on.
 
-All services share the `zetora-network` Docker network and resolve each other by service name. Most services are bound to `127.0.0.1`; only `zetora.app` (port 3333), Silo's API port, `s2s-service` and `hermes-relay-service` publish beyond loopback (for reverse-proxy, browser and gateway access).
+All services share the `zetora-network` Docker network and resolve each other by service name. Most services are bound to `127.0.0.1`; only `zetora.app` (port 3333, unless `ZETORA_BIND=127.0.0.1`), Silo's API port, `s2s-service` and `hermes-relay-service` publish beyond loopback (for reverse-proxy, browser and gateway access).
 
 The `sandbox` service runs as root with the host's Docker socket, which amounts to root access on the host. Enable it only on a host dedicated to this stack, or use Daytona.
 
@@ -236,6 +236,26 @@ See `.env.example` for the full catalog of provider and feature environment vari
 - At least one AI provider API key (OpenAI, Anthropic, xAI, Google, Groq, …)
 - A domain name and a reverse proxy (Caddy, Nginx, Traefik, …) with TLS, if exposing the self-hosted stack publicly
 
+### Quick start — one machine, one command
+
+Needs Docker with Compose v2, and either an AI provider key or a local OpenAI-compatible endpoint (Ollama, llama.cpp, …).
+
+```bash
+git clone https://github.com/kcangiolu/zetora.git
+cd zetora
+./setup.sh
+```
+
+The script asks where your models come from, writes `.env` with generated secrets, builds the images and starts Postgres, Redis, SearXNG and the app on <http://localhost:3333>. It never overwrites an existing `.env`.
+
+This install is for trying Zetora on your own machine:
+
+- **It answers on this machine only** (`ZETORA_BIND=127.0.0.1`). Accounts need no email confirmation and sign-ups are open, so anyone reaching the port could use your provider key. Before opening it to others, follow [Option 2](#option-2--self-hosted-stack-docker-compose): set your public URL, an SMTP server or `ALLOW_SIGNUPS=false`, and a reverse proxy with TLS.
+- **Each function gets one of the two models you name**, and any of them can be changed in Settings → AI Models. With a local endpoint, you pick all of them there: `ZETORA_MODEL_*` only accepts models from the catalog. The model server must listen on more than `127.0.0.1` for the app's container to reach it (for Ollama, `OLLAMA_HOST=0.0.0.0`).
+- **File uploads, code execution and Lookouts stay off** until you set `S3_*`, `SANDBOX_PROVIDER` and `LOOKOUT_SCHEDULER` (see [Choose a setup](#choose-a-setup)). Each reports what is missing when used.
+
+Port 3333, 5432, 6379 or 8090 already taken on your machine stops the start with an error naming the port.
+
 ### Option 1 — Local development (`pnpm dev`)
 
 Use this for day-to-day development. It runs the Next.js app directly on your machine.
@@ -280,7 +300,7 @@ Use this to deploy Zetora on a server. By default it runs against cloud provider
    ```
 2. Create `.env` from the template (`cp .env.example .env`; it is gitignored, never commit it). Fill in at least:
    - **Domain**: `NEXT_PUBLIC_APP_URL`, `BETTER_AUTH_BASE_URL`, `ALLOWED_ORIGINS` — set to your public URL (e.g. `https://zetora.example.com`).
-   - **Core secrets**: `BETTER_AUTH_SECRET` (generate with `openssl rand -base64 32`), `POSTGRES_PASSWORD`.
+   - **Core secrets**: `BETTER_AUTH_SECRET` (generate with `openssl rand -base64 32`), `POSTGRES_PASSWORD`, and `MCP_CREDENTIALS_ENCRYPTION_KEY` (`openssl rand -hex 32`), without which API keys cannot be saved in Settings.
    - **Silo** (`minio` profile): `MINIO_ROOT_PASSWORD` (and optionally `MINIO_ROOT_USER`, `S3_PUBLIC_URL`).
    - **AI providers**: at least one provider API key, and `ZETORA_MODEL_DEFAULT`, the model new chats start on (e.g. `anthropic:claude-sonnet-5-5`). The other `ZETORA_MODEL_*` variables name chats, suggest follow-ups and so on; each can also be picked in Settings → AI Models.
    - **Email**: the `SMTP_*` settings, which new accounts need to confirm their address. Without an SMTP server, set `REQUIRE_EMAIL_VERIFICATION=false` and accounts sign in right away.
