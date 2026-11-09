@@ -67,7 +67,7 @@ import { useSessionPreference } from '@/hooks/use-session-preference';
 import { ChatSDKError } from '@/lib/errors';
 import { cn } from '@/lib/utils';
 import { SEARCH_GROUP_IDS, SearchGroupId } from '@/lib/search/search-groups';
-import { AUTO_MODEL_ID, DEFAULT_MODEL_ALIAS } from '@/ai/models';
+import { AUTO_MODEL_ID, DEFAULT_MODEL_ALIAS, isRetiredModelSelection } from '@/ai/models';
 import { useModels } from '@/hooks/use-models';
 
 // State management imports
@@ -158,7 +158,16 @@ const ChatInterface = memo(
       if (localStorage.getItem('zetora-selected-model') !== null) return;
       setSelectedModel(defaultModelPreference);
     }, [defaultModelPreferenceResolved, defaultModelPreference, setSelectedModel]);
-    const { getModel } = useModels();
+    const { getModel, catalogModels, catalogRead } = useModels();
+    // Otherwise every message would fail on a model the picker cannot even show.
+    useEffect(() => {
+      if (!catalogRead || !isRetiredModelSelection(selectedModel, catalogModels)) return;
+      setSelectedModel(DEFAULT_MODEL_ALIAS);
+      sileo.info({
+        title: 'Model no longer available',
+        description: `This instance does not offer ${selectedModel}. Switched to the default model.`,
+      });
+    }, [selectedModel, setSelectedModel, catalogModels, catalogRead]);
     // A stored selection can be the default-model alias, a pre-models.dev id
     // or an id spelled differently than today's — move it to the current one.
     useEffect(() => {

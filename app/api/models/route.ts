@@ -1,6 +1,6 @@
 import { getCatalogModels } from '@/ai/catalog/models';
 import { getTaskModelIds, getUnavailableTaskModels } from '@/ai/catalog/task-models';
-import { loadModelCatalog } from '@/ai/catalog/store';
+import { getCatalogStatus, loadModelCatalog } from '@/ai/catalog/store';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,6 +9,8 @@ export async function GET() {
   await loadModelCatalog();
   return Response.json({
     models: getCatalogModels(),
+    // Told apart from an empty list, which an instance without keys has by design.
+    catalogRead: getCatalogStatus().fetchedAt !== null,
     taskModelIds: getTaskModelIds(),
     unavailableTaskModels: getUnavailableTaskModels(),
   });

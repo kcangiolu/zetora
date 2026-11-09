@@ -37,6 +37,16 @@ export function findModel(models: Model[], id: string | undefined): Model | unde
   return models.find((model) => model.provider === lab && modelKey(model.value.slice(lab.length + 1)) === key);
 }
 
+// Whether a stored selection names a catalog model this instance no longer
+// offers: retired upstream, or its provider's key was removed. Only meaningful
+// once the catalog has been read. A custom model is left alone, since its
+// provider not answering right now says nothing about the model.
+export function isRetiredModelSelection(selected: string, catalogModels: Model[]): boolean {
+  const canonical = canonicalModelId(selected);
+  if (canonical === DEFAULT_MODEL_ALIAS || canonical === AUTO_MODEL_ID || canonical.startsWith('custom-')) return false;
+  return !findModel(catalogModels, canonical);
+}
+
 export function getProviderName(provider: ModelProvider): string {
   if (provider === 'custom') return 'Custom';
   if (provider === 'zetora') return 'Zetora';

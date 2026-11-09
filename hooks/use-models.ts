@@ -6,6 +6,7 @@ import { DEFAULT_MODEL_ALIAS, findModel, type Model, type TertiaryTask } from '@
 
 interface CatalogResponse {
   models: Model[];
+  catalogRead: boolean;
   // The model each task runs on when the user hasn't picked one.
   taskModelIds: Partial<Record<TertiaryTask, string | null>>;
   // ZETORA_MODEL_* values naming a model the catalog cannot reach.
@@ -26,7 +27,12 @@ export function useModels() {
   const catalog = useQuery({
     queryKey: ['modelCatalog'],
     queryFn: () =>
-      fetchModels<CatalogResponse>('/api/models', { models: [], taskModelIds: {}, unavailableTaskModels: {} }),
+      fetchModels<CatalogResponse>('/api/models', {
+        models: [],
+        catalogRead: false,
+        taskModelIds: {},
+        unavailableTaskModels: {},
+      }),
     staleTime: 60 * 60 * 1000,
   });
   // Same key as Settings, which invalidates it whenever custom providers change.
@@ -52,6 +58,7 @@ export function useModels() {
   return {
     models,
     catalogModels,
+    catalogRead: catalog.data?.catalogRead ?? false,
     customModels,
     taskModelIds,
     unavailableTaskModels,

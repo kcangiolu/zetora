@@ -3,7 +3,7 @@ import { UseChatHelpers } from '@ai-sdk/react';
 import { CaretDownIcon } from '@phosphor-icons/react/dist/ssr';
 import { useWebHaptics } from 'web-haptics/react';
 
-import { AUTO_MODEL_ID, findModel, type Model } from '@/ai/models';
+import { AUTO_MODEL_ID, DEFAULT_MODEL_ALIAS, findModel, type Model } from '@/ai/models';
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { Kbd } from '@/components/ui/kbd';
@@ -85,7 +85,10 @@ const SwitcherTrigger = React.forwardRef<React.ComponentRef<typeof Button>, Swit
           {currentModel && (
             <ProviderIcon provider={currentModel.provider} size={14} className="text-foreground/70 shrink-0" />
           )}
-          <MarqueeText text={currentModel?.label ?? ''} className="text-[13px] font-medium min-w-0 flex-1" />
+          <MarqueeText
+            text={currentModel?.label ?? (selectedModel === DEFAULT_MODEL_ALIAS ? 'Select a model' : selectedModel)}
+            className="text-[13px] font-medium min-w-0 flex-1"
+          />
         </div>
       )}
       <CaretDownIcon
