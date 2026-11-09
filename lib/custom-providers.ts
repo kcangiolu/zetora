@@ -316,6 +316,13 @@ async function detectModelVision(
   return vision;
 }
 
+// llama.cpp lists a model by the path it was loaded from. Only the file name
+// helps tell models apart, whereas the org in an `org/model` id is part of the name.
+export function getCustomModelDisplayName(modelName: string): string {
+  const isFilePath = /^([/\\.]|[A-Za-z]:[/\\])/.test(modelName) || /\.gguf$/i.test(modelName);
+  return (isFilePath && modelName.split(/[/\\]/).pop()) || modelName;
+}
+
 export async function getCustomModels(userId?: string): Promise<CustomModelInfo[]> {
   const providers = await getCustomProviders(userId);
   const results: CustomModelInfo[] = [];
@@ -335,7 +342,7 @@ export async function getCustomModels(userId?: string): Promise<CustomModelInfo[
                 providerId: provider.id,
                 providerName: provider.name,
                 modelName,
-                label: `${modelName} (${provider.name})`,
+                label: `${getCustomModelDisplayName(modelName)} (${provider.name})`,
                 vision,
               });
             }),

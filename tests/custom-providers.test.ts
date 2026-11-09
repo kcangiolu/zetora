@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { parseCustomModelId, toClientSafeProviders, type CustomProviderConfig } from '@/lib/custom-providers';
+import {
+  getCustomModelDisplayName,
+  parseCustomModelId,
+  toClientSafeProviders,
+  type CustomProviderConfig,
+} from '@/lib/custom-providers';
 
 const providers: CustomProviderConfig[] = [
   { id: 'prov1', name: 'Provider One', baseURL: 'https://one.example/v1' },
@@ -25,6 +30,26 @@ describe('parseCustomModelId', () => {
 
   it('returns null when no provider id matches', () => {
     expect(parseCustomModelId('custom-unknown-model', providers)).toBeNull();
+  });
+});
+
+describe('getCustomModelDisplayName', () => {
+  it.each([
+    ['/models/Qwen-GGUF/qwen-Q4_K_M.gguf', 'qwen-Q4_K_M.gguf'],
+    ['./models/qwen.gguf', 'qwen.gguf'],
+    ['models/qwen.GGUF', 'qwen.GGUF'],
+    ['C:\\models\\qwen.gguf', 'qwen.gguf'],
+    ['/models/qwen', 'qwen'],
+  ])('shows only the file of %s', (name, shown) => {
+    expect(getCustomModelDisplayName(name)).toBe(shown);
+  });
+
+  it.each(['qwen3:8b', 'Qwen/Qwen3-8B', 'qwen3-8b'])('keeps %s, which is not a path', (name) => {
+    expect(getCustomModelDisplayName(name)).toBe(name);
+  });
+
+  it('keeps a path that ends on a separator rather than show nothing', () => {
+    expect(getCustomModelDisplayName('/models/')).toBe('/models/');
   });
 });
 
