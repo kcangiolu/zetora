@@ -289,8 +289,7 @@ export function VoiceTab({ customProviders }: { customProviders: CustomProviderC
         <div className="flex flex-col gap-1.5 py-3.5 border-t border-border/40">
           <p className="text-sm font-medium">Image Generation</p>
           <p className="text-xs text-muted-foreground">
-            Custom OpenAI-compatible server for <code className="text-[11px]">/v1/images/generations</code> — Max
-            subscribers only
+            Custom OpenAI-compatible server for <code className="text-[11px]">/v1/images/generations</code>
           </p>
         </div>
         <div className="py-3.5 space-y-2.5">
@@ -362,8 +361,7 @@ export function VoiceTab({ customProviders }: { customProviders: CustomProviderC
         <div className="flex flex-col gap-1.5 py-3.5 border-t border-border/40">
           <p className="text-sm font-medium">Image Editing</p>
           <p className="text-xs text-muted-foreground">
-            Custom OpenAI-compatible server for <code className="text-[11px]">/v1/images/edits</code> — Max subscribers
-            only
+            Custom OpenAI-compatible server for <code className="text-[11px]">/v1/images/edits</code>
           </p>
         </div>
         <div className="py-3.5 space-y-2.5">

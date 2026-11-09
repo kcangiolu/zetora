@@ -70,7 +70,7 @@ export const SEARCH_PROVIDER_OPTIONS: Record<
   },
   parallel: {
     label: 'Parallel AI',
-    description: 'Base and premium web search along with Firecrawl image search support',
+    description: 'Fast web search, with image results when a Firecrawl key is set',
     icon: ParallelIcon,
     requirement: 'a Parallel API key',
   },
