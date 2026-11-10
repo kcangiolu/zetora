@@ -43,7 +43,7 @@ services:
     build:
       context: tts-service
       args:
-        CUDA_IMAGE: ${TTS_CUDA_IMAGE:-nvidia/cuda:13.1.2-runtime-ubuntu24.04}
+        CUDA_IMAGE: ${TTS_CUDA_IMAGE:-nvidia/cuda:13.0.3-runtime-ubuntu24.04}
         TORCH_CUDA_BUILD: ${TTS_TORCH_CUDA_BUILD:-cu130}
         TORCH_VERSION: ${TTS_TORCH_VERSION:-2.9.1}
         FLASH_ATTN_MODE: ${TTS_FLASH_ATTN_MODE:-prebuilt}

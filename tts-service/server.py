@@ -223,6 +223,23 @@ def _save_wav(voice: str, pcm_chunks: list, sample_rate: int) -> None:
 
 # ── Model load / unload (inside the CUDA thread) ────────────────
 
+def _require_cuda() -> None:
+    """Checked at startup, before any model work, so a host the image cannot
+    run on stops with its driver version and the requirement, not a driver
+    error deep inside the first load."""
+    if torch.cuda.is_available():
+        return
+    try:
+        found = re.search(r"\b\d{3}\.\d+(?:\.\d+)?\b", Path("/proc/driver/nvidia/version").read_text())
+    except OSError:
+        found = None
+    driver = f"driver {found.group(0)}" if found else "no NVIDIA driver visible in the container"
+    raise RuntimeError(
+        f"CUDA is unavailable ({driver}). qwen3-tts needs an NVIDIA GPU, NVIDIA driver 580 "
+        "or newer and the NVIDIA Container Toolkit; with such a driver, check the toolkit setup."
+    )
+
+
 def _load_model():
     global model, warmup_prompt, HAS_FLASH_ATTN
     from qwen_tts import Qwen3TTSModel
@@ -303,6 +320,7 @@ async def lifespan(app: FastAPI):
     # at container start, so simply starting the container no longer claims
     # VRAM — matches the on-demand `--profile tts` intent above. Set
     # EAGER_LOAD=true to restore the old always-resident-at-startup behavior.
+    _require_cuda()
     if EAGER_LOAD:
         await asyncio.get_running_loop().run_in_executor(_cuda_executor, _load_model)
     if not DISABLE_IDLE_UNLOAD:

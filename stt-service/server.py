@@ -20,9 +20,11 @@ import asyncio
 import gc
 import logging
 import os
+import re
 import tempfile
 import threading
 import time
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -53,6 +55,23 @@ device_label = "unknown"
 _last_used = time.monotonic()
 _active_requests = 0
 _load_lock = asyncio.Lock()
+
+
+def _require_cuda_if_gpu_exposed() -> None:
+    """Without a GPU the service runs on CPU by design. With one exposed,
+    CUDA failing to initialize means a host this image cannot use; stopping
+    here names the cause instead of silently transcribing on CPU."""
+    if torch.cuda.is_available() or not Path("/dev/nvidiactl").exists():
+        return
+    try:
+        found = re.search(r"\b\d{3}\.\d+(?:\.\d+)?\b", Path("/proc/driver/nvidia/version").read_text())
+    except OSError:
+        found = None
+    driver = f"driver {found.group(0)}" if found else "driver version unreadable"
+    raise RuntimeError(
+        f"An NVIDIA GPU is exposed but CUDA is unavailable ({driver}). stt-service needs "
+        "NVIDIA driver 580 or newer; with such a driver, check the NVIDIA Container Toolkit setup."
+    )
 
 
 def _load_model() -> None:
@@ -118,6 +137,7 @@ app = FastAPI(title="Zetora STT (Parakeet TDT)")
 
 @app.on_event("startup")
 async def _startup() -> None:
+    _require_cuda_if_gpu_exposed()
     if EAGER_LOAD:
         await asyncio.get_event_loop().run_in_executor(None, _load_model)
     if not DISABLE_IDLE_UNLOAD:

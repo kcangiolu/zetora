@@ -137,7 +137,7 @@ Zetora bundles a complete self-hosted stack in [`docker-compose.yml`](docker-com
 | **Hermes Agent relay** | `hermes-relay-service`                    | `hermes`†  | —                                | Lets any user connect their own self-hosted Hermes Agent gateway as an Agent mode chat channel                          |
 | **DB migrations**      | `db-migrate`                              | _(core)_   | _(manual `drizzle-kit migrate`)_ | Runs Drizzle migrations + performance indexes automatically; `zetora.app` waits for it before starting                  |
 
-\* `s2s-service` and `stt-service` are behind the `voice` profile, `qwen3-tts` behind its own `tts` profile. `stt-service` and `qwen3-tts` need an NVIDIA GPU (Docker `nvidia` runtime).
+\* `s2s-service` and `stt-service` are behind the `voice` profile, `qwen3-tts` behind its own `tts` profile. `stt-service` and `qwen3-tts` need an NVIDIA GPU, NVIDIA driver 580 or newer and the NVIDIA Container Toolkit (Docker `nvidia` runtime). On an older driver they stop at startup with an error naming the driver version found.
 
 † Unlike every other row, Hermes doesn't degrade to a cloud equivalent when its profile is left off — the whole feature (Settings > Hermes, the Agent mode entry, every `/api/hermes*`/`/api/internal/hermes*` route) is gated by the `NEXT_PUBLIC_HERMES_ENABLED` build flag. Hermes is experimental: `.env.example` sets the flag to `false`, so the feature is absent from the image; set it to `true` and add the `hermes` profile to opt in. The build flag controls whether the _feature exists in the image at all_, the profile whether _this deployment's container starts_.
 

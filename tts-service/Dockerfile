@@ -1,4 +1,7 @@
-ARG CUDA_IMAGE=nvidia/cuda:13.1.2-runtime-ubuntu24.04
+# The base's CUDA major.minor must match TORCH_CUDA_BUILD (cu130 = 13.0):
+# torch's cu130 wheels run on any NVIDIA driver from 580 on, and a newer base
+# only raises that floor without being used.
+ARG CUDA_IMAGE=nvidia/cuda:13.0.3-runtime-ubuntu24.04
 FROM ${CUDA_IMAGE}
 
 ARG TORCH_CUDA_BUILD=cu130
@@ -41,7 +44,7 @@ RUN set -e; \
       compile) \
         echo "flash-attn: compiling $FLASH_ATTN_VERSION from source for [$FLASH_ATTN_ARCH_LIST]"; \
         command -v nvcc >/dev/null 2>&1 || { \
-          echo "ERROR: FLASH_ATTN_MODE=compile needs nvcc — rebuild with CUDA_IMAGE=nvidia/cuda:13.1.2-devel-ubuntu24.04"; \
+          echo "ERROR: FLASH_ATTN_MODE=compile needs nvcc — rebuild with CUDA_IMAGE=nvidia/cuda:13.0.3-devel-ubuntu24.04"; \
           exit 1; }; \
         TORCH_CUDA_ARCH_LIST="$FLASH_ATTN_ARCH_LIST" MAX_JOBS="${MAX_JOBS:-4}" \
           /opt/venv/bin/pip install --quiet --no-build-isolation "flash-attn==$FLASH_ATTN_VERSION" ;; \
@@ -75,12 +78,19 @@ RUN git clone --quiet https://github.com/rekuenkdr/Qwen3-TTS-streaming /tmp/qwen
 COPY requirements.lock .
 RUN /opt/venv/bin/pip install --quiet -r requirements.lock
 
+# The CUDA base ships a forward-compatibility libcuda in compat/. The NVIDIA
+# Container Toolkit puts it ahead of the host driver whenever the host driver
+# is older than it, and it only works on datacenter GPUs: on a GeForce card
+# CUDA then fails to initialize. Removing it makes the container always use
+# the host driver.
 # WSL2: torch.compile/Triton links its runtime kernel helper with `-lcuda`, but
-# WSL exposes only a versioned libcuda.so.1 (no unversioned libcuda.so), so the
-# link fails. The CUDA base ships an unversioned libcuda.so in compat/; pointing
-# the compile-time linker there fixes it. Runtime dlopen still resolves the real
-# driver via ldconfig, so no version mixing. No-op on native Linux (prod).
-ENV LIBRARY_PATH=/usr/local/cuda/compat
+# WSL exposes only a versioned libcuda.so.1, so an unversioned copy is kept for
+# the compile-time linker alone. Its SONAME is libcuda.so.1, so the loader
+# still resolves the host driver at runtime.
+RUN mkdir -p /opt/cuda-link && \
+    cp -L /usr/local/cuda/compat/libcuda.so /opt/cuda-link/libcuda.so && \
+    rm -rf /usr/local/cuda/compat
+ENV LIBRARY_PATH=/opt/cuda-link
 
 COPY server.py .
 
