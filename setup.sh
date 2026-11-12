@@ -17,6 +17,9 @@ SMALL_MODEL_VARS='ZETORA_MODEL_CHAT_TITLE ZETORA_MODEL_FOLLOWUP ZETORA_MODEL_ENH
 CATALOG_MODEL_FORM='^[A-Za-z0-9._-]+:[A-Za-z0-9._/:-]+$'
 LOCAL_MODEL_FORM='^[A-Za-z0-9._/:-]+$'
 
+# The source of the app's own model catalog. Tests point it at a fixture.
+MODELS_DEV_URL="${MODELS_DEV_URL:-https://models.dev/api.json}"
+
 start_stack=true
 case "${1:-}" in
   '') ;;
@@ -72,6 +75,121 @@ ask_model() {
   done
 }
 
+# Fills model_ids and model_labels with the provider's current models, as the
+# app's catalog lists them (ai/catalog/build.ts): tool calling, text out, not
+# retired, released in the last 18 months, a thinking/instant pair as one
+# model, one entry per name, and for an aggregator only the labs the app
+# knows. Fails, saying why, when models.dev or python3 is out of reach.
+list_models() {
+  model_ids=()
+  model_labels=()
+  model_count=0
+  if ! command -v python3 >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1; then
+    printf 'python3 and curl are needed to list the models.\n'
+    return 1
+  fi
+  local data listing id label
+  data="$(mktemp)"
+  listing="$(mktemp)"
+  if ! curl -fsS --max-time 30 -o "$data" "$MODELS_DEV_URL"; then
+    printf 'Could not reach %s to list the models.\n' "$MODELS_DEV_URL"
+    rm -f "$data" "$listing"
+    return 1
+  fi
+  python3 - "$data" "$catalog_source" "$catalog_provider" "$catalog_aggregator" ai/catalog/config.ts >"$listing" <<'PY'
+import datetime, json, re, sys
+
+data_path, source, provider, aggregator, config_path = sys.argv[1:6]
+models = list(json.load(open(data_path)).get(source, {}).get('models', {}).values())
+is_aggregator = aggregator == 'true'
+# An aggregator's models are kept only for the labs whose vendor prefixes
+# LABS lists.
+config = open(config_path).read()
+vendors = {v for block in re.findall(r"vendors: \[([^\]]*)\]", config) for v in re.findall(r"'([^']+)'", block)}
+
+today = datetime.date.today()
+year, month = today.year, today.month - 18
+while month <= 0:
+    month += 12
+    year -= 1
+oldest = '%04d-%02d-%02d' % (year, month, today.day)
+
+def key(text):
+    return re.sub(r'[^a-z0-9]', '', text.lower())
+
+def usable(m):
+    inputs = (m.get('modalities') or {}).get('input') or ['text']
+    outputs = (m.get('modalities') or {}).get('output') or ['text']
+    mid = m['id']
+    return (m.get('tool_call') is True and m.get('status') != 'deprecated' and 'text' in inputs
+            and outputs == ['text'] and ':' not in mid and not mid.startswith('~')
+            and (not m.get('release_date') or m['release_date'] >= oldest)
+            and (not is_aggregator or ('/' in mid and mid.split('/')[0] in vendors)))
+
+def label(m):
+    return re.sub(r'\s*\((latest|\d{4}-\d{2}-\d{2})\)\s*$', '', m['name'], flags=re.I)
+
+candidates = {m['id']: m for m in models if usable(m)}
+by_key = {key(mid): mid for mid in candidates}
+entries, consumed = [], set()
+for mid, m in candidates.items():
+    k = key(mid)
+    for thinking, instant in (('reasoning', 'nonreasoning'), ('thinking', 'instruct')):
+        if not k.endswith(thinking) or k.endswith(instant):
+            continue
+        twin = by_key.get(k[:-len(thinking)] + instant)
+        if not twin:
+            continue
+        name = re.sub(r'\s*[(-]?\s*(reasoning|thinking)\s*\)?\s*$', '', label(m), flags=re.I)
+        stripped = re.sub(r'[-_.]?' + thinking + '$', '', mid, flags=re.I)
+        entries.append((stripped, name, m.get('release_date') or ''))
+        consumed.update((mid, twin))
+        break
+entries += [(mid, label(m), m.get('release_date') or '') for mid, m in candidates.items() if mid not in consumed]
+
+pinned = {date for mid, _, date in entries if not mid.endswith('-latest')}
+entries = [e for e in entries if not e[0].endswith('-latest') or e[2] not in pinned]
+for field in (lambda e: key(e[1]), lambda e: e[0]):
+    kept = {}
+    for e in entries:
+        current = kept.get(field(e))
+        if current is None or e[2] > current[2] or (e[2] == current[2] and len(e[0]) < len(current[0])):
+            kept[field(e)] = e
+    entries = list(kept.values())
+entries.sort(key=lambda e: e[1])
+entries.sort(key=lambda e: e[2], reverse=True)
+for mid, name, _ in entries[:30]:
+    print('%s:%s\t%s' % (provider, mid, name))
+PY
+  [ -s "$listing" ] || {
+    printf 'models.dev lists no usable model for this provider.\n'
+    rm -f "$data" "$listing"
+    return 1
+  }
+  while IFS="$(printf '\t')" read -r id label; do
+    model_ids[$model_count]="$id"
+    model_labels[$model_count]="$label"
+    model_count=$((model_count + 1))
+  done <"$listing"
+  rm -f "$data" "$listing"
+}
+
+# A number from the list made by list_models, or a provider:model id.
+ask_catalog_model() {
+  while true; do
+    ask "$1"
+    REPLY="${REPLY//[[:space:]]/}"
+    if [[ "$REPLY" =~ ^[0-9]+$ ]] && [ "$REPLY" -ge 1 ] && [ "$REPLY" -le "$model_count" ]; then
+      REPLY="${model_ids[$((REPLY - 1))]}"
+      return
+    fi
+    if [[ "$REPLY" =~ $CATALOG_MODEL_FORM ]]; then
+      return
+    fi
+    printf 'Pick a number from the list, or type a provider:model id.\n'
+  done
+}
+
 set_env() {
   local next
   next="$(mktemp .env.setup.XXXXXX)"
@@ -106,45 +224,49 @@ printf '  1) Anthropic\n  2) OpenAI\n  3) Google AI Studio\n  4) DeepSeek\n  5) 
 printf '  7) OpenRouter (any lab)\n  8) A local or OpenAI-compatible endpoint (Ollama, llama.cpp...)\n'
 
 provider_key_var=''
-main_example=''
-small_example=''
+# The provider's id in ai/catalog/config.ts, where models.dev lists its
+# models, and whether it serves several labs' models.
+catalog_provider=''
+catalog_source=''
+catalog_aggregator=false
 while [ -z "$provider_key_var" ]; do
   ask 'Choice [1-8]: '
   case "$REPLY" in
     1)
       provider_key_var='ANTHROPIC_API_KEY'
-      main_example='anthropic:claude-sonnet-5-5'
-      small_example='anthropic:claude-haiku-5-5'
+      catalog_provider='anthropic'
+      catalog_source='anthropic'
       ;;
     2)
       provider_key_var='OPENAI_API_KEY'
-      main_example='openai:gpt-6.1-sol'
-      small_example='openai:gpt-6-luna'
+      catalog_provider='openai'
+      catalog_source='openai'
       ;;
     3)
       provider_key_var='GOOGLE_AI_STUDIO_API_KEY'
-      main_example='google:gemini-4-argon'
-      small_example='google:gemini-3.5-flash-lite'
+      catalog_provider='google'
+      catalog_source='google'
       ;;
     4)
       provider_key_var='DEEPSEEK_API_KEY'
-      main_example='deepseek:deepseek-flash'
-      small_example='deepseek:deepseek-flash'
+      catalog_provider='deepseek'
+      catalog_source='deepseek'
       ;;
     5)
       provider_key_var='ZAI_API_KEY'
-      main_example='zhipu:glm-5.3-flashx'
-      small_example='zhipu:glm-5.3-flash'
+      catalog_provider='zhipu'
+      catalog_source='zai'
       ;;
     6)
       provider_key_var='MINIMAX_API_KEY'
-      main_example='minimax:MiniMax-M3'
-      small_example='minimax:MiniMax-M3.1-Flash'
+      catalog_provider='minimax'
+      catalog_source='minimax'
       ;;
     7)
       provider_key_var='OPENROUTER_API_KEY'
-      main_example='openrouter:anthropic/claude-sonnet-5.5'
-      small_example='openrouter:anthropic/claude-haiku-5.5'
+      catalog_provider='openrouter'
+      catalog_source='openrouter'
+      catalog_aggregator=true
       ;;
     8) provider_key_var='CUSTOM_AI_PROVIDERS' ;;
     *) printf 'Pick a number from 1 to 8.\n' ;;
@@ -179,9 +301,20 @@ if [ "$provider_key_var" = 'CUSTOM_AI_PROVIDERS' ]; then
 else
   ask_key "$provider_key_var: "
   provider_value="'$REPLY'"
-  ask_model "Main model, for chat and research (e.g. $main_example): " "$CATALOG_MODEL_FORM" 'Use the lab:model form, as in the example.'
+  if list_models; then
+    printf '\nCurrent models with tool calling, newest first:\n'
+    index=0
+    while [ "$index" -lt "$model_count" ]; do
+      printf '  %2d) %s  (%s)\n' "$((index + 1))" "${model_labels[$index]}" "${model_ids[$index]}"
+      index=$((index + 1))
+    done
+    printf 'Pick by number, or type any %s:model id.\n' "$catalog_provider"
+  else
+    printf 'Type %s:model ids; Settings → AI Models lists them once the app runs.\n' "$catalog_provider"
+  fi
+  ask_catalog_model 'Main model, for chat and research: '
   main_model="$REPLY"
-  ask_model "Small model, for titles and suggestions (e.g. $small_example): " "$CATALOG_MODEL_FORM" 'Use the lab:model form, as in the example.'
+  ask_catalog_model 'Small model, for titles and suggestions: '
   small_model="$REPLY"
 fi
 

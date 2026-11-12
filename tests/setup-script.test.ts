@@ -12,6 +12,8 @@ import {
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { buildCatalog } from '@/ai/catalog/build';
+import type { ModelsDevData, ModelsDevModel } from '@/ai/catalog/types';
 import { TASK_ENV_KEYS } from '@/ai/models/tasks';
 
 const REPO = resolve(__dirname, '..');
@@ -25,27 +27,66 @@ function parseEnv(content: string): Map<string, string> {
   return entries;
 }
 
+function fixtureModel(id: string, overrides: Partial<ModelsDevModel> = {}): ModelsDevModel {
+  return {
+    id,
+    name: id,
+    tool_call: true,
+    release_date: new Date().toISOString().slice(0, 10),
+    modalities: { input: ['text'], output: ['text'] },
+    ...overrides,
+  };
+}
+
+function source(...models: ModelsDevModel[]) {
+  return { models: Object.fromEntries(models.map((model) => [model.id, model])) };
+}
+
+// What setup.sh lists must be what the app's catalog lists.
+const MODELS_DEV: ModelsDevData = {
+  anthropic: source(
+    fixtureModel('claude-big'),
+    fixtureModel('claude-small', { release_date: '2026-01-01' }),
+    fixtureModel('claude-no-tools', { tool_call: false }),
+    fixtureModel('claude-retired', { status: 'deprecated' }),
+    fixtureModel('claude-ancient', { release_date: '2020-01-01' }),
+  ),
+  openrouter: source(
+    fixtureModel('qwen/qwen-9-thinking', { name: 'Qwen 9 Thinking', reasoning: true }),
+    fixtureModel('qwen/qwen-9-instruct', { name: 'Qwen 9 Instruct' }),
+    fixtureModel('unknown-lab/model-1'),
+  ),
+};
+
 describe('setup.sh', () => {
   let dir: string;
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'zetora-setup-'));
     mkdirSync(join(dir, 'searxng'));
-    for (const file of ['setup.sh', '.env.example', 'searxng/settings.yml']) {
+    mkdirSync(join(dir, 'ai/catalog'), { recursive: true });
+    for (const file of ['setup.sh', '.env.example', 'searxng/settings.yml', 'ai/catalog/config.ts']) {
       copyFileSync(join(REPO, file), join(dir, file));
     }
+    writeFileSync(join(dir, 'models-dev.json'), JSON.stringify(MODELS_DEV));
   });
 
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  function run(answers: string[]) {
+  function run(answers: string[], modelsDevUrl = `file://${join(dir, 'models-dev.json')}`) {
     return spawnSync('bash', ['setup.sh', '--no-start'], {
       cwd: dir,
       input: answers.map((answer) => `${answer}\n`).join(''),
       encoding: 'utf8',
+      env: { ...process.env, MODELS_DEV_URL: modelsDevUrl },
     });
+  }
+
+  // The `provider:model` ids setup.sh offered, in its order.
+  function listedIds(stdout: string): string[] {
+    return Array.from(stdout.matchAll(/^\s+\d+\) .+ \((\S+:\S+)\)$/gm), (match) => match[1]);
   }
 
   function writtenEnv(): Map<string, string> {
@@ -121,6 +162,31 @@ describe('setup.sh', () => {
     const env = writtenEnv();
     expect(env.get('OPENAI_API_KEY')).toBe("'test-key'");
     expect(env.get('ZETORA_MODEL_DEFAULT')).toBe('acme:big');
+  });
+
+  it("offers the provider's models as the app's catalog lists them, picked by number", () => {
+    const result = run(['1', 'test-key', '2', '1']);
+    expect(result.status).toBe(0);
+    const catalog = buildCatalog(MODELS_DEV, new Set(['anthropic'] as const)).map((entry) => entry.id);
+    expect(listedIds(result.stdout)).toEqual(catalog);
+    expect(catalog).toEqual(['anthropic:claude-big', 'anthropic:claude-small']);
+    expect(writtenEnv().get('ZETORA_MODEL_DEFAULT')).toBe('anthropic:claude-small');
+    expect(writtenEnv().get('ZETORA_MODEL_CHAT_TITLE')).toBe('anthropic:claude-big');
+  });
+
+  it("keeps an aggregator's list to the labs the app knows, with thinking/instant pairs as one model", () => {
+    const result = run(['7', 'test-key', '1', '1']);
+    expect(result.status).toBe(0);
+    const catalog = buildCatalog(MODELS_DEV, new Set(['openrouter'] as const)).map((entry) => entry.id);
+    expect(listedIds(result.stdout)).toEqual(catalog);
+    expect(catalog).toEqual(['openrouter:qwen/qwen-9']);
+  });
+
+  it('still takes typed ids when models.dev cannot be reached', () => {
+    const result = run(['1', 'test-key', '1', 'acme:big', 'acme:small'], `file://${join(dir, 'missing.json')}`);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('Could not reach');
+    expect(writtenEnv().get('ZETORA_MODEL_DEFAULT')).toBe('acme:big');
   });
 
   it('never overwrites an existing .env', () => {
