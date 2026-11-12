@@ -67,7 +67,6 @@ function getProviderDefaults(): SharedV3ProviderOptions {
     groq: {
       parallelToolCalls: false,
       structuredOutputs: true,
-      serviceTier: 'auto',
     } satisfies GroqProviderOptions,
     xai: {
       parallel_function_calling: false,
