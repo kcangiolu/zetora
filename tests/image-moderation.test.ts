@@ -2,17 +2,18 @@ import { afterEach, describe, it, expect, vi } from 'vitest';
 import type { CatalogEntry } from '@/ai/catalog/types';
 
 const BASE_ENTRY: CatalogEntry = {
-  id: 'acme:eyes',
-  lab: 'acme',
+  id: 'openai:eyes',
+  provider: 'openai',
+  modelId: 'eyes',
+  lab: 'openai',
   label: 'Eyes',
   description: '',
   vision: true,
   pdf: false,
   structuredOutput: true,
   reasoning: null,
-  routes: [{ host: 'direct', modelId: 'eyes' }],
 };
-const ENTRIES: CatalogEntry[] = [BASE_ENTRY, { ...BASE_ENTRY, id: 'acme:blind', label: 'Blind', vision: false }];
+const ENTRIES: CatalogEntry[] = [BASE_ENTRY, { ...BASE_ENTRY, id: 'openai:blind', label: 'Blind', vision: false }];
 
 vi.mock('@/ai/catalog/store', () => ({
   getCatalogEntry: (id: string) => ENTRIES.find((e) => e.id === id),
@@ -34,17 +35,17 @@ describe('getImageModerationModelId', () => {
   });
 
   it('returns the configured vision model', () => {
-    vi.stubEnv('ZETORA_MODEL_IMAGE_MODERATION', 'acme:eyes');
-    expect(getImageModerationModelId()).toBe('acme:eyes');
+    vi.stubEnv('ZETORA_MODEL_IMAGE_MODERATION', 'openai:eyes');
+    expect(getImageModerationModelId()).toBe('openai:eyes');
   });
 
   it('rejects a model the catalog cannot reach', () => {
-    vi.stubEnv('ZETORA_MODEL_IMAGE_MODERATION', 'acme:retired');
+    vi.stubEnv('ZETORA_MODEL_IMAGE_MODERATION', 'openai:retired');
     expect(() => getImageModerationModelId()).toThrow(ModelUnavailableError);
   });
 
   it('rejects a model without vision', () => {
-    vi.stubEnv('ZETORA_MODEL_IMAGE_MODERATION', 'acme:blind');
+    vi.stubEnv('ZETORA_MODEL_IMAGE_MODERATION', 'openai:blind');
     expect(() => getImageModerationModelId()).toThrow('cannot read images');
   });
 });

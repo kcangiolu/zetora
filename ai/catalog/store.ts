@@ -3,8 +3,8 @@ import 'server-only';
 import { maindb } from '@/lib/db';
 import { modelCatalogSource } from '@/lib/db/schema';
 import { createLogger } from '@/lib/logger';
-import { buildCatalog, modelKey, type RouteAvailability } from './build';
-import { HOSTS, LABS, type HostId } from './config';
+import { buildCatalog, modelKey } from './build';
+import { PROVIDERS, type ProviderId } from './config';
 import { isConfigured } from './env';
 import type { CatalogEntry, ModelsDevData } from './types';
 
@@ -18,15 +18,12 @@ const RETRY_INTERVAL_MS = 5 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 20_000;
 
 // Only these models.dev providers are kept: the full file is several MB.
-const SOURCES = new Set([
-  ...LABS.flatMap((lab) => (lab.catalog ? [lab.catalog.source] : [])),
-  ...HOSTS.map((host) => host.source),
-]);
+const SOURCES = new Set(PROVIDERS.map((provider) => provider.source));
 
 interface CatalogState {
   entries: CatalogEntry[];
   byId: Map<string, CatalogEntry>;
-  // Lab-scoped modelKey -> entry, so an id spelled differently still resolves.
+  // Provider-scoped modelKey -> entry, so an id spelled differently still resolves.
   byKey: Map<string, CatalogEntry>;
   fetchedAt: Date | null;
   lastAttemptAt: number;
@@ -51,27 +48,26 @@ function state(): CatalogState {
   return store.__zetoraModelCatalog;
 }
 
-function getRouteAvailability(): RouteAvailability {
-  return {
-    direct: new Set(
-      LABS.filter((lab) => lab.direct && isConfigured(process.env[lab.direct.envKey])).map((lab) => lab.id),
+function getConfiguredProviders(): Set<ProviderId> {
+  return new Set(
+    PROVIDERS.filter((provider) => provider.envKeys.some((key) => isConfigured(process.env[key]))).map(
+      (provider) => provider.id,
     ),
-    hosts: new Set<HostId>(
-      HOSTS.filter((host) => host.envKeys.some((key) => isConfigured(process.env[key]))).map((host) => host.id),
-    ),
-  };
+  );
 }
 
-function lookupKey(lab: string, model: string): string {
-  return `${lab}:${modelKey(model)}`;
+function lookupKey(provider: string, model: string): string {
+  return `${provider}:${modelKey(model)}`;
 }
 
 function install(data: ModelsDevData, fetchedAt: Date): void {
-  const entries = buildCatalog(data, getRouteAvailability());
+  const entries = buildCatalog(data, getConfiguredProviders());
   const current = state();
   current.entries = entries;
   current.byId = new Map(entries.map((entry) => [entry.id, entry]));
-  current.byKey = new Map(entries.map((entry) => [lookupKey(entry.lab, entry.id.slice(entry.lab.length + 1)), entry]));
+  current.byKey = new Map(
+    entries.map((entry) => [lookupKey(entry.provider, entry.id.slice(entry.provider.length + 1)), entry]),
+  );
   current.fetchedAt = fetchedAt;
 }
 

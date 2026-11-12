@@ -143,8 +143,8 @@ while [ -z "$provider_key_var" ]; do
       ;;
     7)
       provider_key_var='OPENROUTER_API_KEY'
-      main_example='anthropic:claude-sonnet-5-5'
-      small_example='anthropic:claude-haiku-5-5'
+      main_example='openrouter:anthropic/claude-sonnet-5.5'
+      small_example='openrouter:anthropic/claude-haiku-5.5'
       ;;
     8) provider_key_var='CUSTOM_AI_PROVIDERS' ;;
     *) printf 'Pick a number from 1 to 8.\n' ;;

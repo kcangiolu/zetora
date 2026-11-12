@@ -1,5 +1,5 @@
 // Types shared by the catalog builder (pure) and its server-side users.
-import type { HostId } from './config';
+import type { ProviderId } from './config';
 
 // The subset of models.dev's api.json the catalog reads.
 type ModelsDevReasoningOption =
@@ -39,15 +39,14 @@ export interface ReasoningSpec {
   budget?: { min?: number; max?: number };
 }
 
-export interface CatalogRoute {
-  host: 'direct' | HostId;
-  // The model id as that host expects it.
-  modelId: string;
-}
-
 export interface CatalogEntry {
-  // `${lab}:${model}`, e.g. 'anthropic:claude-sonnet-4-6'.
+  // `${provider}:${modelId}`, e.g. 'anthropic:claude-sonnet-4-6' or
+  // 'groq:qwen/qwen3.8-27b'.
   id: string;
+  provider: ProviderId;
+  // The model id as the provider expects it.
+  modelId: string;
+  // Who made the model, whoever serves it.
   lab: string;
   label: string;
   description: string;
@@ -62,9 +61,7 @@ export interface CatalogEntry {
   cost?: { input: number; output: number };
   // null when the model doesn't reason.
   reasoning: ReasoningSpec | null;
-  // Tried in order, the first one being the preferred route.
-  routes: CatalogRoute[];
   // Set when thinking and instant answers are two separate upstream models:
-  // `routes` then serves thinking and these serve instant answers.
-  instantRoutes?: CatalogRoute[];
+  // `modelId` then serves thinking and this one instant answers.
+  instantModelId?: string;
 }

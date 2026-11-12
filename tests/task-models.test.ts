@@ -3,15 +3,16 @@ import type { CatalogEntry } from '@/ai/catalog/types';
 
 const ENTRIES: CatalogEntry[] = [
   {
-    id: 'acme:big',
-    lab: 'acme',
+    id: 'openai:big',
+    provider: 'openai',
+    modelId: 'big',
+    lab: 'openai',
     label: 'Big',
     description: '',
     vision: true,
     pdf: false,
     structuredOutput: true,
     reasoning: null,
-    routes: [{ host: 'direct', modelId: 'big' }],
   },
 ];
 
@@ -40,21 +41,21 @@ afterEach(() => {
 
 describe('getTaskModel', () => {
   it("prefers the user's pick over the task's variable", () => {
-    vi.stubEnv('ZETORA_MODEL_CHAT_TITLE', 'acme:big');
+    vi.stubEnv('ZETORA_MODEL_CHAT_TITLE', 'openai:big');
     expect(getTaskModel('chat-title', { 'zetora-tertiary-chat-title-model': 'custom-x-y' })).toBe('custom-x-y');
-    expect(getTaskModel('chat-title', {})).toBe('acme:big');
+    expect(getTaskModel('chat-title', {})).toBe('openai:big');
   });
 
   it("never borrows another task's model", () => {
-    vi.stubEnv('ZETORA_MODEL_DEFAULT', 'acme:big');
+    vi.stubEnv('ZETORA_MODEL_DEFAULT', 'openai:big');
     vi.stubEnv('ZETORA_MODEL_VOICE', '');
     expect(() => getTaskModel('voice', {})).toThrow(ModelUnavailableError);
     expect(() => getTaskModel('voice', {})).toThrow('set ZETORA_MODEL_VOICE');
   });
 
   it('fails when the variable names a model the catalog cannot reach', () => {
-    vi.stubEnv('ZETORA_MODEL_FOLLOWUP', 'acme:retired');
-    expect(() => getTaskModel('followup', {})).toThrow('ZETORA_MODEL_FOLLOWUP=acme:retired is not available');
+    vi.stubEnv('ZETORA_MODEL_FOLLOWUP', 'openai:retired');
+    expect(() => getTaskModel('followup', {})).toThrow('ZETORA_MODEL_FOLLOWUP=openai:retired is not available');
   });
 
   it('accepts the internal router model for the auto router', () => {
@@ -84,10 +85,10 @@ describe('getTaskModel', () => {
 
 describe('getTaskModelIds', () => {
   it('reports every task, null when unset', () => {
-    vi.stubEnv('ZETORA_MODEL_VOICE', 'acme:big');
+    vi.stubEnv('ZETORA_MODEL_VOICE', 'openai:big');
     vi.stubEnv('ZETORA_MODEL_LANG_DETECT', '');
     const ids = getTaskModelIds();
-    expect(ids.voice).toBe('acme:big');
+    expect(ids.voice).toBe('openai:big');
     expect(ids['lang-detect']).toBeNull();
     expect(Object.keys(ids)).toHaveLength(15);
   });
@@ -95,9 +96,9 @@ describe('getTaskModelIds', () => {
 
 describe('getUnavailableTaskModels', () => {
   it('reports variables naming a model the catalog cannot reach', () => {
-    vi.stubEnv('ZETORA_MODEL_VOICE', 'acme:big');
-    vi.stubEnv('ZETORA_MODEL_FOLLOWUP', 'acme:retired');
+    vi.stubEnv('ZETORA_MODEL_VOICE', 'openai:big');
+    vi.stubEnv('ZETORA_MODEL_FOLLOWUP', 'openai:retired');
     vi.stubEnv('ZETORA_MODEL_ENHANCE', 'custom-someone-small');
-    expect(getUnavailableTaskModels()).toEqual({ followup: 'acme:retired', enhance: 'custom-someone-small' });
+    expect(getUnavailableTaskModels()).toEqual({ followup: 'openai:retired', enhance: 'custom-someone-small' });
   });
 });

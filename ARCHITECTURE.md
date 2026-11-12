@@ -31,8 +31,8 @@ app/                    Next.js App Router
   actions/              Server actions (chats, user, preferences, push…)
   apps/ lookout/ new/ search/ searches/ settings/ share/ voice/  Pages
 ai/                     AI provider layer
-  catalog/              Model catalog built from models.dev: labs/hosts config, routing, reasoning options, role models
-  providers.ts          Resolves a model id to its provider chain (lab API, then aggregators) or a custom provider
+  catalog/              Model catalog built from models.dev: providers and labs config, reasoning options, role models
+  providers.ts          Resolves a model id to its one provider's client, or to a custom provider
   native-models/        Native llama.cpp and Ollama language models
   models/               Client-safe model types and helpers
 components/             React components (chat interface, message parts, search results, charts, maps…)

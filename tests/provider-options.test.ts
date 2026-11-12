@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import type { ProviderId } from '@/ai/catalog/config';
 import type { CatalogEntry } from '@/ai/catalog/types';
 import { getSearchProviderOptions, getStreamTextStaticSettings } from '@/lib/search/provider-options';
 
@@ -41,32 +42,28 @@ describe('getStreamTextStaticSettings', () => {
 const catalog = new Map<string, CatalogEntry>();
 vi.mock('@/ai/catalog/models', () => ({ getModelEntry: (id: string) => catalog.get(id) }));
 
-function entry(id: string, overrides: Partial<CatalogEntry>): CatalogEntry {
-  return {
+function addEntry(provider: ProviderId, modelId: string, overrides: Partial<CatalogEntry>) {
+  const id = `${provider}:${modelId}`;
+  catalog.set(id, {
     id,
-    lab: id.slice(0, id.indexOf(':')),
-    label: id,
+    provider,
+    modelId,
+    lab: provider,
+    label: modelId,
     description: '',
     vision: false,
     pdf: false,
     structuredOutput: true,
     reasoning: null,
-    routes: [{ host: 'direct', modelId: id.slice(id.indexOf(':') + 1) }],
     ...overrides,
-  };
+  });
 }
 
-catalog.set(
-  'openai:gpt-5.4',
-  entry('openai:gpt-5.4', { reasoning: { toggle: false, efforts: ['none', 'low', 'medium', 'high'] } }),
-);
-catalog.set(
-  'xai:grok-4.20',
-  entry('xai:grok-4.20', {
-    reasoning: { toggle: true, efforts: [] },
-    instantRoutes: [{ host: 'direct', modelId: 'grok-4.20-non-reasoning' }],
-  }),
-);
+addEntry('openai', 'gpt-5.4', { reasoning: { toggle: false, efforts: ['none', 'low', 'medium', 'high'] } });
+addEntry('xai', 'grok-4.20', {
+  reasoning: { toggle: true, efforts: [] },
+  instantModelId: 'grok-4.20-non-reasoning',
+});
 
 describe('getSearchProviderOptions', () => {
   it('keeps the gateway provider allowlist stable', () => {

@@ -54,7 +54,7 @@ export function getStartWithStrategy(
     return { supported: false };
   }
 
-  if (getModelEntry(modelId)?.lab === 'anthropic') {
+  if (getModelEntry(modelId)?.provider === 'anthropic') {
     return { supported: true, providerOptions: { anthropic: { thinking: { type: 'disabled' } } } };
   }
 

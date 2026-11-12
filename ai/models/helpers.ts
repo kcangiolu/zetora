@@ -1,5 +1,5 @@
 // Accessors over model objects — client-safe, shared by the server and the UI.
-import { LABS } from '@/ai/catalog/config';
+import { LABS, PROVIDERS } from '@/ai/catalog/config';
 import { modelKey } from '@/ai/catalog/build';
 import { canonicalModelId } from '@/ai/catalog/legacy-ids';
 import type { Model, ModelProvider } from './types';
@@ -24,7 +24,7 @@ export const DEFAULT_CONTEXT_WINDOW = 128_000;
 export const DEFAULT_MAX_OUTPUT_TOKENS = 8000;
 
 // Finds a model by any id it may be stored under: current, legacy, or
-// spelled differently from host to host.
+// spelled differently.
 export function findModel(models: Model[], id: string | undefined): Model | undefined {
   if (!id) return undefined;
   const canonical = canonicalModelId(id);
@@ -32,9 +32,9 @@ export function findModel(models: Model[], id: string | undefined): Model | unde
   if (exact) return exact;
   const separator = canonical.indexOf(':');
   if (separator < 0) return undefined;
-  const lab = canonical.slice(0, separator);
+  const prefix = canonical.slice(0, separator + 1);
   const key = modelKey(canonical.slice(separator + 1));
-  return models.find((model) => model.provider === lab && modelKey(model.value.slice(lab.length + 1)) === key);
+  return models.find((model) => model.value.startsWith(prefix) && modelKey(model.value.slice(prefix.length)) === key);
 }
 
 // Whether a stored selection names a catalog model this instance no longer
@@ -50,7 +50,9 @@ export function isRetiredModelSelection(selected: string, catalogModels: Model[]
 export function getProviderName(provider: ModelProvider): string {
   if (provider === 'custom') return 'Custom';
   if (provider === 'zetora') return 'Zetora';
-  return LABS.find((lab) => lab.id === provider)?.name ?? provider;
+  return (
+    PROVIDERS.find((entry) => entry.id === provider)?.name ?? LABS.find((lab) => lab.id === provider)?.name ?? provider
+  );
 }
 
 // Lab order for the picker's provider tabs.

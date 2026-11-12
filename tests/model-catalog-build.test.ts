@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildCatalog, modelKey, toReasoningSpec } from '@/ai/catalog/build';
-import type { HostConfig, LabConfig } from '@/ai/catalog/config';
+import type { LabConfig, ProviderConfig, ProviderId } from '@/ai/catalog/config';
 import type { ModelsDevData, ModelsDevModel } from '@/ai/catalog/types';
 
 const NOW = new Date('2026-10-12T00:00:00Z');
@@ -23,52 +23,56 @@ function data(providers: Record<string, ModelsDevModel[]>): ModelsDevData {
   );
 }
 
-const HOSTS: HostConfig[] = [
-  { id: 'gateway', source: 'vercel', envKeys: [] },
-  { id: 'openrouter', source: 'openrouter', envKeys: [] },
+const ACME_DIRECT: ProviderConfig = { id: 'openai', name: 'Acme', source: 'acme', envKeys: [], lab: 'acme' };
+const PROVIDERS: ProviderConfig[] = [
+  ACME_DIRECT,
+  { id: 'gateway', name: 'Gateway', source: 'vercel', envKeys: [] },
+  { id: 'openrouter', name: 'OpenRouter', source: 'openrouter', envKeys: [] },
 ];
+const LABS: LabConfig[] = [{ id: 'acme', name: 'Acme', vendors: ['acme', 'acme-ai'] }];
 
-const ACME: LabConfig = {
-  id: 'acme',
-  name: 'Acme',
-  catalog: { source: 'acme' },
-  direct: { client: 'openai', envKey: 'ACME_API_KEY' },
-  hosts: { gateway: ['acme'], openrouter: ['acme-ai'] },
-};
+const ALL = new Set<ProviderId>(['openai', 'gateway', 'openrouter']);
 
-const all = { direct: new Set(['acme']), hosts: new Set(['gateway', 'openrouter'] as const) };
-
-function build(providers: Record<string, ModelsDevModel[]>, availability = all, labs = [ACME]) {
-  return buildCatalog(data(providers), availability, { now: NOW, labs, hosts: HOSTS });
+function build(sources: Record<string, ModelsDevModel[]>, configured = ALL, providers = PROVIDERS) {
+  return buildCatalog(data(sources), configured, { now: NOW, providers, labs: LABS });
 }
 
 describe('modelKey', () => {
-  it('matches ids spelled differently across hosts', () => {
+  it('matches ids spelled differently', () => {
     expect(modelKey('claude-sonnet-4-5')).toBe(modelKey('Claude-Sonnet-4.5'));
   });
 });
 
 describe('buildCatalog', () => {
-  it('routes a model through its lab first, then each available host in order', () => {
-    const [entry] = build({
+  it("lists a model once per provider serving it, with that provider's id and limits", () => {
+    const catalog = build({
       acme: [model('acme-1')],
-      vercel: [model('acme/acme-1')],
+      vercel: [model('acme/acme-1', { limit: { context: 128_000, output: 8000 } })],
       openrouter: [model('acme-ai/acme.1')],
     });
-    expect(entry.id).toBe('acme:acme-1');
-    expect(entry.routes).toEqual([
-      { host: 'direct', modelId: 'acme-1' },
-      { host: 'gateway', modelId: 'acme/acme-1' },
-      { host: 'openrouter', modelId: 'acme-ai/acme.1' },
+    expect(catalog.map((entry) => [entry.id, entry.provider, entry.modelId, entry.lab, entry.contextWindow])).toEqual([
+      ['openai:acme-1', 'openai', 'acme-1', 'acme', 200_000],
+      ['gateway:acme/acme-1', 'gateway', 'acme/acme-1', 'acme', 128_000],
+      ['openrouter:acme-ai/acme.1', 'openrouter', 'acme-ai/acme.1', 'acme', 200_000],
     ]);
   });
 
-  it('only uses the routes that are configured', () => {
+  it('only lists the providers that are configured', () => {
     const catalog = build(
-      { acme: [model('acme-1'), model('acme-2')], openrouter: [model('acme-ai/acme-2')] },
-      { direct: new Set(), hosts: new Set(['openrouter'] as const) },
+      { acme: [model('acme-1')], openrouter: [model('acme-ai/acme-2')] },
+      new Set<ProviderId>(['openrouter']),
     );
-    expect(catalog.map((entry) => entry.id)).toEqual(['acme:acme-2']);
+    expect(catalog.map((entry) => entry.id)).toEqual(['openrouter:acme-ai/acme-2']);
+  });
+
+  it('leaves out aggregator models of a lab it does not know', () => {
+    const catalog = build({ vercel: [model('acme/acme-1'), model('other/model-1'), model('no-vendor')] });
+    expect(catalog.map((entry) => entry.id)).toEqual(['gateway:acme/acme-1']);
+  });
+
+  it("keeps only the models a provider's pattern matches", () => {
+    const catalog = build({ acme: [model('acme-1'), model('beta-1')] }, ALL, [{ ...ACME_DIRECT, include: /^acme-/ }]);
+    expect(catalog.map((entry) => entry.id)).toEqual(['openai:acme-1']);
   });
 
   it('leaves out models that cannot call tools, do not output text, are retired or too old', () => {
@@ -81,41 +85,7 @@ describe('buildCatalog', () => {
         model('kept'),
       ],
     });
-    expect(catalog.map((entry) => entry.id)).toEqual(['acme:kept']);
-  });
-
-  it("follows the lab's own data over a host's for a first-party model", () => {
-    const catalog = build({
-      acme: [model('acme-old', { status: 'deprecated' })],
-      vercel: [model('acme/acme-old')],
-    });
-    expect(catalog).toEqual([]);
-  });
-
-  it('lets hosts add open-weight models but not their own variants', () => {
-    const catalog = build({
-      acme: [model('acme-1')],
-      vercel: [model('acme/acme-open', { open_weights: true }), model('acme/acme-1-fast', { open_weights: false })],
-    });
-    expect(catalog.map((entry) => entry.id).sort()).toEqual(['acme:acme-1', 'acme:acme-open']);
-  });
-
-  it('takes every model a host lists for a lab without a first-party catalog', () => {
-    const lab: LabConfig = { id: 'beta', name: 'Beta', hosts: { gateway: ['beta'] } };
-    const catalog = build({ vercel: [model('beta/beta-1')] }, all, [lab]);
-    expect(catalog.map((entry) => entry.id)).toEqual(['beta:beta-1']);
-  });
-
-  it('skips a direct-only lab without its key, and never adds host models to it', () => {
-    const lab: LabConfig = { ...ACME, id: 'cloud', directOnly: true };
-    const providers = {
-      acme: [model('acme-1')],
-      vercel: [model('acme/acme-1'), model('acme/extra', { open_weights: true })],
-    };
-    expect(build(providers, { direct: new Set(), hosts: all.hosts }, [lab])).toEqual([]);
-    const [entry, ...rest] = build(providers, { direct: new Set(['cloud']), hosts: all.hosts }, [lab]);
-    expect(rest).toEqual([]);
-    expect(entry.routes.map((route) => route.host)).toEqual(['direct', 'gateway']);
+    expect(catalog.map((entry) => entry.id)).toEqual(['openai:kept']);
   });
 
   it('merges a thinking/instant pair into one entry with a reasoning toggle', () => {
@@ -134,12 +104,24 @@ describe('buildCatalog', () => {
     });
     expect(rest).toEqual([]);
     expect(entry).toMatchObject({
-      id: 'acme:acme-4',
+      id: 'openai:acme-4',
       label: 'Acme 4',
       vision: true,
       reasoning: { toggle: true, efforts: [] },
-      routes: [{ host: 'direct', modelId: 'acme-4-reasoning' }],
-      instantRoutes: [{ host: 'direct', modelId: 'acme-4-non-reasoning' }],
+      modelId: 'acme-4-reasoning',
+      instantModelId: 'acme-4-non-reasoning',
+    });
+  });
+
+  it("merges a pair within an aggregator's vendor-prefixed ids", () => {
+    const [entry, ...rest] = build({
+      openrouter: [model('acme-ai/acme-5-thinking', { reasoning: true }), model('acme-ai/acme-5-instruct')],
+    });
+    expect(rest).toEqual([]);
+    expect(entry).toMatchObject({
+      id: 'openrouter:acme-ai/acme-5',
+      modelId: 'acme-ai/acme-5-thinking',
+      instantModelId: 'acme-ai/acme-5-instruct',
     });
   });
 
@@ -153,8 +135,8 @@ describe('buildCatalog', () => {
       ],
     });
     expect(catalog.map((entry) => [entry.id, entry.label])).toEqual([
-      ['acme:acme-pro-2607', 'Acme Pro 2'],
-      ['acme:acme-1', 'Acme 1'],
+      ['openai:acme-pro-2607', 'Acme Pro 2'],
+      ['openai:acme-1', 'Acme 1'],
     ]);
   });
 

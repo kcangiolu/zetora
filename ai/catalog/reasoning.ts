@@ -1,10 +1,10 @@
-// Translates the reasoning-effort toggle into each route's provider options,
+// Translates the reasoning-effort toggle into the provider options of a model,
 // from the effort values and switches models.dev declares for the model.
 // Pure: one function per API dialect, none per model.
 import type { JSONObject, SharedV3ProviderOptions } from '@ai-sdk/provider';
 import type { ReasoningCapability, ReasoningEffort } from '@/lib/reasoning-effort-types';
-import { LABS, type DirectClient } from './config';
-import { EFFORT_LEVELS, type CatalogEntry, type CatalogRoute, type EffortLevel, type ReasoningSpec } from './types';
+import type { ProviderId } from './config';
+import { EFFORT_LEVELS, type CatalogEntry, type EffortLevel, type ReasoningSpec } from './types';
 
 type Dialect =
   | 'openai'
@@ -23,7 +23,8 @@ type Dialect =
   // A bare OpenAI-style reasoning_effort string.
   | 'reasoning-effort';
 
-const DIRECT_DIALECTS: Record<DirectClient, { dialect: Dialect; key: string }> = {
+// `key` is the providerOptions key the provider's SDK client reads.
+const PROVIDER_DIALECTS: Record<Exclude<ProviderId, 'gateway'>, { dialect: Dialect; key: string }> = {
   openai: { dialect: 'openai', key: 'openai' },
   anthropic: { dialect: 'anthropic', key: 'anthropic' },
   google: { dialect: 'google', key: 'google' },
@@ -32,9 +33,12 @@ const DIRECT_DIALECTS: Record<DirectClient, { dialect: Dialect; key: string }> =
   deepseek: { dialect: 'deepseek', key: 'deepseek' },
   mistral: { dialect: 'mistral', key: 'mistral' },
   cohere: { dialect: 'cohere', key: 'cohere' },
-  zai: { dialect: 'thinking-type', key: 'zai' },
+  zhipu: { dialect: 'thinking-type', key: 'zai' },
   minimax: { dialect: 'reasoning-effort', key: 'minimax' },
   sarvam: { dialect: 'reasoning-effort', key: 'sarvam' },
+  groq: { dialect: 'groq', key: 'groq' },
+  novita: { dialect: 'enable-thinking', key: 'novita' },
+  openrouter: { dialect: 'openrouter', key: 'openrouter' },
 };
 
 // The AI Gateway forwards options keyed by the upstream provider's slug.
@@ -50,23 +54,10 @@ const GATEWAY_DIALECTS: Record<string, Dialect> = {
   alibaba: 'enable-thinking',
 };
 
-function routeDialect(entry: CatalogEntry, route: CatalogRoute): { dialect: Dialect; key: string } {
-  switch (route.host) {
-    case 'direct': {
-      const client = LABS.find((lab) => lab.id === entry.lab)?.direct?.client;
-      return client ? DIRECT_DIALECTS[client] : { dialect: 'reasoning-effort', key: entry.lab };
-    }
-    case 'groq':
-      return { dialect: 'groq', key: 'groq' };
-    case 'novita':
-      return { dialect: 'enable-thinking', key: 'novita' };
-    case 'openrouter':
-      return { dialect: 'openrouter', key: 'openrouter' };
-    case 'gateway': {
-      const vendor = route.modelId.slice(0, route.modelId.indexOf('/'));
-      return { dialect: GATEWAY_DIALECTS[vendor] ?? 'reasoning-effort', key: vendor };
-    }
-  }
+function providerDialect({ provider, modelId }: CatalogEntry): { dialect: Dialect; key: string } {
+  if (provider !== 'gateway') return PROVIDER_DIALECTS[provider];
+  const vendor = modelId.slice(0, modelId.indexOf('/'));
+  return { dialect: GATEWAY_DIALECTS[vendor] ?? 'reasoning-effort', key: vendor };
 }
 
 // Effort values each dialect's SDK accepts (anything else fails its schema).
@@ -91,7 +82,7 @@ const ALWAYS_DISABLEABLE = new Set<Dialect>([
   'openrouter',
 ]);
 
-// What the toggle resolved to for one route: an effort value it accepts, a
+// What the toggle resolved to for one provider: an effort value it accepts, a
 // thinking budget, or thinking switched off. No effort and no budget means
 // the provider's own default.
 interface Plan {
@@ -213,24 +204,17 @@ function dialectOptions(dialect: Dialect, spec: ReasoningSpec, p: Plan): JSONObj
   }
 }
 
-function merge(target: SharedV3ProviderOptions, key: string, options: JSONObject) {
-  if (Object.keys(options).length) target[key] = { ...target[key], ...options };
-}
-
-// Provider options for every route of the model at this effort. Models
-// served as a thinking/instant pair switch upstream model instead (see
-// ai/reasoning-switch-model.ts), so only their thinking routes get options.
+// Provider options for the model at this effort. Models served as a
+// thinking/instant pair switch upstream model instead (see
+// ai/reasoning-switch-model.ts), so only their thinking model gets options.
 export function getReasoningProviderOptions(entry: CatalogEntry, effort: ReasoningEffort): SharedV3ProviderOptions {
-  const options: SharedV3ProviderOptions = {};
   const spec = entry.reasoning;
-  if (!spec) return options;
+  if (!spec) return {};
   // 'off' already selected the instant model.
-  const effectiveEffort = entry.instantRoutes && effort === 'off' ? 'auto' : effort;
-  for (const route of entry.routes) {
-    const { dialect, key } = routeDialect(entry, route);
-    merge(options, key, dialectOptions(dialect, spec, plan(spec, effectiveEffort, dialect)));
-  }
-  return options;
+  const effectiveEffort = entry.instantModelId && effort === 'off' ? 'auto' : effort;
+  const { dialect, key } = providerDialect(entry);
+  const options = dialectOptions(dialect, spec, plan(spec, effectiveEffort, dialect));
+  return Object.keys(options).length ? { [key]: options } : {};
 }
 
 // How the reasoning toggle is shown for a model.

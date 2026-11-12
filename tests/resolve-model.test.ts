@@ -9,6 +9,8 @@ vi.hoisted(() => {
 function entry(id: string): CatalogEntry {
   return {
     id,
+    provider: 'xai',
+    modelId: id.slice('xai:'.length),
     lab: 'xai',
     label: id,
     description: '',
@@ -16,7 +18,6 @@ function entry(id: string): CatalogEntry {
     pdf: false,
     structuredOutput: true,
     reasoning: null,
-    routes: [{ host: 'direct', modelId: id.slice('xai:'.length) }],
   };
 }
 

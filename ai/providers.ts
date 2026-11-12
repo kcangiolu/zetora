@@ -19,11 +19,11 @@ import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { createRetryable } from 'ai-retry';
 import { reasoningSwitch } from '@/ai/reasoning-switch-model';
 import { isConfigured } from '@/ai/catalog/env';
-import { LABS, type DirectClient, type HostId } from '@/ai/catalog/config';
+import type { ProviderId } from '@/ai/catalog/config';
 import { getModelEntry } from '@/ai/catalog/models';
 import { ModelUnavailableError, getTaskModel } from '@/ai/catalog/task-models';
 import { loadModelCatalog } from '@/ai/catalog/store';
-import type { CatalogEntry, CatalogRoute } from '@/ai/catalog/types';
+import type { CatalogEntry } from '@/ai/catalog/types';
 import { ARCH_ROUTER_MODEL, DEFAULT_MODEL_ALIAS, canonicalModelId } from '@/ai/models/helpers';
 
 const openaiCompatible = (name: string, baseURL: string, apiKey: string | undefined) =>
@@ -61,9 +61,9 @@ const deepseekBetaDirect = openaiCompatible(
 );
 
 export function getDeepSeekStartWithModel(modelId: string): LanguageModelV3 | null {
-  const route = getModelEntry(modelId)?.routes[0];
-  if (!deepseekBetaDirect || getModelEntry(modelId)?.lab !== 'deepseek' || route?.host !== 'direct') return null;
-  return deepseekBetaDirect.chatModel(route.modelId);
+  const entry = getModelEntry(modelId);
+  if (!deepseekBetaDirect || entry?.provider !== 'deepseek') return null;
+  return deepseekBetaDirect.chatModel(entry.modelId);
 }
 
 const openrouter = isConfigured(process.env.OPENROUTER_API_KEY)
@@ -109,8 +109,8 @@ function configured(envKey: string, factory: ModelFactory): ModelFactory | null 
   return isConfigured(process.env[envKey]) ? factory : null;
 }
 
-// Each lab's own API (see ai/catalog/config.ts), null when its key is unset.
-const DIRECT_CLIENTS: Record<DirectClient, ModelFactory | null> = {
+// Each provider of ai/catalog/config.ts, null when its key is unset.
+const PROVIDER_CLIENTS: Record<ProviderId, ModelFactory | null> = {
   openai:
     openai &&
     ((id) => (openaiBackup ? createRetryable({ model: openai(id), retries: [openaiBackup(id)] }) : openai(id))),
@@ -130,12 +130,9 @@ const DIRECT_CLIENTS: Record<DirectClient, ModelFactory | null> = {
   deepseek: deepseekDirect && ((id) => deepseekDirect(id)),
   mistral: configured('MISTRAL_API_KEY', (id) => mistral(id)),
   cohere: configured('COHERE_API_KEY', (id) => cohere(id)),
-  zai: zai && ((id) => zai.chatModel(id)),
+  zhipu: zai && ((id) => zai.chatModel(id)),
   minimax: minimax && ((id) => minimax.chatModel(id)),
   sarvam: sarvam && ((id) => sarvam.chatModel(id)),
-};
-
-const HOST_CLIENTS: Record<HostId, ModelFactory | null> = {
   groq: configured('GROQ_API_KEY', (id) => groq(id)),
   novita: novita && ((id) => novita.chatModel(id)),
   gateway: (id) => gateway(id),
@@ -144,7 +141,7 @@ const HOST_CLIENTS: Record<HostId, ModelFactory | null> = {
 
 // Native SDKs return reasoning as its own parts; OpenAI-compatible shims and
 // aggregators can stream it inline as <think> tags instead.
-const NATIVE_REASONING_CLIENTS = new Set<DirectClient>([
+const NATIVE_REASONING_PROVIDERS = new Set<ProviderId>([
   'openai',
   'anthropic',
   'google',
@@ -157,36 +154,19 @@ const NATIVE_REASONING_CLIENTS = new Set<DirectClient>([
 
 const thinkTagMiddleware = extractReasoningMiddleware({ tagName: 'think' });
 
-function routeModel(
-  entry: CatalogEntry,
-  route: CatalogRoute,
-  client: DirectClient | undefined,
-): LanguageModelV3 | null {
-  const factory = route.host === 'direct' ? client && DIRECT_CLIENTS[client] : HOST_CLIENTS[route.host];
-  if (!factory) return null;
-  const model = factory(route.modelId);
-  const native = route.host === 'direct' && client && NATIVE_REASONING_CLIENTS.has(client);
-  return entry.reasoning && !native ? wrapLanguageModel({ model, middleware: thinkTagMiddleware }) : model;
-}
-
-function routeChain(
-  entry: CatalogEntry,
-  routes: CatalogRoute[],
-  client: DirectClient | undefined,
-): LanguageModelV3 | null {
-  const [first, ...rest] = routes.map((route) => routeModel(entry, route, client)).filter((model) => model !== null);
-  if (!first) return null;
-  return rest.length ? createRetryable({ model: first, retries: rest }) : first;
-}
-
-// The language model for a catalog entry: its routes in order, each later
-// one tried when the previous fails.
+// The language model for a catalog entry, on its provider only: a failure
+// is the user's to see, not a reason to call the model somewhere else.
 function catalogLanguageModel(entry: CatalogEntry): LanguageModelV3 | null {
-  const client = LABS.find((lab) => lab.id === entry.lab)?.direct?.client;
-  const thinking = routeChain(entry, entry.routes, client);
-  if (!thinking || !entry.instantRoutes) return thinking;
-  const instant = routeChain(entry, entry.instantRoutes, client);
-  return instant ? reasoningSwitch({ thinking, instant }) : thinking;
+  const factory = PROVIDER_CLIENTS[entry.provider];
+  if (!factory) return null;
+  const build = (modelId: string) => {
+    const model = factory(modelId);
+    return entry.reasoning && !NATIVE_REASONING_PROVIDERS.has(entry.provider)
+      ? wrapLanguageModel({ model, middleware: thinkTagMiddleware })
+      : model;
+  };
+  const thinking = build(entry.modelId);
+  return entry.instantModelId ? reasoningSwitch({ thinking, instant: build(entry.instantModelId) }) : thinking;
 }
 
 // Internal models that aren't chat models, so never part of the catalog.

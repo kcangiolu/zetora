@@ -13,7 +13,7 @@ vi.mock('@/ai/providers', () => ({
 }));
 vi.mock('@/ai/catalog/models', () => ({
   getModelEntry: (modelId: string) =>
-    modelId.includes(':') ? { lab: modelId.slice(0, modelId.indexOf(':')) } : undefined,
+    modelId.includes(':') ? { provider: modelId.slice(0, modelId.indexOf(':')) } : undefined,
 }));
 
 describe('parseStartWithCommand', () => {
