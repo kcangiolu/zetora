@@ -22,6 +22,7 @@ function entry(id: string, provider: CatalogEntry['provider'], modelId: string):
 
 const ENTRIES = [
   entry('xai:grok-fast', 'xai', 'grok-fast'),
+  { ...entry('xai:grok-pair', 'xai', 'grok-pair-reasoning'), instantModelId: 'grok-pair-non-reasoning' },
   entry('openrouter:x-ai/grok-fast', 'openrouter', 'x-ai/grok-fast'),
 ];
 
@@ -40,6 +41,11 @@ describe('getXSearchModel', () => {
   it('runs on the xAI model ZETORA_MODEL_X_SEARCH names', () => {
     vi.stubEnv('ZETORA_MODEL_X_SEARCH', 'xai:grok-fast');
     expect(getXSearchModel().modelId).toBe('grok-fast');
+  });
+
+  it('runs a thinking/instant pair as its instant model', () => {
+    vi.stubEnv('ZETORA_MODEL_X_SEARCH', 'xai:grok-pair');
+    expect(getXSearchModel().modelId).toBe('grok-pair-non-reasoning');
   });
 
   it('names the variable to set when it is empty', () => {

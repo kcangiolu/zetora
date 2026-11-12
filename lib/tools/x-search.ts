@@ -13,7 +13,8 @@ import { dedupeCitations, hydrateXPosts, resolveXSearchDateRange, sanitizeXHandl
 const X_SEARCH_ENV_KEY = 'ZETORA_MODEL_X_SEARCH';
 
 // xAI's X search tool only runs on xAI's own API. The instance names the
-// model driving it; the tool does the searching, so a fast one is enough.
+// model driving it; the tool does the searching, so a model published as a
+// thinking/instant pair runs as its instant one.
 export function getXSearchModel() {
   const configured = process.env[X_SEARCH_ENV_KEY]?.trim();
   if (!configured) {
@@ -25,7 +26,7 @@ export function getXSearchModel() {
       `X search: ${X_SEARCH_ENV_KEY}=${configured} is not an xAI model in the catalog. Set it to one served by xAI (xai:<model>).`,
     );
   }
-  return xai.responses(entry.modelId);
+  return xai.responses(entry.instantModelId ?? entry.modelId);
 }
 
 const log = createLogger('x-search');
