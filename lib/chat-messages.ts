@@ -21,6 +21,7 @@ export function convertToUIMessages(messages: Message[]): ChatMessage[] {
         inputTokens: message.inputTokens,
         outputTokens: message.outputTokens,
         totalTokens: message.totalTokens,
+        cost: message.cost,
         isCompactionSummary: message.isCompactionSummary,
         compactionReplacedCount: message.compactionReplacedCount,
         hermesGatewayId: message.hermesGatewayId,

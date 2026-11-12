@@ -204,6 +204,13 @@
       "when": 1793711164050,
       "tag": "0028_happy_rage",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1794476190717,
+      "tag": "0029_redundant_bastion",
+      "breakpoints": true
     }
   ]
 }

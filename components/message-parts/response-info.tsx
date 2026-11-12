@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useLocale } from '@/contexts/locale-context';
+import { useInstanceCapabilities } from '@/hooks/use-instance-capabilities';
+import { formatCost } from '@/lib/format-cost';
 import type { ChatMessage } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -29,11 +31,13 @@ function Pill({ icon, children }: { icon: typeof CpuIcon; children: React.ReactN
   );
 }
 
-// Model, timing and token counts of an answer. A Hermes reply has no model or token data
+// Model, timing, token counts and, when the instance shows costs, the price of an answer. A Hermes reply has no model or token data
 // (the relay carries none): it shows where and when it came from instead.
 export function ResponseInfo({ message, modelLabel }: { message: ChatMessage; modelLabel: string | null }) {
   const locale = useLocale();
+  const showCosts = useInstanceCapabilities()?.costs === true;
   const meta = message.metadata;
+  const cost = showCosts ? (meta?.cost ?? null) : null;
   const inputCount = meta?.inputTokens ?? null;
   const outputCount = meta?.outputTokens ?? null;
   const tokenTotal = (meta?.totalTokens ?? (inputCount ?? 0) + (outputCount ?? 0)) || null;
@@ -140,6 +144,12 @@ export function ResponseInfo({ message, modelLabel }: { message: ChatMessage; mo
                 </div>
               )}
             </div>
+          )}
+
+          {cost !== null && (
+            <Row label="Cost">
+              <span className="text-xs font-medium">{formatCost(cost, locale)}</span>
+            </Row>
           )}
         </div>
       </PopoverContent>

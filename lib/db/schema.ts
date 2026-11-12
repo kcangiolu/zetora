@@ -160,6 +160,9 @@ export const message = pgTable(
     inputTokens: integer('input_tokens'),
     outputTokens: integer('output_tokens'),
     totalTokens: integer('total_tokens'),
+    // USD at the provider's list price when the answer was written (see
+    // ai/catalog/cost.ts); null when the model has no known price.
+    cost: real('cost'),
     completionTime: real('completion_time'),
     // Populated by a BEFORE INSERT OR UPDATE OF parts trigger, not by the app.
     // Nullable: existing rows are NULL until the one-time backfill runs; every row

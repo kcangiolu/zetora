@@ -20,7 +20,7 @@ export interface ModelsDevModel {
   modalities?: { input?: string[]; output?: string[] };
   limit?: { context?: number; output?: number };
   // USD per million tokens.
-  cost?: { input?: number; output?: number };
+  cost?: { input?: number; output?: number; cache_read?: number; cache_write?: number };
   status?: 'alpha' | 'beta' | 'deprecated';
 }
 
@@ -57,8 +57,8 @@ export interface CatalogEntry {
   contextWindow?: number;
   maxOutputTokens?: number;
   structuredOutput: boolean;
-  // USD per million input + output tokens, when known.
-  cost?: { input: number; output: number };
+  // USD per million tokens, when known; cached input when priced apart.
+  cost?: { input: number; output: number; cacheRead?: number; cacheWrite?: number };
   // null when the model doesn't reason.
   reasoning: ReasoningSpec | null;
   // Set when thinking and instant answers are two separate upstream models:

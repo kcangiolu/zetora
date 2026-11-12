@@ -3,6 +3,8 @@ import type { XaiProviderOptions } from '@ai-sdk/xai';
 import { createResumableUIMessageStream } from 'ai-resumable-stream';
 import { all } from 'better-all';
 
+import { answerCost } from '@/ai/catalog/cost';
+import { getModelEntry } from '@/ai/catalog/models';
 import { getTaskModel } from '@/ai/catalog/task-models';
 import { resolveTertiaryModel } from '@/ai/tertiary';
 import { getBetterAllOptions } from '@/lib/better-all';
@@ -166,6 +168,7 @@ async function executeRun(lookout: LookoutRow): Promise<void> {
               totalTokens: part.totalUsage?.totalTokens ?? null,
               inputTokens: part.totalUsage?.inputTokens ?? null,
               outputTokens: part.totalUsage?.outputTokens ?? null,
+              cost: answerCost(getModelEntry(modelId), part.totalUsage),
             };
           },
         }),

@@ -16,7 +16,8 @@ import { all } from 'better-all';
 
 import { createLogger } from '@/lib/logger';
 import { resolveModel, getAnonymizeContext } from '@/ai/providers';
-import { getModelParameters, hasVisionSupport } from '@/ai/catalog/models';
+import { answerCost } from '@/ai/catalog/cost';
+import { getModelEntry, getModelParameters, hasVisionSupport } from '@/ai/catalog/models';
 import { loadModelCatalog } from '@/ai/catalog/store';
 import {
   getMessagesByChatId,
@@ -542,6 +543,7 @@ export async function POST(req: Request) {
               totalTokens: part.totalUsage?.totalTokens ?? null,
               inputTokens: part.totalUsage?.inputTokens ?? null,
               outputTokens: part.totalUsage?.outputTokens ?? null,
+              cost: answerCost(getModelEntry(model), part.totalUsage),
             };
           },
         }),

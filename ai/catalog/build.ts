@@ -114,7 +114,12 @@ function toEntry(provider: ProviderConfig, modelId: string, candidate: Candidate
     structuredOutput: meta.structured_output === true,
     cost:
       meta.cost?.input !== undefined && meta.cost.output !== undefined
-        ? { input: meta.cost.input, output: meta.cost.output }
+        ? {
+            input: meta.cost.input,
+            output: meta.cost.output,
+            cacheRead: meta.cost.cache_read,
+            cacheWrite: meta.cost.cache_write,
+          }
         : undefined,
     reasoning: toReasoningSpec(meta),
   };

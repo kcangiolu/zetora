@@ -107,6 +107,7 @@ export async function saveLookoutMessages(chatId: string, modelId: string, messa
         inputTokens: message.metadata?.inputTokens ?? 0,
         outputTokens: message.metadata?.outputTokens ?? 0,
         totalTokens: message.metadata?.totalTokens ?? 0,
+        cost: message.metadata?.cost ?? null,
       })),
     )
     .onConflictDoNothing({ target: messageTable.id });

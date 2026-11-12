@@ -29,6 +29,8 @@ export interface InstanceCapabilities {
   // Chat sources none of whose tools this instance can run (an API key not
   // set, no sandbox), hidden like the sources with no search provider.
   unavailableSources: string[];
+  // ZETORA_SHOW_COSTS: each answer's cost and the providers' credit left.
+  costs: boolean;
 }
 
 const SEARCH_PROVIDER_CONFIGURED: Record<SearchProviderId, () => boolean> = {
@@ -76,6 +78,7 @@ export function getInstanceCapabilities(): InstanceCapabilities {
     cloudVoice: isCloudVoiceAvailable(),
     localVoice: isLocalVoiceAvailable(),
     unavailableSources: getUnavailableSources(),
+    costs: serverEnv.ZETORA_SHOW_COSTS,
   };
 }
 

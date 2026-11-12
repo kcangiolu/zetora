@@ -1,5 +1,7 @@
 import { SPEC_DATA_PART_TYPE } from '@json-render/core';
 
+import { answerCost } from '@/ai/catalog/cost';
+import { getModelEntry } from '@/ai/catalog/models';
 import { getLatestStreamIdByChatId, getLatestUserMessageIdByChatId, saveMessages } from '@/lib/db/queries';
 import { createLogger } from '@/lib/logger';
 import type { ChatMessage } from '@/lib/types';
@@ -87,6 +89,8 @@ export async function persistStreamMessages({
       inputTokens: message.metadata?.inputTokens ?? usage.inputTokens,
       outputTokens: message.metadata?.outputTokens ?? usage.outputTokens,
       totalTokens: message.metadata?.totalTokens ?? usage.totalTokens,
+      // An aborted answer has no finish metadata: priced from its steps' tokens.
+      cost: message.metadata?.cost ?? answerCost(getModelEntry(model), usage),
       searchVector: null,
       isCompactionSummary: false,
       compactionReplacedCount: null,

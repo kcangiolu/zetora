@@ -348,6 +348,7 @@ function copyMessageToChat(messageItem: Message, chatId: string): Message {
     inputTokens: messageItem.inputTokens ?? null,
     outputTokens: messageItem.outputTokens ?? null,
     totalTokens: messageItem.totalTokens ?? null,
+    cost: messageItem.cost ?? null,
     completionTime: messageItem.completionTime ?? null,
     searchVector: null,
     isCompactionSummary: messageItem.isCompactionSummary,

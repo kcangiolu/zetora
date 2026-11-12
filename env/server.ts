@@ -130,6 +130,14 @@ export const serverEnv = createEnv({
       .optional()
       .default('true')
       .transform((v) => v.toLowerCase() !== 'false'),
+    // Set to true to show every user what each answer cost and the credit left
+    // on the instance's provider keys: off by default, since that credit is
+    // the instance owner's.
+    ZETORA_SHOW_COSTS: z
+      .string()
+      .optional()
+      .default('false')
+      .transform((v) => v.toLowerCase() === 'true'),
   },
   experimental__runtimeEnv: process.env,
   // `KEY=` (how .env.example leaves unset keys) must count as unset, so the

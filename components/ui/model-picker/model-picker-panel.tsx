@@ -16,8 +16,11 @@ import {
 } from '@/ai/models';
 import { MagicWandIcon } from '@/components/ui/magic-wand-icon';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useLocale } from '@/contexts/locale-context';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useProviderCredits } from '@/hooks/use-provider-credits';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
+import { formatCost } from '@/lib/format-cost';
 import { cn } from '@/lib/utils';
 import { ProviderIcon } from './provider-icon';
 import { ServingProviderName } from './serving-provider-name';
@@ -208,7 +211,9 @@ interface ModelPickerPanelProps {
 
 export function ModelPickerPanel({ models, selectedModel, onSelect, idPrefix }: ModelPickerPanelProps) {
   const isMobile = useIsMobile();
+  const locale = useLocale();
   const haptics = useWebHaptics();
+  const credits = useProviderCredits();
   const providerSidebarRef = useRef<HTMLDivElement>(null);
   const modelListRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -280,6 +285,8 @@ export function ModelPickerPanel({ models, selectedModel, onSelect, idPrefix }: 
   // Lab headers, only within a provider's tab that mixes labs.
   const showLabHeaders =
     !isSearching && selectedTab !== ALL_TAB && new Set(displayModels.map((model) => model.lab)).size > 1;
+  const selectedCredit = credits?.find((credit) => credit.provider === selectedTab);
+
   // A provider's tab already says which provider serves its models.
   const showServingProvider = isSearching || selectedTab === ALL_TAB;
 
@@ -576,6 +583,16 @@ export function ModelPickerPanel({ models, selectedModel, onSelect, idPrefix }: 
             <div className="mx-2 mb-1 px-2 py-1.5 flex items-center gap-2 rounded-md bg-secondary/30 shrink-0">
               <ProviderIcon provider={groupIconProvider(selectedTab)} size={13} className="text-muted-foreground/70" />
               <span className="text-[11px] font-medium text-muted-foreground">{groupLabel(selectedTab)}</span>
+              {selectedCredit &&
+                ('error' in selectedCredit.balance ? (
+                  <span className="text-[10px] text-muted-foreground/50" title={selectedCredit.balance.error}>
+                    credit unknown
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-muted-foreground">
+                    {formatCost(selectedCredit.balance.amount, locale, selectedCredit.balance.currency)} left
+                  </span>
+                ))}
               <span className="text-[10px] text-muted-foreground/50 ml-auto">
                 {tabModelCounts[selectedTab] ?? 0} models
               </span>

@@ -116,6 +116,7 @@ export async function sendToHermes({
           inputTokens: null,
           outputTokens: null,
           totalTokens: null,
+          cost: null,
           completionTime: null,
           searchVector: null,
           isCompactionSummary: false,

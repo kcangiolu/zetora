@@ -118,6 +118,8 @@ Zetora names no models itself. It lists the providers it integrates, and the mod
 
 A model belongs to the provider that serves it: Qwen3.8 27B through Groq and through OpenRouter are two models, each with that provider's context window and prices, and a request runs on the chosen provider only, never retried on another one. Adding a provider or a lab is a single entry in [`ai/catalog/config.ts`](ai/catalog/config.ts). One `ZETORA_MODEL_*` variable per function (chat, titles, follow-up questions, Extreme Search…) sets the model everyone gets by default (see `.env.example`); each user can pick another one in Settings. There is no fallback: a function with neither does not run, and Settings shows it in red. Image moderation is the exception: `ZETORA_MODEL_IMAGE_MODERATION` names the vision model that checks every image users send, users cannot change it, and leaving it empty turns moderation off.
 
+With `ZETORA_SHOW_COSTS=true`, each answer's info popover shows what it cost at the provider's list price (cached input at its own price; titles, suggestions and other side tasks not counted), and the model picker shows the credit left on the provider keys whose API tells it: OpenRouter and DeepSeek. It is off by default, since every user would see the instance owner's credit.
+
 ## Self-Hosted Stack
 
 Zetora bundles a complete self-hosted stack in [`docker-compose.yml`](docker-compose.yml), so Zetora can run with little to no dependency on third-party cloud services beyond your chosen AI provider API keys.

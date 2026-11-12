@@ -152,6 +152,9 @@ const messageMetadataSchema = z.object({
   inputTokens: z.number().nullable(),
   outputTokens: z.number().nullable(),
   totalTokens: z.number().nullable(),
+  // USD at list price (ai/catalog/cost.ts). Absent on messages it was never
+  // computed for; null when the model has no known price.
+  cost: z.number().nullable().optional(),
   // Marks the synthetic assistant message holding the automatic
   // context-compaction summary (lib/search/context-compaction.ts). Optional:
   // absent/false for every ordinary message.

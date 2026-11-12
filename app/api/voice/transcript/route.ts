@@ -132,6 +132,7 @@ export async function POST(req: NextRequest) {
       inputTokens: null,
       outputTokens: null,
       totalTokens: null,
+      cost: null,
       completionTime: null,
       searchVector: null,
       isCompactionSummary: false,
