@@ -24,7 +24,7 @@ import { getModelEntry } from '@/ai/catalog/models';
 import { ModelUnavailableError, getTaskModel } from '@/ai/catalog/task-models';
 import { loadModelCatalog } from '@/ai/catalog/store';
 import type { CatalogEntry } from '@/ai/catalog/types';
-import { ARCH_ROUTER_MODEL, DEFAULT_MODEL_ALIAS, canonicalModelId } from '@/ai/models/helpers';
+import { ARCH_ROUTER_MODEL, DEFAULT_MODEL_ALIAS } from '@/ai/models/helpers';
 
 const openaiCompatible = (name: string, baseURL: string, apiKey: string | undefined) =>
   isConfigured(apiKey) ? createOpenAICompatible({ name, baseURL, apiKey }) : null;
@@ -302,7 +302,7 @@ export async function resolveModel(
 ): Promise<LanguageModelV3> {
   await loadModelCatalog();
   // The default model is the user's "Default Model" pick, else the instance's.
-  if (canonicalModelId(modelId) === DEFAULT_MODEL_ALIAS) {
+  if (modelId === DEFAULT_MODEL_ALIAS) {
     return resolveModel(getTaskModel('default', preferences), preferences, userId, hasImages);
   }
   let resolved: LanguageModelV3;

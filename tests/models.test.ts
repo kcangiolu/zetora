@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import {
-  canonicalModelId,
   findModel,
   getAcceptedFileTypes,
   getProviderName,
@@ -34,11 +33,6 @@ describe('findModel', () => {
 
   it('finds a model by its catalog id', () => {
     expect(findModel(models, 'openai:gpt-5.4')).toBe(gpt);
-  });
-
-  it('resolves an id stored before the models.dev catalog', () => {
-    expect(canonicalModelId('zetora-anthropic-sonnet-4.6')).toBe('anthropic:claude-sonnet-4-6');
-    expect(findModel(models, 'zetora-anthropic-sonnet-4.6-think')).toBe(sonnet);
   });
 
   it('matches an id spelled the way another host spells it', () => {

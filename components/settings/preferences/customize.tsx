@@ -9,7 +9,7 @@ import { useInstanceCapabilities } from '@/hooks/use-instance-capabilities';
 import { isSearchGroupAvailable, pickSearchProvider } from '@/lib/search/providers';
 import { cn } from '@/lib/utils';
 import { getSearchGroups } from '@/lib/search/search-groups';
-import { canonicalModelId, getProviderName, type Model, type ModelProvider } from '@/ai/models';
+import { getProviderName, type Model, type ModelProvider } from '@/ai/models';
 import { useModels } from '@/hooks/use-models';
 import { Search } from 'lucide-react';
 import { useMemo, useState, type ComponentType } from 'react';
@@ -38,9 +38,7 @@ export function CustomizeTab() {
     enabledSourcesPref.length > 0
       ? enabledSourcesPref
       : visibleModesLegacy.filter((id) => SOURCE_CATALOG_IDS.includes(id));
-  // Stored ids may predate the current catalog ids.
-  const [storedPreferredModels, setPreferredModels] = useSyncedPreferences<string[]>('zetora-preferred-models', []);
-  const preferredModels = useMemo(() => storedPreferredModels.map(canonicalModelId), [storedPreferredModels]);
+  const [preferredModels, setPreferredModels] = useSyncedPreferences<string[]>('zetora-preferred-models', []);
   const { catalogModels } = useModels();
 
   const sourceCatalog = useMemo(

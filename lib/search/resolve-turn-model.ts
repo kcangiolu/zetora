@@ -1,4 +1,4 @@
-import { AUTO_MODEL_ID, DEFAULT_MODEL_ALIAS, canonicalModelId } from '@/ai/models';
+import { AUTO_MODEL_ID, DEFAULT_MODEL_ALIAS } from '@/ai/models';
 import { getModelEntry } from '@/ai/catalog/models';
 import { ModelUnavailableError, getTaskModel } from '@/ai/catalog/task-models';
 import type { UserPreferenceValues } from '@/lib/db/schema';
@@ -50,7 +50,7 @@ export async function resolveTurnModel({
     }
   }
 
-  if (canonicalModelId(model) === DEFAULT_MODEL_ALIAS) {
+  if (model === DEFAULT_MODEL_ALIAS) {
     try {
       model = getTaskModel('default', preferences);
     } catch (error) {

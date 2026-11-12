@@ -5,15 +5,7 @@ import { Eye, Brain, FilePdf } from '@phosphor-icons/react';
 import { Check, ChevronDown, Search, Star } from 'lucide-react';
 import { useWebHaptics } from 'web-haptics/react';
 
-import {
-  AUTO_MODEL_ID,
-  LAB_ORDER,
-  PROVIDER_ORDER,
-  canonicalModelId,
-  getLabName,
-  getProviderName,
-  type Model,
-} from '@/ai/models';
+import { AUTO_MODEL_ID, LAB_ORDER, PROVIDER_ORDER, getLabName, getProviderName, type Model } from '@/ai/models';
 import { MagicWandIcon } from '@/components/ui/magic-wand-icon';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useLocale } from '@/contexts/locale-context';
@@ -221,9 +213,8 @@ export function ModelPickerPanel({ models, selectedModel, onSelect, idPrefix }: 
   const [showScrollIndicator, setShowScrollIndicator] = useState(true);
 
   // Favorites: shown first, and the only models on the 'all' tab when there
-  // are any. Stored ids may predate the current catalog ids.
-  const [storedPreferredModels, setPreferredModels] = useSyncedPreferences<string[]>('zetora-preferred-models', []);
-  const preferredModels = useMemo(() => storedPreferredModels.map(canonicalModelId), [storedPreferredModels]);
+  // are any.
+  const [preferredModels, setPreferredModels] = useSyncedPreferences<string[]>('zetora-preferred-models', []);
   const favorites = useMemo(() => new Set(preferredModels), [preferredModels]);
 
   const toggleFavorite = (modelValue: string) => {

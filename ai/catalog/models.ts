@@ -8,7 +8,6 @@ import {
 } from '@/ai/models/helpers';
 import type { Model, ModelParameters } from '@/ai/models/types';
 import type { ReasoningEffort } from '@/lib/reasoning-effort-types';
-import { canonicalModelId } from './legacy-ids';
 import { getSamplingParameters } from './overrides';
 import { getReasoningCapabilityFor } from './reasoning';
 import { getCatalogEntries, getCatalogEntry } from './store';
@@ -18,15 +17,13 @@ import type { CatalogEntry } from './types';
 // Models released this recently get the "new" badge.
 const NEW_MODEL_DAYS = 30;
 
-// Resolves any stored model id — current, legacy, or the default alias — to
-// its catalog entry.
+// Resolves a stored model id, or the default alias, to its catalog entry.
 export function getModelEntry(id: string): CatalogEntry | undefined {
-  const canonical = canonicalModelId(id);
-  if (canonical === DEFAULT_MODEL_ALIAS) {
+  if (id === DEFAULT_MODEL_ALIAS) {
     const defaultModelId = getTaskModelId('default');
     return defaultModelId ? getCatalogEntry(defaultModelId) : undefined;
   }
-  return getCatalogEntry(canonical);
+  return getCatalogEntry(id);
 }
 
 function isRecentRelease(releaseDate: string | undefined): boolean {

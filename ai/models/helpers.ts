@@ -1,11 +1,8 @@
 // Accessors over model objects — client-safe, shared by the server and the UI.
 import { LABS, PROVIDERS } from '@/ai/catalog/config';
 import { modelKey } from '@/ai/catalog/build';
-import { canonicalModelId } from '@/ai/catalog/legacy-ids';
 import type { Model, ModelProvider } from './types';
 import type { ReasoningCapability } from '@/lib/reasoning-effort-types';
-
-export { canonicalModelId };
 
 // The virtual model that lets the auto-router pick per message.
 export const AUTO_MODEL_ID = 'zetora-auto';
@@ -23,17 +20,15 @@ export const ARCH_ROUTER_MODEL = { id: 'zetora-arch-router', label: 'Arch-Router
 export const DEFAULT_CONTEXT_WINDOW = 128_000;
 export const DEFAULT_MAX_OUTPUT_TOKENS = 8000;
 
-// Finds a model by any id it may be stored under: current, legacy, or
-// spelled differently.
+// Finds a model by its catalog id, or by the same id spelled differently.
 export function findModel(models: Model[], id: string | undefined): Model | undefined {
   if (!id) return undefined;
-  const canonical = canonicalModelId(id);
-  const exact = models.find((model) => model.value === canonical);
+  const exact = models.find((model) => model.value === id);
   if (exact) return exact;
-  const separator = canonical.indexOf(':');
+  const separator = id.indexOf(':');
   if (separator < 0) return undefined;
-  const prefix = canonical.slice(0, separator + 1);
-  const key = modelKey(canonical.slice(separator + 1));
+  const prefix = id.slice(0, separator + 1);
+  const key = modelKey(id.slice(separator + 1));
   return models.find((model) => model.value.startsWith(prefix) && modelKey(model.value.slice(prefix.length)) === key);
 }
 
@@ -42,9 +37,8 @@ export function findModel(models: Model[], id: string | undefined): Model | unde
 // once the catalog has been read. A custom model is left alone, since its
 // provider not answering right now says nothing about the model.
 export function isRetiredModelSelection(selected: string, catalogModels: Model[]): boolean {
-  const canonical = canonicalModelId(selected);
-  if (canonical === DEFAULT_MODEL_ALIAS || canonical === AUTO_MODEL_ID || canonical.startsWith('custom-')) return false;
-  return !findModel(catalogModels, canonical);
+  if (selected === DEFAULT_MODEL_ALIAS || selected === AUTO_MODEL_ID || selected.startsWith('custom-')) return false;
+  return !findModel(catalogModels, selected);
 }
 
 export function getProviderName(provider: ModelProvider): string {
