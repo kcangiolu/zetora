@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { createLogger } from '@/lib/logger';
 import { describeSearchError } from '@/lib/tools/search-errors';
 import { hydrateXPosts, resolveXSearchDateRange, sanitizeXHandles } from '@/lib/tools/x-citations';
-import { X_SEARCH_MODEL_ID } from '@/lib/tools/x-search';
+import { getXSearchModel } from '@/lib/tools/x-search';
 import { getFaviconUrl } from '@/lib/url';
 
 import type { AgentToolContext } from './context';
@@ -77,7 +77,7 @@ export function createXSearchTool({ emit, collectSources }: AgentToolContext) {
             if (normalizedInclude?.length) xSearchToolConfig.allowedXHandles = normalizedInclude;
 
             const { text, sources } = await generateText({
-              model: xai.responses(X_SEARCH_MODEL_ID),
+              model: getXSearchModel(),
               abortSignal,
               system: `You are a helpful assistant that searches for X content with all the tools available to you. Do not use user search tool. Max limit of results is 30. You can search for the thread or the content of the post. You can also search for the content of the post using thread fetch tool. NO NEED TO WRITE A SINGLE WORD AFTER RUNNING THE TOOLs AT ALL COSTS!!`,
               messages: [{ role: 'user', content: query }],

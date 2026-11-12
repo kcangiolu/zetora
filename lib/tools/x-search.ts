@@ -3,14 +3,30 @@ import { z } from 'zod';
 import { xai } from '@ai-sdk/xai';
 import { UIMessageStreamWriter } from 'ai';
 import { ChatMessage } from '@/lib/types';
+import { getModelEntry } from '@/ai/catalog/models';
+import { ModelUnavailableError } from '@/ai/catalog/task-models';
 
 import { createLogger } from '@/lib/logger';
 import { describeSearchError } from '@/lib/tools/search-errors';
 import { dedupeCitations, hydrateXPosts, resolveXSearchDateRange, sanitizeXHandles } from '@/lib/tools/x-citations';
 
-// xAI's X search tool only runs on xAI's own models; the model here only
-// drives the tool, so a fast non-reasoning one is enough.
-export const X_SEARCH_MODEL_ID = 'grok-4-1-fast-non-reasoning';
+const X_SEARCH_ENV_KEY = 'ZETORA_MODEL_X_SEARCH';
+
+// xAI's X search tool only runs on xAI's own API. The instance names the
+// model driving it; the tool does the searching, so a fast one is enough.
+export function getXSearchModel() {
+  const configured = process.env[X_SEARCH_ENV_KEY]?.trim();
+  if (!configured) {
+    throw new ModelUnavailableError(`X search: no model is configured. Set ${X_SEARCH_ENV_KEY} to an xAI model.`);
+  }
+  const entry = getModelEntry(configured);
+  if (entry?.provider !== 'xai') {
+    throw new ModelUnavailableError(
+      `X search: ${X_SEARCH_ENV_KEY}=${configured} is not an xAI model in the catalog. Set it to one served by xAI (xai:<model>).`,
+    );
+  }
+  return xai.responses(entry.modelId);
+}
 
 const log = createLogger('x-search');
 
@@ -98,7 +114,7 @@ export function xSearchTool(dataStream?: UIMessageStreamWriter<ChatMessage>) {
             // are not directly supported in the new xai.tools.xSearch API.
 
             const { text, sources } = await generateText({
-              model: xai.responses(X_SEARCH_MODEL_ID),
+              model: getXSearchModel(),
               system: `You are a helpful assistant that searches for X content with all the tools available to you. Do not use user search tool. Max limit of results is 30. You can search for the thread or the content of the post. You can also search for the content of the post using thread fetch tool. Go deep to find the latest information on the topic. NO NEED TO WRITE A SINGLE WORD AFTER RUNNING THE TOOLs AT ALL COSTS!!`,
               messages: [
                 {

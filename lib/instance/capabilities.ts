@@ -97,7 +97,7 @@ const TOOL_KEYS_CONFIGURED: Record<string, () => boolean> = {
   coin_data: () => isConfigured(serverEnv.COINGECKO_API_KEY),
   coin_data_by_contract: () => isConfigured(serverEnv.COINGECKO_API_KEY),
   coin_ohlc: () => isConfigured(serverEnv.COINGECKO_API_KEY),
-  x_search: () => isConfigured(serverEnv.XAI_API_KEY),
+  x_search: () => isConfigured(serverEnv.XAI_API_KEY) && Boolean(process.env.ZETORA_MODEL_X_SEARCH?.trim()),
   youtube_search: () => isConfigured(serverEnv.SUPADATA_API_KEY),
   spotify_search: () => isConfigured(serverEnv.SPOTIFY_CLIENT_ID) && isConfigured(serverEnv.SPOTIFY_CLIENT_SECRET),
   movie_or_tv_search: () => isConfigured(serverEnv.TMDB_API_KEY),
