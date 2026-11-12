@@ -55,8 +55,21 @@ export function getProviderName(provider: ModelProvider): string {
   );
 }
 
-// Lab order for the picker's provider tabs.
-export const PROVIDER_ORDER: ModelProvider[] = LABS.map((lab) => lab.id);
+// Order of the picker's provider tabs.
+export const PROVIDER_ORDER: ModelProvider[] = PROVIDERS.map((provider) => provider.id);
+
+// Order of the lab groups inside a provider's tab.
+export const LAB_ORDER: string[] = LABS.map((lab) => lab.id);
+
+export function getLabName(lab: string): string {
+  return LABS.find((entry) => entry.id === lab)?.name ?? lab;
+}
+
+// The provider to show next to a model's name: the one serving it, when that
+// is not the lab's own API (Qwen through Groq, Gemini through Agent Platform).
+export function getServingProviderName(model: Model): string | undefined {
+  return model.lab && model.lab !== model.provider ? getProviderName(model.provider) : undefined;
+}
 
 // The reasoning-effort toggle's mode for a model: see Model.reasoningControl.
 export function getReasoningControl(model: Model | undefined): ReasoningCapability {

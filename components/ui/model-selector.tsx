@@ -9,6 +9,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from 
 import { MarqueeText } from '@/components/ui/marquee-text';
 import { ModelPickerPanel } from '@/components/ui/model-picker/model-picker-panel';
 import { ProviderIcon } from '@/components/ui/model-picker/provider-icon';
+import { ServingProviderName } from '@/components/ui/model-picker/serving-provider-name';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useModels } from '@/hooks/use-models';
@@ -41,9 +42,14 @@ const SelectorTrigger = React.forwardRef<React.ComponentRef<typeof Button>, Sele
     >
       <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
         {currentModel && (
-          <ProviderIcon provider={currentModel.provider} size={13} className="text-foreground/70 shrink-0" />
+          <ProviderIcon
+            provider={currentModel.lab ?? currentModel.provider}
+            size={13}
+            className="text-foreground/70 shrink-0"
+          />
         )}
         <MarqueeText text={currentModel?.label || 'Select model'} className="min-w-0 flex-1" />
+        <ServingProviderName model={currentModel} />
       </div>
       <ChevronDown
         className={cn('h-3.5 w-3.5 shrink-0 opacity-50 transition-transform duration-200', open && 'rotate-180')}

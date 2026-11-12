@@ -11,6 +11,7 @@ import { MagicWandIcon } from '@/components/ui/magic-wand-icon';
 import { MarqueeText } from '@/components/ui/marquee-text';
 import { ModelPickerPanel } from '@/components/ui/model-picker/model-picker-panel';
 import { ProviderIcon } from '@/components/ui/model-picker/provider-icon';
+import { ServingProviderName } from '@/components/ui/model-picker/serving-provider-name';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ProcessorIcon } from '@/components/ui/processor-icon';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -69,7 +70,11 @@ const SwitcherTrigger = React.forwardRef<React.ComponentRef<typeof Button>, Swit
           <span className="text-[13px] font-medium sm:hidden">Auto</span>
           {autoRoutedModelId ? (
             <div className="items-center gap-1.5 sm:flex hidden">
-              <ProviderIcon provider={autoRoutedModel?.provider ?? 'custom'} size={14} className="text-foreground/70" />
+              <ProviderIcon
+                provider={autoRoutedModel?.lab ?? autoRoutedModel?.provider ?? 'custom'}
+                size={14}
+                className="text-foreground/70"
+              />
               <span className="text-[13px] font-medium">{autoRoutedModel?.label || autoRoutedModelId}</span>
               <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">Auto</span>
             </div>
@@ -83,12 +88,17 @@ const SwitcherTrigger = React.forwardRef<React.ComponentRef<typeof Button>, Swit
       ) : (
         <div className="items-center gap-1.5 sm:flex hidden min-w-0 max-w-[200px] overflow-hidden">
           {currentModel && (
-            <ProviderIcon provider={currentModel.provider} size={14} className="text-foreground/70 shrink-0" />
+            <ProviderIcon
+              provider={currentModel.lab ?? currentModel.provider}
+              size={14}
+              className="text-foreground/70 shrink-0"
+            />
           )}
           <MarqueeText
             text={currentModel?.label ?? (selectedModel === DEFAULT_MODEL_ALIAS ? 'Select a model' : selectedModel)}
             className="text-[13px] font-medium min-w-0 flex-1"
           />
+          <ServingProviderName model={currentModel} className="text-[11px]" />
         </div>
       )}
       <CaretDownIcon

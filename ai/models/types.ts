@@ -11,8 +11,8 @@ export interface ModelParameters {
   maxOutputTokens?: number;
 }
 
-// A lab id from ai/catalog/config.ts, 'zetora' for the virtual Auto model,
-// or 'custom' for user-configured endpoints.
+// A provider id from ai/catalog/config.ts, 'zetora' for the virtual Auto
+// model, or 'custom' for user-configured endpoints.
 export type ModelProvider = string;
 
 export interface Model {
@@ -20,6 +20,8 @@ export interface Model {
   label: string;
   description: string;
   provider: ModelProvider;
+  // The lab that made a catalog model, whichever provider serves it.
+  lab?: string;
   vision: boolean;
   pdf: boolean;
   reasoning: boolean;

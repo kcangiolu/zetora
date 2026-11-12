@@ -176,6 +176,7 @@ export const ProviderIcon = ({
         </svg>
       );
     case 'vercel':
+    case 'gateway':
       return (
         <svg {...iconProps} viewBox="0 0 24 24" fill="currentColor">
           <path d="M24 22.525H0l12-21.05 12 21.05z" />

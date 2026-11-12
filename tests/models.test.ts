@@ -5,6 +5,7 @@ import {
   getAcceptedFileTypes,
   getProviderName,
   getReasoningControl,
+  getServingProviderName,
   type Model,
 } from '@/ai/models';
 
@@ -55,6 +56,15 @@ describe('model accessors', () => {
     expect(getProviderName('vertex')).toBe('Google Agent Platform');
     expect(getProviderName('custom')).toBe('Custom');
     expect(getProviderName('unknown-lab')).toBe('unknown-lab');
+  });
+
+  it("names the serving provider only when it is not the lab's own API", () => {
+    expect(getServingProviderName(model('groq:qwen/qwen3.8-27b', 'groq', { lab: 'alibaba' }))).toBe('Groq');
+    expect(getServingProviderName(model('vertex:gemini-3.8-flash', 'vertex', { lab: 'google' }))).toBe(
+      'Google Agent Platform',
+    );
+    expect(getServingProviderName(model('openai:gpt-6-luna', 'openai', { lab: 'openai' }))).toBeUndefined();
+    expect(getServingProviderName(model('custom-local:qwen', 'custom'))).toBeUndefined();
   });
 
   it('accepts PDFs only for models that read them', () => {

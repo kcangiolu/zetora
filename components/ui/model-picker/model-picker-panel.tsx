@@ -5,13 +5,22 @@ import { Eye, Brain, FilePdf } from '@phosphor-icons/react';
 import { Check, ChevronDown, Search, Star } from 'lucide-react';
 import { useWebHaptics } from 'web-haptics/react';
 
-import { AUTO_MODEL_ID, PROVIDER_ORDER, canonicalModelId, getProviderName, type Model } from '@/ai/models';
+import {
+  AUTO_MODEL_ID,
+  LAB_ORDER,
+  PROVIDER_ORDER,
+  canonicalModelId,
+  getLabName,
+  getProviderName,
+  type Model,
+} from '@/ai/models';
 import { MagicWandIcon } from '@/components/ui/magic-wand-icon';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 import { cn } from '@/lib/utils';
 import { ProviderIcon } from './provider-icon';
+import { ServingProviderName } from './serving-provider-name';
 
 // The provider tabs, search box and model list shared by the chat's model
 // switcher and the settings' model selectors. It is mounted each time the
@@ -51,11 +60,30 @@ function sortForList(models: Model[], favorites: Set<string>): Model[] {
   return [...favorite, ...fresh, ...rest];
 }
 
+// An aggregator's tab mixes labs: their models are grouped by lab, in the
+// usual lab order, each group sorted like a list.
+function groupByLab(models: Model[], favorites: Set<string>): Model[] {
+  const labs = new Set(models.map((model) => model.lab));
+  if (labs.size < 2) return sortForList(models, favorites);
+  const rank = (lab: string | undefined) => {
+    const index = lab ? LAB_ORDER.indexOf(lab) : -1;
+    return index < 0 ? LAB_ORDER.length : index;
+  };
+  const ordered = [...labs].sort((a, b) => rank(a) - rank(b));
+  return ordered.flatMap((lab) =>
+    sortForList(
+      models.filter((model) => model.lab === lab),
+      favorites,
+    ),
+  );
+}
+
 function searchText(model: Model): string {
   return [
     model.label,
     model.description,
     getProviderName(model.provider),
+    model.lab ? getLabName(model.lab) : '',
     model.value,
     model.vision ? 'vision' : '',
     model.reasoning ? 'reasoning' : '',
@@ -211,15 +239,15 @@ export function ModelPickerPanel({ models, selectedModel, onSelect, idPrefix }: 
   const groupLabel = (key: string) => customGroupNames.get(key) ?? getProviderName(key);
 
   // Every listed model is reachable (the catalog only holds configured
-  // routes), so each provider with models gets a tab: labs in their usual
+  // providers), so each provider with models gets a tab, in the usual
   // order, then custom providers by name.
   const tabs = useMemo(() => {
     const groups = new Set(models.map(getGroupKey));
-    const labs = PROVIDER_ORDER.filter((provider) => groups.has(provider));
+    const providers = PROVIDER_ORDER.filter((provider) => groups.has(provider));
     const custom = Array.from(groups)
       .filter((group) => group.startsWith('custom:'))
       .sort((a, b) => (customGroupNames.get(a) ?? a).localeCompare(customGroupNames.get(b) ?? b));
-    return [ALL_TAB, ...labs, ...custom];
+    return [ALL_TAB, ...providers, ...custom];
   }, [models, customGroupNames]);
 
   const allTabModels = useMemo(
@@ -242,10 +270,18 @@ export function ModelPickerPanel({ models, selectedModel, onSelect, idPrefix }: 
   const isSearching = searchQuery.trim().length > 0;
   const displayModels = useMemo(() => {
     if (isSearching) return rankModels(models, searchQuery, favorites);
-    const tabModels =
-      selectedTab === ALL_TAB ? allTabModels : models.filter((model) => getGroupKey(model) === selectedTab);
-    return sortForList(tabModels, favorites);
+    if (selectedTab === ALL_TAB) return sortForList(allTabModels, favorites);
+    return groupByLab(
+      models.filter((model) => getGroupKey(model) === selectedTab),
+      favorites,
+    );
   }, [isSearching, models, searchQuery, favorites, selectedTab, allTabModels]);
+
+  // Lab headers, only within a provider's tab that mixes labs.
+  const showLabHeaders =
+    !isSearching && selectedTab !== ALL_TAB && new Set(displayModels.map((model) => model.lab)).size > 1;
+  // A provider's tab already says which provider serves its models.
+  const showServingProvider = isSearching || selectedTab === ALL_TAB;
 
   // Starts on the selected model; moves back to the top when the list changes.
   const [focusedIndex, setFocusedIndex] = useState(() =>
@@ -353,7 +389,7 @@ export function ModelPickerPanel({ models, selectedModel, onSelect, idPrefix }: 
           {isAutoRouter ? (
             <MagicWandIcon size={iconSize} className={cn(isMobile ? 'size-4' : 'size-3.5')} />
           ) : (
-            <ProviderIcon provider={model.provider} size={iconSize} className="text-inherit!" />
+            <ProviderIcon provider={model.lab ?? model.provider} size={iconSize} className="text-inherit!" />
           )}
         </div>
 
@@ -368,6 +404,9 @@ export function ModelPickerPanel({ models, selectedModel, onSelect, idPrefix }: 
             >
               {isMobile ? model.label : <HighlightedText text={model.label} query={searchQuery} />}
             </span>
+            {showServingProvider && (
+              <ServingProviderName model={model} className={isMobile ? 'text-xs' : 'text-[10px]'} />
+            )}
 
             {isAutoRouter && (
               <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-primary/10 text-primary leading-none">
@@ -556,7 +595,18 @@ export function ModelPickerPanel({ models, selectedModel, onSelect, idPrefix }: 
                     Results
                   </div>
                 )}
-                {displayModels.map(renderModelCard)}
+                {displayModels.map((model, index) =>
+                  showLabHeaders && model.lab && displayModels[index - 1]?.lab !== model.lab ? (
+                    <React.Fragment key={`lab-${model.lab}`}>
+                      <div className="px-3 pt-2 pb-1 text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider">
+                        {getLabName(model.lab)}
+                      </div>
+                      {renderModelCard(model, index)}
+                    </React.Fragment>
+                  ) : (
+                    renderModelCard(model, index)
+                  ),
+                )}
               </div>
             )}
           </div>
