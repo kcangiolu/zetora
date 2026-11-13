@@ -105,7 +105,7 @@ describe('getSearchProviderOptions', () => {
   it('keeps only the provider defaults for a model outside the catalog', () => {
     const options = getSearchProviderOptions('custom-llamacpp:qwen', 'high');
     expect(options.openai).toEqual({ parallelToolCalls: false, store: false, promptCacheKey: 'zetora-oai' });
-    expect(options.anthropic).toEqual({ disableParallelToolUse: true });
+    expect(options.anthropic).toEqual({ disableParallelToolUse: true, toolStreaming: false });
   });
 
   it('tells a thinking/instant pair which upstream model to use', () => {

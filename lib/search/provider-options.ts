@@ -73,7 +73,10 @@ function getProviderDefaults(): SharedV3ProviderOptions {
       parallel_tool_calls: false,
       parallelToolCalls: false,
     },
-    anthropic: { disableParallelToolUse: true } satisfies AnthropicProviderOptions,
+    // Eager tool input streaming hands over arguments as Claude writes them,
+    // without checking them: a single value given for a list then comes out
+    // unquoted, as JSON nothing can parse or repair exactly.
+    anthropic: { disableParallelToolUse: true, toolStreaming: false } satisfies AnthropicProviderOptions,
     google: { threshold: 'OFF' } satisfies GoogleGenerativeAIProviderOptions,
     vertex: { threshold: 'OFF' } satisfies GoogleLanguageModelOptions,
   };
