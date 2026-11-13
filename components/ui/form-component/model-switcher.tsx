@@ -3,7 +3,7 @@ import { UseChatHelpers } from '@ai-sdk/react';
 import { CaretDownIcon } from '@phosphor-icons/react/dist/ssr';
 import { useWebHaptics } from 'web-haptics/react';
 
-import { AUTO_MODEL_ID, DEFAULT_MODEL_ALIAS, findModel, type Model } from '@/ai/models';
+import { AUTO_MODEL_ID, DEFAULT_MODEL_ALIAS, type Model } from '@/ai/models';
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { Kbd } from '@/components/ui/kbd';
@@ -137,7 +137,7 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       return () => document.removeEventListener('keydown', handleKeyDown);
     }, [setOpen]);
 
-    const currentModel = useMemo(() => findModel(availableModels, selectedModel), [availableModels, selectedModel]);
+    const currentModel = useMemo(() => getModel(selectedModel), [getModel, selectedModel]);
 
     const handleSelect = useCallback(
       (model: Model) => {

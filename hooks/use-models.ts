@@ -3,6 +3,7 @@
 import { useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DEFAULT_MODEL_ALIAS, findModel, type Model, type TertiaryTask } from '@/ai/models';
+import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 
 interface CatalogResponse {
   models: Model[];
@@ -46,7 +47,10 @@ export function useModels() {
   const customModels = custom.data?.models ?? NO_MODELS;
   const taskModelIds = catalog.data?.taskModelIds;
   const unavailableTaskModels = catalog.data?.unavailableTaskModels;
-  const defaultModelId = taskModelIds?.default ?? null;
+  // The default model is the user's "Default Model" pick, else the instance's,
+  // as the server resolves it (getTaskModel).
+  const [defaultModelPick] = useSyncedPreferences<string>('zetora-default-model', '');
+  const defaultModelId = defaultModelPick || (taskModelIds?.default ?? null);
   const models = useMemo(() => [...catalogModels, ...customModels], [catalogModels, customModels]);
 
   // Resolves any stored id: current, legacy, or the default alias.

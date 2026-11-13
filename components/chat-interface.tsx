@@ -143,21 +143,6 @@ const ChatInterface = memo(
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
     const [selectedModel, setSelectedModel] = useLocalStorage('zetora-selected-model', DEFAULT_MODEL_ALIAS);
-    // On first visit (no 'zetora-selected-model' ever stored), pre-select the
-    // user's "Default Model" preference (Settings → Tertiary Models) instead
-    // of leaving the instance's default — mirrors resolveModel's
-    // server-side fallback (ai/providers.ts's resolveDefaultModelId) so an
-    // explicit preference is honored everywhere, not just in the background.
-    const [defaultModelPreference, , defaultModelPreferenceResolved] = useSyncedPreferences<string>(
-      'zetora-default-model',
-      '',
-    );
-    useEffect(() => {
-      if (!defaultModelPreferenceResolved || !defaultModelPreference) return;
-      if (typeof window === 'undefined') return;
-      if (localStorage.getItem('zetora-selected-model') !== null) return;
-      setSelectedModel(defaultModelPreference);
-    }, [defaultModelPreferenceResolved, defaultModelPreference, setSelectedModel]);
     const { getModel, catalogModels, catalogRead } = useModels();
     // Otherwise every message would fail on a model the picker cannot even show.
     useEffect(() => {
@@ -168,9 +153,12 @@ const ChatInterface = memo(
         description: `This instance does not offer ${selectedModel}. Switched to the default model.`,
       });
     }, [selectedModel, setSelectedModel, catalogModels, catalogRead]);
-    // A stored selection can be the default-model alias, a pre-models.dev id
-    // or an id spelled differently than today's — move it to the current one.
+    // A stored selection can be a pre-models.dev id or an id spelled differently
+    // than today's — move it to the current one. The default-model alias stays:
+    // the server resolves it on each message, so a new "Default Model" pick in
+    // Settings applies to the chat.
     useEffect(() => {
+      if (selectedModel === DEFAULT_MODEL_ALIAS) return;
       const model = getModel(selectedModel);
       if (model && model.value !== selectedModel) setSelectedModel(model.value);
     }, [selectedModel, setSelectedModel, getModel]);
