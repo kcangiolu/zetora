@@ -11,6 +11,7 @@ import {
 } from '@/lib/search/context-budget';
 import { upsertCompactionSummaryMessage } from '@/lib/db/queries/chat';
 import { createLogger } from '@/lib/logger';
+import { downloadForModel } from '@/lib/search/model-downloads';
 import type { UserPreferenceValues } from '@/lib/db/schema';
 
 const log = createLogger('context-compaction');
@@ -130,6 +131,8 @@ export async function maybeCompactContext({
           model: compactionModel,
           system: COMPACTION_SYSTEM_PROMPT,
           messages: promptMessages,
+          // The folded-in turns' images, read the way the chat reads them.
+          experimental_download: downloadForModel,
           abortSignal: AbortSignal.timeout(COMPACTION_TIMEOUT_MS),
         }));
         lastError = undefined;

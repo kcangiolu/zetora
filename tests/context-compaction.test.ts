@@ -14,6 +14,7 @@ vi.mock('@/ai/tertiary', () => ({ resolveTertiaryModel }));
 vi.mock('@/lib/db/queries/chat', () => ({ upsertCompactionSummaryMessage }));
 
 import { maybeCompactContext } from '@/lib/search/context-compaction';
+import { downloadForModel } from '@/lib/search/model-downloads';
 import type { ChatMessage } from '@/lib/types';
 
 function turnMessage(
@@ -118,6 +119,9 @@ describe('maybeCompactContext', () => {
     expect(generateText).toHaveBeenCalledTimes(1);
     const call = generateText.mock.calls[0][0];
     expect(call.abortSignal).toBeInstanceOf(AbortSignal);
+    // Images of the folded turns are read like the chat's, not by the SDK's
+    // own download, which refuses a storage on a private address.
+    expect(call.experimental_download).toBe(downloadForModel);
     // No existing summary — the prompt should not contain the "Existing
     // summary" preamble, just the fold-in turns + final instruction.
     expect(call.messages[0].content).not.toContain('Existing summary');

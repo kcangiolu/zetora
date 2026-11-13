@@ -21,6 +21,7 @@ import { hasDedicatedMemoryModel, isAutoMemoryEnabled } from './settings';
 import { selectRelevantEntries } from './text-match';
 
 import { createLogger } from '@/lib/logger';
+import { downloadForModel } from '@/lib/search/model-downloads';
 import type { UserPreferenceValues } from '@/lib/db/schema';
 
 const log = createLogger('memory');
@@ -143,6 +144,8 @@ export function runMemoryTurnUpdate({
       activeTools: chatRequest.activeTools,
       toolChoice: 'none',
       providerOptions: { ...chatRequest.providerOptions, ...STRUCTURED_OUTPUT_PROVIDER_OPTIONS },
+      // The answer's images, read the way the answer read them.
+      experimental_download: downloadForModel,
       output: Output.object({ schema: memoryOpsSchema }),
       maxRetries: 1,
     });

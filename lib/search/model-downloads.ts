@@ -6,10 +6,11 @@ import { fetchAttachment } from '@/lib/net/attachment-fetch';
 
 const log = createLogger('search');
 
-// streamText's experimental_download: the images and files of the conversation are
-// always downloaded here and sent as bytes, even to models that accept URLs. The storage
-// host is geo-restricted, so a provider fetching the URL from its own servers would get
-// a 404 and never see the file.
+// experimental_download for every model call that carries the conversation's images and
+// files: they are downloaded here and sent as bytes, even to models that accept URLs. A
+// provider fetching the URL from its own servers can be refused by a storage host that
+// filters by country, and the SDK's own download refuses the private address a storage
+// on the same machine has.
 export async function downloadForModel(requested: Array<{ url: URL }>) {
   type DownloadResult = { data: Uint8Array; mediaType: string | undefined } | null;
   const tasks = Object.fromEntries(
