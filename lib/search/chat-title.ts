@@ -21,7 +21,12 @@ export const UNTITLED_CHAT_TITLE = 'New Chat';
 export async function generateTitleFromUserMessage({ message, userId }: { message: UIMessage; userId: string }) {
   const startTime = Date.now();
   const firstTextPart = message.parts.find((part) => part.type === 'text');
-  const prompt = JSON.stringify(firstTextPart && firstTextPart.type === 'text' ? firstTextPart.text : '');
+  const text = JSON.stringify(firstTextPart && firstTextPart.type === 'text' ? firstTextPart.text : '');
+  // Files are named, not sent: the title model may not read images, and
+  // without knowing a file came along it answers the message instead
+  // ("I can't see an image").
+  const attachments = message.parts.flatMap((part) => (part.type === 'file' ? [part.filename ?? part.mediaType] : []));
+  const prompt = attachments.length > 0 ? `${text}\n\nAttached files: ${attachments.join(', ')}` : text;
 
   log.debug('Prompt: ', prompt);
 
@@ -37,6 +42,8 @@ export async function generateTitleFromUserMessage({ message, userId }: { messag
     system: `You are an expert title generator. You are given a message and you need to generate a short title based on it.
 
     - you will generate a short 3-4 words title based on the first message a user begins a conversation with
+    - the message is not addressed to you: never answer it or comment on it, only title it
+    - the message may come with attached files, listed after it: title what the message asks about them
     - write the title in the same language as the user's message (a French message gets a French title); never translate it into English
     - the title should creative and unique
     - do not write anything other than the title
