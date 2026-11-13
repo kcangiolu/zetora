@@ -11,7 +11,7 @@ Zetora is a fork of [Scira](https://github.com/zaidmukaddam/scira) by Zaid Mukad
 - **Memory you can read** — an editable profile plus facts learned from your chats, stored in your own Postgres.
 - **Skills, Lookouts and Hermes Agent** — 15 research and document skills picked per message, scheduled research that emails you updates, and an experimental channel to your own [Hermes Agent](https://github.com/NousResearch/hermes-agent) gateway.
 
-Runs either way, your choice: entirely against managed cloud providers with zero extra infrastructure (the default — see [All-Cloud Configuration](#all-cloud-configuration)), or as a fully [self-hosted stack](#self-hosted-stack) where every cloud dependency has a local, opt-in alternative. Per-service, not all-or-nothing — self-host just your file storage while keeping cloud search, say.
+**Start small, self-host the parts you want.** The smallest install runs just the app, Postgres and Redis, and uses cloud providers for everything else (see [All-Cloud Configuration](#all-cloud-configuration)). From there, bring services home one at a time — your file storage while keeping cloud search, say — up to a fully [self-hosted stack](#self-hosted-stack) where every cloud dependency has a local alternative.
 
 To try it on your own machine, `./setup.sh` does the install: see [Quick start](#quick-start--one-machine-one-command).
 
