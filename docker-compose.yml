@@ -277,11 +277,16 @@ services:
     container_name: zetora-minio-create-bucket
     depends_on:
       - minio
+    # Anyone may read an object whose URL they have, which is how the browser
+    # shows files, and nothing more: no listing, no upload, no delete. Uploads
+    # go through URLs the app signs. Applied on every start, so a bucket made
+    # with a wider policy gets this one.
     entrypoint: >
       /bin/sh -c "
       until (/usr/bin/mc alias set zetora http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD}) do echo '...waiting...' && sleep 1; done;
       /usr/bin/mc mb zetora/zetora-uploads --ignore-existing;
-      /usr/bin/mc anonymous set public zetora/zetora-uploads;
+      printf '%s' '{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":[\"*\"]},\"Action\":[\"s3:GetObject\"],\"Resource\":[\"arn:aws:s3:::zetora-uploads/*\"]}]}' > /tmp/read-only.json;
+      /usr/bin/mc anonymous set-json /tmp/read-only.json zetora/zetora-uploads;
       printf '%s' '{\"CORSRules\":[{\"AllowedOrigin\":[\"${ALLOWED_ORIGINS:-https://your-domain.example}\"],\"AllowedMethod\":[\"GET\",\"PUT\",\"HEAD\"],\"AllowedHeader\":[\"*\"]}]}' > /tmp/cors.json;
       /usr/bin/mc cors set zetora/zetora-uploads /tmp/cors.json || true;
       exit 0;
