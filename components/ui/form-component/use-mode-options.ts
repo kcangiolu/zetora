@@ -90,6 +90,12 @@ export function useModeOptions({
     enabledSourcesPref.length > 0
       ? enabledSourcesPref
       : (visibleModes ?? []).filter((id) => (SOURCE_CATALOG_IDS as readonly string[]).includes(id));
+  // The sources this instance can run (searchGroups leaves out the ones with no
+  // provider or key): the only ones listed, toggled and counted.
+  const offeredSourceIds = useMemo(
+    () => SOURCE_CATALOG_IDS.filter((id) => searchGroups.some((group) => group.id === id)),
+    [searchGroups],
+  );
   const isGloballyEnabled = useCallback(
     (id: string) => globalEnabledSources.length === 0 || globalEnabledSources.includes(id),
     [globalEnabledSources],
@@ -109,13 +115,13 @@ export function useModeOptions({
     (id: string) => {
       const base =
         sessionEnabledSources === null
-          ? SOURCE_CATALOG_IDS.filter((sourceId) => isGloballyEnabled(sourceId))
+          ? offeredSourceIds.filter((sourceId) => isGloballyEnabled(sourceId))
           : sessionEnabledSources;
       setSessionEnabledSources(base.includes(id) ? base.filter((s) => s !== id) : [...base, id]);
     },
-    [sessionEnabledSources, isGloballyEnabled, setSessionEnabledSources],
+    [sessionEnabledSources, isGloballyEnabled, setSessionEnabledSources, offeredSourceIds],
   );
-  const enabledSourcesCount = SOURCE_CATALOG_IDS.filter((id) => isSourceEnabled(id)).length;
+  const enabledSourcesCount = offeredSourceIds.filter((id) => isSourceEnabled(id)).length;
 
   // The rows of the Sources submenu are fixed when it opens, so unchecking a source
   // never removes the row under the cursor.
@@ -123,10 +129,10 @@ export function useModeOptions({
   const [listedSourceIds, setListedSourceIds] = useState<string[]>([]);
   const toggleSourcesExpanded = useCallback(() => {
     setSourcesExpanded((prev) => {
-      if (!prev) setListedSourceIds(SOURCE_CATALOG_IDS.filter((id) => isGloballyEnabled(id)));
+      if (!prev) setListedSourceIds(offeredSourceIds.filter((id) => isGloballyEnabled(id)));
       return !prev;
     });
-  }, [isGloballyEnabled]);
+  }, [isGloballyEnabled, offeredSourceIds]);
 
   const isOffered = useCallback(
     (group: (typeof searchGroups)[number]) => group.show && !('requireAuth' in group && group.requireAuth && !user),
