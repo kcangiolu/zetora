@@ -623,8 +623,12 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
             </blockquote>
           );
         },
+        // Users type * as a plain character (2**100, x*y) far more often than
+        // for emphasis, so their messages show it as typed. The renderer is not
+        // told which delimiter was used: __word__ shows as **word**.
         strong(children) {
           const key = getElementKey(this, 'text', String(children));
+          if (isUserMessage) return <Fragment key={key}>**{children}**</Fragment>;
           return (
             <strong key={key} className="font-medium text-foreground">
               {children}
@@ -633,6 +637,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
         },
         em(children) {
           const key = getElementKey(this, 'text', String(children));
+          if (isUserMessage) return <Fragment key={key}>*{children}*</Fragment>;
           return (
             <em key={key} className="italic text-foreground/95">
               {children}
