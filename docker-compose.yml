@@ -240,8 +240,10 @@ services:
       # the browser (no app-side proxy, see lib/generated-file-storage.ts),
       # so it has to be reachable from wherever your reverse proxy runs.
       # Front it with TLS there — this container has no TLS of its own.
+      # ZETORA_SERVICES_BIND=127.0.0.1 keeps it to this host, when the browser
+      # and the proxy run here too.
       # Console (9001, full admin credentials) stays loopback-only.
-      - '9010:9000'
+      - '${ZETORA_SERVICES_BIND:-0.0.0.0}:9010:9000'
       - '127.0.0.1:9001:9001'
     volumes:
       - ${DATA_DIR}/minio:/data:rw
@@ -739,8 +741,8 @@ services:
       # NOT loopback-restricted: the browser connects to this over
       # VOICE_S2S_URL through your reverse proxy (see that variable on
       # zetora.app), which may run on another host. Same reasoning as
-      # Silo's API port.
-      - '8100:8080'
+      # Silo's API port, and ZETORA_SERVICES_BIND likewise.
+      - '${ZETORA_SERVICES_BIND:-0.0.0.0}:8100:8080'
     environment:
       - APP_URL=http://zetora-app:3333
       # Read timeout (seconds) on the callbacks into the app, notably
@@ -782,8 +784,9 @@ services:
       # reverse proxy in front of it (or this port directly) must be reachable
       # from outside the Docker host. The host port defaults to 8201 and is
       # set with ${ZETORA_HERMES_RELAY_HOST_PORT}; callers on the compose
-      # network use the container's own 8200.
-      - '${ZETORA_HERMES_RELAY_HOST_PORT:-8201}:8200'
+      # network use the container's own 8200. ZETORA_SERVICES_BIND=127.0.0.1
+      # keeps it to gateways running on this host.
+      - '${ZETORA_SERVICES_BIND:-0.0.0.0}:${ZETORA_HERMES_RELAY_HOST_PORT:-8201}:8200'
     environment:
       - HERMES_RELAY_PORT=8200
       - ZETORA_INTERNAL_URL=http://zetora-app:3333

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# First install: asks where the models come from, writes .env, starts the stack.
+# First install: asks where the models come from and, for a full install,
+# which services to run and which keys to add, writes .env, starts the stack.
 # Sticks to syntax bash 3.2 understands, the version macOS ships.
 set -euo pipefail
 
@@ -19,6 +20,56 @@ LOCAL_MODEL_FORM='^[A-Za-z0-9._/:-]+$'
 
 # The source of the app's own model catalog. Tests point it at a fixture.
 MODELS_DEV_URL="${MODELS_DEV_URL:-https://models.dev/api.json}"
+
+# The oldest NVIDIA driver the speech services start on (see README.md).
+MIN_NVIDIA_DRIVER=580
+
+# What a full install offers to add, as "VARIABLES|label": the main
+# provider's own key is left out of the first list. A variable named in
+# PLAIN_VARS is not a secret, so its answer shows as it is typed.
+PROVIDER_CHOICES=(
+  'OPENAI_API_KEY|OpenAI'
+  'ANTHROPIC_API_KEY|Anthropic'
+  'XAI_API_KEY|xAI: Grok models, cloud voice and X search'
+  'GOOGLE_AI_STUDIO_API_KEY|Google AI Studio: Gemini'
+  'GOOGLE_AGENT_PLATFORM_API_KEY GOOGLE_AGENT_PLATFORM_PROJECT|Google Agent Platform: Gemini, billed to Google Cloud'
+  'DEEPSEEK_API_KEY|DeepSeek'
+  'MISTRAL_API_KEY|Mistral'
+  'COHERE_API_KEY|Cohere'
+  'ZAI_API_KEY|Zhipu AI (GLM)'
+  'MINIMAX_API_KEY|MiniMax'
+  'SARVAM_API_KEY|Sarvam'
+  'OPENROUTER_API_KEY|OpenRouter: any lab'
+  'GROQ_API_KEY|Groq'
+  'NOVITA_API_KEY|Novita'
+  'AI_GATEWAY_API_KEY|Vercel AI Gateway'
+  'HF_TOKEN|Hugging Face: runs zetora-arch-router, the Auto mode classifier'
+)
+TOOL_CHOICES=(
+  'EXA_API_KEY|Exa: web search'
+  'FIRECRAWL_API_KEY|Firecrawl: web search and page reading'
+  'PARALLEL_API_KEY|Parallel: Reddit search and web search'
+  'TAVILY_API_KEY|Tavily: finance and news in stock charts'
+  'VALYU_API_KEY|Valyu: prediction markets, finance data and currency conversion'
+  'NOTTE_API_KEY|Notte: reads pages that need a browser'
+  'SUPADATA_API_KEY|Supadata: YouTube and social media transcripts'
+  'TMDB_API_KEY|TMDB: movies and TV shows'
+  'OPENWEATHER_API_KEY|OpenWeather: weather'
+  'GOOGLE_MAPS_API_KEY|Google Maps: places and maps'
+  'COINGECKO_API_KEY|CoinGecko: crypto prices'
+  'AMADEUS_API_KEY AMADEUS_API_SECRET|Amadeus: flight tracking'
+  'SPOTIFY_CLIENT_ID SPOTIFY_CLIENT_SECRET|Spotify: music search'
+  'ELEVENLABS_API_KEY|ElevenLabs: cloud speech-to-text and text-to-speech'
+  'GITHUB_TOKEN|GitHub: repository details in GitHub search'
+)
+PLAIN_VARS=' GOOGLE_AGENT_PLATFORM_PROJECT SPOTIFY_CLIENT_ID '
+
+# The voice ID of the recording text-to-speech clones (tts-service reads it
+# as data/qwen3-tts/voices/<name>.wav, .lang and .txt).
+VOICE_NAME='my-voice'
+
+# The languages tts-service knows a recording's language by.
+VOICE_LANGUAGES=' french english german spanish italian portuguese chinese japanese korean '
 
 start_stack=true
 case "${1:-}" in
@@ -174,6 +225,43 @@ PY
   rm -f "$data" "$listing"
 }
 
+# Asks the main provider whether it takes the key in $1, by listing its
+# models. Sets key_check to accepted, refused, or unknown when the provider
+# could not be reached or gave another answer, and key_status to its HTTP
+# status. The key reaches curl on stdin, so it never shows in a process list.
+check_key() {
+  local url header refused_statuses='401 403'
+  case "$provider_key_var" in
+    ANTHROPIC_API_KEY)
+      url='https://api.anthropic.com/v1/models'
+      header='x-api-key: %s\nanthropic-version: 2023-06-01\n'
+      ;;
+    OPENAI_API_KEY) url='https://api.openai.com/v1/models' ;;
+    GOOGLE_AI_STUDIO_API_KEY)
+      url='https://generativelanguage.googleapis.com/v1beta/models'
+      header='x-goog-api-key: %s\n'
+      # Google answers an invalid key with 400 API_KEY_INVALID.
+      refused_statuses='400 401 403'
+      ;;
+    DEEPSEEK_API_KEY) url='https://api.deepseek.com/models' ;;
+    ZAI_API_KEY) url='https://api.z.ai/api/paas/v4/models' ;;
+    MINIMAX_API_KEY) url='https://api.minimax.io/v1/models' ;;
+    # OpenRouter lists its models to anyone; this route needs a valid key.
+    OPENROUTER_API_KEY) url='https://openrouter.ai/api/v1/key' ;;
+  esac
+  key_status="$(printf "${header:-Authorization: Bearer %s\n}" "$1" |
+    curl -s -o /dev/null -w '%{http_code}' --max-time 15 -H @- "$url" 2>/dev/null)" || key_status=''
+  case " $refused_statuses " in
+    *" $key_status "*) key_check=refused ;;
+    *)
+      case "$key_status" in
+        2??) key_check=accepted ;;
+        *) key_check=unknown ;;
+      esac
+      ;;
+  esac
+}
+
 # A number from the list made by list_models, or a provider:model id.
 ask_catalog_model() {
   while true; do
@@ -205,6 +293,330 @@ set_env() {
   mv "$next" "$env_draft"
 }
 
+# A key, single-quoted like the main provider's.
+set_key() {
+  set_env "$1" "'$2'"
+}
+
+# $2 is what Enter answers: y or n.
+ask_yes_no() {
+  local hint='[y/N]'
+  [ "$2" = y ] && hint='[Y/n]'
+  while true; do
+    ask "$1 $hint "
+    case "${REPLY:-$2}" in
+      y | Y | yes) return 0 ;;
+      n | N | no) return 1 ;;
+    esac
+    printf 'Answer y or n.\n'
+  done
+}
+
+# Lists pick_labels by number and sets picked to the numbers chosen, each
+# between spaces. $1 is what Enter answers: all or none.
+ask_picks() {
+  local count=${#pick_labels[@]} index number valid
+  index=0
+  while [ "$index" -lt "$count" ]; do
+    printf '  %2d) %s\n' "$((index + 1))" "${pick_labels[$index]}"
+    index=$((index + 1))
+  done
+  while true; do
+    ask "Numbers separated by spaces, all or none [$1]: "
+    picked=' '
+    case "${REPLY:-$1}" in
+      none) return ;;
+      all)
+        index=1
+        while [ "$index" -le "$count" ]; do
+          picked="$picked$index "
+          index=$((index + 1))
+        done
+        return
+        ;;
+    esac
+    valid=true
+    for number in ${REPLY:-$1}; do
+      if [[ "$number" =~ ^[0-9]+$ ]] && [ "$number" -ge 1 ] && [ "$number" -le "$count" ]; then
+        picked="$picked$number "
+      else
+        valid=false
+      fi
+    done
+    [ "$valid" = true ] && return
+    printf 'Pick numbers from 1 to %s.\n' "$count"
+  done
+}
+
+is_picked() {
+  case "$picked" in
+    *" $1 "*) return 0 ;;
+  esac
+  return 1
+}
+
+# Offers the "VARIABLES|label" entries given as arguments and stores a value
+# for each variable of the ones picked. Sets added_vars to every variable
+# stored so far, each between spaces.
+ask_choice_keys() {
+  local entry vars variable number
+  pick_labels=()
+  pick_vars=()
+  for entry in "$@"; do
+    pick_vars[${#pick_vars[@]}]="${entry%%|*}"
+    pick_labels[${#pick_labels[@]}]="${entry#*|}"
+  done
+  ask_picks none
+  number=1
+  for vars in "${pick_vars[@]}"; do
+    if is_picked "$number"; then
+      for variable in $vars; do
+        case "$PLAIN_VARS" in
+          *" $variable "*) ask_plain "$variable: " ;;
+          *) ask_key "$variable: " ;;
+        esac
+        set_key "$variable" "$REPLY"
+        added_vars="$added_vars$variable "
+      done
+    fi
+    number=$((number + 1))
+  done
+}
+
+# Like ask_key, for a value that is not a secret.
+ask_plain() {
+  while true; do
+    ask "$1"
+    REPLY="${REPLY//[[:space:]]/}"
+    case "$REPLY" in
+      '' | *\'* | *\"* | *\\*) printf 'A value cannot be empty or contain quotes or backslashes.\n' ;;
+      *) return ;;
+    esac
+  done
+}
+
+add_profile() {
+  profiles="${profiles:+$profiles,}$1"
+}
+
+add_custom_provider() {
+  custom_providers="${custom_providers:+$custom_providers,}$1"
+}
+
+# Sets gpu_issue to why local voice cannot run here, or to nothing.
+check_gpu() {
+  local driver
+  gpu_issue=''
+  if ! command -v nvidia-smi >/dev/null 2>&1; then
+    gpu_issue='no NVIDIA GPU found (nvidia-smi is missing)'
+    return
+  fi
+  driver="$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -n 1)" || driver=''
+  if ! [[ "${driver%%.*}" =~ ^[0-9]+$ ]]; then
+    gpu_issue='nvidia-smi did not give the driver version'
+  elif [ "${driver%%.*}" -lt "$MIN_NVIDIA_DRIVER" ]; then
+    gpu_issue="NVIDIA driver $driver found, the speech services need $MIN_NVIDIA_DRIVER or newer"
+  elif ! docker info --format '{{range $name, $runtime := .Runtimes}}{{$name}} {{end}}' 2>/dev/null | grep -qw nvidia; then
+    gpu_issue="Docker has no nvidia runtime: install the NVIDIA Container Toolkit"
+  fi
+}
+
+# A path as a terminal hands it over when a file is dropped on it: quoted,
+# or with its spaces escaped, and ~ for the home folder.
+clean_path() {
+  local path="$1"
+  path="${path%"${path##*[![:space:]]}"}"
+  path="${path#"${path%%[![:space:]]*}"}"
+  case "$path" in
+    \'*\' | \"*\") path="${path:1:${#path}-2}" ;;
+  esac
+  path="${path//\\ / }"
+  case "$path" in
+    '~'/*) path="$HOME/${path#'~'/}" ;;
+  esac
+  printf '%s' "$path"
+}
+
+base64url() {
+  openssl base64 -A | tr '+/' '-_' | tr -d '='
+}
+
+# Web Push keys, in the form browsers take them: the raw P-256 public point
+# and private scalar, base64url. A P-256 key in SEC1 DER starts with 7 bytes
+# of header before its 32-byte scalar, and its public key in DER ends with
+# the 65-byte point.
+make_vapid_keys() {
+  local pem
+  pem="$(mktemp)"
+  openssl ecparam -name prime256v1 -genkey -noout -out "$pem" 2>/dev/null
+  vapid_public="$(openssl ec -in "$pem" -pubout -outform DER 2>/dev/null | tail -c 65 | base64url)"
+  vapid_private="$(openssl ec -in "$pem" -outform DER 2>/dev/null | head -c 39 | tail -c 32 | base64url)"
+  rm -f "$pem"
+}
+
+# The questions of a full install, after the models. Each answer goes into
+# the draft .env right away.
+full_setup() {
+  printf '\nMore AI providers, beside the one above (pick none to skip):\n'
+  local entry choices=()
+  for entry in "${PROVIDER_CHOICES[@]}"; do
+    [ "${entry%%|*}" = "$provider_key_var" ] || choices[${#choices[@]}]="$entry"
+  done
+  ask_choice_keys "${choices[@]}"
+
+  case "$added_vars" in
+    *' XAI_API_KEY '*)
+      printf '\nX search runs on an xAI model.\n'
+      catalog_provider='xai'
+      catalog_source='xai'
+      catalog_aggregator=false
+      if list_models; then
+        index=0
+        while [ "$index" -lt "$model_count" ]; do
+          printf '  %2d) %s  (%s)\n' "$((index + 1))" "${model_labels[$index]}" "${model_ids[$index]}"
+          index=$((index + 1))
+        done
+      fi
+      while true; do
+        ask 'Model for X search, by number or xai:model id, or Enter to set it later: '
+        REPLY="${REPLY//[[:space:]]/}"
+        [ -z "$REPLY" ] && break
+        if [[ "$REPLY" =~ ^[0-9]+$ ]] && [ "$REPLY" -ge 1 ] && [ "$REPLY" -le "$model_count" ]; then
+          REPLY="${model_ids[$((REPLY - 1))]}"
+        fi
+        if [[ "$REPLY" =~ ^xai:[A-Za-z0-9._/:-]+$ ]]; then
+          set_env ZETORA_MODEL_X_SEARCH "$REPLY"
+          break
+        fi
+        printf 'Pick a number from the list, or type an xai:model id.\n'
+      done
+      ;;
+  esac
+
+  printf '\nSelf-hosted services, run on this machine'"'"'s CPU:\n'
+  pick_labels=(
+    'Silo: file storage, for uploads and generated files'
+    'SearXNG: web search'
+    'fastCRW: reads web pages for answers'
+    'BullMQ: runs Lookouts, the scheduled searches'
+    'Qdrant: Hybrid Search over past results'
+    'Presidio: masks personal data before it reaches a model'
+  )
+  ask_picks all
+  if is_picked 1; then
+    add_profile minio
+    storage_password="$(openssl rand -hex 24)"
+    set_env MINIO_ROOT_PASSWORD "$storage_password"
+    # The browser reaches Silo on its published port, the app on the
+    # Docker network.
+    set_env MINIO_SERVER_URL http://localhost:9010
+    set_env S3_ENDPOINT http://minio:9000
+    set_env S3_ACCESS_KEY_ID minioadmin
+    set_env S3_SECRET_ACCESS_KEY "$storage_password"
+    set_env S3_PUBLIC_URL http://localhost:9010/zetora-uploads
+    set_env S3_PRESIGN_ENDPOINT http://localhost:9010
+    set_env S3_REGION us-east-1
+    set_env S3_FORCE_PATH_STYLE true
+  fi
+  if is_picked 2; then
+    add_profile searxng
+    set_env SEARXNG_URL http://searxng:8080
+  fi
+  if is_picked 3; then
+    add_profile fastcrw
+    set_env FASTCRW_URL http://fastcrw:3000
+  fi
+  if is_picked 4; then
+    add_profile bullmq
+    set_env LOOKOUT_SCHEDULER bullmq
+    set_env BULLMQ_REDIS_PASSWORD "$(openssl rand -hex 24)"
+  fi
+  if is_picked 5; then
+    add_profile qdrant
+    set_env QDRANT_URL http://qdrant:6333
+  fi
+  if is_picked 6; then
+    add_profile presidio
+    set_env ANONYMIZER_API_URL http://presidio-api:8000
+  fi
+
+  printf '\nThe code interpreter runs Python in throwaway containers, which the sandbox starts\n'
+  printf 'through Docker'"'"'s socket: that gives it the same power as root on this machine.\n'
+  if ask_yes_no 'Run the code sandbox here?' n; then
+    add_profile sandbox
+    set_env SANDBOX_PROVIDER docker
+  fi
+
+  printf '\nLocal voice: speech-to-text, text-to-speech and live voice chat, on an NVIDIA GPU.\n'
+  check_gpu
+  if [ -n "$gpu_issue" ]; then
+    printf 'Not offered: %s.\n' "$gpu_issue"
+  elif ask_yes_no 'Set up local voice? Its first build takes up to two hours.' n; then
+    local_voice=true
+    add_profile voice
+    add_profile tts
+    set_env VOICE_S2S_URL ws://localhost:8100/v1/realtime
+    add_custom_provider '{"id":"local-stt","name":"Local speech-to-text","baseURL":"http://stt-service:8080/v1","disableAutoDetect":true}'
+    add_custom_provider '{"id":"local-tts","name":"Local text-to-speech","baseURL":"http://qwen3-tts:8080/v1","disableAutoDetect":true}'
+    ask_voice_sample
+  fi
+
+  printf '\nHermes Agent (experimental): talk to your own Hermes Agent gateway from Zetora.\n'
+  if ask_yes_no 'Turn it on? The gateway has to run on this machine.' n; then
+    hermes=true
+    add_profile hermes
+    set_env NEXT_PUBLIC_HERMES_ENABLED true
+    set_env HERMES_GATEWAY_SECRET_ENCRYPTION_KEY "$(openssl rand -hex 32)"
+    set_env HERMES_RELAY_INTERNAL_SECRET "$(openssl rand -hex 32)"
+    set_env HERMES_RELAY_PUBLIC_URL ws://localhost:8201
+    make_vapid_keys
+    set_env VAPID_PUBLIC_KEY "$vapid_public"
+    set_env NEXT_PUBLIC_VAPID_PUBLIC_KEY "$vapid_public"
+    set_env VAPID_PRIVATE_KEY "$vapid_private"
+    set_env VAPID_SUBJECT mailto:admin@example.com
+  fi
+
+  printf '\nExperimental features:\n'
+  if ask_yes_no 'Apps, where users connect their own MCP servers?' n; then
+    set_env NEXT_PUBLIC_MCP_ENABLED true
+  fi
+  if ask_yes_no 'Canvas, a mode that builds interactive dashboards?' n; then
+    set_env NEXT_PUBLIC_CANVAS_ENABLED true
+  fi
+
+  printf '\nKeys for tools and search providers (pick none to skip):\n'
+  ask_choice_keys "${TOOL_CHOICES[@]}"
+}
+
+# The recording text-to-speech clones its voice from. Sets voice_file,
+# voice_language and voice_text; voice_file stays empty when skipped.
+ask_voice_sample() {
+  printf 'Text-to-speech speaks in the voice of a recording you give it: 10 to 20 seconds\n'
+  printf 'of one person speaking clearly, as .wav, .mp3, .flac or .m4a.\n'
+  while true; do
+    ask 'Path to the recording, or Enter to add one later: '
+    voice_file="$(clean_path "$REPLY")"
+    [ -z "$voice_file" ] && return
+    case "$voice_file" in
+      *.wav | *.mp3 | *.flac | *.m4a)
+        [ -f "$voice_file" ] && break
+        printf 'No file at %s.\n' "$voice_file"
+        ;;
+      *) printf 'Use a .wav, .mp3, .flac or .m4a file.\n' ;;
+    esac
+  done
+  while true; do
+    ask 'Language spoken in it, e.g. french or english: '
+    voice_language="$(printf '%s' "${REPLY//[[:space:]]/}" | tr '[:upper:]' '[:lower:]')"
+    case "$VOICE_LANGUAGES" in
+      *" $voice_language "*) break ;;
+    esac
+    printf 'One of:%s\n' "$VOICE_LANGUAGES"
+  done
+  ask 'What it says, word for word, for a closer voice, or Enter to skip: '
+  voice_text="$REPLY"
+}
+
 [ -f .env.example ] || die '.env.example is missing. Run this script from a full clone of the repository.'
 
 if [ -e .env ]; then
@@ -219,7 +631,31 @@ if [ "$start_stack" = true ]; then
   docker info >/dev/null 2>&1 || die 'cannot reach the Docker daemon. Start it, or check that your user may use it.'
 fi
 
-printf 'Zetora setup\n\nWhere should the models come from?\n'
+printf 'Zetora setup\n\nWhat should this install set up?\n'
+printf '  1) Quick: the app, its database and SearXNG web search, in a few questions\n'
+printf '  2) Full: also each self-hosted service, local voice, Hermes Agent, and keys for\n'
+printf '     more providers and tools\n'
+full=false
+# What the answers add up to, filled in as they come.
+profiles=''
+custom_providers=''
+added_vars=' '
+local_voice=false
+hermes=false
+voice_file=''
+while true; do
+  ask 'Choice [1-2]: '
+  case "$REPLY" in
+    1) break ;;
+    2)
+      full=true
+      break
+      ;;
+    *) printf 'Pick 1 or 2.\n' ;;
+  esac
+done
+
+printf '\nWhere should the models come from?\n'
 printf '  1) Anthropic\n  2) OpenAI\n  3) Google AI Studio\n  4) DeepSeek\n  5) Zhipu AI (GLM)\n  6) MiniMax\n'
 printf '  7) OpenRouter (any lab)\n  8) A local or OpenAI-compatible endpoint (Ollama, llama.cpp...)\n'
 
@@ -233,36 +669,43 @@ while [ -z "$provider_key_var" ]; do
   ask 'Choice [1-8]: '
   case "$REPLY" in
     1)
+      provider_name='Anthropic'
       provider_key_var='ANTHROPIC_API_KEY'
       catalog_provider='anthropic'
       catalog_source='anthropic'
       ;;
     2)
+      provider_name='OpenAI'
       provider_key_var='OPENAI_API_KEY'
       catalog_provider='openai'
       catalog_source='openai'
       ;;
     3)
+      provider_name='Google AI Studio'
       provider_key_var='GOOGLE_AI_STUDIO_API_KEY'
       catalog_provider='google'
       catalog_source='google'
       ;;
     4)
+      provider_name='DeepSeek'
       provider_key_var='DEEPSEEK_API_KEY'
       catalog_provider='deepseek'
       catalog_source='deepseek'
       ;;
     5)
+      provider_name='Zhipu AI'
       provider_key_var='ZAI_API_KEY'
       catalog_provider='zhipu'
       catalog_source='zai'
       ;;
     6)
+      provider_name='MiniMax'
       provider_key_var='MINIMAX_API_KEY'
       catalog_provider='minimax'
       catalog_source='minimax'
       ;;
     7)
+      provider_name='OpenRouter'
       provider_key_var='OPENROUTER_API_KEY'
       catalog_provider='openrouter'
       catalog_source='openrouter'
@@ -291,7 +734,7 @@ if [ "$provider_key_var" = 'CUSTOM_AI_PROVIDERS' ]; then
   case "$endpoint_key" in
     *\'* | *\"* | *\\*) die 'the key cannot contain quotes or backslashes. Nothing was written.' ;;
   esac
-  provider_value="'[{\"id\":\"local\",\"name\":\"Local\",\"baseURL\":\"$endpoint_url\",\"apiKey\":\"${endpoint_key:-local}\"}]'"
+  add_custom_provider "{\"id\":\"local\",\"name\":\"Local\",\"baseURL\":\"$endpoint_url\",\"apiKey\":\"${endpoint_key:-local}\"}"
   # The id above is what makes these names custom-local-*, see .env.example.
   printf 'Name the models as your server lists them. The same name twice is fine.\n'
   ask_model 'Main model, for chat and research: ' "$LOCAL_MODEL_FORM" 'Use the name your server lists, without spaces.'
@@ -300,6 +743,21 @@ if [ "$provider_key_var" = 'CUSTOM_AI_PROVIDERS' ]; then
   small_model="custom-local-$REPLY"
 else
   ask_key "$provider_key_var: "
+  while true; do
+    check_key "$REPLY"
+    case "$key_check" in
+      accepted)
+        printf '%s accepted the key.\n' "$provider_name"
+        break
+        ;;
+      unknown)
+        printf 'Could not check the key with %s, so it is kept as typed.\n' "$provider_name"
+        break
+        ;;
+    esac
+    printf '%s refused this key (HTTP %s). Check it, then type it again.\n' "$provider_name" "$key_status"
+    ask_key "$provider_key_var: "
+  done
   provider_value="'$REPLY'"
   if list_models; then
     printf '\nCurrent models with tool calling, newest first:\n'
@@ -325,7 +783,9 @@ env_draft="$(mktemp .env.setup.XXXXXX)"
 trap 'rm -f "$env_draft"' EXIT
 cp .env.example "$env_draft"
 
-set_env "$provider_key_var" "$provider_value"
+if [ "$provider_key_var" != 'CUSTOM_AI_PROVIDERS' ]; then
+  set_env "$provider_key_var" "$provider_value"
+fi
 for variable in $MAIN_MODEL_VARS; do
   set_env "$variable" "$main_model"
 done
@@ -348,18 +808,39 @@ set_env CONTACT_EMAIL ''
 # an account and spend the provider key: this install answers on this machine
 # only, until its owner decides otherwise.
 set_env ZETORA_BIND 127.0.0.1
+set_env ZETORA_SERVICES_BIND 127.0.0.1
 set_env REQUIRE_EMAIL_VERIFICATION false
 
 set_env COMPOSE_FILE docker-compose.yml:docker-compose.build.yml
-set_env COMPOSE_PROFILES searxng
-set_env SEARXNG_URL http://searxng:8080
 
-# The SearXNG container runs under its own user and must be able to read this.
+if [ "$full" = true ]; then
+  full_setup
+else
+  add_profile searxng
+  set_env SEARXNG_URL http://searxng:8080
+fi
+[ -n "$profiles" ] && set_env COMPOSE_PROFILES "$profiles"
+[ -n "$custom_providers" ] && set_env CUSTOM_AI_PROVIDERS "'[$custom_providers]'"
+
+# The SearXNG container runs under its own user and must be able to read this,
+# and the text-to-speech one the voice recording.
 (
   umask 022
-  mkdir -p data/searxng
-  if [ ! -e data/searxng/settings.yml ]; then
-    sed "s/CHANGE_ME_openssl_rand_hex_32/$(openssl rand -hex 32)/" searxng/settings.yml >data/searxng/settings.yml
+  case ",$profiles," in
+    *,searxng,*)
+      mkdir -p data/searxng
+      if [ ! -e data/searxng/settings.yml ]; then
+        sed "s/CHANGE_ME_openssl_rand_hex_32/$(openssl rand -hex 32)/" searxng/settings.yml >data/searxng/settings.yml
+      fi
+      ;;
+  esac
+  if [ -n "$voice_file" ]; then
+    mkdir -p data/qwen3-tts/voices
+    cp "$voice_file" "data/qwen3-tts/voices/$VOICE_NAME.${voice_file##*.}"
+    printf '%s\n' "$voice_language" >"data/qwen3-tts/voices/$VOICE_NAME.lang"
+    if [ -n "$voice_text" ]; then
+      printf '%s\n' "$voice_text" >"data/qwen3-tts/voices/$VOICE_NAME.txt"
+    fi
   fi
 )
 
@@ -368,12 +849,41 @@ printf '\nWrote .env.\n'
 
 next_step='Create your account: no email is sent, you are signed in right away.'
 
+# What is left to do in the app, once it runs.
+print_next_steps() {
+  printf '%s\n' "$next_step"
+  if [ "$local_voice" = true ]; then
+    printf '\nLocal voice: in Settings → Voice, set both providers to Custom (OpenAI-compatible),\n'
+    printf 'Local speech-to-text for speech-to-text and Local text-to-speech for text-to-speech.\n'
+    if [ -n "$voice_file" ]; then
+      printf 'Its voice ID is %s, its language %s.\n' "$VOICE_NAME" "$voice_language"
+    else
+      printf 'Text-to-speech needs a recording first: put it in data/qwen3-tts/voices/ as NAME.wav,\n'
+      printf 'with its language in NAME.lang, and use NAME as the voice ID (see "Quick start" in README.md).\n'
+    fi
+  fi
+  if [ "$hermes" = true ]; then
+    printf '\nHermes Agent: open Settings → Hermes, run the command it gives on this machine,\n'
+    printf 'then install the plugin, see hermes-plugin/zetora/README.md.\n'
+  fi
+  case ",$profiles,$added_vars" in
+    *,searxng,* | *' EXA_API_KEY '* | *' FIRECRAWL_API_KEY '* | *' PARALLEL_API_KEY '*) ;;
+    *) printf '\nNo search provider: answers come from the model alone. See "Choose a setup" in README.md.\n' ;;
+  esac
+  return 0
+}
+
 if [ "$start_stack" = false ]; then
-  printf 'Start it with: docker compose up -d --build\nThen open %s\n%s\n' "$APP_URL" "$next_step"
+  printf 'Start it with: docker compose up -d --build\nThen open %s\n' "$APP_URL"
+  print_next_steps
   exit 0
 fi
 
-printf 'Building and starting. The first build takes several minutes.\n\n'
+if [ "$local_voice" = true ]; then
+  printf 'Building and starting. The first build takes several minutes, up to two hours with local voice.\n\n'
+else
+  printf 'Building and starting. The first build takes several minutes.\n\n'
+fi
 docker compose up -d --build
 
 printf '\nWaiting for the app'
@@ -388,7 +898,8 @@ until curl -fsS -o /dev/null "$APP_URL"; do
   sleep 2
 done 2>/dev/null
 
-printf '\n\nZetora is running: %s\n%s\n' "$APP_URL" "$next_step"
+printf '\n\nZetora is running: %s\n' "$APP_URL"
+print_next_steps
 
 # Only the app's container can tell: a server the host reaches may still be
 # closed to containers. Any HTTP answer will do, as this call sends no key.

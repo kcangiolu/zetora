@@ -162,7 +162,7 @@ Pick one row, set `COMPOSE_PROFILES` in `.env` to its value, then point the matc
 
 Zetora only offers what the instance has. A search provider shows up in Settings and in the chat's sources once its API key or URL is set; Hybrid Search once `QDRANT_URL` is; Data protection once `ANONYMIZER_API_URL` is; the cloud voice backend once `XAI_API_KEY` is and the local one once `VOICE_S2S_URL` is; X search once `XAI_API_KEY` and `ZETORA_MODEL_X_SEARCH` are. With the bundled containers, these URLs are the Docker service names given in `.env.example`. Each search function picks the user's choice when the instance has it, else the first available provider in a fixed order: the self-hosted services, then Exa, Firecrawl and Parallel. A function with no provider at all is not offered, and Settings says what it needs. Fallback providers are off unless the user turns them on.
 
-All services share the `zetora-network` Docker network and resolve each other by service name. Most services are bound to `127.0.0.1`; only `zetora.app` (port 3333, unless `ZETORA_BIND=127.0.0.1`), Silo's API port, `s2s-service` and `hermes-relay-service` publish beyond loopback (for reverse-proxy, browser and gateway access).
+All services share the `zetora-network` Docker network and resolve each other by service name. Most services are bound to `127.0.0.1`; only `zetora.app` (port 3333, unless `ZETORA_BIND=127.0.0.1`), Silo's API port, `s2s-service` and `hermes-relay-service` (unless `ZETORA_SERVICES_BIND=127.0.0.1`) publish beyond loopback (for reverse-proxy, browser and gateway access).
 
 The `sandbox` service runs as root with the host's Docker socket, which amounts to root access on the host. Enable it only on a host dedicated to this stack, or use Daytona.
 
@@ -248,17 +248,28 @@ cd zetora
 ./setup.sh
 ```
 
-The script asks where your models come from, writes `.env` with generated secrets, builds the images and starts Postgres, Redis, SearXNG and the app on <http://localhost:3333>. It never overwrites an existing `.env`. `./setup.sh --no-start` stops after writing `.env`.
+The script first asks for a quick or a full install. Both ask where your models come from, write `.env` with generated secrets, build the images and start the app on <http://localhost:3333>. It never overwrites an existing `.env`. `./setup.sh --no-start` stops after writing `.env`.
+
+- **Quick** runs Postgres, Redis, SearXNG and the app.
+- **Full** then asks, one step at a time:
+  - other AI providers to add, picked from a list, and the xAI model for X search when xAI is one of them;
+  - which self-hosted services to run: Silo, SearXNG, fastCRW, BullMQ, Qdrant and Presidio, all of them unless you pick fewer. The code sandbox is a question of its own, as it starts containers through Docker's socket, which gives it root's power on the machine;
+  - local voice, offered when the script finds an NVIDIA GPU with driver 580 or newer and Docker's `nvidia` runtime. Text-to-speech clones the voice of a recording you give it, 10 to 20 seconds of one person speaking clearly (`.wav`, `.mp3`, `.flac` or `.m4a`), saved in `data/qwen3-tts/voices/` as `my-voice`. Once the app runs, set both providers in Settings → Voice to Custom (OpenAI-compatible): Local speech-to-text and Local text-to-speech, voice ID `my-voice`. The first build of the voice images takes up to two hours;
+  - Hermes Agent, for a gateway on the same machine. Once the app runs, Settings → Hermes gives the command that connects the gateway, and [`hermes-plugin/zetora`](hermes-plugin/zetora/README.md) the plugin to install next to it;
+  - the experimental Apps and Canvas features, and keys for tools and search providers (Exa, TMDB, OpenWeather, …), picked from a list.
+
+  Keys are typed without being shown and go only into `.env`, which only your user can read.
 
 This install is for trying Zetora on your own machine:
 
-- **It answers on this machine only** (`ZETORA_BIND=127.0.0.1`). Accounts need no email confirmation and sign-ups are open, so anyone reaching the port could use your provider key. Before opening it to others, follow [Option 2](#option-2--self-hosted-stack-docker-compose) and change what the script set for this machine: your public URL in `NEXT_PUBLIC_APP_URL`, `BETTER_AUTH_BASE_URL`, `ALLOWED_ORIGINS` and `MCP_OAUTH_CALLBACK_ORIGIN`, then `docker compose up -d --build`; either an SMTP server with `REQUIRE_EMAIL_VERIFICATION=true` or `ALLOW_SIGNUPS=false`; and a reverse proxy with TLS, plus `ZETORA_BIND=0.0.0.0` if that proxy runs on another host.
+- **It answers on this machine only**: the app (`ZETORA_BIND=127.0.0.1`), and the ports a full install opens for the browser or the Hermes gateway, Silo's API, local voice and the Hermes relay (`ZETORA_SERVICES_BIND=127.0.0.1`). Accounts need no email confirmation and sign-ups are open, so anyone reaching the port could use your provider key. Before opening it to others, follow [Option 2](#option-2--self-hosted-stack-docker-compose) and change what the script set for this machine: your public URL in `NEXT_PUBLIC_APP_URL`, `BETTER_AUTH_BASE_URL`, `ALLOWED_ORIGINS` and `MCP_OAUTH_CALLBACK_ORIGIN`, then `docker compose up -d --build`; either an SMTP server with `REQUIRE_EMAIL_VERIFICATION=true` or `ALLOW_SIGNUPS=false`; and a reverse proxy with TLS, plus `ZETORA_BIND=0.0.0.0` (and `ZETORA_SERVICES_BIND=0.0.0.0` for Silo, voice and the Hermes relay) if that proxy runs on another host.
+- **The script checks your key** with the provider, by listing its models, and asks again if the provider refuses it. Without a network answer, it keeps the key as typed. The key goes to `curl` on its standard input, never on its command line.
 - **The script lists your provider's current models** from [models.dev](https://models.dev) (with `python3` and `curl`; without them, it asks for the ids): pick them by number, or type a `provider:model` id. Once the app runs, Settings → AI Models lists what your key gives access to.
-- **The menu offers the most common providers.** For another one (xAI, Mistral, Groq, …), add its key to `.env` (see `.env.example`) and run `docker compose up -d`.
+- **The first menu offers the most common providers.** A full install offers the others next. After a quick install, add another one's key (xAI, Mistral, Groq, …) to `.env` (see `.env.example`) and run `docker compose up -d`.
 - **Each function gets one of the two models you name**, and any of them can be changed in Settings → AI Models. A local endpoint works the same way, and the app's container must be able to reach its server: it has to listen on more than `127.0.0.1` (for Ollama, `OLLAMA_HOST=0.0.0.0`), and a firewall must let containers through (with ufw: `sudo ufw allow from 172.16.0.0/12 to any port 11434`). The script warns you if it cannot get through.
-- **File uploads, code execution and Lookouts stay off** until you set `S3_*`, `SANDBOX_PROVIDER` and `LOOKOUT_SCHEDULER` (see [Choose a setup](#choose-a-setup)). Each reports what is missing when used.
+- **After a quick install, file uploads, code execution and Lookouts stay off** until you set `S3_*`, `SANDBOX_PROVIDER` and `LOOKOUT_SCHEDULER` (see [Choose a setup](#choose-a-setup)). Each reports what is missing when used.
 
-Port 3333, 5432, 6379 or 8090 already taken on your machine stops the start with an error naming the port.
+Port 3333, 5432, 6379 or 8090 already taken on your machine stops the start with an error naming the port, and so does a port of a service a full install runs (see the ports in [ARCHITECTURE.md](ARCHITECTURE.md)).
 
 Afterwards, from the repository folder:
 
@@ -347,7 +358,7 @@ Use this to deploy Zetora on a server. By default it runs against cloud provider
    COMPOSE_PROFILES=selfhosted,voice,tts docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
    ```
 
-4. Put a reverse proxy with TLS in front of `zetora.app` (port 3333) for your domain. The port listens on all interfaces unless `ZETORA_BIND=127.0.0.1`, the better choice when the proxy runs on this same host. If you enabled the `minio` profile, also put one in front of Silo's API port (`:9010`) and point `S3_PUBLIC_URL` at it — generated images/files are served straight from that URL to the browser, no app-side proxy. For the local voice backend, expose `s2s-service`'s WebSocket port and point `VOICE_S2S_URL` at it. Every other service is bound to `127.0.0.1` only — use an SSH tunnel if you need direct access to an admin UI (Silo console on `:9001`, Bull Board on `:3001`, Qdrant dashboard on `:6333`, SearXNG on `:8090`).
+4. Put a reverse proxy with TLS in front of `zetora.app` (port 3333) for your domain. The port listens on all interfaces unless `ZETORA_BIND=127.0.0.1`, the better choice when the proxy runs on this same host. If you enabled the `minio` profile, also put one in front of Silo's API port (`:9010`) and point `S3_PUBLIC_URL` at it — generated images/files are served straight from that URL to the browser, no app-side proxy. For the local voice backend, expose `s2s-service`'s WebSocket port and point `VOICE_S2S_URL` at it. Both ports listen on all interfaces unless `ZETORA_SERVICES_BIND=127.0.0.1`, which suits a proxy on this same host. Every other service is bound to `127.0.0.1` only — use an SSH tunnel if you need direct access to an admin UI (Silo console on `:9001`, Bull Board on `:3001`, Qdrant dashboard on `:6333`, SearXNG on `:8090`).
 5. Visit your domain — Zetora should be up and running. The Diagnostics tab in Settings shows the health of each bundled service.
 
 All ten optional profiles (`minio`, `searxng`, `fastcrw`, `sandbox`, `bullmq`, `qdrant`, `presidio`, `voice`, `tts`, `hermes`) are off by default, nothing to edit to skip them. See [All-Cloud Configuration](#all-cloud-configuration) for exactly what each one falls back to when left off.
