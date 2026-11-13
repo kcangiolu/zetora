@@ -46,6 +46,20 @@ describe('getTaskModel', () => {
     expect(getTaskModel('chat-title', {})).toBe('openai:big');
   });
 
+  it('runs a pick the catalog has', () => {
+    vi.stubEnv('ZETORA_MODEL_CHAT_TITLE', 'custom-local-qwen3:8b');
+    expect(getTaskModel('chat-title', { 'zetora-tertiary-chat-title-model': 'openai:big' })).toBe('openai:big');
+  });
+
+  it('refuses a pick that left the catalog instead of running the instance model', () => {
+    vi.stubEnv('ZETORA_MODEL_DEFAULT', 'openai:big');
+    const preferences = { 'zetora-default-model': 'anthropic:gone' };
+    expect(() => getTaskModel('default', preferences)).toThrow(ModelUnavailableError);
+    expect(() => getTaskModel('default', preferences)).toThrow(
+      'Default Model: your pick in Settings → AI Models, anthropic:gone, is not available',
+    );
+  });
+
   it("never borrows another task's model", () => {
     vi.stubEnv('ZETORA_MODEL_DEFAULT', 'openai:big');
     vi.stubEnv('ZETORA_MODEL_VOICE', '');

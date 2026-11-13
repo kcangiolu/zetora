@@ -46,10 +46,20 @@ export function getUnavailableTaskModels(): Partial<Record<TertiaryTask, string>
 }
 
 // The model a task runs on: the user's pick, else the instance's. Throws when
-// there is neither.
+// there is neither, or when the pick has left the catalog: running the
+// instance's model instead would hide that the user's choice no longer holds.
 export function getTaskModel(task: TertiaryTask, preferences: UserPreferenceValues | null | undefined): string {
   const picked = preferences?.[getTaskPreferenceKey(task)];
-  if (typeof picked === 'string' && picked) return picked;
+  if (typeof picked === 'string' && picked) {
+    // A custom model belongs to a provider the user may have added, which
+    // resolveModel checks against that user's own providers.
+    if (picked.startsWith('custom-') || picked === ARCH_ROUTER_MODEL.id) return picked;
+    const entry = getCatalogEntry(picked);
+    if (entry) return entry.id;
+    throw new ModelUnavailableError(
+      `${TASK_LABELS[task]}: your pick in Settings → AI Models, ${picked}, is not available. It is not in the model catalog, or its provider has no API key. Pick another model there, or reset it to the default.`,
+    );
+  }
   const modelId = getTaskModelId(task);
   if (modelId) return modelId;
 

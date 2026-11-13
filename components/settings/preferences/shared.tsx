@@ -5,7 +5,14 @@ import { useSyncedPreferences, type PreferenceKey, type ImageGenPromptPreset } f
 import { testEmailDelivery } from '@/app/actions';
 import { Check, X, Trash2, Save, Power, PowerOff } from 'lucide-react';
 import { useState, type ComponentType } from 'react';
-import { ARCH_ROUTER_MODEL, DEFAULT_MODEL_ALIAS, TASK_ENV_KEYS, TASK_LABELS, type TertiaryTask } from '@/ai/models';
+import {
+  ARCH_ROUTER_MODEL,
+  DEFAULT_MODEL_ALIAS,
+  isRetiredModelSelection,
+  TASK_ENV_KEYS,
+  TASK_LABELS,
+  type TertiaryTask,
+} from '@/ai/models';
 import { useModels } from '@/hooks/use-models';
 import { cn } from '@/lib/utils';
 import type { SearchProviderId } from '@/lib/search/providers';
@@ -224,7 +231,7 @@ export function TertiaryModelRow({
   const [, setProvider] = useSyncedPreferences<string>(providerKey as PreferenceKey, '');
   const [effort, setEffort] = useSyncedPreferences<ReasoningEffort>(effortKey, recommendedEffort);
 
-  const { getModel, taskModelIds, unavailableTaskModels, isLoading } = useModels();
+  const { getModel, catalogModels, catalogRead, taskModelIds, unavailableTaskModels, isLoading } = useModels();
   const taskModelId = taskModelIds?.[task];
   const taskModelLabel =
     defaultModelLabel ??
@@ -235,6 +242,10 @@ export function TertiaryModelRow({
         (getModel(taskModelId ?? undefined)?.label ?? taskModelId ?? undefined));
   const envKey = TASK_ENV_KEYS[task];
   const unavailableModel = unavailableTaskModels?.[task];
+  // The server refuses a pick that left the catalog rather than run another
+  // model, so the row has to say why the task fails.
+  const pickUnavailable =
+    Boolean(model) && model !== ARCH_ROUTER_MODEL.id && catalogRead && isRetiredModelSelection(model, catalogModels);
 
   const handleSelect = (modelValue: string) => {
     setModel(modelValue);
@@ -246,6 +257,12 @@ export function TertiaryModelRow({
       <div className="min-w-0">
         <p className="text-sm font-medium">{TASK_LABELS[task]}</p>
         <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+        {pickUnavailable && (
+          <p className="text-xs text-destructive mt-1">
+            Your pick, {model}, is not available (not in the model catalog, or its provider has no API key): this
+            feature will not work. Pick another model here, or reset it to the default.
+          </p>
+        )}
         {!model && !taskModelLabel && !isLoading && (
           <p className="text-xs text-destructive mt-1">
             {unavailableModel ? (
