@@ -26,6 +26,11 @@ export interface InstanceCapabilities {
   cloudVoice: boolean;
   // s2s-service: the local Voice backend.
   localVoice: boolean;
+  // ELEVENLABS_API_KEY: ElevenLabs as the speech-to-text and text-to-speech
+  // provider in Settings > Voice.
+  elevenLabs: boolean;
+  // COHERE_API_KEY: Cohere's embedding model for searching uploaded files.
+  cohereEmbedding: boolean;
   // Chat sources none of whose tools this instance can run (an API key not
   // set, no sandbox), hidden like the sources with no search provider.
   unavailableSources: string[];
@@ -77,6 +82,8 @@ export function getInstanceCapabilities(): InstanceCapabilities {
     anonymization: isAnonymizationAvailable(),
     cloudVoice: isCloudVoiceAvailable(),
     localVoice: isLocalVoiceAvailable(),
+    elevenLabs: isConfigured(serverEnv.ELEVENLABS_API_KEY),
+    cohereEmbedding: isConfigured(process.env.COHERE_API_KEY),
     unavailableSources: getUnavailableSources(),
     costs: serverEnv.ZETORA_SHOW_COSTS,
   };

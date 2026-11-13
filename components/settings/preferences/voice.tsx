@@ -30,6 +30,18 @@ import { useState, useMemo } from 'react';
 import { type CustomProviderConfig, ImagePromptPresetEditor } from './shared';
 import { useInstanceCapabilities } from '@/hooks/use-instance-capabilities';
 
+// Shown under a provider row whose choice is ElevenLabs on an instance without
+// its key: the default choice, so a new instance shows it until someone picks
+// another provider.
+function ElevenLabsUnavailable({ feature }: { feature: string }) {
+  return (
+    <p className="text-xs text-destructive mt-1">
+      ElevenLabs is not available on this instance (ELEVENLABS_API_KEY is not set), so {feature} does not work. Pick
+      Custom (OpenAI-compatible) to use a server from Custom AI Providers.
+    </p>
+  );
+}
+
 export function VoiceTab({ customProviders }: { customProviders: CustomProviderConfig[] }) {
   // Own instance (read-only here) — the Integrations tab owns the toggle;
   // both stay in sync via useSyncedPreferences' CustomEvent.
@@ -42,6 +54,8 @@ export function VoiceTab({ customProviders }: { customProviders: CustomProviderC
   const voiceS2SBackend = capabilities ? resolveVoiceS2SBackend(voiceS2SBackendPref, capabilities) : null;
   // A choice only exists when the instance has both backends.
   const offersBackendChoice = capabilities?.cloudVoice === true && capabilities.localVoice;
+  // Unknown while the capabilities load: nothing is flagged until then.
+  const elevenLabsMissing = capabilities?.elevenLabs === false;
 
   const [ttsProvider, setTtsProvider] = useSyncedPreferences<TTSProvider>('zetora-tts-provider', 'elevenlabs');
   const [ttsCustomProviderId, setTtsCustomProviderId] = useSyncedPreferences<string>(
@@ -130,6 +144,7 @@ export function VoiceTab({ customProviders }: { customProviders: CustomProviderC
           <div className="min-w-0">
             <p className="text-sm font-medium">Voice TTS Provider</p>
             <p className="text-xs text-muted-foreground mt-0.5">Engine used for voice synthesis</p>
+            {ttsProvider === 'elevenlabs' && elevenLabsMissing && <ElevenLabsUnavailable feature="text-to-speech" />}
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -144,14 +159,19 @@ export function VoiceTab({ customProviders }: { customProviders: CustomProviderC
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-[300px]">
               <DropdownMenuRadioGroup value={ttsProvider} onValueChange={(v) => setTtsProvider(v as TTSProvider)}>
-                {TTS_PROVIDERS.map((p) => (
-                  <DropdownMenuRadioItem key={p.value} value={p.value} className="text-xs">
-                    <div className="flex flex-col">
-                      <span className="font-medium">{p.label}</span>
-                      <span className="text-[10px] text-muted-foreground">{p.description}</span>
-                    </div>
-                  </DropdownMenuRadioItem>
-                ))}
+                {TTS_PROVIDERS.map((p) => {
+                  const unavailable = p.value === 'elevenlabs' && elevenLabsMissing;
+                  return (
+                    <DropdownMenuRadioItem key={p.value} value={p.value} disabled={unavailable} className="text-xs">
+                      <div className="flex flex-col">
+                        <span className="font-medium">{p.label}</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {unavailable ? 'Not available: ELEVENLABS_API_KEY is not set' : p.description}
+                        </span>
+                      </div>
+                    </DropdownMenuRadioItem>
+                  );
+                })}
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -219,6 +239,7 @@ export function VoiceTab({ customProviders }: { customProviders: CustomProviderC
           <div className="min-w-0">
             <p className="text-sm font-medium">Voice STT Provider</p>
             <p className="text-xs text-muted-foreground mt-0.5">Engine used for speech transcription</p>
+            {sttProvider === 'elevenlabs' && elevenLabsMissing && <ElevenLabsUnavailable feature="speech-to-text" />}
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -233,14 +254,19 @@ export function VoiceTab({ customProviders }: { customProviders: CustomProviderC
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-[300px]">
               <DropdownMenuRadioGroup value={sttProvider} onValueChange={(v) => setSttProvider(v as STTProvider)}>
-                {STT_PROVIDERS.map((p) => (
-                  <DropdownMenuRadioItem key={p.value} value={p.value} className="text-xs">
-                    <div className="flex flex-col">
-                      <span className="font-medium">{p.label}</span>
-                      <span className="text-[10px] text-muted-foreground">{p.description}</span>
-                    </div>
-                  </DropdownMenuRadioItem>
-                ))}
+                {STT_PROVIDERS.map((p) => {
+                  const unavailable = p.value === 'elevenlabs' && elevenLabsMissing;
+                  return (
+                    <DropdownMenuRadioItem key={p.value} value={p.value} disabled={unavailable} className="text-xs">
+                      <div className="flex flex-col">
+                        <span className="font-medium">{p.label}</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {unavailable ? 'Not available: ELEVENLABS_API_KEY is not set' : p.description}
+                        </span>
+                      </div>
+                    </DropdownMenuRadioItem>
+                  );
+                })}
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>

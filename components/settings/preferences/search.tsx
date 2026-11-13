@@ -415,6 +415,19 @@ export function SearchTab() {
                   ? 'Uses your selected Custom AI Provider'
                   : 'Cohere embed-v4.0 (requires COHERE_API_KEY)'}
               </p>
+              {/* Cohere is the default choice, so a new instance without its
+                  key shows this until someone picks a custom model. */}
+              {fileEmbeddingProvider !== 'custom' && capabilities?.cohereEmbedding === false && (
+                <p className="text-xs text-destructive mt-1">
+                  Cohere is not available on this instance (COHERE_API_KEY is not set), so searching uploaded files does
+                  not work. Pick Custom Provider to use an embedding model from Custom AI Providers.
+                </p>
+              )}
+              {fileEmbeddingProvider === 'custom' && !fileEmbeddingModel && (
+                <p className="text-xs text-destructive mt-1">
+                  No embedding model picked, so searching uploaded files does not work.
+                </p>
+              )}
             </div>
             <Select
               value={fileEmbeddingProvider ?? 'cohere'}
@@ -424,7 +437,9 @@ export function SearchTab() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="cohere">Cohere</SelectItem>
+                <SelectItem value="cohere" disabled={capabilities?.cohereEmbedding === false}>
+                  {capabilities?.cohereEmbedding === false ? 'Cohere (no key)' : 'Cohere'}
+                </SelectItem>
                 <SelectItem value="custom">Custom Provider</SelectItem>
               </SelectContent>
             </Select>

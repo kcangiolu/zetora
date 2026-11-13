@@ -57,4 +57,18 @@ describe('getInstanceCapabilities', () => {
     expect(unavailableSources).toEqual(expect.arrayContaining(['x', 'youtube', 'code']));
     expect(unavailableSources).not.toContain('crypto');
   });
+
+  it('says whether ElevenLabs and Cohere embeddings have a key', async () => {
+    const { getInstanceCapabilities: without } = await loadCapabilities({
+      ELEVENLABS_API_KEY: 'placeholder',
+      COHERE_API_KEY: '',
+    });
+    expect(without()).toMatchObject({ elevenLabs: false, cohereEmbedding: false });
+
+    const { getInstanceCapabilities: withKeys } = await loadCapabilities({
+      ELEVENLABS_API_KEY: 'elevenlabs-key',
+      COHERE_API_KEY: 'cohere-key',
+    });
+    expect(withKeys()).toMatchObject({ elevenLabs: true, cohereEmbedding: true });
+  });
 });
