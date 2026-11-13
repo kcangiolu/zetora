@@ -1,17 +1,26 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-const { lookup, publicFetch } = vi.hoisted(() => ({ lookup: vi.fn(), publicFetch: vi.fn() }));
+const { lookup, publicFetch, storageSend } = vi.hoisted(() => ({
+  lookup: vi.fn(),
+  publicFetch: vi.fn(),
+  storageSend: vi.fn(),
+}));
 
 vi.mock('node:dns/promises', () => ({ lookup }));
-// fetchPublicUrl goes through undici's own fetch; storage reads use the global one.
+// fetchPublicUrl goes through undici's own fetch; storage reads go through the S3 client.
 vi.mock('undici', async (importOriginal) => ({
   ...(await importOriginal<typeof import('undici')>()),
   fetch: publicFetch,
 }));
 vi.mock('@/lib/storage', () => ({
-  getStorageClient: () => ({ publicUrl: 'http://192.168.1.20:9000/zetora-uploads' }),
+  getStorageClient: () => ({
+    client: { send: storageSend },
+    bucketName: 'zetora-uploads',
+    publicUrl: 'http://192.168.1.20:9000/zetora-uploads',
+  }),
 }));
 
+import type { GetObjectCommand } from '@aws-sdk/client-s3';
 import { fetchAttachment, isInstanceStorageUrl } from '@/lib/net/attachment-fetch';
 import { readBodyCapped } from '@/lib/net/public-url';
 
@@ -42,11 +51,35 @@ describe('fetchAttachment', () => {
     vi.unstubAllGlobals();
   });
 
-  it('reads from the instance storage even though it is on a private address', async () => {
-    fetchMock.mockResolvedValue(new Response('hello', { headers: { 'content-type': 'text/plain' } }));
-    const result = await fetchAttachment(`${STORAGE}/zetora/users/u1/a.txt`);
+  function storageObject(text: string, contentType: string) {
+    return {
+      Body: { transformToWebStream: () => new Response(text).body },
+      ContentLength: text.length,
+      ContentType: contentType,
+    };
+  }
+
+  it('reads the instance storage as a bucket, whatever its public address', async () => {
+    storageSend.mockResolvedValue(storageObject('hello', 'text/plain'));
+    const result = await fetchAttachment(`${STORAGE}/zetora/users/u1/my%20notes.txt`);
     expect(new TextDecoder().decode(result.bytes)).toBe('hello');
     expect(result.contentType).toBe('text/plain');
+    const command = storageSend.mock.calls[0][0] as GetObjectCommand;
+    expect(command.input).toEqual({ Bucket: 'zetora-uploads', Key: 'zetora/users/u1/my notes.txt' });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(publicFetch).not.toHaveBeenCalled();
+  });
+
+  it('refuses a stored object over the cap', async () => {
+    storageSend.mockResolvedValue(storageObject('x'.repeat(10), 'text/plain'));
+    await expect(fetchAttachment(`${STORAGE}/zetora/users/u1/a.txt`, { maxBytes: 5 })).rejects.toThrow(
+      'exceeds 5 bytes',
+    );
+  });
+
+  it('fails on a missing stored object', async () => {
+    storageSend.mockRejectedValue(Object.assign(new Error('The specified key does not exist.'), { name: 'NoSuchKey' }));
+    await expect(fetchAttachment(`${STORAGE}/zetora/users/u1/missing.txt`)).rejects.toThrow('NoSuchKey');
   });
 
   it('refuses an internal address that is not the storage', async () => {
@@ -54,6 +87,7 @@ describe('fetchAttachment', () => {
     await expect(fetchAttachment('http://redis:6379/')).rejects.toThrow();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(publicFetch).not.toHaveBeenCalled();
+    expect(storageSend).not.toHaveBeenCalled();
   });
 
   it('refuses a public host that resolves to a private address', async () => {
@@ -70,8 +104,9 @@ describe('fetchAttachment', () => {
   });
 
   it('fails on an error status', async () => {
-    fetchMock.mockResolvedValue(new Response('nope', { status: 404, statusText: 'Not Found' }));
-    await expect(fetchAttachment(`${STORAGE}/zetora/users/u1/missing.txt`)).rejects.toThrow('404');
+    lookup.mockResolvedValue([{ address: '93.184.216.34', family: 4 }]);
+    publicFetch.mockResolvedValue(new Response('nope', { status: 404, statusText: 'Not Found' }));
+    await expect(fetchAttachment('https://example.com/missing.txt')).rejects.toThrow('404');
   });
 });
 
