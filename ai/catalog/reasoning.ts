@@ -73,14 +73,9 @@ const ACCEPTED_EFFORTS: Partial<Record<Dialect, EffortLevel[]>> = {
 };
 
 // Dialects whose API can always switch thinking off, whatever models.dev lists.
-const ALWAYS_DISABLEABLE = new Set<Dialect>([
-  'anthropic',
-  'deepseek',
-  'cohere',
-  'thinking-type',
-  'enable-thinking',
-  'openrouter',
-]);
+// OpenRouter is not one: it passes the switch on to the model's own provider,
+// which refuses it for models that always think (Mistral Large 4, Gemini 3.x).
+const ALWAYS_DISABLEABLE = new Set<Dialect>(['anthropic', 'deepseek', 'cohere', 'thinking-type', 'enable-thinking']);
 
 // What the toggle resolved to for one provider: an effort value it accepts, a
 // thinking budget, or thinking switched off. No effort and no budget means

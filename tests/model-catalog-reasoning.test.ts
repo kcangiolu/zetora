@@ -86,6 +86,13 @@ describe('getReasoningProviderOptions', () => {
     });
   });
 
+  it('turns OpenRouter thinking down, not off, for a model that declares no way to switch it off', () => {
+    const mistralLarge = entry('openrouter', { toggle: false, efforts: ['low', 'medium', 'high'] }, 'mistralai/m');
+    expect(getReasoningProviderOptions(mistralLarge, 'off')).toEqual({
+      openrouter: { reasoning: { effort: 'low', exclude: true } },
+    });
+  });
+
   it("keys the AI Gateway's options by the upstream vendor of the model", () => {
     expect(getReasoningProviderOptions(entry('gateway', { toggle: true, efforts: [] }, 'zai/m'), 'off')).toEqual({
       zai: { thinking: { type: 'disabled' } },
