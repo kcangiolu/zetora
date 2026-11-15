@@ -79,10 +79,10 @@ export async function resolveTertiaryModel(
   const effectiveModelId = getTaskModel(task, preferences);
   let resolved = await resolveModel(effectiveModelId, preferences, userId);
 
-  // extreme-agent forces toolChoice: 'required' on every step of its research
-  // loop (lib/tools/extreme-search/), which several providers reject while
-  // thinking (DeepSeek, Kimi, Qwen...) — so its thinking is always off. There's
-  // no UI control for this task's effort (Settings hides it).
+  // extreme-agent's thinking is always off: the planner has reasoned out the
+  // research, and the agent's loop (lib/tools/extreme-search/) runs dozens of
+  // short tool steps that thinking would each slow down. There's no UI
+  // control for this task's effort (Settings hides it).
   const effort: ReasoningEffort =
     task === 'extreme-agent' ? 'off' : (preferences?.[effortPrefKey(task)] ?? TASK_RECOMMENDED_EFFORT[task]);
 

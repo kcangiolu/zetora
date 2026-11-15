@@ -4,7 +4,7 @@
 
 type ToolCall = { toolName: string; input: unknown };
 // The SDK types a call to an optional tool (fileQuery) as possibly undefined.
-type StepToolCalls = { toolCalls: ReadonlyArray<ToolCall | undefined> };
+export type StepToolCalls = { toolCalls: ReadonlyArray<ToolCall | undefined> };
 
 export const MAX_IDENTICAL_TOOL_CALLS = 3;
 

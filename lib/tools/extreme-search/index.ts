@@ -32,6 +32,7 @@ import { createFileQueryTool } from './agent-tools/file-query';
 import { createThinkingTool } from './agent-tools/thinking';
 import { createWebSearchTool } from './agent-tools/web-search';
 import { createXSearchTool } from './agent-tools/x-search';
+import { MAX_TEXT_ANSWERS, endedInText, runAgentUntilDone } from './agent-loop';
 import { MAX_IDENTICAL_TOOL_CALLS, isRepeatingToolCall } from './loop-guard';
 import { buildAgentSystemPrompt, buildPlannerPrompt, normalizeResearchPlan, researchPlanSchema } from './prompts';
 import { resolveExtremeProviderStack } from './providers';
@@ -122,66 +123,74 @@ async function extremeSearch(
   // A wall-clock deadline too, so a run can never grow unbounded.
   const agentDeadline = EXTREME_WALL_CLOCK_MS > 0 ? Date.now() + EXTREME_WALL_CLOCK_MS : Number.POSITIVE_INFINITY;
 
-  const { steps } = await generateText({
-    model: await resolveTertiaryModel('extreme-agent', preferences),
-    // Stop in the chat aborts the whole run, the agent's tool calls included.
-    abortSignal,
-    stopWhen: [
-      stepCountIs(maxSteps),
-      hasToolCall('done'),
-      () => isPastDeadline(agentDeadline),
-      ({ steps }) => isRepeatingToolCall(steps),
-    ],
-    activeTools,
-    maxRetries: 2,
-    system: buildAgentSystemPrompt(plan, {
-      fileNames: hasFiles ? supportedFiles.map(getFileDisplayName) : [],
-      maxSteps,
-    }),
-    prompt,
-    temperature: 0,
-    // Thinking is switched off for this model (ai/tertiary.ts): every step
-    // forces toolChoice 'required', which several providers reject while
-    // thinking.
-    providerOptions: {
-      xai: {
-        parallel_function_calling: false,
-        parallel_tool_calls: false,
-      },
-      openai: {
-        parallelToolCalls: false,
-      } satisfies OpenAIResponsesProviderOptions,
-      anthropic: {
-        disableParallelToolUse: true,
-      } satisfies AnthropicProviderOptions,
-    },
-    tools,
-    onStepFinish: (step) => {
-      log.debug('Step finished:', step);
-      if (step.toolResults) {
-        toolResults.push(...step.toolResults);
-      }
-    },
-    onFinish: (event) => {
-      log.debug('Research agent finished', {
-        finishReason: event.finishReason,
-        steps: event.steps,
-        toolCalls: event.toolCalls,
-        toolResults: event.toolResults,
-        response: event.response,
-        providerMetadata: event.providerMetadata,
-      });
-    },
-    // The model can only stop by calling done: it must call a tool at every step.
-    prepareStep: async () => ({ toolChoice: 'required' as const }),
+  const agentModel = await resolveTertiaryModel('extreme-agent', preferences);
+  const system = buildAgentSystemPrompt(plan, {
+    fileNames: hasFiles ? supportedFiles.map(getFileDisplayName) : [],
+    maxSteps,
   });
+
+  const steps = await runAgentUntilDone(
+    async (messages, stepBudget, earlierSteps) => {
+      const { steps, response } = await generateText({
+        model: agentModel,
+        // Stop in the chat aborts the whole run, the agent's tool calls included.
+        abortSignal,
+        stopWhen: [
+          stepCountIs(stepBudget),
+          hasToolCall('done'),
+          () => isPastDeadline(agentDeadline),
+          ({ steps }) => isRepeatingToolCall([...earlierSteps, ...steps]),
+        ],
+        activeTools,
+        maxRetries: 2,
+        system,
+        messages,
+        temperature: 0,
+        // Thinking is switched off for this model (ai/tertiary.ts).
+        providerOptions: {
+          xai: {
+            parallel_function_calling: false,
+            parallel_tool_calls: false,
+          },
+          openai: {
+            parallelToolCalls: false,
+          } satisfies OpenAIResponsesProviderOptions,
+          anthropic: {
+            disableParallelToolUse: true,
+          } satisfies AnthropicProviderOptions,
+        },
+        tools,
+        onStepFinish: (step) => {
+          log.debug('Step finished:', step);
+          if (step.toolResults) {
+            toolResults.push(...step.toolResults);
+          }
+        },
+        onFinish: (event) => {
+          log.debug('Research agent finished', {
+            finishReason: event.finishReason,
+            steps: event.steps,
+            toolCalls: event.toolCalls,
+            toolResults: event.toolResults,
+            response: event.response,
+            providerMetadata: event.providerMetadata,
+          });
+        },
+      });
+      if (endedInText(steps)) log.info('Research agent answered without calling a tool');
+      return { steps, responseMessages: response.messages };
+    },
+    { prompt, maxSteps, isOver: () => isPastDeadline(agentDeadline) },
+  );
 
   if (!steps.some((step) => step.toolCalls.some((call) => call?.toolName === 'done'))) {
     const reason = isRepeatingToolCall(steps)
       ? `the same tool call was repeated ${MAX_IDENTICAL_TOOL_CALLS} times`
       : isPastDeadline(agentDeadline)
         ? 'the wall-clock deadline passed'
-        : `the ${maxSteps}-step limit was reached`;
+        : endedInText(steps)
+          ? `it answered without calling a tool ${MAX_TEXT_ANSWERS} times`
+          : `the ${maxSteps}-step limit was reached`;
     log.warn(`Research agent stopped without calling done: ${reason} (${steps.length} steps)`);
   }
 
