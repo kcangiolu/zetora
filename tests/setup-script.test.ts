@@ -340,7 +340,9 @@ describe('setup.sh', () => {
     }
 
     it('runs every service picked, each with its own secret', () => {
-      expect(runFull(fullAnswers()).status).toBe(0);
+      const result = runFull(fullAnswers());
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain('-L 9010:localhost:9010');
       const env = writtenEnv();
       expect(env.get('COMPOSE_PROFILES')).toBe('minio,searxng,fastcrw,bullmq,qdrant,presidio,sandbox,voice,tts,hermes');
       expect(env.get('MINIO_ROOT_PASSWORD')).toMatch(/^[0-9a-f]{48}$/);
@@ -480,6 +482,7 @@ describe('setup.sh', () => {
       expect(env.has('CUSTOM_AI_PROVIDERS') && env.get('CUSTOM_AI_PROVIDERS')).toBeFalsy();
       expect(existsSync(join(dir, 'data'))).toBe(false);
       expect(result.stdout).toContain('No search provider');
+      expect(result.stdout).not.toContain('9010');
     });
 
     it('asks again after a pick out of range', () => {

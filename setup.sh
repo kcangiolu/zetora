@@ -866,6 +866,12 @@ print_next_steps() {
     printf '\nHermes Agent: open Settings → Hermes, run the command it gives on this machine,\n'
     printf 'then install the plugin, see hermes-plugin/zetora/README.md.\n'
   fi
+  case ",$profiles," in
+    *,minio,*)
+      printf '\nFiles and charts load in the browser from Silo, on port 9010. From another computer,\n'
+      printf 'forward it with the app: ssh -L 3333:localhost:3333 -L 9010:localhost:9010 <this machine>\n'
+      ;;
+  esac
   case ",$profiles,$added_vars" in
     *,searxng,* | *' EXA_API_KEY '* | *' FIRECRAWL_API_KEY '* | *' PARALLEL_API_KEY '*) ;;
     *) printf '\nNo search provider: answers come from the model alone. See "Choose a setup" in README.md.\n' ;;
