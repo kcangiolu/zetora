@@ -3,11 +3,11 @@ import { getCustomReasoningOverrides, getCustomProviderOptions, getReasoningCapa
 import { shouldUseNativeCustomProvider, type CustomProviderConfig } from '@/lib/custom-providers';
 
 const providers: CustomProviderConfig[] = [
-  { id: 'llama', name: 'Llama', baseURL: 'https://llama.example/v1', backendKind: 'llamacpp' },
-  { id: 'olla', name: 'Ollama', baseURL: 'https://olla.example/v1', backendKind: 'ollama' },
-  { id: 'vllm', name: 'vLLM', baseURL: 'https://vllm.example/v1', backendKind: 'vllm' },
-  { id: 'oai', name: 'OpenAI-compat', baseURL: 'https://oai.example/v1', backendKind: 'openai' },
-  { id: 'mystery', name: 'Mystery', baseURL: 'https://mystery.example/v1', backendKind: 'unknown' },
+  { id: 'llama', name: 'Llama', baseURL: 'https://llama.example/v1', trust: 'local', backendKind: 'llamacpp' },
+  { id: 'olla', name: 'Ollama', baseURL: 'https://olla.example/v1', trust: 'local', backendKind: 'ollama' },
+  { id: 'vllm', name: 'vLLM', baseURL: 'https://vllm.example/v1', trust: 'local', backendKind: 'vllm' },
+  { id: 'oai', name: 'OpenAI-compat', baseURL: 'https://oai.example/v1', trust: 'local', backendKind: 'openai' },
+  { id: 'mystery', name: 'Mystery', baseURL: 'https://mystery.example/v1', trust: 'local', backendKind: 'unknown' },
 ];
 
 describe('getCustomReasoningOverrides', () => {
@@ -110,8 +110,22 @@ describe('getCustomReasoningOverrides', () => {
 
   it('enrichedShim demotes llamacpp/ollama to the generic reasoning_effort shape, not the native one', () => {
     const enrichedProviders: CustomProviderConfig[] = [
-      { id: 'llama', name: 'Llama', baseURL: 'https://llama.example/v1', backendKind: 'llamacpp', enrichedShim: true },
-      { id: 'olla', name: 'Ollama', baseURL: 'https://olla.example/v1', backendKind: 'ollama', enrichedShim: true },
+      {
+        id: 'llama',
+        name: 'Llama',
+        baseURL: 'https://llama.example/v1',
+        trust: 'local',
+        backendKind: 'llamacpp',
+        enrichedShim: true,
+      },
+      {
+        id: 'olla',
+        name: 'Ollama',
+        baseURL: 'https://olla.example/v1',
+        trust: 'local',
+        backendKind: 'ollama',
+        enrichedShim: true,
+      },
     ];
     expect(getCustomReasoningOverrides('custom-llama-qwen3', 'high', enrichedProviders)).toEqual({
       providerOptions: { llama: { reasoning_effort: 'high' } },
@@ -164,6 +178,7 @@ describe('getCustomProviderOptions', () => {
       id: 'vllm',
       name: 'vLLM',
       baseURL: 'https://vllm.example/v1',
+      trust: 'local',
       backendKind: 'vllm',
       nativeParams: { guided_json: true, top_k: 40 },
     },
@@ -184,6 +199,7 @@ describe('getCustomProviderOptions', () => {
         id: 'vllm',
         name: 'vLLM',
         baseURL: 'https://vllm.example/v1',
+        trust: 'local',
         backendKind: 'vllm',
         nativeParams: { reasoning_effort: 'low', top_k: 40 },
       },

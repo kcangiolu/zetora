@@ -1,4 +1,5 @@
 import { ModelUnavailableError } from '@/ai/catalog/task-models';
+import { AnonymizationUnavailableError, EgressBlockedError } from '@/lib/egress/errors';
 
 import { isContextLengthError } from './context-budget';
 
@@ -7,7 +8,13 @@ export function getStreamErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message.includes('Rate Limit')) {
     return 'Oops, you have reached the rate limit! Please try again later.';
   }
-  if (error instanceof ModelUnavailableError) return error.message;
+  if (
+    error instanceof ModelUnavailableError ||
+    error instanceof EgressBlockedError ||
+    error instanceof AnonymizationUnavailableError
+  ) {
+    return error.message;
+  }
   if (isContextLengthError(error)) {
     return "Oops, this conversation is too long for this model's context window! Start a new conversation or switch to a model with a larger context window.";
   }

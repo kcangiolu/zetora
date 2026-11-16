@@ -51,7 +51,7 @@ describe('searchFiles', () => {
       files: [a, b, unindexed],
       retrievers,
       maxResults: 2,
-      rerank: false,
+      rerankModel: null,
     });
 
     expect(results).toEqual([
@@ -66,7 +66,7 @@ describe('searchFiles', () => {
       [b.url, fakeRetriever([['b1', 0.5]])],
     ]);
 
-    const results = await searchFiles({ query: 'q', files: [a, b], retrievers, maxResults: 5, rerank: false });
+    const results = await searchFiles({ query: 'q', files: [a, b], retrievers, maxResults: 5, rerankModel: null });
 
     expect(results.map((r) => r.content)).toEqual(['b1']);
   });

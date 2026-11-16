@@ -4,6 +4,7 @@ import { isConfigured } from '@/ai/catalog/env';
 import { serverEnv } from '@/env/server';
 import { withError } from '@/lib/api/route-handlers';
 import { getCustomProviderById } from '@/lib/custom-providers';
+import { assertCleartextAllowed } from '@/lib/egress/anonymization';
 import { getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { resolveVoiceRequestUserId } from '@/lib/voice-session-token';
 
@@ -25,6 +26,12 @@ export const POST = withError(async (request) => {
   const prefs = await getCachedUserPreferencesByUserId(userId);
   const p = prefs?.preferences ?? {};
   const sttProvider = p['zetora-stt-provider'] || 'elevenlabs';
+  const sttRefusal = {
+    preferences: p,
+    userId,
+    what: 'your voice',
+    fix: 'Pick a speech-to-text server marked Local under Settings > Voice.',
+  };
 
   if (sttProvider === 'openai-compatible') {
     const customProvider = await getCustomProviderById(p['zetora-stt-custom-provider-id'], userId);
@@ -34,6 +41,7 @@ export const POST = withError(async (request) => {
         { status: 400 },
       );
     }
+    assertCleartextAllowed({ ...sttRefusal, trust: customProvider.trust });
     const model = p['zetora-stt-openai-model'] || 'whisper-1';
 
     const sttForm = new FormData();
@@ -57,6 +65,7 @@ export const POST = withError(async (request) => {
     return Response.json({ text: data.text ?? '' });
   }
 
+  assertCleartextAllowed({ ...sttRefusal, trust: 'external' });
   if (!isConfigured(serverEnv.ELEVENLABS_API_KEY)) {
     return Response.json(
       {

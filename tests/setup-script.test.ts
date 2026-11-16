@@ -184,7 +184,7 @@ describe('setup.sh', () => {
     expect(result.status).toBe(0);
     const env = writtenEnv();
     expect(JSON.parse((env.get('CUSTOM_AI_PROVIDERS') ?? '').slice(1, -1))).toEqual([
-      { id: 'local', name: 'Local', baseURL: 'http://host.docker.internal:11434/v1', apiKey: 'local' },
+      { id: 'local', name: 'Local', baseURL: 'http://host.docker.internal:11434/v1', apiKey: 'local', trust: 'local' },
     ]);
     expect(env.get('ZETORA_MODEL_DEFAULT')).toBe('custom-local-qwen3:8b');
     expect(env.get('ZETORA_MODEL_CHAT_TITLE')).toBe('custom-local-org/tiny');
@@ -397,12 +397,14 @@ describe('setup.sh', () => {
           name: 'Local speech-to-text',
           baseURL: 'http://stt-service:8080/v1',
           disableAutoDetect: true,
+          trust: 'local',
         },
         {
           id: 'local-tts',
           name: 'Local text-to-speech',
           baseURL: 'http://qwen3-tts:8080/v1',
           disableAutoDetect: true,
+          trust: 'local',
         },
       ]);
       const voices = join(dir, 'data/qwen3-tts/voices');

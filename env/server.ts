@@ -99,6 +99,9 @@ export const serverEnv = createEnv({
     ALLOWED_ORIGINS: z.string().optional().default('http://localhost:3000'),
     CUSTOM_AI_PROVIDERS: z.string().optional(),
     ANONYMIZER_API_URL: z.string().url().optional(),
+    EMBEDDINGS_URL: z.string().url().optional(),
+    EMBEDDINGS_MODEL: z.string().optional(),
+    RERANKER_URL: z.string().url().optional(),
     // Internal reachability check only (Diagnostics panel) — distinct from
     // VOICE_S2S_URL, which is the public browser-facing WS address. Default
     // matches s2s-service's published port for local dev (`next dev`);

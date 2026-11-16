@@ -11,6 +11,7 @@ import { getLightweightUserAuth, getCachedUserPreferencesByUserId } from '@/lib/
 import { resolveTertiaryModel } from '@/ai/tertiary';
 import { isConfigured } from '@/ai/catalog/env';
 import { getCustomProviderById } from '@/lib/custom-providers';
+import { assertCleartextAllowed } from '@/lib/egress/anonymization';
 import { buildFollowUpRequest } from '@/lib/search/follow-up-prompt';
 
 import { createLogger } from '@/lib/logger';
@@ -191,12 +192,19 @@ export async function generateSpeech(text: string): Promise<GenerateSpeechResult
   const prefs = await getCachedUserPreferencesByUserId(user.id);
   const p = prefs?.preferences ?? {};
   const ttsProvider = p['zetora-tts-provider'] || 'elevenlabs';
+  const ttsRefusal = {
+    preferences: p,
+    userId: user.id,
+    what: 'answers read aloud',
+    fix: 'Pick a text-to-speech server marked Local under Settings > Voice.',
+  };
 
   if (ttsProvider === 'openai-compatible') {
     const customProvider = await getCustomProviderById(p['zetora-tts-custom-provider-id'], user.id);
     if (!customProvider?.baseURL) {
       throw new Error('No text-to-speech server selected: pick one under Settings > Voice > Text-to-Speech');
     }
+    assertCleartextAllowed({ ...ttsRefusal, trust: customProvider.trust });
     const model = p['zetora-tts-openai-model'] || 'qwen3-tts';
     const voice = p['zetora-tts-openai-voice'] || 'af_bella';
 
@@ -229,6 +237,7 @@ export async function generateSpeech(text: string): Promise<GenerateSpeechResult
     };
   }
 
+  assertCleartextAllowed({ ...ttsRefusal, trust: 'external' });
   if (!isConfigured(serverEnv.ELEVENLABS_API_KEY)) {
     throw new Error(
       'ElevenLabs speech needs ELEVENLABS_API_KEY on this instance, or pick a custom server under Settings > Voice',

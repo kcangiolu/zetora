@@ -5,6 +5,7 @@ import pLimit from 'p-limit';
 import { serverEnv } from '@/env/server';
 import { encryptMcpCredentials, decryptMcpCredentials } from '@/lib/mcp/crypto';
 import { upsertPiiAliases, getPiiAliasesByTokens } from '@/lib/db/queries';
+import { AnonymizationUnavailableError, EgressBlockedError } from '@/lib/egress/errors';
 import { detectEntities } from './client';
 
 import { createLogger } from '@/lib/logger';
@@ -28,11 +29,6 @@ export interface AnonymizeContext {
   denyTerms?: string[];
   failOpen?: boolean;
 }
-
-// Thrown when the anonymization layer is active, detection failed (the
-// presidio-service is unreachable/erroring), and fail-open was NOT
-// requested — the caller must abort rather than risk sending cleartext.
-export class AnonymizationUnavailableError extends Error {}
 
 export const TOKEN_PATTERN = /⟦([A-Z_]+)_([a-f0-9]{10})⟧/g;
 
@@ -67,7 +63,9 @@ export async function anonymizeText(text: string, ctx: AnonymizeContext): Promis
       log.error('[anonymizer] detection failed, failing open (cleartext will be sent):', error);
       return text;
     }
-    throw new AnonymizationUnavailableError('PII detection service unavailable');
+    throw new AnonymizationUnavailableError(
+      'Anonymization is on, but the PII detection service is not answering, so nothing was sent. Try again in a moment.',
+    );
   }
 
   if (entities.length === 0) return text;
@@ -145,6 +143,25 @@ async function mapJsonStrings(value: unknown, op: TextOp): Promise<unknown> {
   return value;
 }
 
+// Images, audio and documents sent as files cannot be pseudonymized, so with
+// anonymization on they never reach the provider.
+const FILE_REFUSAL =
+  'Anonymization is on, so images and files cannot go to a provider that is not local: they cannot be pseudonymized. Turn vision off for this chat or remove the attachment, or pick a model whose provider is marked Local.';
+
+async function mapToolOutputContent(value: unknown, op: TextOp): Promise<unknown> {
+  if (!Array.isArray(value)) return value;
+  return Promise.all(
+    value.map(async (item: unknown) => {
+      if (!item || typeof item !== 'object') return item;
+      const entry = item as Record<string, unknown>;
+      if (entry.type === 'text' && typeof entry.text === 'string') return { ...entry, text: await op(entry.text) };
+      // Provider-specific markers carry no content of their own.
+      if (entry.type === 'custom') return entry;
+      throw new EgressBlockedError(FILE_REFUSAL);
+    }),
+  );
+}
+
 async function mapContentPart(part: unknown, op: TextOp): Promise<unknown> {
   if (!part || typeof part !== 'object') return part;
   const p = part as Record<string, unknown>;
@@ -153,17 +170,28 @@ async function mapContentPart(part: unknown, op: TextOp): Promise<unknown> {
     case 'text':
     case 'reasoning':
       return typeof p.text === 'string' ? { ...p, text: await op(p.text) } : p;
+    case 'file':
+      throw new EgressBlockedError(FILE_REFUSAL);
     case 'tool-call':
       return { ...p, input: await mapJsonStrings(p.input, op) };
     case 'tool-result': {
-      const output = p.output as { type?: string; value?: unknown } | undefined;
-      if (output?.type === 'text' && typeof output.value === 'string') {
-        return { ...p, output: { ...output, value: await op(output.value) } };
+      const output = p.output as { type?: string; value?: unknown; reason?: unknown } | undefined;
+      switch (output?.type) {
+        case 'text':
+        case 'error-text':
+          return typeof output.value === 'string' ? { ...p, output: { ...output, value: await op(output.value) } } : p;
+        case 'json':
+        case 'error-json':
+          return { ...p, output: { ...output, value: await mapJsonStrings(output.value, op) } };
+        case 'content':
+          return { ...p, output: { ...output, value: await mapToolOutputContent(output.value, op) } };
+        case 'execution-denied':
+          return typeof output.reason === 'string'
+            ? { ...p, output: { ...output, reason: await op(output.reason) } }
+            : p;
+        default:
+          return p;
       }
-      if (output?.type === 'json') {
-        return { ...p, output: { ...output, value: await mapJsonStrings(output.value, op) } };
-      }
-      return p;
     }
     default:
       return p;
@@ -205,4 +233,10 @@ export async function anonymizeModelMessages(prompt: unknown, ctx: AnonymizeCont
 
 export async function anonymizeToolInput(value: unknown, ctx: AnonymizeContext): Promise<unknown> {
   return mapJsonStrings(value, (text) => anonymizeText(text, ctx));
+}
+
+// The way back for a model that reads cleartext: pseudonyms a tool echoed
+// from its input (a query, a title) return to the real values.
+export async function deanonymizeToolOutput(value: unknown, ctx: Pick<AnonymizeContext, 'userId'>): Promise<unknown> {
+  return mapJsonStrings(value, (text) => deanonymizeText(text, ctx));
 }

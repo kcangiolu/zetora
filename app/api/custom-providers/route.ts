@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { parseBody, withAuth } from '@/lib/api/route-handlers';
 import { getCustomProviders, saveCustomProviders, toClientSafeProviders } from '@/lib/custom-providers';
+import { TRUST_CLASSES } from '@/lib/egress/trust';
 
 export const GET = withAuth(async () => {
   const providers = await getCustomProviders();
@@ -17,7 +18,7 @@ const SaveSchema = z.object({
       baseURL: z.string(),
       apiKey: z.string().optional(),
       disableAutoDetect: z.boolean().optional(),
-      anonymize: z.boolean().optional(),
+      trust: z.enum(TRUST_CLASSES),
       backendKind: z.enum(['ollama', 'vllm', 'llamacpp', 'openai', 'unknown']).optional(),
       enrichedShim: z.boolean().optional(),
       hasApiKey: z.unknown().optional(),

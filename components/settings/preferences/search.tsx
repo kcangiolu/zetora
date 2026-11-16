@@ -173,10 +173,12 @@ export function SearchTab() {
     '',
   );
 
-  const [fileEmbeddingProvider, setFileEmbeddingProvider] = useSyncedPreferences<'cohere' | 'custom'>(
-    'zetora-file-embedding-provider',
-    'cohere',
-  );
+  // '' while unset: the server then picks this instance's embedding server
+  // when it runs one, Cohere otherwise (getFileEmbeddingModel).
+  const [fileEmbeddingProviderPick, setFileEmbeddingProvider] = useSyncedPreferences<
+    'instance' | 'cohere' | 'custom' | ''
+  >('zetora-file-embedding-provider', '');
+  const fileEmbeddingProvider = fileEmbeddingProviderPick || (capabilities?.instanceEmbedding ? 'instance' : 'cohere');
   const [fileEmbeddingModel, setFileEmbeddingModel] = useSyncedPreferences<string>('zetora-file-embedding-model', '');
 
   const [qdrantEnabled, setQdrantEnabled] = useSyncedPreferences<boolean>('zetora-qdrant-enabled', false);
@@ -413,11 +415,24 @@ export function SearchTab() {
               <p className="text-xs text-muted-foreground mt-0.5">
                 {fileEmbeddingProvider === 'custom'
                   ? 'Uses your selected Custom AI Provider'
-                  : 'Cohere embed-v4.0 (requires COHERE_API_KEY)'}
+                  : fileEmbeddingProvider === 'instance'
+                    ? "This instance's own embedding server: file text stays here"
+                    : 'Cohere embed-v4.0 (requires COHERE_API_KEY)'}
               </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {capabilities?.instanceReranker
+                  ? "Reranking runs on this instance's own reranker"
+                  : 'Reranking runs on Cohere when COHERE_API_KEY is set, and is skipped while anonymization is on'}
+              </p>
+              {fileEmbeddingProvider === 'instance' && capabilities?.instanceEmbedding === false && (
+                <p className="text-xs text-destructive mt-1">
+                  This instance runs no embedding server (EMBEDDINGS_URL is not set), so searching uploaded files does
+                  not work. Pick another provider.
+                </p>
+              )}
               {/* Cohere is the default choice, so a new instance without its
                   key shows this until someone picks a custom model. */}
-              {fileEmbeddingProvider !== 'custom' && capabilities?.cohereEmbedding === false && (
+              {fileEmbeddingProvider === 'cohere' && capabilities?.cohereEmbedding === false && (
                 <p className="text-xs text-destructive mt-1">
                   Cohere is not available on this instance (COHERE_API_KEY is not set), so searching uploaded files does
                   not work. Pick Custom Provider to use an embedding model from Custom AI Providers.
@@ -430,13 +445,16 @@ export function SearchTab() {
               )}
             </div>
             <Select
-              value={fileEmbeddingProvider ?? 'cohere'}
-              onValueChange={(v) => setFileEmbeddingProvider(v as 'cohere' | 'custom')}
+              value={fileEmbeddingProvider}
+              onValueChange={(v) => setFileEmbeddingProvider(v as 'instance' | 'cohere' | 'custom')}
             >
               <SelectTrigger className="w-[140px] h-8 text-xs rounded-lg shrink-0">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="instance" disabled={capabilities?.instanceEmbedding === false}>
+                  {capabilities?.instanceEmbedding === false ? 'This instance (not running)' : 'This instance'}
+                </SelectItem>
                 <SelectItem value="cohere" disabled={capabilities?.cohereEmbedding === false}>
                   {capabilities?.cohereEmbedding === false ? 'Cohere (no key)' : 'Cohere'}
                 </SelectItem>

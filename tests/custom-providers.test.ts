@@ -7,8 +7,8 @@ import {
 } from '@/lib/custom-providers';
 
 const providers: CustomProviderConfig[] = [
-  { id: 'prov1', name: 'Provider One', baseURL: 'https://one.example/v1' },
-  { id: 'prov2', name: 'Provider Two', baseURL: 'https://two.example/v1' },
+  { id: 'prov1', name: 'Provider One', baseURL: 'https://one.example/v1', trust: 'external' },
+  { id: 'prov2', name: 'Provider Two', baseURL: 'https://two.example/v1', trust: 'external' },
 ];
 
 describe('parseCustomModelId', () => {
@@ -56,22 +56,22 @@ describe('getCustomModelDisplayName', () => {
 describe('toClientSafeProviders', () => {
   it('strips the apiKey and reports only its presence', () => {
     const safe = toClientSafeProviders([
-      { id: 'a', name: 'A', baseURL: 'https://a.example/v1', apiKey: 'sk-super-secret' },
-      { id: 'b', name: 'B', baseURL: 'https://b.example/v1' },
-      { id: 'c', name: 'C', baseURL: 'https://c.example/v1', apiKey: '' },
+      { id: 'a', name: 'A', baseURL: 'https://a.example/v1', trust: 'local', apiKey: 'sk-super-secret' },
+      { id: 'b', name: 'B', baseURL: 'https://b.example/v1', trust: 'external' },
+      { id: 'c', name: 'C', baseURL: 'https://c.example/v1', trust: 'local', apiKey: '' },
     ]);
 
     expect(safe).toEqual([
-      { id: 'a', name: 'A', baseURL: 'https://a.example/v1', hasApiKey: true },
-      { id: 'b', name: 'B', baseURL: 'https://b.example/v1', hasApiKey: false },
-      { id: 'c', name: 'C', baseURL: 'https://c.example/v1', hasApiKey: false },
+      { id: 'a', name: 'A', baseURL: 'https://a.example/v1', trust: 'local', hasApiKey: true },
+      { id: 'b', name: 'B', baseURL: 'https://b.example/v1', trust: 'external', hasApiKey: false },
+      { id: 'c', name: 'C', baseURL: 'https://c.example/v1', trust: 'local', hasApiKey: false },
     ]);
     expect(JSON.stringify(safe)).not.toContain('sk-super-secret');
   });
 
   it('preserves unrelated fields like disableAutoDetect', () => {
     const [safe] = toClientSafeProviders([
-      { id: 'a', name: 'A', baseURL: 'https://a.example/v1', apiKey: 'k', disableAutoDetect: true },
+      { id: 'a', name: 'A', baseURL: 'https://a.example/v1', trust: 'local', apiKey: 'k', disableAutoDetect: true },
     ]);
     expect(safe.disableAutoDetect).toBe(true);
     expect('apiKey' in safe).toBe(false);

@@ -18,6 +18,7 @@ import { InferSelectModel } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import type { MemoryCategory, MemoryDurability, MemoryStatus, MemoryTier } from '@/lib/memory/constants';
 import type { ModelsDevData } from '@/ai/catalog/types';
+import type { TrustClass } from '@/lib/egress/trust';
 
 export const user = pgTable('user', {
   id: text('id').primaryKey(),
@@ -324,7 +325,7 @@ export const userPreferences = pgTable('user_preferences', {
         baseURL: string;
         apiKey?: string;
         disableAutoDetect?: boolean;
-        anonymize?: boolean;
+        trust: TrustClass;
         backendKind?: 'ollama' | 'vllm' | 'llamacpp' | 'openai' | 'unknown';
       }>;
       'zetora-anonymization-enabled'?: boolean;
@@ -333,7 +334,7 @@ export const userPreferences = pgTable('user_preferences', {
       'zetora-anonymization-language'?: 'en' | 'fr';
       'zetora-anonymization-ner-enabled'?: boolean;
       'zetora-embedding-provider'?: string;
-      'zetora-file-embedding-provider'?: 'cohere' | 'custom';
+      'zetora-file-embedding-provider'?: 'instance' | 'cohere' | 'custom';
       'zetora-file-embedding-model'?: string;
       'zetora-qdrant-enabled'?: boolean;
       'zetora-hybrid-search-enabled'?: boolean;

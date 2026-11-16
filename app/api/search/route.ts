@@ -15,7 +15,7 @@ import { v7 as uuidv7 } from 'uuid';
 import { all } from 'better-all';
 
 import { createLogger } from '@/lib/logger';
-import { resolveModel, getAnonymizeContext } from '@/ai/providers';
+import { resolveModel, withAnonymization } from '@/ai/providers';
 import { answerCost } from '@/ai/catalog/cost';
 import { getModelEntry, getModelParameters, hasVisionSupport } from '@/ai/catalog/models';
 import { loadModelCatalog } from '@/ai/catalog/store';
@@ -339,6 +339,7 @@ export async function POST(req: Request) {
       const streamActiveTools = [...activeTools, ...mcpToolNames];
       const loadedTools = await loadConfiguredTools({
         activeToolNames: streamActiveTools,
+        chatModelId: model,
         dataStream,
         timezone: timezone ?? undefined,
         contextFiles,
@@ -347,7 +348,6 @@ export async function POST(req: Request) {
         lightweightUser,
         chatId: isTemporaryChat ? null : id,
         userPreferences: preferences,
-        anonymizeContext: await getAnonymizeContext(model, preferences, lightweightUser?.userId),
         enabledSkillIds,
       });
 
@@ -368,8 +368,9 @@ export async function POST(req: Request) {
       const effort: ReasoningEffort = reasoningEffort ?? 'auto';
       // DeepSeek's real prefill needs a provider instance on its /beta endpoint, for
       // this call only (getDeepSeekStartWithModel).
-      let resolvedModel: LanguageModel =
-        startWithModelOverride ?? (await resolveModel(model, preferences, lightweightUser?.userId, hasImages));
+      let resolvedModel: LanguageModel = startWithModelOverride
+        ? await withAnonymization(startWithModelOverride, model, preferences, lightweightUser?.userId)
+        : await resolveModel(model, preferences, lightweightUser?.userId, hasImages);
       let customProviderOptions: Record<string, unknown> = {};
       if (model.startsWith('custom-')) {
         const custom = await applyCustomModelReasoning({

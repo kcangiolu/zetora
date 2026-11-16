@@ -38,9 +38,9 @@ describe('parseStartWithCommand', () => {
 
 describe('getStartWithStrategy', () => {
   const providers: CustomProviderConfig[] = [
-    { id: 'llama', name: 'Llama', baseURL: 'https://llama.example/v1', backendKind: 'llamacpp' },
-    { id: 'olla', name: 'Ollama', baseURL: 'https://olla.example/v1', backendKind: 'ollama' },
-    { id: 'vllm', name: 'vLLM', baseURL: 'https://vllm.example/v1', backendKind: 'vllm' },
+    { id: 'llama', name: 'Llama', baseURL: 'https://llama.example/v1', trust: 'local', backendKind: 'llamacpp' },
+    { id: 'olla', name: 'Ollama', baseURL: 'https://olla.example/v1', trust: 'local', backendKind: 'ollama' },
+    { id: 'vllm', name: 'vLLM', baseURL: 'https://vllm.example/v1', trust: 'local', backendKind: 'vllm' },
   ];
 
   it('llama.cpp native: supported, forces enable_thinking off', () => {

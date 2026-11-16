@@ -27,6 +27,7 @@ interface ImageContext {
 interface ToolContext {
   images?: ImageContext[];
   userPreferences?: Record<string, string>;
+  userId?: string;
 }
 
 const TRANSLATEGEMMA_PROMPT_TEMPLATE = `You are a professional {SOURCE_LANG} to {TARGET_LANG} translator.
@@ -84,10 +85,14 @@ const detectedLanguageSchema = z.object({
   detectedLanguage: z.string().describe('ISO 639-1 language code (2-letter).'),
 });
 
-async function detectLanguageCode(text: string, preferences: UserPreferenceValues | null): Promise<string> {
+async function detectLanguageCode(
+  text: string,
+  preferences: UserPreferenceValues | null,
+  userId: string | undefined,
+): Promise<string> {
   try {
     const { output } = await generateText({
-      model: await resolveTertiaryModel('lang-detect', preferences),
+      model: await resolveTertiaryModel('lang-detect', preferences, userId),
       output: Output.object({ schema: detectedLanguageSchema }),
       prompt: `Detect the ISO 639-1 language code (2-letter) of the following text.\n\nText:\n${text}`,
       temperature: 0,
@@ -128,7 +133,7 @@ export const textTranslateTool = tool({
     const detectedLanguage = from
       ? normalizeLanguageCode(from)
       : text && text.trim() !== ''
-        ? await detectLanguageCode(text, translatePrefs)
+        ? await detectLanguageCode(text, translatePrefs, context?.userId)
         : 'auto';
     log.debug('[text-translate] Detected source language:', detectedLanguage);
 
@@ -147,7 +152,7 @@ export const textTranslateTool = tool({
 
       log.debug('[text-translate] Calling model with', images.length, 'images...');
       const { text: translatedText } = await generateText({
-        model: await resolveTertiaryModel('translate-vision', translatePrefs),
+        model: await resolveTertiaryModel('translate-vision', translatePrefs, context?.userId),
         messages: [
           {
             role: 'user',
@@ -189,7 +194,7 @@ export const textTranslateTool = tool({
 
     log.debug('[text-translate] Calling TranslateGemma for text-only translation...');
     const { text: translatedText } = await generateText({
-      model: await resolveTertiaryModel('translate-text', translatePrefs),
+      model: await resolveTertiaryModel('translate-text', translatePrefs, context?.userId),
       prompt: promptText,
       temperature: 0,
     });

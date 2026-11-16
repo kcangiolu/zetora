@@ -25,8 +25,9 @@ import {
   deanonymizeText,
   anonymizeModelMessages,
   anonymizeToolInput,
-  AnonymizationUnavailableError,
+  deanonymizeToolOutput,
 } from '@/lib/anonymizer/pseudonymize';
+import { AnonymizationUnavailableError, EgressBlockedError } from '@/lib/egress/errors';
 
 const ctx = { userId: 'user-1' };
 
@@ -146,6 +147,49 @@ describe('anonymizeModelMessages', () => {
     expect(result[0].content).toMatch(/⟦ORG_[a-f0-9]{10}⟧/);
     expect(result[1].content[0].text).not.toContain('Acme Corp');
   });
+
+  it('refuses an image or file part, which cannot be pseudonymized', async () => {
+    detectEntities.mockResolvedValue([]);
+    const prompt = [
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'What is on this scan?' },
+          { type: 'file', mediaType: 'image/png', data: new Uint8Array([1, 2, 3]) },
+        ],
+      },
+    ];
+    await expect(anonymizeModelMessages(prompt, ctx)).rejects.toThrow(EgressBlockedError);
+  });
+
+  it('masks every kind of tool result text, and refuses media in one', async () => {
+    detectEntities.mockImplementation(async (text: string) => {
+      const idx = text.indexOf('Acme Corp');
+      return idx === -1
+        ? []
+        : [{ start: idx, end: idx + 'Acme Corp'.length, type: 'ORG', score: 0.9, text: 'Acme Corp' }];
+    });
+    const toolResult = (output: unknown) => [
+      { role: 'tool', content: [{ type: 'tool-result', toolCallId: 'call-1', toolName: 'mcp_lookup', output }] },
+    ];
+
+    for (const output of [
+      { type: 'error-text', value: 'Acme Corp not found' },
+      { type: 'error-json', value: { message: 'Acme Corp not found' } },
+      { type: 'content', value: [{ type: 'text', text: 'Acme Corp record' }] },
+      { type: 'execution-denied', reason: 'Acme Corp is private' },
+    ]) {
+      const result = (await anonymizeModelMessages(toolResult(output), ctx)) as any[];
+      expect(JSON.stringify(result)).not.toContain('Acme Corp');
+    }
+
+    await expect(
+      anonymizeModelMessages(
+        toolResult({ type: 'content', value: [{ type: 'image-data', data: 'AAAA', mediaType: 'image/png' }] }),
+        ctx,
+      ),
+    ).rejects.toThrow(EgressBlockedError);
+  });
 });
 
 describe('anonymizeToolInput', () => {
@@ -168,5 +212,26 @@ describe('anonymizeToolInput', () => {
     expect(masked.query).not.toContain('Jane Doe');
     expect(masked.filters[0] as string).not.toContain('Jane Doe');
     expect((masked.filters[1] as any).nested).not.toContain('Jane Doe');
+  });
+});
+
+describe('deanonymizeToolOutput', () => {
+  beforeEach(() => {
+    vault.clear();
+    detectEntities.mockReset();
+  });
+
+  it('turns pseudonyms a tool echoed back into the real values', async () => {
+    detectEntities.mockImplementation(async (text: string) => {
+      const idx = text.indexOf('Jane Doe');
+      return idx === -1
+        ? []
+        : [{ start: idx, end: idx + 'Jane Doe'.length, type: 'PERSON', score: 0.9, text: 'Jane Doe' }];
+    });
+    const masked = (await anonymizeToolInput({ query: 'news about Jane Doe' }, ctx)) as { query: string };
+
+    const output = await deanonymizeToolOutput({ searches: [{ query: masked.query, results: [] }] }, ctx);
+
+    expect(output).toEqual({ searches: [{ query: 'news about Jane Doe', results: [] }] });
   });
 });

@@ -39,7 +39,14 @@ export function createFileQueryTool(
           emit({ kind: 'file_query', fileQueryId, query, index, total, status: 'started' });
 
           try {
-            const results = await searchFiles({ query, files, retrievers, maxResults: 5, rerank: false, abortSignal });
+            const results = await searchFiles({
+              query,
+              files,
+              retrievers,
+              maxResults: 5,
+              rerankModel: null,
+              abortSignal,
+            });
             emit({ kind: 'file_query', fileQueryId, query, index, total, status: 'completed', results });
             return { query, results };
           } catch (error) {

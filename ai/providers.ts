@@ -1,5 +1,7 @@
 import 'server-only';
-import { isAnonymizationAvailable } from '@/lib/instance/capabilities';
+import { getUserAnonymizeContext } from '@/lib/egress/anonymization';
+import { receivesCleartext } from '@/lib/egress/trust';
+import type { AnonymizeContext } from '@/lib/anonymizer/pseudonymize';
 
 import { wrapLanguageModel, extractReasoningMiddleware, gateway } from 'ai';
 import type { LanguageModelV3 } from '@ai-sdk/provider';
@@ -259,39 +261,43 @@ function getOrCreateOllamaModel(config: CustomProviderConfig, modelName: string)
   return model;
 }
 
-// Returns the anonymization context for this (model, user) pair, or null if
-// the layer shouldn't apply — master toggle gates everything; built-in
-// providers are covered automatically once it's on, custom providers
-// additionally need their own per-provider flag set (a custom provider can
-// be a trusted local endpoint or a cloud one, so it can't be inferred).
-// Shared by resolveModel and anything that needs to mask outgoing tool/egress
-// data for the same request (see lib/search/tool-loader.ts).
+// The anonymization context for this (model, user) pair, or null when the
+// model gets cleartext: anonymization is off for the user, or the model's
+// provider is local. Built-in providers are outside services; a custom
+// provider says what it is with its trust class.
 export async function getAnonymizeContext(
   modelId: string,
   preferences?: UserPreferenceValues | null,
   userId?: string,
-): Promise<import('@/lib/anonymizer/pseudonymize').AnonymizeContext | null> {
-  if (!userId) return null;
-  // Without a PII detector the instance doesn't offer anonymization at all
-  // (Settings hides it), so a preference left over from before is moot.
-  if (!isAnonymizationAvailable()) return null;
-  if (preferences?.['zetora-anonymization-enabled'] !== true) return null;
+): Promise<AnonymizeContext | null> {
+  const context = getUserAnonymizeContext(preferences, userId);
+  if (!context) return null;
 
   if (modelId.startsWith('custom-')) {
     const models = await getCustomModels(userId);
     const model = models.find((m) => m.id === modelId);
     if (!model) return null;
     const providers = await getCustomProviders(userId);
-    if (providers.find((p) => p.id === model.providerId)?.anonymize !== true) return null;
+    const trust = providers.find((p) => p.id === model.providerId)?.trust;
+    if (!trust || receivesCleartext(trust)) return null;
   }
 
-  return {
-    userId,
-    language: (preferences?.['zetora-anonymization-language'] as string | undefined) ?? 'en',
-    nerEnabled: preferences?.['zetora-anonymization-ner-enabled'] !== false,
-    denyTerms: (preferences?.['zetora-anonymization-custom-terms'] as string[] | undefined) ?? [],
-    failOpen: preferences?.['zetora-anonymization-fail-open'] === true,
-  };
+  return context;
+}
+
+// The model with the anonymization middleware when this user and model need
+// it. Every language model built for a user request passes through here,
+// including ones built outside resolveModel (the /startwith override).
+export async function withAnonymization(
+  model: LanguageModelV3,
+  modelId: string,
+  preferences?: UserPreferenceValues | null,
+  userId?: string,
+): Promise<LanguageModelV3> {
+  const anonymizeContext = await getAnonymizeContext(modelId, preferences, userId);
+  if (!anonymizeContext) return model;
+  const { createAnonymizationMiddleware } = await import('./anonymization-middleware');
+  return wrapLanguageModel({ model, middleware: createAnonymizationMiddleware(anonymizeContext) });
 }
 
 export async function resolveModel(
@@ -367,14 +373,5 @@ export async function resolveModel(
     });
   }
 
-  const anonymizeContext = await getAnonymizeContext(modelId, preferences, userId);
-  if (anonymizeContext) {
-    const { createAnonymizationMiddleware } = await import('./anonymization-middleware');
-    resolved = wrapLanguageModel({
-      model: resolved,
-      middleware: createAnonymizationMiddleware(anonymizeContext),
-    });
-  }
-
-  return resolved;
+  return withAnonymization(resolved, modelId, preferences, userId);
 }

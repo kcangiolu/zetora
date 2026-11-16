@@ -2,7 +2,6 @@ import { NextRequest } from 'next/server';
 import { streamText, stepCountIs, type ModelMessage } from 'ai';
 import { resolveTertiaryModel } from '@/ai/tertiary';
 import { getTaskModel, ModelUnavailableError } from '@/ai/catalog/task-models';
-import { getAnonymizeContext } from '@/ai/providers';
 import { loadConfiguredTools } from '@/lib/search/tool-loader';
 import { resolvePrepareStepOverride } from '@/lib/search/prepare-step';
 import { getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
@@ -92,10 +91,9 @@ export async function POST(req: NextRequest) {
   // <web_search> XML would be spoken.
   const isXmlParsedCustomModel = modelId.startsWith('custom-') && prefs?.['zetora-xml-tool-parsing-enabled'] === true;
 
-  const anonymizeContext = await getAnonymizeContext(modelId, prefs, userId);
-
   const tools = await loadConfiguredTools({
     activeToolNames: VOICE_TOOL_NAMES,
+    chatModelId: modelId,
     dataStream: undefined,
     timezone: undefined,
     contextFiles: [],
@@ -103,7 +101,6 @@ export async function POST(req: NextRequest) {
     mcpDynamicTools: {},
     lightweightUser: { userId, email: '' },
     userPreferences: prefs ?? {},
-    anonymizeContext,
   });
 
   // textStream does not throw on a model error (a bad key, an outage): it just

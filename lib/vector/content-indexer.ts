@@ -2,7 +2,7 @@ import 'server-only';
 import { embed } from 'ai';
 import { getQdrantClient } from './qdrant';
 import { SEARCH_INDEX_COLLECTION } from './constants';
-import { getEmbeddingModel } from '@/ai/embeddings';
+import { getEmbeddingModel } from '@/lib/egress/models';
 
 import { createLogger } from '@/lib/logger';
 

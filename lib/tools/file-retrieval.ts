@@ -1,15 +1,13 @@
-import { rerank, type EmbeddingModel } from 'ai';
+import { rerank, type EmbeddingModel, type RerankingModel } from 'ai';
 import { MetadataMode, VectorStoreIndex, type BaseRetriever } from '@vectorstores/core';
 import { PDFReader } from '@vectorstores/readers/pdf';
 import { CSVReader } from '@vectorstores/readers/csv';
 import { DocxReader } from '@vectorstores/readers/docx';
 import { TextFileReader } from '@vectorstores/readers/text';
 import { vercelEmbedding } from '@vectorstores/vercel';
-import { cohere } from '@ai-sdk/cohere';
 
 import { ExcelReader } from '@/lib/tools/readers/excel-reader';
 import { createLogger } from '@/lib/logger';
-import { isRerankAvailable } from '@/lib/search/rerank';
 import { fetchAttachment } from '@/lib/net/attachment-fetch';
 
 // Semantic search over the files attached to a conversation, shared by the
@@ -116,7 +114,8 @@ export async function searchFiles(params: {
   files: FileContext[];
   retrievers: FileRetrievers;
   maxResults: number;
-  rerank: boolean;
+  // From getRerankModel with userContent set; null keeps the retrievers' order.
+  rerankModel: RerankingModel | null;
   abortSignal?: AbortSignal;
 }): Promise<FileQueryResult[]> {
   const { query, files, retrievers, maxResults, abortSignal } = params;
@@ -142,9 +141,9 @@ export async function searchFiles(params: {
     return [];
   });
 
-  if (params.rerank && isRerankAvailable() && results.length > 0) {
+  if (params.rerankModel && results.length > 0) {
     const { ranking } = await rerank({
-      model: cohere.reranking('rerank-v4.0-pro'),
+      model: params.rerankModel,
       query,
       documents: results.map((r) => r.content),
       topN: maxResults,

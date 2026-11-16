@@ -8,7 +8,7 @@ import { Output, generateText, hasToolCall, stepCountIs, tool } from 'ai';
 import type { UIMessageStreamWriter } from 'ai';
 import { z } from 'zod';
 
-import { getFileEmbeddingModel } from '@/ai/embeddings';
+import { getFileEmbeddingModel } from '@/lib/egress/models';
 import { resolveTertiaryModel } from '@/ai/tertiary';
 import type { UserPreferenceValues } from '@/lib/db/schema';
 import { isToolAvailable } from '@/lib/instance/capabilities';
@@ -57,6 +57,7 @@ async function extremeSearch(
   dataStream: UIMessageStreamWriter<ChatMessage> | undefined,
   files: FileContext[] = [],
   preferences: UserPreferenceValues | null = null,
+  userId: string | undefined = undefined,
   abortSignal?: AbortSignal,
 ): Promise<Research> {
   const allSources: SearchResult[] = [];
@@ -80,7 +81,7 @@ async function extremeSearch(
   context.emit({ kind: 'plan', status: { title: 'Planning research' } });
 
   const { output } = await generateText({
-    model: await resolveTertiaryModel('extreme-planner', preferences),
+    model: await resolveTertiaryModel('extreme-planner', preferences, userId),
     abortSignal,
     output: Output.object({ schema: researchPlanSchema }),
     prompt: buildPlannerPrompt(prompt, { fileNames: supportedFiles.map(getFileDisplayName), maxSteps }),
@@ -94,7 +95,7 @@ async function extremeSearch(
   let fileRetrievers: FileRetrievers = new Map();
   if (supportedFiles.length > 0) {
     log.info(`Indexing ${supportedFiles.length} files for file query search`);
-    fileRetrievers = await buildFileRetrievers(supportedFiles, await getFileEmbeddingModel(preferences));
+    fileRetrievers = await buildFileRetrievers(supportedFiles, await getFileEmbeddingModel(preferences, userId));
   }
   const hasFiles = supportedFiles.length > 0 && fileRetrievers.size > 0;
 
@@ -123,7 +124,7 @@ async function extremeSearch(
   // A wall-clock deadline too, so a run can never grow unbounded.
   const agentDeadline = EXTREME_WALL_CLOCK_MS > 0 ? Date.now() + EXTREME_WALL_CLOCK_MS : Number.POSITIVE_INFINITY;
 
-  const agentModel = await resolveTertiaryModel('extreme-agent', preferences);
+  const agentModel = await resolveTertiaryModel('extreme-agent', preferences, userId);
   const system = buildAgentSystemPrompt(plan, {
     fileNames: hasFiles ? supportedFiles.map(getFileDisplayName) : [],
     maxSteps,
@@ -246,11 +247,11 @@ export function extremeSearchTool(
     execute: async ({ prompt }, { experimental_context, abortSignal }) => {
       log.debug('extremeSearch called', { prompt, filesCount: files.length });
 
-      const ctx = experimental_context as { userPreferences?: Record<string, string> } | undefined;
+      const ctx = experimental_context as { userPreferences?: Record<string, string>; userId?: string } | undefined;
       const extremePrefs = ctx?.userPreferences ?? null;
       let research: Research;
       try {
-        research = await extremeSearch(prompt, dataStream, files, extremePrefs, abortSignal);
+        research = await extremeSearch(prompt, dataStream, files, extremePrefs, ctx?.userId, abortSignal);
       } catch (error) {
         if (abortSignal?.aborted) throw error;
         log.error('Extreme search failed:', error);

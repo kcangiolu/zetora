@@ -9,7 +9,7 @@ vi.mock('@/lib/custom-providers', async (importOriginal) => ({
   createCustomProvider: () => ({ embeddingModel }),
 }));
 
-import { getEmbeddingModel } from '@/ai/embeddings';
+import { getEmbeddingModel } from '@/lib/egress/models';
 
 const provider = { id: 'ollama', name: 'Ollama', baseURL: 'http://192.0.2.10:11434/v1' };
 

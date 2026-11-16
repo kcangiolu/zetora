@@ -556,8 +556,8 @@ full_setup() {
     add_profile voice
     add_profile tts
     set_env VOICE_S2S_URL ws://localhost:8100/v1/realtime
-    add_custom_provider '{"id":"local-stt","name":"Local speech-to-text","baseURL":"http://stt-service:8080/v1","disableAutoDetect":true}'
-    add_custom_provider '{"id":"local-tts","name":"Local text-to-speech","baseURL":"http://qwen3-tts:8080/v1","disableAutoDetect":true}'
+    add_custom_provider '{"id":"local-stt","name":"Local speech-to-text","baseURL":"http://stt-service:8080/v1","disableAutoDetect":true,"trust":"local"}'
+    add_custom_provider '{"id":"local-tts","name":"Local text-to-speech","baseURL":"http://qwen3-tts:8080/v1","disableAutoDetect":true,"trust":"local"}'
     ask_voice_sample
   fi
 
@@ -734,7 +734,7 @@ if [ "$provider_key_var" = 'CUSTOM_AI_PROVIDERS' ]; then
   case "$endpoint_key" in
     *\'* | *\"* | *\\*) die 'the key cannot contain quotes or backslashes. Nothing was written.' ;;
   esac
-  add_custom_provider "{\"id\":\"local\",\"name\":\"Local\",\"baseURL\":\"$endpoint_url\",\"apiKey\":\"${endpoint_key:-local}\"}"
+  add_custom_provider "{\"id\":\"local\",\"name\":\"Local\",\"baseURL\":\"$endpoint_url\",\"apiKey\":\"${endpoint_key:-local}\",\"trust\":\"local\"}"
   # The id above is what makes these names custom-local-*, see .env.example.
   printf 'Name the models as your server lists them. The same name twice is fine.\n'
   ask_model 'Main model, for chat and research: ' "$LOCAL_MODEL_FORM" 'Use the name your server lists, without spaces.'

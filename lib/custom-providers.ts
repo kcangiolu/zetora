@@ -9,6 +9,7 @@ import { upsertUserPreferences } from '@/lib/db/queries';
 import { createLogger } from '@/lib/logger';
 import { guardedPublicFetch } from '@/lib/net/public-url';
 import { globalCache } from '@/lib/lru-ttl-cache';
+import { isTrustClass, type TrustClass } from '@/lib/egress/trust';
 
 const log = createLogger('custom-providers');
 
@@ -18,10 +19,10 @@ export interface CustomProviderConfig {
   baseURL: string;
   apiKey?: string;
   disableAutoDetect?: boolean;
-  // Per-provider anonymization toggle: a custom provider can be a trusted
-  // local endpoint (leave off) or a cloud service (turn on) — unlike
-  // built-in providers, this can't be inferred, so the user sets it here.
-  anonymize?: boolean;
+  // Whether the provider runs inside the instance's perimeter or is an
+  // outside service. Unlike built-in providers this can't be inferred, so
+  // whoever adds the provider says it; anonymization reads it.
+  trust: TrustClass;
   // Detected inference server kind — governs whether the reasoning-effort
   // toggle can send a real control parameter ('vllm'/'llamacpp') or can only
   // mask the <think> output ('ollama'/'unknown'). Set by detectBackendKind().
@@ -90,6 +91,13 @@ export function getOperatorProviders(): CustomProviderConfig[] {
   }
   if (!Array.isArray(parsed)) {
     throw new Error('CUSTOM_AI_PROVIDERS must be a JSON array (see .env.example)');
+  }
+  for (const entry of parsed as Array<Partial<CustomProviderConfig>>) {
+    if (!isTrustClass(entry?.trust)) {
+      throw new Error(
+        `CUSTOM_AI_PROVIDERS: provider "${entry?.id ?? '?'}" needs "trust": "local", "contracted" or "external" (see .env.example)`,
+      );
+    }
   }
   return parsed as CustomProviderConfig[];
 }

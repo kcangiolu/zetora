@@ -1,5 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getCustomProviderById } from '@/lib/custom-providers';
+import { assertCleartextAllowed } from '@/lib/egress/anonymization';
+import { EgressBlockedError } from '@/lib/egress/errors';
 import { getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { resolveVoiceRequestUserId } from '@/lib/voice-session-token';
 import { extractSpeakableText } from '@/lib/speakable-text';
@@ -38,6 +40,19 @@ export async function POST(req: NextRequest) {
     return new Response('No text-to-speech server selected: pick one under Settings > Voice > Text-to-Speech', {
       status: 400,
     });
+  }
+
+  try {
+    assertCleartextAllowed({
+      preferences: p,
+      userId,
+      trust: provider.trust,
+      what: 'answers read aloud',
+      fix: 'Pick a text-to-speech server marked Local under Settings > Voice.',
+    });
+  } catch (error) {
+    if (error instanceof EgressBlockedError) return new Response(error.message, { status: 403 });
+    throw error;
   }
 
   // Same defaults as Settings > Voice and the non-streaming read-aloud.

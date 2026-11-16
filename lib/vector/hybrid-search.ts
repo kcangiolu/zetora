@@ -3,7 +3,7 @@ import { embed, generateText } from 'ai';
 import { getQdrantClient } from './qdrant';
 import { SEARCH_INDEX_COLLECTION } from './constants';
 import { buildUserFilter } from './qdrant-filters';
-import { getEmbeddingModel } from '@/ai/embeddings';
+import { getEmbeddingModel } from '@/lib/egress/models';
 import { resolveTertiaryModel } from '@/ai/tertiary';
 import { RERANK_TIMEOUT_MS, withAbort } from '@/lib/timeouts';
 

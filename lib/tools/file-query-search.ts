@@ -1,8 +1,9 @@
 import { tool, UIMessageStreamWriter } from 'ai';
 import { z } from 'zod';
 import { ChatMessage } from '@/lib/types';
-import { getFileEmbeddingModel } from '@/ai/embeddings';
+import { getFileEmbeddingModel, getRerankModel } from '@/lib/egress/models';
 import type { UserPreferenceValues } from '@/lib/db/schema';
+import { deanonymizeText, type AnonymizeContext } from '@/lib/anonymizer/pseudonymize';
 
 import { createLogger } from '@/lib/logger';
 import {
@@ -25,6 +26,8 @@ export function createFileQuerySearchTool(
   files: FileContext[],
   dataStream?: UIMessageStreamWriter<ChatMessage>,
   userPreferences?: UserPreferenceValues,
+  userId?: string,
+  anonymizeContext?: AnonymizeContext | null,
 ) {
   // Filter to only supported files
   const supportedFiles = files.filter(isSearchableFile);
@@ -62,16 +65,27 @@ export function createFileQuerySearchTool(
         .boolean()
         .optional()
         .default(false)
-        .describe('Whether to rerank results with Cohere for improved relevance (adds ~100-300ms latency)'),
+        .describe('Whether to rerank results for improved relevance (adds ~100-300ms latency)'),
     }),
     execute: async ({ queries, maxResults = 10, rerank: shouldRerank = false }, { abortSignal }) => {
       try {
         log.debug('🔍 [FileQuerySearch] Reranking:', shouldRerank);
         // Index first (independent step), then search and return results.
-        const embeddingModel = await getFileEmbeddingModel(userPreferences);
+        const embeddingModel = await getFileEmbeddingModel(userPreferences, userId);
         const retrievers = await buildFileRetrievers(supportedFiles, embeddingModel);
+        const rerankModel = shouldRerank
+          ? getRerankModel({ userContent: { preferences: userPreferences, userId } })
+          : null;
 
-        const searchPromises = queries.map(async (query, index) => {
+        // With anonymization on, the model writes its queries in pseudonyms
+        // while the files hold real names. Embedding and reranking are then
+        // local (getFileEmbeddingModel and getRerankModel see to it), so the
+        // queries can go back to cleartext and still match.
+        const searchQueries = anonymizeContext
+          ? await Promise.all(queries.map((query) => deanonymizeText(query, anonymizeContext)))
+          : queries;
+
+        const searchPromises = searchQueries.map(async (query, index) => {
           try {
             // Send start notification
             dataStream?.write({
@@ -91,7 +105,7 @@ export function createFileQuerySearchTool(
               files: supportedFiles,
               retrievers,
               maxResults,
-              rerank: shouldRerank,
+              rerankModel,
               abortSignal,
             });
 
@@ -139,7 +153,7 @@ export function createFileQuerySearchTool(
           searches,
           totalResults,
           filesSearched: supportedFiles.map(getFileDisplayName),
-          reranked: shouldRerank,
+          reranked: rerankModel !== null,
         };
       } catch (error) {
         log.error('File query search error:', error);

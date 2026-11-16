@@ -47,6 +47,7 @@ lib/
   sandbox/              Code execution providers (docker / daytona)
   vector/               Qdrant integration (content indexer, hybrid search, cache cleanup)
   anonymizer/           Optional PII pseudonymization before prompts leave the instance
+  egress/               What may leave the instance: provider trust classes, embedding and rerank models, refusals under anonymization
   hermes/               Hermes Agent connector (experimental, behind NEXT_PUBLIC_HERMES_ENABLED)
   canvas/ skills/       Canvas rendering registry, skill catalog
   net/                  Outbound fetch guards (public-URL checks, capped downloads)
@@ -96,23 +97,24 @@ docs/screenshots/       Images shown in the README
 
 All services live on the `zetora-network` bridge. By default only Postgres, Redis, the migrations and the app start; every other service is behind a profile (see the table atop `docker-compose.yml`). Internal services bind to `127.0.0.1`; the ones a browser or a remote gateway must reach are published on all interfaces and meant to sit behind a reverse proxy with TLS.
 
-| Service                           | Image                                   | Profile  | Host port             | Role                                                    |
-| --------------------------------- | --------------------------------------- | -------- | --------------------- | ------------------------------------------------------- |
-| `zetora.app`                      | `Dockerfile`, target `runner`           | —        | 3333                  | Next.js app                                             |
-| `db-migrate`                      | `Dockerfile`, target `migrate`          | —        | —                     | Runs Drizzle migrations and `create_indexes.sql`, exits |
-| `postgres`                        | postgres:17-alpine                      | —        | 127.0.0.1:5432        | Primary DB                                              |
-| `redis`                           | redis:7-alpine                          | —        | 127.0.0.1:6379        | Cache, resumable streams, rate limits                   |
-| `minio` (+ `minio-create-bucket`) | pgsty/silo                              | minio    | 9010, 127.0.0.1:9001  | S3 storage (API public for direct downloads) + console  |
-| `qdrant`                          | qdrant/qdrant                           | qdrant   | 127.0.0.1:6333/6334   | Vector cache, hybrid search                             |
-| `searxng` (+ `searxng-redis`)     | searxng/searxng                         | searxng  | 127.0.0.1:8090        | Metasearch                                              |
-| `fastcrw` (+ `chrome`)            | ghcr.io/us/crw, chromedp/headless-shell | fastcrw  | 127.0.0.1:3004        | Scraper/search (Firecrawl-compatible)                   |
-| `sandbox`                         | onyxdotapp/code-interpreter             | sandbox  | 127.0.0.1:8003        | Python code execution (root, host Docker socket)        |
-| `presidio-api`                    | `presidio-service/`                     | presidio | 127.0.0.1:8004        | PII detection for the anonymizer                        |
-| `bullmq-redis` (+ `bullboard`)    | redis:7-alpine, nauverse/bull-board     | bullmq   | 127.0.0.1:6381, :3001 | Lookout job queue and its dashboard                     |
-| `qwen3-tts`                       | `tts-service/` (NVIDIA GPU)             | tts      | 127.0.0.1:8585        | Text-to-speech                                          |
-| `stt-service`                     | `stt-service/` (NVIDIA GPU)             | voice    | 127.0.0.1:9002        | Speech-to-text (NVIDIA Parakeet)                        |
-| `s2s-service`                     | `s2s-service/`                          | voice    | 8100                  | Local speech-to-speech relay (browser WebSocket)        |
-| `hermes-relay-service`            | `hermes-relay-service/`                 | hermes   | 8201                  | Relay for users' Hermes gateways                        |
+| Service                           | Image                                   | Profile    | Host port             | Role                                                    |
+| --------------------------------- | --------------------------------------- | ---------- | --------------------- | ------------------------------------------------------- |
+| `zetora.app`                      | `Dockerfile`, target `runner`           | —          | 3333                  | Next.js app                                             |
+| `db-migrate`                      | `Dockerfile`, target `migrate`          | —          | —                     | Runs Drizzle migrations and `create_indexes.sql`, exits |
+| `postgres`                        | postgres:17-alpine                      | —          | 127.0.0.1:5432        | Primary DB                                              |
+| `redis`                           | redis:7-alpine                          | —          | 127.0.0.1:6379        | Cache, resumable streams, rate limits                   |
+| `minio` (+ `minio-create-bucket`) | pgsty/silo                              | minio      | 9010, 127.0.0.1:9001  | S3 storage (API public for direct downloads) + console  |
+| `qdrant`                          | qdrant/qdrant                           | qdrant     | 127.0.0.1:6333/6334   | Vector cache, hybrid search                             |
+| `searxng` (+ `searxng-redis`)     | searxng/searxng                         | searxng    | 127.0.0.1:8090        | Metasearch                                              |
+| `fastcrw` (+ `chrome`)            | ghcr.io/us/crw, chromedp/headless-shell | fastcrw    | 127.0.0.1:3004        | Scraper/search (Firecrawl-compatible)                   |
+| `sandbox`                         | onyxdotapp/code-interpreter             | sandbox    | 127.0.0.1:8003        | Python code execution (root, host Docker socket)        |
+| `presidio-api`                    | `presidio-service/`                     | presidio   | 127.0.0.1:8004        | PII detection for the anonymizer                        |
+| `embeddings` (+ `reranker`)       | text-embeddings-inference (CPU)         | embeddings | 127.0.0.1:8005/8006   | Local embedding and reranking for file search           |
+| `bullmq-redis` (+ `bullboard`)    | redis:7-alpine, nauverse/bull-board     | bullmq     | 127.0.0.1:6381, :3001 | Lookout job queue and its dashboard                     |
+| `qwen3-tts`                       | `tts-service/` (NVIDIA GPU)             | tts        | 127.0.0.1:8585        | Text-to-speech                                          |
+| `stt-service`                     | `stt-service/` (NVIDIA GPU)             | voice      | 127.0.0.1:9002        | Speech-to-text (NVIDIA Parakeet)                        |
+| `s2s-service`                     | `s2s-service/`                          | voice      | 8100                  | Local speech-to-speech relay (browser WebSocket)        |
+| `hermes-relay-service`            | `hermes-relay-service/`                 | hermes     | 8201                  | Relay for users' Hermes gateways                        |
 
 The `selfhosted` profile groups the CPU-only services, from `minio` to `bullmq`. Third-party images are pinned to a version. `Dockerfile` stages: `deps` → `builder` (Next.js build with placeholder secrets) → `runner` (standalone output), plus `migrate`.
 

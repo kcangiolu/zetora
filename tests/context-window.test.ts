@@ -28,6 +28,7 @@ const llamaProvider: CustomProviderConfig = {
   id: 'local-llama',
   name: 'Local llama.cpp',
   baseURL: 'http://localhost:8080/v1',
+  trust: 'local',
   backendKind: 'llamacpp',
 };
 
@@ -35,6 +36,7 @@ const ollamaProvider: CustomProviderConfig = {
   id: 'local-ollama',
   name: 'Local Ollama',
   baseURL: 'http://localhost:11434/v1',
+  trust: 'local',
   backendKind: 'ollama',
 };
 
@@ -83,7 +85,13 @@ describe('resolveContextWindow (custom providers)', () => {
 
   it('reads context_length from /models for OpenAI-compatible backends (e.g. OpenRouter)', async () => {
     mockGetCustomProviders.mockResolvedValue([
-      { id: 'openrouter', name: 'OpenRouter', baseURL: 'https://openrouter.ai/api/v1', backendKind: 'openai' },
+      {
+        id: 'openrouter',
+        name: 'OpenRouter',
+        baseURL: 'https://openrouter.ai/api/v1',
+        trust: 'local',
+        backendKind: 'openai',
+      },
     ]);
     stubFetchOnce({
       ok: true,
@@ -101,7 +109,7 @@ describe('resolveContextWindow (custom providers)', () => {
 
   it('falls back to top_provider.context_length or max_model_len when the top-level field is absent', async () => {
     mockGetCustomProviders.mockResolvedValue([
-      { id: 'vllm-box', name: 'vLLM box', baseURL: 'http://localhost:8000/v1', backendKind: 'vllm' },
+      { id: 'vllm-box', name: 'vLLM box', baseURL: 'http://localhost:8000/v1', trust: 'local', backendKind: 'vllm' },
     ]);
     stubFetchOnce({ ok: true, json: async () => ({ data: [{ id: 'mixtral-a', max_model_len: 32_768 }] }) });
 
@@ -111,7 +119,7 @@ describe('resolveContextWindow (custom providers)', () => {
 
   it('falls back to the default for an unknown backend when /models has no context-length field', async () => {
     mockGetCustomProviders.mockResolvedValue([
-      { id: 'vllm-box', name: 'vLLM box', baseURL: 'http://localhost:8000/v1', backendKind: 'vllm' },
+      { id: 'vllm-box', name: 'vLLM box', baseURL: 'http://localhost:8000/v1', trust: 'local', backendKind: 'vllm' },
     ]);
     const fetchMock = stubFetchOnce({ ok: true, json: async () => ({ data: [{ id: 'mixtral-b' }] }) });
 
@@ -122,7 +130,7 @@ describe('resolveContextWindow (custom providers)', () => {
 
   it('falls back to the default for an unknown backend when the /models probe fails', async () => {
     mockGetCustomProviders.mockResolvedValue([
-      { id: 'vllm-box', name: 'vLLM box', baseURL: 'http://localhost:8000/v1', backendKind: 'vllm' },
+      { id: 'vllm-box', name: 'vLLM box', baseURL: 'http://localhost:8000/v1', trust: 'local', backendKind: 'vllm' },
     ]);
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNREFUSED')));
 

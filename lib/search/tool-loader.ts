@@ -1,28 +1,42 @@
 import 'server-only';
 
 import type { SkillId } from '@/lib/search/search-groups';
-import { anonymizeToolInput, type AnonymizeContext } from '@/lib/anonymizer/pseudonymize';
+import { getAnonymizeContext } from '@/ai/providers';
+import { anonymizeToolInput, deanonymizeToolOutput, type AnonymizeContext } from '@/lib/anonymizer/pseudonymize';
+import { getUserAnonymizeContext } from '@/lib/egress/anonymization';
 import { isMemoryEnabled } from '@/lib/memory/settings';
 import { isToolAvailable } from '@/lib/instance/capabilities';
 import type { UserPreferenceValues } from '@/lib/db/schema';
 import type { ToolSet, UIMessageStreamWriter } from 'ai';
 import type { ChatMessage } from '@/lib/types';
 
-// Defense in depth for the anonymization layer: when it's active the model
-// only ever sees pseudonyms, so its tool-call args are already tokenized —
-// this just catches anything that slips through (e.g. a hallucinated real
-// value) before it reaches a tool that calls out to a cloud service.
-function withEgressAnonymization<T extends { execute?: (...args: any[]) => any }>(tool: T, ctx: AnonymizeContext): T {
+// With anonymization on, every tool input is pseudonymized before the tool
+// runs, whatever the chat model: a cloud model already writes in pseudonyms
+// and this catches a real value that slips through; a local model writes in
+// cleartext, and its tool calls would otherwise carry that to search
+// engines, MCP servers and other outside services. A model that reads
+// cleartext gets the output back in cleartext; for the others the
+// anonymization middleware masks it on the way to the provider.
+function withEgressAnonymization<T extends { execute?: (...args: any[]) => any }>(
+  tool: T,
+  ctx: AnonymizeContext,
+  restoreOutput: boolean,
+): T {
   if (typeof tool?.execute !== 'function') return tool;
   const originalExecute = tool.execute.bind(tool);
   return {
     ...tool,
-    execute: async (input: unknown, options: unknown) => originalExecute(await anonymizeToolInput(input, ctx), options),
+    execute: async (input: unknown, options: unknown) => {
+      const output = await originalExecute(await anonymizeToolInput(input, ctx), options);
+      return restoreOutput ? deanonymizeToolOutput(output, ctx) : output;
+    },
   };
 }
 
 interface LoadConfiguredToolsParams {
   activeToolNames: string[];
+  // The model that calls these tools and reads their results.
+  chatModelId: string;
   dataStream: UIMessageStreamWriter<ChatMessage> | undefined;
   timezone: string | undefined;
   contextFiles: Array<{ url: string; contentType: string; name?: string }>;
@@ -32,12 +46,24 @@ interface LoadConfiguredToolsParams {
   // The chat a remembered fact comes from; null outside a persisted chat.
   chatId?: string | null;
   userPreferences?: UserPreferenceValues;
-  anonymizeContext?: AnonymizeContext | null;
   enabledSkillIds?: SkillId[];
 }
 
+// Tools that send nothing outside the instance, so they keep cleartext input.
+// file_query_search embeds and reranks only on local models while
+// anonymization is on (lib/egress/models.ts).
+const CLEARTEXT_TOOLS = new Set([
+  'datetime',
+  'greeting',
+  'skill',
+  'search_memories',
+  'add_memory',
+  'file_query_search',
+]);
+
 export async function loadConfiguredTools({
   activeToolNames,
+  chatModelId,
   dataStream,
   timezone,
   contextFiles,
@@ -46,10 +72,10 @@ export async function loadConfiguredTools({
   lightweightUser,
   chatId,
   userPreferences,
-  anonymizeContext,
   enabledSkillIds,
 }: LoadConfiguredToolsParams): Promise<ToolSet> {
   const tools: ToolSet = {};
+  const anonymizeContext = getUserAnonymizeContext(userPreferences, lightweightUser?.userId);
   const uniqueToolNames = [...new Set(activeToolNames)].filter(isToolAvailable);
 
   await Promise.all(
@@ -77,19 +103,17 @@ export async function loadConfiguredTools({
         }
         case 'x_search': {
           const { xSearchTool } = await import('@/lib/tools/x-search');
-          const built = xSearchTool(dataStream);
-          tools.x_search = anonymizeContext ? withEgressAnonymization(built, anonymizeContext) : built;
+          tools.x_search = xSearchTool(dataStream);
           return;
         }
         case 'web_search': {
           const { webSearchTool } = await import('@/lib/tools/web-search');
-          const built = webSearchTool(
+          tools.web_search = webSearchTool(
             dataStream,
             userPreferences?.['zetora-search-provider'] as string | undefined,
             userPreferences,
             lightweightUser?.userId,
           );
-          tools.web_search = anonymizeContext ? withEgressAnonymization(built, anonymizeContext) : built;
           return;
         }
         case 'academic_search': {
@@ -178,8 +202,7 @@ export async function loadConfiguredTools({
         }
         case 'extreme_search': {
           const { extremeSearchTool } = await import('@/lib/tools/extreme-search');
-          const built = extremeSearchTool(dataStream, contextFiles);
-          tools.extreme_search = anonymizeContext ? withEgressAnonymization(built, anonymizeContext) : built;
+          tools.extreme_search = extremeSearchTool(dataStream, contextFiles);
           return;
         }
         case 'greeting': {
@@ -215,7 +238,13 @@ export async function loadConfiguredTools({
         case 'file_query_search': {
           if (contextFiles.length === 0) return;
           const { createFileQuerySearchTool } = await import('@/lib/tools/file-query-search');
-          tools.file_query_search = createFileQuerySearchTool(contextFiles, dataStream, userPreferences);
+          tools.file_query_search = createFileQuerySearchTool(
+            contextFiles,
+            dataStream,
+            userPreferences,
+            lightweightUser?.userId,
+            anonymizeContext,
+          );
           return;
         }
         case 'search_memories':
@@ -236,5 +265,13 @@ export async function loadConfiguredTools({
     Object.assign(tools, mcpDynamicTools);
   }
 
-  return tools;
+  if (!anonymizeContext) return tools;
+  const chatModelReadsCleartext =
+    (await getAnonymizeContext(chatModelId, userPreferences, lightweightUser?.userId)) === null;
+  return Object.fromEntries(
+    Object.entries(tools).map(([name, tool]) => [
+      name,
+      CLEARTEXT_TOOLS.has(name) ? tool : withEgressAnonymization(tool, anonymizeContext, chatModelReadsCleartext),
+    ]),
+  );
 }

@@ -3,18 +3,13 @@ import { z } from 'zod';
 import { rehostGeneratedImage } from '@/lib/generated-file-storage';
 import { fetchCustomProvider } from '@/lib/custom-providers';
 import { fetchAttachment } from '@/lib/net/attachment-fetch';
+import { assertCleartextAllowed } from '@/lib/egress/anonymization';
+import { EgressBlockedError } from '@/lib/egress/errors';
 
 import { createLogger } from '@/lib/logger';
 import type { UserPreferenceValues } from '@/lib/db/schema';
 
 const log = createLogger('edit-image');
-
-interface CustomProviderConfig {
-  id: string;
-  name: string;
-  baseURL: string;
-  apiKey?: string;
-}
 
 interface ToolContext {
   userPreferences?: UserPreferenceValues;
@@ -51,7 +46,7 @@ export const editImageTool = tool({
 
     const providerId = prefs['zetora-image-edit-custom-provider-id'];
     const model = prefs['zetora-image-edit-model'] || '';
-    const customProviders = (prefs['zetora-custom-providers'] ?? []) as CustomProviderConfig[];
+    const customProviders = prefs['zetora-custom-providers'] ?? [];
     const provider = customProviders.find((p) => p.id === providerId);
 
     if (!provider?.baseURL) {
@@ -59,6 +54,19 @@ export const editImageTool = tool({
         success: false as const,
         error: 'No image editing provider configured. Set one up in Settings → Image Editing.',
       };
+    }
+
+    try {
+      assertCleartextAllowed({
+        preferences: prefs,
+        userId: context?.userId,
+        trust: provider.trust,
+        what: 'an image',
+        fix: 'Mark the image editing provider Local in Settings → AI Models → Custom Providers if it runs on your own machines.',
+      });
+    } catch (err) {
+      if (err instanceof EgressBlockedError) return { success: false as const, error: err.message };
+      throw err;
     }
 
     let extraBody: Record<string, unknown>;

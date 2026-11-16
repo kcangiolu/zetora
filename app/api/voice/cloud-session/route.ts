@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { isConfigured } from '@/ai/catalog/env';
 import { serverEnv } from '@/env/server';
 import { withAuth } from '@/lib/api/route-handlers';
+import { assertCleartextAllowed } from '@/lib/egress/anonymization';
+import { getCachedUserPreferencesByUserId } from '@/lib/user-data-server';
 import { ChatSDKError } from '@/lib/errors';
 import { createLogger } from '@/lib/logger';
 
@@ -13,7 +15,14 @@ const clientSecretSchema = z.object({ value: z.string().min(1) });
 
 // Mints a short-lived xAI Realtime token: the browser opens the realtime
 // WebSocket to xAI itself, so it must never see XAI_API_KEY.
-export const POST = withAuth(async () => {
+export const POST = withAuth(async (_req, { user }) => {
+  assertCleartextAllowed({
+    preferences: (await getCachedUserPreferencesByUserId(user.id))?.preferences,
+    userId: user.id,
+    trust: 'external',
+    what: 'your voice',
+    fix: 'Switch Voice to the local backend under Settings > Voice.',
+  });
   if (!isConfigured(serverEnv.XAI_API_KEY)) {
     throw new ChatSDKError('bad_request:api', 'Cloud voice needs XAI_API_KEY to be set on this instance');
   }

@@ -4,10 +4,9 @@ import { UIMessageStreamWriter } from 'ai';
 import { ChatMessage } from '@/lib/types';
 import { serverEnv } from '@/env/server';
 import { Valyu } from 'valyu-js';
-import { cohere } from '@ai-sdk/cohere';
 
 import { createLogger } from '@/lib/logger';
-import { isRerankAvailable } from '@/lib/search/rerank';
+import { getRerankModel } from '@/lib/egress/models';
 
 const log = createLogger('prediction-search');
 
@@ -288,12 +287,12 @@ export function predictionSearchTool(dataStream?: UIMessageStreamWriter<ChatMess
         // Filter out markets with no active markets (empty market arrays)
         const filteredMarkets = markets.filter((market) => market.markets.length > 0 || market.description.length > 0);
 
-        // Rerank results using Cohere for better relevance
         let activeMarkets = filteredMarkets;
-        if (filteredMarkets.length > 1 && isRerankAvailable()) {
+        const rerankModel = getRerankModel({ cohereModel: 'rerank-v4.0-fast' });
+        if (filteredMarkets.length > 1 && rerankModel) {
           try {
             const { ranking } = await rerank({
-              model: cohere.reranking('rerank-v4.0-fast'),
+              model: rerankModel,
               query,
               documents: filteredMarkets.map((m) => `${m.title}. ${m.description}`),
               topN: Math.min(filteredMarkets.length, maxResults),

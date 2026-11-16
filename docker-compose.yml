@@ -25,6 +25,7 @@
 #          ${DATA_DIR}/redis \
 #          ${DATA_DIR}/bullmq-redis \
 #          ${DATA_DIR}/qdrant \
+#          ${DATA_DIR}/embeddings \
 #          ${DATA_DIR}/minio \
 #          ${DATA_DIR}/searxng \
 #          ${DATA_DIR}/whisper \
@@ -53,6 +54,7 @@
 #        bullmq       bullmq-redis, bullboard              Upstash QStash (LOOKOUT_SCHEDULER)
 #        qdrant       qdrant                                (hybrid search unavailable)
 #        presidio     presidio-api                          (anonymization unavailable)
+#        embeddings   embeddings, reranker                  Cohere (file search)
 #        voice        s2s-service, stt-service              xAI Realtime (NVIDIA GPU needed)
 #        tts          qwen3-tts                             (no cloud equivalent; NVIDIA GPU)
 #        hermes       hermes-relay-service                  (experimental, see its comment)
@@ -71,10 +73,11 @@
 # service name (e.g. the app reaches Postgres at `postgres:5432`).
 #
 # Internal-only services (postgres, redis, qdrant, searxng, fastcrw, sandbox,
-# presidio-api, bullmq-redis, bullboard, qwen3-tts, stt-service) are bound to
-# 127.0.0.1 — put a reverse proxy in front of zetora.app (port 3333) for your
-# domain, and use an SSH tunnel if you need direct access to an admin UI
-# (Silo console, Bullboard, SearXNG, Qdrant dashboard).
+# presidio-api, embeddings, reranker, bullmq-redis, bullboard, qwen3-tts,
+# stt-service) are bound to 127.0.0.1 — put a reverse proxy in front of
+# zetora.app (port 3333) for your domain, and use an SSH tunnel if you need
+# direct access to an admin UI (Silo console, Bullboard, SearXNG, Qdrant
+# dashboard).
 # =============================================================================
 
 services:
@@ -561,6 +564,59 @@ services:
           # models, ~550MB each) at once; less memory gets it OOM-killed
           # before its first health check. cpus matches the analyze() thread
           # pool (_analyze_pool in presidio-service/main.py).
+          cpus: '4'
+          memory: 3G
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Embeddings (local embedding and reranking for searching uploaded files)
+  # ---------------------------------------------------------------------------
+  # Searching uploaded files embeds and reranks their full text. These keep it
+  # on this host instead of Cohere, and are the only way to search files while
+  # anonymization is on. Both models are multilingual. The models download
+  # into ${DATA_DIR}/embeddings on first start (about 2 GB each). The images
+  # are amd64 only.
+  embeddings:
+    profiles: ['embeddings']
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.2
+    container_name: zetora-embeddings
+    command: ['--model-id', 'BAAI/bge-m3']
+    ports:
+      - '127.0.0.1:8005:80'
+    volumes:
+      - ${DATA_DIR}/embeddings:/data
+    environment:
+      # One file is embedded in batches well above TEI's default of 32 inputs.
+      - MAX_CLIENT_BATCH_SIZE=256
+      # The ONNX runtime grows its memory with the batch: at TEI's default of
+      # 16384 tokens it passes 8 GB, at 4096 it stays within the limit below.
+      - MAX_BATCH_TOKENS=4096
+    networks:
+      - zetora-network
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+    restart: unless-stopped
+
+  reranker:
+    profiles: ['embeddings']
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.2
+    container_name: zetora-reranker
+    command: ['--model-id', 'BAAI/bge-reranker-v2-m3']
+    ports:
+      - '127.0.0.1:8006:80'
+    volumes:
+      - ${DATA_DIR}/embeddings:/data
+    environment:
+      - MAX_CLIENT_BATCH_SIZE=256
+      - MAX_BATCH_TOKENS=4096
+    networks:
+      - zetora-network
+    deploy:
+      resources:
+        limits:
           cpus: '4'
           memory: 3G
     restart: unless-stopped

@@ -1,12 +1,11 @@
 import { tool, rerank } from 'ai';
 import { z } from 'zod';
-import { cohere } from '@ai-sdk/cohere';
 import { serverEnv } from '@/env/server';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 
 import { createLogger } from '@/lib/logger';
-import { isRerankAvailable } from '@/lib/search/rerank';
+import { getRerankModel } from '@/lib/egress/models';
 import { EXTERNAL_API_TIMEOUT_MS } from '@/lib/timeouts';
 
 const log = createLogger('spotify-search');
@@ -283,12 +282,13 @@ async function rerankResults<T>(
   createDocument: (item: T) => string,
   topN?: number,
 ): Promise<T[]> {
-  if (items.length === 0 || !isRerankAvailable()) return items;
+  const model = getRerankModel();
+  if (items.length === 0 || !model) return items;
 
   try {
     const documents = items.map(createDocument);
     const { ranking } = await rerank({
-      model: cohere.reranking('rerank-v4.0-pro'),
+      model,
       query,
       documents,
       topN: topN || items.length,

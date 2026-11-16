@@ -8,7 +8,7 @@ vi.mock('ai', async (importOriginal) => ({
   embed: async () => ({ embedding: [0.1, 0.2] }),
   generateText,
 }));
-vi.mock('@/ai/embeddings', () => ({ getEmbeddingModel: async () => 'embedding-model' }));
+vi.mock('@/lib/egress/models', () => ({ getEmbeddingModel: async () => 'embedding-model' }));
 vi.mock('@/ai/tertiary', () => ({ resolveTertiaryModel }));
 vi.mock('@/lib/vector/qdrant', () => ({ getQdrantClient: () => ({ search: async () => [] }) }));
 

@@ -2,6 +2,7 @@ import 'server-only';
 
 import { z } from 'zod';
 import { ChatSDKError } from '@/lib/errors';
+import { EgressBlockedError } from '@/lib/egress/errors';
 import { getUser } from '@/lib/auth-utils';
 import type { User } from '@/lib/db/schema';
 
@@ -34,7 +35,7 @@ export interface RouteErrorOptions {
 
 /**
  * Single error boundary: ChatSDKError renders itself, ZodError becomes a 400,
- * anything else follows `genericError` (opaque 500 by default, using the
+ * an anonymization refusal a 403 with its message, anything else follows `genericError` (opaque 500 by default, using the
  * `{ error }` body shape existing clients already parse).
  */
 export function withError<Ctx extends RouteContext = RouteContext>(
@@ -46,6 +47,7 @@ export function withError<Ctx extends RouteContext = RouteContext>(
       return await handler(req, ctx);
     } catch (error) {
       if (error instanceof ChatSDKError) return error.toResponse();
+      if (error instanceof EgressBlockedError) return Response.json({ error: error.message }, { status: 403 });
       if (error instanceof z.ZodError) {
         const issue = error.issues[0];
         // Zod's own message never names the field ("Too small: expected

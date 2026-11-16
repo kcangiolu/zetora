@@ -29,7 +29,9 @@ describe('customProviderFetch', () => {
 
   it("lets the operator's own providers reach the LAN", () => {
     delete process.env.CUSTOM_PROVIDERS_ALLOW_PRIVATE_NETWORK;
-    env.CUSTOM_AI_PROVIDERS = JSON.stringify([{ id: 'llama', name: 'llama', baseURL: 'http://192.168.1.10:8080/v1' }]);
+    env.CUSTOM_AI_PROVIDERS = JSON.stringify([
+      { id: 'llama', name: 'llama', baseURL: 'http://192.168.1.10:8080/v1', trust: 'local' },
+    ]);
     expect(customProviderFetch('http://192.168.1.10:8080/props')).toBe(fetch);
     expect(customProviderFetch('http://192.168.1.11:8080/props')).toBe(guardedPublicFetch);
   });
@@ -44,5 +46,10 @@ describe('getCustomProviders', () => {
   it('fails visibly on a malformed CUSTOM_AI_PROVIDERS', async () => {
     env.CUSTOM_AI_PROVIDERS = '{not json';
     await expect(getCustomProviders('user-1')).rejects.toThrow('CUSTOM_AI_PROVIDERS is not valid JSON');
+  });
+
+  it('fails visibly on an operator provider without a trust class', async () => {
+    env.CUSTOM_AI_PROVIDERS = JSON.stringify([{ id: 'llama', name: 'llama', baseURL: 'http://192.0.2.10:8080/v1' }]);
+    await expect(getCustomProviders('user-1')).rejects.toThrow('provider "llama" needs "trust"');
   });
 });

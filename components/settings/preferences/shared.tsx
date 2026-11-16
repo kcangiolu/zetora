@@ -15,6 +15,7 @@ import {
 } from '@/ai/models';
 import { useModels } from '@/hooks/use-models';
 import { cn } from '@/lib/utils';
+import type { TrustClass } from '@/lib/egress/trust';
 import type { SearchProviderId } from '@/lib/search/providers';
 import Image from 'next/image';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -112,7 +113,7 @@ export type CustomProviderConfig = {
   apiKey?: string;
   hasApiKey?: boolean;
   disableAutoDetect?: boolean;
-  anonymize?: boolean;
+  trust: TrustClass;
   // Detected inference server kind, set once via the "Detect Models" probe.
   // Governs whether the reasoning-effort toggle can send a real control
   // parameter ('vllm'/'llamacpp') or can only hide the <think> output.

@@ -7,13 +7,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { ModelSelectorDialog } from '@/components/ui/model-selector';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
-import { useInstanceCapabilities } from '@/hooks/use-instance-capabilities';
 import { isHermesEnabled } from '@/lib/hermes/enabled';
+import { TRUST_CLASSES, TRUST_CLASS_LABEL, type TrustClass } from '@/lib/egress/trust';
 import { AUTO_MODEL_ID, DEFAULT_MODEL_ALIAS } from '@/ai/models';
 import { sileo } from 'sileo';
 import { useQueryClient } from '@tanstack/react-query';
 import { TrashIcon, FloppyDiskIcon } from '@phosphor-icons/react';
-import { X, Loader2, Zap, ZapOff, Plus, Shield, ShieldOff, RefreshCw, Cloud, Cpu } from 'lucide-react';
+import { X, Loader2, Zap, ZapOff, Plus, RefreshCw, Cloud, Cpu } from 'lucide-react';
 import { useState, useCallback, type Dispatch, type SetStateAction } from 'react';
 import {
   type CustomProviderConfig,
@@ -43,6 +43,14 @@ const BACKEND_KIND_OPTIONS: Array<{ value: CustomBackendKind | 'auto'; label: st
   { value: 'vllm', label: 'vLLM' },
 ];
 
+// Shown in the trust selectors: with anonymization on, only a Local provider
+// receives cleartext.
+const TRUST_CLASS_HINT: Record<TrustClass, string> = {
+  local: 'Runs on your own machines: receives cleartext',
+  contracted: 'Outside service under contract: receives pseudonyms when anonymization is on',
+  external: 'Outside service: receives pseudonyms when anonymization is on',
+};
+
 export function AiModelsTab({
   customProviders,
   setCustomProviders,
@@ -50,8 +58,6 @@ export function AiModelsTab({
   customProviders: CustomProviderConfig[];
   setCustomProviders: Dispatch<SetStateAction<CustomProviderConfig[]>>;
 }) {
-  // The per-provider anonymization toggle only exists when the instance runs a PII detector.
-  const anonymizationAvailable = useInstanceCapabilities()?.anonymization === true;
   const [autoRouterEnabled, setAutoRouterEnabled] = useSyncedPreferences<boolean>('zetora-auto-router-enabled', false);
   const [autoRouterConfig, setAutoRouterConfig] = useSyncedPreferences<AutoRouterConfig>('zetora-auto-router-config', {
     routes: getDefaultAutoRouterRoutes(),
@@ -70,7 +76,8 @@ export function AiModelsTab({
     baseURL: string;
     apiKey: string;
     backendKind: CustomBackendKind | 'auto';
-  }>({ name: '', baseURL: '', apiKey: '', backendKind: 'auto' });
+    trust: TrustClass;
+  }>({ name: '', baseURL: '', apiKey: '', backendKind: 'auto', trust: 'external' });
   const [detectingModels, setDetectingModels] = useState(false);
   const [detectedModels, setDetectedModels] = useState<string[]>([]);
   const [detectedBackendKind, setDetectedBackendKind] = useState<CustomBackendKind | null>(null);
@@ -118,7 +125,7 @@ export function AiModelsTab({
       });
       if (!res.ok) throw new Error('Save failed');
       setCustomProviders(updated);
-      setNewProvider({ name: '', baseURL: '', apiKey: '', backendKind: 'auto' });
+      setNewProvider({ name: '', baseURL: '', apiKey: '', backendKind: 'auto', trust: 'external' });
       setDetectedModels([]);
       setDetectedBackendKind(null);
       setShowCustomProviderForm(false);
@@ -187,8 +194,8 @@ export function AiModelsTab({
     }
   };
 
-  const handleToggleAnonymize = async (id: string) => {
-    const updated = customProviders.map((p) => (p.id === id ? { ...p, anonymize: !p.anonymize } : p));
+  const handleSetTrust = async (id: string, trust: TrustClass) => {
+    const updated = customProviders.map((p) => (p.id === id ? { ...p, trust } : p));
     try {
       await fetch('/api/custom-providers', {
         method: 'POST',
@@ -385,25 +392,43 @@ export function AiModelsTab({
                       <div className="min-w-0">
                         <p className="text-xs font-medium truncate">{p.name}</p>
                         <p className="text-[11px] text-muted-foreground/60 truncate">{p.baseURL}</p>
-                        <Select
-                          value={p.backendKind ?? 'unknown'}
-                          onValueChange={(value) => handleSetBackendKind(p.id, value as CustomBackendKind)}
-                        >
-                          <SelectTrigger
-                            size="sm"
-                            className="h-6 mt-1 text-[11px] px-2 gap-1 rounded-md border border-border/50 bg-muted/40 hover:bg-muted/70 text-foreground/70 shadow-none w-fit"
-                            title="Backend kind — governs whether the reasoning-effort toggle can send real control parameters or can only hide thinking output"
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <Select
+                            value={p.backendKind ?? 'unknown'}
+                            onValueChange={(value) => handleSetBackendKind(p.id, value as CustomBackendKind)}
                           >
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {(Object.keys(BACKEND_KIND_LABEL) as CustomBackendKind[]).map((kind) => (
-                              <SelectItem key={kind} value={kind} className="text-xs">
-                                {BACKEND_KIND_LABEL[kind]}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                            <SelectTrigger
+                              size="sm"
+                              className="h-6 text-[11px] px-2 gap-1 rounded-md border border-border/50 bg-muted/40 hover:bg-muted/70 text-foreground/70 shadow-none w-fit"
+                              title="Backend kind — governs whether the reasoning-effort toggle can send real control parameters or can only hide thinking output"
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(Object.keys(BACKEND_KIND_LABEL) as CustomBackendKind[]).map((kind) => (
+                                <SelectItem key={kind} value={kind} className="text-xs">
+                                  {BACKEND_KIND_LABEL[kind]}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Select value={p.trust} onValueChange={(value) => handleSetTrust(p.id, value as TrustClass)}>
+                            <SelectTrigger
+                              size="sm"
+                              className="h-6 text-[11px] px-2 gap-1 rounded-md border border-border/50 bg-muted/40 hover:bg-muted/70 text-foreground/70 shadow-none w-fit"
+                              title={TRUST_CLASS_HINT[p.trust]}
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {TRUST_CLASSES.map((trust) => (
+                                <SelectItem key={trust} value={trust} className="text-xs">
+                                  {TRUST_CLASS_LABEL[trust]}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
@@ -434,22 +459,6 @@ export function AiModelsTab({
                           <RefreshCw className="h-3 w-3" />
                         )}
                       </Button>
-                      {anonymizationAvailable && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                          title={
-                            p.anonymize
-                              ? 'Anonymization on — PII is masked before requests reach this provider'
-                              : 'Anonymization off — click to enable if this provider is a cloud endpoint'
-                          }
-                          onClick={() => handleToggleAnonymize(p.id)}
-                        >
-                          {p.anonymize ? <Shield className="h-3 w-3" /> : <ShieldOff className="h-3 w-3" />}
-                        </Button>
-                      )}
                       <Button
                         type="button"
                         variant="ghost"
@@ -533,6 +542,21 @@ export function AiModelsTab({
                   {BACKEND_KIND_OPTIONS.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value} className="text-xs">
                       {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={newProvider.trust}
+                onValueChange={(value) => setNewProvider((v) => ({ ...v, trust: value as TrustClass }))}
+              >
+                <SelectTrigger className="h-8 text-xs rounded-lg w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TRUST_CLASSES.map((trust) => (
+                    <SelectItem key={trust} value={trust} className="text-xs">
+                      {TRUST_CLASS_LABEL[trust]} — {TRUST_CLASS_HINT[trust]}
                     </SelectItem>
                   ))}
                 </SelectContent>

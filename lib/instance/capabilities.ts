@@ -31,6 +31,11 @@ export interface InstanceCapabilities {
   elevenLabs: boolean;
   // COHERE_API_KEY: Cohere's embedding model for searching uploaded files.
   cohereEmbedding: boolean;
+  // EMBEDDINGS_URL: this instance's own embedding server (the `embeddings`
+  // profile), the default for searching uploaded files when it runs.
+  instanceEmbedding: boolean;
+  // RERANKER_URL: this instance's own reranker, used instead of Cohere's.
+  instanceReranker: boolean;
   // Chat sources none of whose tools this instance can run (an API key not
   // set, no sandbox), hidden like the sources with no search provider.
   unavailableSources: string[];
@@ -84,6 +89,8 @@ export function getInstanceCapabilities(): InstanceCapabilities {
     localVoice: isLocalVoiceAvailable(),
     elevenLabs: isConfigured(serverEnv.ELEVENLABS_API_KEY),
     cohereEmbedding: isConfigured(process.env.COHERE_API_KEY),
+    instanceEmbedding: Boolean(serverEnv.EMBEDDINGS_URL),
+    instanceReranker: Boolean(serverEnv.RERANKER_URL),
     unavailableSources: getUnavailableSources(),
     costs: serverEnv.ZETORA_SHOW_COSTS,
   };

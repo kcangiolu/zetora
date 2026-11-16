@@ -211,6 +211,13 @@
       "when": 1794476190717,
       "tag": "0029_redundant_bastion",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1794826095935,
+      "tag": "0030_custom_provider_trust",
+      "breakpoints": true
     }
   ]
 }
