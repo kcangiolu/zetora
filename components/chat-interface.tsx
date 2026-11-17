@@ -54,6 +54,7 @@ import {
 
 // Hook imports
 import { useAutoResume } from '@/hooks/use-auto-resume';
+import { useHermesSend } from '@/hooks/use-hermes-send';
 import { useHermesStream } from '@/hooks/use-hermes-stream';
 import { resolveHermesChatMode, type HermesChatLock } from '@/lib/hermes/chat-mode';
 import { upsertHermesToolStep, type HermesToolStepView } from '@/lib/hermes/tool-steps';
@@ -907,9 +908,15 @@ const ChatInterface = memo(
 
     // Removed header/recents invalidation effects; chat meta now refetches based on messages.length via query key
 
+    const sendHermesMessage = useHermesSend(chatId);
+
     // Handle initial query from URL params
     useEffect(() => {
       if (!initializedRef.current && initialState.query && !messages.length && !initialChatId) {
+        const toHermes = effectiveSelectedGroup === 'hermes';
+        // /api/hermes/send refuses an anonymous request: wait for the session to load.
+        if (toHermes && !user) return;
+
         if (typeof window !== 'undefined') {
           const dedupeKey = `zetora:initial-query:${initialState.query}`;
           const previousTimestamp = Number(sessionStorage.getItem(dedupeKey) ?? '0');
@@ -923,11 +930,27 @@ const ChatInterface = memo(
 
         initializedRef.current = true;
 
-        // Send the message first
-        sendMessageWithAutoRouting({
-          parts: [{ type: 'text', text: initialState.query }],
-          role: 'user',
-        });
+        if (toHermes) {
+          // Same steps as FormComponent's Agent submit: lock the chat to Hermes so its stream
+          // opens, show the message under the id the server stores it with, then send it.
+          handleHermesMessageSent();
+          const messageId = crypto.randomUUID();
+          setMessages((current) => [
+            ...current,
+            { id: messageId, role: 'user', parts: [{ type: 'text', text: initialState.query }] },
+          ]);
+          sendHermesMessage(initialState.query, { messageId }).catch((error) => {
+            sileo.error({
+              title: 'Failed to send to Hermes',
+              description: error instanceof Error ? error.message : 'Please try again',
+            });
+          });
+        } else {
+          sendMessageWithAutoRouting({
+            parts: [{ type: 'text', text: initialState.query }],
+            role: 'user',
+          });
+        }
 
         // For logged-in users (not in temporary mode), update URL to reflect the chat ID
         if (user && !isTemporaryChat) {
@@ -936,6 +959,10 @@ const ChatInterface = memo(
       }
     }, [
       initialState.query,
+      effectiveSelectedGroup,
+      handleHermesMessageSent,
+      setMessages,
+      sendHermesMessage,
       sendMessageWithAutoRouting,
       setInput,
       messages.length,

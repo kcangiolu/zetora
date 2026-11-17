@@ -50,6 +50,8 @@ A few modes remain **exclusive per-message selections**, because they replace th
 
 **Voice** (real-time conversational AI, with a fully local speech-to-speech backend) lives on its own dedicated page.
 
+**Search from a URL** — `/?q=<question>` sends the question as soon as the page opens, so Zetora can sit behind a browser search engine or a dashboard search box. Add `&group=<mode>` to pick the mode for that message, for example `deep-research`, `canvas`, or `hermes` to send it to your Hermes Agent.
+
 ### Skills (15 skills)
 
 Loadable per-message via the `skill` tool (subject to your disabled-skills preference):
