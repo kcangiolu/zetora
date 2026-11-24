@@ -283,7 +283,9 @@ export default function AuthCard({
               className="w-full h-11 text-sm font-medium bg-foreground text-background rounded-xl hover:bg-foreground/90 active:scale-[0.99] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {ssoLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
-              Continue with single sign-on
+              {ssoProviders.length > 1
+                ? `Continue with single sign-on (${providerId.toUpperCase()})`
+                : 'Continue with single sign-on'}
             </button>
           ))}
           {!passwordSignIn && displayError && (

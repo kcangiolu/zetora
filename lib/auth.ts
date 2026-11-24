@@ -44,7 +44,9 @@ const configuredOrigins = [
   ...(process.env.ALLOWED_ORIGINS?.split(',').map((o) => o.trim()) ?? []),
 ].filter((o): o is string => Boolean(o));
 
-const ssoProviders = buildSsoProviders(serverEnv);
+const appUrl = process.env.NODE_ENV === 'production' ? process.env.BETTER_AUTH_BASE_URL : 'http://localhost:3000';
+
+const ssoProviders = buildSsoProviders(serverEnv, appUrl);
 
 const trustedOrigins = Array.from(new Set([...configuredOrigins, ...ssoTrustedOrigins(ssoProviders)]));
 
@@ -117,11 +119,11 @@ function isSsoCallbackRequest(request: Request | undefined): boolean {
   return request !== undefined && isSsoCallback(new URL(request.url).pathname.slice(AUTH_BASE_PATH.length));
 }
 
-let warnedMissingGroupsClaim = false;
+const warnedMissingGroups = new Set<string>();
 
 export const auth = betterAuth({
   appName: 'zetora',
-  baseURL: process.env.NODE_ENV === 'production' ? process.env.BETTER_AUTH_BASE_URL : 'http://localhost:3000',
+  baseURL: appUrl,
   emailAndPassword: {
     enabled: !ssoOnly,
     requireEmailVerification: serverEnv.REQUIRE_EMAIL_VERIFICATION,
@@ -213,12 +215,19 @@ export const auth = betterAuth({
       // Only the providers in .env: no user may register their own.
       providersLimit: 0,
       provisionUserOnEveryLogin: true,
-      provisionUser: async ({ user, userInfo, token }) => {
+      saml: {
+        // Assertions without a validity window, or signed with SHA-1, are
+        // refused rather than logged.
+        requireTimestamps: true,
+        algorithms: { onDeprecated: 'reject' },
+      },
+      provisionUser: async ({ user, userInfo, token, provider }) => {
         const groups = readGroups(userInfo, token?.idToken, serverEnv.OIDC_GROUPS_CLAIM);
-        if (!groups && !warnedMissingGroupsClaim) {
-          warnedMissingGroupsClaim = true;
+        if (!groups && !warnedMissingGroups.has(provider.providerId)) {
+          warnedMissingGroups.add(provider.providerId);
+          const settings = provider.samlConfig ? 'SAML_GROUPS_ATTRIBUTE' : 'OIDC_GROUPS_CLAIM and OIDC_SCOPES';
           log.warn(
-            `The identity provider sent no groups: users get no role from ZETORA_ADMIN_GROUPS or ZETORA_AUDITOR_GROUPS. Check OIDC_GROUPS_CLAIM and OIDC_SCOPES.`,
+            `The identity provider sent no groups: users get no role from ZETORA_ADMIN_GROUPS or ZETORA_AUDITOR_GROUPS. Check ${settings}.`,
           );
         }
         // No claim clears the groups: a stale admin group must not outlive it.

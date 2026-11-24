@@ -2,6 +2,14 @@ import { computeDiscoveryUrl, type SSOOptions } from '@better-auth/sso';
 import { parseGroupsClaim } from './roles';
 
 const OIDC_PROVIDER_ID = 'oidc';
+const SAML_PROVIDER_ID = 'saml';
+
+// Claim URIs that Microsoft Entra ID, AD FS and Authentik send by default.
+const SAML_NAME_ATTRIBUTES = {
+  firstName: 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname',
+  lastName: 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname',
+  name: 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name',
+};
 
 type DefaultSsoProvider = NonNullable<SSOOptions['defaultSSO']>[number];
 
@@ -11,6 +19,11 @@ export interface SsoEnv {
   OIDC_CLIENT_SECRET?: string;
   OIDC_GROUPS_CLAIM: string;
   OIDC_SCOPES: string;
+  SAML_ENTRY_POINT?: string;
+  SAML_IDP_ENTITY_ID?: string;
+  SAML_IDP_CERT?: string;
+  SAML_EMAIL_ATTRIBUTE: string;
+  SAML_GROUPS_ATTRIBUTE: string;
   ZETORA_SSO_ONLY: boolean;
 }
 
@@ -18,21 +31,19 @@ export interface SsoEnv {
  * The identity providers declared in .env, in the shape the SSO plugin takes.
  * A partial set is an error rather than a provider that fails at sign-in.
  */
-export function buildSsoProviders(env: SsoEnv): DefaultSsoProvider[] {
+export function buildSsoProviders(env: SsoEnv, appUrl: string | undefined): DefaultSsoProvider[] {
   const providers: DefaultSsoProvider[] = [];
 
-  const oidc = {
-    OIDC_ISSUER: env.OIDC_ISSUER,
-    OIDC_CLIENT_ID: env.OIDC_CLIENT_ID,
-    OIDC_CLIENT_SECRET: env.OIDC_CLIENT_SECRET,
-  };
-  const missingOidc = Object.entries(oidc)
-    .filter(([, value]) => !value)
-    .map(([key]) => key);
-  if (missingOidc.length > 0 && missingOidc.length < Object.keys(oidc).length) {
-    throw new Error(`OpenID Connect sign-in is half configured: set ${missingOidc.join(', ')} in .env.`);
-  }
-  if (env.OIDC_ISSUER && env.OIDC_CLIENT_ID && env.OIDC_CLIENT_SECRET) {
+  if (
+    allOrNone('OpenID Connect', {
+      OIDC_ISSUER: env.OIDC_ISSUER,
+      OIDC_CLIENT_ID: env.OIDC_CLIENT_ID,
+      OIDC_CLIENT_SECRET: env.OIDC_CLIENT_SECRET,
+    }) &&
+    env.OIDC_ISSUER &&
+    env.OIDC_CLIENT_ID &&
+    env.OIDC_CLIENT_SECRET
+  ) {
     providers.push({
       providerId: OIDC_PROVIDER_ID,
       // Sign-in always names the provider; no routing by email domain.
@@ -52,12 +63,69 @@ export function buildSsoProviders(env: SsoEnv): DefaultSsoProvider[] {
     });
   }
 
+  if (
+    allOrNone('SAML', {
+      SAML_ENTRY_POINT: env.SAML_ENTRY_POINT,
+      SAML_IDP_ENTITY_ID: env.SAML_IDP_ENTITY_ID,
+      SAML_IDP_CERT: env.SAML_IDP_CERT,
+    }) &&
+    env.SAML_ENTRY_POINT &&
+    env.SAML_IDP_ENTITY_ID &&
+    env.SAML_IDP_CERT
+  ) {
+    if (!appUrl) throw new Error('SAML sign-in needs the public URL of Zetora: set BETTER_AUTH_BASE_URL in .env.');
+    providers.push({
+      providerId: SAML_PROVIDER_ID,
+      domain: '',
+      samlConfig: {
+        // Zetora's own entity ID: the URL of the metadata it publishes, which
+        // the identity provider can import.
+        issuer: samlServiceProviderMetadataUrl(appUrl),
+        entryPoint: env.SAML_ENTRY_POINT,
+        idpMetadata: { entityID: env.SAML_IDP_ENTITY_ID, cert: parseCertificates(env.SAML_IDP_CERT) },
+        wantAssertionsSigned: true,
+        mapping: {
+          ...SAML_NAME_ATTRIBUTES,
+          email: env.SAML_EMAIL_ATTRIBUTE,
+          extraFields: { groups: env.SAML_GROUPS_ATTRIBUTE },
+        },
+      },
+    });
+  }
+
   if (env.ZETORA_SSO_ONLY && providers.length === 0) {
     throw new Error(
-      'ZETORA_SSO_ONLY=true but no single sign-on is configured: set OIDC_ISSUER, OIDC_CLIENT_ID and OIDC_CLIENT_SECRET in .env.',
+      'ZETORA_SSO_ONLY=true but no single sign-on is configured: set OIDC_ISSUER, OIDC_CLIENT_ID and OIDC_CLIENT_SECRET, or SAML_ENTRY_POINT, SAML_IDP_ENTITY_ID and SAML_IDP_CERT in .env.',
     );
   }
   return providers;
+}
+
+/** True when every variable is set, false when none is, an error otherwise. */
+function allOrNone(protocol: string, variables: Record<string, string | undefined>): boolean {
+  const missing = Object.entries(variables)
+    .filter(([, value]) => !value)
+    .map(([key]) => key);
+  if (missing.length === 0) return true;
+  if (missing.length === Object.keys(variables).length) return false;
+  throw new Error(`${protocol} sign-in is half configured: set ${missing.join(', ')} in .env.`);
+}
+
+function samlServiceProviderMetadataUrl(appUrl: string): string {
+  return `${appUrl}/api/auth/sso/saml2/sp/metadata?providerId=${SAML_PROVIDER_ID}`;
+}
+
+/**
+ * Signing certificates as identity providers hand them out: PEM, or the bare
+ * base64 body that fits on one .env line. Several, comma-separated, during a
+ * rotation. Returned as PEM.
+ */
+export function parseCertificates(value: string): string[] {
+  return value
+    .split(',')
+    .map((certificate) => certificate.replace(/-----(BEGIN|END) CERTIFICATE-----|\\n|\s/g, ''))
+    .filter(Boolean)
+    .map((body) => `-----BEGIN CERTIFICATE-----\n${body.match(/.{1,64}/g)?.join('\n')}\n-----END CERTIFICATE-----`);
 }
 
 /** Origins the SSO plugin must trust to fetch discovery, keys and tokens. */

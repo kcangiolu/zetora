@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseGroupsClaim, resolveRole, type RoleRules } from '@/lib/identity/roles';
-import { buildSsoProviders, readGroups, ssoTrustedOrigins, type SsoEnv } from '@/lib/identity/sso';
+import { buildSsoProviders, parseCertificates, readGroups, ssoTrustedOrigins, type SsoEnv } from '@/lib/identity/sso';
 
 const rules: RoleRules = {
   adminEmails: ['Ada@example.com'],
@@ -71,25 +71,43 @@ describe('readGroups', () => {
   });
 });
 
-const baseEnv: SsoEnv = { OIDC_GROUPS_CLAIM: 'groups', OIDC_SCOPES: 'openid email profile', ZETORA_SSO_ONLY: false };
+const appUrl = 'https://chat.example.com';
+const baseEnv: SsoEnv = {
+  OIDC_GROUPS_CLAIM: 'groups',
+  OIDC_SCOPES: 'openid email profile',
+  SAML_EMAIL_ATTRIBUTE: 'email',
+  SAML_GROUPS_ATTRIBUTE: 'groups',
+  ZETORA_SSO_ONLY: false,
+};
 const oidcEnv: SsoEnv = {
   ...baseEnv,
   OIDC_ISSUER: 'https://idp.example.com/application/o/zetora/',
   OIDC_CLIENT_ID: 'client-1',
   OIDC_CLIENT_SECRET: 'client-secret',
 };
+// A certificate body is public; this one only has the shape of one.
+const certificateBody = 'QUJD'.repeat(40);
+const samlEnv: SsoEnv = {
+  ...baseEnv,
+  SAML_ENTRY_POINT: 'https://idp.example.com/application/saml/zetora/sso/binding/redirect/',
+  SAML_IDP_ENTITY_ID: 'https://idp.example.com/application/saml/zetora/',
+  SAML_IDP_CERT: certificateBody,
+};
 
 describe('buildSsoProviders', () => {
   it('declares nothing when no SSO variable is set', () => {
-    expect(buildSsoProviders(baseEnv)).toEqual([]);
+    expect(buildSsoProviders(baseEnv, appUrl)).toEqual([]);
   });
 
   it('declares the OpenID Connect provider with its discovery URL, scopes and groups claim', () => {
-    const [provider] = buildSsoProviders({
-      ...oidcEnv,
-      OIDC_GROUPS_CLAIM: 'roles',
-      OIDC_SCOPES: 'openid  email groups',
-    });
+    const [provider] = buildSsoProviders(
+      {
+        ...oidcEnv,
+        OIDC_GROUPS_CLAIM: 'roles',
+        OIDC_SCOPES: 'openid  email groups',
+      },
+      appUrl,
+    );
     expect(provider?.providerId).toBe('oidc');
     expect(provider?.oidcConfig).toMatchObject({
       issuer: oidcEnv.OIDC_ISSUER,
@@ -102,14 +120,58 @@ describe('buildSsoProviders', () => {
   });
 
   it('names the variables missing from a half-configured provider', () => {
-    expect(() => buildSsoProviders({ ...oidcEnv, OIDC_CLIENT_SECRET: undefined })).toThrow(/set OIDC_CLIENT_SECRET/);
+    expect(() => buildSsoProviders({ ...oidcEnv, OIDC_CLIENT_SECRET: undefined }, appUrl)).toThrow(
+      /set OIDC_CLIENT_SECRET/,
+    );
   });
 
   it('refuses SSO-only mode without any provider', () => {
-    expect(() => buildSsoProviders({ ...baseEnv, ZETORA_SSO_ONLY: true })).toThrow(/ZETORA_SSO_ONLY=true/);
+    expect(() => buildSsoProviders({ ...baseEnv, ZETORA_SSO_ONLY: true }, appUrl)).toThrow(/ZETORA_SSO_ONLY=true/);
   });
 
   it('trusts the origin of the issuer', () => {
-    expect(ssoTrustedOrigins(buildSsoProviders(oidcEnv))).toEqual(['https://idp.example.com']);
+    expect(ssoTrustedOrigins(buildSsoProviders(oidcEnv, appUrl))).toEqual(['https://idp.example.com']);
+  });
+
+  it('declares the SAML provider with signed assertions and the attributes to read', () => {
+    const [provider] = buildSsoProviders(
+      { ...samlEnv, SAML_GROUPS_ATTRIBUTE: 'http://schemas.xmlsoap.org/claims/Group' },
+      appUrl,
+    );
+    expect(provider?.providerId).toBe('saml');
+    expect(provider?.samlConfig).toMatchObject({
+      issuer: 'https://chat.example.com/api/auth/sso/saml2/sp/metadata?providerId=saml',
+      entryPoint: samlEnv.SAML_ENTRY_POINT,
+      idpMetadata: { entityID: samlEnv.SAML_IDP_ENTITY_ID, cert: parseCertificates(certificateBody) },
+      wantAssertionsSigned: true,
+      mapping: { email: 'email', extraFields: { groups: 'http://schemas.xmlsoap.org/claims/Group' } },
+    });
+  });
+
+  it('declares both providers side by side', () => {
+    const providers = buildSsoProviders({ ...oidcEnv, ...samlEnv, OIDC_ISSUER: oidcEnv.OIDC_ISSUER }, appUrl);
+    expect(providers.map((provider) => provider.providerId)).toEqual(['oidc', 'saml']);
+  });
+
+  it('names what a half-configured SAML provider misses, the public URL included', () => {
+    expect(() => buildSsoProviders({ ...samlEnv, SAML_IDP_CERT: undefined }, appUrl)).toThrow(/set SAML_IDP_CERT/);
+    expect(() => buildSsoProviders(samlEnv, undefined)).toThrow(/BETTER_AUTH_BASE_URL/);
+  });
+});
+
+describe('parseCertificates', () => {
+  const pem = `-----BEGIN CERTIFICATE-----\n${certificateBody.slice(0, 64)}\n${certificateBody.slice(64, 128)}\n${certificateBody.slice(128)}\n-----END CERTIFICATE-----`;
+
+  it('turns a bare base64 body into PEM with 64-character lines', () => {
+    expect(parseCertificates(certificateBody)).toEqual([pem]);
+  });
+
+  it('accepts PEM, with real or escaped line breaks', () => {
+    expect(parseCertificates(pem)).toEqual([pem]);
+    expect(parseCertificates(pem.replaceAll('\n', '\\n'))).toEqual([pem]);
+  });
+
+  it('splits a rotation into one certificate each', () => {
+    expect(parseCertificates(`${certificateBody}, ${certificateBody}`)).toEqual([pem, pem]);
   });
 });

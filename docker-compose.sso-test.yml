@@ -6,8 +6,9 @@ services:
   # Test identity provider for single sign-on, reached by `pnpm dev` on the
   # host: set OIDC_ISSUER=http://localhost:9000/application/o/zetora/,
   # OIDC_CLIENT_ID=zetora and OIDC_CLIENT_SECRET=$SSO_TEST_CLIENT_SECRET in
-  # .env.local. tests/sso/authentik-zetora.yaml creates the provider, groups
-  # and users. Admin console: http://localhost:9000, user akadmin.
+  # .env.local; the SAML values are listed in tests/sso/authentik-zetora.yaml,
+  # which creates both providers, the groups and the users. Admin console:
+  # http://localhost:9000, user akadmin.
   authentik-postgres:
     image: postgres:16-alpine
     environment:

@@ -153,6 +153,21 @@ export const serverEnv = createEnv({
     // Space-separated scopes asked at sign-in; some providers send the groups
     // claim only for an extra scope.
     OIDC_SCOPES: z.string().optional().default('openid email profile'),
+    // Single sign-on with a SAML 2.0 identity provider. The three go together.
+    // SAML_IDP_CERT takes PEM or its base64 body; several, comma-separated.
+    SAML_ENTRY_POINT: z.string().url().optional(),
+    SAML_IDP_ENTITY_ID: z.string().optional(),
+    SAML_IDP_CERT: z.string().optional(),
+    // Assertion attributes holding the address and the groups. The defaults
+    // are the claim URIs Microsoft Entra ID sends.
+    SAML_EMAIL_ATTRIBUTE: z
+      .string()
+      .optional()
+      .default('http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'),
+    SAML_GROUPS_ATTRIBUTE: z
+      .string()
+      .optional()
+      .default('http://schemas.microsoft.com/ws/2008/06/identity/claims/groups'),
     // Set to true to allow single sign-on only: no password, no social providers.
     ZETORA_SSO_ONLY: z.stringbool().optional().default(false),
     // Fixed session lifetime, never extended by activity, so a change made in

@@ -1,8 +1,8 @@
 # Test identity provider for Zetora's single sign-on, applied by the Authentik
-# worker of docker-compose.local-test.yml (profile "sso"). It creates the OIDC
-# provider Zetora's .env points at, an admin and an auditor group, and three
+# worker of docker-compose.sso-test.yml. It creates the OIDC and SAML
+# providers Zetora's .env points at, an admin and an auditor group, and three
 # users: Ada (admin), Grace (auditor), Alan (member). Every secret comes from
-# the environment, see docker-compose.local-test.yml.
+# the environment, see docker-compose.sso-test.yml.
 version: 1
 metadata:
   name: Zetora SSO test bench
@@ -45,6 +45,37 @@ entries:
     attrs:
       name: Zetora
       provider: !KeyOf zetora-provider
+
+  # The same users over SAML: SAML_ENTRY_POINT=http://localhost:9000/application/saml/zetora-saml/,
+  # SAML_IDP_ENTITY_ID=zetora-test-idp, SAML_IDP_CERT from
+  # http://localhost:9000/application/saml/zetora-saml/metadata/ and
+  # SAML_GROUPS_ATTRIBUTE=http://schemas.xmlsoap.org/claims/Group.
+  - model: authentik_providers_saml.samlprovider
+    id: zetora-saml-provider
+    identifiers:
+      name: zetora-saml
+    attrs:
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      acs_url: http://localhost:3000/api/auth/sso/saml2/sp/acs/saml
+      audience: http://localhost:3000/api/auth/sso/saml2/sp/metadata?providerId=saml
+      issuer_override: zetora-test-idp
+      sp_binding: post
+      signing_kp: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
+      sign_assertion: true
+      sign_response: true
+      property_mappings:
+        - !Find [authentik_providers_saml.samlpropertymapping, [managed, goauthentik.io/providers/saml/email]]
+        - !Find [authentik_providers_saml.samlpropertymapping, [managed, goauthentik.io/providers/saml/name]]
+        - !Find [authentik_providers_saml.samlpropertymapping, [managed, goauthentik.io/providers/saml/groups]]
+        - !Find [authentik_providers_saml.samlpropertymapping, [managed, goauthentik.io/providers/saml/uid]]
+
+  - model: authentik_core.application
+    identifiers:
+      slug: zetora-saml
+    attrs:
+      name: Zetora (SAML)
+      provider: !KeyOf zetora-saml-provider
 
   - model: authentik_core.user
     identifiers:
