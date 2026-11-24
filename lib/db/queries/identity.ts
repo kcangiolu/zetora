@@ -1,7 +1,7 @@
 import 'server-only';
 
-import { asc, eq, inArray } from 'drizzle-orm';
-import { group, user, userGroup } from '../schema';
+import { and, asc, eq, inArray } from 'drizzle-orm';
+import { account, group, user, userGroup } from '../schema';
 import { databaseError } from '../../errors';
 import { maindb } from '../index';
 
@@ -80,5 +80,18 @@ export async function listUsersWithGroups(): Promise<UserWithGroups[]> {
     return users.map((row) => ({ ...row, groups: groupsByUser.get(row.id) ?? [] }));
   } catch (error) {
     throw databaseError('Failed to list users', error);
+  }
+}
+
+export async function hasAccountWithProvider(userId: string, providerId: string): Promise<boolean> {
+  try {
+    const [row] = await maindb
+      .select({ id: account.id })
+      .from(account)
+      .where(and(eq(account.userId, userId), eq(account.providerId, providerId)))
+      .limit(1);
+    return row !== undefined;
+  } catch (error) {
+    throw databaseError('Failed to look up the account', error);
   }
 }

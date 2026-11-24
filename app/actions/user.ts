@@ -3,6 +3,8 @@
 import { getChatWithUserById } from '@/lib/db/queries';
 import { getUser } from '@/lib/auth-utils';
 import { getComprehensiveUserData } from '@/lib/user-data-server';
+import { startSamlSingleLogout } from '@/lib/identity/single-logout';
+import { headers } from 'next/headers';
 
 import { createLogger } from '@/lib/logger';
 
@@ -13,6 +15,14 @@ export async function getCurrentUser() {
   'use server';
 
   return await getComprehensiveUserData();
+}
+
+// Signing out of a SAML session goes through the identity provider, which
+// ends its own session and sends the browser back to the sign-in page.
+export async function startSingleLogout(): Promise<string | null> {
+  'use server';
+
+  return startSamlSingleLogout(await headers());
 }
 
 // Header metadata for a chat. A private chat is visible to its owner only, and

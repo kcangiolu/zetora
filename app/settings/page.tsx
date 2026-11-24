@@ -33,7 +33,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { SidebarLayout } from '@/components/sidebar-layout';
-import { signOut } from '@/lib/auth-client';
+import { signOutEverywhere } from '@/lib/sign-out';
 import { useQueryClient } from '@tanstack/react-query';
 import { sileo } from 'sileo';
 import { Button } from '@/components/ui/button';
@@ -70,7 +70,9 @@ function SettingsContent() {
     queryClient.removeQueries({ queryKey: ['comprehensive-user-data'] });
     localStorage.removeItem('zetora-user-data');
     sileo.promise(
-      signOut().then(() => router.push('/sign-in')),
+      signOutEverywhere().then((identityProviderUrl) =>
+        identityProviderUrl ? window.location.assign(identityProviderUrl) : router.push('/sign-in'),
+      ),
       {
         loading: { title: 'Signing out...' },
         success: () => ({ title: 'Signed out successfully' }),

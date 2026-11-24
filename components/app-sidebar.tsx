@@ -80,7 +80,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { ShareDialog } from '@/components/share/share-dialog';
 import { sileo } from 'sileo';
-import { signOut } from '@/lib/auth-client';
+import { signOutEverywhere } from '@/lib/sign-out';
 import { useChatActions } from '@/hooks/use-chat-actions';
 
 type VisibilityType = 'public' | 'private';
@@ -118,7 +118,9 @@ function UserDropdownContent({
     localStorage.removeItem('zetora-user-data');
 
     sileo.promise(
-      signOut().then(() => router.push('/sign-in')),
+      signOutEverywhere().then((identityProviderUrl) =>
+        identityProviderUrl ? window.location.assign(identityProviderUrl) : router.push('/sign-in'),
+      ),
       {
         loading: { title: 'Signing out...' },
         success: () => ({ title: 'Signed out successfully' }),

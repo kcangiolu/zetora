@@ -149,6 +149,18 @@ describe('buildSsoProviders', () => {
     });
   });
 
+  it('declares the provider logout URL only when one is set', () => {
+    const [withoutLogout] = buildSsoProviders(samlEnv, appUrl);
+    expect(withoutLogout?.samlConfig?.idpMetadata.singleLogoutService).toBeUndefined();
+
+    const logoutUrl = 'https://idp.example.com/application/saml/zetora/slo/';
+    const [withLogout] = buildSsoProviders({ ...samlEnv, SAML_LOGOUT_URL: logoutUrl }, appUrl);
+    expect(withLogout?.samlConfig?.idpMetadata.singleLogoutService).toEqual([
+      { Binding: 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect', Location: logoutUrl },
+      { Binding: 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST', Location: logoutUrl },
+    ]);
+  });
+
   it('declares both providers side by side', () => {
     const providers = buildSsoProviders({ ...oidcEnv, ...samlEnv, OIDC_ISSUER: oidcEnv.OIDC_ISSUER }, appUrl);
     expect(providers.map((provider) => provider.providerId)).toEqual(['oidc', 'saml']);

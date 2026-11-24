@@ -100,6 +100,9 @@ export const enabledSocialProviders = ssoOnly
   : (Object.keys(socialProviders) as Array<keyof typeof socialProviders>);
 export const enabledSsoProviders = ssoProviders.map((provider) => provider.providerId);
 export const passwordSignInEnabled = !ssoOnly;
+export const samlSingleLogoutEnabled = ssoProviders.some((provider) =>
+  Boolean(provider.samlConfig?.idpMetadata?.singleLogoutService?.length),
+);
 
 // A fixed lifetime is what makes leaving the company, or the admin group,
 // reach Zetora under SSO: a session extended by activity would never go back
@@ -226,6 +229,12 @@ export const auth = betterAuth({
         // refused rather than logged.
         requireTimestamps: true,
         algorithms: { onDeprecated: 'reject' },
+        // The provider may end a Zetora session (its user signed out there,
+        // or was disabled); unsigned logout messages are refused, or anyone
+        // could sign any user out.
+        enableSingleLogout: true,
+        wantLogoutRequestSigned: true,
+        wantLogoutResponseSigned: true,
       },
       provisionUser: async ({ user, userInfo, token, provider }) => {
         const groups = readGroups(userInfo, token?.idToken, serverEnv.OIDC_GROUPS_CLAIM);

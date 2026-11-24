@@ -2,7 +2,9 @@ import { computeDiscoveryUrl, type SSOOptions } from '@better-auth/sso';
 import { parseGroupsClaim } from './roles';
 
 const OIDC_PROVIDER_ID = 'oidc';
-const SAML_PROVIDER_ID = 'saml';
+export const SAML_PROVIDER_ID = 'saml';
+const SAML_REDIRECT_BINDING = 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect';
+const SAML_POST_BINDING = 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST';
 
 // Claim URIs that Microsoft Entra ID, AD FS and Authentik send by default.
 const SAML_NAME_ATTRIBUTES = {
@@ -22,6 +24,7 @@ export interface SsoEnv {
   SAML_ENTRY_POINT?: string;
   SAML_IDP_ENTITY_ID?: string;
   SAML_IDP_CERT?: string;
+  SAML_LOGOUT_URL?: string;
   SAML_EMAIL_ATTRIBUTE: string;
   SAML_GROUPS_ATTRIBUTE: string;
   SSO_EMAIL_DOMAINS: readonly string[];
@@ -82,7 +85,20 @@ export function buildSsoProviders(env: SsoEnv, appUrl: string | undefined): Defa
         // the identity provider can import.
         issuer: samlServiceProviderMetadataUrl(appUrl),
         entryPoint: env.SAML_ENTRY_POINT,
-        idpMetadata: { entityID: env.SAML_IDP_ENTITY_ID, cert: parseCertificates(env.SAML_IDP_CERT) },
+        idpMetadata: {
+          entityID: env.SAML_IDP_ENTITY_ID,
+          cert: parseCertificates(env.SAML_IDP_CERT),
+          // Single logout: Zetora's requests leave over HTTP-Redirect, its
+          // answers to the provider's requests over HTTP-POST.
+          ...(env.SAML_LOGOUT_URL
+            ? {
+                singleLogoutService: [
+                  { Binding: SAML_REDIRECT_BINDING, Location: env.SAML_LOGOUT_URL },
+                  { Binding: SAML_POST_BINDING, Location: env.SAML_LOGOUT_URL },
+                ],
+              }
+            : {}),
+        },
         wantAssertionsSigned: true,
         mapping: {
           ...SAML_NAME_ATTRIBUTES,

@@ -158,6 +158,9 @@ export const serverEnv = createEnv({
     SAML_ENTRY_POINT: z.string().url().optional(),
     SAML_IDP_ENTITY_ID: z.string().optional(),
     SAML_IDP_CERT: z.string().optional(),
+    // The provider's single logout URL: signing out of Zetora then ends the
+    // provider's session too. Optional.
+    SAML_LOGOUT_URL: z.string().url().optional(),
     // Assertion attributes holding the address and the groups. The defaults
     // are the claim URIs Microsoft Entra ID sends.
     SAML_EMAIL_ATTRIBUTE: z

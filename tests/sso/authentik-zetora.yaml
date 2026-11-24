@@ -64,6 +64,13 @@ entries:
       signing_kp: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
       sign_assertion: true
       sign_response: true
+      # Single logout both ways, with signed messages as Zetora requires.
+      sls_url: http://localhost:3000/api/auth/sso/saml2/sp/slo/saml
+      # Better Auth verifies signed logout messages only over HTTP-POST.
+      sls_binding: post
+      logout_method: frontchannel_native
+      sign_logout_request: true
+      sign_logout_response: true
       property_mappings:
         - !Find [authentik_providers_saml.samlpropertymapping, [managed, goauthentik.io/providers/saml/email]]
         - !Find [authentik_providers_saml.samlpropertymapping, [managed, goauthentik.io/providers/saml/name]]

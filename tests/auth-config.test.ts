@@ -32,6 +32,10 @@ const touchedEnv = [
   'ZETORA_SESSION_HOURS',
   'GITHUB_CLIENT_ID',
   'GITHUB_CLIENT_SECRET',
+  'SAML_ENTRY_POINT',
+  'SAML_IDP_ENTITY_ID',
+  'SAML_IDP_CERT',
+  'SAML_LOGOUT_URL',
 ];
 const originalEnv = Object.fromEntries(touchedEnv.map((key) => [key, process.env[key]]));
 
@@ -159,6 +163,27 @@ describe('auth configuration', () => {
     });
     expect(options.emailAndPassword?.enabled).toBe(true);
     expect(options.session).toBeUndefined();
+  });
+
+  it('accepts only signed SAML logout messages, and signs out through the provider when it has a logout URL', async () => {
+    const samlEnv = {
+      SAML_ENTRY_POINT: 'https://idp.example.com/application/saml/zetora/',
+      SAML_IDP_ENTITY_ID: 'https://idp.example.com/application/saml/zetora/',
+      SAML_IDP_CERT: 'QUJD'.repeat(40),
+    };
+    const withoutLogout = await loadAuth({ ...samlEnv, SAML_LOGOUT_URL: '' });
+    expect(ssoPluginOptions(withoutLogout.options).saml).toMatchObject({
+      enableSingleLogout: true,
+      wantLogoutRequestSigned: true,
+      wantLogoutResponseSigned: true,
+    });
+    expect(withoutLogout.samlSingleLogoutEnabled).toBe(false);
+
+    const withLogout = await loadAuth({
+      ...samlEnv,
+      SAML_LOGOUT_URL: 'https://idp.example.com/application/saml/zetora/',
+    });
+    expect(withLogout.samlSingleLogoutEnabled).toBe(true);
   });
 
   it('syncs the groups at each single sign-on, and clears them when the claim is missing', async () => {
