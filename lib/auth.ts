@@ -103,8 +103,8 @@ export const auth = betterAuth({
     max: 100,
     window: 60,
   },
-  experimental: { joins: true },
   advanced: {
+    database: { joins: true },
     ipAddress: {
       ipAddressHeaders: [CLIENT_IP_HEADER],
     },

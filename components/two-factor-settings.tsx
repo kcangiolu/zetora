@@ -70,7 +70,7 @@ export function TwoFactorSettings({ enabled: initialEnabled, isMobile }: TwoFact
         setError(result.error.message ?? 'Could not enable two-factor authentication');
         return;
       }
-      if (result.data) {
+      if (result.data?.method === 'totp') {
         const { totpURI, backupCodes } = result.data;
         setTotpURI(totpURI);
         setBackupCodes(backupCodes);
