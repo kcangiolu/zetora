@@ -168,6 +168,9 @@ export const serverEnv = createEnv({
       .string()
       .optional()
       .default('http://schemas.microsoft.com/ws/2008/06/identity/claims/groups'),
+    // Comma-separated email domains whose single sign-on may join an existing
+    // account with the same, verified address (lib/identity/sso.ts).
+    SSO_EMAIL_DOMAINS: commaList,
     // Set to true to allow single sign-on only: no password, no social providers.
     ZETORA_SSO_ONLY: z.stringbool().optional().default(false),
     // Fixed session lifetime, never extended by activity, so a change made in

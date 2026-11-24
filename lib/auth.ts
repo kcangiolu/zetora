@@ -214,6 +214,12 @@ export const auth = betterAuth({
       defaultSSO: ssoProviders,
       // Only the providers in .env: no user may register their own.
       providersLimit: 0,
+      // Marks the .env providers verified for the domains in their `domain`
+      // (SSO_EMAIL_DOMAINS), the plugin's condition to join a sign-on to an
+      // existing account. Better Auth still requires that account's address
+      // to be verified, so an account someone opened in advance with another
+      // person's address never receives that person's sign-on.
+      domainVerification: { enabled: true },
       provisionUserOnEveryLogin: true,
       saml: {
         // Assertions without a validity window, or signed with SHA-1, are

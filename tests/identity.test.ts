@@ -77,6 +77,7 @@ const baseEnv: SsoEnv = {
   OIDC_SCOPES: 'openid email profile',
   SAML_EMAIL_ATTRIBUTE: 'email',
   SAML_GROUPS_ATTRIBUTE: 'groups',
+  SSO_EMAIL_DOMAINS: [],
   ZETORA_SSO_ONLY: false,
 };
 const oidcEnv: SsoEnv = {
@@ -156,6 +157,32 @@ describe('buildSsoProviders', () => {
   it('names what a half-configured SAML provider misses, the public URL included', () => {
     expect(() => buildSsoProviders({ ...samlEnv, SAML_IDP_CERT: undefined }, appUrl)).toThrow(/set SAML_IDP_CERT/);
     expect(() => buildSsoProviders(samlEnv, undefined)).toThrow(/BETTER_AUTH_BASE_URL/);
+  });
+});
+
+describe('SSO_EMAIL_DOMAINS', () => {
+  it('trusts no domain by default', () => {
+    expect(buildSsoProviders(oidcEnv, appUrl).map((provider) => provider.domain)).toEqual(['']);
+  });
+
+  it('gives every provider the domains whose sign-on may join an existing account', () => {
+    const providers = buildSsoProviders(
+      { ...oidcEnv, ...samlEnv, OIDC_ISSUER: oidcEnv.OIDC_ISSUER, SSO_EMAIL_DOMAINS: ['Example.com', 'example.org'] },
+      appUrl,
+    );
+    expect(providers.map((provider) => provider.domain)).toEqual([
+      'example.com,example.org',
+      'example.com,example.org',
+    ]);
+  });
+
+  it('refuses an entry that is not a bare domain', () => {
+    expect(() => buildSsoProviders({ ...oidcEnv, SSO_EMAIL_DOMAINS: ['@example.com'] }, appUrl)).toThrow(
+      /not: @example.com/,
+    );
+    expect(() => buildSsoProviders({ ...oidcEnv, SSO_EMAIL_DOMAINS: ['https://example.com'] }, appUrl)).toThrow(
+      /SSO_EMAIL_DOMAINS/,
+    );
   });
 });
 

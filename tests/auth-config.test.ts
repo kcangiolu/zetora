@@ -152,7 +152,11 @@ describe('auth configuration', () => {
     const { options, enabledSsoProviders } = await loadAuth({ ...oidcEnv, ZETORA_SSO_ONLY: '' });
     expect(enabledSsoProviders).toEqual(['oidc']);
     expect(options.trustedOrigins).toContain('https://idp.example.com');
-    expect(ssoPluginOptions(options)).toMatchObject({ providersLimit: 0, provisionUserOnEveryLogin: true });
+    expect(ssoPluginOptions(options)).toMatchObject({
+      providersLimit: 0,
+      provisionUserOnEveryLogin: true,
+      domainVerification: { enabled: true },
+    });
     expect(options.emailAndPassword?.enabled).toBe(true);
     expect(options.session).toBeUndefined();
   });

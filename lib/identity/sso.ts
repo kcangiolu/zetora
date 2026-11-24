@@ -24,6 +24,7 @@ export interface SsoEnv {
   SAML_IDP_CERT?: string;
   SAML_EMAIL_ATTRIBUTE: string;
   SAML_GROUPS_ATTRIBUTE: string;
+  SSO_EMAIL_DOMAINS: readonly string[];
   ZETORA_SSO_ONLY: boolean;
 }
 
@@ -46,8 +47,7 @@ export function buildSsoProviders(env: SsoEnv, appUrl: string | undefined): Defa
   ) {
     providers.push({
       providerId: OIDC_PROVIDER_ID,
-      // Sign-in always names the provider; no routing by email domain.
-      domain: '',
+      domain: linkableDomains(env.SSO_EMAIL_DOMAINS),
       oidcConfig: {
         issuer: env.OIDC_ISSUER,
         discoveryEndpoint: computeDiscoveryUrl(env.OIDC_ISSUER),
@@ -76,7 +76,7 @@ export function buildSsoProviders(env: SsoEnv, appUrl: string | undefined): Defa
     if (!appUrl) throw new Error('SAML sign-in needs the public URL of Zetora: set BETTER_AUTH_BASE_URL in .env.');
     providers.push({
       providerId: SAML_PROVIDER_ID,
-      domain: '',
+      domain: linkableDomains(env.SSO_EMAIL_DOMAINS),
       samlConfig: {
         // Zetora's own entity ID: the URL of the metadata it publishes, which
         // the identity provider can import.
@@ -99,6 +99,20 @@ export function buildSsoProviders(env: SsoEnv, appUrl: string | undefined): Defa
     );
   }
   return providers;
+}
+
+/**
+ * The plugin trusts a provider's address, and joins its sign-on to an
+ * existing account with that address, only for the domains in the provider's
+ * `domain`. An entry it cannot parse would silently void the whole list, so
+ * it is refused here. Empty: no domain is trusted.
+ */
+function linkableDomains(domains: readonly string[]): string {
+  const invalid = domains.filter((domain) => !/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(domain));
+  if (invalid.length > 0) {
+    throw new Error(`SSO_EMAIL_DOMAINS takes bare domains such as example.com, not: ${invalid.join(', ')}.`);
+  }
+  return domains.map((domain) => domain.toLowerCase()).join(',');
 }
 
 /** True when every variable is set, false when none is, an error otherwise. */
