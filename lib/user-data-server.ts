@@ -6,7 +6,9 @@ import { user } from './db/schema';
 import { maindb } from './db';
 import { auth } from './auth';
 import { headers } from 'next/headers';
-import { getCustomInstructionsByUserId, getUserPreferencesByUserId } from './db/queries';
+import { getCustomInstructionsByUserId, getUserGroupNames, getUserPreferencesByUserId } from './db/queries';
+import { roleRules } from './identity/principal';
+import { resolveRole, type Role } from './identity/roles';
 import type { CustomInstructions, UserPreferences } from './db/schema';
 import { sessionCache, createSessionKey } from './performance-cache';
 import { globalCache } from './lru-ttl-cache';
@@ -43,6 +45,9 @@ export interface ComprehensiveUserData {
   image: string | null;
   createdAt: Date;
   updatedAt: Date;
+  // For showing admin entry points only; every admin route checks the role
+  // again on the server.
+  role: Role;
 }
 
 // Lightweight user auth type for fast checks
@@ -232,6 +237,8 @@ export const getComprehensiveUserData = cache(async (): Promise<ComprehensiveUse
       return null;
     }
 
+    const groups = await getUserGroupNames(row.userId);
+
     const comprehensiveData: ComprehensiveUserData = {
       id: row.userId,
       email: row.email,
@@ -241,6 +248,7 @@ export const getComprehensiveUserData = cache(async (): Promise<ComprehensiveUse
       image: row.image,
       createdAt: row.userCreatedAt,
       updatedAt: row.userUpdatedAt,
+      role: resolveRole({ email: row.email, emailVerified: row.emailVerified, groups }, roleRules),
     };
 
     setCachedUserData(userId, comprehensiveData);

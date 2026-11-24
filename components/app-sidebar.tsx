@@ -4,7 +4,16 @@ import React, { memo, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { PlusIcon, GearIcon, SignIn, GithubLogoIcon, InfoIcon, ShieldIcon, BugIcon } from '@phosphor-icons/react';
+import {
+  PlusIcon,
+  GearIcon,
+  SignIn,
+  GithubLogoIcon,
+  InfoIcon,
+  ShieldIcon,
+  BugIcon,
+  UserGearIcon,
+} from '@phosphor-icons/react';
 import { BinocularsIcon, FolderLibraryIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import { HermesModeDot } from '@/components/ui/hermes-mode-dot';
@@ -154,6 +163,14 @@ function UserDropdownContent({
             <span>Settings</span>
           </Link>
         </DropdownMenuItem>
+        {(user.role === 'admin' || user.role === 'auditor') && (
+          <DropdownMenuItem asChild>
+            <Link href="/admin" onClick={closeMobileSidebar}>
+              <UserGearIcon size={16} weight="regular" />
+              <span>Administration</span>
+            </Link>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem
           onSelect={() => {
             closeMobileSidebar();
