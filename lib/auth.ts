@@ -14,6 +14,7 @@ import {
   lookout,
   userMcpServer,
   twoFactor as twoFactorTable,
+  ssoProvider,
 } from '@/lib/db/schema';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { maindb } from '@/lib/db';
@@ -22,6 +23,12 @@ import { serverEnv } from '@/env/server';
 import { invalidateSessionCacheForToken } from './user-data-server';
 import { sendVerificationEmail, sendTwoFactorOTPEmail, missingEmailSettings } from './email';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
+import { sso } from '@better-auth/sso';
+import { buildSsoProviders, readGroups, ssoTrustedOrigins } from './identity/sso';
+import { replaceUserGroups } from './db/queries/identity';
+import { createLogger } from './logger';
+
+const log = createLogger('auth');
 
 config({
   path: '.env.local',
@@ -37,7 +44,9 @@ const configuredOrigins = [
   ...(process.env.ALLOWED_ORIGINS?.split(',').map((o) => o.trim()) ?? []),
 ].filter((o): o is string => Boolean(o));
 
-const trustedOrigins = Array.from(new Set(configuredOrigins));
+const ssoProviders = buildSsoProviders(serverEnv);
+
+const trustedOrigins = Array.from(new Set([...configuredOrigins, ...ssoTrustedOrigins(ssoProviders)]));
 
 // Set by app/api/auth/[...all]/route.ts from getClientIp(), so the sign-in
 // rate limit cannot be dodged by sending a forged X-Forwarded-For.
@@ -58,6 +67,8 @@ function assertVerificationEmailCanBeSent(path: string): void {
     code: 'EMAIL_NOT_CONFIGURED',
   });
 }
+
+const ssoOnly = serverEnv.ZETORA_SSO_ONLY;
 
 const socialProviders = {
   ...(serverEnv.GITHUB_CLIENT_ID && serverEnv.GITHUB_CLIENT_SECRET
@@ -82,13 +93,30 @@ const socialProviders = {
 
 // The sign-in page offers a button only for these: the providers whose
 // credentials are set.
-export const enabledSocialProviders = Object.keys(socialProviders) as Array<keyof typeof socialProviders>;
+export const enabledSocialProviders = ssoOnly
+  ? []
+  : (Object.keys(socialProviders) as Array<keyof typeof socialProviders>);
+export const enabledSsoProviders = ssoProviders.map((provider) => provider.providerId);
+export const passwordSignInEnabled = !ssoOnly;
+
+// A fixed lifetime is what makes leaving the company, or the admin group,
+// reach Zetora under SSO: a session extended by activity would never go back
+// through the identity provider.
+const sessionHours = serverEnv.ZETORA_SESSION_HOURS ?? (ssoOnly ? 8 : undefined);
+
+// Every SSO callback lives under /sso/. The identity provider decides who may
+// have an account, so ALLOW_SIGNUPS does not apply to it.
+function isSsoCallback(path: string | undefined): boolean {
+  return path?.startsWith('/sso/') === true;
+}
+
+let warnedMissingGroupsClaim = false;
 
 export const auth = betterAuth({
   appName: 'zetora',
   baseURL: process.env.NODE_ENV === 'production' ? process.env.BETTER_AUTH_BASE_URL : 'http://localhost:3000',
   emailAndPassword: {
-    enabled: true,
+    enabled: !ssoOnly,
     requireEmailVerification: serverEnv.REQUIRE_EMAIL_VERIFICATION,
   },
   emailVerification: {
@@ -99,6 +127,7 @@ export const auth = betterAuth({
       await sendVerificationEmail({ to: user.email, url });
     },
   },
+  ...(sessionHours ? { session: { expiresIn: sessionHours * 3600, disableSessionRefresh: true } } : {}),
   rateLimit: {
     max: 100,
     window: 60,
@@ -124,12 +153,12 @@ export const auth = betterAuth({
     },
     user: {
       create: {
-        before: async () => {
+        before: async (_user, ctx) => {
           // Single choke point for every account-creation path (email/password
           // sign-up and every social provider's first-time OAuth sign-in all
           // route through here) — lets ALLOW_SIGNUPS=false close the instance
           // without touching each auth method separately.
-          if (!serverEnv.ALLOW_SIGNUPS) {
+          if (!serverEnv.ALLOW_SIGNUPS && !isSsoCallback(ctx?.path)) {
             throw new APIError('FORBIDDEN', {
               message: 'You are not authorized to create an account',
               code: 'SIGNUPS_DISABLED',
@@ -154,9 +183,10 @@ export const auth = betterAuth({
       lookout,
       userMcpServer,
       twoFactor: twoFactorTable,
+      ssoProvider,
     },
   }),
-  socialProviders,
+  socialProviders: ssoOnly ? {} : socialProviders,
   plugins: [
     lastLoginMethod(),
     twoFactor({
@@ -165,6 +195,23 @@ export const auth = betterAuth({
         async sendOTP({ user, otp }) {
           await sendTwoFactorOTPEmail({ to: user.email, otp });
         },
+      },
+    }),
+    sso({
+      defaultSSO: ssoProviders,
+      // Only the providers in .env: no user may register their own.
+      providersLimit: 0,
+      provisionUserOnEveryLogin: true,
+      provisionUser: async ({ user, userInfo, token }) => {
+        const groups = readGroups(userInfo, token?.idToken, serverEnv.OIDC_GROUPS_CLAIM);
+        if (!groups && !warnedMissingGroupsClaim) {
+          warnedMissingGroupsClaim = true;
+          log.warn(
+            `The identity provider sent no groups: users get no role from ZETORA_ADMIN_GROUPS or ZETORA_AUDITOR_GROUPS. Check OIDC_GROUPS_CLAIM and OIDC_SCOPES.`,
+          );
+        }
+        // No claim clears the groups: a stale admin group must not outlive it.
+        await replaceUserGroups(user.id, groups ?? []);
       },
     }),
     nextCookies(),

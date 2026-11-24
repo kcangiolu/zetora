@@ -2,6 +2,16 @@
 import { createEnv } from '@t3-oss/env-nextjs';
 import { z } from 'zod';
 
+const commaList = z
+  .string()
+  .optional()
+  .transform((value) =>
+    (value ?? '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean),
+  );
+
 export const serverEnv = createEnv({
   server: {
     XAI_API_KEY: z.string().optional().default('placeholder'),
@@ -133,6 +143,27 @@ export const serverEnv = createEnv({
       .optional()
       .default('true')
       .transform((v) => v.toLowerCase() !== 'false'),
+    // Single sign-on with the organization's OpenID Connect identity provider.
+    // The three go together: lib/identity/sso.ts refuses a partial set.
+    OIDC_ISSUER: z.string().url().optional(),
+    OIDC_CLIENT_ID: z.string().optional(),
+    OIDC_CLIENT_SECRET: z.string().optional(),
+    // Claim of the ID token or userinfo response that lists the user's groups.
+    OIDC_GROUPS_CLAIM: z.string().optional().default('groups'),
+    // Space-separated scopes asked at sign-in; some providers send the groups
+    // claim only for an extra scope.
+    OIDC_SCOPES: z.string().optional().default('openid email profile'),
+    // Set to true to allow single sign-on only: no password, no social providers.
+    ZETORA_SSO_ONLY: z.stringbool().optional().default(false),
+    // Fixed session lifetime, never extended by activity, so a change made in
+    // the identity provider reaches Zetora at the next sign-in. Defaults to 8
+    // with ZETORA_SSO_ONLY (lib/auth.ts); unset otherwise, sessions last 7
+    // days and are extended while used.
+    ZETORA_SESSION_HOURS: z.coerce.number().int().positive().optional(),
+    // Comma-separated lists that give a Zetora role (lib/identity/roles.ts).
+    ZETORA_ADMIN_EMAILS: commaList,
+    ZETORA_ADMIN_GROUPS: commaList,
+    ZETORA_AUDITOR_GROUPS: commaList,
     // Set to true to show every user what each answer cost and the credit left
     // on the instance's provider keys: off by default, since that credit is
     // the instance owner's.

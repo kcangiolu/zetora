@@ -218,6 +218,13 @@
       "when": 1794826095935,
       "tag": "0030_custom_provider_trust",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1795517144712,
+      "tag": "0031_identity_groups_sso",
+      "breakpoints": true
     }
   ]
 }

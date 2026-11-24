@@ -29,7 +29,7 @@ app/                    Next.js App Router
   (auth)/ (content)/ (search)/   Route groups (sign-in, About/Privacy, main search UI)
   api/                  API routes (see below)
   actions/              Server actions (chats, user, preferences, push…)
-  apps/ lookout/ new/ search/ searches/ settings/ share/ voice/  Pages
+  admin/ apps/ lookout/ new/ search/ searches/ settings/ share/ voice/  Pages (admin/: users, roles and groups, for admins and auditors)
 ai/                     AI provider layer
   catalog/              Model catalog built from models.dev: providers and labs config, reasoning options, role models
   providers.ts          Resolves a model id to its one provider's client, or to a custom provider
@@ -48,6 +48,7 @@ lib/
   vector/               Qdrant integration (content indexer, hybrid search, cache cleanup)
   anonymizer/           Optional PII pseudonymization before prompts leave the instance
   egress/               What may leave the instance: provider trust classes, embedding and rerank models, refusals under anonymization
+  identity/             Who is signing in: single sign-on providers from .env, roles derived from groups and emails, getPrincipal/requireRole
   hermes/               Hermes Agent connector (experimental, behind NEXT_PUBLIC_HERMES_ENABLED)
   canvas/ skills/       Canvas rendering registry, skill catalog
   net/                  Outbound fetch guards (public-URL checks, capped downloads)

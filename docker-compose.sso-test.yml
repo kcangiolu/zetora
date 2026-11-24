@@ -1,0 +1,52 @@
+# Single sign-on test bench: an Authentik instance for `pnpm dev`.
+#   SSO_TEST_PG_PASSWORD=... SSO_TEST_SECRET_KEY=... SSO_TEST_USER_PASSWORD=... \
+#   SSO_TEST_CLIENT_SECRET=... docker compose -f docker-compose.sso-test.yml up -d
+# The first start takes a few minutes while Authentik migrates its database.
+services:
+  # Test identity provider for single sign-on, reached by `pnpm dev` on the
+  # host: set OIDC_ISSUER=http://localhost:9000/application/o/zetora/,
+  # OIDC_CLIENT_ID=zetora and OIDC_CLIENT_SECRET=$SSO_TEST_CLIENT_SECRET in
+  # .env.local. tests/sso/authentik-zetora.yaml creates the provider, groups
+  # and users. Admin console: http://localhost:9000, user akadmin.
+  authentik-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: authentik
+      POSTGRES_USER: authentik
+      POSTGRES_PASSWORD: ${SSO_TEST_PG_PASSWORD:?set SSO_TEST_PG_PASSWORD}
+    volumes:
+      - authentik-postgres:/var/lib/postgresql/data
+    restart: 'no'
+
+  authentik-server:
+    image: ghcr.io/goauthentik/server:2026.8.6
+    command: server
+    environment: &authentik-env
+      AUTHENTIK_SECRET_KEY: ${SSO_TEST_SECRET_KEY:?set SSO_TEST_SECRET_KEY}
+      AUTHENTIK_POSTGRESQL__HOST: authentik-postgres
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${SSO_TEST_PG_PASSWORD:?set SSO_TEST_PG_PASSWORD}
+      AUTHENTIK_BOOTSTRAP_PASSWORD: ${SSO_TEST_USER_PASSWORD:?set SSO_TEST_USER_PASSWORD}
+      SSO_TEST_CLIENT_SECRET: ${SSO_TEST_CLIENT_SECRET:?set SSO_TEST_CLIENT_SECRET}
+      SSO_TEST_USER_PASSWORD: ${SSO_TEST_USER_PASSWORD:?set SSO_TEST_USER_PASSWORD}
+    ports:
+      - '127.0.0.1:9000:9000'
+    depends_on:
+      - authentik-postgres
+    restart: 'no'
+
+  authentik-worker:
+    image: ghcr.io/goauthentik/server:2026.8.6
+    command: worker
+    environment: *authentik-env
+    volumes:
+      # The folder, not the file: editors replace a file, and a file mount
+      # keeps showing the old one.
+      - ./tests/sso:/blueprints/custom:ro
+    depends_on:
+      - authentik-postgres
+    restart: 'no'
+
+volumes:
+  authentik-postgres:

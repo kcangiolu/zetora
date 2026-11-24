@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import type { BetterAuthOptions } from 'better-auth';
+import type { SSOOptions } from '@better-auth/sso';
 
 // betterAuth() is replaced by a function that hands back the options it was
 // given, so the tests read the configuration the app really builds.
@@ -13,6 +14,8 @@ vi.mock('@/lib/email', () => ({
   sendTwoFactorOTPEmail: vi.fn(),
   missingEmailSettings,
 }));
+const replaceUserGroups = vi.fn(async (_userId: string, _groups: readonly string[]) => {});
+vi.mock('@/lib/db/queries/identity', () => ({ replaceUserGroups }));
 
 const touchedEnv = [
   'ALLOW_SIGNUPS',
@@ -21,6 +24,14 @@ const touchedEnv = [
   'NEXT_PUBLIC_APP_URL',
   'BETTER_AUTH_BASE_URL',
   'ALLOWED_ORIGINS',
+  'OIDC_ISSUER',
+  'OIDC_CLIENT_ID',
+  'OIDC_CLIENT_SECRET',
+  'OIDC_GROUPS_CLAIM',
+  'ZETORA_SSO_ONLY',
+  'ZETORA_SESSION_HOURS',
+  'GITHUB_CLIENT_ID',
+  'GITHUB_CLIENT_SECRET',
 ];
 const originalEnv = Object.fromEntries(touchedEnv.map((key) => [key, process.env[key]]));
 
@@ -47,7 +58,20 @@ function beforeHook(options: BetterAuthOptions) {
 function createUserHook(options: BetterAuthOptions) {
   const before = options.databaseHooks?.user?.create?.before;
   if (!before) throw new Error('user.create.before hook is missing');
-  return () => before({} as never, null);
+  // Better Auth passes the endpoint context, whose path is the route template.
+  return (path?: string) => before({} as never, path ? ({ path } as never) : null);
+}
+
+const oidcEnv = {
+  OIDC_ISSUER: 'https://idp.example.com/application/o/zetora/',
+  OIDC_CLIENT_ID: 'client-1',
+  OIDC_CLIENT_SECRET: 'client-secret',
+};
+
+function ssoPluginOptions(options: BetterAuthOptions): SSOOptions {
+  const plugin = options.plugins?.find((candidate) => candidate.id === 'sso');
+  if (!plugin?.options) throw new Error('the sso plugin is missing');
+  return plugin.options;
 }
 
 afterEach(() => {
@@ -93,6 +117,64 @@ describe('auth configuration', () => {
     await expect(beforeHook(options)('/sign-up/email')).resolves.not.toThrow();
   });
 
+  it('creates accounts at the first single sign-on even with sign-ups closed', async () => {
+    const { options } = await loadAuth({ ...oidcEnv, ALLOW_SIGNUPS: 'false' });
+    const createUser = createUserHook(options);
+    await expect(createUser('/sso/callback/:providerId')).resolves.toBeUndefined();
+    await expect(createUser('/sign-up/email')).rejects.toMatchObject({ body: { code: 'SIGNUPS_DISABLED' } });
+  });
+
+  it('declares the OpenID Connect provider and trusts its origin', async () => {
+    const { options, enabledSsoProviders } = await loadAuth({ ...oidcEnv, ZETORA_SSO_ONLY: '' });
+    expect(enabledSsoProviders).toEqual(['oidc']);
+    expect(options.trustedOrigins).toContain('https://idp.example.com');
+    expect(ssoPluginOptions(options)).toMatchObject({ providersLimit: 0, provisionUserOnEveryLogin: true });
+    expect(options.emailAndPassword?.enabled).toBe(true);
+    expect(options.session).toBeUndefined();
+  });
+
+  it('syncs the groups at each single sign-on, and clears them when the claim is missing', async () => {
+    const { options } = await loadAuth({ ...oidcEnv, OIDC_GROUPS_CLAIM: '' });
+    const provisionUser = ssoPluginOptions(options).provisionUser;
+    if (!provisionUser) throw new Error('provisionUser is missing');
+    const provider = { providerId: 'oidc', issuer: oidcEnv.OIDC_ISSUER, userId: 'default', domain: '' };
+    const user = {
+      id: 'user-1',
+      email: 'ada@example.com',
+      emailVerified: false,
+      name: 'Ada',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    await provisionUser({ user, userInfo: { groups: ['zetora-admins'] }, provider });
+    expect(replaceUserGroups).toHaveBeenLastCalledWith('user-1', ['zetora-admins']);
+
+    await provisionUser({ user, userInfo: {}, provider });
+    expect(replaceUserGroups).toHaveBeenLastCalledWith('user-1', []);
+  });
+
+  it('closes password and social sign-in under SSO only, with fixed 8-hour sessions', async () => {
+    const { options, enabledSocialProviders, passwordSignInEnabled } = await loadAuth({
+      ...oidcEnv,
+      ZETORA_SSO_ONLY: 'true',
+      ZETORA_SESSION_HOURS: '',
+      GITHUB_CLIENT_ID: 'github-id',
+      GITHUB_CLIENT_SECRET: 'github-secret',
+    });
+    expect(options.emailAndPassword?.enabled).toBe(false);
+    expect(options.socialProviders).toEqual({});
+    expect(enabledSocialProviders).toEqual([]);
+    expect(passwordSignInEnabled).toBe(false);
+    expect(options.session).toEqual({ expiresIn: 8 * 3600, disableSessionRefresh: true });
+  });
+
+  it('refuses to start under SSO only without a provider', async () => {
+    await expect(
+      loadAuth({ OIDC_ISSUER: '', OIDC_CLIENT_ID: '', OIDC_CLIENT_SECRET: '', ZETORA_SSO_ONLY: 'true' }),
+    ).rejects.toThrow(/ZETORA_SSO_ONLY=true but no single sign-on is configured/);
+  });
+
   it('rate-limits by the IP header the auth route sets', async () => {
     const { options, CLIENT_IP_HEADER } = await loadAuth({});
     expect(options.advanced?.ipAddress?.ipAddressHeaders).toEqual([CLIENT_IP_HEADER]);
@@ -117,8 +199,8 @@ describe('auth configuration', () => {
   it('declares every column the auth plugins read and write', async () => {
     const { options } = await loadAuth({});
     const { getTableColumns } = await import('drizzle-orm');
-    const { user, twoFactor } = await import('@/lib/db/schema');
-    const tables = { user, twoFactor };
+    const { user, twoFactor, ssoProvider } = await import('@/lib/db/schema');
+    const tables = { user, twoFactor, ssoProvider };
 
     const missing: string[] = [];
     for (const plugin of options.plugins ?? []) {

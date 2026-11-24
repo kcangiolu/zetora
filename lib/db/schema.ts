@@ -93,6 +93,46 @@ export const verification = pgTable(
   (table) => [index('verification_identifier_idx').on(table.identifier)],
 );
 
+// Groups as the identity provider names them, synced at each single sign-on.
+// They give Zetora roles (lib/identity/roles.ts), never rights on documents.
+export const group = pgTable('group', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
+  name: text('name').notNull().unique(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const userGroup = pgTable(
+  'user_group',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    groupId: text('group_id')
+      .notNull()
+      .references(() => group.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.groupId] }),
+    index('user_group_group_id_idx').on(table.groupId),
+  ],
+);
+
+// Required by the @better-auth/sso plugin. It stays empty: the instance's
+// identity provider is declared in .env (lib/identity/sso.ts), and users
+// cannot register their own.
+export const ssoProvider = pgTable('sso_provider', {
+  id: text('id').primaryKey(),
+  issuer: text('issuer').notNull(),
+  oidcConfig: text('oidc_config'),
+  samlConfig: text('saml_config'),
+  userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
+  providerId: text('provider_id').notNull().unique(),
+  organizationId: text('organization_id'),
+  domain: text('domain').notNull(),
+});
+
 export const twoFactor = pgTable(
   'two_factor',
   {

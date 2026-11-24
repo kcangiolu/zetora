@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { parseAsString, useQueryState } from 'nuqs';
 import { authClient, signIn, signUp, useSession } from '@/lib/auth-client';
-import { Loader2, Eye, EyeOff, MailCheck } from 'lucide-react';
+import { Loader2, Eye, EyeOff, MailCheck, KeyRound } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
@@ -75,6 +75,10 @@ interface AuthCardProps {
   description: string;
   mode?: 'sign-in' | 'sign-up';
   socialProviders: readonly AuthProvider[];
+  // Single sign-on providers declared in the instance's .env.
+  ssoProviders: readonly string[];
+  // False under ZETORA_SSO_ONLY: single sign-on is then the only way in.
+  passwordSignIn: boolean;
   // False on an instance closed to new accounts: the sign-in card then has no
   // link to a sign-up page that would only refuse.
   allowSignUps: boolean;
@@ -127,6 +131,8 @@ export default function AuthCard({
   description,
   mode = 'sign-in',
   socialProviders,
+  ssoProviders,
+  passwordSignIn,
   allowSignUps,
 }: AuthCardProps) {
   const [redirect] = useQueryState('redirect', parseAsString.withDefault('/'));
@@ -148,6 +154,7 @@ export default function AuthCard({
   const [googleLoading, setGoogleLoading] = useState(false);
   const [twitterLoading, setTwitterLoading] = useState(false);
   const [microsoftLoading, setMicrosoftLoading] = useState(false);
+  const [ssoLoading, setSsoLoading] = useState(false);
 
   const lastMethod = authClient.getLastUsedLoginMethod();
   const callbackURL = redirect;
@@ -160,7 +167,7 @@ export default function AuthCard({
     if (session) router.replace(callbackURL);
   }, [session, router, callbackURL]);
 
-  const anySocialLoading = githubLoading || googleLoading || twitterLoading || microsoftLoading;
+  const anySocialLoading = githubLoading || googleLoading || twitterLoading || microsoftLoading || ssoLoading;
   const displayError = error || oauthErrorDescription || (oauthError ? 'Something went wrong. Please try again.' : '');
 
   async function handleEmailSubmit(e: React.FormEvent) {
@@ -211,6 +218,17 @@ export default function AuthCard({
     }
   }
 
+  async function handleSsoSignIn(providerId: string) {
+    setError('');
+    setSsoLoading(true);
+    const result = await authClient.signIn.sso({ providerId, callbackURL, errorCallbackURL: '/sign-in' });
+    // On success the client follows the redirect to the identity provider.
+    if (result.error) {
+      setError(result.error.message ?? 'Single sign-on failed');
+      setSsoLoading(false);
+    }
+  }
+
   async function handleResendVerification() {
     if (!unverifiedEmail || resendStatus === 'sending') return;
     setResendStatus('sending');
@@ -254,98 +272,131 @@ export default function AuthCard({
         <p className="text-sm text-muted-foreground leading-relaxed max-w-xs mx-auto">{description}</p>
       </div>
 
+      {ssoProviders.length > 0 && (
+        <div className="space-y-2">
+          {ssoProviders.map((providerId) => (
+            <button
+              key={providerId}
+              type="button"
+              disabled={emailLoading || anySocialLoading}
+              onClick={() => handleSsoSignIn(providerId)}
+              className="w-full h-11 text-sm font-medium bg-foreground text-background rounded-xl hover:bg-foreground/90 active:scale-[0.99] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {ssoLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+              Continue with single sign-on
+            </button>
+          ))}
+          {!passwordSignIn && displayError && (
+            <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">{displayError}</p>
+          )}
+        </div>
+      )}
+
+      {ssoProviders.length > 0 && passwordSignIn && (
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-border/40" />
+          </div>
+          <div className="relative flex justify-center">
+            <span className="bg-background px-3 text-[11px] text-muted-foreground">or with your email</span>
+          </div>
+        </div>
+      )}
+
       {/* Email/Password Form */}
-      <form onSubmit={handleEmailSubmit} className="space-y-3">
-        {mode === 'sign-up' && (
+      {passwordSignIn && (
+        <form onSubmit={handleEmailSubmit} className="space-y-3">
+          {mode === 'sign-up' && (
+            <div className="space-y-1.5">
+              <Label htmlFor="name" className="text-xs text-muted-foreground">
+                Name
+              </Label>
+              <Input
+                id="name"
+                type="text"
+                placeholder="Your name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoComplete="name"
+                className="h-11 rounded-xl border-border/60"
+              />
+            </div>
+          )}
           <div className="space-y-1.5">
-            <Label htmlFor="name" className="text-xs text-muted-foreground">
-              Name
+            <Label htmlFor="email" className="text-xs text-muted-foreground">
+              Email
             </Label>
             <Input
-              id="name"
-              type="text"
-              placeholder="Your name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoComplete="name"
+              id="email"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
               className="h-11 rounded-xl border-border/60"
             />
           </div>
-        )}
-        <div className="space-y-1.5">
-          <Label htmlFor="email" className="text-xs text-muted-foreground">
-            Email
-          </Label>
-          <Input
-            id="email"
-            type="email"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            autoComplete="email"
-            className="h-11 rounded-xl border-border/60"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="password" className="text-xs text-muted-foreground">
-            Password
-          </Label>
-          <div className="relative">
-            <Input
-              id="password"
-              type={showPassword ? 'text' : 'password'}
-              placeholder={mode === 'sign-up' ? 'Min. 8 characters' : '••••••••'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete={mode === 'sign-up' ? 'new-password' : 'current-password'}
-              className="h-11 rounded-xl border-border/60 pr-10"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((v) => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-              tabIndex={-1}
-            >
-              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            </button>
+          <div className="space-y-1.5">
+            <Label htmlFor="password" className="text-xs text-muted-foreground">
+              Password
+            </Label>
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder={mode === 'sign-up' ? 'Min. 8 characters' : '••••••••'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete={mode === 'sign-up' ? 'new-password' : 'current-password'}
+                className="h-11 rounded-xl border-border/60 pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
-        </div>
 
-        {displayError && (
-          <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">{displayError}</p>
-        )}
+          {displayError && (
+            <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">{displayError}</p>
+          )}
 
-        {unverifiedEmail && (
-          <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2">
-            {resendStatus === 'sent' ? (
-              'Verification email sent. Check your inbox.'
-            ) : (
-              <>
-                Your email isn&apos;t verified yet.{' '}
-                <button
-                  type="button"
-                  onClick={handleResendVerification}
-                  disabled={resendStatus === 'sending'}
-                  className="font-medium text-foreground hover:underline underline-offset-4 disabled:opacity-50"
-                >
-                  {resendStatus === 'sending' ? 'Sending…' : 'Resend verification email'}
-                </button>
-              </>
-            )}
-          </p>
-        )}
+          {unverifiedEmail && (
+            <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2">
+              {resendStatus === 'sent' ? (
+                'Verification email sent. Check your inbox.'
+              ) : (
+                <>
+                  Your email isn&apos;t verified yet.{' '}
+                  <button
+                    type="button"
+                    onClick={handleResendVerification}
+                    disabled={resendStatus === 'sending'}
+                    className="font-medium text-foreground hover:underline underline-offset-4 disabled:opacity-50"
+                  >
+                    {resendStatus === 'sending' ? 'Sending…' : 'Resend verification email'}
+                  </button>
+                </>
+              )}
+            </p>
+          )}
 
-        <button
-          type="submit"
-          disabled={emailLoading || anySocialLoading}
-          className="w-full h-11 text-sm font-medium bg-foreground text-background rounded-xl hover:bg-foreground/90 active:scale-[0.99] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-        >
-          {emailLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-          {mode === 'sign-in' ? 'Sign in' : 'Create account'}
-        </button>
-      </form>
+          <button
+            type="submit"
+            disabled={emailLoading || anySocialLoading}
+            className="w-full h-11 text-sm font-medium bg-foreground text-background rounded-xl hover:bg-foreground/90 active:scale-[0.99] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {emailLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+            {mode === 'sign-in' ? 'Sign in' : 'Create account'}
+          </button>
+        </form>
+      )}
 
       {socialProviders.length > 0 && (
         <>
