@@ -20,7 +20,7 @@ overrides:
   tar: '>=7.5.16'
   axios: '>=1.16.0'
   form-data: '>=4.0.6'
-  hono: '>=4.12.25'
+  hono: '>=4.13.16'
   undici: '>=8.12.2'
   sharp: '>=0.35.5'
   # One copy of each for the whole AI SDK: ai and every @ai-sdk package pin
@@ -40,3 +40,6 @@ overrides:
   # same versions the app itself already uses.
   next: '>=16.4.3'
   ws: '>=8.21.0'
+  # react-email 5 asks for glob ^13, which has open advisories along with its
+  # minimatch 10. glob 14 keeps the glob() call react-email makes.
+  'react-email>glob': ^14.0.2
