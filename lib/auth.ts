@@ -110,6 +110,13 @@ function isSsoCallback(path: string | undefined): boolean {
   return path?.startsWith('/sso/') === true;
 }
 
+// Better Auth's default base path, which every endpoint path follows.
+const AUTH_BASE_PATH = '/api/auth';
+
+function isSsoCallbackRequest(request: Request | undefined): boolean {
+  return request !== undefined && isSsoCallback(new URL(request.url).pathname.slice(AUTH_BASE_PATH.length));
+}
+
 let warnedMissingGroupsClaim = false;
 
 export const auth = betterAuth({
@@ -123,7 +130,11 @@ export const auth = betterAuth({
     sendOnSignUp: serverEnv.REQUIRE_EMAIL_VERIFICATION,
     autoSignInAfterVerification: true,
     expiresIn: 3600,
-    sendVerificationEmail: async ({ user, url }) => {
+    sendVerificationEmail: async ({ user, url }, request) => {
+      // Better Auth also sends it when an SSO account is created. That account
+      // only ever signs in through its identity provider, never with this
+      // address and a password, so the email would only puzzle its owner.
+      if (isSsoCallbackRequest(request)) return;
       await sendVerificationEmail({ to: user.email, url });
     },
   },

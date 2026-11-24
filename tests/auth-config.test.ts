@@ -124,6 +124,30 @@ describe('auth configuration', () => {
     await expect(createUser('/sign-up/email')).rejects.toMatchObject({ body: { code: 'SIGNUPS_DISABLED' } });
   });
 
+  it('sends no verification email for an account created by single sign-on', async () => {
+    const { sendVerificationEmail } = await import('@/lib/email');
+    const { options } = await loadAuth({ ...oidcEnv });
+    const send = options.emailVerification?.sendVerificationEmail;
+    if (!send) throw new Error('sendVerificationEmail is missing');
+    const user = {
+      id: 'user-1',
+      email: 'ada@example.com',
+      emailVerified: false,
+      name: 'Ada',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    const data = { user, url: 'http://localhost:3000/api/auth/verify-email?token=t', token: 't' };
+    vi.mocked(sendVerificationEmail).mockClear();
+
+    await send(data, new Request('http://localhost:3000/api/auth/sso/saml2/sp/acs/saml', { method: 'POST' }));
+    await send(data, new Request('http://localhost:3000/api/auth/sso/callback/oidc'));
+    expect(sendVerificationEmail).not.toHaveBeenCalled();
+
+    await send(data, new Request('http://localhost:3000/api/auth/callback/github'));
+    expect(sendVerificationEmail).toHaveBeenCalledTimes(1);
+  });
+
   it('declares the OpenID Connect provider and trusts its origin', async () => {
     const { options, enabledSsoProviders } = await loadAuth({ ...oidcEnv, ZETORA_SSO_ONLY: '' });
     expect(enabledSsoProviders).toEqual(['oidc']);
