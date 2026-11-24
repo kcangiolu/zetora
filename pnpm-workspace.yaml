@@ -38,7 +38,7 @@ overrides:
   # Only reachable today through @react-email/preview-server's pinned inner
   # copy (dev-only `email:dev` script, never deployed) — deduped up to the
   # same versions the app itself already uses.
-  next: '>=16.4.3'
+  next: '>=16.4.6'
   ws: '>=8.21.0'
   # react-email 5 asks for glob ^13, which has open advisories along with its
   # minimatch 10. glob 14 keeps the glob() call react-email makes.
