@@ -535,6 +535,9 @@ export async function POST(req: Request) {
         result.toUIMessageStream({
           sendReasoning: true,
           sendSources: true,
+          // Without it the SDK replaces every model error with "An error occurred.",
+          // hiding the refusals that tell the user which setting to change.
+          onError: getStreamErrorMessage,
           messageMetadata: ({ part }) => {
             const baseMetadata = { model, createdAt: assistantMessageCreatedAt };
             if (part.type !== 'finish') return baseMetadata;
