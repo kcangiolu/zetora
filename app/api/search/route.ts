@@ -182,15 +182,10 @@ export async function POST(req: Request) {
   });
   recordTiming('initialize_chat_and_checks', opStart);
 
-  // A new chat must exist before streaming: its messages reference it.
-  const {
-    criticalResult,
-    config: rawConfig,
-    customInstructionsResult,
-    chatInitResult,
-    userPreferencesResult,
-    persistedMessages,
-  } = await all(
+  // A new chat must exist before streaming: its messages reference it. A
+  // refused check (a limit reached, another user's chat) answers with its
+  // own code and reason, which the chat shows.
+  const setup = await all(
     {
       async criticalResult() {
         return criticalChecksPromise;
@@ -212,7 +207,19 @@ export async function POST(req: Request) {
       },
     },
     getBetterAllOptions(),
-  );
+  ).catch((error: unknown) => {
+    if (error instanceof ChatSDKError) return error;
+    throw error;
+  });
+  if (setup instanceof ChatSDKError) return setup.toResponse();
+  const {
+    criticalResult,
+    config: rawConfig,
+    customInstructionsResult,
+    chatInitResult,
+    userPreferencesResult,
+    persistedMessages,
+  } = setup;
   const preferences = userPreferencesResult?.preferences ?? {};
 
   // The mode picker (components/ui/form-component/use-mode-options.ts) hides a disabled
